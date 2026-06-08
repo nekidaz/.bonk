@@ -1,0 +1,22 @@
+[package]
+name = "bonk-core"
+version = "0.1.1"
+edition = "2021"
+license = "MIT"
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+reqwest = { version = "0.13.4", default-features = false, features = ["json", "multipart", "rustls", "http2", "system-proxy", "gzip", "brotli", "deflate", "zstd"] }
+tonic = { version = "0.14.6", features = ["tls-native-roots"] }
+tonic-reflection = "0.14.6"
+prost = "0.14.1"
+prost-types = "0.14.1"
+prost-reflect = { version = "0.16.4", features = ["serde"] }
+protox = "0.9"
+fastrand = "2"
+base64 = "0.22"
+bytes = "1"
+http = "1"
+tokio = { version = "1", features = ["sync", "rt", "rt-multi-thread", "time"] }
+tokio-stream = "0.1"

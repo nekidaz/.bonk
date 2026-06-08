@@ -1,0 +1,978 @@
+/* Big Sur polish layer.
+ * The rules below intentionally override the older Postman/Xcode hybrid skin.
+ * They keep the same markup and behavior, but make the shell feel closer to a
+ * native macOS Big Sur desktop app: translucent chrome, grouped controls,
+ * softer source-list rows, and restrained system-blue actions.
+ */
+.bs {
+  --bg: #fbfbfd;
+  --surface: rgba(255, 255, 255, 0.92);
+  --surface-solid: #ffffff;
+  --side: rgba(236, 236, 241, 0.78);
+  --tb: rgba(247, 247, 250, 0.78);
+  --inset: rgba(255, 255, 255, 0.82);
+  --sep: rgba(60, 60, 67, 0.18);
+  --sepsoft: rgba(60, 60, 67, 0.10);
+  --text: #1d1d1f;
+  --t2: #67676f;
+  --t3: #9898a0;
+  --accent: #0a84ff;
+  --accent-press: #006be6;
+  --accentsoft: rgba(10, 132, 255, 0.12);
+  --hover: rgba(0, 0, 0, 0.055);
+  --hover2: rgba(0, 0, 0, 0.032);
+  --shadow-sm: 0 1px 1.5px rgba(0, 0, 0, 0.04), inset 0 1px 0 rgba(255, 255, 255, 0.65);
+  --shadow-panel: 0 14px 38px rgba(50, 55, 75, 0.14), 0 2px 8px rgba(50, 55, 75, 0.08);
+  --focus-ring: 0 0 0 3px rgba(10, 132, 255, 0.22);
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display', 'Helvetica Neue', sans-serif;
+  background:
+    radial-gradient(900px 520px at 0% -20%, rgba(123, 167, 255, 0.20), transparent 55%),
+    radial-gradient(900px 580px at 100% -12%, rgba(255, 143, 198, 0.12), transparent 52%),
+    linear-gradient(180deg, #ffffff 0%, #f7f7fa 100%);
+}
+
+.dark .bs {
+  --bg: #1f1f22;
+  --surface: rgba(42, 42, 46, 0.86);
+  --surface-solid: #2a2a2e;
+  --side: rgba(38, 38, 42, 0.82);
+  --tb: rgba(34, 34, 37, 0.82);
+  --inset: rgba(28, 28, 31, 0.86);
+  --sep: rgba(255, 255, 255, 0.12);
+  --sepsoft: rgba(255, 255, 255, 0.075);
+  --text: #f5f5f7;
+  --t2: #aaaab2;
+  --t3: #77777f;
+  --accentsoft: rgba(10, 132, 255, 0.18);
+  --hover: rgba(255, 255, 255, 0.07);
+  --hover2: rgba(255, 255, 255, 0.045);
+  --shadow-sm: 0 1px 1.5px rgba(0, 0, 0, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.055);
+  --shadow-panel: 0 18px 46px rgba(0, 0, 0, 0.36), 0 2px 10px rgba(0, 0, 0, 0.24);
+  --focus-ring: 0 0 0 3px rgba(10, 132, 255, 0.30);
+  background:
+    radial-gradient(850px 520px at -6% -18%, rgba(10, 132, 255, 0.14), transparent 55%),
+    radial-gradient(820px 540px at 106% -8%, rgba(191, 90, 242, 0.10), transparent 52%),
+    linear-gradient(180deg, #242428 0%, #1c1c1f 100%);
+}
+
+.bs button,
+.bs input,
+.bs textarea {
+  letter-spacing: 0;
+}
+
+.bs button:focus-visible,
+.bs input:focus-visible,
+.bs textarea:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+.bs-tb {
+  position: relative;
+  z-index: 85;
+  height: 52px;
+  padding: 0 14px;
+  gap: 10px;
+  background: var(--tb);
+  border-bottom-color: var(--sep);
+  backdrop-filter: blur(12px) saturate(140%);
+  -webkit-backdrop-filter: blur(12px) saturate(140%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.40);
+}
+
+.dark .bs-tb { box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.055); }
+
+.bs-nav .b,
+.bs-ti,
+.bs-ri,
+.bs-fi,
+.bs-tbi,
+.bs-ric,
+.bs-tool-ic {
+  border-radius: 8px;
+  transition: background 120ms ease, color 120ms ease, transform 90ms ease;
+}
+
+.bs-nav .b:active,
+.bs-ti:active,
+.bs-ri:active,
+.bs-fi:active,
+.bs-tbi:active,
+.bs-ric:active,
+.bs-tool-ic:active {
+  transform: scale(0.94);
+}
+
+.bs-work {
+  height: 30px;
+  padding: 0 10px;
+  border: 0.5px solid transparent;
+  color: var(--text);
+}
+
+.bs-work:hover {
+  background: var(--hover);
+  border-color: var(--sepsoft);
+}
+
+.bs-work-wrap {
+  position: relative;
+  flex: 0 0 auto;
+}
+
+.bs-work.open {
+  background: var(--hover);
+  border-color: var(--sep);
+}
+
+.bs-work-title {
+  display: inline-block;
+  max-width: 210px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bs-work-menu {
+  position: absolute;
+  z-index: 120;
+  top: calc(100% + 8px);
+  left: 0;
+  width: min(300px, calc(100vw - 24px));
+  padding: 7px;
+  border: 0.5px solid var(--sep);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--surface-solid) 94%, transparent);
+  box-shadow: var(--shadow-panel), 0 0 0 0.5px rgba(0, 0, 0, 0.05);
+  backdrop-filter: blur(18px) saturate(150%);
+  -webkit-backdrop-filter: blur(18px) saturate(150%);
+}
+
+.dark .bs-work-menu {
+  background: rgba(42, 42, 46, 0.94);
+}
+
+.bs-work-menu-title,
+.bs-work-menu-label {
+  padding: 4px 8px 6px;
+  color: var(--t2);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.bs-work-menu-title {
+  color: var(--text);
+  font-size: 11.5px;
+}
+
+.bs-work-item {
+  width: 100%;
+  min-height: 38px;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 7px 8px;
+  border-radius: 8px;
+  color: var(--text);
+  text-align: left;
+  overflow: hidden;
+}
+
+.bs-work-item:hover,
+.bs-work-item.on {
+  background: var(--hover);
+}
+
+.bs-work-item .material-symbols-outlined {
+  flex: 0 0 18px;
+  color: var(--accent);
+}
+
+.bs-work-item .text {
+  min-width: 0;
+  display: block;
+  flex: 1 1 auto;
+}
+
+.bs-work-item .main,
+.bs-work-item .sub {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bs-work-item .main {
+  font-size: 12.5px;
+  font-weight: 650;
+}
+
+.bs-work-item .sub {
+  margin-top: 1px;
+  color: var(--t2);
+  font-family: var(--mono);
+  font-size: 10.5px;
+}
+
+.bs-work-item.action {
+  min-height: 34px;
+}
+
+.bs-work-item.action .main {
+  color: var(--accent);
+}
+
+.bs-work-menu-sep {
+  height: 0.5px;
+  margin: 7px 4px;
+  background: var(--sepsoft);
+}
+
+.bs-work-empty {
+  padding: 8px;
+  color: var(--t2);
+  font-size: 12.5px;
+}
+
+.bs-search {
+  height: 31px;
+  max-width: 520px;
+  border-radius: 9px;
+  background: var(--inset);
+  border-color: var(--sep);
+  color: var(--t3);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.035), 0 1px 0 rgba(255, 255, 255, 0.40);
+}
+
+.dark .bs-search { box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.28); }
+
+.bs-side {
+  width: 292px;
+  background: var(--side);
+  border-right-color: var(--sep);
+  backdrop-filter: blur(12px) saturate(140%);
+  -webkit-backdrop-filter: blur(12px) saturate(140%);
+  position: relative;
+  overflow: hidden;
+}
+
+.bs-side::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(420px 240px at 20% -8%, rgba(10, 132, 255, 0.11), transparent 70%),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.18), transparent 38%);
+}
+
+.dark .bs-side::before {
+  background:
+    radial-gradient(420px 240px at 18% -8%, rgba(10, 132, 255, 0.10), transparent 70%),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.04), transparent 44%);
+}
+
+.bs-railrow,
+.bs-filterrow,
+.bs-tree,
+.bs-sfoot {
+  position: relative;
+}
+
+.bs-railrow {
+  height: 42px;
+  border-bottom-color: var(--sepsoft);
+}
+
+.bs-ri.on {
+  background: var(--surface);
+  box-shadow: var(--shadow-sm), 0 0 0 0.5px var(--sep);
+}
+
+.bs-fbox {
+  height: 28px;
+  border-radius: 8px;
+  background: var(--inset);
+  border-color: var(--sep);
+  box-shadow: inset 0 1px 1px rgba(0, 0, 0, 0.025);
+}
+
+.bs-tree {
+  padding: 8px 7px;
+}
+
+.bs-sech {
+  padding: 8px 7px 6px;
+  color: var(--t2);
+  font-size: 10.5px;
+  letter-spacing: 0.045em;
+}
+
+.bs-trow {
+  min-height: 28px;
+  padding: 5px 8px;
+  border-radius: 8px;
+  color: var(--text);
+}
+
+.bs-trow:hover {
+  background: var(--hover);
+}
+
+.bs-trow.l2 {
+  padding-left: 24px;
+}
+
+.bs-act {
+  border-radius: 6px;
+}
+
+.bs-act:hover {
+  background: rgba(0, 0, 0, 0.10);
+}
+
+.dark .bs-act:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.bs-sfoot {
+  background: color-mix(in srgb, var(--side) 88%, var(--surface-solid));
+}
+
+.bs-ffold {
+  min-height: 34px;
+  border-bottom-color: var(--sepsoft);
+}
+
+.bs-main {
+  background: transparent;
+}
+
+.bs-tabbar {
+  height: 40px;
+  background: color-mix(in srgb, var(--tb) 72%, var(--side));
+  border-bottom-color: var(--sep);
+  backdrop-filter: blur(8px) saturate(140%);
+  -webkit-backdrop-filter: blur(8px) saturate(140%);
+}
+
+.bs-tab {
+  height: 100%;
+  padding: 0 13px;
+  border-right-color: var(--sepsoft);
+  background: transparent;
+  color: var(--t2);
+  transition: background 120ms ease, color 120ms ease;
+}
+
+.bs-tab:hover {
+  background: var(--hover2);
+  color: var(--text);
+}
+
+.bs-tab.on {
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.34);
+}
+
+.dark .bs-tab.on {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.055);
+}
+
+.bs-tab.on::before {
+  height: 2px;
+  background: linear-gradient(90deg, #44a2ff, var(--accent));
+}
+
+.bs-addt:hover {
+  background: var(--hover2);
+}
+
+.bs-reqhead {
+  height: 48px;
+  padding: 0 18px;
+  background: color-mix(in srgb, var(--surface) 52%, transparent);
+  border-bottom-color: var(--sepsoft);
+}
+
+.bs button.bs-hb,
+.bs button.bs-save,
+.bs button.bs-share,
+.bs-btn.ghost {
+  background: var(--surface);
+  border: 0.5px solid var(--sep);
+  box-shadow: var(--shadow-sm);
+}
+
+.bs button.bs-hb:hover,
+.bs button.bs-save:hover,
+.bs button.bs-share:hover,
+.bs-btn.ghost:hover {
+  background: var(--surface-solid);
+}
+
+.bs-urlbar {
+  gap: 12px;
+  padding: 14px 18px;
+  background: color-mix(in srgb, var(--surface) 26%, transparent);
+}
+
+.bs-urlfield,
+.bs-grpc-endpoint-field,
+.bs-grpc-picker {
+  height: 42px;
+  border-radius: 11px;
+  background: var(--inset);
+  border-color: var(--sep);
+  box-shadow: var(--shadow-sm);
+  transition: border-color 130ms ease, box-shadow 130ms ease, background 130ms ease;
+}
+
+.bs-urlfield:hover,
+.bs-grpc-endpoint-field:hover,
+.bs-grpc-picker:hover {
+  border-color: color-mix(in srgb, var(--accent) 30%, var(--sep));
+}
+
+.bs-urlfield:focus-within,
+.bs-grpc-endpoint-field:focus-within,
+.bs-grpc-picker:focus-within {
+  border-color: rgba(10, 132, 255, 0.58);
+  box-shadow: var(--shadow-sm), var(--focus-ring);
+}
+
+.bs-method-wrap {
+  border-right-color: var(--sepsoft);
+}
+
+.bs button.bs-method {
+  color: var(--green);
+  border-radius: 10px 0 0 10px;
+}
+
+.bs button.bs-method:hover,
+.bs button.bs-method.open {
+  background: var(--hover2);
+}
+
+.bs button.bs-method .material-symbols-outlined {
+  color: var(--t3);
+}
+
+.bs button.bs-method.open .material-symbols-outlined {
+  color: currentColor;
+}
+
+.bs-method-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  z-index: 70;
+  width: 186px;
+  padding: 6px;
+  border-radius: 13px;
+  border: 0.5px solid var(--sep);
+  background: var(--surface-solid);
+  box-shadow: 0 18px 46px rgba(24, 28, 42, 0.18), 0 2px 10px rgba(24, 28, 42, 0.10), 0 0 0 0.5px rgba(0, 0, 0, 0.06);
+}
+
+.dark .bs-method-menu {
+  background: #2a2a2e;
+  box-shadow: 0 20px 52px rgba(0, 0, 0, 0.42), 0 2px 10px rgba(0, 0, 0, 0.28), 0 0 0 0.5px rgba(255, 255, 255, 0.06);
+}
+
+.bs-method-option {
+  width: 100%;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 0 10px 0 8px;
+  border-radius: 9px;
+  font-family: var(--mono);
+  font-size: 13.5px;
+  font-weight: 800;
+}
+
+.bs-method-option.on {
+  background: color-mix(in srgb, currentColor 12%, transparent);
+}
+
+.bs-method-option:hover {
+  background: var(--hover);
+}
+
+.bs-method-option .check {
+  width: 18px;
+  color: currentColor;
+}
+
+.bs-url {
+  font-size: 13.5px;
+}
+
+.bs button.bs-send {
+  height: 42px;
+  min-width: 104px;
+  border-radius: 11px;
+  background: linear-gradient(180deg, #2492ff 0%, #0a84ff 52%, #0072f0 100%);
+  box-shadow: 0 8px 18px rgba(10, 132, 255, 0.24), inset 0 1px 0 rgba(255, 255, 255, 0.30);
+}
+
+.bs button.bs-send:hover {
+  background: linear-gradient(180deg, #2f98ff 0%, #148aff 52%, #0878f2 100%);
+}
+
+.bs button.bs-send:active {
+  background: linear-gradient(180deg, #0a84ff 0%, #0072f0 100%);
+}
+
+.bs-send .go {
+  min-width: 76px;
+  padding: 0 20px;
+  background: transparent;
+  font-weight: 670;
+  letter-spacing: 0;
+}
+
+.bs-send .cv {
+  width: 34px;
+  background: rgba(0, 0, 0, 0.08);
+  border-left-color: rgba(255, 255, 255, 0.30);
+}
+
+.bs button.bs-send.cancelling {
+  background: linear-gradient(180deg, #ff6b61 0%, #ff453a 62%, #df332b 100%);
+  box-shadow: 0 8px 18px rgba(255, 69, 58, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.26);
+}
+
+.bs-send.cancelling .go,
+.bs-send.cancelling .cv {
+  background: transparent;
+}
+
+.send-spinner {
+  border-width: 1.75px;
+}
+
+.bs-rtabs {
+  height: 42px;
+  gap: 22px;
+  padding: 0 18px;
+  background: color-mix(in srgb, var(--surface) 34%, transparent);
+  border-bottom-color: var(--sepsoft);
+}
+
+.bs-rtab {
+  font-size: 13px;
+  color: var(--t2);
+}
+
+.bs-rtab.on {
+  font-weight: 650;
+}
+
+.bs-tab-count {
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 5px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--hover);
+  color: var(--t2);
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 650;
+}
+
+.bs-pwrap,
+.bs-bodyarea {
+  padding: 16px 18px;
+}
+
+.bs-qp .t {
+  font-size: 13.5px;
+}
+
+.bs-pt,
+.bs-collbox {
+  border-color: var(--sep);
+  border-radius: 11px;
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+}
+
+.bs-pr {
+  min-height: 38px;
+  border-bottom-color: var(--sepsoft);
+}
+
+.bs-pr.h {
+  background: color-mix(in srgb, var(--surface) 72%, var(--hover2));
+  color: var(--t2);
+}
+
+.bs-pr:not(.h):hover {
+  background: var(--hover2);
+}
+
+.bs-pc {
+  padding: 10px 14px;
+}
+
+.bs-pc.k,
+.bs-pc.v {
+  border-right-color: var(--sepsoft);
+}
+
+.bs-bodyarea textarea,
+.bs-textarea,
+.bs-input {
+  background: var(--inset);
+  border-color: var(--sep);
+  box-shadow: var(--shadow-sm);
+}
+
+.bs-bodyarea textarea:focus,
+.bs-textarea:focus,
+.bs-input:focus {
+  border-color: rgba(10, 132, 255, 0.56);
+  box-shadow: var(--shadow-sm), var(--focus-ring);
+}
+
+.bs-json-editor,
+.bs-postman-message,
+.bs-response-view,
+.bs-rbody.pretty,
+.bs-response-editor,
+.bs-response-gutter,
+.bs-json-gutter {
+  background: transparent;
+}
+
+.bs-json-editor {
+  background: color-mix(in srgb, var(--surface) 46%, transparent);
+}
+
+.bs-json-editor:focus-within {
+  box-shadow: inset 0 0 0 1px rgba(10, 132, 255, 0.45), var(--focus-ring);
+}
+
+.bs-msg-foot {
+  background: color-mix(in srgb, var(--surface) 56%, transparent);
+  border-top-color: var(--sepsoft);
+}
+
+.bs-resp {
+  background: color-mix(in srgb, var(--surface) 34%, transparent);
+  border-top-color: var(--sep);
+}
+
+.bs-resph {
+  height: 44px;
+  padding: 0 18px;
+  background: color-mix(in srgb, var(--surface) 54%, transparent);
+  border-bottom-color: var(--sepsoft);
+}
+
+.bs-response-tools {
+  min-height: 40px;
+  padding: 6px 18px;
+  background: color-mix(in srgb, var(--surface) 50%, transparent);
+  border-bottom-color: var(--sepsoft);
+}
+
+.bs-seg {
+  height: 28px;
+  border-radius: 8px;
+  background: var(--hover);
+  box-shadow: inset 0 0 0 0.5px var(--sepsoft);
+}
+
+.bs-seg button {
+  height: 24px;
+  border-radius: 6px;
+}
+
+.bs-seg button.on {
+  background: var(--surface-solid);
+  box-shadow: var(--shadow-sm), 0 0 0 0.5px var(--sep);
+}
+
+.dark .bs-seg button.on {
+  background: color-mix(in srgb, var(--surface-solid) 82%, #000);
+}
+
+.bs-format-pill {
+  border-radius: 7px;
+  background: var(--accentsoft);
+}
+
+.bs-rbody {
+  padding: 12px 18px;
+}
+
+.bs-response-editor {
+  grid-template-columns: 58px minmax(0, 1fr);
+}
+
+.bs-response-gutter {
+  border-right-color: var(--sepsoft);
+}
+
+.bs-empty-resp {
+  color: var(--t2);
+  background:
+    radial-gradient(360px 180px at 50% 38%, rgba(10, 132, 255, 0.07), transparent 68%);
+}
+
+.bs-grpc-menu {
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--surface-solid) 92%, transparent);
+  border-color: var(--sep);
+  box-shadow: var(--shadow-panel), 0 0 0 0.5px rgba(0, 0, 0, 0.05);
+}
+
+.dark .bs-grpc-menu {
+  background: rgba(42, 42, 46, 0.92);
+  border-color: var(--sep);
+}
+
+.bs-grpc-list {
+  padding: 11px;
+}
+
+.bs-grpc-service {
+  font-size: 13px;
+  font-weight: 720;
+  color: var(--t2);
+}
+
+.bs-grpc-option {
+  height: 38px;
+  border-radius: 9px;
+  padding-left: 34px;
+}
+
+.bs-grpc-option:hover,
+.bs-grpc-option.on {
+  background: var(--hover);
+}
+
+.bs-grpc-foot {
+  background: color-mix(in srgb, var(--surface) 74%, transparent);
+  border-top-color: var(--sepsoft);
+}
+
+.bs-menu,
+.bs-modal {
+  background: color-mix(in srgb, var(--surface-solid) 94%, transparent);
+  border: 0.5px solid var(--sep);
+  box-shadow: var(--shadow-panel), 0 0 0 0.5px rgba(0, 0, 0, 0.05);
+}
+
+.dark .bs-menu,
+.dark .bs-modal {
+  background: rgba(42, 42, 46, 0.94);
+}
+
+.bs-overlay {
+  background: rgba(20, 20, 24, 0.44);
+}
+
+.bs-menu .srch {
+  border-width: 1px;
+  box-shadow: var(--focus-ring);
+  background: var(--inset);
+}
+
+.bs-menu .mi {
+  border-radius: 8px;
+}
+
+.bs-modal {
+  border-radius: 16px;
+}
+
+.bs-modal-h {
+  min-height: 50px;
+  padding-top: 12px;
+}
+
+.bs-modal-f {
+  background: color-mix(in srgb, var(--surface) 62%, transparent);
+  border-top-color: var(--sepsoft);
+}
+
+.bs-btn {
+  border-radius: 9px;
+}
+
+.bs-btn.primary {
+  background: linear-gradient(180deg, #2492ff, #0a84ff);
+  box-shadow: 0 4px 12px rgba(10, 132, 255, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.28);
+}
+
+.bs-status {
+  height: 31px;
+  background: var(--tb);
+  border-top-color: var(--sep);
+  backdrop-filter: blur(8px) saturate(140%);
+  -webkit-backdrop-filter: blur(8px) saturate(140%);
+  color: var(--t2);
+}
+
+.bs ::-webkit-scrollbar-thumb {
+  background: rgba(120, 120, 128, 0.32);
+  border-radius: 999px;
+  border: 3px solid transparent;
+  background-clip: padding-box;
+}
+
+.bs ::-webkit-scrollbar-thumb:hover {
+  background: rgba(120, 120, 128, 0.52);
+  background-clip: padding-box;
+}
+
+/* Final Big Sur details: empty states and popovers. */
+@keyframes bs-popover-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.bs-empty {
+  margin: 4px 6px 8px;
+  padding: 10px 12px;
+  border-radius: 11px;
+  color: var(--t2);
+  background: color-mix(in srgb, var(--surface) 38%, transparent);
+  border: 0.5px solid color-mix(in srgb, var(--sep) 64%, transparent);
+}
+
+.bs-empty p {
+  margin: 0;
+  max-width: none;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.bs-empty b {
+  margin-bottom: 4px;
+  color: var(--text);
+  font-size: 12.5px;
+}
+
+.bs-empty-resp {
+  gap: 10px;
+  color: var(--t2);
+  background:
+    radial-gradient(420px 220px at 50% 38%, rgba(10, 132, 255, 0.085), transparent 70%),
+    color-mix(in srgb, var(--surface) 24%, transparent);
+}
+
+.bs-empty-resp .material-symbols-outlined {
+  width: 46px;
+  height: 46px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 13px;
+  color: var(--t2);
+  background: color-mix(in srgb, var(--surface) 72%, transparent);
+  border: 0.5px solid var(--sep);
+  box-shadow: var(--shadow-sm);
+}
+
+.bs-empty-resp > div {
+  max-width: 320px;
+  text-align: center;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.bs-menu {
+  padding: 6px;
+  transform-origin: top left;
+  animation: bs-popover-in 120ms ease both;
+}
+
+.bs-menu .srch {
+  height: 32px;
+  margin: 2px 2px 7px;
+  border-radius: 9px;
+  font-size: 12.5px;
+}
+
+.bs-menu .lbl {
+  padding: 7px 10px 8px;
+  color: var(--t2);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.045em;
+  text-transform: uppercase;
+}
+
+.bs-menu .mi {
+  min-height: 30px;
+  gap: 11px;
+  padding: 7px 9px;
+  border-radius: 8px;
+}
+
+.bs-menu .mi:hover {
+  background: linear-gradient(180deg, #2492ff, #0a84ff);
+  color: #fff;
+}
+
+.bs-menu .mi.soon {
+  opacity: 0.78;
+}
+
+.bs-menu .mi.soon:hover {
+  background: transparent;
+  color: var(--t2);
+}
+
+.bs-menu .mi .soonpill {
+  height: 17px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--surface) 70%, var(--hover));
+  border: 0.5px solid var(--sepsoft);
+}
+
+.bs-menu .dv {
+  background: var(--sepsoft);
+  margin: 6px 5px;
+}
+
+.bs-menu .mi.danger:hover {
+  background: linear-gradient(180deg, #ff6b61, #ff453a);
+}
+
+.bs-colllist {
+  background: color-mix(in srgb, var(--surface) 42%, transparent);
+}
+
+.bs-collrow {
+  border-radius: 9px;
+}
+
+.bs-collrow.sel {
+  background: var(--accentsoft);
+  box-shadow: inset 0 0 0 0.5px color-mix(in srgb, var(--accent) 26%, transparent);
+}
+

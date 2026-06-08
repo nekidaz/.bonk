@@ -1,0 +1,81 @@
+name: Homebrew
+
+# When a GitHub Release is published (i.e. you publish the draft created by the
+# Release workflow), regenerate the Homebrew Cask in the tap repo so
+# `brew install --cask bonk` picks up the new version.
+#
+# Required:
+#   - a tap repo `nekidaz/homebrew-tap`
+#   - repo secret HOMEBREW_TAP_TOKEN: a PAT with `contents:write` on that tap repo
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+jobs:
+  bump-cask:
+    runs-on: macos-latest
+    steps:
+      - name: Compute version, URL and sha256
+        id: info
+        env:
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          VERSION="${TAG#v}"
+          DMG="bonk_${VERSION}_universal.dmg"
+          URL="https://github.com/nekidaz/.bonk/releases/download/${TAG}/${DMG}"
+          curl -fL -o "$DMG" "$URL"
+          SHA="$(shasum -a 256 "$DMG" | awk '{print $1}')"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "sha=$SHA" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout tap
+        uses: actions/checkout@v4
+        with:
+          repository: nekidaz/homebrew-tap
+          token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          path: tap
+
+      - name: Write cask
+        env:
+          VERSION: ${{ steps.info.outputs.version }}
+          SHA: ${{ steps.info.outputs.sha }}
+        run: |
+          mkdir -p tap/Casks
+          cat > tap/Casks/bonk.rb <<EOF
+          cask "bonk" do
+            version "${VERSION}"
+            sha256 "${SHA}"
+
+            url "https://github.com/nekidaz/.bonk/releases/download/v#{version}/bonk_#{version}_universal.dmg"
+            name "bonk"
+            desc "Local-first desktop API client for HTTP and gRPC"
+            homepage "https://github.com/nekidaz/.bonk"
+
+            app "bonk.app"
+
+            postflight do
+              system_command "/usr/bin/xattr",
+                             args: ["-dr", "com.apple.quarantine", "#{appdir}/bonk.app"]
+            end
+
+            zap trash: [
+              "~/Library/Application Support/io.github.nekidaz.bonk",
+              "~/Library/Caches/io.github.nekidaz.bonk",
+              "~/Library/WebKit/io.github.nekidaz.bonk",
+            ]
+          end
+          EOF
+
+      - name: Commit and push
+        env:
+          VERSION: ${{ steps.info.outputs.version }}
+        run: |
+          cd tap
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add Casks/bonk.rb
+          git commit -m "bonk ${VERSION}" || { echo "no changes"; exit 0; }
+          git push

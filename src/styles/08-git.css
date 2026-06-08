@@ -1,0 +1,256 @@
+/* ---------- Git source-control panel ---------- */
+.bs-git { padding-bottom: 12px; }
+.bs-git-initwrap { padding: 8px 12px; }
+.bs-git-initwrap .bs-btn { width: 100%; display: flex; align-items: center; justify-content: center; gap: 6px; }
+
+.bs-git-head { padding: 8px 10px 6px; border-bottom: 0.5px solid var(--sepsoft); display: flex; flex-direction: column; gap: 7px; }
+.bs-git-branch { display: flex; align-items: center; gap: 6px; }
+.bs-git-branchbtn { flex: 1; min-width: 0; display: flex; align-items: center; gap: 5px; height: 28px; padding: 0 8px; border-radius: 7px; background: var(--inset); border: 0.5px solid var(--sep); color: var(--text); }
+.bs-git-branchbtn:hover { background: var(--hover2); }
+.bs-git-branchname { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12.5px; font-weight: 600; text-align: left; }
+.bs-git-track { display: inline-flex; gap: 5px; font-size: 11px; font-weight: 700; color: var(--t2); font-family: var(--mono); }
+.bs-git-sync { display: flex; gap: 6px; }
+.bs-git-sync .bs-btn { flex: 1; display: flex; align-items: center; justify-content: center; gap: 4px; height: 28px; }
+
+.bs-git-branchmenu { margin: 4px 8px 0; padding: 4px; border-radius: 8px; background: var(--surface); box-shadow: 0 0 0 0.5px var(--sep), 0 6px 18px rgba(0, 0, 0, 0.18); }
+.bs-git-branchitem { display: flex; align-items: center; gap: 4px; width: 100%; padding: 5px 6px; border-radius: 6px; font-size: 12.5px; text-align: left; }
+.bs-git-branchitem:hover { background: var(--hover); }
+.bs-git-branchitem.on { color: var(--accent); font-weight: 600; }
+
+.bs-git-newbranch { padding: 6px 8px; }
+.bs-git-input { height: 30px; font-size: 13px; }
+
+.bs-git-statusline { margin: 4px 10px; padding: 5px 8px; border-radius: 6px; background: var(--inset); border: 0.5px solid var(--sep); color: var(--t2); font-size: 11px; font-family: var(--mono); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.bs-git-row { padding: 3px 7px; }
+.bs-git-rowmain { flex: 1; min-width: 0; display: flex; align-items: center; gap: 7px; text-align: left; }
+.bs-git-badge { width: 14px; flex-shrink: 0; text-align: center; font-family: var(--mono); font-size: 11px; font-weight: 800; }
+.bs-git-row .bs-nm b { font-weight: 600; }
+.bs-git-dir { color: var(--t3); font-size: 11px; margin-left: 6px; }
+.bs-git-treebadge { margin-left: auto; font-size: 10px; font-weight: 700; font-family: var(--mono); padding-right: 4px; }
+.bs-git-treecount { margin-left: auto; font-size: 10px; font-weight: 600; color: var(--t3); padding-right: 4px; }
+
+.bs-git-commit { padding: 8px 10px; display: flex; flex-direction: column; gap: 6px; border-top: 0.5px solid var(--sepsoft); border-bottom: 0.5px solid var(--sepsoft); margin-top: 6px; }
+.bs-git-msg { width: 100%; resize: vertical; min-height: 44px; border-radius: 8px; background: var(--inset); border: 0.5px solid var(--sep); padding: 7px 9px; font: inherit; font-size: 12.5px; color: var(--text); outline: none; }
+.bs-git-msg:focus { border-color: var(--accent); }
+.bs-git-commitbtn { width: 100%; display: flex; align-items: center; justify-content: center; gap: 5px; }
+
+.bs-git-loghead { width: 100%; text-align: left; }
+.bs-git-logrow { padding: 4px 7px; font-size: 12px; }
+.bs-git-hash { flex-shrink: 0; font-family: var(--mono); font-size: 11px; color: var(--accent); font-weight: 600; }
+.bs-git-logrow .bs-nm { font-size: 12px; }
+.bs-git-date { flex-shrink: 0; color: var(--t3); font-size: 10.5px; }
+
+.bs-git-graph {
+  margin: 0 7px 6px;
+  padding: 6px 0;
+  border-radius: 8px;
+  background: var(--inset);
+  border: 0.5px solid var(--sepsoft);
+  overflow: hidden;
+}
+
+.bs-git-graphrow {
+  min-height: 22px;
+  display: flex;
+  align-items: center;
+  padding: 0 8px;
+}
+
+.bs-git-graphrow:hover {
+  background: var(--hover2);
+}
+
+.bs-git-graphline {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: pre;
+  color: var(--t2);
+  font-family: var(--mono);
+  font-size: 11px;
+}
+
+.bs-git-diff-tab {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  background: color-mix(in srgb, var(--surface) 22%, transparent);
+}
+
+.bs-git-diff-head {
+  min-height: 58px;
+  padding: 10px 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border-bottom: 0.5px solid var(--sep);
+  background: color-mix(in srgb, var(--surface) 62%, transparent);
+}
+
+.bs-git-diff-title {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.bs-git-diff-title > .material-symbols-outlined {
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--accent);
+  background: var(--accentsoft);
+}
+
+.bs-git-diff-title .text {
+  min-width: 0;
+}
+
+.bs-git-diff-title .main {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.bs-git-diff-title .sub {
+  margin-top: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--t3);
+  font-size: 11.5px;
+}
+
+.bs-git-diff-stats {
+  display: flex;
+  gap: 6px;
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.bs-git-diff-stats span {
+  min-width: 42px;
+  height: 24px;
+  padding: 0 8px;
+  border-radius: 7px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0.5px solid var(--sepsoft);
+  background: var(--inset);
+}
+
+.bs-git-diff-stats .add { color: var(--green); }
+.bs-git-diff-stats .del { color: var(--red); }
+
+.bs-git-refresh {
+  height: 30px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.bs-git-diff-code {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 12px 0 18px;
+  background: var(--inset);
+}
+
+.bs-git-diff-row {
+  display: grid;
+  grid-template-columns: 58px 58px minmax(max-content, 1fr);
+  min-height: 22px;
+  align-items: stretch;
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 12px;
+  line-height: 22px;
+  white-space: pre;
+}
+
+.bs-git-diff-row .old,
+.bs-git-diff-row .new {
+  padding: 0 10px;
+  color: var(--t3);
+  text-align: right;
+  user-select: none;
+  background: color-mix(in srgb, var(--surface) 35%, transparent);
+  border-right: 0.5px solid var(--sepsoft);
+}
+
+.bs-git-diff-row code {
+  padding: 0 14px;
+  font-family: inherit;
+}
+
+.bs-git-diff-row.add {
+  background: color-mix(in srgb, var(--green) 10%, transparent);
+}
+
+.bs-git-diff-row.add code {
+  color: var(--green);
+}
+
+.bs-git-diff-row.del {
+  background: color-mix(in srgb, var(--red) 10%, transparent);
+}
+
+.bs-git-diff-row.del code {
+  color: var(--red);
+}
+
+.bs-git-diff-row.hunk {
+  background: color-mix(in srgb, var(--accent) 11%, transparent);
+}
+
+.bs-git-diff-row.hunk code {
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.bs-git-diff-row.meta code {
+  color: var(--t3);
+}
+
+.bs-git-diff-empty,
+.bs-git-diff-error {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  color: var(--t2);
+  background: var(--inset);
+  font-size: 13px;
+}
+
+.bs-git-diff-error {
+  padding: 18px;
+  justify-content: flex-start;
+  align-items: flex-start;
+  color: var(--red);
+  font-family: var(--mono);
+  white-space: pre-wrap;
+}
+
+.bs-projdiff { overflow: auto; height: 100%; }
+.bs-projdiff-commit { display: flex; flex-direction: column; gap: 8px; padding: 12px; border-bottom: 0.5px solid var(--sep); position: sticky; top: 0; background: var(--bg); z-index: 1; }
+.bs-projdiff-file { border-bottom: 0.5px solid var(--sep); }
+.bs-projdiff-fhead { display: flex; align-items: center; gap: 8px; padding: 8px 12px; background: var(--surface); position: sticky; top: 0; z-index: 0; }
+.bs-projdiff-fhead .grow { flex: 1; }
+.bs-projdiff-fpath { font-family: var(--mono); font-size: 12px; }
+
