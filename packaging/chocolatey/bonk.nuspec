@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<package xmlns="http://schemas.microsoft.com/packaging/2015/06/nuspec.xsd">
+  <metadata>
+    <id>bonk</id>
+    <version>__VERSION__</version>
+    <packageSourceUrl>https://github.com/nekidaz/.bonk</packageSourceUrl>
+    <owners>nekidaz</owners>
+    <title>bonk</title>
+    <authors>nekidaz</authors>
+    <projectUrl>https://github.com/nekidaz/.bonk</projectUrl>
+    <iconUrl>https://raw.githubusercontent.com/nekidaz/.bonk/main/src-tauri/icons/128x128%402x.png</iconUrl>
+    <licenseUrl>https://github.com/nekidaz/.bonk/blob/main/LICENSE</licenseUrl>
+    <requireLicenseAcceptance>false</requireLicenseAcceptance>
+    <description>Local-first desktop API client for HTTP and gRPC.</description>
+    <summary>Local-first desktop API client for HTTP and gRPC.</summary>
+    <tags>api http grpc tauri desktop postman client</tags>
+  </metadata>
+  <files>
+    <file src="tools\**" target="tools" />
+  </files>
+</package>

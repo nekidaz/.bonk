@@ -1,0 +1,10 @@
+/* Big Sur shell styles, split into ordered modules. Import order is significant: the cascade relies on later sections overriding earlier ones, so these must stay in this exact sequence. */
+@import './styles/01-base.css';
+@import './styles/02-sidebar.css';
+@import './styles/03-request.css';
+@import './styles/04-response.css';
+@import './styles/05-chrome.css';
+@import './styles/06-bigsur-polish.css';
+@import './styles/07-body-editor.css';
+@import './styles/08-git.css';
+@import './styles/09-perf.css';

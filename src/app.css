@@ -1,0 +1,110 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+ * Big Sur theme tokens. `:root` = light (default), `.dark` = dark. The Tailwind
+ * config maps every Material token name onto these variables, so toggling the
+ * `.dark` class on <html> reskins the whole app.
+ */
+:root {
+  --bg: #ffffff;
+  --surface: #ffffff;
+  --s1: #fafbfd;
+  --s2: #f4f5f8;
+  --s3: #eaeaee;
+  --s4: #e3e3e8;
+  --sdim: #d4d4d9;
+  --text: #1d1d1f;
+  --text2: #6e6e73;
+  --accent: #0a84ff;
+  --on-accent: #ffffff;
+  --border: #dcdce1;
+  --border2: #ebebf0;
+  --error: #ff3b30;
+  --error-c: #ffdad6;
+  --success: #27a857;
+  --warning: #f1841a;
+  color-scheme: light;
+}
+
+.dark {
+  --bg: #1c1c1e;
+  --surface: #1c1c1e;
+  --s1: #1f1f21;
+  --s2: #202022;
+  --s3: #2a2a2c;
+  --s4: #2e2e30;
+  --sdim: #151517;
+  --text: #f2f2f7;
+  --text2: #98989d;
+  --accent: #0a84ff;
+  --on-accent: #ffffff;
+  --border: #38383a;
+  --border2: #2c2c2e;
+  --error: #ff453b;
+  --error-c: #5a1512;
+  --success: #30d158;
+  --warning: #f1841a;
+  color-scheme: dark;
+}
+
+body {
+  background-color: var(--bg);
+  color: var(--text);
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+  letter-spacing: 0;
+}
+
+/* Material Symbols inherit the surrounding text colour. */
+.material-symbols-outlined {
+  font-family: 'Material Symbols Outlined';
+  font-weight: normal;
+  font-style: normal;
+  line-height: 1;
+  letter-spacing: normal;
+  text-transform: none;
+  display: inline-block;
+  white-space: nowrap;
+  word-wrap: normal;
+  direction: ltr;
+  -webkit-font-feature-settings: 'liga';
+  -webkit-font-smoothing: antialiased;
+  font-size: 18px;
+  color: currentColor;
+}
+
+/* Big Sur scrollbars. */
+::-webkit-scrollbar {
+  width: 11px;
+  height: 11px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(120, 120, 128, 0.35);
+  border-radius: 6px;
+  border: 3px solid transparent;
+  background-clip: padding-box;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(120, 120, 128, 0.55);
+  background-clip: padding-box;
+}
+
+html,
+body,
+#app {
+  height: 100%;
+  width: 100%;
+  margin: 0;
+}
+#app {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}

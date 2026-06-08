@@ -1,0 +1,128 @@
+/*
+ * Big Sur shell styles, adapted to fill the window and to theme via the
+ * `.dark` class. Class names are bonk-specific (bs-*) so they never collide
+ * with Tailwind utilities used elsewhere.
+ */
+.bs {
+  --bg: #ffffff;
+  --surface: #ffffff;
+  --side: #ececef;
+  --tb: #f6f6f7;
+  --inset: #ffffff;
+  --sep: #d9d9de;
+  --sepsoft: #e9e9ee;
+  --text: #1d1d20;
+  --t2: #6b6b72;
+  --t3: #9c9ca4;
+  --accent: #0a84ff;
+  --accentsoft: #e8f1ff;
+  --green: #27a857;
+  --orange: #f1841a;
+  --red: #ff453b;
+  --purple: #8a52e0;
+  --hover: rgba(0, 0, 0, 0.055);
+  --hover2: rgba(0, 0, 0, 0.03);
+  --sk: #0b66c2;
+  --ss: #b3500f;
+  --sn: #177a3a;
+  --sb: #7a3fc0;
+  --sp: #9a9aa2;
+  --mono: 'SF Mono', 'JetBrains Mono', ui-monospace, Menlo, monospace;
+
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Helvetica Neue', sans-serif;
+  font-size: 13px;
+  letter-spacing: 0;
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+}
+.dark .bs {
+  --bg: #1c1c1e;
+  --surface: #1c1c1e;
+  --side: #202022;
+  --tb: #1e1e20;
+  --inset: #161618;
+  --sep: #38383a;
+  --sepsoft: #2c2c2e;
+  --text: #f2f2f7;
+  --t2: #98989d;
+  --t3: #6c6c70;
+  --accentsoft: rgba(10, 132, 255, 0.16);
+  --green: #30d158;
+  --orange: #f1841a;
+  --red: #ff453b;
+  --hover: rgba(255, 255, 255, 0.06);
+  --hover2: rgba(255, 255, 255, 0.035);
+  --sk: #6cb6ff;
+  --ss: #e0a571;
+  --sn: #7ee787;
+  --sb: #d2a8ff;
+  --sp: #8b949e;
+}
+.bs * { box-sizing: border-box; }
+.bs svg { width: 16px; height: 16px; stroke-width: 1.75; }
+.bs button { font: inherit; color: inherit; background: none; border: none; cursor: default; }
+
+/* Tauri WebView repaints aggressively while the cursor crosses many hoverable
+   controls. Keep hover feedback instant instead of animating every mouse move. */
+.bs *,
+.bs *::before,
+.bs *::after {
+  transition: none !important;
+}
+
+.bs .material-symbols-outlined {
+  pointer-events: none;
+}
+
+/* Toolbar */
+.bs-tb { position: relative; z-index: 85; height: 50px; flex-shrink: 0; display: flex; align-items: center; gap: 12px; padding: 0 13px; background: var(--tb); border-bottom: 0.5px solid var(--sep); }
+.bs-nav { display: flex; align-items: center; gap: 1px; color: var(--t2); }
+.bs-nav .b { width: 26px; height: 26px; border-radius: 7px; display: flex; align-items: center; justify-content: center; }
+.bs-nav .b:hover { background: var(--hover); }
+.bs-nav .b.dim { opacity: 0.38; }
+.bs-home { display: flex; align-items: center; gap: 1px; }
+.bs-work { display: flex; align-items: center; gap: 6px; padding: 5px 9px; border-radius: 7px; font-weight: 600; font-size: 12.5px; }
+.bs-work:hover { background: var(--hover); }
+.bs-work svg { width: 13px; height: 13px; color: var(--t2); }
+.bs-search { flex: 1; max-width: 540px; margin: 0 auto; height: 30px; border-radius: 8px; background: var(--inset); border: 0.5px solid var(--sep); display: flex; align-items: center; justify-content: center; gap: 8px; color: var(--t3); font-size: 12.5px; }
+.bs-search svg { width: 14px; height: 14px; }
+.bs-spacer { flex: 1; }
+.bs-ti { width: 28px; height: 28px; border-radius: 7px; display: flex; align-items: center; justify-content: center; color: var(--t2); }
+.bs-ti:hover { background: var(--hover); }
+.bs-ti svg { width: 17px; height: 17px; }
+
+/* Body */
+.bs-body { flex: 1; display: flex; min-height: 0; }
+.bs.sidebar-hidden .bs-side { display: none; }
+
+/* Resizers (Postman-style draggable panel handles) */
+.bs-resizer-col {
+  flex-shrink: 0;
+  width: 5px;
+  margin: 0 -2.5px; /* center the hit area over the sidebar's right border */
+  z-index: 5;
+  cursor: col-resize;
+  background: transparent;
+  transition: background 120ms ease;
+}
+.bs-resizer-col:hover,
+.bs-resizer-row:hover { background: var(--accent); }
+.bs-resizer-row {
+  position: absolute;
+  top: -2.5px; /* sit over the response's top border */
+  left: 0;
+  right: 0;
+  height: 5px;
+  z-index: 5;
+  cursor: row-resize;
+  background: transparent;
+  transition: background 120ms ease;
+}
+
+/* Flexible request pane between the request tabs and the response. */
+.bs-reqpane { flex: 1 1 0; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
+

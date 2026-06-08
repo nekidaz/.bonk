@@ -1,0 +1,53 @@
+{
+  "name": "bonk",
+  "version": "0.1.1",
+  "description": "Rust-powered desktop API client for HTTP and gRPC built with Tauri and Svelte.",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "app": "tauri dev",
+    "build": "vite build",
+    "preview": "vite preview",
+    "check": "svelte-check --tsconfig ./tsconfig.app.json",
+    "tauri": "tauri",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "license": "MIT",
+  "author": "nekidaz",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/nekidaz/.bonk.git"
+  },
+  "homepage": "https://nekidaz.github.io/.bonk/",
+  "bugs": "https://github.com/nekidaz/.bonk/issues",
+  "keywords": [
+    "api-client",
+    "http",
+    "grpc",
+    "tauri",
+    "svelte"
+  ],
+  "dependencies": {
+    "@fontsource/jetbrains-mono": "^5.2.8",
+    "@fontsource/material-symbols-outlined": "^5.2.45",
+    "@tauri-apps/api": "^2",
+    "@tauri-apps/plugin-process": "^2.3.1",
+    "@tauri-apps/plugin-updater": "^2.10.1"
+  },
+  "devDependencies": {
+    "@sveltejs/vite-plugin-svelte": "^7.1.2",
+    "@tailwindcss/forms": "^0.5.11",
+    "@tauri-apps/cli": "^2",
+    "@tsconfig/svelte": "^5.0.8",
+    "@types/node": "^24.12.3",
+    "autoprefixer": "^10.5.0",
+    "postcss": "^8.5.15",
+    "svelte": "^5.55.5",
+    "svelte-check": "^4.4.8",
+    "tailwindcss": "^3.4.19",
+    "typescript": "~6.0.2",
+    "vite": "^8.0.12",
+    "vitest": "^4.1.8"
+  }
+}
