@@ -35,11 +35,13 @@ export function enabledBodyParams(t: Tab): BodyParam[] {
   return (t.request.bodyParams ?? []).filter((row) => row.enabled && row.key.trim() !== '');
 }
 
-/** Serialize body-param rows as an `application/x-www-form-urlencoded` string. */
+/**
+ * Serialize body-param rows as an `application/x-www-form-urlencoded` string.
+ * Uses encodeQueryPart (not URLSearchParams) so `{{var}}` placeholders survive
+ * for backend interpolation, matching query-param encoding.
+ */
 export function buildUrlEncodedBody(rows: BodyParam[]): string {
-  const params = new URLSearchParams();
-  for (const row of rows) params.append(row.key, row.value);
-  return params.toString();
+  return rows.map((row) => `${encodeQueryPart(row.key)}=${encodeQueryPart(row.value)}`).join('&');
 }
 
 /** Serialize body-param rows as a multipart/form-data body for `boundary`. */
@@ -97,6 +99,12 @@ export function buildRequestForSend(t: Tab, finalUrl: string): HttpRequest {
     const rows = enabledBodyParams(t);
     if (rows.length > 0) {
       body = undefined;
+    }
+  } else if (mode === 'graphql') {
+    const rawBody = t.request.body ?? '';
+    if (rawBody.length > 0) {
+      body = rawBody;
+      headers = setHeaderIfMissing(headers, 'Content-Type', 'application/json');
     }
   } else if (mode !== 'none') {
     const rawBody = t.request.body ?? '';
