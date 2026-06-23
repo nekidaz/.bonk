@@ -77,7 +77,7 @@ Download the latest build from [**Releases**](https://github.com/nekidaz/.bonk/r
 brew install --cask nekidaz/tap/bonk
 ```
 
-…or grab the universal **`.dmg`**. Builds are **unsigned** by Apple, so on first
+…or grab the Apple Silicon **`.dmg`** (arm64). Builds are **unsigned** by Apple, so on first
 launch right-click the app → **Open** to get past Gatekeeper (the Homebrew cask
 clears the quarantine flag for you).
 

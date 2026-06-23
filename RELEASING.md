@@ -65,7 +65,7 @@ The `Chocolatey` workflow pushes the generated `.nupkg` after each release.
    git push origin v0.2.0
    ```
 
-4. The **Release** workflow builds macOS (universal `.dmg` + updater artifacts),
+4. The **Release** workflow builds macOS (Apple Silicon `.dmg` + updater artifacts),
    Linux (`.AppImage` + `.deb` + updater artifacts), and Windows installer
    artifacts, signs them for the updater, generates `latest.json`, and uploads
    everything to a **draft** GitHub Release.

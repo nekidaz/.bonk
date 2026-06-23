@@ -24,7 +24,7 @@ jobs:
           TAG: ${{ github.event.release.tag_name }}
         run: |
           VERSION="${TAG#v}"
-          DMG="bonk_${VERSION}_universal.dmg"
+          DMG="bonk_${VERSION}_aarch64.dmg"
           URL="https://github.com/nekidaz/.bonk/releases/download/${TAG}/${DMG}"
           curl -fL -o "$DMG" "$URL"
           SHA="$(shasum -a 256 "$DMG" | awk '{print $1}')"
@@ -49,7 +49,7 @@ jobs:
             version "${VERSION}"
             sha256 "${SHA}"
 
-            url "https://github.com/nekidaz/.bonk/releases/download/v#{version}/bonk_#{version}_universal.dmg"
+            url "https://github.com/nekidaz/.bonk/releases/download/v#{version}/bonk_#{version}_aarch64.dmg"
             name "bonk"
             desc "Local-first desktop API client for HTTP and gRPC"
             homepage "https://github.com/nekidaz/.bonk"
