@@ -32,7 +32,7 @@ jobs:
             args: ''
             rust-targets: ''
           - platform: windows-latest
-            args: ''
+            args: --bundles nsis
             rust-targets: ''
     runs-on: ${{ matrix.platform }}
     steps:
@@ -73,6 +73,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          # linuxdeploy/AppImage needs FUSE, which CI runners lack — extract instead of mount.
+          APPIMAGE_EXTRACT_AND_RUN: 1
         with:
           args: ${{ matrix.args }}
           tagName: ${{ github.ref_name }}
