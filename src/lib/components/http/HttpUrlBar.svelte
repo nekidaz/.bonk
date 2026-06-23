@@ -2,7 +2,7 @@
   import { cancelRequest } from '../../api';
   import { busyMap } from '../../requestRuntime';
   import { sendHttpRequest, updateActiveTab, updateTabById } from '../../stores';
-  import { buildUrl, paramsFromUrl } from '../../domain/http';
+  import { buildUrl, mergeParamsFromUrl } from '../../domain/http';
   import { buildRequestForSend } from '../../domain/httpBody';
   import { titleFor } from '../../domain/httpHeaders';
   import { methodColor } from '../../domain/method';
@@ -25,7 +25,7 @@
   function setUrl(value: string): void {
     updateActiveTab((t) => ({
       ...t,
-      params: paramsFromUrl(value),
+      params: mergeParamsFromUrl(value, t.params),
       request: { ...t.request, url: value },
       title: titleFor(t, value),
     }));

@@ -32,6 +32,26 @@ export function paramsFromUrl(url: string): Param[] {
     });
 }
 
+/**
+ * Re-derive the Params table from a hand-edited URL while preserving metadata
+ * the URL can't carry: per-row descriptions (matched by key) and disabled rows
+ * (intentionally absent from the URL, so a naive re-parse would silently delete
+ * them). Used when the user edits the address bar directly.
+ */
+export function mergeParamsFromUrl(url: string, prev: Param[] | undefined): Param[] {
+  const old = prev ?? [];
+  const descByKey = new Map<string, string>();
+  for (const row of old) {
+    if (row.description && !descByKey.has(row.key)) descByKey.set(row.key, row.description);
+  }
+  const merged = paramsFromUrl(url).map((row) => ({
+    ...row,
+    description: descByKey.get(row.key) ?? '',
+  }));
+  const disabled = old.filter((row) => !row.enabled);
+  return [...merged, ...disabled];
+}
+
 function decodeQueryPart(part: string): string {
   try {
     return decodeURIComponent(part.replace(/\+/g, ' '));

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { encodeQueryPart, syncUrlWithParams, paramsFromUrl, buildUrl } from './http';
+import { encodeQueryPart, syncUrlWithParams, paramsFromUrl, buildUrl, mergeParamsFromUrl } from './http';
 import type { Param } from './types';
 
 const p = (key: string, value: string, enabled = true): Param => ({
@@ -55,5 +55,27 @@ describe('paramsFromUrl', () => {
     const rows = paramsFromUrl('https://h/x?token={{authToken}}');
     expect(rows[0].value).toBe('{{authToken}}');
     expect(buildUrl('https://h/x', rows)).toBe('https://h/x?token={{authToken}}');
+  });
+});
+
+describe('mergeParamsFromUrl', () => {
+  it('preserves the description of a matching key when the URL is edited', () => {
+    const prev: Param[] = [{ key: 'a', value: '1', description: 'first', enabled: true }];
+    const rows = mergeParamsFromUrl('https://h/x?a=2&b=3', prev);
+    expect(rows.find((r) => r.key === 'a')).toMatchObject({ value: '2', description: 'first' });
+    expect(rows.find((r) => r.key === 'b')).toMatchObject({ value: '3', description: '' });
+  });
+
+  it('keeps disabled rows that the URL cannot represent', () => {
+    const rows = mergeParamsFromUrl('https://h/x?a=1', [p('a', '1'), p('hidden', 'x', false)]);
+    expect(rows.map((r) => [r.key, r.enabled])).toEqual([
+      ['a', true],
+      ['hidden', false],
+    ]);
+  });
+
+  it('drops enabled params removed from the URL', () => {
+    const rows = mergeParamsFromUrl('https://h/x?a=1', [p('a', '1'), p('b', '2')]);
+    expect(rows.map((r) => r.key)).toEqual(['a']);
   });
 });
