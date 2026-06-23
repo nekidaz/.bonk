@@ -29,7 +29,7 @@
   import { methodColor } from '../domain/method';
   import type { TreeNode } from '../domain/types';
   import GitPanel from './GitPanel.svelte';
-  import { gitStatus, gitStatusMap, gitPrefix } from '../git';
+  import { gitStatus, gitStatusMap, gitPrefix, GIT_ENABLED } from '../git';
   import { folderChangeCount, statusColor } from '../domain/gitStatus';
   import { idToRel } from '../domain/tree';
 
@@ -68,7 +68,9 @@
   <button class="bs-ri" class:on={panel === 'collections'} title="Collections" onclick={() => (panel = 'collections')}><span class="material-symbols-outlined" style="font-size:17px">deployed_code</span></button>
   <button class="bs-ri"><span class="material-symbols-outlined" style="font-size:17px">terminal</span></button>
   <button class="bs-ri" class:on={panel === 'history'} title="History" onclick={() => (panel = 'history')}><span class="material-symbols-outlined" style="font-size:17px">history</span></button>
-  <button class="bs-ri" class:on={panel === 'git'} title="Source control" onclick={() => (panel = 'git')}><span class="material-symbols-outlined" style="font-size:17px">account_tree</span></button>
+  {#if GIT_ENABLED}
+    <button class="bs-ri" class:on={panel === 'git'} title="Source control" onclick={() => (panel = 'git')}><span class="material-symbols-outlined" style="font-size:17px">account_tree</span></button>
+  {/if}
   <div class="bs-rdiv"></div>
   <div class="bs-spacer"></div>
   <button class="bs-ri" title="Hide sidebar" onclick={onHide}><span class="material-symbols-outlined" style="font-size:17px">view_sidebar</span></button>

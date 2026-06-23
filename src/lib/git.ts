@@ -25,6 +25,13 @@ import {
 import { statusByPath } from './domain/gitStatus';
 import { workspacePath } from './stores';
 
+/**
+ * Master switch for the Git feature. When false the source-control UI is hidden
+ * and `refreshGit` is a no-op, so the `git` CLI never runs. The backend commands
+ * and this module stay intact — flip to `true` to re-enable the whole feature.
+ */
+export const GIT_ENABLED = false;
+
 /** Latest git status for the open workspace, or null when no workspace/repo. */
 export const gitStatus = writable<GitStatus | null>(null);
 
@@ -50,6 +57,10 @@ export const gitBusy = writable<boolean>(false);
  * On error, log and leave the previous status in place (avoids flicker).
  */
 export async function refreshGit(): Promise<void> {
+  if (!GIT_ENABLED) {
+    gitStatus.set(null);
+    return;
+  }
   const path = get(workspacePath);
   if (!path) {
     gitStatus.set(null);
