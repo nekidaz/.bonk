@@ -64,6 +64,14 @@ jobs:
         with:
           targets: ${{ matrix.rust-targets }}
 
+      # Cache cargo registry + target/ per platform so warm runs skip recompiling
+      # all dependencies (cold first run still pays full cost).
+      - name: Cache Rust build
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: '. -> target'
+          cache-on-failure: true
+
       - name: Install frontend dependencies
         run: npm ci
 
