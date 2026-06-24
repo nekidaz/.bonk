@@ -20,6 +20,19 @@ use tonic::metadata::{
 use tonic::transport::{Channel, ClientTlsConfig, Endpoint};
 use tonic::{Code, Request, Status};
 
+/// Extract the TLS SNI host from an endpoint: drop any scheme and `:port`, and
+/// unwrap `[..]` IPv6 literals so `[::1]:8080` yields `::1` (not `[`).
+fn tls_domain(endpoint: &str) -> &str {
+    let host = endpoint
+        .trim_start_matches("https://")
+        .trim_start_matches("http://");
+    if let Some(rest) = host.strip_prefix('[') {
+        rest.split(']').next().unwrap_or(host)
+    } else {
+        host.split(':').next().unwrap_or(host)
+    }
+}
+
 pub async fn connect(endpoint: &str, plaintext: bool) -> Result<Channel, String> {
     let uri = if endpoint.starts_with("http://") || endpoint.starts_with("https://") {
         endpoint.to_string()
@@ -34,14 +47,8 @@ pub async fn connect(endpoint: &str, plaintext: bool) -> Result<Channel, String>
         // instead of leaving the UI stuck "connecting" forever.
         .connect_timeout(std::time::Duration::from_secs(8));
     if !plaintext {
-        let domain = endpoint
-            .trim_start_matches("https://")
-            .trim_start_matches("http://")
-            .split(':')
-            .next()
-            .unwrap_or(endpoint);
         builder = builder
-            .tls_config(ClientTlsConfig::new().domain_name(domain))
+            .tls_config(ClientTlsConfig::new().domain_name(tls_domain(endpoint)))
             .map_err(|e| format!("tls config failed: {e}"))?;
     }
     builder
@@ -328,6 +335,11 @@ pub async fn call(
 /// value that can't be header-encoded (or a malformed `-bin` value / key) is a
 /// user error — surface it as a clear `Err` rather than panicking on `unwrap`.
 fn insert_metadata(md: &mut MetadataMap, key: &str, value: &str) -> Result<(), String> {
+    // gRPC metadata keys are case-insensitive and must be lowercase ASCII on the
+    // wire (tonic rejects uppercase). Lowercase here so users can type natural
+    // header casing like `Authorization` without a cryptic "invalid key" error.
+    let lowered = key.to_ascii_lowercase();
+    let key = lowered.as_str();
     if key.ends_with("-bin") {
         let name = BinaryMetadataKey::from_bytes(key.as_bytes())
             .map_err(|e| format!("invalid metadata key {key}: {e}"))?;
@@ -643,6 +655,22 @@ mod tests {
     use super::*;
     use prost_types::field_descriptor_proto::{Label, Type};
     use prost_types::{DescriptorProto, FieldDescriptorProto, FileDescriptorProto};
+
+    #[test]
+    fn tls_domain_strips_scheme_port_and_ipv6_brackets() {
+        assert_eq!(tls_domain("api.example.com"), "api.example.com");
+        assert_eq!(tls_domain("api.example.com:443"), "api.example.com");
+        assert_eq!(tls_domain("https://api.example.com:443"), "api.example.com");
+        assert_eq!(tls_domain("[::1]:8080"), "::1");
+        assert_eq!(tls_domain("[2001:db8::1]:443"), "2001:db8::1");
+    }
+
+    #[test]
+    fn metadata_keys_are_lowercased() {
+        let mut md = MetadataMap::new();
+        insert_metadata(&mut md, "Authorization", "Bearer x").unwrap();
+        assert_eq!(md.get("authorization").unwrap().to_str().unwrap(), "Bearer x");
+    }
 
     fn field(name: &str, number: i32, ty: Type, label: Label) -> FieldDescriptorProto {
         FieldDescriptorProto {
