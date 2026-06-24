@@ -36,12 +36,27 @@ export function enabledBodyParams(t: Tab): BodyParam[] {
 }
 
 /**
+ * Form-encode one key/value part as `application/x-www-form-urlencoded`
+ * (space → `+`, matching URLSearchParams) but leaving `{{var}}` placeholders
+ * intact so the backend can interpolate them.
+ */
+function encodeFormPart(s: string): string {
+  return s
+    .split(/(\{\{[^}]*\}\})/)
+    .map((seg) =>
+      seg.startsWith('{{') && seg.endsWith('}}')
+        ? seg
+        : new URLSearchParams([['k', seg]]).toString().slice(2),
+    )
+    .join('');
+}
+
+/**
  * Serialize body-param rows as an `application/x-www-form-urlencoded` string.
- * Uses encodeQueryPart (not URLSearchParams) so `{{var}}` placeholders survive
- * for backend interpolation, matching query-param encoding.
+ * Encodes like URLSearchParams (space → `+`) but preserves `{{var}}` placeholders.
  */
 export function buildUrlEncodedBody(rows: BodyParam[]): string {
-  return rows.map((row) => `${encodeQueryPart(row.key)}=${encodeQueryPart(row.value)}`).join('&');
+  return rows.map((row) => `${encodeFormPart(row.key)}=${encodeFormPart(row.value)}`).join('&');
 }
 
 /** Serialize body-param rows as a multipart/form-data body for `boundary`. */
