@@ -17,7 +17,6 @@
     closeMenu,
     onPick,
     onSwitch,
-    onImportCurl,
     onAddRequest,
     onAddFolder,
     onSaveHere,
@@ -30,7 +29,6 @@
     closeMenu: () => void;
     onPick: (kind: RequestProtocol) => void;
     onSwitch: (kind: RequestProtocol) => void;
-    onImportCurl: () => void;
     onAddRequest: (kind: RequestProtocol) => void;
     onAddFolder: () => void;
     onSaveHere: () => void;
@@ -42,7 +40,6 @@
 
   const reqTypes: TypeRow[] = [
     { label: 'HTTP', icon: 'language', color: '#2aa3ff', go: () => onPick('http') },
-    { label: 'Import cURL', icon: 'terminal', color: '#34c759', go: () => onImportCurl() },
     { label: 'GraphQL', icon: 'hub', color: '#e535ab' },
     { label: 'AI', icon: 'auto_awesome', color: '#34c759' },
     { label: 'MCP', icon: 'deployed_code', color: '#14b8a6' },
@@ -53,7 +50,6 @@
   ];
 
   const switchTypes: TypeRow[] = reqTypes
-    .filter((r) => r.label !== 'Import cURL')
     .map((r) => ({
       ...r,
       go: r.label === 'HTTP' ? () => onSwitch('http') : r.label === 'gRPC' ? () => onSwitch('grpc') : undefined,
