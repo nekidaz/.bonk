@@ -29,7 +29,6 @@
   import ProjectDiffView from './lib/components/ProjectDiffView.svelte';
   import SettingsModal from './lib/components/SettingsModal.svelte';
   import ConfirmDialog from './lib/components/ConfirmDialog.svelte';
-  import CurlImportDialog from './lib/components/CurlImportDialog.svelte';
   import SaveRequestDialog from './lib/components/SaveRequestDialog.svelte';
   import MoveDialog from './lib/components/MoveDialog.svelte';
   import UpdateBanner from './lib/components/UpdateBanner.svelte';
@@ -115,7 +114,6 @@
   // Save Request dialog
   let saveOpen = $state(false);
   let settingsOpen = $state(false);
-  let curlOpen = $state(false);
   function openSaveDialog(): void {
     saveOpen = true;
   }
@@ -154,10 +152,6 @@
       e.preventDefault();
       void smartSave();
     }
-  }
-  function openCurlImport(): void {
-    curlOpen = true;
-    closeMenu();
   }
 
   onMount(async () => {
@@ -354,7 +348,6 @@
     {closeMenu}
     onPick={pick}
     onSwitch={switchTo}
-    onImportCurl={openCurlImport}
     onAddRequest={addReq}
     onAddFolder={collAddFolder}
     onSaveHere={nodeSaveHere}
@@ -369,7 +362,6 @@
   <ConfirmDialog />
 
   <MoveDialog bind:open={moveOpen} sourceId={moveSourceId ?? ''} />
-  <CurlImportDialog bind:open={curlOpen} />
 
   <SettingsModal bind:open={settingsOpen} />
   <UpdateBanner />

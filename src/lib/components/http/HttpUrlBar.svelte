@@ -1,7 +1,7 @@
 <script lang="ts">
   import { cancelRequest } from '../../api';
   import { busyMap } from '../../requestRuntime';
-  import { sendHttpRequest, updateActiveTab, updateTabById } from '../../stores';
+  import { sendHttpRequest, updateActiveTab, updateTabById, applyCurlToActiveTab } from '../../stores';
   import { buildUrl, mergeParamsFromUrl } from '../../domain/http';
   import { buildRequestForSend } from '../../domain/httpBody';
   import { titleFor } from '../../domain/httpHeaders';
@@ -29,6 +29,15 @@
       request: { ...t.request, url: value },
       title: titleFor(t, value),
     }));
+  }
+
+  // Postman-style: pasting a whole `curl ...` command into the URL bar imports
+  // it into the active request instead of dropping the raw text into the field.
+  function onUrlPaste(e: ClipboardEvent): void {
+    const text = e.clipboardData?.getData('text') ?? '';
+    if (/^\s*curl\s/i.test(text) && applyCurlToActiveTab(text)) {
+      e.preventDefault();
+    }
   }
 
   async function send(): Promise<void> {
@@ -104,7 +113,7 @@
         </div>
       {/if}
     </div>
-    <input class="bs-url" placeholder="Enter URL or paste text" value={tab.request.url} oninput={(e) => setUrl(e.currentTarget.value)} />
+    <input class="bs-url" placeholder="Enter URL or paste a curl command" value={tab.request.url} oninput={(e) => setUrl(e.currentTarget.value)} onpaste={onUrlPaste} />
   </div>
   <button class="bs-send" class:cancelling={activeBusy?.kind === 'http'} onclick={send}>
     <span class="go">

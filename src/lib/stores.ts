@@ -27,6 +27,7 @@ import { busyMap, grpcErrorMap } from './requestRuntime';
 import { idToRel, parentId, findNode } from './domain/tree';
 import { grpcPathsToRel, grpcPathsToAbs } from './domain/protoPaths';
 import { parseCurl } from './domain/curl';
+import { paramsFromUrl } from './domain/http';
 
 export const HTTP_DEFAULT_TITLE = 'Untitled Request';
 export const GRPC_DEFAULT_TITLE = 'New gRPC';
@@ -572,18 +573,24 @@ export function newTab(protocol: 'http' | 'grpc' = 'http'): void {
   activeTabId.set(t.id);
 }
 
-export function importCurlAsTab(curl: string): void {
-  const request = parseCurl(curl);
-  const title = titleFromUrl(request.url, HTTP_DEFAULT_TITLE);
-  const tab: Tab = {
-    id: crypto.randomUUID(),
-    protocol: 'http',
-    title,
-    manualTitle: false,
-    request,
-  };
-  tabs.update((list) => [...list, tab]);
-  activeTabId.set(tab.id);
+/**
+ * Parse a curl command and apply it to the active HTTP tab in place
+ * (Postman-style: paste curl into the URL bar). Splits the query string into
+ * the Params table. Returns false if the text isn't a usable curl command.
+ */
+export function applyCurlToActiveTab(curl: string): boolean {
+  try {
+    const request = parseCurl(curl);
+    updateActiveTab((t) => ({
+      ...t,
+      request,
+      params: paramsFromUrl(request.url),
+      title: t.manualTitle ? t.title : titleFromUrl(request.url, HTTP_DEFAULT_TITLE),
+    }));
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 export function titleFromUrl(url: string, fallback = HTTP_DEFAULT_TITLE): string {
