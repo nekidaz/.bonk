@@ -11,6 +11,7 @@
 
   let name = $state('');
   let targetId = $state<string | undefined>(undefined); // folder id; undefined = root
+  let saveError = $state('');
 
   // Seed name + destination folder when the dialog opens, replicating the
   // original openSaveDialog seeding logic.
@@ -18,15 +19,20 @@
     if (open && active) {
       name = active.title;
       targetId = active.savedPath ? parentId(active.savedPath) : undefined;
+      saveError = '';
     }
   });
 
   async function confirmSave(): Promise<void> {
+    saveError = '';
     try {
       await saveActiveRequest(targetId, name);
       open = false;
       onSaved?.();
     } catch (err) {
+      // Keep the dialog open and show why, so the user never thinks a failed
+      // save succeeded and loses their edits.
+      saveError = err instanceof Error ? err.message : String(err);
       console.error('workspace: confirmSave failed', err);
     }
   }
@@ -55,6 +61,7 @@
             <FolderPicker nodes={$collections} bind:selected={targetId} />
           </div>
         </div>
+        {#if saveError}<div class="bs-form-error">{saveError}</div>{/if}
       </div>
       <div class="bs-modal-f">
         <button class="bs-btn link" onclick={newFolderInDialog}><span class="material-symbols-outlined" style="font-size:15px;vertical-align:-3px">add</span> New Folder</button>
