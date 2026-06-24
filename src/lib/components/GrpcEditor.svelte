@@ -76,6 +76,17 @@
       grpc: { ...t.grpc!, source: 'proto', importPaths: roots, connectionId: undefined, tree: undefined },
     }));
   }
+  // Reflect, but if the server has no reflection service turn the raw error into
+  // guidance to load a schema instead.
+  async function reflectOrGuide(connId: string) {
+    try {
+      return await grpcReflect(connId, $requestTimeoutMs);
+    } catch {
+      throw new Error(
+        "This server doesn't support gRPC server reflection. Import a .proto file (in the schema menu above) to load its services and methods.",
+      );
+    }
+  }
   async function grpcDoConnect(): Promise<void> {
     const t = tab;
     if (!t?.grpc) return;
@@ -90,10 +101,10 @@
       const tree =
         t.grpc.source === 'proto'
           ? await grpcLoadProto(connId, t.grpc.protoPaths ?? [], t.grpc.importPaths ?? [])
-          : await grpcReflect(connId, $requestTimeoutMs);
+          : await reflectOrGuide(connId);
       updateTabById(tabId, (x) => ({ ...x, grpc: { ...x.grpc!, connectionId: connId, tree } }));
     } catch (e) {
-      grpcErrorMap.update((m) => ({ ...m, [tabId]: String(e) }));
+      grpcErrorMap.update((m) => ({ ...m, [tabId]: e instanceof Error ? e.message : String(e) }));
     } finally {
       busyMap.update((m) => {
         if (m[tabId]?.kind !== 'connect') return m;
