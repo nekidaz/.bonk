@@ -49,6 +49,12 @@
   const grpcInvoking = $derived(activeBusy?.kind === 'invoke');
   // Per-tab gRPC error text, so a stale error never shows on the wrong tab.
   const activeGrpcError = $derived($grpcErrorMap[tab.id] ?? '');
+  // Postman-style: when services can't be loaded via reflection (server has no
+  // reflection or is unreachable), show neutral guidance to load a schema
+  // instead of a red error.
+  const GRPC_NO_SERVICES_HINT =
+    "Couldn't load services from the server. Import a .proto file (in the schema menu above) to load this API's services and methods.";
+  const grpcGuiding = $derived(activeGrpcError === GRPC_NO_SERVICES_HINT);
 
   function setGrpc(patch: Record<string, unknown>): void {
     updateActiveTab((t) => ({ ...t, grpc: { ...t.grpc!, ...patch } }));
@@ -76,17 +82,6 @@
       grpc: { ...t.grpc!, source: 'proto', importPaths: roots, connectionId: undefined, tree: undefined },
     }));
   }
-  // Reflect, but if the server has no reflection service turn the raw error into
-  // guidance to load a schema instead.
-  async function reflectOrGuide(connId: string) {
-    try {
-      return await grpcReflect(connId, $requestTimeoutMs);
-    } catch {
-      throw new Error(
-        "This server doesn't support gRPC server reflection. Import a .proto file (in the schema menu above) to load its services and methods.",
-      );
-    }
-  }
   async function grpcDoConnect(): Promise<void> {
     const t = tab;
     if (!t?.grpc) return;
@@ -101,10 +96,14 @@
       const tree =
         t.grpc.source === 'proto'
           ? await grpcLoadProto(connId, t.grpc.protoPaths ?? [], t.grpc.importPaths ?? [])
-          : await reflectOrGuide(connId);
+          : await grpcReflect(connId, $requestTimeoutMs);
       updateTabById(tabId, (x) => ({ ...x, grpc: { ...x.grpc!, connectionId: connId, tree } }));
     } catch (e) {
-      grpcErrorMap.update((m) => ({ ...m, [tabId]: e instanceof Error ? e.message : String(e) }));
+      // A reflection-source failure (no reflection or unreachable) becomes
+      // neutral guidance to load a schema; proto-source errors stay verbatim.
+      const msg =
+        t.grpc?.source === 'reflection' ? GRPC_NO_SERVICES_HINT : e instanceof Error ? e.message : String(e);
+      grpcErrorMap.update((m) => ({ ...m, [tabId]: msg }));
     } finally {
       busyMap.update((m) => {
         if (m[tabId]?.kind !== 'connect') return m;
@@ -302,7 +301,7 @@
     <span class="cv"><span class="material-symbols-outlined" style="font-size:14px">{grpcInvoking ? 'stop' : 'play_arrow'}</span></span>
   </button>
 </div>
-{#if activeGrpcError}<div style="padding:0 16px 10px;color:var(--red);font-family:var(--mono);font-size:12px;white-space:pre-wrap">{activeGrpcError}</div>{/if}
+{#if activeGrpcError}<div style="padding:0 16px 10px;color:{grpcGuiding ? 'var(--t3)' : 'var(--red)'};font-family:var(--mono);font-size:12px;white-space:pre-wrap">{activeGrpcError}</div>{/if}
 <div class="bs-rtabs">
   <div class="bs-rtab docs"><span class="material-symbols-outlined" style="font-size:14px">notes</span>Docs</div>
   <button class="bs-rtab" class:on={gTab === 'message'} onclick={() => (gTab = 'message')}>Message</button>
