@@ -34,4 +34,17 @@ describe('parseCurl', () => {
     const req = parseCurl(`curl https://example.com -u ada:secret`);
     expect(req.auth).toEqual({ type: 'basic', basicUsername: 'ada', basicPassword: 'secret' });
   });
+
+  it('moves -d data to the query string with -G (GET, no body)', () => {
+    const req = parseCurl(`curl -G https://example.com/search -d q=cats -d page=2`);
+    expect(req.method).toBe('GET');
+    expect(req.url).toBe('https://example.com/search?q=cats&page=2');
+    expect(req.body).toBeUndefined();
+  });
+
+  it('url-encodes --data-urlencode content while keeping the field name', () => {
+    const req = parseCurl(`curl https://example.com --data-urlencode 'msg=hello world&x'`);
+    expect(req.method).toBe('POST');
+    expect(req.body).toBe('msg=hello%20world%26x');
+  });
 });
