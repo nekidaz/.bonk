@@ -28,7 +28,7 @@
 </script>
 
 <div class="bs-pwrap">
-  <div class="bs-qp"><span class="t">Query Params</span><span class="be">Bulk Edit</span></div>
+  <div class="bs-qp"><span class="t">Query Params</span></div>
   <div class="bs-pt">
     <div class="bs-pr h"><div class="bs-pc c"></div><div class="bs-pc k">Key</div><div class="bs-pc v">Value</div><div class="bs-pc d">Description</div></div>
     {#each paramRows(tab) as p, i (i)}
