@@ -99,10 +99,11 @@
           : await grpcReflect(connId, $requestTimeoutMs);
       updateTabById(tabId, (x) => ({ ...x, grpc: { ...x.grpc!, connectionId: connId, tree } }));
     } catch (e) {
-      // A reflection-source failure (no reflection or unreachable) becomes
-      // neutral guidance to load a schema; proto-source errors stay verbatim.
+      // Only the proto source shows a verbatim error (compile / "select a proto
+      // first"). Every other source loads via reflection (including the default
+      // unset source), so its failure becomes neutral "load a schema" guidance.
       const msg =
-        t.grpc?.source === 'reflection' ? GRPC_NO_SERVICES_HINT : e instanceof Error ? e.message : String(e);
+        t.grpc?.source === 'proto' ? (e instanceof Error ? e.message : String(e)) : GRPC_NO_SERVICES_HINT;
       grpcErrorMap.update((m) => ({ ...m, [tabId]: msg }));
     } finally {
       busyMap.update((m) => {
