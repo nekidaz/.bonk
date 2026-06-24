@@ -9,6 +9,7 @@ export function parseCurl(input: string): HttpRequest {
   const bodies: string[] = [];
   const forms: string[] = [];
   let auth: HttpRequest['auth'];
+  let getMode = false;
 
   for (let i = 0; i < args.length; i += 1) {
     const arg = args[i];
@@ -17,7 +18,8 @@ export function parseCurl(input: string): HttpRequest {
     else if (arg.startsWith('-X') && arg.length > 2) method = arg.slice(2).toUpperCase();
     else if (arg === '-H' || arg === '--header') addHeader(headers, next());
     else if (arg.startsWith('-H') && arg.length > 2) addHeader(headers, arg.slice(2));
-    else if (['-d', '--data', '--data-raw', '--data-binary', '--data-urlencode'].includes(arg)) bodies.push(next());
+    else if (arg === '--data-urlencode') bodies.push(encodeDataUrlencode(next()));
+    else if (['-d', '--data', '--data-raw', '--data-binary'].includes(arg)) bodies.push(next());
     else if (arg === '--form' || arg === '-F') forms.push(next());
     else if (arg.startsWith('--form=')) forms.push(arg.slice(arg.indexOf('=') + 1));
     else if (arg.startsWith('-F') && arg.length > 2) forms.push(arg.slice(2));
@@ -26,11 +28,17 @@ export function parseCurl(input: string): HttpRequest {
     else if (arg.startsWith('--data=') || arg.startsWith('--data-raw=')) bodies.push(arg.slice(arg.indexOf('=') + 1));
     else if (arg === '--url') url = next();
     else if (arg === '-I' || arg === '--head') method = 'HEAD';
-    else if (arg === '-G' || arg.startsWith('--')) continue;
+    else if (arg === '-G' || arg === '--get') getMode = true;
+    else if (arg.startsWith('--')) continue;
     else if (!arg.startsWith('-') && !url) url = arg;
   }
 
   if (!url) throw new Error('Could not find URL in cURL command.');
+  // -G/--get sends the collected -d/--data as the GET query string, not a body.
+  if (getMode && bodies.length > 0) {
+    url += (url.includes('?') ? '&' : '?') + bodies.join('&');
+    bodies.length = 0;
+  }
   if (!method) method = bodies.length > 0 || forms.length > 0 ? 'POST' : 'GET';
   if (forms.length > 0) {
     return {
@@ -52,6 +60,18 @@ export function parseCurl(input: string): HttpRequest {
     rawBodyFormat: inferRawFormat(headers, body),
     auth,
   };
+}
+
+/**
+ * Encode a curl `--data-urlencode` argument. Forms: `content` (encode all),
+ * `=content` (encode, no name), `name=content` (keep name, encode content).
+ */
+function encodeDataUrlencode(arg: string): string {
+  const eq = arg.indexOf('=');
+  if (eq === -1) return encodeURIComponent(arg);
+  const name = arg.slice(0, eq);
+  const content = encodeURIComponent(arg.slice(eq + 1));
+  return name ? `${name}=${content}` : content;
 }
 
 function parseBasicAuth(value: string): HttpRequest['auth'] {
