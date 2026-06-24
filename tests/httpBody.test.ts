@@ -106,6 +106,11 @@ describe('buildUrlEncodedBody', () => {
       'full+name=a%26b&city=M%C3%BCnchen',
     );
   });
+  it('leaves {{var}} placeholders intact for backend interpolation', () => {
+    expect(buildUrlEncodedBody([bp('token', '{{authToken}}'), bp('id', 'u {{n}}')])).toBe(
+      'token={{authToken}}&id=u+{{n}}',
+    );
+  });
   it('returns an empty string for no rows', () => {
     expect(buildUrlEncodedBody([])).toBe('');
   });
