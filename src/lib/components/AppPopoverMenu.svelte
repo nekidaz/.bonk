@@ -40,13 +40,7 @@
 
   const reqTypes: TypeRow[] = [
     { label: 'HTTP', icon: 'language', color: '#2aa3ff', go: () => onPick('http') },
-    { label: 'GraphQL', icon: 'hub', color: '#e535ab' },
-    { label: 'AI', icon: 'auto_awesome', color: '#34c759' },
-    { label: 'MCP', icon: 'deployed_code', color: '#14b8a6' },
     { label: 'gRPC', icon: 'lan', color: '#4a8cff', go: () => onPick('grpc') },
-    { label: 'WebSocket', icon: 'power', color: '#f1841a' },
-    { label: 'Socket.IO', icon: 'bolt', color: '#f1841a' },
-    { label: 'MQTT', icon: 'rss_feed', color: '#8a52e0' },
   ];
 
   const switchTypes: TypeRow[] = reqTypes

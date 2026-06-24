@@ -54,7 +54,6 @@
         <div class="bs-flabel">Request name</div>
         <!-- svelte-ignore a11y_autofocus -->
         <input class="bs-input" bind:value={name} autofocus />
-        <span class="bs-link">Add description</span>
         <div class="bs-saveto">Save to <span>{targetId ? (findNode($collections, targetId)?.name ?? '—') : 'Workspace root'}</span></div>
         <div class="bs-collbox">
           <div class="bs-colllist">

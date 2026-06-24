@@ -66,7 +66,6 @@
 
 <div class="bs-railrow">
   <button class="bs-ri" class:on={panel === 'collections'} title="Collections" onclick={() => (panel = 'collections')}><span class="material-symbols-outlined" style="font-size:17px">deployed_code</span></button>
-  <button class="bs-ri"><span class="material-symbols-outlined" style="font-size:17px">terminal</span></button>
   <button class="bs-ri" class:on={panel === 'history'} title="History" onclick={() => (panel = 'history')}><span class="material-symbols-outlined" style="font-size:17px">history</span></button>
   {#if GIT_ENABLED}
     <button class="bs-ri" class:on={panel === 'git'} title="Source control" onclick={() => (panel = 'git')}><span class="material-symbols-outlined" style="font-size:17px">account_tree</span></button>
@@ -78,7 +77,6 @@
 <div class="bs-filterrow">
   <div class="bs-fbox"><span class="material-symbols-outlined" style="font-size:13px">filter_alt</span>Filter</div>
   <button class="bs-fi" title="New" onclick={(e) => openMenu('create', e)}><span class="material-symbols-outlined" style="font-size:15px">add</span></button>
-  <button class="bs-fi"><span class="material-symbols-outlined" style="font-size:15px">edit_square</span></button>
   <button class="bs-fi" onclick={(e) => openMenu('coll', e)}><span class="material-symbols-outlined" style="font-size:15px">more_horiz</span></button>
 </div>
 
@@ -162,7 +160,4 @@
       <span class="material-symbols-outlined" style="font-size:13px">cloud_done</span>Saved as files
     </div>
   {/if}
-  <button class="bs-ffold"><span class="material-symbols-outlined" style="font-size:12px">chevron_right</span>Environments</button>
-  <button class="bs-ffold"><span class="material-symbols-outlined" style="font-size:12px">chevron_right</span>Specs</button>
-  <button class="bs-ffold"><span class="material-symbols-outlined" style="font-size:12px">chevron_right</span>Flows</button>
 </div>
