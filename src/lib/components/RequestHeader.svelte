@@ -1,5 +1,6 @@
 <script lang="ts">
   import { renameActiveTab, resetActiveTabTitle } from '../stores';
+  import { toCurl } from '../domain/curl';
   import type { Tab } from '../domain/types';
 
   let {
@@ -19,6 +20,19 @@
   let editing = $state(false);
   let draft = $state('');
   let input = $state<HTMLInputElement | undefined>(undefined);
+
+  let copied = $state(false);
+  let copiedTimer: ReturnType<typeof setTimeout> | undefined;
+  async function copyAsCurl(): Promise<void> {
+    try {
+      await navigator.clipboard.writeText(toCurl(tab));
+      copied = true;
+      if (copiedTimer) clearTimeout(copiedTimer);
+      copiedTimer = setTimeout(() => (copied = false), 1200);
+    } catch (e) {
+      console.error('copy as curl failed', e);
+    }
+  }
 
   // Discard any in-progress rename when the active tab changes. Every reachable
   // tab-switch blurs the input first (committing it), but this keeps the edit
@@ -88,5 +102,9 @@
     </button>
     <button class="bs-save bs-save-more" title="Save to folder…" onclick={onOpenSave}><span class="material-symbols-outlined" style="font-size:14px">expand_more</span></button>
   </div>
-  <button class="bs-share"><span class="material-symbols-outlined" style="font-size:14px">link</span>Share</button>
+  {#if tab.protocol !== 'grpc'}
+    <button class="bs-share" title="Copy as cURL" onclick={copyAsCurl}>
+      <span class="material-symbols-outlined" style="font-size:14px">{copied ? 'check' : 'content_copy'}</span>{copied ? 'Copied' : 'cURL'}
+    </button>
+  {/if}
 </div>

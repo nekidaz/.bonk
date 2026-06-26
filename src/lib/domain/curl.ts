@@ -1,4 +1,35 @@
-import type { BodyParam, HttpRequest } from './types';
+import type { BodyParam, HttpRequest, Tab } from './types';
+import { buildUrl } from './http';
+import { buildRequestForSend, currentBodyMode, enabledBodyParams } from './httpBody';
+
+/** Single-quote a value for a POSIX shell, escaping embedded single quotes. */
+function shellQuote(s: string): string {
+  return `'${s.replace(/'/g, "'\\''")}'`;
+}
+
+/**
+ * Serialize a request tab as a copy-pasteable `curl` command. Resolves the same
+ * final URL, headers (auth + content-type), and body that a real send would
+ * produce; form-data becomes `--form` parts (files as `@path`).
+ */
+export function toCurl(tab: Tab): string {
+  const finalUrl = buildUrl(tab.request.url, tab.params);
+  const req = buildRequestForSend(tab, finalUrl);
+  const lines: string[] = [`curl ${shellQuote(req.url || '')}`];
+  if (req.method && req.method !== 'GET') lines.push(`--request ${req.method}`);
+  for (const [key, value] of Object.entries(req.headers ?? {})) {
+    lines.push(`--header ${shellQuote(`${key}: ${value}`)}`);
+  }
+  if (currentBodyMode(tab) === 'form-data') {
+    for (const row of enabledBodyParams(tab)) {
+      const value = row.kind === 'file' && row.filePath ? `@${row.filePath}` : row.value;
+      lines.push(`--form ${shellQuote(`${row.key}=${value}`)}`);
+    }
+  } else if (req.body) {
+    lines.push(`--data ${shellQuote(req.body)}`);
+  }
+  return lines.join(' \\\n  ');
+}
 
 export function parseCurl(input: string): HttpRequest {
   const args = tokenize(input.replace(/\\\r?\n/g, ' '));
