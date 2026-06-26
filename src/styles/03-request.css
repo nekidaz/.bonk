@@ -1,5 +1,5 @@
 /* Main */
-.bs-main { flex: 1; display: flex; flex-direction: column; min-width: 0; background: var(--bg); }
+.bs-main { flex: 1; display: flex; flex-direction: column; min-width: 0; background: var(--bg); position: relative; }
 .bs-tabbar { height: 38px; display: flex; align-items: center; border-bottom: 0.5px solid var(--sep); background: var(--side); }
 .bs-tab { display: flex; align-items: center; gap: 8px; height: 100%; padding: 0 13px; border-right: 0.5px solid var(--sep); font-size: 12.5px; position: relative; max-width: 220px; }
 .bs-tab-hit { min-width: 0; flex: 1; height: 100%; display: flex; align-items: center; gap: 8px; }
