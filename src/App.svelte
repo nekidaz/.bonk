@@ -24,6 +24,7 @@
   import AppToolbar from './lib/components/AppToolbar.svelte';
   import RequestHeader from './lib/components/RequestHeader.svelte';
   import ResponsePane from './lib/components/ResponsePane.svelte';
+  import CodeSnippetPanel from './lib/components/CodeSnippetPanel.svelte';
   import Sidebar from './lib/components/Sidebar.svelte';
   import GitDiffView from './lib/components/GitDiffView.svelte';
   import ProjectDiffView from './lib/components/ProjectDiffView.svelte';
@@ -114,6 +115,7 @@
   // Save Request dialog
   let saveOpen = $state(false);
   let settingsOpen = $state(false);
+  let codeOpen = $state(false);
   function openSaveDialog(): void {
     saveOpen = true;
   }
@@ -325,7 +327,7 @@
             <GitDiffView tab={active} />
           {/if}
         {:else}
-        <RequestHeader tab={active} {savedFlash} onSwitch={(e) => openMenu('switch', e)} onSmartSave={smartSave} onOpenSave={openSaveDialog} />
+        <RequestHeader tab={active} {savedFlash} onSwitch={(e) => openMenu('switch', e)} onSmartSave={smartSave} onOpenSave={openSaveDialog} onCode={() => (codeOpen = !codeOpen)} />
 
         {#if active.protocol === 'grpc'}
           {#key active.id}
@@ -337,6 +339,9 @@
           <ResponsePane tab={active} {responseHeight} onResize={startSplitDrag} />
         {/if}
         {/if}
+      {/if}
+      {#if codeOpen && active && active.protocol !== 'grpc' && active.protocol !== 'git'}
+        <CodeSnippetPanel tab={active} onClose={() => (codeOpen = false)} />
       {/if}
     </main>
   </div>
