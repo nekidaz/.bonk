@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { parseCurl } from '../src/lib/domain/curl';
+import { parseCurl, toCurl } from '../src/lib/domain/curl';
+import type { Tab } from '../src/lib/domain/types';
 
 describe('parseCurl', () => {
   it('parses method, headers, url and json body', () => {
@@ -46,5 +47,40 @@ describe('parseCurl', () => {
     const req = parseCurl(`curl https://example.com --data-urlencode 'msg=hello world&x'`);
     expect(req.method).toBe('POST');
     expect(req.body).toBe('msg=hello%20world%26x');
+  });
+});
+
+describe('toCurl', () => {
+  const tab = (request: Tab['request']): Tab => ({ id: 't', protocol: 'http', title: 'T', request });
+
+  it('serializes method, headers and a JSON body', () => {
+    const out = toCurl(
+      tab({
+        method: 'POST',
+        url: 'https://api.example.com/users',
+        headers: { 'Content-Type': 'application/json' },
+        body: '{"name":"Ada"}',
+        bodyMode: 'raw',
+      }),
+    );
+    expect(out).toContain("curl 'https://api.example.com/users'");
+    expect(out).toContain('--request POST');
+    expect(out).toContain("--header 'Content-Type: application/json'");
+    expect(out).toContain(`--data '{"name":"Ada"}'`);
+  });
+
+  it('omits --request and body for a plain GET', () => {
+    expect(toCurl(tab({ method: 'GET', url: 'https://h/x', headers: {} }))).toBe("curl 'https://h/x'");
+  });
+
+  it('round-trips back through parseCurl', () => {
+    const out = toCurl(
+      tab({ method: 'POST', url: 'https://h/x', headers: { 'X-A': '1' }, body: 'hello', bodyMode: 'raw' }),
+    );
+    const back = parseCurl(out);
+    expect(back.method).toBe('POST');
+    expect(back.url).toBe('https://h/x');
+    expect(back.headers['X-A']).toBe('1');
+    expect(back.body).toBe('hello');
   });
 });
