@@ -8,14 +8,12 @@
     onSwitch,
     onSmartSave,
     onOpenSave,
-    onCode,
   }: {
     tab: Tab;
     savedFlash: boolean;
     onSwitch: (e: MouseEvent) => void;
     onSmartSave: () => void | Promise<void>;
     onOpenSave: () => void;
-    onCode: () => void;
   } = $props();
 
   let editing = $state(false);
@@ -90,9 +88,4 @@
     </button>
     <button class="bs-save bs-save-more" title="Save to folder…" onclick={onOpenSave}><span class="material-symbols-outlined" style="font-size:14px">expand_more</span></button>
   </div>
-  {#if tab.protocol !== 'grpc'}
-    <button class="bs-share" title="View code (cURL)" onclick={onCode}>
-      <span class="material-symbols-outlined" style="font-size:14px">code</span>Code
-    </button>
-  {/if}
 </div>

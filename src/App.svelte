@@ -329,7 +329,7 @@
             <GitDiffView tab={active} />
           {/if}
         {:else}
-        <RequestHeader tab={active} {savedFlash} onSwitch={(e) => openMenu('switch', e)} onSmartSave={smartSave} onOpenSave={openSaveDialog} onCode={() => (codeOpen = !codeOpen)} />
+        <RequestHeader tab={active} {savedFlash} onSwitch={(e) => openMenu('switch', e)} onSmartSave={smartSave} onOpenSave={openSaveDialog} />
 
         {#if active.protocol === 'grpc'}
           {#key active.id}
