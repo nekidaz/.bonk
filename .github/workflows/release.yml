@@ -1,14 +1,20 @@
 name: Release
 
-# Build signed macOS + Linux + Windows bundles and attach them to a GitHub
+# Build signed macOS + Linux + Windows bundles and publish them to a GitHub
 # Release when a version tag is pushed, e.g. `git tag v0.1.0 && git push origin v0.1.0`.
+#
+# This is the PRIVATE source repo (nekidaz/bonk-src). The release is cross-
+# published into the PUBLIC repo nekidaz/.bonk (via tauri-action's owner/repo +
+# a PAT) so that brew/choco/Pages and end-user downloads keep pointing at a
+# public repo while the source stays private.
 #
 # The bundles are UNSIGNED by Apple/Microsoft (Gatekeeper/SmartScreen will warn
 # on first open), but they ARE signed with the Tauri updater key so the in-app
 # auto-updater can verify and install them. tauri-action also publishes a
-# `latest.json` update manifest, merged across both platforms.
+# `latest.json` update manifest, merged across all platforms.
 #
-# Required repo secrets:
+# Required repo secrets (set on nekidaz/bonk-src):
+#   DIST_TOKEN                          PAT with `contents:write` on nekidaz/.bonk
 #   TAURI_SIGNING_PRIVATE_KEY           contents of the updater private key
 #   TAURI_SIGNING_PRIVATE_KEY_PASSWORD  its password ("" if generated without one)
 on:
@@ -78,12 +84,18 @@ jobs:
       - name: Build and release
         uses: tauri-apps/tauri-action@v0
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # DIST_TOKEN is a PAT with contents:write on nekidaz/.bonk; tauri-action
+          # uses it to create the release in that (different) public repo.
+          GITHUB_TOKEN: ${{ secrets.DIST_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
           # linuxdeploy/AppImage needs FUSE, which CI runners lack — extract instead of mount.
           APPIMAGE_EXTRACT_AND_RUN: 1
         with:
+          # Cross-publish the release into the public distribution repo.
+          owner: nekidaz
+          repo: .bonk
+          releaseCommitish: main
           args: ${{ matrix.args }}
           tagName: ${{ github.ref_name }}
           releaseName: 'bonk ${{ github.ref_name }}'
