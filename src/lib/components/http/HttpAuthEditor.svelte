@@ -1,7 +1,7 @@
 <script lang="ts">
   import { authFor } from '../../domain/httpHeaders';
   import { updateActiveTab } from '../../stores';
-  import type { ApiKeyLocation, AuthConfig, AuthType, Tab } from '../../domain/types';
+  import type { ApiKeyLocation, AuthType, Tab } from '../../domain/types';
 
   let { tab }: { tab: Tab } = $props();
 
@@ -20,8 +20,12 @@
     updateActiveTab((t) => ({ ...t, request: { ...t.request, auth: { ...authFor(t), type, apiKeyIn: authFor(t).apiKeyIn ?? 'header' } } }));
   }
 
-  function setAuthField(field: keyof AuthConfig, value: string): void {
-    updateActiveTab((t) => ({ ...t, request: { ...t.request, auth: { ...authFor(t), [field]: value } as AuthConfig } }));
+  // Only the string-valued auth fields are edited via free-text inputs; `type`
+  // and `apiKeyIn` are enum-valued and have their own dedicated setters above.
+  type AuthStringField = 'bearerToken' | 'basicUsername' | 'basicPassword' | 'apiKeyName' | 'apiKeyValue';
+
+  function setAuthField(field: AuthStringField, value: string): void {
+    updateActiveTab((t) => ({ ...t, request: { ...t.request, auth: { ...authFor(t), [field]: value } } }));
   }
 
   function setApiKeyLocation(value: ApiKeyLocation): void {

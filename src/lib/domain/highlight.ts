@@ -83,7 +83,9 @@ export function highlightMarkup(raw: string): string {
     return esc(raw).replace(
     /(&lt;\/?)([A-Za-z][\w:.-]*)([^&]*?)(&gt;)|(\b[A-Za-z_:][\w:.-]*)(=)(&quot;.*?&quot;|'.*?')/g,
     (m, open, tag, attrs, close, attr, eq, val) => {
-      if (tag) return `<span class="br">${open}</span><span class="tag">${tag}</span><span class="attr">${attrs}</span><span class="br">${close}</span>`;
+      // `attrs` is sourced from already-escaped text, but re-escape it before it
+      // re-enters the {@html} output as defense-in-depth against the HTML sinks.
+      if (tag) return `<span class="br">${open}</span><span class="tag">${tag}</span><span class="attr">${esc(attrs)}</span><span class="br">${close}</span>`;
       if (attr) return `<span class="attr">${attr}</span><span class="pu">${eq}</span><span class="s2">${val}</span>`;
       return m;
     },

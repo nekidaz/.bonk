@@ -19,7 +19,10 @@ mod tests {
     #[test]
     fn prepends_https_when_scheme_missing() {
         assert_eq!(normalize_url("google.com"), "https://google.com");
-        assert_eq!(normalize_url("api.example.com/v1/users"), "https://api.example.com/v1/users");
+        assert_eq!(
+            normalize_url("api.example.com/v1/users"),
+            "https://api.example.com/v1/users"
+        );
     }
 
     #[test]
@@ -31,7 +34,10 @@ mod tests {
     #[test]
     fn local_hosts_use_http() {
         assert_eq!(normalize_url("localhost:8080"), "http://localhost:8080");
-        assert_eq!(normalize_url("127.0.0.1:3000/health"), "http://127.0.0.1:3000/health");
+        assert_eq!(
+            normalize_url("127.0.0.1:3000/health"),
+            "http://127.0.0.1:3000/health"
+        );
     }
 
     #[test]

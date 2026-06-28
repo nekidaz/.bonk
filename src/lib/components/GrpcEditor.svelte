@@ -57,7 +57,7 @@
   const grpcGuiding = $derived(activeGrpcError === GRPC_NO_SERVICES_HINT);
 
   function setGrpc(patch: Record<string, unknown>): void {
-    updateActiveTab((t) => ({ ...t, grpc: { ...t.grpc!, ...patch } }));
+    updateActiveTab((t) => (t.grpc ? { ...t, grpc: { ...t.grpc, ...patch } } : t));
   }
   function useReflection(): void {
     setGrpc({ source: 'reflection', connectionId: undefined, tree: undefined });
@@ -66,10 +66,11 @@
     const tabId = tab.id;
     const picked = await protoPick();
     if (!picked || picked.length === 0) return;
-    updateTabById(tabId, (t) => ({
-      ...t,
-      grpc: { ...t.grpc!, source: 'proto', protoPaths: picked, connectionId: undefined, tree: undefined },
-    }));
+    updateTabById(tabId, (t) =>
+      t.grpc
+        ? { ...t, grpc: { ...t.grpc, source: 'proto', protoPaths: picked, connectionId: undefined, tree: undefined } }
+        : t,
+    );
   }
   async function addImportRoot(): Promise<void> {
     const tabId = tab.id;
@@ -77,10 +78,11 @@
     if (!dir) return;
     const current = $tabs.find((t) => t.id === tabId)?.grpc?.importPaths ?? [];
     const roots = [...current, dir];
-    updateTabById(tabId, (t) => ({
-      ...t,
-      grpc: { ...t.grpc!, source: 'proto', importPaths: roots, connectionId: undefined, tree: undefined },
-    }));
+    updateTabById(tabId, (t) =>
+      t.grpc
+        ? { ...t, grpc: { ...t.grpc, source: 'proto', importPaths: roots, connectionId: undefined, tree: undefined } }
+        : t,
+    );
   }
   async function grpcDoConnect(): Promise<void> {
     const t = tab;
@@ -97,7 +99,7 @@
         t.grpc.source === 'proto'
           ? await grpcLoadProto(connId, t.grpc.protoPaths ?? [], t.grpc.importPaths ?? [])
           : await grpcReflect(connId, $requestTimeoutMs);
-      updateTabById(tabId, (x) => ({ ...x, grpc: { ...x.grpc!, connectionId: connId, tree } }));
+      updateTabById(tabId, (x) => (x.grpc ? { ...x, grpc: { ...x.grpc, connectionId: connId, tree } } : x));
     } catch (e) {
       // Only the proto source shows a verbatim error (compile / "select a proto
       // first"). Every other source loads via reflection (including the default
@@ -115,11 +117,15 @@
   }
   /** Set endpoint and drop any stale connection so the next action reconnects. */
   function setEndpoint(v: string): void {
-    updateActiveTab((t) => ({
-      ...t,
-      title: t.manualTitle ? t.title : titleFromUrl(v, GRPC_DEFAULT_TITLE),
-      grpc: { ...t.grpc!, endpoint: v, connectionId: undefined, tree: undefined },
-    }));
+    updateActiveTab((t) =>
+      t.grpc
+        ? {
+            ...t,
+            title: t.manualTitle ? t.title : titleFromUrl(v, GRPC_DEFAULT_TITLE),
+            grpc: { ...t.grpc, endpoint: v, connectionId: undefined, tree: undefined },
+          }
+        : t,
+    );
   }
   /** Connect + reflect automatically if not already connected. TLS is inferred. */
   async function ensureConnected(): Promise<void> {
@@ -133,20 +139,23 @@
   function grpcDoSelect(symbol: string): void {
     const id = tab?.grpc?.connectionId;
     if (!id) return;
+    // Capture the originating tab so both the method write and the deferred
+    // template load target it, never whichever tab is active later.
+    const tabId = tab.id;
     flushSync(() => {
       methodOpen = false;
-      updateActiveTab((t) => ({ ...t, grpc: { ...t.grpc!, method: symbol } }));
+      updateTabById(tabId, (t) => (t.grpc ? { ...t, grpc: { ...t.grpc, method: symbol } } : t));
     });
     window.setTimeout(() => {
-      void loadGrpcTemplate(id, symbol);
+      void loadGrpcTemplate(tabId, id, symbol);
     }, 0);
   }
-  async function loadGrpcTemplate(connectionId: string, symbol: string): Promise<void> {
+  async function loadGrpcTemplate(tabId: string, connectionId: string, symbol: string): Promise<void> {
     try {
       const tpl = await grpcTemplate(connectionId, symbol);
-      updateActiveTab((t) =>
+      updateTabById(tabId, (t) =>
         t.grpc?.method === symbol
-          ? { ...t, grpc: { ...t.grpc!, message: tpl } }
+          ? { ...t, grpc: { ...t.grpc, message: tpl } }
           : t,
       );
     } catch {
@@ -194,7 +203,7 @@
     const requestId = crypto.randomUUID();
     grpcErrorMap.update((m) => ({ ...m, [tabId]: '' }));
     busyMap.update((m) => ({ ...m, [tabId]: { kind: 'invoke', requestId } }));
-    let result: GrpcResult;
+    let result: GrpcResult = { ok: false, status: 'ERROR', body: '', elapsed_ms: 0, size_bytes: 0 };
     try {
       result = await grpcCall(g.connectionId, g.method, g.message, g.metadata, requestId, $requestTimeoutMs);
     } catch (e) {

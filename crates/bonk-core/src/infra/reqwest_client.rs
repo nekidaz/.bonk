@@ -1,6 +1,11 @@
 use crate::domain::http::{BodyParam, HttpRequest};
 use std::path::Path;
 
+/// Upper bound on a single multipart form-data file. Building the request reads
+/// the file into memory, so without a cap a large attachment could exhaust RAM.
+/// Kept in the same order of magnitude as the HTTP response body cap.
+const MAX_FORM_FILE_BYTES: u64 = 100 * 1024 * 1024;
+
 pub fn build_request_to(
     client: &reqwest::Client,
     req: &HttpRequest,
@@ -55,6 +60,16 @@ fn build_multipart_form(req: &HttpRequest) -> Result<Option<reqwest::multipart::
             let path = form_file_path(row)
                 .filter(|path| !path.is_empty())
                 .ok_or_else(|| format!("form-data file '{}' has no file selected", row.key))?;
+            // Reject oversized files by metadata before reading them into memory,
+            // so a huge attachment can't OOM the process while building the body.
+            let size = std::fs::metadata(path)
+                .map_err(|e| format!("failed to read form-data file '{path}': {e}"))?
+                .len();
+            if size > MAX_FORM_FILE_BYTES {
+                return Err(format!(
+                    "form-data file '{path}' is {size} bytes, larger than the {MAX_FORM_FILE_BYTES}-byte limit"
+                ));
+            }
             let bytes = std::fs::read(path)
                 .map_err(|e| format!("failed to read form-data file '{path}': {e}"))?;
             let filename = Path::new(path)
@@ -104,7 +119,10 @@ mod tests {
             method: "post".into(),
             url: "https://example.com/upload".into(),
             headers: BTreeMap::from([
-                ("Content-Type".into(), "multipart/form-data; boundary=wrong".into()),
+                (
+                    "Content-Type".into(),
+                    "multipart/form-data; boundary=wrong".into(),
+                ),
                 ("x-test".into(), "1".into()),
             ]),
             body: Some("ignored".into()),
@@ -122,7 +140,12 @@ mod tests {
         };
         let built = build_request_to(&client, &req, reqwest::Method::POST, &req.url).unwrap();
         assert_eq!(built.headers().get("x-test").unwrap(), "1");
-        let content_type = built.headers().get("content-type").unwrap().to_str().unwrap();
+        let content_type = built
+            .headers()
+            .get("content-type")
+            .unwrap()
+            .to_str()
+            .unwrap();
         assert!(content_type.starts_with("multipart/form-data; boundary="));
         assert_ne!(content_type, "multipart/form-data; boundary=wrong");
     }

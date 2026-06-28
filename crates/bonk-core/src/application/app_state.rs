@@ -46,7 +46,9 @@ pub fn load_map(path: &Path) -> Result<Value, String> {
 /// across keys): each call writes the whole document from the latest on-disk
 /// state plus this one key. Serialized process-wide by `WRITE_LOCK`.
 pub fn set_key(path: &Path, key: &str, value: Value) -> Result<(), String> {
-    let _guard = WRITE_LOCK.lock().map_err(|_| "state lock poisoned".to_string())?;
+    let _guard = WRITE_LOCK
+        .lock()
+        .map_err(|_| "state lock poisoned".to_string())?;
     let mut map: Map<String, Value> = match load_map(path)? {
         Value::Object(m) => m,
         _ => Map::new(),
@@ -61,7 +63,12 @@ pub fn set_key(path: &Path, key: &str, value: Value) -> Result<(), String> {
     let seq = TMP_SEQ.fetch_add(1, Ordering::Relaxed);
     let tmp = path.with_extension(format!("json.tmp.{}.{seq}", std::process::id()));
     fs::write(&tmp, out).map_err(|e| e.to_string())?;
-    fs::rename(&tmp, path).map_err(|e| e.to_string())?;
+    if let Err(e) = fs::rename(&tmp, path) {
+        // The rename failed, so the temp file is now an orphan — clean it up
+        // before returning rather than leaking a `.tmp` file on every failure.
+        let _ = fs::remove_file(&tmp);
+        return Err(e.to_string());
+    }
     Ok(())
 }
 
@@ -78,7 +85,10 @@ mod tests {
         static SEQ: AtomicU64 = AtomicU64::new(0);
         std::env::temp_dir().join(format!(
             "bonk-state-{}-{}",
-            SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos(),
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_nanos(),
             SEQ.fetch_add(1, Ordering::Relaxed)
         ))
     }

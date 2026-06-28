@@ -7,7 +7,14 @@
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::process::Command;
+use std::io::Read;
+use std::process::{Command, Stdio};
+use std::time::{Duration, Instant};
+
+/// How long a network git op (`push`/`pull`) may run before we kill it. A
+/// stalled remote (dropped connection, server hang) would otherwise block the
+/// blocking-pool thread driving the IPC call indefinitely; this bounds it.
+const NETWORK_TIMEOUT: Duration = Duration::from_secs(120);
 
 /// One changed/untracked path from `git status`.
 ///
@@ -193,7 +200,13 @@ pub fn status(root: &str) -> Result<GitStatus, String> {
     // file, not just the folder.
     let out = git(
         &top,
-        &["status", "--porcelain=v1", "--branch", "--untracked-files=all", "-z"],
+        &[
+            "status",
+            "--porcelain=v1",
+            "--branch",
+            "--untracked-files=all",
+            "-z",
+        ],
     )?;
 
     // `-z` yields NUL-delimited records. The first is the `## ...` header; the
@@ -279,7 +292,10 @@ pub fn unstage(root: &str, paths: &[String]) -> Result<(), String> {
 /// follows it. Used by [`discard`] to recover the original path the new path
 /// came from (the new path alone doesn't exist in HEAD).
 fn staged_renames(top: &str) -> HashMap<String, String> {
-    let out = match git(top, &["status", "--porcelain=v1", "--untracked-files=no", "-z"]) {
+    let out = match git(
+        top,
+        &["status", "--porcelain=v1", "--untracked-files=no", "-z"],
+    ) {
         Ok(out) => out,
         Err(_) => return HashMap::new(),
     };
@@ -321,14 +337,41 @@ pub fn discard(root: &str, paths: &[String]) -> Result<(), String> {
         // would only delete it and leave the old path staged-as-deleted. Restore
         // the old path from HEAD (un-staging the delete), then drop the new path.
         if let Some(old) = renames.get(p) {
-            git(&top, &["restore", "--staged", "--worktree", "--source=HEAD", "--", old])?;
+            git(
+                &top,
+                &[
+                    "restore",
+                    "--staged",
+                    "--worktree",
+                    "--source=HEAD",
+                    "--",
+                    old,
+                ],
+            )?;
             let _ = git(&top, &["rm", "--cached", "-q", "--", p]);
             let _ = std::fs::remove_file(std::path::Path::new(&top).join(p));
             continue;
         }
-        let in_head = git(&top, &["cat-file", "-e", &format!("HEAD:{p}")]).is_ok();
+        // Detect "exists in HEAD" with a `--`-separated form so a path that
+        // starts with `-` (or otherwise looks like an option) can't be parsed as
+        // a flag — `HEAD:{p}` puts the path in git's object-path slot where `--`
+        // can't guard it. `ls-tree` prints the path only when it's tracked at
+        // HEAD, so non-empty output means it exists.
+        let in_head = git(&top, &["ls-tree", "--name-only", "HEAD", "--", p])
+            .map(|out| !out.trim().is_empty())
+            .unwrap_or(false);
         if in_head {
-            git(&top, &["restore", "--staged", "--worktree", "--source=HEAD", "--", p])?;
+            git(
+                &top,
+                &[
+                    "restore",
+                    "--staged",
+                    "--worktree",
+                    "--source=HEAD",
+                    "--",
+                    p,
+                ],
+            )?;
         } else {
             // Drop from the index if staged (no-op otherwise), then remove the file.
             let _ = git(&top, &["rm", "--cached", "-q", "--", p]);
@@ -402,10 +445,10 @@ pub fn checkout(root: &str, name: &str) -> Result<(), String> {
     Ok(())
 }
 
-/// Create and switch to a new branch. `--end-of-options` keeps a name that
-/// begins with `-` from being parsed as a flag.
+/// Create and switch to a new branch. The name is the value of `-c`, so git
+/// consumes it literally (a leading `-` is taken as the branch name, not a flag).
 pub fn create_branch(root: &str, name: &str) -> Result<(), String> {
-    git(root, &["switch", "-c", name, "--end-of-options"])?;
+    git(root, &["switch", "-c", name])?;
     Ok(())
 }
 
@@ -427,21 +470,76 @@ pub fn pull(root: &str) -> Result<String, String> {
 ///
 /// We force non-interactive auth: `GIT_TERMINAL_PROMPT=0` and an SSH BatchMode
 /// command. Without a controlling terminal a credential/passphrase prompt would
-/// block `output()` forever (and with it a Tauri IPC worker), so we make missing
-/// credentials fail fast with a clear error the UI can show instead of hanging.
+/// block forever, so we make missing credentials fail fast with a clear error
+/// the UI can show instead of hanging.
+///
+/// Even with prompts disabled a remote can stall mid-transfer (dropped TCP
+/// connection, hung server), so we cap the whole run at [`NETWORK_TIMEOUT`]:
+/// the child is spawned, its pipes are drained on threads (so a large transfer
+/// can't deadlock on a full pipe buffer), and we poll for exit until the
+/// deadline — killing the child and returning a timeout error if it's exceeded.
 fn run_combined(root: &str, args: &[&str]) -> Result<String, String> {
-    let output = Command::new("git")
+    let mut child = Command::new("git")
         .env("GIT_TERMINAL_PROMPT", "0")
         .env("GIT_SSH_COMMAND", "ssh -oBatchMode=yes")
         .arg("-C")
         .arg(root)
         .args(args)
-        .output()
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
         .map_err(|e| format!("failed to run git: {e}"))?;
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    let stderr = String::from_utf8_lossy(&output.stderr);
+
+    // Drain both pipes on their own threads. If we polled the child for exit
+    // while leaving the pipes unread, a transfer big enough to fill a pipe
+    // buffer would block git forever and our timeout would always fire. Generic
+    // over the reader so it serves both the (distinct) stdout/stderr pipe types.
+    fn drain<R: Read + Send + 'static>(pipe: Option<R>) -> std::thread::JoinHandle<Vec<u8>> {
+        std::thread::spawn(move || {
+            let mut buf = Vec::new();
+            if let Some(mut pipe) = pipe {
+                let _ = pipe.read_to_end(&mut buf);
+            }
+            buf
+        })
+    }
+    let stdout_handle = drain(child.stdout.take());
+    let stderr_handle = drain(child.stderr.take());
+
+    // Poll for exit until the deadline. try_wait() is non-blocking, so a stalled
+    // remote can't pin this thread past NETWORK_TIMEOUT.
+    let deadline = Instant::now() + NETWORK_TIMEOUT;
+    let status = loop {
+        match child.try_wait() {
+            Ok(Some(status)) => break status,
+            Ok(None) => {
+                if Instant::now() >= deadline {
+                    let _ = child.kill();
+                    let _ = child.wait();
+                    let _ = stdout_handle.join();
+                    let _ = stderr_handle.join();
+                    return Err(format!(
+                        "git {} timed out after {}s",
+                        args.join(" "),
+                        NETWORK_TIMEOUT.as_secs()
+                    ));
+                }
+                std::thread::sleep(Duration::from_millis(50));
+            }
+            Err(e) => {
+                let _ = child.kill();
+                let _ = child.wait();
+                return Err(format!("failed to run git: {e}"));
+            }
+        }
+    };
+
+    let stdout = stdout_handle.join().unwrap_or_default();
+    let stderr = stderr_handle.join().unwrap_or_default();
+    let stdout = String::from_utf8_lossy(&stdout);
+    let stderr = String::from_utf8_lossy(&stderr);
     let combined = format!("{stdout}{stderr}").trim().to_string();
-    if output.status.success() {
+    if status.success() {
         Ok(combined)
     } else if combined.is_empty() {
         Err(format!("git {} failed", args.join(" ")))
@@ -496,14 +594,22 @@ fn diff_head_at(top: &str, path: &str) -> Result<String, String> {
     git(top, &["diff", "HEAD", "--", path])
 }
 
-/// Diff an untracked file against `/dev/null` so its full contents show as
+/// The platform's null device, used as the "before" side of an untracked-file
+/// diff: `/dev/null` on unix, `NUL` on Windows (a bare `/dev/null` path doesn't
+/// exist there, so the diff would error instead of showing the file body).
+#[cfg(windows)]
+const NULL_DEVICE: &str = "NUL";
+#[cfg(not(windows))]
+const NULL_DEVICE: &str = "/dev/null";
+
+/// Diff an untracked file against the null device so its full contents show as
 /// additions. `--no-index` exits 0 (identical) or 1 (differences) — both are
 /// normal here; only a higher code is a real error.
 fn diff_untracked_at(top: &str, path: &str) -> Result<String, String> {
     let output = Command::new("git")
         .arg("-C")
         .arg(top)
-        .args(["diff", "--no-index", "--", "/dev/null", path])
+        .args(["diff", "--no-index", "--", NULL_DEVICE, path])
         .output()
         .map_err(|e| format!("failed to run git: {e}"))?;
     match output.status.code() {
@@ -512,7 +618,64 @@ fn diff_untracked_at(top: &str, path: &str) -> Result<String, String> {
     }
 }
 
-/// Diff for every changed file in one pass, for the aggregate Project Diff view.
+/// All tracked HEAD-vs-worktree diffs in ONE `git diff HEAD`, split into a
+/// `path → patch` map so [`status_diffs`] doesn't spawn a git process per file.
+///
+/// Returns `None` on an unborn branch (no HEAD to diff against), so the caller
+/// falls back to the per-file probe that handles a fresh repo. `core.quotepath`
+/// is forced off so non-ASCII paths in the `+++`/`---` headers stay literal and
+/// match the (already-literal) paths git status emits.
+///
+/// Each `diff --git` section is keyed by every path it names — the `b/` (new)
+/// and `a/` (old) sides from the `+++`/`---` headers plus any `rename to`/`rename
+/// from` — so a lookup by a status path resolves whether the file was added,
+/// modified, deleted, or renamed.
+fn all_head_diffs(top: &str) -> Result<Option<HashMap<String, String>>, String> {
+    if git(top, &["rev-parse", "--verify", "-q", "HEAD"]).is_err() {
+        return Ok(None);
+    }
+    let out = git(top, &["-c", "core.quotepath=false", "diff", "HEAD"])?;
+
+    let mut map: HashMap<String, String> = HashMap::new();
+    // Split on the per-file "diff --git" marker. The first chunk before the first
+    // marker is empty (or absent) and yields no paths, so it's harmless.
+    // The very first section keeps its leading "diff --git " (split removed it
+    // only for subsequent ones); normalise so every section text is uniform.
+    let mut first = true;
+    for raw in out.split("\ndiff --git ") {
+        let section = if first {
+            first = false;
+            // Drop anything before the first header (there shouldn't be any).
+            match raw.find("diff --git ") {
+                Some(idx) => raw[idx..].to_string(),
+                None => continue,
+            }
+        } else {
+            format!("diff --git {raw}")
+        };
+
+        // Collect the paths this section refers to from its header lines.
+        let mut paths: Vec<String> = Vec::new();
+        for line in section.lines() {
+            if let Some(p) = line.strip_prefix("+++ b/") {
+                paths.push(p.to_string());
+            } else if let Some(p) = line.strip_prefix("--- a/") {
+                paths.push(p.to_string());
+            } else if let Some(p) = line.strip_prefix("rename to ") {
+                paths.push(p.to_string());
+            } else if let Some(p) = line.strip_prefix("rename from ") {
+                paths.push(p.to_string());
+            }
+        }
+        let text = section.trim_end_matches('\n').to_string();
+        for p in paths {
+            map.entry(p).or_insert_with(|| text.clone());
+        }
+    }
+    Ok(Some(map))
+}
+
+/// Diff for every changed file, for the aggregate Project Diff view.
 ///
 /// One entry per status file. Untracked files show their whole contents as an
 /// addition. Every tracked file shows the **combined HEAD-vs-worktree** diff,
@@ -521,9 +684,15 @@ fn diff_untracked_at(top: &str, path: &str) -> Result<String, String> {
 /// exactly undoes what's shown. The `staged` flag is set only when the file is
 /// fully staged with a clean worktree, so the UI button reads "Unstage" only
 /// then and otherwise "Stage" (to stage the remaining worktree changes).
+///
+/// All tracked diffs come from a single `git diff HEAD` (see [`all_head_diffs`])
+/// instead of one process per file. A tracked file absent from that map (e.g. an
+/// unborn branch, or a corner the parser doesn't key) falls back to the per-file
+/// probe so its diff is never silently dropped.
 pub fn status_diffs(root: &str) -> Result<Vec<FileDiff>, String> {
     let st = status(root)?;
     let top = toplevel(root)?;
+    let head_diffs = all_head_diffs(&top)?;
     let mut out = Vec::with_capacity(st.files.len());
     for f in st.files {
         let untracked = f.index == "?";
@@ -534,7 +703,12 @@ pub fn status_diffs(root: &str) -> Result<Vec<FileDiff>, String> {
             // the worktree → "Stage" (the rest). Either way the diff is the full
             // HEAD-vs-worktree delta so nothing staged is hidden.
             let fully_staged = f.index != " " && f.worktree == " ";
-            (fully_staged, diff_head_at(&top, &f.path)?)
+            let diff = match head_diffs.as_ref().and_then(|m| m.get(&f.path)) {
+                Some(d) => d.clone(),
+                // Not in the batch (unborn branch / unkeyed corner) → per-file.
+                None => diff_head_at(&top, &f.path)?,
+            };
+            (fully_staged, diff)
         };
         out.push(FileDiff {
             path: f.path,
@@ -554,10 +728,7 @@ pub fn log(root: &str, limit: u32) -> Result<Vec<GitCommit>, String> {
     // appears in hashes, short refs, author names, or short dates, and a subject
     // can't contain a newline.
     let fmt = "--pretty=format:%H\x1f%h\x1f%s\x1f%an\x1f%ad";
-    let out = match git(
-        root,
-        &["log", "-n", &n, fmt, "--date=short"],
-    ) {
+    let out = match git(root, &["log", "-n", &n, fmt, "--date=short"]) {
         Ok(out) => out,
         // A repo with no commits errors ("does not have any commits yet"); treat
         // that as simply "no history".
@@ -620,7 +791,10 @@ mod tests {
         static SEQ: AtomicU64 = AtomicU64::new(0);
         std::env::temp_dir().join(format!(
             "bonk-git-{}-{}",
-            SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos(),
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_nanos(),
             SEQ.fetch_add(1, Ordering::Relaxed)
         ))
     }
@@ -717,7 +891,11 @@ mod tests {
         assert_eq!(current_branch(root).unwrap(), "feature");
 
         let bs = branches(root).unwrap();
-        assert_eq!(bs.first().map(String::as_str), Some("feature"), "current first");
+        assert_eq!(
+            bs.first().map(String::as_str),
+            Some("feature"),
+            "current first"
+        );
         assert!(bs.iter().any(|b| b == "main"));
         assert!(bs.iter().any(|b| b == "feature"));
 
@@ -765,7 +943,10 @@ mod tests {
         // Staged diff fallback: stage the change, working tree now clean.
         stage(root, &[]).unwrap();
         let d2 = diff(root, "a.bonk.json").unwrap();
-        assert!(d2.contains("+{\"v\":2}"), "staged diff fallback should work");
+        assert!(
+            d2.contains("+{\"v\":2}"),
+            "staged diff fallback should work"
+        );
         let _ = fs::remove_dir_all(dir);
     }
 
@@ -782,11 +963,20 @@ mod tests {
         fs::write(dir.join("a.bonk.json"), "{\"v\":3}\n").unwrap();
 
         let staged = diff_staged(root, "a.bonk.json").unwrap();
-        assert!(staged.contains("+{\"v\":2}"), "staged diff should show index version");
-        assert!(!staged.contains("+{\"v\":3}"), "staged diff must not show worktree version");
+        assert!(
+            staged.contains("+{\"v\":2}"),
+            "staged diff should show index version"
+        );
+        assert!(
+            !staged.contains("+{\"v\":3}"),
+            "staged diff must not show worktree version"
+        );
 
         let working = diff(root, "a.bonk.json").unwrap();
-        assert!(working.contains("+{\"v\":3}"), "working diff should show worktree version");
+        assert!(
+            working.contains("+{\"v\":3}"),
+            "working diff should show worktree version"
+        );
         let _ = fs::remove_dir_all(dir);
     }
 
@@ -828,7 +1018,10 @@ mod tests {
         fs::write(dir.join("new.bonk.json"), "{\"hello\":\"world\"}\n").unwrap();
         // Untracked file: plain diff is empty, so diff() falls back to --no-index.
         let d = diff(root, "new.bonk.json").unwrap();
-        assert!(d.contains("+{\"hello\":\"world\"}"), "should show file body as additions: {d}");
+        assert!(
+            d.contains("+{\"hello\":\"world\"}"),
+            "should show file body as additions: {d}"
+        );
         let _ = fs::remove_dir_all(dir);
     }
 
@@ -851,7 +1044,10 @@ mod tests {
         let by = |p: &str| diffs.iter().find(|d| d.path == p).expect(p);
 
         let t = by("tracked.bonk.json");
-        assert!(!t.staged && !t.untracked, "modified tracked = unstaged working diff");
+        assert!(
+            !t.staged && !t.untracked,
+            "modified tracked = unstaged working diff"
+        );
         assert!(t.diff.contains("+{\"v\":2}") && t.diff.contains("-{\"v\":1}"));
 
         let s = by("staged.bonk.json");
@@ -896,7 +1092,11 @@ mod tests {
         assert!(!dir.join("added.bonk.json").exists());
         // Working tree is clean.
         let st = status(root).unwrap();
-        assert!(st.files.is_empty(), "status should be clean: {:?}", st.files);
+        assert!(
+            st.files.is_empty(),
+            "status should be clean: {:?}",
+            st.files
+        );
         let _ = fs::remove_dir_all(dir);
     }
 
@@ -914,13 +1114,23 @@ mod tests {
         discard(root, &["new.bonk.json".to_string()]).unwrap();
 
         // Original file is back with its committed contents; new path is gone.
-        assert!(dir.join("old.bonk.json").exists(), "original path should be restored");
+        assert!(
+            dir.join("old.bonk.json").exists(),
+            "original path should be restored"
+        );
         let content = fs::read_to_string(dir.join("old.bonk.json")).unwrap();
         assert_eq!(content, "{\"v\":1}\n");
-        assert!(!dir.join("new.bonk.json").exists(), "renamed path should be gone");
+        assert!(
+            !dir.join("new.bonk.json").exists(),
+            "renamed path should be gone"
+        );
         // Working tree (and index) fully clean — no dangling delete-side.
         let st = status(root).unwrap();
-        assert!(st.files.is_empty(), "status should be clean: {:?}", st.files);
+        assert!(
+            st.files.is_empty(),
+            "status should be clean: {:?}",
+            st.files
+        );
         let _ = fs::remove_dir_all(dir);
     }
 
@@ -1000,9 +1210,16 @@ mod tests {
         // Discard reverts to HEAD across index + worktree → clean tree.
         discard(ws_root, &["collections/a.bonk.json".to_string()]).unwrap();
         let st3 = status(ws_root).unwrap();
-        assert!(st3.files.is_empty(), "should be clean after discard: {:?}", st3.files);
+        assert!(
+            st3.files.is_empty(),
+            "should be clean after discard: {:?}",
+            st3.files
+        );
         let content = fs::read_to_string(ws.join("a.bonk.json")).unwrap();
-        assert_eq!(content, "{\"v\":1}\n", "file reverted to committed contents");
+        assert_eq!(
+            content, "{\"v\":1}\n",
+            "file reverted to committed contents"
+        );
         let _ = fs::remove_dir_all(repo);
     }
 
@@ -1031,10 +1248,21 @@ mod tests {
         assert_eq!(f.worktree, "M", "worktree side");
 
         let diffs = status_diffs(root).unwrap();
-        let e = diffs.iter().find(|d| d.path == "a.bonk.json").expect("entry");
+        let e = diffs
+            .iter()
+            .find(|d| d.path == "a.bonk.json")
+            .expect("entry");
         // Combined HEAD-vs-worktree: BOTH additions appear, not just one side.
-        assert!(e.diff.contains("+line2"), "staged hunk must be visible: {}", e.diff);
-        assert!(e.diff.contains("+line3"), "unstaged hunk must be visible: {}", e.diff);
+        assert!(
+            e.diff.contains("+line2"),
+            "staged hunk must be visible: {}",
+            e.diff
+        );
+        assert!(
+            e.diff.contains("+line3"),
+            "unstaged hunk must be visible: {}",
+            e.diff
+        );
         // Not fully staged (worktree is dirty) → UI offers "Stage", not "Unstage".
         assert!(!e.staged, "MM file is not fully staged");
         let _ = fs::remove_dir_all(dir);

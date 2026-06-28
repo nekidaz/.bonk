@@ -16,10 +16,43 @@ async function ensureLoaded(): Promise<Record<string, unknown>> {
   return loadPromise;
 }
 
-export async function loadState<T>(key: string, fallback: T): Promise<T> {
+/**
+ * Type guard for "this persisted value is an array of items each accepted by
+ * `item`". Use with `loadState` so corrupt/old persisted state (e.g. a renamed
+ * shape, or a non-array left by an older build) falls back instead of being
+ * blindly cast and crashing a consumer downstream.
+ */
+export function isArrayOf<T>(item: (v: unknown) => v is T): (v: unknown) => v is T[] {
+  return (v): v is T[] => Array.isArray(v) && v.every(item);
+}
+
+/** Loose guard for a persisted "tab"/"history entry": a non-null object with an `id`. */
+export function isRecordWithId(v: unknown): v is { id: string } {
+  return typeof v === 'object' && v !== null && typeof (v as { id?: unknown }).id === 'string';
+}
+
+/**
+ * Load a persisted value by key. Returns `fallback` when the key is missing.
+ *
+ * When `validate` is supplied, the stored value must pass it or `fallback` is
+ * returned — this stops corrupt/legacy state from being cast to `T` and crashing
+ * a consumer. When `validate` is omitted but `fallback` is an array, the stored
+ * value must at least be an array before it is cast (cheap structural guard).
+ * The `validate` parameter is optional, so existing callers are unaffected.
+ */
+export async function loadState<T>(
+  key: string,
+  fallback: T,
+  validate?: (v: unknown) => v is T,
+): Promise<T> {
   const map = await ensureLoaded();
   const v = map[key];
-  return (v === undefined || v === null) ? fallback : (v as T);
+  if (v === undefined || v === null) return fallback;
+  if (validate) return validate(v) ? v : fallback;
+  // No explicit validator: if the caller expects an array, at least verify the
+  // stored value is one before casting, so a corrupt non-array can't slip through.
+  if (Array.isArray(fallback) && !Array.isArray(v)) return fallback;
+  return v as T;
 }
 
 export async function saveState<T>(key: string, value: T): Promise<void> {

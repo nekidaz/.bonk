@@ -198,9 +198,13 @@
       if (document.visibilityState === 'hidden') flush();
     };
     window.addEventListener('beforeunload', flush);
+    // pagehide also fires on macOS Tauri window close, where beforeunload can be
+    // skipped; without it the last debounced save can be lost.
+    window.addEventListener('pagehide', flush);
     document.addEventListener('visibilitychange', onVisibilityChange);
     return () => {
       window.removeEventListener('beforeunload', flush);
+      window.removeEventListener('pagehide', flush);
       document.removeEventListener('visibilitychange', onVisibilityChange);
     };
   });

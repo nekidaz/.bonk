@@ -184,6 +184,11 @@
   }
 </script>
 
+<!-- Close the branch switcher on any outside pointer-down (mirrors App.svelte's
+     menu handling); the branch trigger + menu stop propagation so an inside
+     click doesn't immediately re-close it. -->
+<svelte:window onpointerdown={() => (branchMenuOpen = false)} />
+
 <div class="bs-tree bs-git">
   {#if !$workspacePath}
     <div class="bs-sech"><span class="material-symbols-outlined cv" style="font-size:12px">expand_more</span>Source Control</div>
@@ -206,7 +211,7 @@
   {:else if status}
     <!-- Branch / sync header -->
     <div class="bs-git-head">
-      <div class="bs-git-branch">
+      <div class="bs-git-branch" role="presentation" onpointerdown={(e) => e.stopPropagation()}>
         <button class="bs-git-branchbtn" type="button" title="Switch branch" onclick={openBranchMenu}>
           <span class="material-symbols-outlined" style="font-size:15px">account_tree</span>
           <span class="bs-git-branchname">{status.branch || '(no branch)'}</span>
@@ -236,7 +241,7 @@
     </div>
 
     {#if branchMenuOpen}
-      <div class="bs-git-branchmenu">
+      <div class="bs-git-branchmenu" role="presentation" onpointerdown={(e) => e.stopPropagation()}>
         {#each branches as b (b)}
           <button class="bs-git-branchitem" class:on={b === status.branch} type="button" onclick={() => pickBranch(b)}>
             <span class="material-symbols-outlined" style="font-size:13px;opacity:{b === status.branch ? 1 : 0}">check</span>

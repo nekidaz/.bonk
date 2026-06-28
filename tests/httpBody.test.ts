@@ -218,6 +218,28 @@ describe('buildRequestForSend', () => {
     expect(req.headers).toEqual({});
   });
 
+  it('graphql body sends the JSON body and defaults Content-Type to application/json', () => {
+    const body = '{"query":"{ me { id } }"}';
+    const t = tab({ bodyMode: 'graphql', body });
+    const req = buildRequestForSend(t, 'https://api.example.com/graphql');
+    expect(req.body).toBe(body);
+    expect(req.headers['Content-Type']).toBe('application/json');
+  });
+
+  it('graphql body does not override an existing Content-Type', () => {
+    const t = tab({ bodyMode: 'graphql', body: '{"query":"{ me { id } }"}' });
+    t.request.headers = { 'content-type': 'application/graphql+json' };
+    const req = buildRequestForSend(t, 'https://api.example.com/graphql');
+    expect(req.headers).toEqual({ 'content-type': 'application/graphql+json' });
+  });
+
+  it('empty graphql body sends no body or header', () => {
+    const t = tab({ bodyMode: 'graphql', body: '' });
+    const req = buildRequestForSend(t, 'https://api.example.com/graphql');
+    expect(req.body).toBeUndefined();
+    expect(req.headers).toEqual({});
+  });
+
   it('preserves the original request fields and stamps the final url', () => {
     const t = tab({ method: 'PUT', bodyMode: 'none', headers: { Authorization: 'Bearer x' } });
     const req = buildRequestForSend(t, 'https://api.example.com/final');

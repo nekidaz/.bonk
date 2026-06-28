@@ -1,18 +1,20 @@
 use crate::conn::GrpcDescriptorCache;
 use crate::domain::grpc::{GrpcMethod, GrpcResult, GrpcService, ServiceTree};
+use base64::engine::general_purpose::STANDARD as BASE64;
+use base64::Engine;
 use bytes::Buf;
 use http::uri::PathAndQuery;
-use prost::Message;
 use prost::bytes::Bytes;
+use prost::Message;
 use prost_reflect::{
     DescriptorPool, DynamicMessage, FieldDescriptor, Kind, MapKey, MessageDescriptor, Value,
 };
 use serde::de::DeserializeSeed;
 use std::collections::{HashMap, HashSet};
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::Arc;
 use std::time::Instant;
 use tokio_stream::StreamExt;
-use base64::Engine;
-use base64::engine::general_purpose::STANDARD as BASE64;
 use tonic::codec::{Codec, DecodeBuf, Decoder, EncodeBuf, Encoder};
 use tonic::metadata::{
     AsciiMetadataKey, AsciiMetadataValue, BinaryMetadataKey, BinaryMetadataValue, MetadataMap,
@@ -258,6 +260,13 @@ fn random_string(field_name: &str) -> Value {
     Value::String(s)
 }
 
+/// Upper bound on a decoded inbound gRPC message. tonic defaults to 4MB, but
+/// bonk renders whole responses, so allow up to the same ceiling the HTTP body
+/// path permits (250MB) — bounding memory while not rejecting large-but-legit
+/// responses. A peer that exceeds this fails with a clear decode error rather
+/// than letting the client buffer an unbounded message.
+const MAX_GRPC_MESSAGE_BYTES: usize = 250 * 1024 * 1024;
+
 pub async fn call(
     channel: Channel,
     cache: GrpcDescriptorCache,
@@ -301,10 +310,19 @@ pub async fn call(
     }
 
     let start = Instant::now();
+    // Shared counter the decoder writes the raw protobuf byte count into, so we
+    // can report the real wire size (not the JSON-encoded length) below.
+    let wire_size = Arc::new(AtomicUsize::new(0));
     let codec = DynamicCodec {
         output: method.output(),
+        wire_size: wire_size.clone(),
     };
-    let mut grpc = tonic::client::Grpc::new(channel);
+    // Cap the inbound message size so a peer can't make us buffer an unbounded
+    // response. tonic's default ceiling is only 4MB, which bonk routinely needs
+    // to exceed, so raise it to the HTTP body cap rather than removing it.
+    let mut grpc = tonic::client::Grpc::new(channel)
+        .max_decoding_message_size(MAX_GRPC_MESSAGE_BYTES)
+        .max_encoding_message_size(MAX_GRPC_MESSAGE_BYTES);
     grpc.ready()
         .await
         .map_err(|e| format!("grpc client not ready: {e}"))?;
@@ -320,7 +338,8 @@ pub async fn call(
     Ok(GrpcResult {
         ok: true,
         status: "OK".into(),
-        size_bytes: body.len(),
+        // Report the raw protobuf wire byte count captured by the decoder.
+        size_bytes: wire_size.load(Ordering::Relaxed),
         body,
         elapsed_ms,
     })
@@ -544,7 +563,10 @@ fn cache_from_files(
 /// files are surfaced (mirroring how reflection lists only the server's own
 /// services); imported files are still added to the descriptor pool so type
 /// resolution succeeds.
-pub fn compile_protos(files: &[String], includes: &[String]) -> Result<GrpcDescriptorCache, String> {
+pub fn compile_protos(
+    files: &[String],
+    includes: &[String],
+) -> Result<GrpcDescriptorCache, String> {
     use protox::Compiler;
     // protox requires every opened file to live under an include dir.  Callers
     // pass absolute paths and may give an empty `includes` (e.g. the user picks
@@ -601,6 +623,9 @@ pub fn compile_protos(files: &[String], includes: &[String]) -> Result<GrpcDescr
 #[derive(Clone)]
 struct DynamicCodec {
     output: MessageDescriptor,
+    /// Receives the raw protobuf byte count of the decoded response so the caller
+    /// can report the true wire size.
+    wire_size: Arc<AtomicUsize>,
 }
 
 #[derive(Clone)]
@@ -609,6 +634,7 @@ struct DynamicEncoder;
 #[derive(Clone)]
 struct DynamicDecoder {
     output: MessageDescriptor,
+    wire_size: Arc<AtomicUsize>,
 }
 
 impl Codec for DynamicCodec {
@@ -624,6 +650,7 @@ impl Codec for DynamicCodec {
     fn decoder(&mut self) -> Self::Decoder {
         DynamicDecoder {
             output: self.output.clone(),
+            wire_size: self.wire_size.clone(),
         }
     }
 }
@@ -643,6 +670,9 @@ impl Decoder for DynamicDecoder {
     type Error = Status;
 
     fn decode(&mut self, src: &mut DecodeBuf<'_>) -> Result<Option<Self::Item>, Self::Error> {
+        // Capture the raw protobuf length before consuming the buffer so the
+        // reported size reflects wire bytes, not the JSON-encoded length.
+        self.wire_size.store(src.remaining(), Ordering::Relaxed);
         let bytes = src.copy_to_bytes(src.remaining());
         DynamicMessage::decode(self.output.clone(), bytes)
             .map(Some)
@@ -669,7 +699,10 @@ mod tests {
     fn metadata_keys_are_lowercased() {
         let mut md = MetadataMap::new();
         insert_metadata(&mut md, "Authorization", "Bearer x").unwrap();
-        assert_eq!(md.get("authorization").unwrap().to_str().unwrap(), "Bearer x");
+        assert_eq!(
+            md.get("authorization").unwrap().to_str().unwrap(),
+            "Bearer x"
+        );
     }
 
     fn field(name: &str, number: i32, ty: Type, label: Label) -> FieldDescriptorProto {
@@ -737,7 +770,10 @@ mod tests {
             .as_str()
             .unwrap()
             .to_string();
-        assert!(email.contains('@'), "email should look like an email: {email}");
+        assert!(
+            email.contains('@'),
+            "email should look like an email: {email}"
+        );
 
         let iin = msg
             .get_field_by_name("iin")
@@ -778,7 +814,10 @@ mod tests {
             .unwrap()
             .as_i32()
             .unwrap();
-        assert!((1..1000).contains(&count), "inner.count out of range: {count}");
+        assert!(
+            (1..1000).contains(&count),
+            "inner.count out of range: {count}"
+        );
 
         // The whole thing must round-trip to JSON.
         let mut ser = serde_json::Serializer::new(Vec::new());
@@ -850,7 +889,11 @@ service Lookup { rpc Get (common.Id) returns (Empty); }
         let cache = compile_protos(&files, &includes).expect("compile with import");
 
         assert!(cache.methods.contains_key("api.Lookup.Get"));
-        assert_eq!(cache.tree.services.len(), 1, "only api.Lookup should surface");
+        assert_eq!(
+            cache.tree.services.len(),
+            1,
+            "only api.Lookup should surface"
+        );
         assert_eq!(cache.tree.services[0].name, "api.Lookup");
     }
 
@@ -884,7 +927,12 @@ service RootService { rpc RootCall (dep.Ping) returns (dep.Ping); }
         let includes = vec![dir.to_string_lossy().into_owned()];
         let cache = compile_protos(&files, &includes).expect("compile");
 
-        let names: Vec<&str> = cache.tree.services.iter().map(|s| s.name.as_str()).collect();
+        let names: Vec<&str> = cache
+            .tree
+            .services
+            .iter()
+            .map(|s| s.name.as_str())
+            .collect();
         assert_eq!(names, vec!["root.RootService"]);
         assert!(cache.methods.contains_key("root.RootService.RootCall"));
         assert!(!cache.methods.contains_key("dep.DepService.DepCall"));
@@ -1022,7 +1070,11 @@ service RootService { rpc RootCall (dep.Ping) returns (dep.Ping); }
         tokio::runtime::Runtime::new().unwrap().block_on(async {
             let channel = connect("grpcb.in:9000", true).await.unwrap();
             let mut cache = reflect("grpcb.in:9000", true).await.unwrap();
-            assert!(cache.tree.services.iter().any(|s| s.name == "grpcbin.GRPCBin"));
+            assert!(cache
+                .tree
+                .services
+                .iter()
+                .any(|s| s.name == "grpcbin.GRPCBin"));
             let tpl = template(&mut cache, "grpcbin.GRPCBin.Empty").unwrap();
             assert!(tpl.trim().starts_with('{'));
             let result = call(

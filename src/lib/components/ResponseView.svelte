@@ -156,7 +156,7 @@
       </div>
       {#if respMode === 'preview'}
         {#if responseFmt === 'HTML'}
-          <div class="bs-preview"><iframe title="Response preview" sandbox="allow-forms allow-popups allow-same-origin" srcdoc={tab.response.body}></iframe></div>
+          <div class="bs-preview"><iframe title="Response preview" sandbox="" srcdoc={tab.response.body}></iframe></div>
         {:else}
           <div class="bs-empty-resp"><span class="material-symbols-outlined" style="font-size:38px">preview</span><div>Preview is available for HTML responses</div></div>
         {/if}

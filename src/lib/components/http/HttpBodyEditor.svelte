@@ -12,7 +12,7 @@
     maybeInsertCommaBeforeJsonValue,
     parseJsonForBeautify,
   } from '../../domain/jsonEditor';
-  import { updateActiveTab } from '../../stores';
+  import { updateActiveTab, updateTabById } from '../../stores';
   import type { BodyMode, BodyParamKind, RawBodyFormat, Tab } from '../../domain/types';
 
   let { tab }: { tab: Tab } = $props();
@@ -75,9 +75,12 @@
   }
 
   async function pickBodyFile(i: number): Promise<void> {
+    // Capture the originating tab before the (awaited) picker so the file lands
+    // on this tab even if the user switches tabs while the dialog is open.
+    const tabId = tab.id;
     const path = await filePick();
     if (!path) return;
-    updateActiveTab((t) => {
+    updateTabById(tabId, (t) => {
       const rows = [...(t.request.bodyParams ?? [])];
       while (i >= rows.length) rows.push(emptyBodyParam());
       rows[i] = { ...emptyBodyParam(), ...rows[i], kind: 'file', value: fileName(path), filePath: path };

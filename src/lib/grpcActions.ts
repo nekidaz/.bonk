@@ -24,13 +24,13 @@ export function grpcMethodLabel(t: Tab | undefined, connecting: boolean): string
  * method is still set so the user can hand-write a body.
  */
 export async function selectMethod(connectionId: string, symbol: string): Promise<void> {
-  updateActiveTab((t) => ({ ...t, grpc: { ...t.grpc!, method: symbol } }));
+  updateActiveTab((t) => (t.grpc ? { ...t, grpc: { ...t.grpc, method: symbol } } : t));
   try {
     const tpl = await grpcTemplate(connectionId, symbol);
     // Guard against a stale template response overwriting a newer method selection.
     updateActiveTab((t) =>
       t.grpc?.method === symbol
-        ? { ...t, grpc: { ...t.grpc!, message: tpl } }
+        ? { ...t, grpc: { ...t.grpc, message: tpl } }
         : t,
     );
   } catch {

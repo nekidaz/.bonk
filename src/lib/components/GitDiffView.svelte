@@ -11,6 +11,7 @@
   let loading = $state(false);
   let error = $state('');
   let loadedKey = $state('');
+  let loadSeq = 0;
 
   const path = $derived(tab.git?.path ?? '');
   const mode = $derived((tab.git?.mode ?? 'working') as GitDiffMode);
@@ -25,16 +26,21 @@
   });
 
   async function load(root: string, filePath: string, diffMode: GitDiffMode): Promise<void> {
+    // Concurrent loads (e.g. a fast tab switch or Refresh) race on the shared
+    // diffText/error/loading state; only the latest load may write its result.
+    const seq = ++loadSeq;
     loading = true;
     error = '';
     diffText = '';
     try {
       const text = await gitDiff(root, filePath, diffMode === 'staged');
+      if (seq !== loadSeq) return;
       diffText = text.trim() ? text : 'No textual diff (binary file or no changes).';
     } catch (err) {
+      if (seq !== loadSeq) return;
       error = String(err);
     } finally {
-      loading = false;
+      if (seq === loadSeq) loading = false;
     }
   }
 

@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { onMount } from 'svelte';
+  import { getVersion } from '@tauri-apps/api/app';
   import { theme, setTheme, type Theme } from '../theme';
   import {
     historyLimit,
@@ -17,7 +19,18 @@
   // Two-way bound from the parent (App.svelte holds the source of truth).
   let { open = $bindable() }: { open: boolean } = $props();
 
-  const APP_VERSION = '0.1.1';
+  // Resolved from the running Tauri app (single source of truth: tauri.conf.json,
+  // which is generated from package.json). Falls back to an empty string in
+  // non-Tauri browser smoke tests where the app API is unavailable.
+  let appVersion = $state('');
+  onMount(async () => {
+    try {
+      appVersion = await getVersion();
+    } catch {
+      // getVersion is unavailable outside the Tauri runtime; leave it blank.
+    }
+  });
+
   const REPO_URL = 'https://github.com/nekidaz/.bonk';
 
   const themes: { label: string; value: Theme }[] = [
@@ -288,7 +301,7 @@
               </div>
               <div>
                 <div class="bs-settings-kicker">About</div>
-                <div class="bs-settings-muted">bonk {APP_VERSION}</div>
+                <div class="bs-settings-muted">bonk{appVersion ? ` ${appVersion}` : ''}</div>
               </div>
             </div>
             <div class="bs-settings-row">

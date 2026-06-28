@@ -101,8 +101,24 @@ pub fn file_pick() -> Option<String> {
         .map(|p| p.to_string_lossy().to_string())
 }
 
+/// Reject a workspace root that isn't an absolute path.
+///
+/// The frontend passes `root` (the folder the user picked via
+/// [`workspace_pick_folder`], which always yields an absolute path) back on
+/// every workspace call. Requiring it to be absolute stops a malformed or
+/// crafted relative root from being resolved against the process CWD and
+/// escaping the selected folder.
+fn require_absolute_root(root: &str) -> Result<(), String> {
+    if std::path::Path::new(root).is_absolute() {
+        Ok(())
+    } else {
+        Err("workspace root must be an absolute path".to_string())
+    }
+}
+
 #[tauri::command]
 pub fn workspace_load(path: String) -> Result<Vec<bonk_core::domain::workspace::TreeNode>, String> {
+    require_absolute_root(&path)?;
     bonk_core::application::workspace::load(&path)
 }
 
@@ -112,6 +128,7 @@ pub fn workspace_create_folder(
     parent: String,
     name: String,
 ) -> Result<String, String> {
+    require_absolute_root(&root)?;
     bonk_core::application::workspace::create_folder(&root, &parent, &name)
 }
 
@@ -122,26 +139,31 @@ pub fn workspace_save_request(
     existing: Option<String>,
     node: bonk_core::domain::workspace::RequestNode,
 ) -> Result<String, String> {
+    require_absolute_root(&root)?;
     bonk_core::application::workspace::save_request(&root, &dir, existing.as_deref(), node)
 }
 
 #[tauri::command]
 pub fn workspace_delete(root: String, path: String) -> Result<(), String> {
+    require_absolute_root(&root)?;
     bonk_core::application::workspace::delete(&root, &path)
 }
 
 #[tauri::command]
 pub fn workspace_rename(root: String, path: String, name: String) -> Result<String, String> {
+    require_absolute_root(&root)?;
     bonk_core::application::workspace::rename(&root, &path, &name)
 }
 
 #[tauri::command]
 pub fn workspace_duplicate(root: String, path: String) -> Result<String, String> {
+    require_absolute_root(&root)?;
     bonk_core::application::workspace::duplicate(&root, &path)
 }
 
 #[tauri::command]
 pub fn workspace_move(root: String, path: String, dest: String) -> Result<String, String> {
+    require_absolute_root(&root)?;
     bonk_core::application::workspace::move_node(&root, &path, &dest)
 }
 
@@ -327,6 +349,9 @@ pub async fn grpc_load_proto(
     if proto_paths.is_empty() {
         return Err("no .proto files selected".to_string());
     }
+    // Validate the connection exists *before* the heavy compile so we fail fast
+    // (and don't burn a blocking-pool thread compiling for a dead connection).
+    conn(&state, &connection_id)?;
     let cache = tokio::task::spawn_blocking(move || {
         bonk_core::application::grpc_native::compile_protos(&proto_paths, &import_paths)
     })
@@ -365,18 +390,23 @@ pub async fn grpc_template(
     method: String,
     state: State<'_, AppState>,
 ) -> Result<String, String> {
-    let mut guard = state
-        .conns
-        .lock()
-        .map_err(|_| "grpc state lock poisoned".to_string())?;
-    let conn = guard
-        .get_mut(&connection_id)
-        .ok_or_else(|| "unknown connection".to_string())?;
-    let cache = conn
-        .cache
-        .as_mut()
-        .ok_or_else(|| "reflection cache is not loaded".to_string())?;
-    bonk_core::application::grpc_native::template(cache, &method)
+    // template() builds fresh sample data from the descriptor cache and doesn't
+    // mutate shared state, so clone just the cache under the lock and release it
+    // before the (possibly slow) call — otherwise we'd hold the std Mutex across
+    // it and starve other users of state.conns.
+    let mut cache = {
+        let guard = state
+            .conns
+            .lock()
+            .map_err(|_| "grpc state lock poisoned".to_string())?;
+        let conn = guard
+            .get(&connection_id)
+            .ok_or_else(|| "unknown connection".to_string())?;
+        conn.cache
+            .clone()
+            .ok_or_else(|| "reflection cache is not loaded".to_string())?
+    };
+    bonk_core::application::grpc_native::template(&mut cache, &method)
 }
 
 #[tauri::command]

@@ -5,6 +5,7 @@
  * placeholders survive into the generated code.
  */
 import { HTTPSnippet } from 'httpsnippet-lite';
+import type { HarRequest, TargetId } from 'httpsnippet-lite';
 import type { Tab } from './types';
 import { buildUrl } from './http';
 import { buildRequestForSend, currentBodyMode, enabledBodyParams } from './httpBody';
@@ -36,11 +37,11 @@ export const LANGUAGES: Language[] = [
 ];
 
 /** Build a HAR request from a tab, resolving the same URL/headers/body a send would. */
-function toHar(tab: Tab): Record<string, unknown> {
+function toHar(tab: Tab): HarRequest {
   const finalUrl = buildUrl(tab.request.url, tab.params);
   const req = buildRequestForSend(tab, finalUrl);
   const headers = Object.entries(req.headers ?? {}).map(([name, value]) => ({ name, value }));
-  const har: Record<string, unknown> = {
+  const har: HarRequest = {
     method: req.method || 'GET',
     url: req.url,
     httpVersion: 'HTTP/1.1',
@@ -72,8 +73,11 @@ function toHar(tab: Tab): Record<string, unknown> {
 export async function generateSnippet(tab: Tab, langId: string): Promise<string> {
   const lang = LANGUAGES.find((l) => l.id === langId) ?? LANGUAGES[0];
   try {
-    const snippet = new HTTPSnippet(toHar(tab) as never);
-    const out = await snippet.convert(lang.target as never, lang.client as never);
+    const snippet = new HTTPSnippet(toHar(tab));
+    // `target` is validated against httpsnippet's set via LANGUAGES; the single
+    // cast narrows our string to the library's TargetId union. `client` is a
+    // plain string in the library's types (ClientId), so it needs no cast.
+    const out = await snippet.convert(lang.target as TargetId, lang.client);
     if (Array.isArray(out)) return out.join('\n');
     return typeof out === 'string' ? out : `// No ${lang.label} output.`;
   } catch (e) {

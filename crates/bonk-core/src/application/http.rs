@@ -44,6 +44,16 @@ async fn read_body_limited(
     mut resp: reqwest::Response,
     max_bytes: usize,
 ) -> Result<(Vec<u8>, bool), String> {
+    // Reject up front when the advertised Content-Length already exceeds the cap,
+    // so a hostile/huge response can't make us buffer up to `max_bytes` of body
+    // before we notice. This is an optimization on top of the per-chunk streaming
+    // truncation below, which remains the fallback for chunked/unknown-length
+    // responses (and for servers that lie about Content-Length).
+    if let Some(len) = resp.content_length() {
+        if len > max_bytes as u64 {
+            return Ok((Vec::new(), true));
+        }
+    }
     let mut out = Vec::new();
     let mut truncated = false;
     while let Some(chunk) = resp.chunk().await.map_err(|e| e.to_string())? {

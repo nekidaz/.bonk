@@ -1,8 +1,40 @@
 use crate::domain::workspace::{FolderNode, RequestFile, RequestNode, TreeNode};
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicU64, Ordering};
 
 const EXT: &str = "bonk.json";
+
+static TMP_SEQ: AtomicU64 = AtomicU64::new(0);
+
+/// Atomically write `contents` to `target` by writing to a uniquely named temp
+/// file in the SAME directory and then renaming it into place. A crash or write
+/// failure leaves `target` untouched (it either holds the old content or does
+/// not exist yet) rather than a half-written file. Mirrors the safe pattern in
+/// `app_state::set_key`.
+fn atomic_write(target: &Path, contents: &str) -> Result<(), String> {
+    let parent = target
+        .parent()
+        .ok_or_else(|| format!("target has no parent directory: {}", target.display()))?;
+
+    // Unique tmp name in the destination directory so the rename is atomic (same
+    // filesystem) and a concurrent writer can't clobber an in-flight temp file.
+    let seq = TMP_SEQ.fetch_add(1, Ordering::Relaxed);
+    let file_name = target
+        .file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or("request");
+    let tmp = parent.join(format!(".{file_name}.tmp.{}.{seq}", std::process::id()));
+
+    fs::write(&tmp, contents).map_err(|e| format!("failed to write {}: {e}", tmp.display()))?;
+
+    if let Err(e) = fs::rename(&tmp, target) {
+        let _ = fs::remove_file(&tmp);
+        return Err(format!("failed to write {}: {e}", target.display()));
+    }
+
+    Ok(())
+}
 
 /// Recursively load the workspace tree rooted at `root`.
 pub fn load(root: &str) -> Result<Vec<TreeNode>, String> {
@@ -13,7 +45,10 @@ pub fn load(root: &str) -> Result<Vec<TreeNode>, String> {
     }
 
     if !root.is_dir() {
-        return Err(format!("workspace root is not a directory: {}", root.display()));
+        return Err(format!(
+            "workspace root is not a directory: {}",
+            root.display()
+        ));
     }
 
     load_dir(root, root)
@@ -23,12 +58,10 @@ fn load_dir(root: &Path, dir: &Path) -> Result<Vec<TreeNode>, String> {
     let mut folders: Vec<TreeNode> = Vec::new();
     let mut requests: Vec<TreeNode> = Vec::new();
 
-    for entry in fs::read_dir(dir).map_err(|e| {
-        format!("failed to read directory {}: {e}", dir.display())
-    })? {
-        let entry = entry.map_err(|e| {
-            format!("failed to read entry in {}: {e}", dir.display())
-        })?;
+    for entry in
+        fs::read_dir(dir).map_err(|e| format!("failed to read directory {}: {e}", dir.display()))?
+    {
+        let entry = entry.map_err(|e| format!("failed to read entry in {}: {e}", dir.display()))?;
 
         let path = entry.path();
 
@@ -36,11 +69,18 @@ fn load_dir(root: &Path, dir: &Path) -> Result<Vec<TreeNode>, String> {
             continue;
         }
 
+        // Skip symlinks (without following them): a symlink inside the workspace
+        // could otherwise traverse outside the root. Use `symlink_metadata` so we
+        // inspect the link itself, not its target.
+        if is_symlink(&path) {
+            continue;
+        }
+
         if path.is_dir() {
             let children = load_dir(root, &path)?;
 
             folders.push(TreeNode::Folder(FolderNode {
-                id: rel_id(root, &path),
+                id: rel_id(root, &path)?,
                 name: file_name(&path),
                 expanded: true,
                 children,
@@ -64,7 +104,7 @@ fn load_dir(root: &Path, dir: &Path) -> Result<Vec<TreeNode>, String> {
         };
 
         requests.push(TreeNode::Request(Box::new(
-            file.into_node(rel_id(root, &path)),
+            file.into_node(rel_id(root, &path)?),
         )));
     }
 
@@ -83,11 +123,24 @@ fn node_name(node: &TreeNode) -> &str {
     }
 }
 
-fn rel_id(root: &Path, path: &Path) -> String {
-    let relative = path.strip_prefix(root).unwrap_or(path);
+fn rel_id(root: &Path, path: &Path) -> Result<String, String> {
+    // A path that is not under `root` must not leak its absolute location into an
+    // `fs:` id; treat it as an error instead of silently falling back.
+    let relative = path
+        .strip_prefix(root)
+        .map_err(|_| format!("path is outside the workspace root: {}", path.display()))?;
     let relative = relative.to_string_lossy().replace('\\', "/");
 
-    format!("fs:{relative}")
+    Ok(format!("fs:{relative}"))
+}
+
+/// Whether `path` is a symbolic link, inspecting the link itself rather than its
+/// target. Returns `false` if the metadata can't be read (the caller then treats
+/// it like any other entry).
+fn is_symlink(path: &Path) -> bool {
+    fs::symlink_metadata(path)
+        .map(|meta| meta.file_type().is_symlink())
+        .unwrap_or(false)
 }
 
 fn file_name(path: &Path) -> String {
@@ -106,9 +159,9 @@ fn is_hidden(path: &Path) -> bool {
 fn is_request_file(path: &Path) -> bool {
     path.is_file()
         && path
-        .file_name()
-        .and_then(|name| name.to_str())
-        .is_some_and(|name| name.ends_with(EXT))
+            .file_name()
+            .and_then(|name| name.to_str())
+            .is_some_and(|name| name.ends_with(EXT))
 }
 
 fn sanitize(name: &str) -> String {
@@ -156,23 +209,28 @@ fn resolve(root: &str, relative: &str) -> Result<PathBuf, String> {
 
 /// Pick a non-colliding path `<parent>/<stem><suffix>`.
 ///
-/// Adds ` 2`, ` 3`, and so on when the initial path already exists.
-fn unique_path(parent: &Path, stem: &str, suffix: &str) -> PathBuf {
+/// Adds ` 2`, ` 3`, and so on when the initial path already exists. The search is
+/// capped so a directory already saturated with collisions yields a clear error
+/// instead of looping unbounded.
+fn unique_path(parent: &Path, stem: &str, suffix: &str) -> Result<PathBuf, String> {
     let first = parent.join(format!("{stem}{suffix}"));
 
     if !first.exists() {
-        return first;
+        return Ok(first);
     }
 
-    for index in 2.. {
+    for index in 2..=9999 {
         let candidate = parent.join(format!("{stem} {index}{suffix}"));
 
         if !candidate.exists() {
-            return candidate;
+            return Ok(candidate);
         }
     }
 
-    unreachable!("an available unique path should eventually be found")
+    Err(format!(
+        "could not find an available name for {stem}{suffix} in {}",
+        parent.display()
+    ))
 }
 
 fn ensure_directory(path: &Path) -> Result<(), String> {
@@ -191,26 +249,18 @@ fn ensure_directory(path: &Path) -> Result<(), String> {
 /// Create `<parent>/<name>`.
 ///
 /// Returns the new folder's `fs:` id.
-pub fn create_folder(
-    root: &str,
-    parent_rel: &str,
-    name: &str,
-) -> Result<String, String> {
+pub fn create_folder(root: &str, parent_rel: &str, name: &str) -> Result<String, String> {
     let parent = resolve(root, parent_rel)?;
 
     ensure_directory(&parent)?;
 
     let name = sanitize(name);
-    let directory = unique_path(&parent, &name, "");
+    let directory = unique_path(&parent, &name, "")?;
 
-    fs::create_dir(&directory).map_err(|e| {
-        format!(
-            "failed to create directory {}: {e}",
-            directory.display()
-        )
-    })?;
+    fs::create_dir(&directory)
+        .map_err(|e| format!("failed to create directory {}: {e}", directory.display()))?;
 
-    Ok(rel_id(Path::new(root), &directory))
+    rel_id(Path::new(root), &directory)
 }
 
 /// Write `node` as a request file inside `dir_rel`.
@@ -232,6 +282,9 @@ pub fn save_request(
     let stem = sanitize(&node.name);
     let suffix = format!(".{EXT}");
 
+    // Resolve the destination WITHOUT moving anything yet. The new content is
+    // written first (atomically), and only then is the old source removed — so a
+    // failure can never leave us with the old file gone and the new content lost.
     let target = match existing_rel {
         Some(relative) => {
             let old = resolve(root, relative)?;
@@ -242,7 +295,7 @@ pub fn save_request(
             } else if desired.exists() {
                 // The desired filename belongs to another request.
                 // Use a unique name instead of overwriting it.
-                unique_path(&directory, &stem, &suffix)
+                unique_path(&directory, &stem, &suffix)?
             } else if old.exists() {
                 if !is_request_file(&old) {
                     return Err(format!(
@@ -251,36 +304,27 @@ pub fn save_request(
                     ));
                 }
 
-                fs::rename(&old, &desired).map_err(|e| {
-                    format!(
-                        "failed to rename {} to {}: {e}",
-                        old.display(),
-                        desired.display()
-                    )
-                })?;
-
                 desired
             } else {
                 // The original request may have been deleted externally.
                 desired
             }
         }
-        None => unique_path(&directory, &stem, &suffix),
+        None => unique_path(&directory, &stem, &suffix)?,
     };
 
     let file = RequestFile::from_node(&node);
     let raw = serde_json::to_string_pretty(&file)
         .map_err(|e| format!("failed to serialize request: {e}"))?;
 
-    fs::write(&target, format!("{raw}\n")).map_err(|e| {
-        format!("failed to write request {}: {e}", target.display())
-    })?;
+    // Durably write the new content into place before touching the old file.
+    atomic_write(&target, &format!("{raw}\n"))?;
 
     if let Some(relative) = existing_rel {
         let old = resolve(root, relative)?;
 
-        // If the desired name was occupied, the updated request was written
-        // into a unique target. Remove the old source to complete the rename.
+        // The updated request now lives at `target`. Remove the old source to
+        // complete the rename, but only after the new content is safely on disk.
         if old.exists() && old != target {
             if !is_request_file(&old) {
                 return Err(format!(
@@ -289,16 +333,12 @@ pub fn save_request(
                 ));
             }
 
-            fs::remove_file(&old).map_err(|e| {
-                format!(
-                    "failed to remove old request {}: {e}",
-                    old.display()
-                )
-            })?;
+            fs::remove_file(&old)
+                .map_err(|e| format!("failed to remove old request {}: {e}", old.display()))?;
         }
     }
 
-    Ok(rel_id(Path::new(root), &target))
+    rel_id(Path::new(root), &target)
 }
 
 /// Delete a node.
@@ -308,13 +348,10 @@ pub fn delete(root: &str, rel: &str) -> Result<(), String> {
     let path = resolve(root, rel)?;
 
     if path.is_dir() {
-        fs::remove_dir_all(&path).map_err(|e| {
-            format!("failed to delete directory {}: {e}", path.display())
-        })
+        fs::remove_dir_all(&path)
+            .map_err(|e| format!("failed to delete directory {}: {e}", path.display()))
     } else if path.is_file() {
-        fs::remove_file(&path).map_err(|e| {
-            format!("failed to delete file {}: {e}", path.display())
-        })
+        fs::remove_file(&path).map_err(|e| format!("failed to delete file {}: {e}", path.display()))
     } else {
         Ok(())
     }
@@ -328,11 +365,7 @@ pub fn delete(root: &str, rel: &str) -> Result<(), String> {
 /// the filename and file content must be updated.
 ///
 /// Returns the new `fs:` id.
-pub fn rename(
-    root: &str,
-    rel: &str,
-    new_name: &str,
-) -> Result<String, String> {
+pub fn rename(root: &str, rel: &str, new_name: &str) -> Result<String, String> {
     let path = resolve(root, rel)?;
 
     if !path.exists() {
@@ -351,11 +384,11 @@ pub fn rename(
 
         // Renaming a folder to its existing name should be a no-op.
         if desired == path {
-            return Ok(rel_id(Path::new(root), &path));
+            return rel_id(Path::new(root), &path);
         }
 
         let destination = if desired.exists() {
-            unique_path(&parent, &sanitized_name, "")
+            unique_path(&parent, &sanitized_name, "")?
         } else {
             desired
         };
@@ -368,23 +401,18 @@ pub fn rename(
             )
         })?;
 
-        return Ok(rel_id(Path::new(root), &destination));
+        return rel_id(Path::new(root), &destination);
     }
 
     if !is_request_file(&path) {
-        return Err(format!(
-            "unsupported node type: {}",
-            path.display()
-        ));
+        return Err(format!("unsupported node type: {}", path.display()));
     }
 
-    let raw = fs::read_to_string(&path).map_err(|e| {
-        format!("failed to read request {}: {e}", path.display())
-    })?;
+    let raw = fs::read_to_string(&path)
+        .map_err(|e| format!("failed to read request {}: {e}", path.display()))?;
 
-    let mut file: RequestFile = serde_json::from_str(&raw).map_err(|e| {
-        format!("failed to parse request {}: {e}", path.display())
-    })?;
+    let mut file: RequestFile = serde_json::from_str(&raw)
+        .map_err(|e| format!("failed to parse request {}: {e}", path.display()))?;
 
     file.name = new_name.to_string();
 
@@ -395,7 +423,7 @@ pub fn rename(
     let destination = if desired == path {
         desired
     } else if desired.exists() {
-        unique_path(&parent, &sanitized_name, &suffix)
+        unique_path(&parent, &sanitized_name, &suffix)?
     } else {
         desired
     };
@@ -403,27 +431,16 @@ pub fn rename(
     let output = serde_json::to_string_pretty(&file)
         .map_err(|e| format!("failed to serialize request: {e}"))?;
 
-    if destination == path {
-        fs::write(&path, format!("{output}\n")).map_err(|e| {
-            format!("failed to update request {}: {e}", path.display())
-        })?;
-    } else {
-        fs::write(&destination, format!("{output}\n")).map_err(|e| {
-            format!(
-                "failed to write renamed request {}: {e}",
-                destination.display()
-            )
-        })?;
+    // Write the new content durably first; only remove the old file once the new
+    // one is safely on disk, so a failure can't lose both.
+    atomic_write(&destination, &format!("{output}\n"))?;
 
-        fs::remove_file(&path).map_err(|e| {
-            format!(
-                "failed to remove old request {}: {e}",
-                path.display()
-            )
-        })?;
+    if destination != path {
+        fs::remove_file(&path)
+            .map_err(|e| format!("failed to remove old request {}: {e}", path.display()))?;
     }
 
-    Ok(rel_id(Path::new(root), &destination))
+    rel_id(Path::new(root), &destination)
 }
 
 /// Recursively copy directory `src` into `dst`.
@@ -435,25 +452,25 @@ fn copy_dir(src: &Path, dst: &Path) -> Result<(), String> {
         )
     })?;
 
-    for entry in fs::read_dir(src).map_err(|e| {
-        format!("failed to read directory {}: {e}", src.display())
-    })? {
-        let entry = entry.map_err(|e| {
-            format!("failed to read entry in {}: {e}", src.display())
-        })?;
+    for entry in
+        fs::read_dir(src).map_err(|e| format!("failed to read directory {}: {e}", src.display()))?
+    {
+        let entry = entry.map_err(|e| format!("failed to read entry in {}: {e}", src.display()))?;
 
         let from = entry.path();
         let to = dst.join(entry.file_name());
+
+        // Skip symlinks (without following them): following a link could copy
+        // content from outside the workspace root. Inspect the link itself.
+        if is_symlink(&from) {
+            continue;
+        }
 
         if from.is_dir() {
             copy_dir(&from, &to)?;
         } else {
             fs::copy(&from, &to).map_err(|e| {
-                format!(
-                    "failed to copy {} to {}: {e}",
-                    from.display(),
-                    to.display()
-                )
+                format!("failed to copy {} to {}: {e}", from.display(), to.display())
             })?;
         }
     }
@@ -482,61 +499,39 @@ pub fn duplicate(root: &str, rel: &str) -> Result<String, String> {
             .and_then(|name| name.to_str())
             .unwrap_or("Folder");
 
-        let destination = unique_path(
-            &parent,
-            &format!("{base} copy"),
-            "",
-        );
+        let destination = unique_path(&parent, &format!("{base} copy"), "")?;
 
         copy_dir(&path, &destination)?;
 
-        return Ok(rel_id(Path::new(root), &destination));
+        return rel_id(Path::new(root), &destination);
     }
 
     if !is_request_file(&path) {
-        return Err(format!(
-            "unsupported node type: {}",
-            path.display()
-        ));
+        return Err(format!("unsupported node type: {}", path.display()));
     }
 
-    let raw = fs::read_to_string(&path).map_err(|e| {
-        format!("failed to read request {}: {e}", path.display())
-    })?;
+    let raw = fs::read_to_string(&path)
+        .map_err(|e| format!("failed to read request {}: {e}", path.display()))?;
 
-    let mut file: RequestFile = serde_json::from_str(&raw).map_err(|e| {
-        format!("failed to parse request {}: {e}", path.display())
-    })?;
+    let mut file: RequestFile = serde_json::from_str(&raw)
+        .map_err(|e| format!("failed to parse request {}: {e}", path.display()))?;
 
     file.name = format!("{} copy", file.name);
 
-    let destination = unique_path(
-        &parent,
-        &sanitize(&file.name),
-        &format!(".{EXT}"),
-    );
+    let destination = unique_path(&parent, &sanitize(&file.name), &format!(".{EXT}"))?;
 
     let output = serde_json::to_string_pretty(&file)
         .map_err(|e| format!("failed to serialize request: {e}"))?;
 
-    fs::write(&destination, format!("{output}\n")).map_err(|e| {
-        format!(
-            "failed to write duplicated request {}: {e}",
-            destination.display()
-        )
-    })?;
+    atomic_write(&destination, &format!("{output}\n"))?;
 
-    Ok(rel_id(Path::new(root), &destination))
+    rel_id(Path::new(root), &destination)
 }
 
 /// Move a node into `dest_dir_rel`.
 ///
 /// Returns the new `fs:` id.
-pub fn move_node(
-    root: &str,
-    rel: &str,
-    dest_dir_rel: &str,
-) -> Result<String, String> {
+pub fn move_node(root: &str, rel: &str, dest_dir_rel: &str) -> Result<String, String> {
     let source = resolve(root, rel)?;
     let destination_directory = resolve(root, dest_dir_rel)?;
 
@@ -558,7 +553,7 @@ pub fn move_node(
 
     // Already inside the requested destination.
     if source.parent() == Some(destination_directory.as_path()) {
-        return Ok(rel_id(Path::new(root), &source));
+        return rel_id(Path::new(root), &source);
     }
 
     ensure_directory(&destination_directory)?;
@@ -569,17 +564,14 @@ pub fn move_node(
         .ok_or_else(|| "invalid node name".to_string())?;
 
     let destination = if source.is_dir() {
-        unique_path(&destination_directory, name, "")
+        unique_path(&destination_directory, name, "")?
     } else if is_request_file(&source) {
         let suffix = format!(".{EXT}");
         let stem = name.strip_suffix(&suffix).unwrap_or(name);
 
-        unique_path(&destination_directory, stem, &suffix)
+        unique_path(&destination_directory, stem, &suffix)?
     } else {
-        return Err(format!(
-            "unsupported node type: {}",
-            source.display()
-        ));
+        return Err(format!("unsupported node type: {}", source.display()));
     };
 
     fs::rename(&source, &destination).map_err(|e| {
@@ -590,7 +582,7 @@ pub fn move_node(
         )
     })?;
 
-    Ok(rel_id(Path::new(root), &destination))
+    rel_id(Path::new(root), &destination)
 }
 
 #[cfg(test)]
@@ -627,11 +619,7 @@ mod tests {
             }}"#
         );
 
-        fs::write(
-            directory.join(format!("{name}.bonk.json")),
-            body,
-        )
-            .unwrap();
+        fs::write(directory.join(format!("{name}.bonk.json")), body).unwrap();
     }
 
     fn request_node(name: &str) -> RequestNode {
@@ -752,22 +740,12 @@ mod tests {
 
         fs::create_dir_all(&root).unwrap();
 
-        let id = create_folder(
-            root.to_str().unwrap(),
-            "",
-            "New Folder",
-        )
-            .unwrap();
+        let id = create_folder(root.to_str().unwrap(), "", "New Folder").unwrap();
 
         assert_eq!(id, "fs:New Folder");
         assert!(root.join("New Folder").is_dir());
 
-        let second_id = create_folder(
-            root.to_str().unwrap(),
-            "",
-            "New Folder",
-        )
-            .unwrap();
+        let second_id = create_folder(root.to_str().unwrap(), "", "New Folder").unwrap();
 
         assert_eq!(second_id, "fs:New Folder 2");
 
@@ -780,12 +758,7 @@ mod tests {
 
         fs::create_dir_all(&root).unwrap();
 
-        let id = create_folder(
-            root.to_str().unwrap(),
-            "",
-            "...",
-        )
-            .unwrap();
+        let id = create_folder(root.to_str().unwrap(), "", "...").unwrap();
 
         assert_eq!(id, "fs:Untitled");
         assert!(root.join("Untitled").is_dir());
@@ -801,13 +774,7 @@ mod tests {
 
         let node = request_node("Ping");
 
-        let id = save_request(
-            root.to_str().unwrap(),
-            "API",
-            None,
-            node.clone(),
-        )
-            .unwrap();
+        let id = save_request(root.to_str().unwrap(), "API", None, node.clone()).unwrap();
 
         assert_eq!(id, "fs:API/Ping.bonk.json");
         assert!(root.join("API").join("Ping.bonk.json").is_file());
@@ -818,7 +785,7 @@ mod tests {
             Some("fs:API/Ping.bonk.json"),
             node,
         )
-            .unwrap();
+        .unwrap();
 
         assert_eq!(second_id, "fs:API/Ping.bonk.json");
         assert_eq!(fs::read_dir(root.join("API")).unwrap().count(), 1);
@@ -845,12 +812,9 @@ mod tests {
             Some("fs:API/Ping.bonk.json"),
             request_node("Pong"),
         )
-            .unwrap();
+        .unwrap();
 
-        assert_eq!(
-            fs::read_to_string(&pong_path).unwrap(),
-            pong_original
-        );
+        assert_eq!(fs::read_to_string(&pong_path).unwrap(), pong_original);
 
         assert_eq!(id, "fs:API/Pong 2.bonk.json");
         assert!(api.join("Pong 2.bonk.json").is_file());
@@ -866,16 +830,13 @@ mod tests {
 
         fs::create_dir_all(&root).unwrap();
 
-        let outside = root
-            .parent()
-            .unwrap()
-            .join(format!(
-                "bonk-escape-target-{}",
-                SystemTime::now()
-                    .duration_since(UNIX_EPOCH)
-                    .unwrap()
-                    .as_nanos()
-            ));
+        let outside = root.parent().unwrap().join(format!(
+            "bonk-escape-target-{}",
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
 
         fs::create_dir_all(&outside).unwrap();
 
@@ -902,11 +863,7 @@ mod tests {
 
         write_request(&root.join("API"), "Top");
 
-        delete(
-            root.to_str().unwrap(),
-            "fs:API/Top.bonk.json",
-        )
-            .unwrap();
+        delete(root.to_str().unwrap(), "fs:API/Top.bonk.json").unwrap();
 
         assert!(!root.join("API").join("Top.bonk.json").exists());
 
@@ -923,29 +880,16 @@ mod tests {
 
         write_request(&root.join("API"), "Top");
 
-        let folder_id = rename(
-            root.to_str().unwrap(),
-            "fs:API",
-            "Core",
-        )
-            .unwrap();
+        let folder_id = rename(root.to_str().unwrap(), "fs:API", "Core").unwrap();
 
         assert_eq!(folder_id, "fs:Core");
         assert!(root.join("Core").is_dir());
 
-        let request_id = rename(
-            root.to_str().unwrap(),
-            "fs:Core/Top.bonk.json",
-            "Health",
-        )
-            .unwrap();
+        let request_id = rename(root.to_str().unwrap(), "fs:Core/Top.bonk.json", "Health").unwrap();
 
         assert_eq!(request_id, "fs:Core/Health.bonk.json");
 
-        let raw = fs::read_to_string(
-            root.join("Core").join("Health.bonk.json"),
-        )
-            .unwrap();
+        let raw = fs::read_to_string(root.join("Core").join("Health.bonk.json")).unwrap();
 
         let file: RequestFile = serde_json::from_str(&raw).unwrap();
 
@@ -960,12 +904,7 @@ mod tests {
 
         fs::create_dir_all(root.join("API")).unwrap();
 
-        let id = rename(
-            root.to_str().unwrap(),
-            "fs:API",
-            "API",
-        )
-            .unwrap();
+        let id = rename(root.to_str().unwrap(), "fs:API", "API").unwrap();
 
         assert_eq!(id, "fs:API");
         assert!(root.join("API").is_dir());
@@ -980,21 +919,13 @@ mod tests {
 
         write_request(&root.join("API"), "Top");
 
-        let id = rename(
-            root.to_str().unwrap(),
-            "fs:API/Top.bonk.json",
-            "Top",
-        )
-            .unwrap();
+        let id = rename(root.to_str().unwrap(), "fs:API/Top.bonk.json", "Top").unwrap();
 
         assert_eq!(id, "fs:API/Top.bonk.json");
         assert!(root.join("API").join("Top.bonk.json").is_file());
         assert!(!root.join("API").join("Top 2.bonk.json").exists());
 
-        let raw = fs::read_to_string(
-            root.join("API").join("Top.bonk.json"),
-        )
-            .unwrap();
+        let raw = fs::read_to_string(root.join("API").join("Top.bonk.json")).unwrap();
 
         let file: RequestFile = serde_json::from_str(&raw).unwrap();
 
@@ -1010,22 +941,14 @@ mod tests {
         write_request(&root.join("API"), "Ping");
         write_request(&root.join("API"), "Pong");
 
-        let id = rename(
-            root.to_str().unwrap(),
-            "fs:API/Ping.bonk.json",
-            "Pong",
-        )
-            .unwrap();
+        let id = rename(root.to_str().unwrap(), "fs:API/Ping.bonk.json", "Pong").unwrap();
 
         assert_eq!(id, "fs:API/Pong 2.bonk.json");
         assert!(root.join("API").join("Pong.bonk.json").is_file());
         assert!(root.join("API").join("Pong 2.bonk.json").is_file());
         assert!(!root.join("API").join("Ping.bonk.json").exists());
 
-        let raw = fs::read_to_string(
-            root.join("API").join("Pong 2.bonk.json"),
-        )
-            .unwrap();
+        let raw = fs::read_to_string(root.join("API").join("Pong 2.bonk.json")).unwrap();
 
         let file: RequestFile = serde_json::from_str(&raw).unwrap();
 
@@ -1040,17 +963,11 @@ mod tests {
 
         write_request(&root.join("API"), "Top");
 
-        let id = duplicate(
-            root.to_str().unwrap(),
-            "fs:API/Top.bonk.json",
-        )
-            .unwrap();
+        let id = duplicate(root.to_str().unwrap(), "fs:API/Top.bonk.json").unwrap();
 
         assert_eq!(id, "fs:API/Top copy.bonk.json");
 
-        let destination = root
-            .join("API")
-            .join("Top copy.bonk.json");
+        let destination = root.join("API").join("Top copy.bonk.json");
 
         assert!(destination.is_file());
 
@@ -1067,34 +984,22 @@ mod tests {
     fn duplicate_folder_recursive() {
         let root = temp_root();
 
-        write_request(
-            &root.join("API").join("Sub"),
-            "Deep",
-        );
+        write_request(&root.join("API").join("Sub"), "Deep");
 
-        let id = duplicate(
-            root.to_str().unwrap(),
-            "fs:API",
-        )
-            .unwrap();
+        let id = duplicate(root.to_str().unwrap(), "fs:API").unwrap();
 
         assert_eq!(id, "fs:API copy");
 
         let copy = root.join("API copy");
 
         assert!(copy.is_dir());
-        assert!(
-            copy.join("Sub")
-                .join("Deep.bonk.json")
-                .is_file()
-        );
+        assert!(copy.join("Sub").join("Deep.bonk.json").is_file());
 
-        assert!(
-            root.join("API")
-                .join("Sub")
-                .join("Deep.bonk.json")
-                .is_file()
-        );
+        assert!(root
+            .join("API")
+            .join("Sub")
+            .join("Deep.bonk.json")
+            .is_file());
 
         let _ = fs::remove_dir_all(root);
     }
@@ -1106,12 +1011,7 @@ mod tests {
         write_request(&root.join("API"), "Top");
         fs::create_dir_all(root.join("Other")).unwrap();
 
-        let id = move_node(
-            root.to_str().unwrap(),
-            "fs:API/Top.bonk.json",
-            "fs:Other",
-        )
-            .unwrap();
+        let id = move_node(root.to_str().unwrap(), "fs:API/Top.bonk.json", "fs:Other").unwrap();
 
         assert_eq!(id, "fs:Other/Top.bonk.json");
         assert!(root.join("Other").join("Top.bonk.json").is_file());
@@ -1127,12 +1027,7 @@ mod tests {
         write_request(&root.join("API"), "Top");
         write_request(&root.join("Other"), "Top");
 
-        let id = move_node(
-            root.to_str().unwrap(),
-            "fs:API/Top.bonk.json",
-            "fs:Other",
-        )
-            .unwrap();
+        let id = move_node(root.to_str().unwrap(), "fs:API/Top.bonk.json", "fs:Other").unwrap();
 
         assert_eq!(id, "fs:Other/Top 2.bonk.json");
         assert!(root.join("Other").join("Top.bonk.json").is_file());
@@ -1146,16 +1041,9 @@ mod tests {
     fn move_rejects_into_descendant() {
         let root = temp_root();
 
-        write_request(
-            &root.join("API").join("Sub"),
-            "x",
-        );
+        write_request(&root.join("API").join("Sub"), "x");
 
-        let result = move_node(
-            root.to_str().unwrap(),
-            "fs:API",
-            "fs:API/Sub",
-        );
+        let result = move_node(root.to_str().unwrap(), "fs:API", "fs:API/Sub");
 
         assert!(result.is_err());
         assert!(root.join("API").is_dir());
@@ -1169,12 +1057,7 @@ mod tests {
 
         write_request(&root.join("API"), "Top");
 
-        let id = move_node(
-            root.to_str().unwrap(),
-            "fs:API/Top.bonk.json",
-            "fs:API",
-        )
-            .unwrap();
+        let id = move_node(root.to_str().unwrap(), "fs:API/Top.bonk.json", "fs:API").unwrap();
 
         assert_eq!(id, "fs:API/Top.bonk.json");
         assert!(root.join("API").join("Top.bonk.json").is_file());
