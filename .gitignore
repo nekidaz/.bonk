@@ -1,0 +1,16 @@
+node_modules/
+/target/
+src-tauri/target/
+dist/
+.idea/
+.DS_Store
+*.log
+*.md
+!/README.md
+!/ARCHITECTURE.md
+.local
+.local/
+.env
+.env.*
+!.env.example
+src-tauri/Cargo.lock

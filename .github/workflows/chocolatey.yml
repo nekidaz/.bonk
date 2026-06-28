@@ -1,0 +1,86 @@
+name: Chocolatey
+
+# Package the Windows installer from a GitHub Release and push it to Chocolatey
+# so `choco install bonk` / `choco upgrade bonk` work.
+#
+# Triggers:
+#   - automatically when a Release is published
+#   - manually (workflow_dispatch) to (re)package an existing release — pass a
+#     tag, or leave blank for the latest release.
+#
+# Required: a verified Chocolatey package id `bonk` + repo secret
+# CHOCOLATEY_API_KEY.
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag to package (blank = latest)'
+        required: false
+        default: ''
+
+permissions:
+  contents: read
+
+jobs:
+  push-package:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build Chocolatey package
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          EVENT_TAG: ${{ github.event.release.tag_name }}
+          INPUT_TAG: ${{ inputs.tag }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+
+          $tag = if ($env:INPUT_TAG) { $env:INPUT_TAG } elseif ($env:EVENT_TAG) { $env:EVENT_TAG } else { '' }
+          if ($tag) {
+            $release = gh api "repos/$env:REPO/releases/tags/$tag" | ConvertFrom-Json
+          } else {
+            $release = gh api "repos/$env:REPO/releases/latest" | ConvertFrom-Json
+          }
+
+          $version = $release.tag_name.TrimStart('v')
+          $asset = $release.assets |
+            Where-Object { $_.name -match '(?i)(x64|amd64).*(setup\.exe|\.msi)$' } |
+            Select-Object -First 1
+          if (-not $asset) {
+            throw "No Windows x64 installer asset found on release $($release.tag_name)."
+          }
+
+          New-Item -ItemType Directory -Force -Path dist/chocolatey/tools | Out-Null
+          Copy-Item packaging/chocolatey/bonk.nuspec dist/chocolatey/bonk.nuspec
+          Copy-Item packaging/chocolatey/tools/* dist/chocolatey/tools/
+
+          $installer = Join-Path $env:RUNNER_TEMP $asset.name
+          Invoke-WebRequest -Uri $asset.browser_download_url -OutFile $installer
+          $sha = (Get-FileHash $installer -Algorithm SHA256).Hash.ToLowerInvariant()
+
+          $nuspec = (Get-Content dist/chocolatey/bonk.nuspec -Raw).Replace('__VERSION__', $version)
+          Set-Content dist/chocolatey/bonk.nuspec -Value $nuspec -NoNewline
+
+          $install = (Get-Content dist/chocolatey/tools/chocolateyinstall.ps1 -Raw).
+            Replace('__URL64__', $asset.browser_download_url).
+            Replace('__CHECKSUM64__', $sha)
+          Set-Content dist/chocolatey/tools/chocolateyinstall.ps1 -Value $install -NoNewline
+
+          choco pack dist/chocolatey/bonk.nuspec --outputdirectory dist/chocolatey
+
+      - name: Push to Chocolatey
+        shell: pwsh
+        env:
+          CHOCOLATEY_API_KEY: ${{ secrets.CHOCOLATEY_API_KEY }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if (-not $env:CHOCOLATEY_API_KEY) {
+            throw 'CHOCOLATEY_API_KEY is not configured.'
+          }
+          $pkg = Get-ChildItem dist/chocolatey/*.nupkg | Select-Object -First 1
+          choco push $pkg.FullName --source https://push.chocolatey.org/ --api-key $env:CHOCOLATEY_API_KEY
