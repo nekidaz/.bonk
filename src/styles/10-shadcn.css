@@ -1,0 +1,58 @@
+/*
+ * shadcn/ui-style theme layer. Loaded last, so it re-maps the design tokens to
+ * a neutral "zinc" palette with subtle borders + muted-foreground text, and
+ * flattens the Big Sur translucency/blur. Delete the import in `bigsur.css` to
+ * revert to the original Big Sur look.
+ */
+.bs {
+  --bg: #ffffff;
+  --surface: #ffffff;
+  --side: #fafafa;
+  --tb: #ffffff;
+  --inset: #f4f4f5;
+  --sep: #e4e4e7;
+  --sepsoft: #f0f0f1;
+  --text: #09090b;
+  --t2: #52525b;
+  --t3: #71717a;
+  --accent: #2563eb;
+  --accentsoft: #eff6ff;
+  --hover: rgba(9, 9, 11, 0.045);
+  --hover2: rgba(9, 9, 11, 0.025);
+}
+
+.dark .bs {
+  --bg: #09090b;
+  --surface: #18181b;
+  --side: #121215;
+  --tb: #09090b;
+  --inset: #18181b;
+  --sep: #27272a;
+  --sepsoft: #202023;
+  --text: #fafafa;
+  --t2: #a1a1aa;
+  --t3: #71717a;
+  --accent: #3b82f6;
+  --accentsoft: rgba(59, 130, 246, 0.16);
+  --hover: rgba(255, 255, 255, 0.05);
+  --hover2: rgba(255, 255, 255, 0.03);
+}
+
+/* Flatten the Big Sur glass — opaque surfaces already neutralize the blur, but
+   drop the filters and sheen highlights so the chrome reads flat like shadcn. */
+.bs-tb,
+.bs-side,
+.bs-status,
+.bs-search,
+.bs-work-menu,
+.bs-modal {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+.bs-tb {
+  box-shadow: none;
+}
+.bs-side::before,
+.bs-tb::before {
+  display: none;
+}
