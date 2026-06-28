@@ -15,10 +15,12 @@ import { tabs, collections, workspacePath, recentWorkspacePaths, ROOT } from './
 
 // ---------- Recent-workspace bookkeeping ----------
 
+/** @internal — used within stores/; not re-exported by the barrel. */
 export function normalizeWorkspaceRecents(paths: string[]): string[] {
   return Array.from(new Set(paths.map((p) => p.trim()).filter(Boolean))).slice(0, 10);
 }
 
+/** @internal — used within stores/; not re-exported by the barrel. */
 export function rememberWorkspacePath(path: string): void {
   const clean = path.trim();
   if (!clean) return;
@@ -27,18 +29,19 @@ export function rememberWorkspacePath(path: string): void {
 
 // ---------- Expanded-state preservation across reloads ----------
 
-/** Collect the expanded state of every folder, keyed by id, into `acc`. */
+/** Collect the expanded state of every folder, keyed by id, into `acc`. @internal */
 export function collectExpanded(nodes: TreeNode[], acc: Map<string, boolean>): void {
   for (const n of nodes) if (n.kind === 'folder') { acc.set(n.id, n.expanded); collectExpanded(n.children, acc); }
 }
 
-/** Re-apply a saved expanded-by-id map to a freshly loaded tree; unknown folders keep the loaded default. */
+/** Re-apply a saved expanded-by-id map to a freshly loaded tree; unknown folders keep the loaded default. @internal */
 export function applyExpanded(nodes: TreeNode[], map: Map<string, boolean>): TreeNode[] {
   return nodes.map((n) => n.kind === 'folder'
     ? { ...n, expanded: map.has(n.id) ? map.get(n.id)! : n.expanded, children: applyExpanded(n.children, map) }
     : n);
 }
 
+/** @internal — used within stores/; not re-exported by the barrel. */
 export async function reloadWorkspace(): Promise<void> {
   const path = get(workspacePath);
   if (!path) return;
@@ -61,6 +64,7 @@ export async function reloadWorkspace(): Promise<void> {
  * `workspace: <name> failed`. Preserves the wrapped fn's return value on
  * success and yields `undefined` on error, so callers that return a value
  * (e.g. a new node id) keep working unchanged.
+ * @internal — used within stores/; not re-exported by the barrel.
  */
 export async function runWorkspaceOp<T>(name: string, fn: () => Promise<T>): Promise<T | undefined> {
   try {

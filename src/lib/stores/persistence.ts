@@ -22,11 +22,12 @@ import { normalizeWorkspaceRecents, rememberWorkspacePath } from './workspace';
 
 let hydrated = false;
 
-export async function hydrate(): Promise<() => void> {
-  // Already hydrated: return a no-op teardown so the (single) live subscription
-  // set is never torn down by a second caller.
-  if (hydrated) return () => {};
-  hydrated = true;
+/**
+ * Restore persisted state into the stores: tabs, history, settings, the
+ * workspace tree, and the previously-focused tab. No subscriptions are
+ * registered here — this is the one-shot restore half of hydrate().
+ */
+async function restoreState(): Promise<void> {
   // loadState verifies the value is an array when the fallback is one, so a
   // corrupt/non-array persisted value falls back to [] instead of crashing.
   const savedTabs = await loadState<Tab[]>('tabs', []);
@@ -65,9 +66,14 @@ export async function hydrate(): Promise<() => void> {
   activeTabId.set(
     currentTabs.some((t) => t.id === savedActiveId) ? savedActiveId : (currentTabs[0]?.id ?? ''),
   );
-  // Persistence subscriptions. Collect every unsubscribe so a teardown (HMR /
-  // tests) can drop them all and re-arm `hydrated`; production calls hydrate()
-  // once and never tears down, so behavior there is unchanged.
+}
+
+/**
+ * Wire the store→disk persistence subscriptions and return a teardown that drops
+ * them all. Production calls hydrate() once and never tears down; the teardown
+ * exists for HMR / tests so the (single) live subscription set can be re-armed.
+ */
+function wirePersistence(): () => void {
   const unsubs = [
     // Persist requests, not live connections: a tab's gRPC connectionId/tree point
     // at a backend connection that's gone after a restart, so strip them. A restored
@@ -92,6 +98,23 @@ export async function hydrate(): Promise<() => void> {
   ];
   return () => {
     for (const unsub of unsubs) unsub();
+  };
+}
+
+/**
+ * Restore persisted state, then wire the persistence subscriptions. Returns a
+ * teardown that drops the subscriptions and re-arms hydrate (for HMR / tests);
+ * production calls this once on startup and never tears down.
+ */
+export async function hydrate(): Promise<() => void> {
+  // Already hydrated: return a no-op teardown so the (single) live subscription
+  // set is never torn down by a second caller.
+  if (hydrated) return () => {};
+  hydrated = true;
+  await restoreState();
+  const unwire = wirePersistence();
+  return () => {
+    unwire();
     hydrated = false;
   };
 }
