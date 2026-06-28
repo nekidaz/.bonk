@@ -297,16 +297,7 @@
 <svelte:window onpointerdown={() => { grpcMethodOpen = false; httpMethodOpen = false; workspaceMenuOpen = false; }} onkeydown={globalKeydown} />
 
 <div class="bs" class:sidebar-hidden={sidebarHidden}>
-  <AppToolbar
-    bind:workspaceMenuOpen
-    onSettings={() => (settingsOpen = true)}
-    leftOpen={!sidebarHidden}
-    bottomOpen={!responseHidden}
-    rightOpen={codeOpen}
-    onToggleLeft={() => (sidebarHidden = !sidebarHidden)}
-    onToggleBottom={() => (responseHidden = !responseHidden)}
-    onToggleRight={() => (codeOpen = !codeOpen)}
-  />
+  <AppToolbar bind:workspaceMenuOpen onSettings={() => (settingsOpen = true)} />
 
   <div class="bs-body">
     <!-- Sidebar -->
@@ -356,7 +347,14 @@
     </main>
   </div>
 
-  <AppStatusBar />
+  <AppStatusBar
+    leftOpen={!sidebarHidden}
+    bottomOpen={!responseHidden}
+    rightOpen={codeOpen}
+    onToggleLeft={() => (sidebarHidden = !sidebarHidden)}
+    onToggleBottom={() => (responseHidden = !responseHidden)}
+    onToggleRight={() => (codeOpen = !codeOpen)}
+  />
 
   <AppPopoverMenu
     {menu}
