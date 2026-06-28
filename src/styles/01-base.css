@@ -96,6 +96,10 @@
 .bs-ti { width: 28px; height: 28px; border-radius: 7px; display: flex; align-items: center; justify-content: center; color: var(--t2); }
 .bs-ti:hover { background: var(--hover); }
 .bs-ti svg { width: 17px; height: 17px; }
+.bs-layout { display: flex; align-items: center; gap: 2px; padding: 2px; border-radius: 8px; background: var(--inset); border: 0.5px solid var(--sep); }
+.bs-lt { width: 27px; height: 23px; border-radius: 6px; display: flex; align-items: center; justify-content: center; color: var(--t3); }
+.bs-lt:hover { background: var(--hover); color: var(--t2); }
+.bs-lt.on { background: var(--surface); color: var(--accent); box-shadow: 0 1px 2px rgba(0, 0, 0, 0.10); }
 
 /* Body */
 .bs-body { flex: 1; display: flex; min-height: 0; }

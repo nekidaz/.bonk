@@ -116,6 +116,7 @@
   let saveOpen = $state(false);
   let settingsOpen = $state(false);
   let codeOpen = $state(false);
+  let responseHidden = $state(false);
   function openSaveDialog(): void {
     saveOpen = true;
   }
@@ -296,7 +297,16 @@
 <svelte:window onpointerdown={() => { grpcMethodOpen = false; httpMethodOpen = false; workspaceMenuOpen = false; }} onkeydown={globalKeydown} />
 
 <div class="bs" class:sidebar-hidden={sidebarHidden}>
-  <AppToolbar bind:workspaceMenuOpen onSettings={() => (settingsOpen = true)} />
+  <AppToolbar
+    bind:workspaceMenuOpen
+    onSettings={() => (settingsOpen = true)}
+    leftOpen={!sidebarHidden}
+    bottomOpen={!responseHidden}
+    rightOpen={codeOpen}
+    onToggleLeft={() => (sidebarHidden = !sidebarHidden)}
+    onToggleBottom={() => (responseHidden = !responseHidden)}
+    onToggleRight={() => (codeOpen = !codeOpen)}
+  />
 
   <div class="bs-body">
     <!-- Sidebar -->
@@ -332,11 +342,11 @@
         {#if active.protocol === 'grpc'}
           {#key active.id}
             <GrpcEditor tab={active} bind:methodOpen={grpcMethodOpen} />
-            <ResponsePane tab={active} {responseHeight} onResize={startSplitDrag} />
+            {#if !responseHidden}<ResponsePane tab={active} {responseHeight} onResize={startSplitDrag} />{/if}
           {/key}
         {:else}
           <HttpRequestEditor tab={active} bind:methodOpen={httpMethodOpen} />
-          <ResponsePane tab={active} {responseHeight} onResize={startSplitDrag} />
+          {#if !responseHidden}<ResponsePane tab={active} {responseHeight} onResize={startSplitDrag} />{/if}
         {/if}
         {/if}
       {/if}
