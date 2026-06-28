@@ -79,7 +79,9 @@
 }
 
 /* Toolbar */
-.bs-tb { position: relative; z-index: 85; height: 50px; flex-shrink: 0; display: flex; align-items: center; gap: 12px; padding: 0 13px; background: var(--tb); border-bottom: 0.5px solid var(--sep); }
+.bs-tb { position: relative; z-index: 85; height: 50px; flex-shrink: 0; display: grid; grid-template-columns: 1fr minmax(0, 540px) 1fr; align-items: center; gap: 12px; padding: 0 13px; background: var(--tb); border-bottom: 0.5px solid var(--sep); }
+.bs-tb-left { display: flex; align-items: center; gap: 10px; min-width: 0; justify-self: start; }
+.bs-tb-right { display: flex; align-items: center; gap: 4px; justify-self: end; }
 .bs-nav { display: flex; align-items: center; gap: 1px; color: var(--t2); }
 .bs-nav .b { width: 26px; height: 26px; border-radius: 7px; display: flex; align-items: center; justify-content: center; }
 .bs-nav .b:hover { background: var(--hover); }
@@ -88,7 +90,7 @@
 .bs-work { display: flex; align-items: center; gap: 6px; padding: 5px 9px; border-radius: 7px; font-weight: 600; font-size: 12.5px; }
 .bs-work:hover { background: var(--hover); }
 .bs-work svg { width: 13px; height: 13px; color: var(--t2); }
-.bs-search { flex: 1; max-width: 540px; margin: 0 auto; height: 30px; border-radius: 8px; background: var(--inset); border: 0.5px solid var(--sep); display: flex; align-items: center; justify-content: center; gap: 8px; color: var(--t3); font-size: 12.5px; }
+.bs-search { width: 100%; height: 30px; border-radius: 8px; background: var(--inset); border: 0.5px solid var(--sep); display: flex; align-items: center; justify-content: center; gap: 8px; color: var(--t3); font-size: 12.5px; }
 .bs-search svg { width: 14px; height: 14px; }
 .bs-spacer { flex: 1; }
 .bs-ti { width: 28px; height: 28px; border-radius: 7px; display: flex; align-items: center; justify-content: center; color: var(--t2); }
