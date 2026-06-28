@@ -1,17 +1,31 @@
 <script lang="ts">
   /**
-   * Right-docked "Code snippet" panel: renders the active request as a curl
-   * command (Postman-style) with a copy button. HTTP tabs only; overlays the
-   * right edge of the work area so it doesn't disturb the request/response split.
+   * Right-docked "Code snippet" panel (Postman-style): renders the active request
+   * as code in a chosen language via httpsnippet, with a language dropdown and a
+   * copy button. HTTP tabs only; overlays the right edge of the work area.
    */
-  import { toCurl } from '../domain/curl';
+  import { LANGUAGES, generateSnippet } from '../domain/codegen';
   import type { Tab } from '../domain/types';
 
   let { tab, onClose }: { tab: Tab; onClose: () => void } = $props();
 
-  const code = $derived(toCurl(tab));
+  let lang = $state('curl');
+  let code = $state('');
   let copied = $state(false);
   let timer: ReturnType<typeof setTimeout> | undefined;
+
+  // Regenerate whenever the request (immutable tab) or selected language changes.
+  $effect(() => {
+    const t = tab;
+    const l = lang;
+    let cancelled = false;
+    void generateSnippet(t, l).then((c) => {
+      if (!cancelled) code = c;
+    });
+    return () => {
+      cancelled = true;
+    };
+  });
 
   async function copy(): Promise<void> {
     try {
@@ -33,7 +47,9 @@
     </button>
   </div>
   <div class="bs-codepanel-sub">
-    <span class="lang">cURL</span>
+    <select class="bs-codepanel-lang" bind:value={lang} aria-label="Snippet language">
+      {#each LANGUAGES as l (l.id)}<option value={l.id}>{l.label}</option>{/each}
+    </select>
     <button class="copy" title="Copy" onclick={copy}>
       <span class="material-symbols-outlined" style="font-size:14px">{copied ? 'check' : 'content_copy'}</span>{copied ? 'Copied' : 'Copy'}
     </button>
@@ -66,7 +82,7 @@
   .bs-codepanel-h .t {
     font-weight: 600;
     font-size: 13px;
-    color: var(--t1);
+    color: var(--text);
   }
   .bs-codepanel-h .x {
     background: none;
@@ -79,12 +95,20 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
+    gap: 8px;
     padding: 8px 14px 6px;
   }
-  .bs-codepanel-sub .lang {
+  .bs-codepanel-lang {
     font-size: 12px;
     font-weight: 600;
-    color: var(--t2);
+    color: var(--text);
+    background: var(--inset);
+    border: 0.5px solid var(--sep);
+    border-radius: 6px;
+    padding: 4px 8px;
+    cursor: pointer;
+    outline: none;
+    max-width: 220px;
   }
   .bs-codepanel-sub .copy {
     display: inline-flex;
@@ -97,6 +121,7 @@
     border-radius: 6px;
     padding: 3px 8px;
     cursor: pointer;
+    flex: none;
   }
   .bs-codepanel-code {
     flex: 1;
@@ -106,8 +131,7 @@
     font-family: var(--mono);
     font-size: 12px;
     line-height: 1.6;
-    color: var(--t1);
-    white-space: pre-wrap;
-    word-break: break-all;
+    color: var(--text);
+    white-space: pre;
   }
 </style>
