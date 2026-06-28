@@ -1,6 +1,6 @@
 {
   "name": "bonk",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Rust-powered desktop API client for HTTP and gRPC built with Tauri and Svelte.",
   "type": "module",
   "scripts": {
