@@ -7,7 +7,22 @@
   import { LANGUAGES, generateSnippet } from '../domain/codegen';
   import type { Tab } from '../domain/types';
 
-  let { tab, onClose }: { tab: Tab; onClose: () => void } = $props();
+  let { tab, onClose, width = $bindable(420) }: { tab: Tab; onClose: () => void; width?: number } = $props();
+
+  // Drag the left edge to resize. Panel is right-docked, so width = distance
+  // from the right window edge to the pointer.
+  function startResize(e: PointerEvent): void {
+    e.preventDefault();
+    const onMove = (ev: PointerEvent) => {
+      width = Math.max(300, Math.min(window.innerWidth * 0.75, window.innerWidth - ev.clientX));
+    };
+    const onUp = () => {
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+    };
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+  }
 
   let lang = $state('curl');
   let code = $state('');
@@ -39,7 +54,8 @@
   }
 </script>
 
-<aside class="bs-codepanel">
+<aside class="bs-codepanel" style="width:{width}px">
+  <div class="bs-codepanel-resize" role="separator" aria-label="Resize code panel" onpointerdown={startResize}></div>
   <div class="bs-codepanel-h">
     <span class="t">Code snippet</span>
     <button class="x" aria-label="Close" onclick={onClose}>
@@ -63,14 +79,26 @@
     top: 0;
     right: 0;
     bottom: 0;
-    width: 360px;
-    max-width: 70%;
+    min-width: 300px;
     background: var(--bg);
     border-left: 0.5px solid var(--sep);
     display: flex;
     flex-direction: column;
     z-index: 6;
     box-shadow: -8px 0 24px rgba(0, 0, 0, 0.12);
+  }
+  .bs-codepanel-resize {
+    position: absolute;
+    left: -3px;
+    top: 0;
+    bottom: 0;
+    width: 6px;
+    cursor: col-resize;
+    z-index: 7;
+  }
+  .bs-codepanel-resize:hover {
+    background: var(--accent);
+    opacity: 0.35;
   }
   .bs-codepanel-h {
     display: flex;

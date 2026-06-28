@@ -117,6 +117,7 @@
   let settingsOpen = $state(false);
   let codeOpen = $state(false);
   let responseHidden = $state(false);
+  let codePanelWidth = $state(420);
   function openSaveDialog(): void {
     saveOpen = true;
   }
@@ -342,7 +343,7 @@
         {/if}
       {/if}
       {#if codeOpen && active && active.protocol !== 'grpc' && active.protocol !== 'git'}
-        <CodeSnippetPanel tab={active} onClose={() => (codeOpen = false)} />
+        <CodeSnippetPanel tab={active} bind:width={codePanelWidth} onClose={() => (codeOpen = false)} />
       {/if}
     </main>
   </div>
