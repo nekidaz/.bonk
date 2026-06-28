@@ -35,6 +35,5 @@
   {/each}
   <button class="bs-addt" title="New" onclick={onNew}><span class="material-symbols-outlined" style="font-size:18px">add</span></button>
   <div class="bs-spacer"></div>
-  <div class="bs-envsel">No environment <span class="material-symbols-outlined" style="font-size:13px">expand_more</span></div>
   <button class="bs-tbi" title={sidebarHidden ? 'Show sidebar' : 'Hide sidebar'} onclick={() => (sidebarHidden = !sidebarHidden)}><span class="material-symbols-outlined" style="font-size:15px">view_sidebar</span></button>
 </div>
