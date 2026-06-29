@@ -318,12 +318,12 @@ button {
   font-size: 0.72rem;
 }
 
-.response-card strong {
-  color: var(--green);
+.response-card {
+  grid-column: 1 / -1;
 }
 
-.git-card strong {
-  color: var(--orange);
+.response-card strong {
+  color: var(--green);
 }
 
 .flow-line {
@@ -359,20 +359,9 @@ button {
   transform: rotate(12deg);
 }
 
-.flow-line-c {
-  right: 26%;
-  bottom: 82px;
-  width: 44%;
-}
-
 .flow-line-b::after {
   background: linear-gradient(90deg, transparent, var(--green), transparent);
   animation-delay: -0.9s;
-}
-
-.flow-line-c::after {
-  background: linear-gradient(90deg, transparent, var(--orange), transparent);
-  animation-delay: -1.6s;
 }
 
 .response-preview {
@@ -577,7 +566,7 @@ h1 {
 
 .feature-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(3, 1fr);
   gap: 14px;
   margin-top: 34px;
 }
@@ -625,10 +614,6 @@ h1 {
 
 .feature-kicker.files {
   color: var(--orange);
-}
-
-.feature-kicker.git {
-  color: #ff7b72;
 }
 
 .feature-card h3 {
