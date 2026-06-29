@@ -25,13 +25,14 @@
     openHistoryEntry,
     removeHistoryEntry,
     openWorkspaceFolder,
+    moveNode,
   } from '../stores';
   import { methodColor } from '../domain/method';
   import type { TreeNode } from '../domain/types';
   import GitPanel from './GitPanel.svelte';
   import { gitStatus, gitStatusMap, gitPrefix, GIT_ENABLED } from '../git';
   import { folderChangeCount, statusColor } from '../domain/gitStatus';
-  import { idToRel } from '../domain/tree';
+  import { idToRel, parentId } from '../domain/tree';
 
   type MenuKind = 'create' | 'switch' | 'coll' | 'req' | 'history';
 
@@ -62,6 +63,58 @@
   // Status paths are toplevel-relative; node ids are workspace-relative. When
   // the workspace is a repo subdir, prefix maps one to the other (empty = same).
   const gitPrefixVal = $derived($gitPrefix);
+
+  // ---- Drag & drop: move a request/folder into a folder, or out to the root ----
+  // Reuses the existing moveNode backend; folders and the root area are drop targets.
+  let dragId = $state<string | undefined>(undefined);
+  let dragOverId = $state<string | undefined>(undefined); // hovered folder id, '' = root zone
+
+  function dropAllowed(src: string | undefined, destFolderId: string | undefined): boolean {
+    if (!src) return false;
+    // Never drop a folder into itself or one of its own descendants (would orphan it).
+    if (destFolderId !== undefined && (destFolderId === src || destFolderId.startsWith(src + '/'))) return false;
+    // Dropping into the node's current parent is a no-op.
+    if ((parentId(src) ?? undefined) === destFolderId) return false;
+    return true;
+  }
+
+  function onDragStart(e: DragEvent, id: string): void {
+    dragId = id;
+    if (e.dataTransfer) {
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', id);
+    }
+  }
+  function onDragEnd(): void {
+    dragId = undefined;
+    dragOverId = undefined;
+  }
+  function onFolderDragOver(e: DragEvent, folderId: string): void {
+    if (!dropAllowed(dragId, folderId)) return;
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
+    dragOverId = folderId;
+  }
+  function onFolderDrop(e: DragEvent, folderId: string): void {
+    e.preventDefault();
+    e.stopPropagation();
+    const src = dragId;
+    onDragEnd();
+    if (src && dropAllowed(src, folderId)) void moveNode(src, folderId);
+  }
+  function onRootDragOver(e: DragEvent): void {
+    if (panel !== 'collections' || !dropAllowed(dragId, undefined)) return;
+    e.preventDefault();
+    dragOverId = '';
+  }
+  function onRootDrop(e: DragEvent): void {
+    if (panel !== 'collections') return;
+    e.preventDefault();
+    const src = dragId;
+    onDragEnd();
+    if (src && dropAllowed(src, undefined)) void moveNode(src, undefined);
+  }
 </script>
 
 <div class="bs-railrow">
@@ -83,7 +136,7 @@
 {#snippet node(n: TreeNode, depth: number)}
   {#if n.kind === 'folder'}
     {@const changed = folderChangeCount(gitPrefixVal + idToRel(n.id), gitFiles)}
-    <button class="bs-trow" style="padding-left:{8 + depth * 14}px" onclick={() => { if (editingNodeId !== n.id) toggleFolder(n.id); }}>
+    <button class="bs-trow" class:bs-drop={dragOverId === n.id} draggable="true" style="padding-left:{8 + depth * 14}px" onclick={() => { if (editingNodeId !== n.id) toggleFolder(n.id); }} ondragstart={(e) => onDragStart(e, n.id)} ondragend={onDragEnd} ondragover={(e) => onFolderDragOver(e, n.id)} ondragleave={() => { if (dragOverId === n.id) dragOverId = undefined; }} ondrop={(e) => onFolderDrop(e, n.id)}>
       <span class="material-symbols-outlined cv" style="font-size:13px">{n.expanded ? 'expand_more' : 'chevron_right'}</span>
       <span class="material-symbols-outlined fo" style="font-size:15px">{n.expanded ? 'folder_open' : 'folder'}</span>
       {#if editingNodeId === n.id}<!-- svelte-ignore a11y_autofocus --><input class="bs-nm bs-nm-input" bind:value={editValue} autofocus onpointerdown={(e) => e.stopPropagation()} onclick={(e) => e.stopPropagation()} onkeydown={inlineRenameKeydown} onblur={commitInlineRename} />{:else}<span class="bs-nm">{n.name}</span>{/if}
@@ -103,7 +156,7 @@
     {/if}
   {:else}
     {@const st = statusMap.get(gitPrefixVal + idToRel(n.id))}
-    <button class="bs-trow" style="padding-left:{8 + depth * 14}px" onclick={() => { if (editingNodeId !== n.id) openSavedRequest(n); }}>
+    <button class="bs-trow" draggable="true" style="padding-left:{8 + depth * 14}px" onclick={() => { if (editingNodeId !== n.id) openSavedRequest(n); }} ondragstart={(e) => onDragStart(e, n.id)} ondragend={onDragEnd}>
       <span class="bs-mp" style="color:{methodColor(n.protocol === 'grpc' ? 'GRPC' : n.request.method)}">{n.protocol === 'grpc' ? 'RPC' : n.request.method}</span>
       {#if editingNodeId === n.id}<!-- svelte-ignore a11y_autofocus --><input class="bs-nm bs-nm-input" bind:value={editValue} autofocus onpointerdown={(e) => e.stopPropagation()} onclick={(e) => e.stopPropagation()} onkeydown={inlineRenameKeydown} onblur={commitInlineRename} />{:else}<span class="bs-nm">{n.name}</span>{/if}
       {#if st}
@@ -117,7 +170,8 @@
 {#if panel === 'git'}
   <GitPanel />
 {:else}
-<div class="bs-tree">
+<!-- svelte-ignore a11y_no_static_element_interactions -->
+<div class="bs-tree" class:bs-droproot={dragOverId === ''} ondragover={onRootDragOver} ondrop={onRootDrop}>
   {#if panel === 'collections'}
     <div class="bs-sech"><span class="material-symbols-outlined cv" style="font-size:12px">expand_more</span>Collections</div>
     {#if $collections.length === 0}
