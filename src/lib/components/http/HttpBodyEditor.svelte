@@ -1,6 +1,7 @@
 <script lang="ts">
   import { filePick } from '../../api';
-  import { bodyEditorHtml, lineNumbers, syncJsonScroll, formatMarkup } from '../../domain/highlight';
+  import CodeEditor, { type CodeEditorLang } from '../CodeEditor.svelte';
+  import { formatMarkup } from '../../domain/highlight';
   import {
     currentBodyMode,
     currentRawFormat,
@@ -9,7 +10,6 @@
   import {
     bodyPlaceholder,
     jsonErrorMessage,
-    maybeInsertCommaBeforeJsonValue,
     parseJsonForBeautify,
   } from '../../domain/jsonEditor';
   import { updateActiveTab, updateTabById } from '../../stores';
@@ -29,8 +29,16 @@
   ];
   const rawFormats: RawBodyFormat[] = ['JSON', 'Text', 'JavaScript', 'HTML', 'XML'];
 
-  const activeHttpBodyLines = $derived(lineNumbers(tab.request.body));
-  const activeHttpBodyHtml = $derived(bodyEditorHtml(tab));
+  /** CodeMirror language for the current body mode / raw sub-type. */
+  const bodyLang = $derived.by((): CodeEditorLang => {
+    const mode = currentBodyMode(tab);
+    if (mode === 'graphql') return 'javascript';
+    if (mode === 'binary') return 'text';
+    const format = currentRawFormat(tab);
+    if (format === 'JSON') return 'json';
+    if (format === 'JavaScript') return 'javascript';
+    return 'text';
+  });
 
   function setBody(value: string): void {
     bodyError = '';
@@ -109,96 +117,6 @@
     }
   }
 
-  function setTextareaValue(textarea: HTMLTextAreaElement, value: string, start: number, end = start): void {
-    setBody(value);
-    requestAnimationFrame(() => {
-      textarea.focus();
-      textarea.setSelectionRange(start, end);
-      syncJsonScroll({ currentTarget: textarea } as unknown as Event);
-    });
-  }
-
-  function insertTextareaText(textarea: HTMLTextAreaElement, text: string, cursorOffset = text.length): void {
-    const value = textarea.value;
-    const start = textarea.selectionStart;
-    const end = textarea.selectionEnd;
-    const next = `${value.slice(0, start)}${text}${value.slice(end)}`;
-    setTextareaValue(textarea, next, start + cursorOffset);
-  }
-
-  function handleJsonBodyKeydown(e: KeyboardEvent): void {
-    if (currentRawFormat(tab) !== 'JSON' && e.key !== 'Tab') return;
-    const textarea = e.currentTarget as HTMLTextAreaElement;
-    const value = textarea.value;
-    const start = textarea.selectionStart;
-    const end = textarea.selectionEnd;
-
-    if (e.key === 'Tab') {
-      e.preventDefault();
-      insertTextareaText(textarea, '  ');
-      return;
-    }
-
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      const before = value.slice(0, start);
-      const after = value.slice(end);
-      const currentLine = before.slice(before.lastIndexOf('\n') + 1);
-      const indent = currentLine.match(/^\s*/)?.[0] ?? '';
-      const trimmed = currentLine.trimEnd();
-      const deeper = /[{\[]$/.test(trimmed) ? `${indent}  ` : indent;
-      if (/^[}\]]/.test(after.trimStart()) && deeper !== indent) {
-        const insert = `\n${deeper}\n${indent}`;
-        setTextareaValue(textarea, `${before}${insert}${after}`, before.length + deeper.length + 1);
-      } else {
-        insertTextareaText(textarea, `\n${deeper}`);
-      }
-      return;
-    }
-
-    const pairs: Record<string, string> = { '{': '}', '[': ']', '"': '"' };
-    if (pairs[e.key]) {
-      if (e.key === '"' && value[start] === '"' && start === end) {
-        e.preventDefault();
-        textarea.setSelectionRange(start + 1, start + 1);
-        return;
-      }
-      e.preventDefault();
-      let nextValue = value;
-      let nextStart = start;
-      let nextEnd = end;
-      if (e.key === '"') {
-        const comma = maybeInsertCommaBeforeJsonValue(nextValue, nextStart);
-        nextValue = comma.value;
-        nextStart = comma.cursor;
-        nextEnd = nextEnd + (comma.cursor - start);
-      }
-      const selected = nextValue.slice(nextStart, nextEnd);
-      const pair = `${e.key}${selected}${pairs[e.key]}`;
-      setTextareaValue(
-        textarea,
-        `${nextValue.slice(0, nextStart)}${pair}${nextValue.slice(nextEnd)}`,
-        selected ? nextStart + pair.length : nextStart + 1,
-        selected ? nextStart + pair.length : nextStart + 1,
-      );
-      return;
-    }
-
-    if ((e.key === '}' || e.key === ']') && value[start] === e.key && start === end) {
-      e.preventDefault();
-      textarea.setSelectionRange(start + 1, start + 1);
-      return;
-    }
-
-    if (e.key === 'Backspace' && start === end && start > 0) {
-      const left = value[start - 1];
-      const right = value[start];
-      if ((left === '{' && right === '}') || (left === '[' && right === ']') || (left === '"' && right === '"')) {
-        e.preventDefault();
-        setTextareaValue(textarea, `${value.slice(0, start - 1)}${value.slice(start + 1)}`, start - 1);
-      }
-    }
-  }
 </script>
 
 <div class="bs-http-body">
@@ -278,22 +196,16 @@
       {/each}
     </div>
   {:else}
-    <div class="bs-json-editor bs-http-body-editor" class:invalid={!!bodyError}>
-      <div class="bs-json-gutter" aria-hidden="true">
-        {#each activeHttpBodyLines as n}
-          <div>{n}</div>
-        {/each}
-      </div>
-      {#if !(tab.request.body ?? '').trim()}<div class="bs-json-placeholder">{bodyPlaceholder(tab)}</div>{/if}
-      <pre class="bs-json-highlight" aria-hidden="true">{@html activeHttpBodyHtml}</pre>
-      <textarea
-        spellcheck="false"
-        aria-label="Request body"
+    <div class="bs-body-cm" class:invalid={!!bodyError}>
+      <CodeEditor
         value={tab.request.body ?? ''}
-        oninput={(e) => setBody(e.currentTarget.value)}
-        onkeydown={handleJsonBodyKeydown}
-        onscroll={syncJsonScroll}
-      ></textarea>
+        onChange={setBody}
+        lang={bodyLang}
+        placeholder={bodyPlaceholder(tab)}
+        fill
+        docId={tab.id}
+        ariaLabel="Request body"
+      />
     </div>
   {/if}
 </div>
