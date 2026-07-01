@@ -29,7 +29,7 @@
   import GitDiffView from './lib/components/GitDiffView.svelte';
   import ProjectDiffView from './lib/components/ProjectDiffView.svelte';
   import SettingsModal from './lib/components/SettingsModal.svelte';
-  import EnvironmentsModal from './lib/components/EnvironmentsModal.svelte';
+  import EnvironmentsView from './lib/components/EnvironmentsView.svelte';
   import ConfirmDialog from './lib/components/ConfirmDialog.svelte';
   import SaveRequestDialog from './lib/components/SaveRequestDialog.svelte';
   import MoveDialog from './lib/components/MoveDialog.svelte';
@@ -116,7 +116,6 @@
   // Save Request dialog
   let saveOpen = $state(false);
   let settingsOpen = $state(false);
-  let envOpen = $state(false);
   let codeOpen = $state(false);
   let responseHidden = $state(false);
   let codePanelWidth = $state(420);
@@ -140,7 +139,7 @@
    * it lands. Bound to the Save button and ⌘/Ctrl+S.
    */
   async function smartSave(): Promise<void> {
-    if (!active || active.protocol === 'git') return;
+    if (!active || active.protocol === 'git' || active.protocol === 'env') return;
     if (active.savedPath) {
       try {
         await saveActiveRequest(parentId(active.savedPath), active.title);
@@ -325,7 +324,7 @@
 
     <!-- Main -->
     <main class="bs-main">
-      <AppTabBar bind:sidebarHidden onNew={(e) => openMenu('create', e)} onManageEnvironments={() => (envOpen = true)} />
+      <AppTabBar bind:sidebarHidden onNew={(e) => openMenu('create', e)} />
 
       {#if active}
         {#if active.protocol === 'git'}
@@ -334,6 +333,8 @@
           {:else}
             <GitDiffView tab={active} />
           {/if}
+        {:else if active.protocol === 'env'}
+          <EnvironmentsView />
         {:else}
         <RequestHeader tab={active} {savedFlash} onSwitch={(e) => openMenu('switch', e)} onSmartSave={smartSave} onOpenSave={openSaveDialog} />
 
@@ -348,7 +349,7 @@
         {/if}
         {/if}
       {/if}
-      {#if codeOpen && active && active.protocol !== 'grpc' && active.protocol !== 'git'}
+      {#if codeOpen && active && active.protocol !== 'grpc' && active.protocol !== 'git' && active.protocol !== 'env'}
         <CodeSnippetPanel tab={active} bind:width={codePanelWidth} onClose={() => (codeOpen = false)} />
       {/if}
     </main>
@@ -384,6 +385,5 @@
   <MoveDialog bind:open={moveOpen} sourceId={moveSourceId ?? ''} />
 
   <SettingsModal bind:open={settingsOpen} />
-  <EnvironmentsModal bind:open={envOpen} />
   <UpdateBanner />
 </div>

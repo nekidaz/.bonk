@@ -1,13 +1,12 @@
 <script lang="ts">
   /**
-   * Environments + Globals manager (Postman-style variables). Left: the list of
-   * environments plus a "Globals" pseudo-entry, with add / rename / delete for
+   * Environments + Globals manager (Postman-style variables), shown as a
+   * full-pane 'env' tab (see openEnvironmentsTab) so many variable rows fit —
+   * the successor of the old EnvironmentsModal. Left: the list of environments
+   * plus a "Globals" pseudo-entry, with add / rename / delete for
    * environments. Right: a key / value / enabled row table for the selected
    * scope, mirroring HttpParamsEditor. All edits are written back through the
-   * environments store helpers; the modal holds no source-of-truth state.
-   *
-   * `open` is two-way bound from App.svelte (the source of truth), matching
-   * SettingsModal.
+   * environments store helpers; the view holds no source-of-truth state.
    */
   import {
     globals,
@@ -16,14 +15,11 @@
     addEnvironment,
     renameEnvironment,
     deleteEnvironment,
-    setActiveEnvironment,
     setEnvVars,
     setGlobalVars,
     requestConfirm,
   } from '../stores';
   import type { VarRow } from '../domain/types';
-
-  let { open = $bindable() }: { open: boolean } = $props();
 
   // Which scope the right pane edits: 'globals' or an environment id.
   let selected = $state<'globals' | string>('globals');
@@ -108,124 +104,101 @@
       deleteEnvironment(id);
     }
   }
-
-  function close(): void {
-    editingId = undefined;
-    open = false;
-  }
-  function onKeydown(e: KeyboardEvent): void {
-    if (open && e.key === 'Escape' && !editingId) { e.preventDefault(); close(); }
-  }
 </script>
 
-<svelte:window onkeydown={onKeydown} />
+<div class="bs-envview">
+  <!-- Left: scope list -->
+  <div class="bs-env-list">
+    <button
+      class="bs-env-item"
+      class:on={selected === 'globals'}
+      type="button"
+      onclick={() => (selected = 'globals')}
+    >
+      <span class="material-symbols-outlined" style="font-size:16px">public</span>
+      <span class="bs-env-name">Globals</span>
+    </button>
 
-{#if open}
-  <div class="bs-overlay" role="dialog" aria-modal="true" aria-label="Environments">
-    <div class="bs-modal bs-env-modal">
-      <div class="bs-modal-h">
-        <span class="t">Environments</span>
-        <button class="x" aria-label="Close" onclick={close}>
-          <span class="material-symbols-outlined" style="font-size:18px">close</span>
-        </button>
-      </div>
-
-      <div class="bs-modal-b bs-env-body">
-        <!-- Left: scope list -->
-        <div class="bs-env-list">
-          <button
-            class="bs-env-item"
-            class:on={selected === 'globals'}
-            type="button"
-            onclick={() => (selected = 'globals')}
-          >
-            <span class="material-symbols-outlined" style="font-size:16px">public</span>
-            <span class="bs-env-name">Globals</span>
+    <div class="bs-env-label">Environments</div>
+    {#each $environments as e (e.id)}
+      <div class="bs-env-row" class:on={selected === e.id}>
+        {#if editingId === e.id}
+          <!-- svelte-ignore a11y_autofocus -->
+          <input
+            class="bs-env-rename"
+            autofocus
+            value={editValue}
+            oninput={(ev) => (editValue = ev.currentTarget.value)}
+            onkeydown={renameKeydown}
+            onblur={commitRename}
+          />
+        {:else}
+          <button class="bs-env-item grow" type="button" onclick={() => (selected = e.id)} ondblclick={() => startRename(e.id, e.name)}>
+            <span class="material-symbols-outlined" style="font-size:16px">layers</span>
+            <span class="bs-env-name">{e.name}</span>
+            {#if $activeEnvironmentId === e.id}<span class="bs-env-active">active</span>{/if}
           </button>
-
-          <div class="bs-env-label">Environments</div>
-          {#each $environments as e (e.id)}
-            <div class="bs-env-row" class:on={selected === e.id}>
-              {#if editingId === e.id}
-                <!-- svelte-ignore a11y_autofocus -->
-                <input
-                  class="bs-env-rename"
-                  autofocus
-                  value={editValue}
-                  oninput={(ev) => (editValue = ev.currentTarget.value)}
-                  onkeydown={renameKeydown}
-                  onblur={commitRename}
-                />
-              {:else}
-                <button class="bs-env-item grow" type="button" onclick={() => (selected = e.id)} ondblclick={() => startRename(e.id, e.name)}>
-                  <span class="material-symbols-outlined" style="font-size:16px">layers</span>
-                  <span class="bs-env-name">{e.name}</span>
-                  {#if $activeEnvironmentId === e.id}<span class="bs-env-active">active</span>{/if}
-                </button>
-                <button class="bs-env-icon" title="Rename" aria-label="Rename environment" onclick={() => startRename(e.id, e.name)}>
-                  <span class="material-symbols-outlined" style="font-size:15px">edit</span>
-                </button>
-                <button class="bs-env-icon danger" title="Delete" aria-label="Delete environment" onclick={() => removeEnv(e.id, e.name)}>
-                  <span class="material-symbols-outlined" style="font-size:15px">delete</span>
-                </button>
-              {/if}
-            </div>
-          {/each}
-          {#if $environments.length === 0}
-            <div class="bs-env-empty">No environments yet.</div>
-          {/if}
-          <button class="bs-env-add" type="button" onclick={addEnv}>
-            <span class="material-symbols-outlined" style="font-size:16px">add</span>
-            New Environment
+          <button class="bs-env-icon" title="Rename" aria-label="Rename environment" onclick={() => startRename(e.id, e.name)}>
+            <span class="material-symbols-outlined" style="font-size:15px">edit</span>
           </button>
-        </div>
-
-        <!-- Right: variable table for the selected scope -->
-        <div class="bs-env-vars">
-          <div class="bs-env-vars-head">
-            {selected === 'globals' ? 'Global variables' : ($environments.find((e) => e.id === selected)?.name ?? '')}
-          </div>
-          <div class="bs-pt">
-            <div class="bs-pr h">
-              <div class="bs-pc c"></div>
-              <div class="bs-pc k">Variable</div>
-              <div class="bs-pc v">Value</div>
-              <div class="bs-pc del"></div>
-            </div>
-            {#each viewRows as row, i (i)}
-              <div class="bs-pr" class:disabled={!row.enabled}>
-                <div class="bs-pc c">
-                  <input type="checkbox" checked={row.enabled} onchange={() => toggleRow(i)} aria-label="Enable variable" />
-                </div>
-                <div class="bs-pc k"><input placeholder="Variable" value={row.key} oninput={(e) => setField(i, 'key', e.currentTarget.value)} /></div>
-                <div class="bs-pc v"><input placeholder="Value" value={row.value} oninput={(e) => setField(i, 'value', e.currentTarget.value)} /></div>
-                <div class="bs-pc del">
-                  {#if i < viewRows.length - 1}
-                    <button class="bs-env-icon danger" title="Remove" aria-label="Remove variable" onclick={() => deleteRow(i)}>
-                      <span class="material-symbols-outlined" style="font-size:15px">close</span>
-                    </button>
-                  {/if}
-                </div>
-              </div>
-            {/each}
-          </div>
-          <div class="bs-env-hint">Reference these with <code>{'{{name}}'}</code> in the URL, headers, or body.</div>
-        </div>
+          <button class="bs-env-icon danger" title="Delete" aria-label="Delete environment" onclick={() => removeEnv(e.id, e.name)}>
+            <span class="material-symbols-outlined" style="font-size:15px">delete</span>
+          </button>
+        {/if}
       </div>
-
-      <div class="bs-modal-f">
-        <div class="grow"></div>
-        <button type="button" class="bs-btn ghost" onclick={close}>Close</button>
-      </div>
-    </div>
+    {/each}
+    {#if $environments.length === 0}
+      <div class="bs-env-empty">No environments yet.</div>
+    {/if}
+    <button class="bs-env-add" type="button" onclick={addEnv}>
+      <span class="material-symbols-outlined" style="font-size:16px">add</span>
+      New Environment
+    </button>
   </div>
-{/if}
+
+  <!-- Right: variable table for the selected scope -->
+  <div class="bs-env-vars">
+    <div class="bs-env-vars-head">
+      {selected === 'globals' ? 'Global variables' : ($environments.find((e) => e.id === selected)?.name ?? '')}
+    </div>
+    <div class="bs-pt">
+      <div class="bs-pr h">
+        <div class="bs-pc c"></div>
+        <div class="bs-pc k">Variable</div>
+        <div class="bs-pc v">Value</div>
+        <div class="bs-pc del"></div>
+      </div>
+      {#each viewRows as row, i (i)}
+        <div class="bs-pr" class:disabled={!row.enabled}>
+          <div class="bs-pc c">
+            <input type="checkbox" checked={row.enabled} onchange={() => toggleRow(i)} aria-label="Enable variable" />
+          </div>
+          <div class="bs-pc k"><input placeholder="Variable" value={row.key} oninput={(e) => setField(i, 'key', e.currentTarget.value)} /></div>
+          <div class="bs-pc v"><input placeholder="Value" value={row.value} oninput={(e) => setField(i, 'value', e.currentTarget.value)} /></div>
+          <div class="bs-pc del">
+            {#if i < viewRows.length - 1}
+              <button class="bs-env-icon danger" title="Remove" aria-label="Remove variable" onclick={() => deleteRow(i)}>
+                <span class="material-symbols-outlined" style="font-size:15px">close</span>
+              </button>
+            {/if}
+          </div>
+        </div>
+      {/each}
+    </div>
+    <div class="bs-env-hint">Reference these with <code>{'{{name}}'}</code> in the URL, headers, or body.</div>
+  </div>
+</div>
 
 <style>
-  .bs-env-modal { width: 760px; }
-  .bs-env-body { display: flex; gap: 0; padding: 0; }
+  .bs-envview {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    gap: 0;
+    overflow: hidden;
+  }
   .bs-env-list {
-    width: 240px;
+    width: 260px;
     flex: none;
     border-right: 0.5px solid var(--sepsoft);
     padding: 12px 10px;

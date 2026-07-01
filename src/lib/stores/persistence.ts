@@ -86,7 +86,9 @@ function wirePersistence(): () => void {
     // Persist requests, not live connections: a tab's gRPC connectionId/tree point
     // at a backend connection that's gone after a restart, so strip them. A restored
     // tab then reconnects on first use instead of failing with "unknown connection".
-    tabs.subscribe((t) => saveStateDebounced('tabs', t.filter((tab) => tab.protocol !== 'git').map(stripRuntimeTab))),
+    // Special tabs (git diffs, the Environments manager) hold no request state and
+    // are not persisted; restoreState's http/grpc whitelist drops them on load too.
+    tabs.subscribe((t) => saveStateDebounced('tabs', t.filter((tab) => tab.protocol !== 'git' && tab.protocol !== 'env').map(stripRuntimeTab))),
     activeTabId.subscribe((id) => saveStateDebounced('activeTabId', id)),
     // Persist history immediately (not debounced): entries are low-frequency (one
     // per sent request) and the debounced write was being lost on app quit

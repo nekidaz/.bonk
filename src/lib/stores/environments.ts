@@ -1,12 +1,34 @@
 import { get } from 'svelte/store';
-import type { Environment, VarRow } from '../domain/types';
-import { environments, activeEnvironmentId, globals } from './state';
+import type { Environment, Tab, VarRow } from '../domain/types';
+import { environments, activeEnvironmentId, globals, tabs, activeTabId } from './state';
 
 /**
  * Environment + variable CRUD. Depends only on `state` (never on other feature
- * modules), keeping the stores import graph acyclic. The EnvironmentsModal and
- * the AppTabBar selector drive everything through these helpers.
+ * modules), keeping the stores import graph acyclic. The EnvironmentsView tab
+ * and the AppTabBar selector drive everything through these helpers.
  */
+
+/**
+ * Open (or focus) the single Environments manager tab. Mirrors
+ * openProjectDiffTab: 'env' tabs hold no request state, are excluded from
+ * persistence, and at most one exists at a time.
+ */
+export function openEnvironmentsTab(): void {
+  const existing = get(tabs).find((t) => t.protocol === 'env');
+  if (existing) {
+    activeTabId.set(existing.id);
+    return;
+  }
+  const tab: Tab = {
+    id: crypto.randomUUID(),
+    protocol: 'env',
+    title: 'Environments',
+    manualTitle: true,
+    request: { method: 'ENV', url: '', headers: {} },
+  };
+  tabs.update((list) => [...list, tab]);
+  activeTabId.set(tab.id);
+}
 
 /** Create a new environment, append it, make it active, and return its id. */
 export function addEnvironment(name = 'New Environment'): string {

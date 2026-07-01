@@ -32,7 +32,7 @@ export {
   updateTabById,
 } from './state';
 
-// Environment + variable CRUD.
+// Environment + variable CRUD (plus the Environments manager tab).
 export {
   addEnvironment,
   renameEnvironment,
@@ -40,6 +40,7 @@ export {
   setActiveEnvironment,
   setEnvVars,
   setGlobalVars,
+  openEnvironmentsTab,
 } from './environments';
 
 // Persistence / hydration.

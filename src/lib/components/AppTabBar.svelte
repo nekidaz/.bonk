@@ -1,16 +1,22 @@
 <script lang="ts">
-  import { activeTabId, closeTab, tabs, environments, activeEnvironmentId, setActiveEnvironment } from '../stores';
+  import {
+    activeTabId,
+    closeTab,
+    tabs,
+    environments,
+    activeEnvironmentId,
+    setActiveEnvironment,
+    openEnvironmentsTab,
+  } from '../stores';
   import { methodColor } from '../domain/method';
   import type { Tab } from '../domain/types';
 
   let {
     sidebarHidden = $bindable(),
     onNew,
-    onManageEnvironments,
   }: {
     sidebarHidden: boolean;
     onNew: (e: MouseEvent) => void;
-    onManageEnvironments: () => void;
   } = $props();
 
   // Environment picker open state; App's window pointerdown listener closes it
@@ -27,17 +33,18 @@
   }
   function manage(): void {
     envMenuOpen = false;
-    onManageEnvironments();
+    openEnvironmentsTab();
   }
 
   function tabMethodLabel(t: Tab): string {
     if (t.protocol === 'grpc') return 'gRPC';
     if (t.protocol === 'git') return 'DIFF';
+    if (t.protocol === 'env') return 'ENV';
     return t.request.method;
   }
 
   function tabMethodColor(t: Tab): string {
-    if (t.protocol === 'git') return 'var(--accent)';
+    if (t.protocol === 'git' || t.protocol === 'env') return 'var(--accent)';
     return methodColor(t.protocol === 'grpc' ? 'GRPC' : t.request.method);
   }
 </script>

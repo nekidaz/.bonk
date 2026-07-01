@@ -1,5 +1,10 @@
 export type RequestProtocol = 'http' | 'grpc';
-export type Protocol = RequestProtocol | 'git';
+/**
+ * Tab kinds: the two request protocols plus the special full-pane tabs —
+ * 'git' (diff / project-diff views) and 'env' (the Environments manager).
+ * Special tabs hold no request state and are never persisted.
+ */
+export type Protocol = RequestProtocol | 'git' | 'env';
 export type BodyMode = 'none' | 'form-data' | 'urlencoded' | 'raw' | 'binary' | 'graphql';
 export type RawBodyFormat = 'JSON' | 'Text' | 'JavaScript' | 'HTML' | 'XML';
 export type BodyParamKind = 'text' | 'file';

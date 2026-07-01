@@ -61,7 +61,7 @@ export async function saveActiveRequest(folderId?: string, name?: string): Promi
   }
   const tab = get(tabs).find((t) => t.id === get(activeTabId));
   if (!tab) return;
-  if (tab.protocol === 'git') return;
+  if (tab.protocol === 'git' || tab.protocol === 'env') return;
   const finalName =
     name?.trim() ||
     (tab.protocol === 'grpc'
