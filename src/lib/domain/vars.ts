@@ -30,6 +30,64 @@ export function mergeScope(
   return scope;
 }
 
+/** A `{{ name }}` occurrence in a piece of text (offsets cover the braces). */
+export interface VarMatch {
+  /** The trimmed variable name between the braces. */
+  name: string;
+  /** Offset of the opening `{{`. */
+  from: number;
+  /** Offset just past the closing `}}`. */
+  to: number;
+}
+
+/**
+ * Find every `{{ name }}` placeholder in `text`. Names are trimmed exactly the
+ * way `resolveVars` trims them, so a match resolves iff its `name` is in scope.
+ * Used by the editor's inline `{{var}}` decorations and hover popover.
+ */
+export function findVariables(text: string): VarMatch[] {
+  const re = new RegExp(VAR_RE.source, 'g');
+  const out: VarMatch[] = [];
+  for (const m of text.matchAll(re)) {
+    out.push({ name: m[1].trim(), from: m.index ?? 0, to: (m.index ?? 0) + m[0].length });
+  }
+  return out;
+}
+
+/** Where a variable's value came from when it resolved. */
+export interface VarLookup {
+  value: string;
+  source: 'env' | 'globals';
+}
+
+/**
+ * Resolve a single variable name the same way `mergeScope` would: the active
+ * environment wins over globals, only enabled rows with a matching trimmed key
+ * count, and on duplicate keys the *last* enabled row wins (mirroring the
+ * last-write-wins map build in `mergeScope`). Returns `null` when unresolved.
+ */
+export function lookupVar(
+  name: string,
+  globals: VarRow[],
+  activeEnv: Environment | undefined,
+): VarLookup | null {
+  const key = name.trim();
+  if (key === '') return null;
+  const lastMatch = (rows: VarRow[]): VarRow | undefined => {
+    for (let i = rows.length - 1; i >= 0; i--) {
+      const row = rows[i];
+      if (row.enabled && row.key.trim() === key) return row;
+    }
+    return undefined;
+  };
+  if (activeEnv) {
+    const hit = lastMatch(activeEnv.vars);
+    if (hit) return { value: hit.value, source: 'env' };
+  }
+  const hit = lastMatch(globals);
+  return hit ? { value: hit.value, source: 'globals' } : null;
+}
+
 /**
  * Replace every `{{ name }}` in `text` with `scope[name]`. Surrounding
  * whitespace inside the braces is trimmed before lookup. Unknown names are left

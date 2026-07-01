@@ -21,7 +21,13 @@
    *   identifier before the cursor.
    */
   import { untrack } from 'svelte';
-  import { EditorState, Compartment, type Extension } from '@codemirror/state';
+  import {
+    EditorState,
+    Compartment,
+    type Extension,
+    type Transaction,
+    type TransactionSpec,
+  } from '@codemirror/state';
   import {
     EditorView,
     keymap,
@@ -61,6 +67,11 @@
     minHeight = '96px',
     maxHeight,
     fill = false,
+    singleLine = false,
+    onEnter,
+    onBlur,
+    onPaste,
+    varHighlight,
     docId,
     ariaLabel,
   }: {
@@ -74,6 +85,27 @@
     maxHeight?: string;
     /** Fill the parent (flex) instead of growing with content. */
     fill?: boolean;
+    /**
+     * Behave like a styled `<input>`: no gutter/active-line/autocomplete, a
+     * transaction filter collapses pasted newlines to spaces, Enter fires
+     * `onEnter` instead of inserting a line, and the chrome goes transparent
+     * (the host field supplies background/border/focus ring).
+     */
+    singleLine?: boolean;
+    /** `singleLine` only: called when the user presses Enter. */
+    onEnter?: () => void;
+    /** Called when the editor's content DOM loses focus. */
+    onBlur?: () => void;
+    /**
+     * Intercept paste: return `true` to swallow the paste (e.g. curl import).
+     * Returning `false` lets CodeMirror insert the text normally.
+     */
+    onPaste?: (text: string) => boolean;
+    /**
+     * Extra extension slot for `{{var}}` decorations, wired through its own
+     * compartment so scope changes live-reconfigure instead of remounting.
+     */
+    varHighlight?: Extension;
     /** Identity of the document; a change rebuilds state (fresh undo history). */
     docId?: string;
     ariaLabel?: string;
@@ -87,6 +119,37 @@
 
   const langCompartment = new Compartment();
   const placeholderCompartment = new Compartment();
+  const varCompartment = new Compartment();
+
+  /**
+   * `singleLine` guard: rewrite any transaction that would insert a newline so
+   * the inserted text has its line breaks collapsed to spaces (a multi-line
+   * non-curl paste becomes one line). Keyboard Enter never gets this far — the
+   * single-line keymap consumes it first.
+   */
+  function stripNewlines(tr: Transaction): TransactionSpec | Transaction {
+    if (!tr.docChanged) return tr;
+    let hasNewline = false;
+    tr.changes.iterChanges((_fromA, _toA, _fromB, _toB, inserted) => {
+      if (inserted.lines > 1) hasNewline = true;
+    });
+    if (!hasNewline) return tr;
+    const changes: { from: number; to: number; insert: string }[] = [];
+    // `\r\n → space` shrinks the text; the original selection would then point
+    // past the end. Only reuse it when every replacement kept its length.
+    let sameLength = true;
+    tr.changes.iterChanges((fromA, toA, _fromB, _toB, inserted) => {
+      const flat = inserted.toString().replace(/\r\n|\r|\n/g, ' ');
+      if (flat.length !== inserted.length) sameLength = false;
+      changes.push({ from: fromA, to: toA, insert: flat });
+    });
+    return {
+      changes,
+      selection: sameLength ? tr.selection : undefined,
+      effects: tr.effects,
+      scrollIntoView: true,
+    };
+  }
 
   function langExtension(l: CodeEditorLang): Extension {
     if (l === 'javascript') return javascript();
@@ -129,29 +192,54 @@
   ]);
 
   function themeExtension(): Extension {
+    // Single-line mode drops the editor's own chrome: the host field
+    // (.bs-urlfield / .bs-grpc-endpoint-field) supplies background, border and
+    // the :focus-within ring, exactly like it did for the old <input>.
+    const chrome: Record<string, Record<string, string>> = singleLine
+      ? {
+          '&': {
+            fontSize: '13.5px',
+            backgroundColor: 'transparent',
+            color: 'var(--text)',
+            height: '100%',
+          },
+          '&.cm-focused': { outline: 'none' },
+          '.cm-scroller': {
+            fontFamily: 'var(--mono)',
+            lineHeight: '1.5',
+            overflow: 'auto',
+            alignItems: 'center',
+          },
+          '.cm-scroller::-webkit-scrollbar': { display: 'none' },
+          '.cm-content': { padding: '0', caretColor: 'var(--accent)' },
+          '.cm-line': { padding: '0 14px' },
+        }
+      : {
+          '&': {
+            fontSize: '12px',
+            backgroundColor: 'var(--inset)',
+            color: 'var(--text)',
+            border: '0.5px solid var(--sep)',
+            borderRadius: '7px',
+            ...(fill ? { height: '100%' } : maxHeight ? { maxHeight } : {}),
+          },
+          '&.cm-focused': {
+            outline: 'none',
+            borderColor: 'color-mix(in srgb, var(--accent) 62%, var(--sep))',
+            boxShadow: '0 0 0 2.5px color-mix(in srgb, var(--accent) 15%, transparent)',
+          },
+          '.cm-scroller': {
+            fontFamily: 'var(--mono)',
+            lineHeight: '1.6',
+            borderRadius: '7px',
+            overflow: 'auto',
+            ...(fill ? {} : { minHeight }),
+          },
+          '.cm-content': { padding: '9px 0', caretColor: 'var(--accent)' },
+          '.cm-line': { padding: '0 12px' },
+        };
     return EditorView.theme({
-      '&': {
-        fontSize: '12px',
-        backgroundColor: 'var(--inset)',
-        color: 'var(--text)',
-        border: '0.5px solid var(--sep)',
-        borderRadius: '7px',
-        ...(fill ? { height: '100%' } : maxHeight ? { maxHeight } : {}),
-      },
-      '&.cm-focused': {
-        outline: 'none',
-        borderColor: 'color-mix(in srgb, var(--accent) 62%, var(--sep))',
-        boxShadow: '0 0 0 2.5px color-mix(in srgb, var(--accent) 15%, transparent)',
-      },
-      '.cm-scroller': {
-        fontFamily: 'var(--mono)',
-        lineHeight: '1.6',
-        borderRadius: '7px',
-        overflow: 'auto',
-        ...(fill ? {} : { minHeight }),
-      },
-      '.cm-content': { padding: '9px 0', caretColor: 'var(--accent)' },
-      '.cm-line': { padding: '0 12px' },
+      ...chrome,
       '.cm-gutters': {
         backgroundColor: 'var(--inset)',
         color: 'var(--t3)',
@@ -214,34 +302,62 @@
   }
 
   function buildExtensions(): Extension[] {
+    // Single-line: no gutter/active-line/indentation/autocomplete; Enter is
+    // consumed (firing `onEnter`) before defaultKeymap can insert a newline,
+    // and the transaction filter flattens whatever else sneaks a "\n" in.
+    const modeExtensions: Extension[] = singleLine
+      ? [
+          keymap.of([
+            { key: 'Enter', run: () => (onEnter?.(), true) },
+            { key: 'Shift-Enter', run: () => true },
+            { key: 'Mod-Enter', run: () => true },
+          ]),
+          EditorState.transactionFilter.of(stripNewlines),
+        ]
+      : [
+          lineNumbers(),
+          indentUnit.of('  '),
+          indentOnInput(),
+          bracketMatching(),
+          closeBrackets(),
+          highlightActiveLine(),
+          highlightActiveLineGutter(),
+          autocompletion(
+            completions && completions.length > 0
+              ? { override: [dictionaryCompletions(completions)] }
+              : {},
+          ),
+        ];
     return [
-      lineNumbers(),
+      ...modeExtensions,
       history(),
       drawSelection(),
-      indentUnit.of('  '),
       EditorState.tabSize.of(2),
-      indentOnInput(),
-      bracketMatching(),
-      closeBrackets(),
-      highlightActiveLine(),
-      highlightActiveLineGutter(),
-      autocompletion(
-        completions && completions.length > 0
-          ? { override: [dictionaryCompletions(completions)] }
-          : {},
-      ),
       keymap.of([
-        ...closeBracketsKeymap,
+        ...(singleLine ? [] : closeBracketsKeymap),
         ...defaultKeymap,
         ...historyKeymap,
-        ...completionKeymap,
-        indentWithTab,
+        ...(singleLine ? [] : [...completionKeymap, indentWithTab]),
       ]),
       langCompartment.of(langExtension(lang)),
       placeholderCompartment.of(cmPlaceholder(placeholder)),
+      varCompartment.of(varHighlight ?? []),
       syntaxHighlighting(highlight),
       themeExtension(),
       ...(ariaLabel ? [EditorView.contentAttributes.of({ 'aria-label': ariaLabel })] : []),
+      EditorView.domEventHandlers({
+        paste: (event) => {
+          if (!onPaste) return false;
+          const text = event.clipboardData?.getData('text') ?? '';
+          if (!onPaste(text)) return false;
+          event.preventDefault();
+          return true;
+        },
+        blur: () => {
+          onBlur?.();
+          return false;
+        },
+      }),
       EditorView.updateListener.of((update) => {
         if (!update.docChanged || syncingFromProp) return;
         const text = update.state.doc.toString();
@@ -309,6 +425,15 @@
     });
   });
 
+  // Live-reconfigure the `{{var}}` highlight extension. The host derives a new
+  // instance whenever the variable scope changes (env switch, quick-add from
+  // the popover), so decorations flip resolved/unresolved without a remount.
+  $effect(() => {
+    const ext = varHighlight ?? [];
+    if (!view) return;
+    view.dispatch({ effects: varCompartment.reconfigure(ext) });
+  });
+
   /**
    * Insert `text` at the cursor (replacing any selection) and focus the
    * editor. If the cursor sits after other content on its line, the snippet is
@@ -331,11 +456,20 @@
   }
 </script>
 
-<div class="bs-code-editor" class:fill bind:this={host}></div>
+<div class="bs-code-editor" class:fill class:single={singleLine} bind:this={host}></div>
 
 <style>
   .bs-code-editor {
     min-width: 0;
+  }
+  /* Single-line: behave like the old <input class="bs-url"> — fill the field
+     row; the editor theme centers the one line vertically. */
+  .bs-code-editor.single {
+    flex: 1;
+    height: 100%;
+  }
+  .bs-code-editor.single :global(.cm-editor) {
+    height: 100%;
   }
   .bs-code-editor.fill {
     flex: 1;

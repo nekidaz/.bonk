@@ -12,10 +12,23 @@
     jsonErrorMessage,
     parseJsonForBeautify,
   } from '../../domain/jsonEditor';
-  import { updateActiveTab, updateTabById } from '../../stores';
+  import {
+    updateActiveTab,
+    updateTabById,
+    globals,
+    environments,
+    activeEnvironmentId,
+  } from '../../stores';
+  import { requestVariableHighlight } from '../../editor/requestVarHighlight';
   import type { BodyMode, BodyParamKind, RawBodyFormat, Tab } from '../../domain/types';
 
   let { tab }: { tab: Tab } = $props();
+
+  // `{{var}}` inline highlight + hover quick-set for the body editor. Scripts
+  // editors intentionally do NOT get this: `{{}}` is not resolved in scripts.
+  const varHighlight = $derived(
+    requestVariableHighlight($globals, $environments, $activeEnvironmentId),
+  );
 
   let bodyError = $state('');
 
@@ -203,6 +216,7 @@
         lang={bodyLang}
         placeholder={bodyPlaceholder(tab)}
         fill
+        {varHighlight}
         docId={tab.id}
         ariaLabel="Request body"
       />

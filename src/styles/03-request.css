@@ -66,7 +66,8 @@
 .bs-method svg { width: 13px; height: 13px; color: var(--t3); }
 .bs-url { flex: 1; height: 100%; padding: 0 14px; font-family: var(--mono); font-size: 13px; color: var(--text); background: transparent; border: none; outline: none; }
 .bs-url::placeholder { color: var(--t3); }
-.bs-grpc-endpoint-field { flex: 0 1 34%; min-width: 280px; height: 40px; display: flex; align-items: center; border-radius: 10px; background: var(--inset); border: 0.5px solid var(--sep); overflow: hidden; }
+/* overflow stays visible so the CodeMirror {{var}} hover popover isn't clipped. */
+.bs-grpc-endpoint-field { flex: 0 1 34%; min-width: 280px; height: 40px; display: flex; align-items: center; border-radius: 10px; background: var(--inset); border: 0.5px solid var(--sep); overflow: visible; }
 .bs-grpc-endpoint-field:focus-within { border-color: var(--accent); }
 .bs-grpc-picker { flex: 1 1 auto; min-width: 360px; height: 40px; position: relative; border-radius: 10px; background: var(--inset); border: 0.5px solid var(--sep); }
 .bs-grpc-trigger { width: 100%; height: 100%; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 0 16px 0 18px; color: var(--text); font-size: 14px; background: transparent; border: none; }

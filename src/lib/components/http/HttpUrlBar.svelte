@@ -1,7 +1,17 @@
 <script lang="ts">
   import { cancelRequest } from '../../api';
   import { busyMap } from '../../requestRuntime';
-  import { sendHttpRequest, updateActiveTab, updateTabById, applyCurlToActiveTab } from '../../stores';
+  import {
+    sendHttpRequest,
+    updateActiveTab,
+    updateTabById,
+    applyCurlToActiveTab,
+    globals,
+    environments,
+    activeEnvironmentId,
+  } from '../../stores';
+  import { requestVariableHighlight } from '../../editor/requestVarHighlight';
+  import CodeEditor from '../CodeEditor.svelte';
   import { buildUrl, mergeParamsFromUrl } from '../../domain/http';
   import { buildRequestForSend } from '../../domain/httpBody';
   import { titleFor } from '../../domain/httpHeaders';
@@ -33,12 +43,17 @@
 
   // Postman-style: pasting a whole `curl ...` command into the URL bar imports
   // it into the active request instead of dropping the raw text into the field.
-  function onUrlPaste(e: ClipboardEvent): void {
-    const text = e.clipboardData?.getData('text') ?? '';
-    if (/^\s*curl\s/i.test(text) && applyCurlToActiveTab(text)) {
-      e.preventDefault();
-    }
+  // Returning true tells the editor to swallow the paste.
+  function onUrlPaste(text: string): boolean {
+    return /^\s*curl\s/i.test(text) && applyCurlToActiveTab(text);
   }
+
+  // `{{var}}` inline highlight + hover quick-set. Re-derived whenever the
+  // variable stores change so the URL bar's decorations stay in sync (e.g.
+  // adding a value from the popover flips missing → resolved immediately).
+  const varHighlight = $derived(
+    requestVariableHighlight($globals, $environments, $activeEnvironmentId),
+  );
 
   async function send(): Promise<void> {
     const t = tab;
@@ -113,7 +128,17 @@
         </div>
       {/if}
     </div>
-    <input class="bs-url" placeholder="Enter URL or paste a curl command" value={tab.request.url} oninput={(e) => setUrl(e.currentTarget.value)} onpaste={onUrlPaste} />
+    <CodeEditor
+      value={tab.request.url}
+      onChange={setUrl}
+      singleLine
+      placeholder="Enter URL or paste a curl command"
+      onEnter={() => void send()}
+      onPaste={onUrlPaste}
+      {varHighlight}
+      docId={tab.id}
+      ariaLabel="Request URL"
+    />
   </div>
   <button class="bs-send" class:cancelling={activeBusy?.kind === 'http'} onclick={send}>
     <span class="go">

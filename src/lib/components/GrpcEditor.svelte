@@ -35,7 +35,9 @@
     workspacePickFolder,
   } from '../api';
   import { busyMap, grpcErrorMap } from '../requestRuntime';
-  import { currentVarScope } from '../stores';
+  import { currentVarScope, globals, environments, activeEnvironmentId } from '../stores';
+  import { requestVariableHighlight } from '../editor/requestVarHighlight';
+  import CodeEditor from './CodeEditor.svelte';
   import { resolveVars } from '../domain/vars';
   import {
     GRPC_NO_SERVICES_HINT,
@@ -271,12 +273,27 @@
     (tab.grpc?.protoPaths ?? []).map((p) => p.split(/[\\/]/).pop() ?? p),
   );
   const isProtoSource = $derived(tab.grpc?.source === 'proto');
+
+  // `{{var}}` inline highlight + hover quick-set for the endpoint field,
+  // re-derived whenever the variable stores change.
+  const varHighlight = $derived(
+    requestVariableHighlight($globals, $environments, $activeEnvironmentId),
+  );
 </script>
 
 <div class="bs-urlbar">
   <div class="bs-grpc-endpoint-field">
     <span class="bs-method" style="padding:0 11px;color:var(--accent)"><span class="material-symbols-outlined" style="font-size:18px">lan</span></span>
-    <input class="bs-url" placeholder="Enter URL" value={tab.grpc?.endpoint ?? ''} oninput={(e) => setEndpoint(e.currentTarget.value)} onblur={ensureConnected} />
+    <CodeEditor
+      value={tab.grpc?.endpoint ?? ''}
+      onChange={setEndpoint}
+      singleLine
+      placeholder="Enter URL"
+      onBlur={() => void ensureConnected()}
+      {varHighlight}
+      docId={tab.id}
+      ariaLabel="gRPC endpoint"
+    />
   </div>
   <div class="bs-grpc-picker" role="presentation" onpointerdown={(e) => e.stopPropagation()}>
     <button class="bs-grpc-trigger" class:open={methodOpen} onclick={openGrpcMethodDropdown} type="button">

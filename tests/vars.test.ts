@@ -1,5 +1,11 @@
 import { describe, it, expect } from 'vitest';
-import { mergeScope, resolveVars, resolveRequestVars } from '../src/lib/domain/vars';
+import {
+  mergeScope,
+  resolveVars,
+  resolveRequestVars,
+  findVariables,
+  lookupVar,
+} from '../src/lib/domain/vars';
 import type { Environment, HttpRequest, VarRow } from '../src/lib/domain/types';
 
 function v(key: string, value: string, enabled = true): VarRow {
@@ -71,6 +77,65 @@ describe('resolveVars', () => {
 
   it('resolves to an empty string when the mapped value is empty', () => {
     expect(resolveVars('a{{blank}}b', { blank: '' })).toBe('ab');
+  });
+});
+
+describe('findVariables', () => {
+  it('returns every placeholder with trimmed names and brace-inclusive offsets', () => {
+    const text = 'https://{{host}}/v1?t={{ token }}';
+    expect(findVariables(text)).toEqual([
+      { name: 'host', from: 8, to: 16 },
+      { name: 'token', from: 22, to: 33 },
+    ]);
+  });
+
+  it('matches exactly what resolveVars would replace', () => {
+    const text = 'a {{x}} b {{ y }} c {{}} d {not} {{a{b}}';
+    const names = findVariables(text).map((m) => m.name);
+    expect(names).toEqual(['x', 'y', '']);
+  });
+
+  it('returns an empty array when there are no placeholders', () => {
+    expect(findVariables('https://plain.example.com')).toEqual([]);
+  });
+});
+
+describe('lookupVar', () => {
+  const globals: VarRow[] = [v('host', 'global.example.com'), v('token', 'g-tok')];
+
+  it('resolves from the active environment first', () => {
+    const active = env('staging', [v('host', 'staging.example.com')]);
+    expect(lookupVar('host', globals, active)).toEqual({
+      value: 'staging.example.com',
+      source: 'env',
+    });
+  });
+
+  it('falls back to globals and reports the source', () => {
+    const active = env('staging', [v('other', 'x')]);
+    expect(lookupVar('token', globals, active)).toEqual({ value: 'g-tok', source: 'globals' });
+    expect(lookupVar('token', globals, undefined)).toEqual({ value: 'g-tok', source: 'globals' });
+  });
+
+  it('returns null for unknown, blank, and disabled-only names', () => {
+    expect(lookupVar('missing', globals, undefined)).toBeNull();
+    expect(lookupVar('', globals, undefined)).toBeNull();
+    expect(lookupVar('  ', globals, undefined)).toBeNull();
+    expect(lookupVar('off', [v('off', 'x', false)], undefined)).toBeNull();
+  });
+
+  it('ignores disabled env rows so globals show through (matching mergeScope)', () => {
+    const active = env('staging', [v('host', 'staging', false)]);
+    expect(lookupVar('host', globals, active)).toEqual({
+      value: 'global.example.com',
+      source: 'globals',
+    });
+  });
+
+  it('trims the name and row keys, and last enabled duplicate wins (matching mergeScope)', () => {
+    const rows = [v('  host  ', 'first'), v('host', 'second')];
+    expect(lookupVar(' host ', rows, undefined)).toEqual({ value: 'second', source: 'globals' });
+    expect(mergeScope(rows, undefined)).toEqual({ host: 'second' });
   });
 });
 
