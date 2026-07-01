@@ -61,6 +61,20 @@ export interface Param {
   enabled: boolean;
 }
 
+/** A single variable row in an environment / the globals table (mirrors ParamRow). */
+export interface VarRow {
+  key: string;
+  value: string;
+  enabled: boolean;
+}
+
+/** A named set of variables. `{{key}}` placeholders resolve against the active one. */
+export interface Environment {
+  id: string;
+  name: string;
+  vars: VarRow[];
+}
+
 export interface Tab {
   id: string;
   protocol: Protocol;

@@ -35,6 +35,8 @@
     workspacePickFolder,
   } from '../api';
   import { busyMap, grpcErrorMap } from '../requestRuntime';
+  import { currentVarScope } from '../stores';
+  import { resolveVars } from '../domain/vars';
   import { selectMethod, metaText, grpcMethodLabel } from '../grpcActions';
   import { hl, lineNumbers, syncJsonScroll } from '../domain/highlight';
   import type { Tab, GrpcResult } from '../domain/types';
@@ -94,7 +96,8 @@
       if (t.grpc.source === 'proto' && !(t.grpc.protoPaths?.length)) {
         throw new Error('Select a .proto file first.');
       }
-      const connId = await grpcConnect(t.grpc.endpoint, t.grpc.plaintext, $requestTimeoutMs);
+      const endpoint = resolveVars(t.grpc.endpoint, currentVarScope());
+      const connId = await grpcConnect(endpoint, t.grpc.plaintext, $requestTimeoutMs);
       const tree =
         t.grpc.source === 'proto'
           ? await grpcLoadProto(connId, t.grpc.protoPaths ?? [], t.grpc.importPaths ?? [])
@@ -204,8 +207,14 @@
     grpcErrorMap.update((m) => ({ ...m, [tabId]: '' }));
     busyMap.update((m) => ({ ...m, [tabId]: { kind: 'invoke', requestId } }));
     let result: GrpcResult = { ok: false, status: 'ERROR', body: '', elapsed_ms: 0, size_bytes: 0 };
+    // Interpolate {{var}} placeholders (globals + active environment) into the
+    // message JSON and metadata values just before dispatch.
+    const scope = currentVarScope();
+    const message = resolveVars(g.message, scope);
+    const metadata: Record<string, string> = {};
+    for (const [k, val] of Object.entries(g.metadata)) metadata[k] = resolveVars(val, scope);
     try {
-      result = await grpcCall(g.connectionId, g.method, g.message, g.metadata, requestId, $requestTimeoutMs);
+      result = await grpcCall(g.connectionId, g.method, message, metadata, requestId, $requestTimeoutMs);
     } catch (e) {
       const cancelled = String(e).toLowerCase().includes('cancel');
       result = {

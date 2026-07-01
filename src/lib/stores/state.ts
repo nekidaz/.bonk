@@ -1,6 +1,7 @@
 import { writable, get } from 'svelte/store';
-import type { Tab, HistoryEntry, TreeNode } from '../domain/types';
+import type { Tab, HistoryEntry, TreeNode, Environment, VarRow } from '../domain/types';
 import { newHttpTab } from '../domain/tab';
+import { mergeScope } from '../domain/vars';
 
 /**
  * Core store singletons and the lowest-level tab mutators. Feature modules
@@ -30,6 +31,24 @@ export const responseBodyLimitMb = writable<number>(25);
 export const collections = writable<TreeNode[]>([]);
 export const workspacePath = writable<string>('');
 export const recentWorkspacePaths = writable<string[]>([]);
+
+// Postman-style variables. Globals apply everywhere; the active environment's
+// vars override globals. These live in app-state (persist), NOT workspace files,
+// so secrets don't leak into shared collection files.
+export const globals = writable<VarRow[]>([]);
+export const environments = writable<Environment[]>([]);
+export const activeEnvironmentId = writable<string | null>(null);
+
+/**
+ * The current `{{var}}` resolution scope: globals merged with the active
+ * environment (env overrides globals). Read on send / codegen to interpolate
+ * placeholders. Returns a plain `name → value` map.
+ */
+export function currentVarScope(): Record<string, string> {
+  const activeId = get(activeEnvironmentId);
+  const active = activeId ? get(environments).find((e) => e.id === activeId) : undefined;
+  return mergeScope(get(globals), active);
+}
 
 /** One-shot confirm dialog state; `null` when no dialog is open. */
 export const confirmState = writable<{ message: string; confirmLabel: string; resolve: (ok: boolean) => void } | null>(null);

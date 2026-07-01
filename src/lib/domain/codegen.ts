@@ -9,6 +9,7 @@ import type { HarRequest, TargetId } from 'httpsnippet-lite';
 import type { Tab } from './types';
 import { buildUrl } from './http';
 import { buildRequestForSend, currentBodyMode, enabledBodyParams } from './httpBody';
+import { resolveRequestVars, resolveVars } from './vars';
 
 export type Language = { id: string; label: string; target: string; client: string };
 
@@ -36,10 +37,15 @@ export const LANGUAGES: Language[] = [
   { id: 'powershell', label: 'PowerShell - RestMethod', target: 'powershell', client: 'restmethod' },
 ];
 
-/** Build a HAR request from a tab, resolving the same URL/headers/body a send would. */
-function toHar(tab: Tab): HarRequest {
+/**
+ * Build a HAR request from a tab, resolving the same URL/headers/body a send
+ * would. When `scope` is non-empty, `{{var}}` placeholders are interpolated so
+ * the generated code shows real values; otherwise they survive verbatim.
+ */
+function toHar(tab: Tab, scope: Record<string, string>): HarRequest {
   const finalUrl = buildUrl(tab.request.url, tab.params);
-  const req = buildRequestForSend(tab, finalUrl);
+  const built = buildRequestForSend(tab, finalUrl);
+  const req = resolveRequestVars(built, scope);
   const headers = Object.entries(req.headers ?? {}).map(([name, value]) => ({ name, value }));
   const har: HarRequest = {
     method: req.method || 'GET',
@@ -57,8 +63,8 @@ function toHar(tab: Tab): HarRequest {
       mimeType: 'multipart/form-data',
       params: enabledBodyParams(tab).map((row) =>
         row.kind === 'file' && row.filePath
-          ? { name: row.key, fileName: row.filePath }
-          : { name: row.key, value: row.value },
+          ? { name: resolveVars(row.key, scope), fileName: row.filePath }
+          : { name: resolveVars(row.key, scope), value: resolveVars(row.value, scope) },
       ),
     };
   } else if (req.body) {
@@ -69,11 +75,19 @@ function toHar(tab: Tab): HarRequest {
   return har;
 }
 
-/** Generate the request as code in the given language. Never throws. */
-export async function generateSnippet(tab: Tab, langId: string): Promise<string> {
+/**
+ * Generate the request as code in the given language. Never throws. Pass
+ * `scope` (e.g. `currentVarScope()`) to interpolate `{{var}}` placeholders into
+ * the snippet; omit it to keep them verbatim.
+ */
+export async function generateSnippet(
+  tab: Tab,
+  langId: string,
+  scope: Record<string, string> = {},
+): Promise<string> {
   const lang = LANGUAGES.find((l) => l.id === langId) ?? LANGUAGES[0];
   try {
-    const snippet = new HTTPSnippet(toHar(tab));
+    const snippet = new HTTPSnippet(toHar(tab, scope));
     // `target` is validated against httpsnippet's set via LANGUAGES; the single
     // cast narrows our string to the library's TargetId union. `client` is a
     // plain string in the library's types (ClientId), so it needs no cast.

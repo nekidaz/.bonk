@@ -5,6 +5,7 @@
    * copy button. HTTP tabs only; overlays the right edge of the work area.
    */
   import { LANGUAGES, generateSnippet } from '../domain/codegen';
+  import { activeEnvironmentId, environments, globals, currentVarScope } from '../stores';
   import type { Tab } from '../domain/types';
 
   let { tab, onClose, width = $bindable(420) }: { tab: Tab; onClose: () => void; width?: number } = $props();
@@ -31,12 +32,19 @@
   let copied = $state(false);
   let timer: ReturnType<typeof setTimeout> | undefined;
 
-  // Regenerate whenever the request (immutable tab) or selected language changes.
+  // Regenerate whenever the request (immutable tab), selected language, or the
+  // variable scope (globals / environments / active env) changes. Referencing
+  // the three stores keeps the effect subscribed so snippets re-render when a
+  // variable value or the active environment changes.
   $effect(() => {
     const t = tab;
     const l = lang;
+    void $globals;
+    void $environments;
+    void $activeEnvironmentId;
+    const scope = currentVarScope();
     let cancelled = false;
-    void generateSnippet(t, l).then((c) => {
+    void generateSnippet(t, l, scope).then((c) => {
       if (!cancelled) code = c;
     });
     return () => {

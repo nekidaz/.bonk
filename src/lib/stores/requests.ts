@@ -5,6 +5,7 @@ import { idToRel, findNode } from '../domain/tree';
 import { grpcPathsToRel, grpcPathsToAbs } from '../domain/protoPaths';
 import { parseCurl } from '../domain/curl';
 import { paramsFromUrl } from '../domain/http';
+import { resolveRequestVars } from '../domain/vars';
 import { GRPC_DEFAULT_TITLE, HTTP_DEFAULT_TITLE, grpcSnapshot, titleFromUrl } from '../domain/tab';
 import {
   tabs,
@@ -18,6 +19,7 @@ import {
   ROOT,
   updateActiveTab,
   updateTabById,
+  currentVarScope,
 } from './state';
 import { openWorkspaceFolder, reloadWorkspace, runWorkspaceOp } from './workspace';
 import { addHistory } from './history';
@@ -153,7 +155,11 @@ export async function sendHttpRequest(
   req: HttpRequest,
   requestId: string,
 ): Promise<void> {
-  const res = await httpSend(req, requestId, currentRequestSettings());
+  // Interpolate {{var}} placeholders (globals + active environment) just before
+  // sending. History records the resolved request so replay/inspection shows the
+  // values actually sent, not the templates.
+  const resolved = resolveRequestVars(req, currentVarScope());
+  const res = await httpSend(resolved, requestId, currentRequestSettings());
   updateTabById(tabId, (t) => ({ ...t, response: res }));
-  addHistory({ id: crypto.randomUUID(), protocol: 'http', request: req, status: res.status, at: Date.now() });
+  addHistory({ id: crypto.randomUUID(), protocol: 'http', request: resolved, status: res.status, at: Date.now() });
 }

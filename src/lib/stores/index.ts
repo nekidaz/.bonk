@@ -22,11 +22,25 @@ export {
   collections,
   workspacePath,
   recentWorkspacePaths,
+  globals,
+  environments,
+  activeEnvironmentId,
+  currentVarScope,
   confirmState,
   requestConfirm,
   updateActiveTab,
   updateTabById,
 } from './state';
+
+// Environment + variable CRUD.
+export {
+  addEnvironment,
+  renameEnvironment,
+  deleteEnvironment,
+  setActiveEnvironment,
+  setEnvVars,
+  setGlobalVars,
+} from './environments';
 
 // Persistence / hydration.
 export { hydrate } from './persistence';

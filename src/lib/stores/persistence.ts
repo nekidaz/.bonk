@@ -1,5 +1,5 @@
 import { get } from 'svelte/store';
-import type { Tab, HistoryEntry, TreeNode } from '../domain/types';
+import type { Tab, HistoryEntry, TreeNode, Environment, VarRow } from '../domain/types';
 import { loadState, saveState, saveStateDebounced } from '../persist';
 import { workspaceLoad } from '../api';
 import { normalizeTabTitleState, stripRuntimeTab } from '../domain/tab';
@@ -17,6 +17,9 @@ import {
   collections,
   workspacePath,
   recentWorkspacePaths,
+  globals,
+  environments,
+  activeEnvironmentId,
 } from './state';
 import { normalizeWorkspaceRecents, rememberWorkspacePath } from './workspace';
 
@@ -48,6 +51,11 @@ async function restoreState(): Promise<void> {
   requestFollowRedirects.set(await loadState<boolean>('requestFollowRedirects', true));
   requestValidateTls.set(await loadState<boolean>('requestValidateTls', true));
   responseBodyLimitMb.set(await loadState<number>('responseBodyLimitMb', 25));
+  // Postman-style variables. The array fallbacks make loadState reject a corrupt
+  // non-array value; activeEnvironmentId falls back to null (No environment).
+  globals.set(await loadState<VarRow[]>('globals', []));
+  environments.set(await loadState<Environment[]>('environments', []));
+  activeEnvironmentId.set(await loadState<string | null>('activeEnvironmentId', null));
   let nextTree: TreeNode[] = [];
   if (savedWorkspacePath) {
     try {
@@ -95,6 +103,9 @@ function wirePersistence(): () => void {
     requestFollowRedirects.subscribe((v) => saveStateDebounced('requestFollowRedirects', v)),
     requestValidateTls.subscribe((v) => saveStateDebounced('requestValidateTls', v)),
     responseBodyLimitMb.subscribe((n) => saveStateDebounced('responseBodyLimitMb', n)),
+    globals.subscribe((v) => saveStateDebounced('globals', v)),
+    environments.subscribe((v) => saveStateDebounced('environments', v)),
+    activeEnvironmentId.subscribe((id) => saveStateDebounced('activeEnvironmentId', id)),
   ];
   return () => {
     for (const unsub of unsubs) unsub();

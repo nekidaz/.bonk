@@ -1,6 +1,7 @@
 import type { BodyParam, HttpRequest, Tab } from './types';
 import { buildUrl } from './http';
 import { buildRequestForSend, currentBodyMode, enabledBodyParams } from './httpBody';
+import { resolveRequestVars, resolveVars } from './vars';
 
 /** Single-quote a value for a POSIX shell, escaping embedded single quotes. */
 function shellQuote(s: string): string {
@@ -10,11 +11,12 @@ function shellQuote(s: string): string {
 /**
  * Serialize a request tab as a copy-pasteable `curl` command. Resolves the same
  * final URL, headers (auth + content-type), and body that a real send would
- * produce; form-data becomes `--form` parts (files as `@path`).
+ * produce; form-data becomes `--form` parts (files as `@path`). When `scope` is
+ * non-empty, `{{var}}` placeholders are interpolated; otherwise they survive.
  */
-export function toCurl(tab: Tab): string {
+export function toCurl(tab: Tab, scope: Record<string, string> = {}): string {
   const finalUrl = buildUrl(tab.request.url, tab.params);
-  const req = buildRequestForSend(tab, finalUrl);
+  const req = resolveRequestVars(buildRequestForSend(tab, finalUrl), scope);
   const lines: string[] = [`curl ${shellQuote(req.url || '')}`];
   if (req.method && req.method !== 'GET') lines.push(`--request ${req.method}`);
   for (const [key, value] of Object.entries(req.headers ?? {})) {
@@ -22,8 +24,8 @@ export function toCurl(tab: Tab): string {
   }
   if (currentBodyMode(tab) === 'form-data') {
     for (const row of enabledBodyParams(tab)) {
-      const value = row.kind === 'file' && row.filePath ? `@${row.filePath}` : row.value;
-      lines.push(`--form ${shellQuote(`${row.key}=${value}`)}`);
+      const value = row.kind === 'file' && row.filePath ? `@${row.filePath}` : resolveVars(row.value, scope);
+      lines.push(`--form ${shellQuote(`${resolveVars(row.key, scope)}=${value}`)}`);
     }
   } else if (req.body) {
     lines.push(`--data ${shellQuote(req.body)}`);

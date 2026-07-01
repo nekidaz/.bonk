@@ -29,6 +29,7 @@
   import GitDiffView from './lib/components/GitDiffView.svelte';
   import ProjectDiffView from './lib/components/ProjectDiffView.svelte';
   import SettingsModal from './lib/components/SettingsModal.svelte';
+  import EnvironmentsModal from './lib/components/EnvironmentsModal.svelte';
   import ConfirmDialog from './lib/components/ConfirmDialog.svelte';
   import SaveRequestDialog from './lib/components/SaveRequestDialog.svelte';
   import MoveDialog from './lib/components/MoveDialog.svelte';
@@ -115,6 +116,7 @@
   // Save Request dialog
   let saveOpen = $state(false);
   let settingsOpen = $state(false);
+  let envOpen = $state(false);
   let codeOpen = $state(false);
   let responseHidden = $state(false);
   let codePanelWidth = $state(420);
@@ -323,7 +325,7 @@
 
     <!-- Main -->
     <main class="bs-main">
-      <AppTabBar bind:sidebarHidden onNew={(e) => openMenu('create', e)} />
+      <AppTabBar bind:sidebarHidden onNew={(e) => openMenu('create', e)} onManageEnvironments={() => (envOpen = true)} />
 
       {#if active}
         {#if active.protocol === 'git'}
@@ -382,5 +384,6 @@
   <MoveDialog bind:open={moveOpen} sourceId={moveSourceId ?? ''} />
 
   <SettingsModal bind:open={settingsOpen} />
+  <EnvironmentsModal bind:open={envOpen} />
   <UpdateBanner />
 </div>
