@@ -20,6 +20,7 @@
    *   may be dotted paths (`pm.environment.set`), matched against the dotted
    *   identifier before the cursor.
    */
+  import { untrack } from 'svelte';
   import { EditorState, Compartment, type Extension } from '@codemirror/state';
   import {
     EditorView,
@@ -254,12 +255,16 @@
   }
 
   // Create/destroy the view when the host element (dis)appears. Everything the
-  // initial state reads (value, lang, …) is intentionally captured untracked:
-  // later changes are handled by the sync effects below, not by re-creating.
+  // initial state reads (value, lang, …) is read inside `untrack` so this
+  // effect depends ONLY on `host`: later changes are handled by the sync
+  // effects below, not by re-creating. (Without untrack, every keystroke's
+  // value round-trip would destroy/recreate the view and drop focus.)
   $effect(() => {
     if (!host) return;
-    lastDocId = docId;
-    const created = new EditorView({ state: createState(value), parent: host });
+    const created = untrack(() => {
+      lastDocId = docId;
+      return new EditorView({ state: createState(value), parent: host });
+    });
     view = created;
     return () => {
       created.destroy();
