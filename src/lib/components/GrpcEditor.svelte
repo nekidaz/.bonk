@@ -37,6 +37,12 @@
   import { busyMap, grpcErrorMap } from '../requestRuntime';
   import { currentVarScope } from '../stores';
   import { resolveVars } from '../domain/vars';
+  import {
+    GRPC_NO_SERVICES_HINT,
+    grpcConnectFailureMessage,
+    inferGrpcPlaintext,
+    type GrpcConnectStage,
+  } from '../domain/grpc';
   import { selectMethod, metaText, grpcMethodLabel } from '../grpcActions';
   import { hl, lineNumbers, syncJsonScroll } from '../domain/highlight';
   import type { Tab, GrpcResult } from '../domain/types';
@@ -51,11 +57,9 @@
   const grpcInvoking = $derived(activeBusy?.kind === 'invoke');
   // Per-tab gRPC error text, so a stale error never shows on the wrong tab.
   const activeGrpcError = $derived($grpcErrorMap[tab.id] ?? '');
-  // Postman-style: when services can't be loaded via reflection (server has no
-  // reflection or is unreachable), show neutral guidance to load a schema
-  // instead of a red error.
-  const GRPC_NO_SERVICES_HINT =
-    "Couldn't load services from the server. Import a .proto file (in the schema menu above) to load this API's services and methods.";
+  // Postman-style: when the dial succeeded but the services can't be listed via
+  // reflection, show neutral guidance to load a schema instead of a red error
+  // (see grpcConnectFailureMessage in domain/grpc).
   const grpcGuiding = $derived(activeGrpcError === GRPC_NO_SERVICES_HINT);
 
   function setGrpc(patch: Record<string, unknown>): void {
@@ -92,24 +96,24 @@
     const tabId = t.id;
     grpcErrorMap.update((m) => ({ ...m, [tabId]: '' }));
     busyMap.update((m) => ({ ...m, [tabId]: { kind: 'connect' } }));
+    // Track which step failed: a dial failure (bad/unresolved endpoint,
+    // unreachable server) must show the real error — schema guidance can't fix
+    // it — while a post-dial reflection failure keeps the friendly hint.
+    let stage: GrpcConnectStage = 'dial';
     try {
       if (t.grpc.source === 'proto' && !(t.grpc.protoPaths?.length)) {
         throw new Error('Select a .proto file first.');
       }
       const endpoint = resolveVars(t.grpc.endpoint, currentVarScope());
       const connId = await grpcConnect(endpoint, t.grpc.plaintext, $requestTimeoutMs);
+      stage = 'schema';
       const tree =
         t.grpc.source === 'proto'
           ? await grpcLoadProto(connId, t.grpc.protoPaths ?? [], t.grpc.importPaths ?? [])
           : await grpcReflect(connId, $requestTimeoutMs);
       updateTabById(tabId, (x) => (x.grpc ? { ...x, grpc: { ...x.grpc, connectionId: connId, tree } } : x));
     } catch (e) {
-      // Only the proto source shows a verbatim error (compile / "select a proto
-      // first"). Every other source loads via reflection (including the default
-      // unset source), so its failure becomes neutral "load a schema" guidance.
-      const msg =
-        t.grpc?.source === 'proto' ? (e instanceof Error ? e.message : String(e)) : GRPC_NO_SERVICES_HINT;
-      grpcErrorMap.update((m) => ({ ...m, [tabId]: msg }));
+      grpcErrorMap.update((m) => ({ ...m, [tabId]: grpcConnectFailureMessage(t.grpc?.source, stage, e) }));
     } finally {
       busyMap.update((m) => {
         if (m[tabId]?.kind !== 'connect') return m;
@@ -134,8 +138,9 @@
   async function ensureConnected(): Promise<void> {
     const t = tab;
     if (!t?.grpc || t.grpc.connectionId || !t.grpc.endpoint.trim()) return;
-    // Plaintext unless the endpoint clearly targets a TLS port (:443).
-    const plaintext = !/:443(\b|$)/.test(t.grpc.endpoint);
+    // Plaintext unless the endpoint clearly targets a TLS port (:443). Infer
+    // from the RESOLVED endpoint: the port may live inside a {{var}} value.
+    const plaintext = inferGrpcPlaintext(resolveVars(t.grpc.endpoint, currentVarScope()));
     if (t.grpc.plaintext !== plaintext) setGrpc({ plaintext });
     await grpcDoConnect();
   }
@@ -202,7 +207,18 @@
     // Re-read the originating tab after the (awaited) connect; never assume the
     // active tab is still this one.
     const g = $tabs.find((t) => t.id === tabId)?.grpc;
-    if (!g?.connectionId || !g.method) return;
+    // Never no-op silently: any earlier response stays visible in the response
+    // pane, so a mute return here makes a dead Invoke look like a fresh success.
+    // A failed connect/reflect already left its banner via grpcDoConnect; the
+    // two cases IT can't explain (blank endpoint, no method) get their own.
+    if (!g?.connectionId) {
+      if (!g?.endpoint.trim()) grpcErrorMap.update((m) => ({ ...m, [tabId]: 'Enter an endpoint first.' }));
+      return;
+    }
+    if (!g.method) {
+      grpcErrorMap.update((m) => ({ ...m, [tabId]: 'Select a method first.' }));
+      return;
+    }
     const requestId = crypto.randomUUID();
     grpcErrorMap.update((m) => ({ ...m, [tabId]: '' }));
     busyMap.update((m) => ({ ...m, [tabId]: { kind: 'invoke', requestId } }));
