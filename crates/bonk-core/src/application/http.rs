@@ -95,6 +95,8 @@ mod tests {
                 raw_body_format: None,
                 body_params: None,
                 auth: None,
+                pre_request_script: None,
+                test_script: None,
             };
             let first = http_send(client.clone(), req.clone(), RequestSettings::default())
                 .await

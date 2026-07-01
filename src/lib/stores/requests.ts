@@ -1,11 +1,17 @@
 import { get } from 'svelte/store';
-import type { Tab, RequestNode, HttpRequest, RequestSettings } from '../domain/types';
-import { httpSend, workspaceSaveRequest } from '../api';
+import type { Tab, RequestNode, HttpRequest, RequestSettings, HttpResponse } from '../domain/types';
+import { httpSend, workspaceSaveRequest, runScript } from '../api';
 import { idToRel, findNode } from '../domain/tree';
 import { grpcPathsToRel, grpcPathsToAbs } from '../domain/protoPaths';
 import { parseCurl } from '../domain/curl';
 import { paramsFromUrl } from '../domain/http';
-import { resolveRequestVars } from '../domain/vars';
+import { resolveRequestVars, mergeScope } from '../domain/vars';
+import {
+  applyEnvPatch,
+  applyRequestPatch,
+  buildScriptContext,
+  type ScriptResult,
+} from '../domain/scripts';
 import { GRPC_DEFAULT_TITLE, HTTP_DEFAULT_TITLE, grpcSnapshot, titleFromUrl } from '../domain/tab';
 import {
   tabs,
@@ -16,11 +22,15 @@ import {
   requestFollowRedirects,
   requestValidateTls,
   responseBodyLimitMb,
+  globals,
+  environments,
+  activeEnvironmentId,
   ROOT,
   updateActiveTab,
   updateTabById,
   currentVarScope,
 } from './state';
+import { setEnvVars, setGlobalVars } from './environments';
 import { openWorkspaceFolder, reloadWorkspace, runWorkspaceOp } from './workspace';
 import { addHistory } from './history';
 
@@ -139,27 +149,108 @@ export function applyCurlToActiveTab(curl: string): boolean {
   }
 }
 
+/** The active environment's `name → value` map, or `{}` when none is selected. */
+function activeEnvMap(): Record<string, string> {
+  const id = get(activeEnvironmentId);
+  const env = id ? get(environments).find((e) => e.id === id) : undefined;
+  return mergeScope([], env);
+}
+
+/** The globals `name → value` map. */
+function globalsMap(): Record<string, string> {
+  return mergeScope(get(globals), undefined);
+}
+
+/**
+ * Fold a ScriptResult's env/globals mutations back into the stores. Writes to
+ * the ACTIVE environment (if any) via setEnvVars and to globals via
+ * setGlobalVars, mirroring Postman's `pm.environment.set` / `pm.globals.set`.
+ */
+function applyScriptVars(result: ScriptResult): void {
+  const hasEnv = Object.keys(result.envSet).length > 0 || result.envUnset.length > 0;
+  const hasGlob = Object.keys(result.globalsSet).length > 0 || result.globalsUnset.length > 0;
+  if (hasEnv) {
+    const id = get(activeEnvironmentId);
+    if (id) {
+      const env = get(environments).find((e) => e.id === id);
+      if (env) setEnvVars(id, applyEnvPatch(env.vars, result.envSet, result.envUnset));
+    }
+  }
+  if (hasGlob) {
+    setGlobalVars(applyEnvPatch(get(globals), result.globalsSet, result.globalsUnset));
+  }
+}
+
 /**
  * Send an HTTP request and write the result back to the tab it was started from,
  * captured via `tabId` — NOT whichever tab happens to be active when the response
  * resolves. This is what keeps a slow request in Tab A from landing its response
  * on Tab B after the user switches.
  *
+ * Script flow (Postman-style), HTTP-only for this MVP (gRPC has no scripts):
+ *   1. pre-request script (if any) runs FIRST, against the raw request; it can
+ *      patch the outgoing request and set env/globals — those writes then feed
+ *      the {{var}} resolution below.
+ *   2. {{var}} placeholders are resolved.
+ *   3. the request is sent.
+ *   4. the test script (if any) runs against the response; its env/globals
+ *      writes are applied and its tests/logs attach to the tab.
+ *
  * On success the response is stored on the originating tab and the call is logged
  * to history. On failure the error is rethrown so the caller can decide how to
  * surface it (e.g. an error "response" scoped to that tab) — we don't write a
- * response here so the caller controls cancelled-vs-failed rendering.
+ * response here so the caller controls cancelled-vs-failed rendering. A fatal
+ * pre-request script error is likewise thrown before any send happens.
  */
 export async function sendHttpRequest(
   tabId: string,
   req: HttpRequest,
   requestId: string,
 ): Promise<void> {
-  // Interpolate {{var}} placeholders (globals + active environment) just before
-  // sending. History records the resolved request so replay/inspection shows the
-  // values actually sent, not the templates.
-  const resolved = resolveRequestVars(req, currentVarScope());
-  const res = await httpSend(resolved, requestId, currentRequestSettings());
-  updateTabById(tabId, (t) => ({ ...t, response: res }));
+  let outgoing = req;
+  const tests: ScriptResult['tests'] = [];
+  const logs: string[] = [];
+
+  // 1. Pre-request script — runs before {{var}} resolution, against the raw
+  //    request. Applies its request patch + env/globals writes; a fatal error
+  //    aborts the send.
+  if (req.preRequestScript && req.preRequestScript.trim() !== '') {
+    const context = buildScriptContext(req, undefined, activeEnvMap(), globalsMap());
+    const pre = await runScript('pre-request', req.preRequestScript, context);
+    applyScriptVars(pre);
+    logs.push(...pre.logs);
+    tests.push(...pre.tests);
+    if (pre.error) {
+      updateTabById(tabId, (t) => ({ ...t, testResults: { tests, logs, error: pre.error ?? undefined } }));
+      throw new Error(pre.error);
+    }
+    outgoing = applyRequestPatch(outgoing, pre.requestPatch);
+  }
+
+  // 2. Interpolate {{var}} placeholders (globals + active environment, now
+  //    including anything the pre-request script set) just before sending.
+  const resolved = resolveRequestVars(outgoing, currentVarScope());
+
+  // 3. Send. History records the resolved request so replay/inspection shows the
+  //    values actually sent, not the templates.
+  const res: HttpResponse = await httpSend(resolved, requestId, currentRequestSettings());
+
+  // 4. Test script — runs against the response. Its env/globals writes are
+  //    applied; its tests/logs (plus any pre-request ones) attach to the tab.
+  let testError: string | undefined;
+  if (req.testScript && req.testScript.trim() !== '') {
+    const context = buildScriptContext(resolved, res, activeEnvMap(), globalsMap());
+    const post = await runScript('test', req.testScript, context);
+    applyScriptVars(post);
+    logs.push(...post.logs);
+    tests.push(...post.tests);
+    testError = post.error ?? undefined;
+  }
+
+  const testResults =
+    tests.length > 0 || logs.length > 0 || testError
+      ? { tests, logs, error: testError }
+      : undefined;
+  updateTabById(tabId, (t) => ({ ...t, response: res, testResults }));
   addHistory({ id: crypto.randomUUID(), protocol: 'http', request: resolved, status: res.status, at: Date.now() });
 }

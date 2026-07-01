@@ -11,6 +11,7 @@
   import HttpHeadersEditor from './http/HttpHeadersEditor.svelte';
   import HttpParamsEditor from './http/HttpParamsEditor.svelte';
   import HttpRequestTabs from './http/HttpRequestTabs.svelte';
+  import HttpScriptsEditor from './http/HttpScriptsEditor.svelte';
   import HttpUrlBar from './http/HttpUrlBar.svelte';
   import type { HttpEditorTab } from '../domain/httpEditor';
   import type { Tab } from '../domain/types';
@@ -32,6 +33,8 @@
     <HttpHeadersEditor {tab} />
   {:else if uiTab === 'params'}
     <HttpParamsEditor {tab} />
+  {:else if uiTab === 'scripts'}
+    <HttpScriptsEditor {tab} />
   {:else}
     <div class="bs-pwrap"><div class="bs-empty"><b style="margin-bottom:4px">No {uiTab}</b><p>This request has no {uiTab} configured.</p></div></div>
   {/if}

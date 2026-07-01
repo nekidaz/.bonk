@@ -105,6 +105,8 @@ mod tests {
             raw_body_format: None,
             body_params: None,
             auth: None,
+            pre_request_script: None,
+            test_script: None,
         };
         let built = build_request_to(&client, &req, reqwest::Method::POST, &req.url).unwrap();
         assert_eq!(built.method().as_str(), "POST");
@@ -137,6 +139,8 @@ mod tests {
                 file_path: None,
             }]),
             auth: None,
+            pre_request_script: None,
+            test_script: None,
         };
         let built = build_request_to(&client, &req, reqwest::Method::POST, &req.url).unwrap();
         assert_eq!(built.headers().get("x-test").unwrap(), "1");

@@ -17,6 +17,12 @@ pub struct HttpRequest {
     pub body_params: Option<Vec<BodyParam>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub auth: Option<AuthConfig>,
+    /// Postman-style pre-request script (JS), run before `{{var}}` resolution.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pre_request_script: Option<String>,
+    /// Postman-style test script (JS), run against the response.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub test_script: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -133,6 +139,8 @@ mod tests {
             raw_body_format: None,
             body_params: None,
             auth: None,
+            pre_request_script: None,
+            test_script: None,
         };
         let json = serde_json::to_string(&req).unwrap();
         let back: HttpRequest = serde_json::from_str(&json).unwrap();

@@ -1,9 +1,28 @@
 import { invoke } from '@tauri-apps/api/core';
 import type { HttpRequest, HttpResponse, RequestSettings, ServiceTree, GrpcResult } from './domain/types';
 import type { TreeNode, RequestNode, GitStatus, GitCommit, FileDiff } from './domain/types';
+import { parseScriptResult, type ScriptPhase, type ScriptResult } from './domain/scripts';
 
 export const cancelRequest = (requestId: string): Promise<void> =>
   invoke<void>('cancel_request', { requestId });
+
+/**
+ * Run a user script in the sandboxed QuickJS engine. `context` is serialized to
+ * JSON for the Rust side; the returned JSON string is parsed into a typed
+ * `ScriptResult` here so callers never touch the wire format.
+ */
+export const runScript = async (
+  phase: ScriptPhase,
+  code: string,
+  context: unknown,
+): Promise<ScriptResult> => {
+  const out = await invoke<string>('run_script', {
+    phase,
+    code,
+    context: JSON.stringify(context),
+  });
+  return parseScriptResult(out);
+};
 
 export const httpSend = (
   req: HttpRequest,

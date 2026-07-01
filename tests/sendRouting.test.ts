@@ -6,6 +6,7 @@ import type { HttpRequest, HttpResponse, Tab } from '../src/lib/domain/types';
 // module-eval in stores.ts throws. We never exercise the workspace paths here.
 vi.mock('../src/lib/api', () => ({
   httpSend: vi.fn(),
+  runScript: vi.fn(),
   filePick: vi.fn(),
   cancelRequest: vi.fn(),
   workspaceLoad: vi.fn(),

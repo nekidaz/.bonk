@@ -65,7 +65,11 @@ export function stripLiveGrpc(tab: Tab): Tab {
 
 export function stripRuntimeTab(tab: Tab): Tab {
   if (tab.protocol === 'git') return tab;
-  return stripLiveGrpc(tab);
+  // `testResults` is ephemeral script output, not part of the saved request;
+  // drop it so it doesn't bloat persisted state (matches how live gRPC fields
+  // are stripped below).
+  const { testResults: _testResults, ...rest } = tab;
+  return stripLiveGrpc(rest);
 }
 
 export function normalizeTabTitleState(tab: Tab): Tab {

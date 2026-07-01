@@ -19,8 +19,18 @@
 
   const { tab }: { tab: Tab | undefined } = $props();
 
-  let respTab = $state<'body' | 'headers'>('body');
+  let respTab = $state<'body' | 'headers' | 'tests'>('body');
   let respMode = $state<'pretty' | 'raw' | 'preview'>('pretty');
+
+  const testResults = $derived(tab?.testResults);
+  const passedCount = $derived(testResults?.tests.filter((t) => t.passed).length ?? 0);
+  const testCount = $derived(testResults?.tests.length ?? 0);
+
+  // If the visible sub-tab is Tests but a new response has no script output,
+  // fall back to Body so the panel never shows an empty Tests view.
+  $effect(() => {
+    if (respTab === 'tests' && !testResults) respTab = 'body';
+  });
 
   const STATUS_TEXT: Record<number, string> = { 200: 'OK', 201: 'Created', 204: 'No Content', 400: 'Bad Request', 401: 'Unauthorized', 403: 'Forbidden', 404: 'Not Found', 500: 'Server Error' };
   const ok = (s: number) => s >= 200 && s < 300;
@@ -112,6 +122,11 @@
     <div class="bs-rsub">
       <button class="x" class:on={respTab === 'body'} onclick={() => (respTab = 'body')}>Body</button>
       <button class="x" class:on={respTab === 'headers'} onclick={() => (respTab = 'headers')}>Headers</button>
+      {#if testResults}
+        <button class="x" class:on={respTab === 'tests'} onclick={() => (respTab = 'tests')}>
+          Tests{#if testCount > 0}<span class="bs-test-badge" class:fail={passedCount < testCount}>{passedCount}/{testCount}</span>{/if}
+        </button>
+      {/if}
     </div>
     {#if tab.response}
       <div class="bs-meta">
@@ -127,6 +142,33 @@
   </div>
   {#if !tab.response}
     <div class="bs-empty-resp"><span class="material-symbols-outlined" style="font-size:38px">code_blocks</span><div>Send a request to see the response</div></div>
+  {:else if respTab === 'tests' && testResults}
+    <div class="bs-rbody bs-tests">
+      {#if testResults.error}
+        <div class="bs-test-error"><span class="material-symbols-outlined" style="font-size:15px">error</span>Script error: {testResults.error}</div>
+      {/if}
+      {#if testResults.tests.length > 0}
+        <div class="bs-test-list">
+          {#each testResults.tests as t, i (i)}
+            <div class="bs-test-row" class:fail={!t.passed}>
+              <span class="material-symbols-outlined ic" style="font-size:16px">{t.passed ? 'check_circle' : 'cancel'}</span>
+              <span class="nm">{t.name}</span>
+              {#if !t.passed && t.error}<span class="er">{t.error}</span>{/if}
+            </div>
+          {/each}
+        </div>
+      {:else if !testResults.error}
+        <div style="color:var(--t3);padding:4px 0">No assertions ran. Add <code>pm.test(...)</code> in the Scripts tab.</div>
+      {/if}
+      {#if testResults.logs.length > 0}
+        <div class="bs-test-console">
+          <div class="hd">Console</div>
+          {#each testResults.logs as line, i (i)}
+            <div class="ln">{line}</div>
+          {/each}
+        </div>
+      {/if}
+    </div>
   {:else if respTab === 'headers'}
     <div class="bs-rbody"><div class="bs-code">{#each responseHeaderEntries as [k, v] (k)}<div><span class="k">{k}</span>: {v}</div>{/each}{#if responseHeaderEntries.length === 0}<span style="color:var(--t3)">No response headers.</span>{/if}</div></div>
   {:else}
@@ -166,3 +208,88 @@
     </div>
   {/if}
 {/if}
+
+<style>
+  .bs-test-badge {
+    margin-left: 6px;
+    font-size: 10px;
+    font-weight: 600;
+    padding: 1px 6px;
+    border-radius: 8px;
+    background: color-mix(in srgb, #30d158 22%, transparent);
+    color: #248a3d;
+  }
+  .bs-test-badge.fail {
+    background: color-mix(in srgb, #ff453a 22%, transparent);
+    color: #d70015;
+  }
+  .bs-tests {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 12px 14px;
+    overflow: auto;
+  }
+  .bs-test-list {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .bs-test-row {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    padding: 5px 8px;
+    border-radius: 7px;
+    font-size: 12.5px;
+    color: var(--text);
+  }
+  .bs-test-row .ic {
+    align-self: center;
+    color: #248a3d;
+  }
+  .bs-test-row.fail .ic {
+    color: #d70015;
+  }
+  .bs-test-row .nm {
+    font-weight: 500;
+  }
+  .bs-test-row .er {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: #d70015;
+  }
+  .bs-test-error {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: #d70015;
+    font-family: var(--mono);
+  }
+  .bs-test-console {
+    border-top: 0.5px solid var(--sep);
+    padding-top: 8px;
+  }
+  .bs-test-console .hd {
+    font-size: 10.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--t3);
+    margin-bottom: 4px;
+  }
+  .bs-test-console .ln {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--t2);
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+  .bs-tests code {
+    font-family: var(--mono);
+    font-size: 11px;
+    background: var(--inset);
+    border-radius: 4px;
+    padding: 1px 4px;
+  }
+</style>

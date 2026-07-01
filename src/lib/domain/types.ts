@@ -15,6 +15,10 @@ export interface HttpRequest {
   rawBodyFormat?: RawBodyFormat;
   bodyParams?: BodyParam[];
   auth?: AuthConfig;
+  /** Postman-style pre-request script (JS); runs before {{var}} resolution. */
+  preRequestScript?: string;
+  /** Postman-style test script (JS); runs against the response. */
+  testScript?: string;
 }
 
 export interface BodyParam {
@@ -92,6 +96,23 @@ export interface Tab {
   git?: GitTabState;
   /** Query-parameter rows for the Params table; appended to the URL on send. */
   params?: Param[];
+  /** Latest pre-request + test script output for this tab (runtime-only). */
+  testResults?: TabTestResults;
+}
+
+/** Aggregated script output attached to a tab after a send (not persisted). */
+export interface TabTestResults {
+  tests: ScriptTestResult[];
+  logs: string[];
+  /** Fatal script error (thrown/timeout), if any, from either phase. */
+  error?: string;
+}
+
+/** One `pm.test(...)` outcome. */
+export interface ScriptTestResult {
+  name: string;
+  passed: boolean;
+  error?: string;
 }
 
 export interface RequestNode {

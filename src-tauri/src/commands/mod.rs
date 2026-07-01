@@ -81,6 +81,20 @@ pub async fn http_send(
     result
 }
 
+/// Run a user script (pre-request or test) in the sandboxed QuickJS engine.
+///
+/// QuickJS is synchronous CPU work, so it runs on the blocking pool rather than
+/// the async executor. `context` is a JSON string; the returned string is the
+/// serialized `__out` object the frontend parses into a `ScriptResult`.
+#[tauri::command]
+pub async fn run_script(phase: String, code: String, context: String) -> Result<String, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        bonk_core::application::scripts::run_script(&phase, &code, &context)
+    })
+    .await
+    .map_err(|e| format!("script task failed: {e}"))?
+}
+
 use bonk_core::conn::GrpcConn;
 use bonk_core::domain::grpc::{GrpcResult, ServiceTree};
 use std::collections::HashMap;

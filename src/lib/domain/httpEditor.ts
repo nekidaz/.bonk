@@ -1,1 +1,1 @@
-export type HttpEditorTab = 'params' | 'headers' | 'body' | 'auth';
+export type HttpEditorTab = 'params' | 'headers' | 'body' | 'auth' | 'scripts';
