@@ -14,7 +14,6 @@
     addRequestToFolder,
     duplicateNode,
     requestConfirm,
-    importOpenApiFile,
     exportOpenApiFolder,
   } from './lib/stores';
   import { flushPendingSaves, loadState, saveState } from './lib/persist';
@@ -36,6 +35,7 @@
   import ConfirmDialog from './lib/components/ConfirmDialog.svelte';
   import SaveRequestDialog from './lib/components/SaveRequestDialog.svelte';
   import MoveDialog from './lib/components/MoveDialog.svelte';
+  import OpenApiImportDialog from './lib/components/OpenApiImportDialog.svelte';
   import UpdateBanner from './lib/components/UpdateBanner.svelte';
   import { checkForUpdate } from './lib/updater';
   import { findNode, parentId } from './lib/domain/tree';
@@ -111,7 +111,8 @@
   let moveSourceId = $state<string | undefined>(undefined);
   function nodeMove(): void { moveSourceId = menu.nodeId; moveOpen = true; closeMenu(); }
   function addReq(p: RequestProtocol): void { void addRequestToFolder(menu.nodeId, p); closeMenu(); }
-  function importOpenApi(): void { closeMenu(); void importOpenApiFile(); }
+  let importOpen = $state(false);
+  function importOpenApi(): void { closeMenu(); importOpen = true; }
   function exportOpenApi(format: 'json' | 'yaml'): void {
     const id = menu.nodeId;
     closeMenu();
@@ -392,6 +393,8 @@
   />
 
   <SaveRequestDialog bind:open={saveOpen} onSaved={flashSaved} />
+
+  <OpenApiImportDialog bind:open={importOpen} />
 
   <ConfirmDialog />
 

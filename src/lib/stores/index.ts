@@ -94,4 +94,4 @@ export {
 export { addHistory, openHistoryEntry, clearHistory, removeHistoryEntry } from './history';
 
 // OpenAPI / Swagger import & export.
-export { importOpenApiFile, exportOpenApiFolder } from './openapi';
+export { importOpenApiFile, importOpenApiText, exportOpenApiFolder } from './openapi';

@@ -25,31 +25,26 @@ import { openWorkspaceFolder, reloadWorkspace, runWorkspaceOp } from './workspac
  * and a rethrow, matching how other workspace mutations report failure.
  */
 
-/**
- * Import a spec file into a new collection folder (one saved request per
- * path+method, grouped by tag) plus a `{{baseUrl}}` environment. Prompts for a
- * workspace first if none is open; a cancelled picker is a no-op.
- */
-export async function importOpenApiFile(): Promise<void> {
+/** Ensure a workspace is open (prompting if none); returns its root or null. */
+async function ensureWorkspaceRoot(): Promise<string | null> {
   let root = get(workspacePath);
   if (!root) {
     await openWorkspaceFolder();
     root = get(workspacePath);
-    if (!root) return; // user cancelled the picker
   }
+  return root || null;
+}
 
-  const file = await openapiImportPick();
-  if (!file) return; // user cancelled the file dialog
-
-  let spec;
-  try {
-    spec = parseOpenApi(file.text, file.name);
-  } catch (err) {
-    console.error('openapi: import parse failed', err);
-    throw err;
-  }
-
-  await runWorkspaceOp('importOpenApiFile', async () => {
+/**
+ * Save a parsed spec into the workspace: a collection folder named after the
+ * spec title, a subfolder per tag, one saved request per operation, and a
+ * `{{baseUrl}}` environment. Runs as a single workspace op + reload.
+ */
+async function saveSpecToWorkspace(
+  root: string,
+  spec: ReturnType<typeof parseOpenApi>,
+): Promise<void> {
+  await runWorkspaceOp('importOpenApi', async () => {
     const collectionId = await workspaceCreateFolder(root, ROOT, spec.title);
     for (const folder of spec.folders) {
       if (folder.name) {
@@ -69,6 +64,38 @@ export async function importOpenApiFile(): Promise<void> {
     }
     await reloadWorkspace();
   });
+}
+
+/**
+ * Import a spec from raw text (paste / clipboard). Parses `text` as OpenAPI or
+ * Swagger (JSON or YAML) and saves it into a new collection folder + a
+ * `{{baseUrl}}` environment. The parse error is thrown so the import dialog can
+ * show it inline; a cancelled workspace prompt is a no-op.
+ */
+export async function importOpenApiText(text: string, name = 'pasted'): Promise<void> {
+  const root = await ensureWorkspaceRoot();
+  if (!root) return;
+  const spec = parseOpenApi(text, name);
+  await saveSpecToWorkspace(root, spec);
+}
+
+/**
+ * Import a spec from a file the user picks via a native dialog. Prompts for a
+ * workspace first if none is open; a cancelled picker is a no-op.
+ */
+export async function importOpenApiFile(): Promise<void> {
+  const root = await ensureWorkspaceRoot();
+  if (!root) return;
+  const file = await openapiImportPick();
+  if (!file) return; // user cancelled the file dialog
+  let spec;
+  try {
+    spec = parseOpenApi(file.text, file.name);
+  } catch (err) {
+    console.error('openapi: import parse failed', err);
+    throw err;
+  }
+  await saveSpecToWorkspace(root, spec);
 }
 
 /** Collect http RequestNodes under `folderId`, tagged by their immediate parent folder name. Counts skipped grpc nodes. */
