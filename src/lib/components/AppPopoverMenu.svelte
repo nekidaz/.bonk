@@ -24,6 +24,8 @@
     onDuplicate,
     onMove,
     onDelete,
+    onImportOpenApi,
+    onExportOpenApi,
   }: {
     menu: AppMenuState;
     closeMenu: () => void;
@@ -36,6 +38,8 @@
     onDuplicate: () => void;
     onMove: () => void;
     onDelete: () => void;
+    onImportOpenApi: () => void;
+    onExportOpenApi: (format: 'json' | 'yaml') => void;
   } = $props();
 
   const reqTypes: TypeRow[] = [
@@ -102,6 +106,8 @@
           <button class="mi soon"><span class="ic"><span class="material-symbols-outlined" style="font-size:17px">{wsIcons[w]}</span></span>{w}<span class="soonpill">SOON</span></button>
         {/if}
       {/each}
+      <div class="dv"></div>
+      <button class="mi" onclick={onImportOpenApi}><span class="ic"><span class="material-symbols-outlined" style="font-size:17px">upload_file</span></span>Import OpenAPI / Swagger</button>
     {:else if menu.kind === 'switch'}
       <div class="lbl">Switch request type</div>
       <div class="dv" style="margin-top:0"></div>
@@ -118,6 +124,11 @@
       <button class="mi" onclick={onAddFolder}><span class="ic"><span class="material-symbols-outlined" style="font-size:16px">create_new_folder</span></span>New Folder</button>
       {#if menu.nodeId}
         <button class="mi" onclick={onSaveHere}><span class="ic"><span class="material-symbols-outlined" style="font-size:16px">note_add</span></span>Save Request Here<span class="sc">⌘S</span></button>
+        {#if menu.isFolder}
+          <div class="dv"></div>
+          <button class="mi" onclick={() => onExportOpenApi('json')}><span class="ic"><span class="material-symbols-outlined" style="font-size:16px">download</span></span>Export as OpenAPI (JSON)</button>
+          <button class="mi" onclick={() => onExportOpenApi('yaml')}><span class="ic"><span class="material-symbols-outlined" style="font-size:16px">download</span></span>Export as OpenAPI (YAML)</button>
+        {/if}
         <div class="dv"></div>
         <button class="mi" onclick={onRename}><span class="ic"><span class="material-symbols-outlined" style="font-size:16px">edit</span></span>Rename</button>
         <button class="mi" onclick={onDuplicate}><span class="ic"><span class="material-symbols-outlined" style="font-size:16px">content_copy</span></span>Duplicate</button>

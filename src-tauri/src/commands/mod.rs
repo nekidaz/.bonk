@@ -115,6 +115,49 @@ pub fn file_pick() -> Option<String> {
         .map(|p| p.to_string_lossy().to_string())
 }
 
+/// A spec file the user picked for OpenAPI/Swagger import: its base name plus
+/// the full text. Pick + read are atomic (one dialog, one read) so no generic
+/// arbitrary-path read primitive is exposed to the frontend.
+#[derive(serde::Serialize)]
+pub struct ImportedFile {
+    name: String,
+    text: String,
+}
+
+/// Prompt for an OpenAPI 3.x / Swagger 2.0 file (JSON or YAML) and return its
+/// name + contents. `Ok(None)` when the user cancels the dialog.
+#[tauri::command]
+pub fn openapi_import_pick() -> Result<Option<ImportedFile>, String> {
+    let Some(path) = rfd::FileDialog::new()
+        .add_filter("OpenAPI / Swagger", &["json", "yaml", "yml"])
+        .set_title("Import OpenAPI / Swagger")
+        .pick_file()
+    else {
+        return Ok(None);
+    };
+    let name = path
+        .file_name()
+        .map(|n| n.to_string_lossy().into_owned())
+        .unwrap_or_default();
+    let text = std::fs::read_to_string(&path).map_err(|e| e.to_string())?;
+    Ok(Some(ImportedFile { name, text }))
+}
+
+/// Prompt for a save location and write `contents` there. `Ok(None)` when the
+/// user cancels the dialog; on success returns the chosen path.
+#[tauri::command]
+pub fn openapi_export_save(default_name: String, contents: String) -> Result<Option<String>, String> {
+    let Some(path) = rfd::FileDialog::new()
+        .set_file_name(&default_name)
+        .set_title("Export OpenAPI")
+        .save_file()
+    else {
+        return Ok(None);
+    };
+    std::fs::write(&path, contents).map_err(|e| e.to_string())?;
+    Ok(Some(path.to_string_lossy().into_owned()))
+}
+
 /// Reject a workspace root that isn't an absolute path.
 ///
 /// The frontend passes `root` (the folder the user picked via

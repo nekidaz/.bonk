@@ -72,6 +72,14 @@ export const workspaceDuplicate = (root: string, path: string) =>
 export const workspaceMove = (root: string, path: string, dest: string) =>
   invoke<string>('workspace_move', { root, path, dest });
 
+// ---------- OpenAPI / Swagger import & export ----------
+/** Prompt for a spec file (JSON/YAML) and return its base name + text, or null if cancelled. */
+export const openapiImportPick = () =>
+  invoke<{ name: string; text: string } | null>('openapi_import_pick');
+/** Prompt for a save location, write `contents` there, and return the path (or null if cancelled). */
+export const openapiExportSave = (defaultName: string, contents: string) =>
+  invoke<string | null>('openapi_export_save', { defaultName, contents });
+
 // ---------- Git source control (all take the workspace path as `root`) ----------
 export const gitStatus = (root: string) =>
   invoke<GitStatus>('git_status', { root });

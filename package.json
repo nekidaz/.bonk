@@ -42,7 +42,8 @@
     "@tauri-apps/api": "^2",
     "@tauri-apps/plugin-process": "^2.3.1",
     "@tauri-apps/plugin-updater": "^2.10.1",
-    "httpsnippet-lite": "^3.0.5"
+    "httpsnippet-lite": "^3.0.5",
+    "yaml": "^2.8.1"
   },
   "devDependencies": {
     "@sveltejs/vite-plugin-svelte": "^7.1.2",

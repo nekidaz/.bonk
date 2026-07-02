@@ -19,6 +19,8 @@ pub fn run() {
             commands::proto_pick,
             commands::workspace_pick_folder,
             commands::file_pick,
+            commands::openapi_import_pick,
+            commands::openapi_export_save,
             commands::workspace_load,
             commands::workspace_create_folder,
             commands::workspace_save_request,

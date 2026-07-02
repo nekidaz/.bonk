@@ -14,6 +14,8 @@
     addRequestToFolder,
     duplicateNode,
     requestConfirm,
+    importOpenApiFile,
+    exportOpenApiFolder,
   } from './lib/stores';
   import { flushPendingSaves, loadState, saveState } from './lib/persist';
   import GrpcEditor from './lib/components/GrpcEditor.svelte';
@@ -109,6 +111,12 @@
   let moveSourceId = $state<string | undefined>(undefined);
   function nodeMove(): void { moveSourceId = menu.nodeId; moveOpen = true; closeMenu(); }
   function addReq(p: RequestProtocol): void { void addRequestToFolder(menu.nodeId, p); closeMenu(); }
+  function importOpenApi(): void { closeMenu(); void importOpenApiFile(); }
+  function exportOpenApi(format: 'json' | 'yaml'): void {
+    const id = menu.nodeId;
+    closeMenu();
+    if (id) void exportOpenApiFolder(id, format);
+  }
 
   // Inline rename of a tree node (window.prompt is unavailable in the Tauri webview)
   let editingNodeId = $state<string | undefined>(undefined);
@@ -379,6 +387,8 @@
     onDuplicate={nodeDuplicate}
     onMove={nodeMove}
     onDelete={nodeDelete}
+    onImportOpenApi={importOpenApi}
+    onExportOpenApi={exportOpenApi}
   />
 
   <SaveRequestDialog bind:open={saveOpen} onSaved={flashSaved} />
