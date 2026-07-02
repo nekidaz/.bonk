@@ -7,6 +7,7 @@
     activeEnvironmentId,
     setActiveEnvironment,
     openEnvironmentsTab,
+    openRunnerTab,
   } from '../stores';
   import { methodColor } from '../domain/method';
   import type { Tab } from '../domain/types';
@@ -40,11 +41,12 @@
     if (t.protocol === 'grpc') return 'gRPC';
     if (t.protocol === 'git') return 'DIFF';
     if (t.protocol === 'env') return 'ENV';
+    if (t.protocol === 'runner') return 'RUN';
     return t.request.method;
   }
 
   function tabMethodColor(t: Tab): string {
-    if (t.protocol === 'git' || t.protocol === 'env') return 'var(--accent)';
+    if (t.protocol === 'git' || t.protocol === 'env' || t.protocol === 'runner') return 'var(--accent)';
     return methodColor(t.protocol === 'grpc' ? 'GRPC' : t.request.method);
   }
 </script>
@@ -63,6 +65,10 @@
   {/each}
   <button class="bs-addt" title="New" onclick={onNew}><span class="material-symbols-outlined" style="font-size:18px">add</span></button>
   <div class="bs-spacer"></div>
+  <button class="bs-runbtn" title="Collection Runner" onclick={openRunnerTab}>
+    <span class="material-symbols-outlined" style="font-size:14px">play_circle</span>
+    <span class="bs-runbtn-name">Runner</span>
+  </button>
   <div class="bs-env-pick" role="presentation" onpointerdown={(e) => e.stopPropagation()}>
     <button class="bs-env-btn" class:open={envMenuOpen} title="Environment" onclick={() => (envMenuOpen = !envMenuOpen)}>
       <span class="material-symbols-outlined" style="font-size:14px">layers</span>
@@ -94,6 +100,20 @@
 </div>
 
 <style>
+  .bs-runbtn {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    height: 26px;
+    padding: 0 8px;
+    margin-right: 6px;
+    border-radius: 7px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--t2);
+  }
+  .bs-runbtn:hover { background: var(--hover); color: var(--text); }
+  .bs-runbtn .material-symbols-outlined { color: var(--accent); flex: none; }
   .bs-env-pick { position: relative; margin-right: 6px; }
   .bs-env-btn {
     display: flex;

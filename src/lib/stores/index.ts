@@ -74,5 +74,21 @@ export { renameActiveTab, resetActiveTabTitle, newTab, setActiveProtocol, closeT
 // Git diff tabs.
 export { openGitDiffTab, openProjectDiffTab } from './git';
 
+// Collection Runner (the runner tab, config setters, orchestrator, export).
+export {
+  runnerConfig,
+  runnerRun,
+  RUNNER_ROOT,
+  openRunnerTab,
+  setRunnerFolder,
+  setIterations,
+  setDelay,
+  setStopOnFailure,
+  loadDataRows,
+  clearData,
+  runCollection,
+  exportReport,
+} from './runner';
+
 // History.
 export { addHistory, openHistoryEntry, clearHistory, removeHistoryEntry } from './history';

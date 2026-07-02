@@ -30,6 +30,7 @@ globalThis.__out={logs:[],tests:[],envSet:{},envUnset:[],globalsSet:{},globalsUn
 (function(){
   var c=globalThis.__ctx||{};
   var env=Object.assign({},c.environment||{}), glob=Object.assign({},c.globals||{});
+  var iterData=Object.assign({},c.iterationData||{});
   var req=c.request||{}, reqPatch={__t:1};
   function log(){__out.logs.push(Array.prototype.map.call(arguments,String).join(' '));}
   globalThis.console={log:log,warn:log,error:log,info:log};
@@ -46,7 +47,8 @@ globalThis.__out={logs:[],tests:[],envSet:{},envUnset:[],globalsSet:{},globalsUn
   globalThis.pm={
     environment:scope(env,__out.envSet,__out.envUnset),
     globals:scope(glob,__out.globalsSet,__out.globalsUnset),
-    variables:{get:function(k){return (k in env)?env[k]:glob[k];}},
+    iterationData:{get:function(k){return iterData[k];}},
+    variables:{get:function(k){return (k in iterData)?iterData[k]:(k in env)?env[k]:glob[k];}},
     request:request, response:resp,
     test:function(name,fn){try{fn();__out.tests.push({name:name,passed:true});}
       catch(e){__out.tests.push({name:name,passed:false,error:String((e&&e.message)||e)});}},
@@ -228,6 +230,38 @@ mod tests {
         // The set before the throw survives, and the message is captured.
         assert_eq!(out["envSet"]["a"], "1");
         assert_eq!(out["error"], "boom");
+    }
+
+    #[test]
+    fn iteration_data_is_exposed_and_wins_over_env_and_globals() {
+        // `x` lives in all three scopes; `only` lives only in iterationData.
+        let ctx = r#"{"iterationData":{"x":"iter","only":"row"},"environment":{"x":"env"},"globals":{"x":"glob"}}"#;
+        let code = r#"
+            pm.test('iterationData.get returns the seeded value', function(){
+                pm.expect(pm.iterationData.get('only')).to.equal('row');
+            });
+            pm.test('variables.get prefers iterationData over env and globals', function(){
+                pm.expect(pm.variables.get('x')).to.equal('iter');
+            });
+        "#;
+        let out = run(code, ctx);
+        for test in out["tests"].as_array().unwrap() {
+            assert_eq!(test["passed"], true, "iterationData check failed: {test}");
+        }
+    }
+
+    #[test]
+    fn variables_get_falls_back_env_then_globals_without_iteration_data() {
+        // No iterationData: env wins over globals, and a globals-only key resolves.
+        let ctx = r#"{"environment":{"a":"env"},"globals":{"a":"glob","b":"gb"}}"#;
+        let code = r#"
+            pm.test('env over globals', function(){ pm.expect(pm.variables.get('a')).to.equal('env'); });
+            pm.test('globals fallback', function(){ pm.expect(pm.variables.get('b')).to.equal('gb'); });
+        "#;
+        let out = run(code, ctx);
+        for test in out["tests"].as_array().unwrap() {
+            assert_eq!(test["passed"], true, "fallback check failed: {test}");
+        }
     }
 
     #[test]

@@ -1,10 +1,11 @@
 export type RequestProtocol = 'http' | 'grpc';
 /**
  * Tab kinds: the two request protocols plus the special full-pane tabs —
- * 'git' (diff / project-diff views) and 'env' (the Environments manager).
- * Special tabs hold no request state and are never persisted.
+ * 'git' (diff / project-diff views), 'env' (the Environments manager), and
+ * 'runner' (the Collection Runner). Special tabs hold no request state and are
+ * never persisted.
  */
-export type Protocol = RequestProtocol | 'git' | 'env';
+export type Protocol = RequestProtocol | 'git' | 'env' | 'runner';
 export type BodyMode = 'none' | 'form-data' | 'urlencoded' | 'raw' | 'binary' | 'graphql';
 export type RawBodyFormat = 'JSON' | 'Text' | 'JavaScript' | 'HTML' | 'XML';
 export type BodyParamKind = 'text' | 'file';
@@ -211,6 +212,31 @@ export interface GrpcMethod {
 export interface GrpcService { name: string; methods: GrpcMethod[]; }
 export interface ServiceTree { services: GrpcService[]; }
 export interface GrpcResult { ok: boolean; status: string; body: string; elapsed_ms: number; size_bytes: number; }
+
+// ---------- Collection Runner ----------
+/**
+ * One executed request in a Collection Runner run — a flat, self-contained
+ * row so the results list can stream and the exported report needs no back-refs.
+ * `ok` is the single "this passed" verdict: transport succeeded AND every
+ * `pm.test` passed AND no fatal script/connect error.
+ */
+export interface RunResultRow {
+  id: string;              // crypto.randomUUID()
+  iteration: number;       // 1-based
+  requestName: string;
+  protocol: RequestProtocol;
+  method: string;          // HTTP method, or 'gRPC'
+  target: string;          // resolved URL (HTTP) or "endpoint · method" (gRPC)
+  status: number | string; // HTTP status code, or gRPC status text ('OK', etc)
+  ok: boolean;             // transport ok AND all tests passed AND no fatal error
+  elapsedMs: number;
+  tests: ScriptTestResult[];
+  logs: string[];
+  error?: string;          // transport/connect/fatal error message
+}
+
+/** Lifecycle of a Collection Runner run. */
+export type RunStatus = 'idle' | 'running' | 'done' | 'stopped';
 export interface GrpcTabState {
   endpoint: string;
   plaintext: boolean;

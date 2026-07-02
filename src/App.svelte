@@ -30,6 +30,7 @@
   import ProjectDiffView from './lib/components/ProjectDiffView.svelte';
   import SettingsModal from './lib/components/SettingsModal.svelte';
   import EnvironmentsView from './lib/components/EnvironmentsView.svelte';
+  import RunnerView from './lib/components/RunnerView.svelte';
   import ConfirmDialog from './lib/components/ConfirmDialog.svelte';
   import SaveRequestDialog from './lib/components/SaveRequestDialog.svelte';
   import MoveDialog from './lib/components/MoveDialog.svelte';
@@ -139,7 +140,7 @@
    * it lands. Bound to the Save button and ⌘/Ctrl+S.
    */
   async function smartSave(): Promise<void> {
-    if (!active || active.protocol === 'git' || active.protocol === 'env') return;
+    if (!active || active.protocol === 'git' || active.protocol === 'env' || active.protocol === 'runner') return;
     if (active.savedPath) {
       try {
         await saveActiveRequest(parentId(active.savedPath), active.title);
@@ -335,6 +336,8 @@
           {/if}
         {:else if active.protocol === 'env'}
           <EnvironmentsView />
+        {:else if active.protocol === 'runner'}
+          <RunnerView />
         {:else}
         <RequestHeader tab={active} {savedFlash} onSwitch={(e) => openMenu('switch', e)} onSmartSave={smartSave} onOpenSave={openSaveDialog} />
 
@@ -349,7 +352,7 @@
         {/if}
         {/if}
       {/if}
-      {#if codeOpen && active && active.protocol !== 'grpc' && active.protocol !== 'git' && active.protocol !== 'env'}
+      {#if codeOpen && active && active.protocol !== 'grpc' && active.protocol !== 'git' && active.protocol !== 'env' && active.protocol !== 'runner'}
         <CodeSnippetPanel tab={active} bind:width={codePanelWidth} onClose={() => (codeOpen = false)} />
       {/if}
     </main>

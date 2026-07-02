@@ -54,19 +54,28 @@ export interface ScriptContext {
   response: ScriptResponseContext | null;
   environment: Record<string, string>;
   globals: Record<string, string>;
+  /**
+   * The current Collection Runner iteration's data row (`name → value`), or `{}`
+   * outside a data-driven run. Exposed to scripts as `pm.iterationData` and takes
+   * precedence over env/globals in `pm.variables.get`.
+   */
+  iterationData: Record<string, string>;
 }
 
 /**
- * Assemble the `{request, response?, environment, globals}` context object for a
- * script run. `environment` / `globals` are plain `name → value` maps (built by
- * the caller from the active env + globals rows). `response` is null for the
- * pre-request phase and populated for the test phase.
+ * Assemble the `{request, response?, environment, globals, iterationData}`
+ * context object for a script run. `environment` / `globals` are plain
+ * `name → value` maps (built by the caller from the active env + globals rows).
+ * `response` is null for the pre-request phase and populated for the test phase.
+ * `iterationData` defaults to `{}` so interactive-send callers (which have no
+ * data file) keep working unchanged; the Collection Runner passes the row.
  */
 export function buildScriptContext(
   req: HttpRequest,
   response: HttpResponse | undefined,
   environment: Record<string, string>,
   globals: Record<string, string>,
+  iterationData: Record<string, string> = {},
 ): ScriptContext {
   return {
     request: {
@@ -85,6 +94,7 @@ export function buildScriptContext(
       : null,
     environment,
     globals,
+    iterationData,
   };
 }
 

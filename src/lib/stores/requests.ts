@@ -61,7 +61,7 @@ export async function saveActiveRequest(folderId?: string, name?: string): Promi
   }
   const tab = get(tabs).find((t) => t.id === get(activeTabId));
   if (!tab) return;
-  if (tab.protocol === 'git' || tab.protocol === 'env') return;
+  if (tab.protocol === 'git' || tab.protocol === 'env' || tab.protocol === 'runner') return;
   const finalName =
     name?.trim() ||
     (tab.protocol === 'grpc'
@@ -165,8 +165,10 @@ function globalsMap(): Record<string, string> {
  * Fold a ScriptResult's env/globals mutations back into the stores. Writes to
  * the ACTIVE environment (if any) via setEnvVars and to globals via
  * setGlobalVars, mirroring Postman's `pm.environment.set` / `pm.globals.set`.
+ * Exported so the Collection Runner folds script writes the exact same way,
+ * which is what lets a later request in the run see an earlier one's writes.
  */
-function applyScriptVars(result: ScriptResult): void {
+export function applyScriptVars(result: ScriptResult): void {
   const hasEnv = Object.keys(result.envSet).length > 0 || result.envUnset.length > 0;
   const hasGlob = Object.keys(result.globalsSet).length > 0 || result.globalsUnset.length > 0;
   if (hasEnv) {

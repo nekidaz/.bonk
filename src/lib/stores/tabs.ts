@@ -35,7 +35,7 @@ export function renameActiveTab(name: string): void {
 export function resetActiveTabTitle(): void {
   const tab = get(tabs).find((t) => t.id === get(activeTabId));
   if (!tab) return;
-  if (tab.protocol === 'git' || tab.protocol === 'env') return;
+  if (tab.protocol === 'git' || tab.protocol === 'env' || tab.protocol === 'runner') return;
   const title =
     tab.protocol === 'grpc'
       ? titleFromUrl(tab.grpc?.endpoint ?? '', GRPC_DEFAULT_TITLE)
@@ -51,7 +51,7 @@ export function resetActiveTabTitle(): void {
  */
 export function setActiveProtocol(protocol: 'http' | 'grpc'): void {
   updateActiveTab((t) => {
-    if (t.protocol === 'git' || t.protocol === 'env') return t;
+    if (t.protocol === 'git' || t.protocol === 'env' || t.protocol === 'runner') return t;
     if (t.protocol === protocol) return t;
     if (protocol === 'grpc') {
       const grpc: GrpcTabState = t.grpc ?? {
