@@ -69,3 +69,15 @@ export function updateActiveTab(fn: (tab: Tab) => Tab): void {
 export function updateTabById(id: string, fn: (tab: Tab) => Tab): void {
   tabs.update((list) => list.map((t) => (t.id === id ? fn(t) : t)));
 }
+
+// --- HMR (dev only) ---
+// These store singletons hold all in-memory app state; persistence.hydrate()
+// fills them from disk once at startup behind a one-shot guard. A partial HMR
+// swap re-creates them EMPTY without re-running hydrate(), so the env selector,
+// history, and tabs go blank until a manual reload (the on-disk state stays
+// intact). Force a clean full reload whenever this module is hot-updated — the
+// normal startup path then re-hydrates from disk. Stripped from production
+// builds, where import.meta.hot is undefined.
+if (import.meta.hot) {
+  import.meta.hot.accept(() => window.location.reload());
+}

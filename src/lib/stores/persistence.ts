@@ -132,3 +132,13 @@ export async function hydrate(): Promise<() => void> {
     hydrated = false;
   };
 }
+
+// --- HMR (dev only) ---
+// hydrate() is a one-shot (the `hydrated` guard) called once from App.onMount. A
+// partial HMR swap of this module resets the guard and re-wires persistence
+// against freshly re-created (empty) stores without anyone re-calling hydrate(),
+// leaving the UI blank until a manual reload. Force a clean full reload so the
+// normal startup path runs again. Stripped from production builds.
+if (import.meta.hot) {
+  import.meta.hot.accept(() => window.location.reload());
+}
