@@ -32,7 +32,7 @@
   import GitPanel from './GitPanel.svelte';
   import { gitStatus, gitStatusMap, gitPrefix, GIT_ENABLED } from '../git';
   import { folderChangeCount, statusColor } from '../domain/gitStatus';
-  import { idToRel, parentId } from '../domain/tree';
+  import { idToRel, parentId, filterTree } from '../domain/tree';
 
   type MenuKind = 'create' | 'switch' | 'coll' | 'req' | 'history';
 
@@ -57,6 +57,18 @@
   // Which rail panel is shown in the body. Collections by default; History has
   // its own tab (the clock rail icon) instead of stacking under Collections.
   let panel = $state<'collections' | 'history' | 'git'>('collections');
+
+  // Sidebar filter: narrows the Collections tree (name / URL / gRPC endpoint,
+  // matching folders keep their subtree, ancestors stay visible + expanded) and
+  // the History list (URL substring). Escape or the ✕ button clears it.
+  let filter = $state('');
+  const filterActive = $derived(filter.trim() !== '');
+  const visibleCollections = $derived(filterTree($collections, filter));
+  const visibleHistory = $derived.by(() => {
+    const q = filter.trim().toLowerCase();
+    if (!q) return $history;
+    return $history.filter((h) => (h.request.url || '').toLowerCase().includes(q));
+  });
 
   const gitFiles = $derived($gitStatus?.files ?? []);
   const statusMap = $derived($gitStatusMap);
@@ -128,7 +140,21 @@
   <button class="bs-ri" title="Hide sidebar" onclick={onHide}><span class="material-symbols-outlined" style="font-size:17px">view_sidebar</span></button>
 </div>
 <div class="bs-filterrow">
-  <div class="bs-fbox"><span class="material-symbols-outlined" style="font-size:13px">filter_alt</span>Filter</div>
+  <div class="bs-fbox">
+    <span class="material-symbols-outlined" style="font-size:13px">filter_alt</span>
+    <input
+      class="bs-fbox-input"
+      placeholder="Filter"
+      aria-label="Filter collections and history"
+      bind:value={filter}
+      onkeydown={(e) => { if (e.key === 'Escape') { e.preventDefault(); filter = ''; } }}
+    />
+    {#if filterActive}
+      <button class="bs-fbox-clear" title="Clear filter" aria-label="Clear filter" onclick={() => (filter = '')}>
+        <span class="material-symbols-outlined" style="font-size:13px">close</span>
+      </button>
+    {/if}
+  </div>
   <button class="bs-fi" title="New" onclick={(e) => openMenu('create', e)}><span class="material-symbols-outlined" style="font-size:15px">add</span></button>
 </div>
 
@@ -173,24 +199,24 @@
 <div class="bs-tree" class:bs-droproot={dragOverId === ''} ondragover={onRootDragOver} ondrop={onRootDrop}>
   {#if panel === 'collections'}
     <div class="bs-sech"><span class="material-symbols-outlined cv" style="font-size:12px">expand_more</span>Collections</div>
-    {#if $collections.length === 0}
-      <div class="bs-empty" style="padding-left:38px"><p>{$workspacePath ? 'Empty workspace — add a folder or save a request.' : 'Open a workspace folder to see your collections.'}</p></div>
+    {#if visibleCollections.length === 0}
+      <div class="bs-empty" style="padding-left:38px"><p>{filterActive ? 'No matches for the current filter.' : $workspacePath ? 'Empty workspace — add a folder or save a request.' : 'Open a workspace folder to see your collections.'}</p></div>
     {:else}
-      {#each $collections as n (n.id)}
+      {#each visibleCollections as n (n.id)}
         {@render node(n, 0)}
       {/each}
     {/if}
   {:else}
     <div class="bs-sech bs-sech-act">
       <span class="material-symbols-outlined cv" style="font-size:12px">expand_more</span>History
-      {#if $history.length}<span style="color:var(--t3);font-weight:600">{$history.length}</span>{/if}
+      {#if visibleHistory.length}<span style="color:var(--t3);font-weight:600">{visibleHistory.length}</span>{/if}
       {#if $historyPaused}<span class="bs-paused" title="Recording paused"><span class="material-symbols-outlined" style="font-size:13px">pause_circle</span>paused</span>{/if}
       <span class="bs-act" role="button" tabindex="0" title="History options" onclick={(e) => { e.stopPropagation(); openMenu('history', e); }} onkeydown={() => {}}><span class="material-symbols-outlined" style="font-size:16px">more_horiz</span></span>
     </div>
-    {#if $history.length === 0}
-      <div class="bs-empty"><p>No requests yet. Sent requests appear here.</p></div>
+    {#if visibleHistory.length === 0}
+      <div class="bs-empty"><p>{filterActive ? 'No matches for the current filter.' : 'No requests yet. Sent requests appear here.'}</p></div>
     {:else}
-      {#each $history.slice(0, 40) as h (h.id)}
+      {#each visibleHistory.slice(0, 40) as h (h.id)}
         <button class="bs-trow l2" type="button" title="Open in a new tab" onclick={() => openHistoryEntry(h)}>
           <span class="bs-mp" style="color:{methodColor(h.protocol === 'grpc' ? 'GRPC' : h.request.method)}">{h.protocol === 'grpc' ? 'RPC' : h.request.method}</span>
           <span class="bs-nm" style="font-family:var(--mono);font-size:11.5px">{h.request.url || '—'}</span>

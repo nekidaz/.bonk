@@ -36,3 +36,35 @@ export function findParent(nodes: TreeNode[], id: string, parent?: FolderNode): 
   }
   return undefined;
 }
+
+/**
+ * Filter the tree by a case-insensitive substring of the node name, request
+ * URL, or gRPC endpoint (the sidebar Filter box). Postman-style semantics:
+ *  - a matching request is kept;
+ *  - a folder whose own name matches keeps its ENTIRE subtree;
+ *  - a folder with matching descendants is kept with only those descendants;
+ *  - every kept folder is forced `expanded` so matches are actually visible.
+ * A blank/whitespace query returns the input unchanged (no copies).
+ */
+export function filterTree(nodes: TreeNode[], query: string): TreeNode[] {
+  const q = query.trim().toLowerCase();
+  if (!q) return nodes;
+  const walk = (list: TreeNode[]): TreeNode[] => {
+    const out: TreeNode[] = [];
+    for (const n of list) {
+      if (n.kind === 'folder') {
+        if (n.name.toLowerCase().includes(q)) {
+          out.push({ ...n, expanded: true });
+          continue;
+        }
+        const kids = walk(n.children);
+        if (kids.length > 0) out.push({ ...n, expanded: true, children: kids });
+      } else {
+        const hay = `${n.name}\n${n.request.url}\n${n.grpc?.endpoint ?? ''}`.toLowerCase();
+        if (hay.includes(q)) out.push(n);
+      }
+    }
+    return out;
+  };
+  return walk(nodes);
+}

@@ -8,7 +8,12 @@
 .bs-rdiv { width: 0.5px; height: 18px; background: var(--sep); margin: 0 5px; }
 .bs-filterrow { height: 38px; display: flex; align-items: center; gap: 6px; padding: 0 9px; border-bottom: 0.5px solid var(--sepsoft); }
 .bs-fbox { flex: 1; height: 26px; border-radius: 7px; background: var(--inset); border: 0.5px solid var(--sep); display: flex; align-items: center; gap: 7px; padding: 0 8px; color: var(--t3); }
+.bs-fbox:focus-within { border-color: color-mix(in srgb, var(--accent) 56%, var(--sep)); }
 .bs-fbox svg { width: 13px; height: 13px; }
+.bs-fbox-input { flex: 1; min-width: 0; background: transparent; border: none; outline: none; font: inherit; font-size: 12px; color: var(--text); }
+.bs-fbox-input::placeholder { color: var(--t3); }
+.bs-fbox-clear { display: flex; align-items: center; justify-content: center; width: 16px; height: 16px; border-radius: 4px; color: var(--t3); flex-shrink: 0; }
+.bs-fbox-clear:hover { background: var(--hover); color: var(--text); }
 .bs-fi { width: 26px; height: 26px; border-radius: 7px; display: flex; align-items: center; justify-content: center; color: var(--t2); }
 .bs-fi:hover { background: var(--hover); }
 .bs-fi svg { width: 15px; height: 15px; }
