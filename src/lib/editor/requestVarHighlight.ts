@@ -48,5 +48,33 @@ export function requestVariableHighlight(
         setGlobalVars([...get(globals), row]);
       }
     },
+    onUpdate(name, value) {
+      const key = name.trim();
+      if (key === '') return;
+      // Re-read the stores at click time and re-resolve which scope owns the
+      // name, so the write lands where the tooltip's value actually came from.
+      const currentEnv =
+        active !== undefined ? get(environments).find((e) => e.id === active.id) : undefined;
+      const hit = lookupVar(key, get(globals), currentEnv);
+      if (!hit) return;
+      if (hit.source === 'env' && currentEnv) {
+        setEnvVars(currentEnv.id, updateLastEnabled(currentEnv.vars, key, value));
+      } else {
+        setGlobalVars(updateLastEnabled(get(globals), key, value));
+      }
+    },
   });
+}
+
+/**
+ * Overwrite the value of the row that `lookupVar` resolves — the LAST enabled
+ * row with a matching (trimmed) key, mirroring its duplicate-wins semantics.
+ */
+function updateLastEnabled(rows: VarRow[], key: string, value: string): VarRow[] {
+  let idx = -1;
+  rows.forEach((r, i) => {
+    if (r.enabled && r.key.trim() === key) idx = i;
+  });
+  if (idx === -1) return rows;
+  return rows.map((r, i) => (i === idx ? { ...r, value } : r));
 }

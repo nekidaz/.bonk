@@ -35,6 +35,8 @@ export interface VariableHighlightOptions {
   activeEnvName(): string | null;
   /** Persist a new `{key, value, enabled}` row into the chosen scope. */
   onAdd(name: string, value: string, target: 'env' | 'globals'): void;
+  /** Overwrite the value of an already-resolved variable in its owning scope. */
+  onUpdate(name: string, value: string): void;
 }
 
 const okDeco = Decoration.mark({ class: 'cm-var-ok' });
@@ -82,16 +84,38 @@ function button(label: string, className: string, onClick: () => void): HTMLButt
   return btn;
 }
 
-/** Tooltip body for a variable that resolved: name, value, owning scope. */
-function resolvedDom(name: string, info: VarScopeInfo): HTMLElement {
+/**
+ * Tooltip body for a variable that resolved: name + owning scope, and the
+ * value in an editable input so it can be changed right from the popover
+ * (Enter or Save writes back into the scope it resolved from).
+ */
+function resolvedDom(name: string, info: VarScopeInfo, opts: VariableHighlightOptions): HTMLElement {
   const root = el('div', 'cm-var-tip');
   const head = el('div', 'cm-var-tip-head');
   head.appendChild(el('span', 'cm-var-tip-name', name));
   head.appendChild(el('span', 'cm-var-tip-scope', info.scopeLabel));
   root.appendChild(head);
-  root.appendChild(
-    el('div', 'cm-var-tip-value' + (info.value === '' ? ' empty' : ''), info.value === '' ? '(empty value)' : info.value),
+
+  const input = el('input', 'cm-var-tip-input');
+  input.type = 'text';
+  input.value = info.value;
+  input.placeholder = 'Value';
+  input.setAttribute('aria-label', `Value for ${name}`);
+  // Keep keystrokes (and Escape/Enter) inside the popover, away from the editor.
+  input.addEventListener('keydown', (e) => {
+    e.stopPropagation();
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      opts.onUpdate(name, input.value);
+    }
+  });
+  root.appendChild(input);
+
+  const actions = el('div', 'cm-var-tip-actions');
+  actions.appendChild(
+    button('Save', 'cm-var-tip-btn primary', () => opts.onUpdate(name, input.value)),
   );
+  root.appendChild(actions);
   return root;
 }
 
@@ -146,7 +170,7 @@ function varHover(opts: VariableHighlightOptions): Extension {
         pos: hit.from,
         end: hit.to,
         create: () => ({
-          dom: info ? resolvedDom(hit.name, info) : unresolvedDom(hit.name, opts),
+          dom: info ? resolvedDom(hit.name, info, opts) : unresolvedDom(hit.name, opts),
         }),
       };
     },
