@@ -1,11 +1,13 @@
 import { describe, it, expect } from 'vitest';
 import {
   applyEnvPatch,
+  applyGrpcRequestPatch,
   applyRequestPatch,
+  buildGrpcScriptContext,
   buildScriptContext,
   parseScriptResult,
 } from '../src/lib/domain/scripts';
-import type { HttpRequest, HttpResponse, VarRow } from '../src/lib/domain/types';
+import type { GrpcResult, HttpRequest, HttpResponse, VarRow } from '../src/lib/domain/types';
 
 function v(key: string, value: string, enabled = true): VarRow {
   return { key, value, enabled };
@@ -82,6 +84,57 @@ describe('applyRequestPatch', () => {
     const out = applyRequestPatch(req, { url: 'https://x' });
     expect(out.body).toBe('{"a":1}');
     expect(out.headers).toEqual({ Authorization: 'Bearer x' });
+  });
+});
+
+const grpcReq = { method: 'pkg.Svc.Method', endpoint: 'localhost:50051', message: '{"a":1}', metadata: { authorization: 'Bearer x' } };
+
+const grpcRes: GrpcResult = { ok: true, status: 'OK', body: '{"id":7}', elapsed_ms: 12, size_bytes: 8 };
+
+describe('buildGrpcScriptContext', () => {
+  it('maps endpoint→url, metadata→headers, message→body and leaves response null pre-call', () => {
+    const ctx = buildGrpcScriptContext(grpcReq, undefined, { host: 'h' }, { base: 'b' });
+    expect(ctx.request).toEqual({
+      method: 'pkg.Svc.Method',
+      url: 'localhost:50051',
+      headers: { authorization: 'Bearer x' },
+      body: '{"a":1}',
+    });
+    expect(ctx.response).toBeNull();
+    expect(ctx.environment).toEqual({ host: 'h' });
+    expect(ctx.globals).toEqual({ base: 'b' });
+  });
+
+  it('defaults method to GRPC when absent', () => {
+    const ctx = buildGrpcScriptContext({ endpoint: 'x', message: '{}', metadata: {} }, undefined, {}, {});
+    expect(ctx.request.method).toBe('GRPC');
+  });
+
+  it('maps an ok result to code 0 and a failed result to code 2', () => {
+    const okCtx = buildGrpcScriptContext(grpcReq, grpcRes, {}, {});
+    expect(okCtx.response).toEqual({ code: 0, responseTime: 12, headers: {}, body: '{"id":7}' });
+    const failCtx = buildGrpcScriptContext(grpcReq, { ...grpcRes, ok: false, status: 'ERROR' }, {}, {});
+    expect(failCtx.response?.code).toBe(2);
+  });
+});
+
+describe('applyGrpcRequestPatch', () => {
+  it('returns the same value when the patch is null/undefined', () => {
+    expect(applyGrpcRequestPatch(grpcReq, null)).toBe(grpcReq);
+    expect(applyGrpcRequestPatch(grpcReq, undefined)).toBe(grpcReq);
+  });
+
+  it('overwrites message/metadata without mutating the input', () => {
+    const out = applyGrpcRequestPatch(grpcReq, { body: '{"a":2}', headers: { authorization: 'Bearer y' } });
+    expect(out.message).toBe('{"a":2}');
+    expect(out.metadata).toEqual({ authorization: 'Bearer y' });
+    expect(grpcReq.message).toBe('{"a":1}');
+  });
+
+  it('maps a url patch onto endpoint too (callers may choose to ignore it)', () => {
+    const out = applyGrpcRequestPatch(grpcReq, { url: 'localhost:9999' });
+    expect(out.endpoint).toBe('localhost:9999');
+    expect(out.message).toBe(grpcReq.message);
   });
 });
 

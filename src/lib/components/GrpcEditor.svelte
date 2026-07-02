@@ -14,6 +14,7 @@
    * propagation so clicking inside doesn't close it.
    */
   import { flushSync } from 'svelte';
+  import { get } from 'svelte/store';
   import {
     tabs,
     updateActiveTab,
@@ -23,6 +24,7 @@
     titleFromUrl,
     GRPC_DEFAULT_TITLE,
     requestTimeoutMs,
+    applyScriptVars,
   } from '../stores';
   import {
     cancelRequest,
@@ -33,12 +35,15 @@
     grpcTemplate,
     protoPick,
     workspacePickFolder,
+    runScript,
   } from '../api';
   import { busyMap, grpcErrorMap } from '../requestRuntime';
   import { currentVarScope, globals, environments, activeEnvironmentId } from '../stores';
   import { requestVariableHighlight } from '../editor/requestVarHighlight';
   import CodeEditor from './CodeEditor.svelte';
-  import { resolveVars } from '../domain/vars';
+  import ScriptsEditor from './ScriptsEditor.svelte';
+  import { resolveVars, mergeScope } from '../domain/vars';
+  import { buildGrpcScriptContext, applyGrpcRequestPatch, type ScriptResult } from '../domain/scripts';
   import {
     GRPC_NO_SERVICES_HINT,
     grpcConnectFailureMessage,
@@ -46,12 +51,23 @@
     type GrpcConnectStage,
   } from '../domain/grpc';
   import { selectMethod, metaText, grpcMethodLabel } from '../grpcActions';
-  import { hl, lineNumbers, syncJsonScroll } from '../domain/highlight';
   import type { Tab, GrpcResult } from '../domain/types';
+
+  /** The active environment's `name → value` map, or `{}` when none is selected. */
+  function activeEnvMap(): Record<string, string> {
+    const id = get(activeEnvironmentId);
+    const env = id ? get(environments).find((e) => e.id === id) : undefined;
+    return mergeScope([], env);
+  }
+
+  /** The globals `name → value` map. */
+  function globalsMap(): Record<string, string> {
+    return mergeScope(get(globals), undefined);
+  }
 
   let { tab, methodOpen = $bindable() }: { tab: Tab; methodOpen: boolean } = $props();
 
-  let gTab = $state<'message' | 'metadata' | 'proto'>('message');
+  let gTab = $state<'message' | 'metadata' | 'proto' | 'scripts'>('message');
   // Per-tab gRPC in-flight state derived from the shared `busyMap` store so the
   // tab's Invoke/Connect buttons reflect ONLY that tab's request.
   const activeBusy = $derived($busyMap[tab.id]);
@@ -66,6 +82,9 @@
 
   function setGrpc(patch: Record<string, unknown>): void {
     updateActiveTab((t) => (t.grpc ? { ...t, grpc: { ...t.grpc, ...patch } } : t));
+  }
+  function setGrpcScript(field: 'preRequestScript' | 'testScript', value: string): void {
+    setGrpc({ [field]: value === '' ? undefined : value });
   }
   function useReflection(): void {
     setGrpc({ source: 'reflection', connectionId: undefined, tree: undefined });
@@ -224,15 +243,56 @@
     const requestId = crypto.randomUUID();
     grpcErrorMap.update((m) => ({ ...m, [tabId]: '' }));
     busyMap.update((m) => ({ ...m, [tabId]: { kind: 'invoke', requestId } }));
+
+    const tests: ScriptResult['tests'] = [];
+    const logs: string[] = [];
+    let message = g.message;
+    let metadata = g.metadata;
+
+    // Pre-request script — runs against the raw message/metadata, before
+    // {{var}} resolution. Unlike HTTP, this runs AFTER the connection is
+    // already dialed (a live connection is needed just to know the method
+    // exists), so a script can patch the message/metadata but not the
+    // endpoint — pm.request.url is read-only for a gRPC pre-request script.
+    if (g.preRequestScript && g.preRequestScript.trim() !== '') {
+      const context = buildGrpcScriptContext(
+        { method: g.method, endpoint: g.endpoint, message, metadata },
+        undefined,
+        activeEnvMap(),
+        globalsMap(),
+      );
+      const pre = await runScript('pre-request', g.preRequestScript, context);
+      applyScriptVars(pre);
+      logs.push(...pre.logs);
+      tests.push(...pre.tests);
+      if (pre.error) {
+        updateTabById(tabId, (x) => ({ ...x, testResults: { tests, logs, error: pre.error ?? undefined } }));
+        grpcErrorMap.update((m) => ({ ...m, [tabId]: `Pre-request script: ${pre.error}` }));
+        busyMap.update((m) => {
+          if (m[tabId]?.requestId !== requestId) return m;
+          const { [tabId]: _done, ...rest } = m;
+          return rest;
+        });
+        return;
+      }
+      const patched = applyGrpcRequestPatch(
+        { method: g.method, endpoint: g.endpoint, message, metadata },
+        pre.requestPatch,
+      );
+      message = patched.message;
+      metadata = patched.metadata;
+    }
+
     let result: GrpcResult = { ok: false, status: 'ERROR', body: '', elapsed_ms: 0, size_bytes: 0 };
-    // Interpolate {{var}} placeholders (globals + active environment) into the
-    // message JSON and metadata values just before dispatch.
+    // Interpolate {{var}} placeholders (globals + active environment, now
+    // including anything the pre-request script set) into the message JSON
+    // and metadata values just before dispatch.
     const scope = currentVarScope();
-    const message = resolveVars(g.message, scope);
-    const metadata: Record<string, string> = {};
-    for (const [k, val] of Object.entries(g.metadata)) metadata[k] = resolveVars(val, scope);
+    const resolvedMessage = resolveVars(message, scope);
+    const resolvedMetadata: Record<string, string> = {};
+    for (const [k, val] of Object.entries(metadata)) resolvedMetadata[k] = resolveVars(val, scope);
     try {
-      result = await grpcCall(g.connectionId, g.method, message, metadata, requestId, $requestTimeoutMs);
+      result = await grpcCall(g.connectionId, g.method, resolvedMessage, resolvedMetadata, requestId, $requestTimeoutMs);
     } catch (e) {
       const cancelled = String(e).toLowerCase().includes('cancel');
       result = {
@@ -249,7 +309,27 @@
         return rest;
       });
     }
-    updateTabById(tabId, (x) => ({ ...x, grpcResult: result }));
+
+    // Test script — runs against the result; its env/globals writes are
+    // applied and its tests/logs (plus any pre-request ones) attach to the tab.
+    let testError: string | undefined;
+    if (g.testScript && g.testScript.trim() !== '') {
+      const context = buildGrpcScriptContext(
+        { method: g.method, endpoint: g.endpoint, message: resolvedMessage, metadata: resolvedMetadata },
+        result,
+        activeEnvMap(),
+        globalsMap(),
+      );
+      const post = await runScript('test', g.testScript, context);
+      applyScriptVars(post);
+      logs.push(...post.logs);
+      tests.push(...post.tests);
+      testError = post.error ?? undefined;
+    }
+    const testResults =
+      tests.length > 0 || logs.length > 0 || testError ? { tests, logs, error: testError } : undefined;
+
+    updateTabById(tabId, (x) => ({ ...x, grpcResult: result, testResults }));
     addHistory({ id: crypto.randomUUID(), protocol: 'grpc', request: { method: 'GRPC', url: g.endpoint + ' ' + (g.method ?? ''), headers: {} }, status: 0, ok: result.ok, grpc: grpcSnapshot(g), at: Date.now() });
   }
   function setMeta(text: string): void {
@@ -263,19 +343,14 @@
     setGrpc({ metadata: md });
   }
 
-  const activeGrpcMessageLines = $derived(
-    gTab === 'message' ? lineNumbers(tab.grpc?.message) : [],
-  );
-  const activeGrpcMessageHtml = $derived(
-    gTab === 'message' ? hl(tab.grpc?.message ?? '', false) : '',
-  );
   const protoFileNames = $derived(
     (tab.grpc?.protoPaths ?? []).map((p) => p.split(/[\\/]/).pop() ?? p),
   );
   const isProtoSource = $derived(tab.grpc?.source === 'proto');
 
-  // `{{var}}` inline highlight + hover quick-set for the endpoint field,
-  // re-derived whenever the variable stores change.
+  // `{{var}}` inline highlight + hover quick-set, shared by the endpoint,
+  // message, and metadata editors; re-derived whenever the variable stores
+  // change.
   const varHighlight = $derived(
     requestVariableHighlight($globals, $environments, $activeEnvironmentId),
   );
@@ -357,24 +432,24 @@
 <div class="bs-rtabs">
   <div class="bs-rtab docs"><span class="material-symbols-outlined" style="font-size:14px">notes</span>Docs</div>
   <button class="bs-rtab" class:on={gTab === 'message'} onclick={() => (gTab = 'message')}>Message</button>
-  <div class="bs-rtab">Authorization</div>
   <button class="bs-rtab" class:on={gTab === 'metadata'} onclick={() => (gTab = 'metadata')}>Metadata</button>
   <button class="bs-rtab" class:on={gTab === 'proto'} onclick={() => (gTab = 'proto')}>Service definition</button>
-  <div class="bs-rtab">Scripts</div>
-  <div class="bs-rtab">Settings</div>
+  <button class="bs-rtab" class:on={gTab === 'scripts'} onclick={() => (gTab = 'scripts')}>Scripts</button>
 </div>
 <div class="bs-reqpane">
 {#if gTab === 'message'}
   <div class="bs-postman-message">
     <div class="bs-json-editor postman">
-      <div class="bs-json-gutter" aria-hidden="true">
-        {#each activeGrpcMessageLines as n}
-          <div>{n}</div>
-        {/each}
-      </div>
-      {#if !(tab.grpc?.message ?? '').trim()}<div class="bs-json-placeholder">Compose message</div>{/if}
-      <pre class="bs-json-highlight" aria-hidden="true">{@html activeGrpcMessageHtml}</pre>
-      <textarea spellcheck="false" aria-label="gRPC JSON message" value={tab.grpc?.message ?? ''} oninput={(e) => setGrpc({ message: e.currentTarget.value })} onscroll={syncJsonScroll}></textarea>
+      <CodeEditor
+        value={tab.grpc?.message ?? ''}
+        onChange={(v) => setGrpc({ message: v })}
+        lang="json"
+        fill
+        placeholder="Compose message"
+        {varHighlight}
+        docId={tab.id}
+        ariaLabel="gRPC JSON message"
+      />
     </div>
     <div class="bs-msg-foot">
       <button type="button" onclick={grpcLoadExample}>
@@ -388,7 +463,26 @@
     </div>
   </div>
 {:else if gTab === 'metadata'}
-  <div class="bs-bodyarea"><textarea placeholder="Key: Value (one per line)" value={metaText(tab.grpc?.metadata)} oninput={(e) => setMeta(e.currentTarget.value)}></textarea></div>
+  <div class="bs-bodyarea">
+    <CodeEditor
+      value={metaText(tab.grpc?.metadata)}
+      onChange={setMeta}
+      lang="text"
+      fill
+      placeholder="Key: Value (one per line)"
+      {varHighlight}
+      docId={tab.id}
+      ariaLabel="gRPC metadata"
+    />
+  </div>
+{:else if gTab === 'scripts'}
+  <ScriptsEditor
+    preRequestScript={tab.grpc?.preRequestScript ?? ''}
+    testScript={tab.grpc?.testScript ?? ''}
+    onPreRequestChange={(v) => setGrpcScript('preRequestScript', v)}
+    onTestChange={(v) => setGrpcScript('testScript', v)}
+    docId={tab.id}
+  />
 {:else}
   <div class="bs-pwrap">
     <div class="bs-empty">

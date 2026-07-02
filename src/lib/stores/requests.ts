@@ -189,7 +189,8 @@ export function applyScriptVars(result: ScriptResult): void {
  * resolves. This is what keeps a slow request in Tab A from landing its response
  * on Tab B after the user switches.
  *
- * Script flow (Postman-style), HTTP-only for this MVP (gRPC has no scripts):
+ * Script flow (Postman-style; gRPC runs the same flow, see GrpcEditor.svelte
+ * and stores/runner.ts's runGrpcNode):
  *   1. pre-request script (if any) runs FIRST, against the raw request; it can
  *      patch the outgoing request and set env/globals — those writes then feed
  *      the {{var}} resolution below.

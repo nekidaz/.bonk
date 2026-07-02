@@ -11,12 +11,18 @@
   import HttpHeadersEditor from './http/HttpHeadersEditor.svelte';
   import HttpParamsEditor from './http/HttpParamsEditor.svelte';
   import HttpRequestTabs from './http/HttpRequestTabs.svelte';
-  import HttpScriptsEditor from './http/HttpScriptsEditor.svelte';
+  import ScriptsEditor from './ScriptsEditor.svelte';
   import HttpUrlBar from './http/HttpUrlBar.svelte';
+  import { updateActiveTab } from '../stores';
   import type { HttpEditorTab } from '../domain/httpEditor';
   import type { Tab } from '../domain/types';
 
   let { tab, methodOpen = $bindable() }: { tab: Tab; methodOpen: boolean } = $props();
+
+  function setHttpScript(field: 'preRequestScript' | 'testScript', value: string): void {
+    const next = value === '' ? undefined : value;
+    updateActiveTab((t) => ({ ...t, request: { ...t.request, [field]: next } }));
+  }
 
   let uiTab = $state<HttpEditorTab>('params');
 </script>
@@ -34,7 +40,13 @@
   {:else if uiTab === 'params'}
     <HttpParamsEditor {tab} />
   {:else if uiTab === 'scripts'}
-    <HttpScriptsEditor {tab} />
+    <ScriptsEditor
+      preRequestScript={tab.request.preRequestScript ?? ''}
+      testScript={tab.request.testScript ?? ''}
+      onPreRequestChange={(v) => setHttpScript('preRequestScript', v)}
+      onTestChange={(v) => setHttpScript('testScript', v)}
+      docId={tab.id}
+    />
   {:else}
     <div class="bs-pwrap"><div class="bs-empty"><b style="margin-bottom:4px">No {uiTab}</b><p>This request has no {uiTab} configured.</p></div></div>
   {/if}

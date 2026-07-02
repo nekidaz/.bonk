@@ -630,7 +630,6 @@
   border-right-color: var(--sepsoft);
 }
 
-.bs-bodyarea textarea,
 .bs-textarea,
 .bs-input {
   background: var(--inset);
@@ -638,7 +637,6 @@
   box-shadow: var(--shadow-sm);
 }
 
-.bs-bodyarea textarea:focus,
 .bs-textarea:focus,
 .bs-input:focus {
   border-color: rgba(10, 132, 255, 0.56);
@@ -650,8 +648,7 @@
 .bs-response-view,
 .bs-rbody.pretty,
 .bs-response-editor,
-.bs-response-gutter,
-.bs-json-gutter {
+.bs-response-gutter {
   background: transparent;
 }
 

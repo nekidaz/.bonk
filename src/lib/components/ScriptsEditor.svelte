@@ -1,25 +1,32 @@
 <script lang="ts">
   /**
-   * Pre-request + test script editor: two CodeMirror editors bound to
-   * `tab.request.preRequestScript` / `tab.request.testScript`, each with a
+   * Pre-request + test script editor: two CodeMirror editors with a
    * Postman-style snippets column that inserts at the cursor and `pm.*`
-   * autocomplete built from the real sandbox surface. An empty string is
-   * normalized to `undefined` so a blank script isn't persisted.
+   * autocomplete built from the real sandbox surface. Protocol-agnostic — the
+   * sandbox (crates/bonk-core/src/application/scripts.rs) only sees a plain
+   * `{request, response, environment, globals}` object, so HTTP and gRPC share
+   * this same editor; each caller wires its own field + onChange (HTTP via
+   * `tab.request.*`, gRPC via `tab.grpc.*`).
    */
-  import CodeEditor from '../CodeEditor.svelte';
-  import { PM_COMPLETIONS, PRE_REQUEST_SNIPPETS, TEST_SNIPPETS } from '../../editor/scriptCompletions';
-  import { updateActiveTab } from '../../stores';
-  import type { Tab } from '../../domain/types';
+  import CodeEditor from './CodeEditor.svelte';
+  import { PM_COMPLETIONS, PRE_REQUEST_SNIPPETS, TEST_SNIPPETS } from '../editor/scriptCompletions';
 
-  let { tab }: { tab: Tab } = $props();
+  let {
+    preRequestScript,
+    testScript,
+    onPreRequestChange,
+    onTestChange,
+    docId,
+  }: {
+    preRequestScript: string;
+    testScript: string;
+    onPreRequestChange: (value: string) => void;
+    onTestChange: (value: string) => void;
+    docId: string;
+  } = $props();
 
   let preEditor = $state<ReturnType<typeof CodeEditor>>();
   let testEditor = $state<ReturnType<typeof CodeEditor>>();
-
-  function setScript(field: 'preRequestScript' | 'testScript', value: string): void {
-    const next = value === '' ? undefined : value;
-    updateActiveTab((t) => ({ ...t, request: { ...t.request, [field]: next } }));
-  }
 </script>
 
 <div class="bs-pwrap bs-scripts">
@@ -32,14 +39,14 @@
       <div class="bs-script-editor">
         <CodeEditor
           bind:this={preEditor}
-          value={tab.request.preRequestScript ?? ''}
-          onChange={(v) => setScript('preRequestScript', v)}
+          value={preRequestScript}
+          onChange={onPreRequestChange}
           lang="javascript"
           completions={PM_COMPLETIONS}
           placeholder={"// e.g. set a variable used in this request\npm.environment.set('ts', String(Date.now()));"}
           minHeight="150px"
           maxHeight="46vh"
-          docId={tab.id}
+          {docId}
           ariaLabel="Pre-request script"
         />
       </div>
@@ -61,14 +68,14 @@
       <div class="bs-script-editor">
         <CodeEditor
           bind:this={testEditor}
-          value={tab.request.testScript ?? ''}
-          onChange={(v) => setScript('testScript', v)}
+          value={testScript}
+          onChange={onTestChange}
           lang="javascript"
           completions={PM_COMPLETIONS}
           placeholder={"// e.g. assert on the response\npm.test('status is 200', function () {\n  pm.expect(pm.response).to.have.status(200);\n});"}
           minHeight="150px"
           maxHeight="46vh"
-          docId={tab.id}
+          {docId}
           ariaLabel="Test script"
         />
       </div>

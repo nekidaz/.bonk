@@ -12,7 +12,7 @@ import { httpSend, runScript, grpcConnect, grpcReflect, grpcCall, grpcLoadProto 
 import { findNode } from '../domain/tree';
 import { grpcPathsToAbs } from '../domain/protoPaths';
 import { mergeScope, resolveRequestVars, resolveVars } from '../domain/vars';
-import { applyRequestPatch, buildScriptContext } from '../domain/scripts';
+import { applyRequestPatch, buildScriptContext, applyGrpcRequestPatch, buildGrpcScriptContext } from '../domain/scripts';
 import { inferGrpcPlaintext, grpcConnectFailureMessage, methodShort } from '../domain/grpc';
 import {
   tabs,
@@ -310,7 +310,11 @@ async function runHttpNode(
 
 /**
  * Execute one saved gRPC request for iteration `iteration` and return its row.
- * gRPC has no scripts. The whole connect → (proto/reflect) → call cycle is
+ * Mirrors `runHttp`'s script pipeline (pre-request + test, folding env/globals
+ * writes via `applyScriptVars`), with one gRPC-specific constraint: the
+ * pre-request script runs AFTER the connection is dialed (a live connection is
+ * needed just to know the method exists), so it can patch message/metadata but
+ * not the endpoint. The whole connect → (proto/reflect) → call cycle is
  * wrapped so ANY failure yields an `ok:false` row and the run continues.
  */
 async function runGrpcNode(
@@ -322,6 +326,8 @@ async function runGrpcNode(
   const scope = runScopeFor(iterationData);
   const endpoint = resolveVars(g?.endpoint ?? '', scope);
   const target = `${endpoint} · ${g?.method ? methodShort(g.method) : ''}`.trim();
+  const tests: ScriptTestResult[] = [];
+  const logs: string[] = [];
   const base = {
     id: crypto.randomUUID(),
     iteration,
@@ -329,8 +335,8 @@ async function runGrpcNode(
     protocol: 'grpc' as const,
     method: 'gRPC',
     target,
-    tests: [] as ScriptTestResult[],
-    logs: [] as string[],
+    tests,
+    logs,
   };
   if (!g || !g.endpoint.trim() || !g.method) {
     return { ...base, status: 'ERR', ok: false, elapsedMs: 0, error: 'Missing endpoint or method.' };
@@ -348,15 +354,54 @@ async function runGrpcNode(
     } else {
       await grpcReflect(connId);
     }
-    const message = resolveVars(g.message, scope);
-    const metadata: Record<string, string> = {};
-    for (const [k, v] of Object.entries(g.metadata)) metadata[k] = resolveVars(v, scope);
-    const result = await grpcCall(connId, g.method, message, metadata);
+
+    let message = g.message;
+    let metadata = g.metadata;
+    if (g.preRequestScript && g.preRequestScript.trim() !== '') {
+      const context = buildGrpcScriptContext(
+        { method: g.method, endpoint, message, metadata },
+        undefined,
+        activeEnvMap(),
+        globalsMap(),
+        iterationData,
+      );
+      const pre = await runScript('pre-request', g.preRequestScript, context);
+      applyScriptVars(pre);
+      logs.push(...pre.logs);
+      tests.push(...pre.tests);
+      if (pre.error) return { ...base, status: 'ERR', ok: false, elapsedMs: 0, error: pre.error };
+      const patched = applyGrpcRequestPatch({ method: g.method, endpoint, message, metadata }, pre.requestPatch);
+      message = patched.message;
+      metadata = patched.metadata;
+    }
+
+    const resolvedMessage = resolveVars(message, scope);
+    const resolvedMetadata: Record<string, string> = {};
+    for (const [k, v] of Object.entries(metadata)) resolvedMetadata[k] = resolveVars(v, scope);
+    const result = await grpcCall(connId, g.method, resolvedMessage, resolvedMetadata);
+
+    let error: string | undefined;
+    if (g.testScript && g.testScript.trim() !== '') {
+      const context = buildGrpcScriptContext(
+        { method: g.method, endpoint, message: resolvedMessage, metadata: resolvedMetadata },
+        result,
+        activeEnvMap(),
+        globalsMap(),
+        iterationData,
+      );
+      const post = await runScript('test', g.testScript, context);
+      applyScriptVars(post);
+      logs.push(...post.logs);
+      tests.push(...post.tests);
+      error = post.error ?? undefined;
+    }
+
     return {
       ...base,
       status: result.status,
-      ok: result.ok,
+      ok: result.ok && error === undefined && allTestsPassed(tests),
       elapsedMs: result.elapsed_ms,
+      error,
     };
   } catch (e) {
     return {

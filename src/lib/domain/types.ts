@@ -251,4 +251,8 @@ export interface GrpcTabState {
   protoPaths?: string[];
   /** Extra compiler import roots for resolving `import` statements. */
   importPaths?: string[];
+  /** Postman-style pre-request script (JS); runs before {{var}} resolution and the call. */
+  preRequestScript?: string;
+  /** Postman-style test script (JS); runs against the gRPC result. */
+  testScript?: string;
 }

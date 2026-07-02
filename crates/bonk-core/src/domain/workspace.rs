@@ -19,6 +19,12 @@ pub struct GrpcTabState {
     pub method: Option<String>,
     pub message: String,
     pub metadata: BTreeMap<String, String>,
+    /// Postman-style pre-request script (JS), run before `{{var}}` resolution.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pre_request_script: Option<String>,
+    /// Postman-style test script (JS), run against the gRPC result.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub test_script: Option<String>,
 }
 
 /// On-disk shape of a request file (no id, no kind — path is the identity).

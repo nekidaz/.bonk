@@ -6,7 +6,7 @@
  * flow using `buildScriptContext` + `applyEnvPatch`; `api.ts` uses
  * `parseScriptResult` to turn the raw QuickJS output string into a typed value.
  */
-import type { HttpRequest, HttpResponse, ScriptTestResult, VarRow } from './types';
+import type { GrpcResult, HttpRequest, HttpResponse, ScriptTestResult, VarRow } from './types';
 
 export type ScriptPhase = 'pre-request' | 'test';
 
@@ -110,6 +110,63 @@ export function applyRequestPatch(req: HttpRequest, patch: RequestPatch | null |
   if (patch.url !== undefined) next.url = patch.url;
   if (patch.body !== undefined) next.body = patch.body;
   if (patch.headers !== undefined) next.headers = { ...patch.headers };
+  return next;
+}
+
+/** The gRPC fields a pre-request script may read/patch, shaped like an HTTP request. */
+export interface GrpcScriptRequest {
+  method?: string;
+  endpoint: string;
+  message: string;
+  metadata: Record<string, string>;
+}
+
+/**
+ * Build a script context for a gRPC call. The sandbox (`scripts.rs`) is
+ * protocol-agnostic — it only ever sees a plain `{request, response,
+ * environment, globals}` object — so gRPC reuses the exact same shape as HTTP
+ * via this field mapping: endpoint→url, metadata→headers, message→body.
+ * gRPC has no numeric status code (only OK/ERROR/CANCELLED text), so
+ * `response.code` approximates the real `grpc.Status` enum: 0 (OK) on success,
+ * 2 (UNKNOWN) on any failure — enough for `pm.expect(pm.response).to.have.status(0)`.
+ */
+export function buildGrpcScriptContext(
+  grpc: GrpcScriptRequest,
+  result: GrpcResult | undefined,
+  environment: Record<string, string>,
+  globals: Record<string, string>,
+  iterationData: Record<string, string> = {},
+): ScriptContext {
+  return {
+    request: {
+      method: grpc.method ?? 'GRPC',
+      url: grpc.endpoint,
+      headers: { ...grpc.metadata },
+      body: grpc.message,
+    },
+    response: result
+      ? { code: result.ok ? 0 : 2, responseTime: result.elapsed_ms, headers: {}, body: result.body }
+      : null,
+    environment,
+    globals,
+    iterationData,
+  };
+}
+
+/**
+ * Apply a pre-request script's `requestPatch` to a gRPC request, returning a
+ * new value (the input is never mutated). Mirrors `applyRequestPatch`: url →
+ * endpoint, body → message, headers → metadata (replaces the map wholesale).
+ */
+export function applyGrpcRequestPatch(
+  grpc: GrpcScriptRequest,
+  patch: RequestPatch | null | undefined,
+): GrpcScriptRequest {
+  if (!patch) return grpc;
+  const next: GrpcScriptRequest = { ...grpc };
+  if (patch.url !== undefined) next.endpoint = patch.url;
+  if (patch.body !== undefined) next.message = patch.body;
+  if (patch.headers !== undefined) next.metadata = { ...patch.headers };
   return next;
 }
 

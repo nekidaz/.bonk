@@ -99,6 +99,14 @@
 {#if tab?.protocol === 'grpc'}
   <div class="bs-resph">
     <span class="ttl">Response</span>
+    <div class="bs-rsub">
+      <button class="x" class:on={respTab === 'body'} onclick={() => (respTab = 'body')}>Body</button>
+      {#if testResults}
+        <button class="x" class:on={respTab === 'tests'} onclick={() => (respTab = 'tests')}>
+          Tests{#if testCount > 0}<span class="bs-test-badge" class:fail={passedCount < testCount}>{passedCount}/{testCount}</span>{/if}
+        </button>
+      {/if}
+    </div>
     {#if tab.grpcResult}
       <div class="bs-meta">
         <span class="bs-stpill" class:err={!tab.grpcResult.ok}><span class="d"></span>{tab.grpcResult.status}</span>
@@ -113,6 +121,33 @@
   </div>
   {#if !tab.grpcResult}
     <div class="bs-empty-resp"><span class="material-symbols-outlined" style="font-size:38px">code_blocks</span><div>Invoke a method to see the response</div></div>
+  {:else if respTab === 'tests' && testResults}
+    <div class="bs-rbody bs-tests">
+      {#if testResults.error}
+        <div class="bs-test-error"><span class="material-symbols-outlined" style="font-size:15px">error</span>Script error: {testResults.error}</div>
+      {/if}
+      {#if testResults.tests.length > 0}
+        <div class="bs-test-list">
+          {#each testResults.tests as t, i (i)}
+            <div class="bs-test-row" class:fail={!t.passed}>
+              <span class="material-symbols-outlined ic" style="font-size:16px">{t.passed ? 'check_circle' : 'cancel'}</span>
+              <span class="nm">{t.name}</span>
+              {#if !t.passed && t.error}<span class="er">{t.error}</span>{/if}
+            </div>
+          {/each}
+        </div>
+      {:else if !testResults.error}
+        <div style="color:var(--t3);padding:4px 0">No assertions ran. Add <code>pm.test(...)</code> in the Scripts tab.</div>
+      {/if}
+      {#if testResults.logs.length > 0}
+        <div class="bs-test-console">
+          <div class="hd">Console</div>
+          {#each testResults.logs as line, i (i)}
+            <div class="ln">{line}</div>
+          {/each}
+        </div>
+      {/if}
+    </div>
   {:else if grpcView}
     {@render codeBody(grpcView)}
   {/if}
