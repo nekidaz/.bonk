@@ -32,10 +32,12 @@ jobs:
           DIST_TOKEN: ${{ secrets.DIST_TOKEN }}
         run: |
           set -euo pipefail
+          # Clone target must NOT be "public" — this repo already has a public/
+          # dir (Vite static assets) that checkout put in the workspace root.
           git clone --depth 1 \
-            "https://x-access-token:${DIST_TOKEN}@github.com/nekidaz/.bonk.git" public
-          cp CHANGELOG.md public/CHANGELOG.md
-          cd public
+            "https://x-access-token:${DIST_TOKEN}@github.com/nekidaz/.bonk.git" dist-repo
+          cp CHANGELOG.md dist-repo/CHANGELOG.md
+          cd dist-repo
           if git diff --quiet -- CHANGELOG.md; then
             echo "CHANGELOG.md already up to date — nothing to sync."
             exit 0
