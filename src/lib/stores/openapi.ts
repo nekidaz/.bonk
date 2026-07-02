@@ -59,8 +59,14 @@ async function saveSpecToWorkspace(
       }
     }
     if (spec.baseUrl) {
+      // addEnvironment activates the new env as a side effect. An import must
+      // not silently steal the user's active environment (their {{vars}} would
+      // stop resolving), so restore the previous selection when one existed;
+      // with none active, the imported env becomes active as a sensible default.
+      const prevActive = get(activeEnvironmentId);
       const envId = addEnvironment(spec.title);
       setEnvVars(envId, [{ key: 'baseUrl', value: spec.baseUrl, enabled: true }]);
+      if (prevActive) activeEnvironmentId.set(prevActive);
     }
     await reloadWorkspace();
   });
