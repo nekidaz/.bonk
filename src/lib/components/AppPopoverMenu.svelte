@@ -5,6 +5,7 @@
     collections,
     historyLimit,
     historyPaused,
+    openEnvironmentsTab,
     openSavedRequest,
   } from '../stores';
   import { findNode } from '../domain/tree';
@@ -83,6 +84,11 @@
     if (n && n.kind === 'request') openSavedRequest(n);
     closeMenu();
   }
+
+  function openEnv(): void {
+    openEnvironmentsTab();
+    closeMenu();
+  }
 </script>
 
 {#if menu.kind}
@@ -90,8 +96,6 @@
   <div class="bs-menu" style="left:{menu.x}px; top:{menu.y}px; width:{appMenuWidth(menu.kind)}px">
     {#if menu.kind === 'create'}
       <div class="srch"><span class="material-symbols-outlined" style="font-size:13px">search</span>Search…</div>
-      <button class="mi"><span class="ic" style="color:#a78bfa"><span class="material-symbols-outlined" style="font-size:17px">auto_awesome</span></span>Ask AI<span class="sc">⌃⌥P</span></button>
-      <div class="dv"></div>
       {#each reqTypes as r (r.label)}
         <button class="mi" class:soon={!r.go} onclick={() => r.go && r.go()}>
           <span class="ic" style="color:{r.color}"><span class="material-symbols-outlined" style="font-size:17px">{r.icon}</span></span>{r.label}
@@ -102,6 +106,8 @@
       {#each wsItems as w (w)}
         {#if w === 'Collection'}
           <button class="mi" onclick={addRootFolder}><span class="ic"><span class="material-symbols-outlined" style="font-size:17px">folder</span></span>Collection</button>
+        {:else if w === 'Environment'}
+          <button class="mi" onclick={openEnv}><span class="ic"><span class="material-symbols-outlined" style="font-size:17px">layers</span></span>Environment</button>
         {:else}
           <button class="mi soon"><span class="ic"><span class="material-symbols-outlined" style="font-size:17px">{wsIcons[w]}</span></span>{w}<span class="soonpill">SOON</span></button>
         {/if}
