@@ -208,10 +208,19 @@
             fontFamily: 'var(--mono)',
             lineHeight: '1.5',
             overflow: 'auto',
-            alignItems: 'center',
           },
           '.cm-scroller::-webkit-scrollbar': { display: 'none' },
-          '.cm-content': { padding: '0', caretColor: 'var(--accent)' },
+          // CM's base theme pins content to the top: .cm-scroller gets
+          // `align-items: flex-start !important` and .cm-content stretches to
+          // min-height:100%. Undo the stretch and center with auto margins —
+          // in a flex row, auto margins absorb the free space and win over any
+          // align-items, important or not.
+          '.cm-content': {
+            padding: '0',
+            caretColor: 'var(--accent)',
+            minHeight: 'auto',
+            margin: 'auto 0',
+          },
           '.cm-line': { padding: '0 14px' },
         }
       : {
