@@ -130,7 +130,6 @@
 <div class="bs-filterrow">
   <div class="bs-fbox"><span class="material-symbols-outlined" style="font-size:13px">filter_alt</span>Filter</div>
   <button class="bs-fi" title="New" onclick={(e) => openMenu('create', e)}><span class="material-symbols-outlined" style="font-size:15px">add</span></button>
-  <button class="bs-fi" onclick={(e) => openMenu('coll', e)}><span class="material-symbols-outlined" style="font-size:15px">more_horiz</span></button>
 </div>
 
 {#snippet node(n: TreeNode, depth: number)}
