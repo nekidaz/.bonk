@@ -7,6 +7,31 @@ pub fn run() {
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(state::AppState::default())
+        .setup(|app| {
+            // macOS: the default app menu binds ⌘W to "Close Window", which fires
+            // before the webview ever sees the keydown — stealing the frontend's
+            // close-tab shortcut. Strip that one item; the rest of the default
+            // menu (Quit, Edit clipboard actions, etc.) stays.
+            #[cfg(target_os = "macos")]
+            {
+                use tauri::menu::{Menu, MenuItemKind};
+                let menu = Menu::default(app.handle())?;
+                for item in menu.items()? {
+                    if let MenuItemKind::Submenu(sub) = item {
+                        for child in sub.items()? {
+                            if let MenuItemKind::Predefined(p) = &child {
+                                if p.text()?.eq_ignore_ascii_case("close window") {
+                                    sub.remove(&child)?;
+                                }
+                            }
+                        }
+                    }
+                }
+                app.set_menu(menu)?;
+            }
+            let _ = app; // non-macOS: unused
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             commands::cancel_request,
             commands::http_send,

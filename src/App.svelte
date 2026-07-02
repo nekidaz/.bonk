@@ -6,6 +6,7 @@
     collections,
     hydrate,
     newTab,
+    closeTab,
     setActiveProtocol,
     addFolder,
     removeNode,
@@ -163,9 +164,18 @@
   }
 
   function globalKeydown(e: KeyboardEvent): void {
-    if ((e.metaKey || e.ctrlKey) && (e.key === 's' || e.key === 'S')) {
+    if (!(e.metaKey || e.ctrlKey)) return;
+    if (e.key === 's' || e.key === 'S') {
       e.preventDefault();
       void smartSave();
+    } else if (e.key === 't' || e.key === 'T') {
+      // ⌘T — new request tab (matches the tab context menu).
+      e.preventDefault();
+      newTab();
+    } else if (e.key === 'w' || e.key === 'W') {
+      // ⌘W — close the active tab instead of the window.
+      e.preventDefault();
+      closeTab($activeTabId);
     }
   }
 

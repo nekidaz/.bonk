@@ -66,10 +66,11 @@ export {
   openSavedRequest,
   applyCurlToActiveTab,
   sendHttpRequest,
+  applyScriptVars,
 } from './requests';
 
 // Tab lifecycle.
-export { renameActiveTab, resetActiveTabTitle, newTab, setActiveProtocol, closeTab } from './tabs';
+export { renameActiveTab, resetActiveTabTitle, newTab, setActiveProtocol, closeTab, duplicateTab, closeOtherTabs, closeAllTabs } from './tabs';
 
 // Git diff tabs.
 export { openGitDiffTab, openProjectDiffTab } from './git';

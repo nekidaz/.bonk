@@ -1,11 +1,12 @@
 import { get } from 'svelte/store';
-import type { GrpcTabState } from '../domain/types';
+import type { GrpcTabState, Tab } from '../domain/types';
 import { cancelRequest } from '../api';
 import { busyMap, grpcErrorMap } from '../requestRuntime';
 import { parentId } from '../domain/tree';
 import {
   GRPC_DEFAULT_TITLE,
   HTTP_DEFAULT_TITLE,
+  grpcSnapshot,
   newGrpcTab,
   newHttpTab,
   titleFromUrl,
@@ -110,4 +111,47 @@ export function closeTab(id: string): void {
     const neighbour = next[Math.max(0, idx - 1)];
     activeTabId.set(neighbour.id);
   }
+}
+
+/**
+ * Duplicate a tab in place (Postman's "Duplicate Tab"): a deep-enough copy of
+ * the request state inserted right after the source, made active. The copy is
+ * detached from disk (`savedPath` dropped — saving it must create a new file,
+ * not overwrite the original) and from runtime state (response/test output and
+ * the live gRPC connection are not carried over).
+ */
+export function duplicateTab(id: string): void {
+  const list = get(tabs);
+  const idx = list.findIndex((t) => t.id === id);
+  if (idx === -1) return;
+  const src = list[idx];
+  // Special tabs (git diff / env manager / runner) are singletons — no duplicating.
+  if (src.protocol === 'git' || src.protocol === 'env' || src.protocol === 'runner') return;
+  const copy: Tab = {
+    ...src,
+    id: crypto.randomUUID(),
+    request: { ...src.request, headers: { ...src.request.headers } },
+    params: src.params?.map((p) => ({ ...p })),
+    grpc: grpcSnapshot(src.grpc),
+    savedPath: undefined,
+    response: undefined,
+    grpcResult: undefined,
+    testResults: undefined,
+  };
+  tabs.update((l) => [...l.slice(0, idx + 1), copy, ...l.slice(idx + 1)]);
+  activeTabId.set(copy.id);
+}
+
+/** Close every tab except `id` (which becomes active). Reuses closeTab so each closed tab's in-flight request/runtime state is cleaned up. */
+export function closeOtherTabs(id: string): void {
+  if (!get(tabs).some((t) => t.id === id)) return;
+  activeTabId.set(id);
+  for (const t of get(tabs)) {
+    if (t.id !== id) closeTab(t.id);
+  }
+}
+
+/** Close every tab. closeTab's last-tab guard leaves one fresh HTTP tab behind. */
+export function closeAllTabs(): void {
+  for (const t of get(tabs)) closeTab(t.id);
 }
