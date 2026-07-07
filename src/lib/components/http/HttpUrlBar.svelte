@@ -21,7 +21,7 @@
   let { tab, methodOpen = $bindable() }: { tab: Tab; methodOpen: boolean } = $props();
 
   const activeBusy = $derived($busyMap[tab.id]);
-  const httpMethods = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'];
+  const httpMethods = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'QUERY'];
 
   function setMethod(method: string): void {
     updateActiveTab((t) => ({ ...t, request: { ...t.request, method } }));

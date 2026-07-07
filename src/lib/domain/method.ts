@@ -17,6 +17,8 @@ export function methodColor(method: string): string {
       return '#8b5cf6'; // purple
     case 'DELETE':
       return '#ef4444'; // red
+    case 'QUERY':
+      return '#06b6d4'; // cyan (GET-with-body: safe + idempotent, distinct hue)
     case 'GRPC':
       return '#3b82f6'; // blue (matches the RPC badge in the service tree)
     default:
