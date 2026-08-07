@@ -6,6 +6,74 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.1.4] - 2026-07-02
+
+### Added
+- Postman-style variables: environments + globals with `{{var}}` resolution,
+  inline highlighting, and a hover popover to quick-set or edit a value; an
+  Environments manager tab and an environment selector in the tab bar.
+- Pre-request + test scripts (sandboxed QuickJS, `pm.*` API) for HTTP **and
+  gRPC** — CodeMirror editors with `pm.*` autocomplete and snippet columns,
+  test results and console output in a Tests sub-tab of the response pane.
+  gRPC pre-request scripts can patch the message/metadata before dispatch.
+- Collection Runner: run a whole folder (HTTP + gRPC) with iterations, CSV/JSON
+  data files (`pm.iterationData`), delay, stop-on-failure, live streaming
+  results, and a JSON report export. Scripts run per request, and env/globals
+  writes persist across the run.
+- OpenAPI/Swagger import & export: import a spec from a file or paste it from
+  the clipboard (creates a collection per tag + a `{{baseUrl}}` environment),
+  export any folder as OpenAPI 3.0 JSON/YAML.
+- Sidebar Filter box now works: collections filter by name / URL / gRPC
+  endpoint (matching folders keep their subtree, ancestors auto-expand),
+  history filters by URL; Escape or ✕ clears.
+- Tab bar: tabs live in a horizontally scrolling strip (mouse wheel scrolls
+  it; the active tab keeps itself visible), with a right-click context menu —
+  New Request (⌘T), Duplicate Tab, Close Tab (⌘W), Close Other Tabs, Close
+  All Tabs.
+- Drag-and-drop to move requests/folders in the sidebar tree.
+
+### Changed
+- gRPC message and metadata editors are CodeMirror now, with JSON syntax
+  highlighting and `{{var}}` highlighting/quick-set; the non-functional
+  Authorization and Settings gRPC tab stubs are gone for now.
+- Editors across the app (URL bar, body, scripts) are CodeMirror 6 themed to
+  the app palette.
+
+### Fixed
+- OpenAPI import no longer silently switches the active environment.
+- Many open tabs can no longer push the Runner / environment / sidebar
+  controls off-screen.
+- macOS: ⌘W closes the active tab instead of the window.
+- gRPC dial failures show the real error instead of schema guidance, and
+  Invoke never no-ops silently (blank endpoint / missing method get their own
+  messages).
+- Single-line URL/endpoint text is vertically centered again.
+
+## [0.1.3] - 2026-06-29
+
+### Added
+- Multi-language code snippets (Postman-style) in a resizable right-docked
+  panel; export any request as a curl command.
+- Paste a curl command into the URL bar to import it (incl. `-G` and
+  `--data-urlencode`).
+- Enable/disable toggles on query params; param descriptions and disabled
+  rows survive URL edits.
+- gRPC: neutral "load a schema" guidance when server reflection is
+  unavailable, with a guided .proto import.
+- Panel layout toggles (sidebar / response / code) in the bottom status bar;
+  shadcn-style neutral zinc theme.
+
+### Fixed
+- Updater public key encoding (auto-update works again; signing key rotated).
+- URL-encoded bodies keep `+` for spaces and preserve `{{vars}}`; GraphQL
+  bodies get the right content-type.
+- gRPC metadata keys are lowercased; IPv6 TLS SNI host fixed.
+- Save errors surface in the Save dialog instead of being swallowed.
+
+### Changed
+- macOS builds are arm64-only (Intel/universal dropped).
+- Releases cross-publish to the public repo; Git UI hidden behind a flag.
+
 ## [0.1.2] - 2026-06-24
 
 ### Fixed
