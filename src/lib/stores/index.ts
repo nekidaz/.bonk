@@ -25,6 +25,7 @@ export {
   globals,
   environments,
   activeEnvironmentId,
+  flows,
   currentVarScope,
   confirmState,
   requestConfirm,
@@ -45,6 +46,19 @@ export {
 
 // Persistence / hydration.
 export { hydrate } from './persistence';
+
+// Flows (node-graph orchestration).
+export {
+  flowRun,
+  cancelFlowRun,
+  createFlow,
+  renameFlow,
+  deleteFlow,
+  updateFlow,
+  openFlowTab,
+  runFlow,
+  defaultBlockConfig,
+} from './flow';
 
 // Workspace + tree mutations.
 export {
@@ -93,6 +107,14 @@ export {
 
 // History.
 export { addHistory, openHistoryEntry, clearHistory, removeHistoryEntry } from './history';
+
+// Runtime request console (kept separate from persisted History).
+export {
+  appConsoleEntries,
+  addAppConsoleEntry,
+  clearAppConsole,
+  type AppConsoleEntry,
+} from './console';
 
 // OpenAPI / Swagger import & export.
 export { importOpenApiFile, importOpenApiText, exportOpenApiFolder } from './openapi';

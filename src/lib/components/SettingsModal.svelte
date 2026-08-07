@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { getVersion } from '@tauri-apps/api/app';
-  import { theme, setTheme, type Theme } from '../theme';
+  import { theme, setTheme, THEME_OPTIONS } from '../theme';
   import {
     historyLimit,
     historyPaused,
@@ -32,11 +32,6 @@
   });
 
   const REPO_URL = 'https://github.com/nekidaz/.bonk';
-
-  const themes: { label: string; value: Theme }[] = [
-    { label: 'Light', value: 'light' },
-    { label: 'Dark', value: 'dark' },
-  ];
 
   // History "keep last N" options. value 0 = keep everything ("All").
   const historyLimits: { label: string; value: number }[] = [
@@ -109,20 +104,31 @@
                 <div class="bs-settings-muted">Match the app chrome to your current workflow.</div>
               </div>
             </div>
-            <div class="bs-settings-row">
+            <div class="bs-settings-row bs-theme-row">
               <div>
                 <span class="bs-settings-name">Theme</span>
-                <span class="bs-settings-desc">Controls the full desktop shell.</span>
+                <span class="bs-settings-desc">Controls the full desktop shell and editor palette.</span>
               </div>
-              <div class="bs-seg" role="radiogroup" aria-label="Theme">
-                {#each themes as t (t.value)}
+              <div class="bs-theme-grid" role="radiogroup" aria-label="Theme">
+                {#each THEME_OPTIONS as t (t.value)}
                   <button
                     type="button"
+                    class="bs-theme-option"
                     role="radio"
                     aria-checked={$theme === t.value}
                     class:on={$theme === t.value}
                     onclick={() => setTheme(t.value)}
-                  >{t.label}</button>
+                  >
+                    <span
+                      class="bs-theme-preview"
+                      style:--theme-chrome={t.preview.chrome}
+                      style:--theme-canvas={t.preview.canvas}
+                      style:--theme-accent={t.preview.accent}
+                      aria-hidden="true"
+                    ></span>
+                    <span class="bs-theme-label">{t.label}</span>
+                    <span class="material-symbols-outlined bs-theme-check" style="font-size:13px" aria-hidden="true">check</span>
+                  </button>
                 {/each}
               </div>
             </div>

@@ -2,6 +2,7 @@ import { get } from 'svelte/store';
 import type { GrpcTabState, Tab } from '../domain/types';
 import { cancelRequest } from '../api';
 import { busyMap, grpcErrorMap } from '../requestRuntime';
+import { clearGrpcEditorSection } from '../grpcEditorUi';
 import { parentId } from '../domain/tree';
 import {
   GRPC_DEFAULT_TITLE,
@@ -58,7 +59,7 @@ export function setActiveProtocol(protocol: 'http' | 'grpc'): void {
       const grpc: GrpcTabState = t.grpc ?? {
         endpoint: '',
         plaintext: true,
-        message: '{}',
+        message: '',
         metadata: {},
       };
       return {
@@ -96,6 +97,7 @@ export function closeTab(id: string): void {
     const { [id]: _e, ...rest } = m;
     return rest;
   });
+  clearGrpcEditorSection(id);
   const next = list.filter((t) => t.id !== id);
   // Never leave the workspace tab-less: spawn a fresh HTTP tab if the last
   // tab was closed.

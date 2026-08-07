@@ -37,6 +37,41 @@ export const LANGUAGES: Language[] = [
   { id: 'powershell', label: 'PowerShell - RestMethod', target: 'powershell', client: 'restmethod' },
 ];
 
+/** gRPC snippets currently use grpcurl, the closest CLI equivalent to cURL. */
+export const GRPC_LANGUAGES: Language[] = [
+  { id: 'grpcurl', label: 'grpcurl', target: 'grpcurl', client: 'grpcurl' },
+];
+
+function shellQuote(value: string): string {
+  return `'${value.replace(/'/g, `'"'"'`)}'`;
+}
+
+function grpcurlTarget(endpoint: string): string {
+  return endpoint.trim().replace(/^(?:https?|grpcs?):\/\//i, '').replace(/\/.*$/, '');
+}
+
+function grpcurlMethod(symbol: string): string {
+  const split = symbol.lastIndexOf('.');
+  return split === -1 ? symbol : `${symbol.slice(0, split)}/${symbol.slice(split + 1)}`;
+}
+
+/** Build a runnable grpcurl command from the same gRPC draft the app invokes. */
+export function generateGrpcurl(tab: Tab, scope: Record<string, string> = {}): string {
+  const grpc = tab.grpc;
+  const endpoint = grpcurlTarget(resolveVars(grpc?.endpoint ?? '', scope)) || '<host:port>';
+  const method = grpcurlMethod(grpc?.method ?? '') || '<package.Service/Method>';
+  const message = resolveVars(grpc?.message ?? '', scope).trim() || '{}';
+  const parts = ['grpcurl'];
+  if (grpc?.plaintext ?? true) parts.push('-plaintext');
+  for (const [key, value] of Object.entries(grpc?.metadata ?? {})) {
+    const resolvedKey = resolveVars(key, scope).trim();
+    if (!resolvedKey) continue;
+    parts.push('-H', shellQuote(`${resolvedKey}: ${resolveVars(value, scope)}`));
+  }
+  parts.push('-d', shellQuote(message), endpoint, method);
+  return parts.map((part, index) => index === 0 ? part : `  ${part}`).join(' \\\n');
+}
+
 /**
  * Build a HAR request from a tab, resolving the same URL/headers/body a send
  * would. When `scope` is non-empty, `{{var}}` placeholders are interpolated so
@@ -85,6 +120,7 @@ export async function generateSnippet(
   langId: string,
   scope: Record<string, string> = {},
 ): Promise<string> {
+  if (tab.protocol === 'grpc') return generateGrpcurl(tab, scope);
   const lang = LANGUAGES.find((l) => l.id === langId) ?? LANGUAGES[0];
   try {
     const snippet = new HTTPSnippet(toHar(tab, scope));

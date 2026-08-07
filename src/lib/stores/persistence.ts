@@ -1,5 +1,6 @@
 import { get } from 'svelte/store';
 import type { Tab, HistoryEntry, TreeNode, Environment, VarRow } from '../domain/types';
+import type { Flow } from '../domain/flow';
 import { loadState, saveState, saveStateDebounced } from '../persist';
 import { workspaceLoad } from '../api';
 import { normalizeTabTitleState, stripRuntimeTab } from '../domain/tab';
@@ -20,6 +21,7 @@ import {
   globals,
   environments,
   activeEnvironmentId,
+  flows,
 } from './state';
 import { normalizeWorkspaceRecents, rememberWorkspacePath } from './workspace';
 
@@ -56,6 +58,7 @@ async function restoreState(): Promise<void> {
   globals.set(await loadState<VarRow[]>('globals', []));
   environments.set(await loadState<Environment[]>('environments', []));
   activeEnvironmentId.set(await loadState<string | null>('activeEnvironmentId', null));
+  flows.set(await loadState<Flow[]>('flows', []));
   let nextTree: TreeNode[] = [];
   if (savedWorkspacePath) {
     try {
@@ -89,7 +92,7 @@ function wirePersistence(): () => void {
     // Special tabs (git diffs, the Environments manager, the Collection Runner) hold
     // no request state and are not persisted; restoreState's http/grpc whitelist
     // drops them on load too.
-    tabs.subscribe((t) => saveStateDebounced('tabs', t.filter((tab) => tab.protocol !== 'git' && tab.protocol !== 'env' && tab.protocol !== 'runner').map(stripRuntimeTab))),
+    tabs.subscribe((t) => saveStateDebounced('tabs', t.filter((tab) => tab.protocol !== 'git' && tab.protocol !== 'env' && tab.protocol !== 'runner' && tab.protocol !== 'flow').map(stripRuntimeTab))),
     activeTabId.subscribe((id) => saveStateDebounced('activeTabId', id)),
     // Persist history immediately (not debounced): entries are low-frequency (one
     // per sent request) and the debounced write was being lost on app quit
@@ -109,6 +112,7 @@ function wirePersistence(): () => void {
     globals.subscribe((v) => saveStateDebounced('globals', v)),
     environments.subscribe((v) => saveStateDebounced('environments', v)),
     activeEnvironmentId.subscribe((id) => saveStateDebounced('activeEnvironmentId', id)),
+    flows.subscribe((v) => saveStateDebounced('flows', v)),
   ];
   return () => {
     for (const unsub of unsubs) unsub();

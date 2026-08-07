@@ -1,27 +1,26 @@
 /**
  * Method / protocol accent colours for request badges.
  *
- * These are deliberately theme-independent: the same saturated hues read on
- * both the light "paper" and dark "espresso" surfaces, mirroring the colour
- * language of the design (gRPC/RPC = blue, GET = green, etc.).
+ * CSS variables keep the protocol hints muted and readable in both themes.
+ * Colour stays semantic, but never competes with the request itself.
  */
 export function methodColor(method: string): string {
   switch (method.toUpperCase()) {
     case 'GET':
-      return '#10b981'; // green
+      return 'var(--method-get)';
     case 'POST':
-      return '#f59e0b'; // amber
+      return 'var(--method-post)';
     case 'PUT':
-      return '#3b82f6'; // blue
+      return 'var(--method-put)';
     case 'PATCH':
-      return '#8b5cf6'; // purple
+      return 'var(--method-patch)';
     case 'DELETE':
-      return '#ef4444'; // red
+      return 'var(--method-delete)';
     case 'QUERY':
-      return '#06b6d4'; // cyan (GET-with-body: safe + idempotent, distinct hue)
+      return 'var(--method-query)';
     case 'GRPC':
-      return '#3b82f6'; // blue (matches the RPC badge in the service tree)
+      return 'var(--method-grpc)';
     default:
-      return '#3b82f6';
+      return 'var(--t2)';
   }
 }

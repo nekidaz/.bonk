@@ -1,18 +1,19 @@
 <script lang="ts">
   /**
    * Inner content of the sidebar (everything inside `.bs-side`):
-   *  - the rail row (icons + the "hide sidebar" button),
+   *  - the rail row with workspace navigation icons,
    *  - the filter row (Filter box + New (＋) + ⋯ actions),
    *  - the Collections section with the recursive `node` snippet
    *    (folder/request rows, inline-rename input, per-row ⋯ actions),
    *  - the History section (header with count/paused + ⋯, list rows with a
    *    remove button, and the empty state),
-   *  - the footer (workspace folder button / "Open Workspace" + the static rows).
+   *  - the Postman-style bottom dock (environments, specs, flows, documents,
+   *    mocks) and compact workspace strip.
    *
    * The outer `<aside class="bs-side" style="width:…">` wrapper, the column
    * resize handle, and the sidebar width/resize state live in App.svelte
    * (resize state is App-level). This component is presentational: it reads the
-   * stores it renders directly and coordinates menus/inline-rename/hide through
+   * stores it renders directly and coordinates menus/inline-rename through
    * props so the menu popovers, modals, and editing state stay in App.
    */
   import {
@@ -26,6 +27,14 @@
     removeHistoryEntry,
     openWorkspaceFolder,
     moveNode,
+    openRunnerTab,
+    flows,
+    openFlowTab,
+    createFlow,
+    environments,
+    activeEnvironmentId,
+    setActiveEnvironment,
+    openEnvironmentsTab,
   } from '../stores';
   import { methodColor } from '../domain/method';
   import type { TreeNode } from '../domain/types';
@@ -42,14 +51,12 @@
     editValue = $bindable(),
     commitInlineRename,
     inlineRenameKeydown,
-    onHide,
   }: {
     openMenu: (kind: MenuKind, e: MouseEvent, nodeId?: string, isFolder?: boolean) => void;
     editingNodeId: string | undefined;
     editValue: string;
     commitInlineRename: () => void;
     inlineRenameKeydown: (e: KeyboardEvent) => void;
-    onHide: () => void;
   } = $props();
 
   const ok = (s: number) => s >= 200 && s < 300;
@@ -57,6 +64,31 @@
   // Which rail panel is shown in the body. Collections by default; History has
   // its own tab (the clock rail icon) instead of stacking under Collections.
   let panel = $state<'collections' | 'history' | 'git'>('collections');
+
+  type DockSection = 'environments' | 'specs' | 'flows' | 'documents' | 'mocks';
+  // Postman-style secondary sections stay docked to the bottom instead of
+  // opening popovers over the collections tree.
+  let dockSection = $state<DockSection | null>('environments');
+
+  function toggleDock(section: DockSection): void {
+    dockSection = dockSection === section ? null : section;
+  }
+
+  function chooseFlow(id: string): void {
+    openFlowTab(id);
+  }
+  function newFlow(): void {
+    createFlow();
+  }
+  function chooseEnv(id: string | null): void {
+    setActiveEnvironment(id);
+  }
+  function manageEnvs(): void {
+    openEnvironmentsTab();
+  }
+  const activeEnvName = $derived(
+    $environments.find((e) => e.id === $activeEnvironmentId)?.name ?? 'No environment',
+  );
 
   // Sidebar filter: narrows the Collections tree (name / URL / gRPC endpoint,
   // matching folders keep their subtree, ancestors stay visible + expanded) and
@@ -130,21 +162,22 @@
 </script>
 
 <div class="bs-railrow">
-  <button class="bs-ri" class:on={panel === 'collections'} title="Collections" onclick={() => (panel = 'collections')}><span class="material-symbols-outlined" style="font-size:17px">deployed_code</span></button>
-  <button class="bs-ri" class:on={panel === 'history'} title="History" onclick={() => (panel = 'history')}><span class="material-symbols-outlined" style="font-size:17px">history</span></button>
-  {#if GIT_ENABLED}
-    <button class="bs-ri" class:on={panel === 'git'} title="Source control" onclick={() => (panel = 'git')}><span class="material-symbols-outlined" style="font-size:17px">account_tree</span></button>
-  {/if}
-  <div class="bs-rdiv"></div>
-  <div class="bs-spacer"></div>
-  <button class="bs-ri" title="Hide sidebar" onclick={onHide}><span class="material-symbols-outlined" style="font-size:17px">view_sidebar</span></button>
+  <div class="bs-railnav">
+    <button class="bs-ri" class:on={panel === 'collections'} title="Collections" onclick={() => (panel = 'collections')}><span class="material-symbols-outlined" style="font-size:17px">deployed_code</span></button>
+    <button class="bs-ri" title="Collection Runner" onclick={openRunnerTab}><span class="material-symbols-outlined" style="font-size:17px">play_circle</span></button>
+    <div class="bs-rdiv"></div>
+    <button class="bs-ri" class:on={panel === 'history'} title="History" onclick={() => (panel = 'history')}><span class="material-symbols-outlined" style="font-size:17px">history</span></button>
+    {#if GIT_ENABLED}
+      <button class="bs-ri" class:on={panel === 'git'} title="Source control" onclick={() => (panel = 'git')}><span class="material-symbols-outlined" style="font-size:17px">folder_open</span></button>
+    {/if}
+  </div>
 </div>
 <div class="bs-filterrow">
   <div class="bs-fbox">
-    <span class="material-symbols-outlined" style="font-size:13px">filter_alt</span>
+    <span class="material-symbols-outlined" style="font-size:13px">filter_list</span>
     <input
       class="bs-fbox-input"
-      placeholder="Filter"
+      placeholder="Search"
       aria-label="Filter collections and history"
       bind:value={filter}
       onkeydown={(e) => { if (e.key === 'Escape') { e.preventDefault(); filter = ''; } }}
@@ -156,6 +189,7 @@
     {/if}
   </div>
   <button class="bs-fi" title="New" onclick={(e) => openMenu('create', e)}><span class="material-symbols-outlined" style="font-size:15px">add</span></button>
+  <button class="bs-fi" title="Open workspace" onclick={openWorkspaceFolder}><span class="material-symbols-outlined" style="font-size:15px">create_new_folder</span></button>
 </div>
 
 {#snippet node(n: TreeNode, depth: number)}
@@ -229,14 +263,83 @@
 </div>
 {/if}
 
-<div class="bs-sfoot">
-  <button class="bs-ffold workspace" title={$workspacePath || 'Choose workspace folder'} onclick={openWorkspaceFolder}>
+<div class="bs-side-dock">
+  <section class="bs-dock-section" class:open={dockSection === 'environments'}>
+    <div class="bs-dock-head">
+      <button class="bs-dock-toggle" type="button" aria-expanded={dockSection === 'environments'} onclick={() => toggleDock('environments')}>
+        <span class="material-symbols-outlined" aria-hidden="true" style="font-size:13px">{dockSection === 'environments' ? 'expand_more' : 'chevron_right'}</span>
+        <span>Environments</span>
+        <span class="bs-dock-summary">{activeEnvName}</span>
+      </button>
+      <button class="bs-dock-action" type="button" title="Manage environments" onclick={manageEnvs}><span class="material-symbols-outlined" style="font-size:14px">tune</span></button>
+    </div>
+    {#if dockSection === 'environments'}
+      <div class="bs-dock-body">
+        <button class="bs-dock-item" class:on={$activeEnvironmentId === null} type="button" onclick={() => chooseEnv(null)}>
+          <span class="material-symbols-outlined" aria-hidden="true" style="font-size:14px">{$activeEnvironmentId === null ? 'check' : 'block'}</span>
+          <span>No environment</span>
+        </button>
+        {#each $environments as environment (environment.id)}
+          <button class="bs-dock-item" class:on={$activeEnvironmentId === environment.id} type="button" onclick={() => chooseEnv(environment.id)}>
+            <span class="material-symbols-outlined" aria-hidden="true" style="font-size:14px">{$activeEnvironmentId === environment.id ? 'check' : 'layers'}</span>
+            <span>{environment.name}</span>
+          </button>
+        {/each}
+      </div>
+    {/if}
+  </section>
+
+  <section class="bs-dock-section" class:open={dockSection === 'specs'}>
+    <div class="bs-dock-head">
+      <button class="bs-dock-toggle" type="button" aria-expanded={dockSection === 'specs'} onclick={() => toggleDock('specs')}>
+        <span class="material-symbols-outlined" aria-hidden="true" style="font-size:13px">{dockSection === 'specs' ? 'expand_more' : 'chevron_right'}</span><span>Specs</span>
+      </button>
+    </div>
+    {#if dockSection === 'specs'}<div class="bs-dock-empty">Service definitions are managed from request tabs.</div>{/if}
+  </section>
+
+  <section class="bs-dock-section" class:open={dockSection === 'flows'}>
+    <div class="bs-dock-head">
+      <button class="bs-dock-toggle" type="button" aria-expanded={dockSection === 'flows'} onclick={() => toggleDock('flows')}>
+        <span class="material-symbols-outlined" aria-hidden="true" style="font-size:13px">{dockSection === 'flows' ? 'expand_more' : 'chevron_right'}</span><span>Flows</span>
+      </button>
+      <button class="bs-dock-action" type="button" title="New flow" onclick={newFlow}><span class="material-symbols-outlined" style="font-size:14px">add</span></button>
+    </div>
+    {#if dockSection === 'flows'}
+      <div class="bs-dock-body">
+        {#if $flows.length === 0}
+          <div class="bs-dock-empty">No flows yet.</div>
+        {:else}
+          {#each $flows as flow (flow.id)}
+            <button class="bs-dock-item" type="button" onclick={() => chooseFlow(flow.id)}>
+              <span class="material-symbols-outlined" aria-hidden="true" style="font-size:14px">account_tree</span><span>{flow.name}</span>
+            </button>
+          {/each}
+        {/if}
+      </div>
+    {/if}
+  </section>
+
+  {#each [{ id: 'documents', label: 'Documents' }, { id: 'mocks', label: 'Mocks' }] as section (section.id)}
+    <section class="bs-dock-section" class:open={dockSection === section.id}>
+      <div class="bs-dock-head">
+        <button class="bs-dock-toggle" type="button" aria-expanded={dockSection === section.id} onclick={() => toggleDock(section.id as DockSection)}>
+          <span class="material-symbols-outlined" aria-hidden="true" style="font-size:13px">{dockSection === section.id ? 'expand_more' : 'chevron_right'}</span><span>{section.label}</span>
+        </button>
+      </div>
+      {#if dockSection === section.id}<div class="bs-dock-empty">Nothing here yet.</div>{/if}
+    </section>
+  {/each}
+</div>
+
+<div class="bs-workspace-strip">
+  <button title={$workspacePath || 'Choose workspace folder'} onclick={openWorkspaceFolder}>
     <span class="material-symbols-outlined" style="font-size:13px">folder_open</span>
-    {$workspacePath ? $workspacePath.split('/').pop() : 'Open Workspace'}
+    <span>{$workspacePath ? $workspacePath.split('/').pop() : 'Open Workspace'}</span>
   </button>
   {#if $workspacePath}
-    <div class="bs-ffold workspace muted" title="Changes are written to disk automatically">
-      <span class="material-symbols-outlined" style="font-size:13px">cloud_done</span>Saved as files
+    <div title="Changes are written to disk automatically">
+      <span class="material-symbols-outlined" style="font-size:13px">cloud_done</span>
     </div>
   {/if}
 </div>

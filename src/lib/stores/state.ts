@@ -1,5 +1,6 @@
 import { writable, get } from 'svelte/store';
 import type { Tab, HistoryEntry, TreeNode, Environment, VarRow } from '../domain/types';
+import type { Flow } from '../domain/flow';
 import { newHttpTab } from '../domain/tab';
 import { mergeScope } from '../domain/vars';
 
@@ -38,6 +39,10 @@ export const recentWorkspacePaths = writable<string[]>([]);
 export const globals = writable<VarRow[]>([]);
 export const environments = writable<Environment[]>([]);
 export const activeEnvironmentId = writable<string | null>(null);
+
+// Flows (node-graph orchestration documents). Live in app-state like
+// environments — they reference saved requests by id, not by content.
+export const flows = writable<Flow[]>([]);
 
 /**
  * The current `{{var}}` resolution scope: globals merged with the active

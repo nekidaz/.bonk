@@ -99,7 +99,18 @@
   border: 0.5px solid var(--sep);
   box-shadow: 0 20px 56px rgba(0, 0, 0, 0.22), 0 0 0 0.5px rgba(0, 0, 0, 0.04);
 }
-.bs-grpc-list { overflow: auto; padding: 10px; }
+.bs-grpc-search { flex: 0 0 auto; padding: 9px 10px; border-bottom: 0.5px solid var(--sepsoft); }
+.bs-grpc-search-box { height: 31px; display: flex; align-items: center; gap: 8px; padding: 0 9px; color: var(--t3); background: var(--inset); border: 0.5px solid var(--sep); border-radius: 8px; }
+.bs-grpc-search-box:focus-within { color: var(--t2); border-color: var(--accent); box-shadow: var(--focus-ring); }
+.bs-grpc-search-box input { flex: 1; min-width: 0; height: 100%; padding: 0; color: var(--text); background: transparent; border: 0; outline: 0; font: inherit; font-size: 12.5px; }
+.bs-grpc-search-box input::placeholder { color: var(--t3); }
+.bs-grpc-search-box button { width: 20px; height: 20px; display: grid; place-items: center; flex: 0 0 auto; color: var(--t3); border-radius: 5px; }
+.bs-grpc-search-box button:hover { color: var(--text); background: var(--hover); }
+.bs-grpc-search-count { min-width: 20px; padding: 1px 5px; flex: 0 0 auto; color: var(--t3); background: var(--hover); border-radius: 5px; font-family: var(--mono); font-size: 10px; text-align: center; }
+.bs-grpc-search-empty { min-height: 150px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; padding: 24px; color: var(--t3); text-align: center; }
+.bs-grpc-search-empty strong { color: var(--t2); font-size: 12.5px; font-weight: 650; }
+.bs-grpc-search-empty span:last-child { font-size: 11.5px; }
+.bs-grpc-list { flex: 1 1 auto; min-height: 0; overflow: auto; padding: 10px; }
 .bs-grpc-list::-webkit-scrollbar { width: 10px; }
 .bs-grpc-list::-webkit-scrollbar-track { background: transparent; }
 .bs-grpc-list::-webkit-scrollbar-thumb { border-radius: 999px; background: color-mix(in srgb, var(--t3) 46%, transparent); border: 3px solid transparent; background-clip: content-box; }
@@ -270,4 +281,3 @@
   overflow: hidden;
 }
 .bs-json-editor:focus-within { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 58%, transparent); }
-

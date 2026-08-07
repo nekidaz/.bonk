@@ -33,6 +33,7 @@ import {
 import { setEnvVars, setGlobalVars } from './environments';
 import { openWorkspaceFolder, reloadWorkspace, runWorkspaceOp } from './workspace';
 import { addHistory } from './history';
+import { addAppConsoleEntry } from './console';
 
 function clampInt(value: number, min: number, max: number, fallback: number): number {
   if (!Number.isFinite(value)) return fallback;
@@ -61,7 +62,7 @@ export async function saveActiveRequest(folderId?: string, name?: string): Promi
   }
   const tab = get(tabs).find((t) => t.id === get(activeTabId));
   if (!tab) return;
-  if (tab.protocol === 'git' || tab.protocol === 'env' || tab.protocol === 'runner') return;
+  if (tab.protocol !== 'http' && tab.protocol !== 'grpc') return;
   const finalName =
     name?.trim() ||
     (tab.protocol === 'grpc'
@@ -97,7 +98,7 @@ export async function addRequestToFolder(folderId: string | undefined, protocol:
   if (!root) { await openWorkspaceFolder(); root = get(workspacePath); if (!root) return; }
   const node: RequestNode =
     protocol === 'grpc'
-      ? { kind: 'request', id: '', name: 'New gRPC', protocol: 'grpc', request: { method: 'GRPC', url: '', headers: {} }, grpc: { endpoint: '', plaintext: true, message: '{}', metadata: {} } }
+      ? { kind: 'request', id: '', name: 'New gRPC', protocol: 'grpc', request: { method: 'GRPC', url: '', headers: {} }, grpc: { endpoint: '', plaintext: true, message: '', metadata: {} } }
       : { kind: 'request', id: '', name: 'New Request', protocol: 'http', request: { method: 'GET', url: '', headers: {} } };
   await runWorkspaceOp('addRequestToFolder', async () => {
     const newId = await workspaceSaveRequest(root, folderId ? idToRel(folderId) : ROOT, null, node);
@@ -210,6 +211,7 @@ export async function sendHttpRequest(
   req: HttpRequest,
   requestId: string,
 ): Promise<void> {
+  const startedAt = Date.now();
   let outgoing = req;
   const tests: ScriptResult['tests'] = [];
   const logs: string[] = [];
@@ -225,6 +227,16 @@ export async function sendHttpRequest(
     tests.push(...pre.tests);
     if (pre.error) {
       updateTabById(tabId, (t) => ({ ...t, testResults: { tests, logs, error: pre.error ?? undefined } }));
+      addAppConsoleEntry({
+        protocol: 'http',
+        method: outgoing.method || 'HTTP',
+        url: outgoing.url,
+        ok: false,
+        status: 'SCRIPT ERROR',
+        elapsedMs: Date.now() - startedAt,
+        message: pre.error,
+        logs,
+      });
       throw new Error(pre.error);
     }
     outgoing = applyRequestPatch(outgoing, pre.requestPatch);
@@ -236,14 +248,44 @@ export async function sendHttpRequest(
 
   // 3. Send. History records the resolved request so replay/inspection shows the
   //    values actually sent, not the templates.
-  const res: HttpResponse = await httpSend(resolved, requestId, currentRequestSettings());
+  let res: HttpResponse;
+  try {
+    res = await httpSend(resolved, requestId, currentRequestSettings());
+  } catch (error) {
+    addAppConsoleEntry({
+      protocol: 'http',
+      method: resolved.method || 'HTTP',
+      url: resolved.url,
+      ok: false,
+      status: 'ERROR',
+      elapsedMs: Date.now() - startedAt,
+      message: String(error),
+      logs,
+    });
+    throw error;
+  }
 
   // 4. Test script — runs against the response. Its env/globals writes are
   //    applied; its tests/logs (plus any pre-request ones) attach to the tab.
   let testError: string | undefined;
   if (req.testScript && req.testScript.trim() !== '') {
     const context = buildScriptContext(resolved, res, activeEnvMap(), globalsMap());
-    const post = await runScript('test', req.testScript, context);
+    let post: ScriptResult;
+    try {
+      post = await runScript('test', req.testScript, context);
+    } catch (error) {
+      addAppConsoleEntry({
+        protocol: 'http',
+        method: resolved.method || 'HTTP',
+        url: resolved.url,
+        ok: false,
+        status: `${res.status} · SCRIPT ERROR`,
+        elapsedMs: res.elapsed_ms,
+        message: String(error),
+        logs,
+      });
+      throw error;
+    }
     applyScriptVars(post);
     logs.push(...post.logs);
     tests.push(...post.tests);
@@ -255,5 +297,15 @@ export async function sendHttpRequest(
       ? { tests, logs, error: testError }
       : undefined;
   updateTabById(tabId, (t) => ({ ...t, response: res, testResults }));
+  addAppConsoleEntry({
+    protocol: 'http',
+    method: resolved.method || 'HTTP',
+    url: resolved.url,
+    ok: res.status >= 200 && res.status < 400 && !testError,
+    status: String(res.status),
+    elapsedMs: res.elapsed_ms,
+    message: testError,
+    logs,
+  });
   addHistory({ id: crypto.randomUUID(), protocol: 'http', request: resolved, status: res.status, at: Date.now() });
 }

@@ -14,14 +14,16 @@ export const GRPC_NO_SERVICES_HINT =
   "Couldn't load services from the server. Import a .proto file (in the schema menu above) to load this API's services and methods.";
 
 /**
- * Infer plaintext-vs-TLS from an endpoint: plaintext unless it clearly targets
- * the TLS port (`:443`). Callers must pass the endpoint with `{{vars}}` already
- * resolved — the `:443` may live inside a variable's value (e.g.
- * `{{host}}` = `api.example.com:443`), so testing the raw template would
- * mis-infer plaintext for TLS endpoints.
+ * Infer plaintext-vs-TLS from an endpoint. An explicit `https://` / `http://`
+ * scheme wins; otherwise port 443 implies TLS. Callers must pass the endpoint
+ * with `{{vars}}` already resolved — the scheme or port may live inside a
+ * variable value.
  */
 export function inferGrpcPlaintext(endpoint: string): boolean {
-  return !/:443(\b|$)/.test(endpoint);
+  const clean = endpoint.trim().toLowerCase();
+  if (clean.startsWith('https://')) return false;
+  if (clean.startsWith('http://')) return true;
+  return !/:443(\b|$)/.test(clean);
 }
 
 /** Which step of a gRPC connect flow failed (see `grpcConnectFailureMessage`). */

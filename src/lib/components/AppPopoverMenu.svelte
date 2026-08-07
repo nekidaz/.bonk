@@ -44,8 +44,8 @@
   } = $props();
 
   const reqTypes: TypeRow[] = [
-    { label: 'HTTP', icon: 'language', color: '#2aa3ff', go: () => onPick('http') },
-    { label: 'gRPC', icon: 'lan', color: '#4a8cff', go: () => onPick('grpc') },
+    { label: 'HTTP', icon: 'language', color: 'var(--method-get)', go: () => onPick('http') },
+    { label: 'gRPC', icon: 'lan', color: 'var(--method-grpc)', go: () => onPick('grpc') },
   ];
 
   const switchTypes: TypeRow[] = reqTypes
@@ -54,17 +54,6 @@
       go: r.label === 'HTTP' ? () => onSwitch('http') : r.label === 'gRPC' ? () => onSwitch('grpc') : undefined,
     }));
 
-  const wsItems = ['Collection', 'Environment', 'Spec', 'Mock Server', 'Monitor', 'Webhook', 'Insights', 'Flow'];
-  const wsIcons: Record<string, string> = {
-    Collection: 'folder',
-    Environment: 'layers',
-    Spec: 'description',
-    'Mock Server': 'dns',
-    Monitor: 'monitor_heart',
-    Webhook: 'webhook',
-    Insights: 'insights',
-    Flow: 'account_tree',
-  };
   const historyLimits: { label: string; value: number }[] = [
     { label: '50', value: 50 },
     { label: '100', value: 100 },
@@ -95,7 +84,6 @@
   <button class="bs-backdrop" aria-label="Close menu" onclick={closeMenu}></button>
   <div class="bs-menu" style="left:{menu.x}px; top:{menu.y}px; width:{appMenuWidth(menu.kind)}px">
     {#if menu.kind === 'create'}
-      <div class="srch"><span class="material-symbols-outlined" style="font-size:13px">search</span>Search…</div>
       {#each reqTypes as r (r.label)}
         <button class="mi" class:soon={!r.go} onclick={() => r.go && r.go()}>
           <span class="ic" style="color:{r.color}"><span class="material-symbols-outlined" style="font-size:17px">{r.icon}</span></span>{r.label}
@@ -103,15 +91,8 @@
         </button>
       {/each}
       <div class="dv"></div>
-      {#each wsItems as w (w)}
-        {#if w === 'Collection'}
-          <button class="mi" onclick={addRootFolder}><span class="ic"><span class="material-symbols-outlined" style="font-size:17px">folder</span></span>Collection</button>
-        {:else if w === 'Environment'}
-          <button class="mi" onclick={openEnv}><span class="ic"><span class="material-symbols-outlined" style="font-size:17px">layers</span></span>Environment</button>
-        {:else}
-          <button class="mi soon"><span class="ic"><span class="material-symbols-outlined" style="font-size:17px">{wsIcons[w]}</span></span>{w}<span class="soonpill">SOON</span></button>
-        {/if}
-      {/each}
+      <button class="mi" onclick={addRootFolder}><span class="ic"><span class="material-symbols-outlined" style="font-size:17px">folder</span></span>Collection</button>
+      <button class="mi" onclick={openEnv}><span class="ic"><span class="material-symbols-outlined" style="font-size:17px">layers</span></span>Environment</button>
       <div class="dv"></div>
       <button class="mi" onclick={onImportOpenApi}><span class="ic"><span class="material-symbols-outlined" style="font-size:17px">upload_file</span></span>Import OpenAPI / Swagger</button>
     {:else if menu.kind === 'switch'}

@@ -33,14 +33,16 @@
   import SettingsModal from './lib/components/SettingsModal.svelte';
   import EnvironmentsView from './lib/components/EnvironmentsView.svelte';
   import RunnerView from './lib/components/RunnerView.svelte';
+  import FlowView from './lib/components/FlowView.svelte';
   import ConfirmDialog from './lib/components/ConfirmDialog.svelte';
   import SaveRequestDialog from './lib/components/SaveRequestDialog.svelte';
   import MoveDialog from './lib/components/MoveDialog.svelte';
   import OpenApiImportDialog from './lib/components/OpenApiImportDialog.svelte';
   import UpdateBanner from './lib/components/UpdateBanner.svelte';
+  import UtilityPanel from './lib/components/UtilityPanel.svelte';
   import { checkForUpdate } from './lib/updater';
   import { findNode, parentId } from './lib/domain/tree';
-  import { appMenuWidth, type AppMenuKind, type AppMenuState, type RequestProtocol } from './lib/domain/appShell';
+  import { appMenuWidth, snapPanelSize, type AppMenuKind, type AppMenuState, type RequestProtocol, type UtilityMode } from './lib/domain/appShell';
 
   const active = $derived($tabs.find((t) => t.id === $activeTabId));
 
@@ -54,7 +56,11 @@
   const SIDEBAR_MIN = 200;
   const SIDEBAR_MAX = 600;
   const SIDEBAR_DEFAULT = 292;
+  const SIDEBAR_COLLAPSE_AT = 120;
   const PANE_MIN = 120; // min height for both the request pane and the response
+  const RESPONSE_COLLAPSE_AT = 72;
+  const CODE_PANEL_MIN = 300;
+  const CODE_PANEL_MAX = 760;
   let sidebarWidth = $state(SIDEBAR_DEFAULT);
   let responseHeight = $state<number | null>(null); // null = default flex:1
 
@@ -127,9 +133,16 @@
   // Save Request dialog
   let saveOpen = $state(false);
   let settingsOpen = $state(false);
-  let codeOpen = $state(false);
+
+  // Code snippets belong to the request tab that opened them. Keeping the tab
+  // id (instead of one global boolean) prevents the panel jumping between tabs.
+  let codePanelTabId = $state<string | undefined>(undefined);
+  const codePanelAvailable = $derived(active?.protocol === 'http' || active?.protocol === 'grpc');
+  const codeOpen = $derived(codePanelAvailable && codePanelTabId === active?.id);
   let responseHidden = $state(false);
   let codePanelWidth = $state(420);
+  let utilityMode = $state<UtilityMode | null>(null);
+  let utilityPanelHeight = $state(220);
   function openSaveDialog(): void {
     saveOpen = true;
   }
@@ -150,7 +163,7 @@
    * it lands. Bound to the Save button and ⌘/Ctrl+S.
    */
   async function smartSave(): Promise<void> {
-    if (!active || active.protocol === 'git' || active.protocol === 'env' || active.protocol === 'runner') return;
+    if (!active || (active.protocol !== 'http' && active.protocol !== 'grpc')) return;
     if (active.savedPath) {
       try {
         await saveActiveRequest(parentId(active.savedPath), active.title);
@@ -184,6 +197,8 @@
     sidebarWidth = clamp(await loadState('sidebarWidth', SIDEBAR_DEFAULT), SIDEBAR_MIN, SIDEBAR_MAX);
     const savedResponseHeight = await loadState<number | null>('responseHeight', null);
     responseHeight = savedResponseHeight == null ? null : Math.max(PANE_MIN, savedResponseHeight);
+    codePanelWidth = clamp(await loadState('codePanelWidth', 420), CODE_PANEL_MIN, CODE_PANEL_MAX);
+    utilityPanelHeight = clamp(await loadState('utilityPanelHeight', 220), 140, Math.max(140, window.innerHeight - 180));
   });
 
   function clamp(value: number, min: number, max: number): number {
@@ -273,7 +288,16 @@
       e,
       'col-resize',
       (ev) => {
-        sidebarWidth = clamp(startWidth + (ev.clientX - startX), SIDEBAR_MIN, SIDEBAR_MAX);
+        const snapped = snapPanelSize(
+          startWidth + (ev.clientX - startX),
+          SIDEBAR_MIN,
+          SIDEBAR_MAX,
+          SIDEBAR_COLLAPSE_AT,
+        );
+        sidebarHidden = snapped.collapsed;
+        // Keep the pre-drag width while collapsed so reopening restores the
+        // user's useful layout instead of the narrow snap threshold.
+        sidebarWidth = snapped.collapsed ? startWidth : snapped.size;
       },
       () => void saveState('sidebarWidth', sidebarWidth),
     );
@@ -298,7 +322,14 @@
       e,
       'row-resize',
       (ev) => {
-        responseHeight = clamp(startHeight - (ev.clientY - startY), PANE_MIN, Math.max(PANE_MIN, maxHeight));
+        const snapped = snapPanelSize(
+          startHeight - (ev.clientY - startY),
+          PANE_MIN,
+          Math.max(PANE_MIN, maxHeight),
+          RESPONSE_COLLAPSE_AT,
+        );
+        responseHidden = snapped.collapsed;
+        responseHeight = snapped.collapsed ? startHeight : snapped.size;
       },
       () => void saveState('responseHeight', responseHeight),
     );
@@ -318,6 +349,17 @@
     setActiveProtocol(kind);
     closeMenu();
   }
+
+  function toggleCodePanel(): void {
+    if (!codePanelAvailable || !active) return;
+    codePanelTabId = codeOpen ? undefined : active.id;
+  }
+
+  function toggleUtilityPanel(mode: UtilityMode): void {
+    utilityMode = utilityMode === mode ? null : mode;
+    if (utilityMode) queueMicrotask(clampResponseToViewport);
+  }
+
 </script>
 
 <svelte:window onpointerdown={() => { grpcMethodOpen = false; httpMethodOpen = false; workspaceMenuOpen = false; }} onkeydown={globalKeydown} />
@@ -334,7 +376,6 @@
         bind:editValue
         {commitInlineRename}
         {inlineRenameKeydown}
-        onHide={() => (sidebarHidden = true)}
       />
     </aside>
     {#if !sidebarHidden}
@@ -342,48 +383,79 @@
       <div class="bs-resizer-col" role="separator" aria-orientation="vertical" aria-label="Resize sidebar" onpointerdown={startSidebarDrag}></div>
     {/if}
 
-    <!-- Main -->
-    <main class="bs-main">
-      <AppTabBar bind:sidebarHidden onNew={(e) => openMenu('create', e)} />
+    <div class="bs-workspace-shell">
+      <div class="bs-workspace-main">
+        <!-- Main -->
+        <main class="bs-main">
+          <AppTabBar onNew={(e) => openMenu('create', e)} />
 
-      {#if active}
-        {#if active.protocol === 'git'}
-          {#if active.git?.view === 'project'}
-            <ProjectDiffView />
-          {:else}
-            <GitDiffView tab={active} />
+          {#if active}
+            {#if active.protocol === 'git'}
+              {#if active.git?.view === 'project'}
+                <ProjectDiffView />
+              {:else}
+                <GitDiffView tab={active} />
+              {/if}
+            {:else if active.protocol === 'env'}
+              <EnvironmentsView />
+            {:else if active.protocol === 'runner'}
+              <RunnerView />
+            {:else if active.protocol === 'flow'}
+              {#key active.flowId}
+                <FlowView tab={active} />
+              {/key}
+            {:else}
+            <RequestHeader tab={active} {savedFlash} onSwitch={(e) => openMenu('switch', e)} onSmartSave={smartSave} onOpenSave={openSaveDialog} />
+
+            {#if active.protocol === 'grpc'}
+              {#key active.id}
+                <GrpcEditor tab={active} bind:methodOpen={grpcMethodOpen} onOpenSettings={() => (settingsOpen = true)} />
+                {#if !responseHidden}<ResponsePane tab={active} {responseHeight} onResize={startSplitDrag} />{/if}
+              {/key}
+            {:else}
+              <HttpRequestEditor tab={active} bind:methodOpen={httpMethodOpen} />
+              {#if !responseHidden}<ResponsePane tab={active} {responseHeight} onResize={startSplitDrag} />{/if}
+            {/if}
+            {/if}
           {/if}
-        {:else if active.protocol === 'env'}
-          <EnvironmentsView />
-        {:else if active.protocol === 'runner'}
-          <RunnerView />
-        {:else}
-        <RequestHeader tab={active} {savedFlash} onSwitch={(e) => openMenu('switch', e)} onSmartSave={smartSave} onOpenSave={openSaveDialog} />
+        </main>
 
-        {#if active.protocol === 'grpc'}
-          {#key active.id}
-            <GrpcEditor tab={active} bind:methodOpen={grpcMethodOpen} />
-            {#if !responseHidden}<ResponsePane tab={active} {responseHeight} onResize={startSplitDrag} />{/if}
-          {/key}
-        {:else}
-          <HttpRequestEditor tab={active} bind:methodOpen={httpMethodOpen} />
-          {#if !responseHidden}<ResponsePane tab={active} {responseHeight} onResize={startSplitDrag} />{/if}
+        {#if utilityMode}
+          <UtilityPanel
+            mode={utilityMode}
+            bind:height={utilityPanelHeight}
+            onSelect={(mode) => (utilityMode = mode)}
+            onClose={() => (utilityMode = null)}
+            onResizeEnd={() => void saveState('utilityPanelHeight', utilityPanelHeight)}
+          />
         {/if}
-        {/if}
+      </div>
+
+      {#if codeOpen && active && (active.protocol === 'http' || active.protocol === 'grpc')}
+        {#key `${active.id}:${active.protocol}`}
+          <CodeSnippetPanel
+            tab={active}
+            bind:width={codePanelWidth}
+            onClose={() => (codePanelTabId = undefined)}
+            onResizeEnd={() => void saveState('codePanelWidth', codePanelWidth)}
+          />
+        {/key}
       {/if}
-      {#if codeOpen && active && active.protocol !== 'grpc' && active.protocol !== 'git' && active.protocol !== 'env' && active.protocol !== 'runner'}
-        <CodeSnippetPanel tab={active} bind:width={codePanelWidth} onClose={() => (codeOpen = false)} />
-      {/if}
-    </main>
+    </div>
   </div>
 
   <AppStatusBar
     leftOpen={!sidebarHidden}
     bottomOpen={!responseHidden}
     rightOpen={codeOpen}
+    rightEnabled={codePanelAvailable}
     onToggleLeft={() => (sidebarHidden = !sidebarHidden)}
     onToggleBottom={() => (responseHidden = !responseHidden)}
-    onToggleRight={() => (codeOpen = !codeOpen)}
+    onToggleRight={toggleCodePanel}
+    onSettings={() => (settingsOpen = true)}
+    {utilityMode}
+    onTerminal={() => toggleUtilityPanel('terminal')}
+    onConsole={() => toggleUtilityPanel('console')}
   />
 
   <AppPopoverMenu

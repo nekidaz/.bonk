@@ -17,14 +17,14 @@
   --sdim: #d4d4d9;
   --text: #1d1d1f;
   --text2: #6e6e73;
-  --accent: #0a84ff;
+  --accent: #ff6c37;
   --on-accent: #ffffff;
   --border: #dcdce1;
   --border2: #ebebf0;
-  --error: #ff3b30;
-  --error-c: #ffdad6;
-  --success: #27a857;
-  --warning: #f1841a;
+  --error: #d13c3c;
+  --error-c: #fde8e8;
+  --success: #168a45;
+  --warning: #d97706;
   color-scheme: light;
 }
 
@@ -38,14 +38,14 @@
   --sdim: #151517;
   --text: #f2f2f7;
   --text2: #98989d;
-  --accent: #0a84ff;
+  --accent: #ff7a4a;
   --on-accent: #ffffff;
   --border: #38383a;
   --border2: #2c2c2e;
-  --error: #ff453b;
-  --error-c: #5a1512;
-  --success: #30d158;
-  --warning: #f1841a;
+  --error: #ef6a6a;
+  --error-c: #4a2929;
+  --success: #4db875;
+  --warning: #e6a34a;
   color-scheme: dark;
 }
 

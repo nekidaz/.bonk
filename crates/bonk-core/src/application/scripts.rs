@@ -60,16 +60,20 @@ globalThis.__out={logs:[],tests:[],envSet:{},envUnset:[],globalsSet:{},globalsUn
     }};}
   };
   globalThis.__finish=function(){var k=Object.keys(reqPatch);if(k.length>1){delete reqPatch.__t;__out.requestPatch=reqPatch;}};
+  globalThis.payload=c.payload;
 })();
 "#;
 
 /// Wrap the user code so a thrown error is captured into `__out.error` rather
 /// than aborting the whole evaluation (letting logs/tests recorded before the
 /// throw survive). An interrupt (timeout) still unwinds this because it raises
-/// an *uncatchable* exception.
+/// an *uncatchable* exception. The wrapper function's return value (a top-level
+/// `return X` in user code) is captured into `__out.returnValue` — Flow blocks
+/// use it to pass data to the next block; `JSON.stringify` drops it when the
+/// script returns nothing.
 fn wrap_user_code(code: &str) -> String {
     format!(
-        ";(function(){{try{{\n{code}\n}}catch(e){{globalThis.__out.error=String((e&&e.message)||e);}}}})();"
+        ";globalThis.__out.returnValue=(function(){{try{{\n{code}\n}}catch(e){{globalThis.__out.error=String((e&&e.message)||e);}}}})();"
     )
 }
 
@@ -104,8 +108,14 @@ fn run_script_with_timeout(
     let user = wrap_user_code(code);
 
     let result = context.with(|ctx| -> Result<String, String> {
-        // 1. Seed the context object (valid JSON == valid JS literal).
-        ctx.eval::<(), _>(format!("globalThis.__ctx = ({context_json});"))
+        // 1. Seed the context object. Validate on the Rust side for a clear
+        //    error, then hand it to JS as a *string literal* through JSON.parse
+        //    so context data is parsed, never evaluated as code.
+        let _: serde_json::Value = serde_json::from_str(context_json)
+            .map_err(|e| format!("invalid script context JSON: {e}"))?;
+        let ctx_literal = serde_json::to_string(context_json)
+            .map_err(|e| format!("failed to encode script context: {e}"))?;
+        ctx.eval::<(), _>(format!("globalThis.__ctx = JSON.parse({ctx_literal});"))
             .catch(&ctx)
             .map_err(|e| timeout_or(&deadline, format!("failed to load script context: {e}")))?;
 
@@ -281,6 +291,27 @@ mod tests {
         for test in out["tests"].as_array().unwrap() {
             assert_eq!(test["passed"], true, "sandbox check failed: {test}");
         }
+    }
+
+    #[test]
+    fn return_value_is_captured() {
+        let out = run("return 41 + 1;", "{}");
+        assert_eq!(out["returnValue"], 42);
+    }
+
+    #[test]
+    fn no_return_leaves_return_value_absent() {
+        let out = run("console.log('hi');", "{}");
+        assert!(out.get("returnValue").is_none() || out["returnValue"].is_null());
+        assert_eq!(out["logs"][0], "hi");
+    }
+
+    #[test]
+    fn payload_is_exposed_to_flow_scripts() {
+        let ctx = r#"{"payload":{"status":200,"body":{"token":"abc"}}}"#;
+        let out = run("return payload.body.token;", ctx);
+        assert_eq!(out["returnValue"], "abc");
+        assert!(out["error"].is_null());
     }
 
     #[test]

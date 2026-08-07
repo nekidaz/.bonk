@@ -100,11 +100,15 @@
 .bs-lt { width: 27px; height: 23px; border-radius: 6px; display: flex; align-items: center; justify-content: center; color: var(--t3); }
 .bs-lt:hover { background: var(--hover); color: var(--t2); }
 .bs-lt.on { background: var(--surface); color: var(--accent); box-shadow: 0 1px 2px rgba(0, 0, 0, 0.10); }
+.bs-lt:disabled { opacity: 0.32; cursor: default; }
+.bs-lt:disabled:hover { background: transparent; color: var(--t3); }
 .bs-layout-sb { padding: 1px; border-radius: 6px; }
 .bs-layout-sb .bs-lt { width: 22px; height: 17px; border-radius: 4px; }
 
 /* Body */
 .bs-body { flex: 1; display: flex; min-height: 0; }
+.bs-workspace-shell { min-width: 0; min-height: 0; flex: 1; display: flex; }
+.bs-workspace-main { min-width: 0; min-height: 0; flex: 1; display: flex; flex-direction: column; }
 .bs.sidebar-hidden .bs-side { display: none; }
 
 /* Resizers (Postman-style draggable panel handles) */
@@ -133,4 +137,3 @@
 
 /* Flexible request pane between the request tabs and the response. */
 .bs-reqpane { flex: 1 1 0; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
-

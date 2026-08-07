@@ -25,6 +25,7 @@
     GRPC_DEFAULT_TITLE,
     requestTimeoutMs,
     applyScriptVars,
+    addAppConsoleEntry,
   } from '../stores';
   import {
     cancelRequest,
@@ -38,9 +39,11 @@
     runScript,
   } from '../api';
   import { busyMap, grpcErrorMap } from '../requestRuntime';
+  import { filterGrpcServices, grpcEditorSections, openGrpcEditorSection } from '../grpcEditorUi';
   import { currentVarScope, globals, environments, activeEnvironmentId } from '../stores';
   import { requestVariableHighlight } from '../editor/requestVarHighlight';
   import CodeEditor from './CodeEditor.svelte';
+  import GrpcMetadataEditor from './GrpcMetadataEditor.svelte';
   import ScriptsEditor from './ScriptsEditor.svelte';
   import { resolveVars, mergeScope } from '../domain/vars';
   import { buildGrpcScriptContext, applyGrpcRequestPatch, type ScriptResult } from '../domain/scripts';
@@ -48,9 +51,10 @@
     GRPC_NO_SERVICES_HINT,
     grpcConnectFailureMessage,
     inferGrpcPlaintext,
+    methodShort,
     type GrpcConnectStage,
   } from '../domain/grpc';
-  import { selectMethod, metaText, grpcMethodLabel } from '../grpcActions';
+  import { grpcMethodLabel } from '../grpcActions';
   import type { Tab, GrpcResult } from '../domain/types';
 
   /** The active environment's `name → value` map, or `{}` when none is selected. */
@@ -65,9 +69,17 @@
     return mergeScope(get(globals), undefined);
   }
 
-  let { tab, methodOpen = $bindable() }: { tab: Tab; methodOpen: boolean } = $props();
+  let {
+    tab,
+    methodOpen = $bindable(),
+    onOpenSettings,
+  }: {
+    tab: Tab;
+    methodOpen: boolean;
+    onOpenSettings: () => void;
+  } = $props();
 
-  let gTab = $state<'message' | 'metadata' | 'proto' | 'scripts'>('message');
+  const gTab = $derived($grpcEditorSections[tab.id] ?? 'message');
   // Per-tab gRPC in-flight state derived from the shared `busyMap` store so the
   // tab's Invoke/Connect buttons reflect ONLY that tab's request.
   const activeBusy = $derived($busyMap[tab.id]);
@@ -79,6 +91,46 @@
   // reflection, show neutral guidance to load a schema instead of a red error
   // (see grpcConnectFailureMessage in domain/grpc).
   const grpcGuiding = $derived(activeGrpcError === GRPC_NO_SERVICES_HINT);
+  type EditorErrorKind = 'connection' | 'schema' | 'validation' | 'script' | 'unknown';
+  type EditorErrorPresentation = { kind: EditorErrorKind; title: string; message: string; raw: string; icon: string };
+  function presentEditorError(error: string, guiding: boolean, endpoint: string): EditorErrorPresentation {
+    if (guiding) return { kind: 'schema', title: 'Service definition unavailable', message: error, raw: error, icon: 'description' };
+    if (/connect|transport|network|dns|certificate|tls|deadline|unavailable|refused|dial/i.test(error)) {
+      const target = endpoint.trim() || 'the server';
+      return {
+        kind: 'connection',
+        title: 'Connection failed',
+        message: `Couldn’t reach ${target}. Check the address, TLS mode, and network access, then retry.`,
+        raw: error,
+        icon: 'cloud_off',
+      };
+    }
+    if (/pre-request script/i.test(error)) {
+      return { kind: 'script', title: 'Pre-request script failed', message: 'Fix the script error before invoking again.', raw: error, icon: 'javascript' };
+    }
+    if (/json|select a method|enter an endpoint/i.test(error)) {
+      return { kind: 'validation', title: 'Request needs attention', message: error, raw: error, icon: 'edit_note' };
+    }
+    return { kind: 'unknown', title: 'Couldn’t complete the request', message: error, raw: error, icon: 'error' };
+  }
+  const editorError = $derived(
+    activeGrpcError
+      ? presentEditorError(activeGrpcError, grpcGuiding, tab.grpc?.endpoint ?? '')
+      : undefined,
+  );
+  const grpcPlaintext = $derived(
+    tab.grpc?.plaintext ?? inferGrpcPlaintext(resolveVars(tab.grpc?.endpoint ?? '', currentVarScope())),
+  );
+  let methodSearch = $state('');
+  let methodSearchInput = $state<HTMLInputElement | undefined>(undefined);
+  const filteredGrpcServices = $derived(filterGrpcServices(tab.grpc?.tree?.services ?? [], methodSearch));
+  const filteredGrpcMethodCount = $derived(
+    filteredGrpcServices.reduce((count, service) => count + service.methods.length, 0),
+  );
+
+  $effect(() => {
+    if (!methodOpen) methodSearch = '';
+  });
 
   function setGrpc(patch: Record<string, unknown>): void {
     updateActiveTab((t) => (t.grpc ? { ...t, grpc: { ...t.grpc, ...patch } } : t));
@@ -155,29 +207,63 @@
         : t,
     );
   }
-  /** Connect + reflect automatically if not already connected. TLS is inferred. */
+
+  function toggleTls(): void {
+    setGrpc({
+      plaintext: !grpcPlaintext,
+      connectionId: undefined,
+      tree: undefined,
+    });
+  }
+
+  function openTlsSettings(): void {
+    onOpenSettings();
+  }
+  function dismissGrpcError(): void {
+    const tabId = tab.id;
+    grpcErrorMap.update((current) => {
+      if (!(tabId in current)) return current;
+      const { [tabId]: _removed, ...rest } = current;
+      return rest;
+    });
+  }
+  /** Connect + reflect automatically if not already connected. */
   async function ensureConnected(): Promise<void> {
     const t = tab;
     if (!t?.grpc || t.grpc.connectionId || !t.grpc.endpoint.trim()) return;
-    // Plaintext unless the endpoint clearly targets a TLS port (:443). Infer
-    // from the RESOLVED endpoint: the port may live inside a {{var}} value.
-    const plaintext = inferGrpcPlaintext(resolveVars(t.grpc.endpoint, currentVarScope()));
-    if (t.grpc.plaintext !== plaintext) setGrpc({ plaintext });
     await grpcDoConnect();
   }
   function grpcDoSelect(symbol: string): void {
     const id = tab?.grpc?.connectionId;
     if (!id) return;
-    // Capture the originating tab so both the method write and the deferred
-    // template load target it, never whichever tab is active later.
+    // Selecting an RPC only changes the method. Message, metadata, and scripts
+    // are the user's request draft and must survive method switches. An example
+    // is inserted only through the explicit "Use Example Message" action.
     const tabId = tab.id;
     flushSync(() => {
       methodOpen = false;
       updateTabById(tabId, (t) => (t.grpc ? { ...t, grpc: { ...t.grpc, method: symbol } } : t));
     });
-    window.setTimeout(() => {
-      void loadGrpcTemplate(tabId, id, symbol);
-    }, 0);
+  }
+  function clearMethodSearch(): void {
+    methodSearch = '';
+    methodSearchInput?.focus();
+  }
+  function methodSearchKeydown(e: KeyboardEvent): void {
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      e.stopPropagation();
+      if (methodSearch) clearMethodSearch();
+      else methodOpen = false;
+      return;
+    }
+    if (e.key === 'Enter') {
+      const first = filteredGrpcServices[0]?.methods[0];
+      if (first) {
+        e.preventDefault();
+        grpcDoSelect(first.symbol);
+      }
+    }
   }
   async function loadGrpcTemplate(tabId: string, connectionId: string, symbol: string): Promise<void> {
     try {
@@ -192,12 +278,19 @@
     }
   }
   async function grpcLoadExample(): Promise<void> {
-    const g = tab?.grpc;
-    if (!g?.connectionId || !g.method) {
-      setGrpc({ message: '{\n  \n}' });
+    const tabId = tab.id;
+    let g = $tabs.find((t) => t.id === tabId)?.grpc;
+    if (!g?.method) {
+      grpcErrorMap.update((m) => ({ ...m, [tabId]: 'Select a method first.' }));
       return;
     }
-    await selectMethod(g.connectionId, g.method);
+    if (!g.connectionId) {
+      await ensureConnected();
+      g = $tabs.find((t) => t.id === tabId)?.grpc;
+    }
+    if (!g?.connectionId || !g.method) return;
+    grpcErrorMap.update((m) => ({ ...m, [tabId]: '' }));
+    await loadGrpcTemplate(tabId, g.connectionId, g.method);
   }
   function grpcFormatMessage(): void {
     const t = tab;
@@ -213,6 +306,10 @@
   async function openGrpcMethodDropdown(): Promise<void> {
     if (!tab?.grpc?.tree) await ensureConnected();
     methodOpen = !methodOpen;
+    if (methodOpen) {
+      methodSearch = '';
+      requestAnimationFrame(() => methodSearchInput?.focus());
+    }
   }
   async function grpcDoInvoke(): Promise<void> {
     const t0 = tab;
@@ -267,6 +364,16 @@
       tests.push(...pre.tests);
       if (pre.error) {
         updateTabById(tabId, (x) => ({ ...x, testResults: { tests, logs, error: pre.error ?? undefined } }));
+        addAppConsoleEntry({
+          protocol: 'grpc',
+          method: methodShort(g.method ?? '') || 'gRPC',
+          url: g.endpoint,
+          ok: false,
+          status: 'SCRIPT ERROR',
+          elapsedMs: 0,
+          message: pre.error,
+          logs,
+        });
         grpcErrorMap.update((m) => ({ ...m, [tabId]: `Pre-request script: ${pre.error}` }));
         busyMap.update((m) => {
           if (m[tabId]?.requestId !== requestId) return m;
@@ -288,7 +395,9 @@
     // including anything the pre-request script set) into the message JSON
     // and metadata values just before dispatch.
     const scope = currentVarScope();
-    const resolvedMessage = resolveVars(message, scope);
+    // A visually empty editor represents protobuf's valid empty message.
+    // Keep the draft blank in the UI, but send an empty JSON object on wire.
+    const resolvedMessage = resolveVars(message, scope).trim() || '{}';
     const resolvedMetadata: Record<string, string> = {};
     for (const [k, val] of Object.entries(metadata)) resolvedMetadata[k] = resolveVars(val, scope);
     try {
@@ -330,19 +439,18 @@
       tests.length > 0 || logs.length > 0 || testError ? { tests, logs, error: testError } : undefined;
 
     updateTabById(tabId, (x) => ({ ...x, grpcResult: result, testResults }));
+    addAppConsoleEntry({
+      protocol: 'grpc',
+      method: methodShort(g.method ?? '') || 'gRPC',
+      url: g.endpoint,
+      ok: result.ok && !testError,
+      status: result.status,
+      elapsedMs: result.elapsed_ms,
+      message: testError || (!result.ok ? result.body : undefined),
+      logs,
+    });
     addHistory({ id: crypto.randomUUID(), protocol: 'grpc', request: { method: 'GRPC', url: g.endpoint + ' ' + (g.method ?? ''), headers: {} }, status: 0, ok: result.ok, grpc: grpcSnapshot(g), at: Date.now() });
   }
-  function setMeta(text: string): void {
-    const md: Record<string, string> = {};
-    for (const line of text.split('\n')) {
-      const i = line.indexOf(':');
-      if (i === -1) continue;
-      const k = line.slice(0, i).trim();
-      if (k) md[k] = line.slice(i + 1).trim();
-    }
-    setGrpc({ metadata: md });
-  }
-
   const protoFileNames = $derived(
     (tab.grpc?.protoPaths ?? []).map((p) => p.split(/[\\/]/).pop() ?? p),
   );
@@ -358,7 +466,31 @@
 
 <div class="bs-urlbar">
   <div class="bs-grpc-endpoint-field">
-    <span class="bs-method" style="padding:0 11px;color:var(--accent)"><span class="material-symbols-outlined" style="font-size:18px">lan</span></span>
+    <div class="bs-grpc-security-wrap">
+      <button
+        class="bs-grpc-security"
+        class:secure={!grpcPlaintext}
+        type="button"
+        role="switch"
+        aria-label="Use TLS"
+        aria-checked={!grpcPlaintext}
+        title={grpcPlaintext ? 'Enable TLS' : 'Disable TLS'}
+        onpointerdown={(e) => e.preventDefault()}
+        onclick={toggleTls}
+      >
+        <span class="material-symbols-outlined" style="font-size:18px">{grpcPlaintext ? 'lock_open' : 'lock'}</span>
+      </button>
+      <div class="bs-tls-popover">
+        {#if grpcPlaintext}
+          <div class="bs-tls-title">TLS disabled</div>
+          <p>This endpoint currently uses an unsecured plaintext connection. Click the open lock to enable TLS.</p>
+        {:else}
+          <div class="bs-tls-title secure"><span class="material-symbols-outlined" style="font-size:17px">verified_user</span>TLS enabled</div>
+          <p>This endpoint uses an encrypted connection and the system certificate trust store.</p>
+        {/if}
+        <button class="bs-tls-link" type="button" onclick={openTlsSettings}>Open request settings</button>
+      </div>
+    </div>
     <CodeEditor
       value={tab.grpc?.endpoint ?? ''}
       onChange={setEndpoint}
@@ -377,13 +509,41 @@
     </button>
     {#if methodOpen}
       <div class="bs-grpc-menu">
+        {#if tab.grpc?.tree && !grpcConnecting}
+          <div class="bs-grpc-search">
+            <div class="bs-grpc-search-box">
+              <span class="material-symbols-outlined" aria-hidden="true" style="font-size:17px">search</span>
+              <input
+                bind:this={methodSearchInput}
+                bind:value={methodSearch}
+                aria-label="Search gRPC methods"
+                placeholder="Search services and methods"
+                autocomplete="off"
+                spellcheck="false"
+                onkeydown={methodSearchKeydown}
+              />
+              {#if methodSearch}
+                <span class="bs-grpc-search-count">{filteredGrpcMethodCount}</span>
+                <button type="button" aria-label="Clear method search" title="Clear" onclick={clearMethodSearch}>
+                  <span class="material-symbols-outlined" aria-hidden="true" style="font-size:15px">close</span>
+                </button>
+              {/if}
+            </div>
+          </div>
+        {/if}
         <div class="bs-grpc-list">
           {#if grpcConnecting}
             <div class="bs-grpc-empty">Connecting...</div>
           {:else if !tab.grpc?.tree}
             <div class="bs-grpc-empty">{isProtoSource && !protoFileNames.length ? 'Import a .proto first' : 'Connect first'}</div>
+          {:else if filteredGrpcServices.length === 0}
+            <div class="bs-grpc-search-empty">
+              <span class="material-symbols-outlined" aria-hidden="true" style="font-size:22px">search_off</span>
+              <strong>No matching methods</strong>
+              <span>Try a service, RPC, or package name.</span>
+            </div>
           {:else}
-            {#each tab.grpc.tree.services as service (service.name)}
+            {#each filteredGrpcServices as service (service.name)}
               <div class="bs-grpc-service">{service.name}</div>
               {#each service.methods as m (m.symbol)}
                 {@const streaming = m.clientStreaming || m.serverStreaming}
@@ -428,13 +588,135 @@
     <span class="cv"><span class="material-symbols-outlined" style="font-size:14px">{grpcInvoking ? 'stop' : 'play_arrow'}</span></span>
   </button>
 </div>
-{#if activeGrpcError}<div style="padding:0 16px 10px;color:{grpcGuiding ? 'var(--t3)' : 'var(--red)'};font-family:var(--mono);font-size:12px;white-space:pre-wrap">{activeGrpcError}</div>{/if}
+
+<style>
+  .bs-grpc-connect-alert {
+    position: relative;
+    display: grid;
+    grid-template-columns: 32px minmax(0, 1fr) auto 24px;
+    align-items: start;
+    gap: 10px;
+    margin: 0 16px 10px;
+    padding: 10px;
+    color: var(--text);
+    background: linear-gradient(90deg, color-mix(in srgb, var(--red) 7%, var(--surface)), var(--surface) 45%);
+    border: 1px solid color-mix(in srgb, var(--red) 24%, var(--sep));
+    border-radius: 9px;
+    box-shadow: 0 4px 14px rgba(20, 20, 24, 0.05);
+  }
+  .bs-grpc-connect-alert.guidance {
+    background: linear-gradient(90deg, color-mix(in srgb, var(--accent) 6%, var(--surface)), var(--surface) 45%);
+    border-color: color-mix(in srgb, var(--accent) 22%, var(--sep));
+  }
+  .bs-grpc-connect-icon {
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--red);
+    background: color-mix(in srgb, var(--red) 11%, transparent);
+    border-radius: 8px;
+  }
+  .guidance .bs-grpc-connect-icon { color: var(--accent); background: var(--accentsoft); }
+  .bs-grpc-connect-icon .material-symbols-outlined { font-size: 17px; }
+  .bs-grpc-connect-copy { min-width: 0; }
+  .bs-grpc-connect-title { min-height: 20px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .bs-grpc-connect-title b { font-size: 12px; font-weight: 650; }
+  .bs-grpc-connect-title span {
+    max-width: 280px;
+    padding: 2px 6px;
+    overflow: hidden;
+    color: var(--t3);
+    background: var(--inset);
+    border-radius: 4px;
+    font-family: var(--mono);
+    font-size: 9.5px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .bs-grpc-connect-copy p { margin: 2px 0 0; color: var(--t2); font-size: 11px; line-height: 1.45; }
+  .bs-grpc-connect-copy details { margin-top: 5px; color: var(--t3); font-size: 9.5px; }
+  .bs-grpc-connect-copy summary { width: max-content; cursor: pointer; }
+  .bs-grpc-connect-copy code {
+    display: block;
+    margin-top: 5px;
+    padding: 6px 7px;
+    color: var(--t2);
+    background: var(--canvas);
+    border-radius: 5px;
+    font-family: var(--mono);
+    white-space: pre-wrap;
+  }
+  .bs-grpc-connect-actions { align-self: center; display: flex; align-items: center; gap: 6px; }
+  .bs-grpc-connect-actions button {
+    height: 28px;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 0 9px;
+    color: var(--t2);
+    background: var(--inset);
+    border: 1px solid var(--sep);
+    border-radius: 6px;
+    font-size: 10.5px;
+    font-weight: 600;
+  }
+  .bs-grpc-connect-actions button:hover { color: var(--text); }
+  .bs-grpc-connect-actions button.primary { color: #fff; background: var(--accent); border-color: transparent; }
+  .bs-grpc-connect-actions button:disabled { opacity: 0.55; }
+  .bs-grpc-connect-actions .material-symbols-outlined { font-size: 14px; }
+  .bs-grpc-connect-dismiss {
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--t3);
+    border-radius: 5px;
+  }
+  .bs-grpc-connect-dismiss:hover { color: var(--text); background: var(--hover); }
+  .bs-grpc-connect-dismiss .material-symbols-outlined { font-size: 14px; }
+  @media (max-width: 760px) {
+    .bs-grpc-connect-alert { grid-template-columns: 30px minmax(0, 1fr) 22px; }
+    .bs-grpc-connect-actions { grid-column: 2 / -1; justify-self: start; }
+  }
+</style>
+{#if editorError}
+  <div class="bs-grpc-connect-alert" class:guidance={editorError.kind === 'schema'}>
+    <div class="bs-grpc-connect-icon" aria-hidden="true">
+      <span class="material-symbols-outlined">{editorError.icon}</span>
+    </div>
+    <div class="bs-grpc-connect-copy">
+      <div class="bs-grpc-connect-title">
+        <b>{editorError.title}</b>
+        {#if tab.grpc?.endpoint}<span>{tab.grpc.endpoint}</span>{/if}
+      </div>
+      <p>{editorError.message}</p>
+      {#if editorError.raw !== editorError.message}
+        <details><summary>Technical details</summary><code>{editorError.raw}</code></details>
+      {/if}
+    </div>
+    <div class="bs-grpc-connect-actions">
+      {#if editorError.kind === 'schema'}
+        <button class="primary" type="button" onclick={importProto}>Import .proto</button>
+      {:else if editorError.kind === 'connection'}
+        <button class="primary" type="button" disabled={grpcConnecting} onclick={grpcDoConnect}>
+          <span class="material-symbols-outlined">refresh</span>{grpcConnecting ? 'Connecting…' : 'Retry'}
+        </button>
+        <button type="button" onclick={openTlsSettings}>Settings</button>
+      {/if}
+    </div>
+    <button class="bs-grpc-connect-dismiss" type="button" aria-label="Dismiss connection error" onclick={dismissGrpcError}>
+      <span class="material-symbols-outlined">close</span>
+    </button>
+  </div>
+{/if}
 <div class="bs-rtabs">
-  <div class="bs-rtab docs"><span class="material-symbols-outlined" style="font-size:14px">notes</span>Docs</div>
-  <button class="bs-rtab" class:on={gTab === 'message'} onclick={() => (gTab = 'message')}>Message</button>
-  <button class="bs-rtab" class:on={gTab === 'metadata'} onclick={() => (gTab = 'metadata')}>Metadata</button>
-  <button class="bs-rtab" class:on={gTab === 'proto'} onclick={() => (gTab = 'proto')}>Service definition</button>
-  <button class="bs-rtab" class:on={gTab === 'scripts'} onclick={() => (gTab = 'scripts')}>Scripts</button>
+  <button class="bs-rtab" class:on={gTab === 'message'} onclick={() => openGrpcEditorSection(tab.id, 'message')}>Message</button>
+  <button class="bs-rtab" class:on={gTab === 'metadata'} onclick={() => openGrpcEditorSection(tab.id, 'metadata')}>Metadata</button>
+  <button class="bs-rtab" class:on={gTab === 'proto'} onclick={() => openGrpcEditorSection(tab.id, 'proto')}>Service definition</button>
+  <button class="bs-rtab" class:on={gTab === 'scripts'} onclick={() => openGrpcEditorSection(tab.id, 'scripts')}>Scripts</button>
 </div>
 <div class="bs-reqpane">
 {#if gTab === 'message'}
@@ -463,18 +745,7 @@
     </div>
   </div>
 {:else if gTab === 'metadata'}
-  <div class="bs-bodyarea">
-    <CodeEditor
-      value={metaText(tab.grpc?.metadata)}
-      onChange={setMeta}
-      lang="text"
-      fill
-      placeholder="Key: Value (one per line)"
-      {varHighlight}
-      docId={tab.id}
-      ariaLabel="gRPC metadata"
-    />
-  </div>
+  <GrpcMetadataEditor {tab} />
 {:else if gTab === 'scripts'}
   <ScriptsEditor
     preRequestScript={tab.grpc?.preRequestScript ?? ''}

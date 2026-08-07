@@ -75,6 +75,13 @@
   });
 
   const dataDriven = $derived($runnerConfig.dataRows.length > 0);
+  const iterationCount = $derived(dataDriven ? $runnerConfig.dataRows.length : $runnerConfig.iterations);
+  const plannedExecutions = $derived(selectedRequestCount * iterationCount);
+  const selectedFolderLabel = $derived(
+    (folders.find((folder) => folder.id === ($runnerConfig.folderId ?? RUNNER_ROOT))?.label ?? 'All requests')
+      .replace(/ /g, ' ')
+      .trim(),
+  );
   const running = $derived($runnerRun.status === 'running');
   const finished = $derived($runnerRun.status === 'done' || $runnerRun.status === 'stopped');
   const passed = $derived($runnerRun.results.filter((r) => r.ok).length);
@@ -137,115 +144,140 @@
 </script>
 
 <div class="bs-run">
-  <!-- Config bar -->
-  <div class="bs-run-config">
-    <label class="bs-run-field">
-      <span class="bs-run-label">Folder</span>
-      <select
-        value={$runnerConfig.folderId ?? RUNNER_ROOT}
-        onchange={(e) => setRunnerFolder(e.currentTarget.value === RUNNER_ROOT ? null : e.currentTarget.value)}
-        disabled={running}
-      >
-        {#each folders as f (f.id)}
-          <option value={f.id}>{f.label}</option>
-        {/each}
-      </select>
-    </label>
-
-    <label class="bs-run-field sm">
-      <span class="bs-run-label">Iterations</span>
-      {#if dataDriven}
-        <input type="text" value={`${$runnerConfig.dataRows.length} from data`} disabled title="Iteration count comes from the loaded data file" />
-      {:else}
-        <input
-          type="number"
-          min="1"
-          value={$runnerConfig.iterations}
-          oninput={(e) => setIterations(Number(e.currentTarget.value))}
-          disabled={running}
-        />
-      {/if}
-    </label>
-
-    <label class="bs-run-field sm">
-      <span class="bs-run-label">Delay (ms)</span>
-      <input
-        type="number"
-        min="0"
-        value={$runnerConfig.delayMs}
-        oninput={(e) => setDelay(Number(e.currentTarget.value))}
-        disabled={running}
-      />
-    </label>
-
-    <label class="bs-run-check">
-      <input
-        type="checkbox"
-        checked={$runnerConfig.stopOnFailure}
-        onchange={(e) => setStopOnFailure(e.currentTarget.checked)}
-        disabled={running}
-      />
-      <span>Stop on failure</span>
-    </label>
-
-    <div class="bs-run-field grow">
-      <span class="bs-run-label">Data file</span>
-      {#if $runnerConfig.dataFileName}
-        <div class="bs-run-datafile">
-          <span class="material-symbols-outlined" style="font-size:16px">description</span>
-          <span class="bs-run-dataname" title={$runnerConfig.dataFileName}>{$runnerConfig.dataFileName}</span>
-          <span class="bs-run-datacount">{$runnerConfig.dataRows.length} rows</span>
-          <button class="bs-run-icon" type="button" title="Remove data file" aria-label="Remove data file" onclick={clearData} disabled={running}>
-            <span class="material-symbols-outlined" style="font-size:15px">close</span>
-          </button>
-        </div>
-      {:else}
-        <button class="bs-run-file" type="button" onclick={() => fileInput?.click()} disabled={running}>
-          <span class="material-symbols-outlined" style="font-size:16px">upload_file</span>
-          Choose CSV / JSON…
-        </button>
-      {/if}
-    </div>
-    <input bind:this={fileInput} type="file" accept=".csv,.json" onchange={onFilePicked} style="display:none" />
-  </div>
-
-  {#if dataError}<div class="bs-run-err">{dataError}</div>{/if}
-
-  <!-- Run controls + progress -->
-  <div class="bs-run-actions">
-    {#if running}
-      <div class="bs-run-progress" role="progressbar" aria-valuemin={0} aria-valuemax={$runnerRun.total} aria-valuenow={$runnerRun.completed}>
-        <div class="bs-run-bar" style="width:{progressPct}%"></div>
+  <div class="bs-run-shell">
+    <header class="bs-run-hero">
+      <div>
+        <h2>Collection Runner</h2>
+        <p>{selectedFolderLabel} · {selectedRequestCount} request{selectedRequestCount === 1 ? '' : 's'} · {plannedExecutions} execution{plannedExecutions === 1 ? '' : 's'}</p>
       </div>
-      <span class="bs-run-count">{$runnerRun.completed} / {$runnerRun.total}</span>
-    {:else}
       <button
         class="bs-run-go"
         type="button"
         onclick={() => void runCollection()}
-        disabled={selectedRequestCount === 0}
+        disabled={selectedRequestCount === 0 || running}
       >
-        <span class="material-symbols-outlined" style="font-size:18px">play_arrow</span>
-        Run{selectedRequestCount > 0 ? ` (${selectedRequestCount}${dataDriven ? ` × ${$runnerConfig.dataRows.length}` : $runnerConfig.iterations > 1 ? ` × ${$runnerConfig.iterations}` : ''})` : ''}
+        <span class="material-symbols-outlined">{running ? 'progress_activity' : finished ? 'replay' : 'play_arrow'}</span>
+        {running ? 'Running…' : finished ? 'Run again' : 'Run'}
+        {#if !running && plannedExecutions > 0}<small>{plannedExecutions}</small>{/if}
       </button>
-    {/if}
-  </div>
+    </header>
+
+    <section class="bs-run-config">
+      <div class="bs-run-config-grid">
+        <label class="bs-run-field scope">
+          <span class="bs-run-label">Request scope</span>
+          <span class="bs-run-control">
+            <span class="material-symbols-outlined">folder_open</span>
+            <select
+              value={$runnerConfig.folderId ?? RUNNER_ROOT}
+              onchange={(e) => setRunnerFolder(e.currentTarget.value === RUNNER_ROOT ? null : e.currentTarget.value)}
+              disabled={running}
+            >
+              {#each folders as f (f.id)}
+                <option value={f.id}>{f.label}</option>
+              {/each}
+            </select>
+            <span class="material-symbols-outlined chevron">expand_more</span>
+          </span>
+        </label>
+
+        <label class="bs-run-field sm">
+          <span class="bs-run-label">Iterations</span>
+          {#if dataDriven}
+            <span class="bs-run-control">
+              <span class="material-symbols-outlined">table_rows</span>
+              <input type="text" value={`${$runnerConfig.dataRows.length} rows`} disabled title="Iteration count comes from the loaded data file" />
+            </span>
+          {:else}
+            <span class="bs-run-control">
+              <span class="material-symbols-outlined">repeat</span>
+              <input
+                type="number"
+                min="1"
+                value={$runnerConfig.iterations}
+                oninput={(e) => setIterations(Number(e.currentTarget.value))}
+                disabled={running}
+              />
+            </span>
+          {/if}
+        </label>
+
+        <label class="bs-run-field sm">
+          <span class="bs-run-label">Delay</span>
+          <span class="bs-run-control suffix">
+            <span class="material-symbols-outlined">timer</span>
+            <input
+              type="number"
+              min="0"
+              value={$runnerConfig.delayMs}
+              oninput={(e) => setDelay(Number(e.currentTarget.value))}
+              disabled={running}
+            />
+            <i>ms</i>
+          </span>
+        </label>
+
+        <label class="bs-run-stop">
+          <input
+            type="checkbox"
+            checked={$runnerConfig.stopOnFailure}
+            onchange={(e) => setStopOnFailure(e.currentTarget.checked)}
+            disabled={running}
+          />
+          <span class="bs-run-switch"><i></i></span>
+          <span><b>Stop on failure</b><small>End the run after the first failed request</small></span>
+        </label>
+      </div>
+
+      <div class="bs-run-data-row">
+        <div class="bs-run-data-copy">
+          <span class="material-symbols-outlined">database</span>
+          <div><b>Iteration data</b><small>Optional CSV or JSON variables for data-driven runs</small></div>
+        </div>
+        {#if $runnerConfig.dataFileName}
+          <div class="bs-run-datafile">
+            <span class="material-symbols-outlined">description</span>
+            <span class="bs-run-dataname" title={$runnerConfig.dataFileName}>{$runnerConfig.dataFileName}</span>
+            <span class="bs-run-datacount">{$runnerConfig.dataRows.length} rows</span>
+            <button class="bs-run-icon" type="button" title="Remove data file" aria-label="Remove data file" onclick={clearData} disabled={running}>
+              <span class="material-symbols-outlined">close</span>
+            </button>
+          </div>
+        {:else}
+          <button class="bs-run-file" type="button" onclick={() => fileInput?.click()} disabled={running}>
+            <span class="material-symbols-outlined">upload_file</span>
+            Choose CSV or JSON
+          </button>
+        {/if}
+        <input bind:this={fileInput} type="file" accept=".csv,.json" onchange={onFilePicked} style="display:none" />
+      </div>
+
+      {#if dataError}
+        <div class="bs-run-err"><span class="material-symbols-outlined">error</span>{dataError}</div>
+      {/if}
+
+      {#if running}
+        <div class="bs-run-running">
+          <div class="bs-run-running-copy"><span>Running collection</span><b>{$runnerRun.completed} / {$runnerRun.total}</b></div>
+          <div class="bs-run-progress" role="progressbar" aria-valuemin={0} aria-valuemax={$runnerRun.total} aria-valuenow={$runnerRun.completed}>
+            <div class="bs-run-bar" style="width:{progressPct}%"></div>
+          </div>
+        </div>
+      {/if}
+    </section>
 
   <!-- Summary (when done/stopped) -->
   {#if finished && $runnerRun.results.length > 0}
     <div class="bs-run-summary">
-      <div class="bs-run-stat pass"><b>{passed}</b> passed</div>
-      <div class="bs-run-stat fail"><b>{failed}</b> failed</div>
-      <div class="bs-run-stat"><b>{$runnerRun.completed}</b> requests</div>
-      <div class="bs-run-stat"><b>{wallClockMs}</b> ms</div>
+      <div class="bs-run-summary-title"><span class="material-symbols-outlined">analytics</span><div><b>Run complete</b><small>{$runnerRun.status === 'stopped' ? 'Stopped before every request completed' : 'All scheduled requests completed'}</small></div></div>
+      <div class="bs-run-stat pass"><b>{passed}</b><span>Passed</span></div>
+      <div class="bs-run-stat fail"><b>{failed}</b><span>Failed</span></div>
+      <div class="bs-run-stat"><b>{$runnerRun.completed}</b><span>Requests</span></div>
+      <div class="bs-run-stat"><b>{wallClockMs}</b><span>Milliseconds</span></div>
       {#if $runnerRun.status === 'stopped'}<div class="bs-run-stat stopped">stopped early</div>{/if}
       <span class="bs-spacer"></span>
-      <button class="bs-run-btn" type="button" onclick={() => void runCollection()}>
-        <span class="material-symbols-outlined" style="font-size:16px">replay</span>
-        Run again
-      </button>
       <button class="bs-run-btn" type="button" onclick={doExport}>
-        <span class="material-symbols-outlined" style="font-size:16px">{copied ? 'check' : 'content_copy'}</span>
+        <span class="material-symbols-outlined">{copied ? 'check' : 'content_copy'}</span>
         {copied ? 'Copied' : 'Export report'}
       </button>
     </div>
@@ -253,14 +285,22 @@
 
   <!-- Results list -->
   <div class="bs-run-results">
+    {#if $runnerRun.results.length > 0 || running}
+      <div class="bs-run-results-head">
+        <div><b>Run results</b><span>Requests appear here as they complete.</span></div>
+        {#if running}<span class="bs-run-live"><i></i>Live</span>{/if}
+      </div>
+    {/if}
     {#if $runnerRun.results.length === 0 && !running}
       <div class="bs-run-empty">
         {#if selectedRequestCount === 0}
-          <span class="material-symbols-outlined" style="font-size:28px">folder_off</span>
-          <p>No requests to run. Pick a folder with saved requests, or choose “All requests”.</p>
+          <span class="material-symbols-outlined bs-run-empty-symbol">folder_off</span>
+          <h3>No requests in this scope</h3>
+          <p>Choose a folder with saved requests, or select “All requests”.</p>
         {:else}
-          <span class="material-symbols-outlined" style="font-size:28px">playlist_play</span>
-          <p>{selectedRequestCount} request{selectedRequestCount === 1 ? '' : 's'} ready. Press Run to start.</p>
+          <span class="material-symbols-outlined bs-run-empty-symbol">playlist_play</span>
+          <h3>Ready to run</h3>
+          <p>{selectedRequestCount} request{selectedRequestCount === 1 ? '' : 's'}, {iterationCount} iteration{iterationCount === 1 ? '' : 's'}, {plannedExecutions} total execution{plannedExecutions === 1 ? '' : 's'}.</p>
         {/if}
       </div>
     {:else}
@@ -307,6 +347,7 @@
       {/each}
     {/if}
   </div>
+  </div>
 </div>
 
 <style>
@@ -316,105 +357,200 @@
     display: flex;
     flex-direction: column;
     overflow: hidden;
+    background: var(--canvas);
   }
-  .bs-run-config {
+  .bs-run-shell {
+    width: 100%;
+    flex: 1;
+    min-height: 0;
     display: flex;
-    align-items: flex-end;
-    flex-wrap: wrap;
-    gap: 12px;
-    padding: 14px 16px;
-    border-bottom: 0.5px solid var(--sepsoft);
+    flex-direction: column;
   }
-  .bs-run-field { display: flex; flex-direction: column; gap: 4px; }
-  .bs-run-field.sm { width: 96px; flex: none; }
-  .bs-run-field.grow { flex: 1; min-width: 200px; }
+  .bs-run-hero {
+    min-height: 58px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex: none;
+    padding: 9px 14px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--sepsoft);
+  }
+  .bs-run-hero > div { min-width: 0; }
+  .bs-run-hero h2 { margin: 0; color: var(--text); font-size: 14px; line-height: 1.25; }
+  .bs-run-hero p { margin: 2px 0 0; overflow: hidden; color: var(--t3); font-size: 10.5px; text-overflow: ellipsis; white-space: nowrap; }
+  .bs-run-config {
+    flex: none;
+    overflow: hidden;
+    margin: 12px 14px 0;
+    background: var(--surface);
+    border: 1px solid var(--sepsoft);
+    border-radius: 7px;
+  }
+  .bs-run-config-grid {
+    display: grid;
+    grid-template-columns: minmax(230px, 1.4fr) 130px 130px minmax(230px, 1fr);
+    gap: 10px;
+    padding: 10px 12px;
+  }
+  .bs-run-field { min-width: 0; display: flex; flex-direction: column; gap: 5px; }
   .bs-run-label {
-    font-size: 11px;
+    font-size: 9.5px;
     font-weight: 700;
-    letter-spacing: 0.04em;
+    letter-spacing: 0.06em;
     text-transform: uppercase;
     color: var(--t3);
   }
+  .bs-run-control {
+    height: 34px;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    position: relative;
+    color: var(--t3);
+    background: var(--inset);
+    border: 1px solid var(--sep);
+    border-radius: 6px;
+  }
+  .bs-run-control:focus-within { border-color: color-mix(in srgb, var(--accent) 60%, var(--sep)); }
+  .bs-run-control > .material-symbols-outlined { flex: none; margin-left: 9px; font-size: 15px; }
+  .bs-run-control > .chevron { margin: 0 8px 0 2px; pointer-events: none; }
   .bs-run-field select,
   .bs-run-field input {
-    height: 30px;
-    border-radius: 7px;
-    border: 0.5px solid var(--sep);
-    background: var(--inset);
+    width: 100%;
+    height: 100%;
+    min-width: 0;
+    border: 0;
+    background: transparent;
     padding: 0 8px;
-    font-size: 13px;
+    font-size: 11.5px;
     color: var(--text);
     outline: none;
   }
-  .bs-run-field select { min-width: 200px; }
-  .bs-run-field select:focus-visible,
-  .bs-run-field input:focus-visible { border-color: var(--accent); }
+  .bs-run-field select { appearance: none; padding-right: 0; }
   .bs-run-field input:disabled { color: var(--t3); }
-  .bs-run-check {
+  .bs-run-control.suffix i { flex: none; margin-right: 9px; color: var(--t3); font-size: 9.5px; font-style: normal; }
+  .bs-run-stop {
+    min-width: 0;
     display: flex;
     align-items: center;
-    gap: 6px;
-    height: 30px;
-    font-size: 13px;
-    color: var(--text);
+    gap: 9px;
+    align-self: end;
+    height: 34px;
+    padding: 0 9px;
+    color: var(--t2);
+    background: var(--inset);
+    border: 1px solid var(--sep);
+    border-radius: 6px;
     cursor: pointer;
   }
+  .bs-run-stop > input { position: absolute; opacity: 0; pointer-events: none; }
+  .bs-run-switch {
+    width: 28px;
+    height: 16px;
+    display: flex;
+    align-items: center;
+    flex: none;
+    padding: 2px;
+    background: color-mix(in srgb, var(--t3) 32%, transparent);
+    border-radius: 99px;
+    transition: background 120ms ease;
+  }
+  .bs-run-switch i { width: 12px; height: 12px; background: var(--surface-solid); border-radius: 50%; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.22); transition: transform 120ms ease; }
+  .bs-run-stop > input:checked + .bs-run-switch { background: var(--accent); }
+  .bs-run-stop > input:checked + .bs-run-switch i { transform: translateX(12px); }
+  .bs-run-stop > input:focus-visible + .bs-run-switch { outline: 2px solid color-mix(in srgb, var(--accent) 40%, transparent); outline-offset: 2px; }
+  .bs-run-stop b, .bs-run-stop small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .bs-run-stop b { color: var(--text); font-size: 10.5px; font-weight: 600; }
+  .bs-run-stop small { margin-top: 1px; color: var(--t3); font-size: 8.5px; }
+  .bs-run-data-row {
+    min-height: 48px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 7px 12px;
+    background: var(--surface);
+    border-top: 1px solid var(--sepsoft);
+  }
+  .bs-run-data-copy { min-width: 0; display: flex; align-items: center; gap: 9px; }
+  .bs-run-data-copy > .material-symbols-outlined { color: var(--t3); font-size: 17px; }
+  .bs-run-data-copy b, .bs-run-data-copy small { display: block; }
+  .bs-run-data-copy b { color: var(--text); font-size: 10.5px; font-weight: 600; }
+  .bs-run-data-copy small { margin-top: 1px; color: var(--t3); font-size: 9px; }
   .bs-run-file,
   .bs-run-datafile {
     display: flex;
     align-items: center;
-    gap: 6px;
-    height: 30px;
-    padding: 0 10px;
+    gap: 7px;
+    height: 32px;
+    margin-left: auto;
+    padding: 0 9px;
     border-radius: 7px;
-    border: 0.5px solid var(--sep);
-    background: var(--inset);
-    font-size: 13px;
-    color: var(--text);
+    border: 1px solid var(--sep);
+    background: var(--surface);
+    font-size: 10.5px;
+    color: var(--t2);
   }
-  .bs-run-file:hover { background: var(--hover); }
+  .bs-run-file:hover { color: var(--text); border-color: color-mix(in srgb, var(--accent) 35%, var(--sep)); }
   .bs-run-file .material-symbols-outlined,
-  .bs-run-datafile .material-symbols-outlined { color: var(--t2); flex: none; }
+  .bs-run-datafile .material-symbols-outlined { color: var(--t3); flex: none; font-size: 15px; }
   .bs-run-dataname { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 220px; }
-  .bs-run-datacount { color: var(--t3); font-size: 11.5px; }
+  .bs-run-datacount { color: var(--t3); font-size: 9.5px; }
   .bs-run-icon {
-    width: 22px;
-    height: 22px;
+    width: 20px;
+    height: 20px;
     display: flex;
     align-items: center;
     justify-content: center;
-    border-radius: 6px;
+    border-radius: 5px;
     color: var(--t3);
     flex: none;
-    margin-left: auto;
   }
   .bs-run-icon:hover { background: var(--hover); color: var(--red); }
-  .bs-run-err { padding: 0 16px 10px; color: var(--red); font-size: 12.5px; }
-
-  .bs-run-actions {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 12px 16px;
-  }
-  .bs-run-go {
+  .bs-run-err {
     display: flex;
     align-items: center;
     gap: 6px;
-    height: 34px;
-    padding: 0 16px;
-    border-radius: 8px;
+    padding: 8px 15px;
+    color: var(--red);
+    background: color-mix(in srgb, var(--red) 6%, transparent);
+    border-top: 1px solid color-mix(in srgb, var(--red) 16%, var(--sepsoft));
+    font-size: 10.5px;
+  }
+  .bs-run-err .material-symbols-outlined { font-size: 14px; }
+  .bs-run-go {
+    height: 32px;
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    flex: none;
+    margin-left: auto;
+    padding: 0 9px 0 11px;
+    border-radius: 6px;
     background: var(--accent);
     color: #fff;
-    font-size: 13px;
-    font-weight: 700;
+    font-size: 11.5px;
+    font-weight: 650;
   }
   .bs-run-go:hover { filter: brightness(1.05); }
   .bs-run-go:disabled { opacity: 0.5; cursor: default; }
-  .bs-run-go .material-symbols-outlined { color: #fff; }
+  .bs-run-go .material-symbols-outlined { color: #fff; font-size: 16px; }
+  .bs-run-go small {
+    min-width: 22px;
+    padding: 2px 5px;
+    color: rgba(255, 255, 255, 0.88);
+    background: rgba(0, 0, 0, 0.14);
+    border-radius: 5px;
+    font-family: var(--mono);
+    font-size: 9px;
+    text-align: center;
+  }
+  .bs-run-running { padding: 9px 15px 12px; border-top: 1px solid var(--sepsoft); }
+  .bs-run-running-copy { display: flex; justify-content: space-between; margin-bottom: 7px; color: var(--t3); font-size: 9.5px; }
+  .bs-run-running-copy b { color: var(--t2); font-family: var(--mono); }
   .bs-run-progress {
-    flex: 1;
-    height: 8px;
+    width: 100%;
+    height: 6px;
     border-radius: 5px;
     background: var(--inset);
     overflow: hidden;
@@ -425,19 +561,27 @@
     border-radius: 5px;
     transition: width 0.2s ease;
   }
-  .bs-run-count { font-size: 12.5px; color: var(--t2); font-variant-numeric: tabular-nums; }
-
   .bs-run-summary {
     display: flex;
     align-items: center;
-    gap: 14px;
-    padding: 10px 16px;
-    border-top: 0.5px solid var(--sepsoft);
-    border-bottom: 0.5px solid var(--sepsoft);
+    gap: 8px;
+    flex: none;
+    margin: 10px 14px 0;
+    padding: 9px;
+    background: var(--surface);
+    border: 1px solid var(--sepsoft);
+    border-radius: 7px;
     flex-wrap: wrap;
   }
-  .bs-run-stat { font-size: 12.5px; color: var(--t2); }
-  .bs-run-stat b { color: var(--text); font-weight: 700; }
+  .bs-run-summary-title { min-width: 190px; display: flex; align-items: center; gap: 8px; padding: 0 5px; }
+  .bs-run-summary-title > .material-symbols-outlined { color: var(--accent); font-size: 17px; }
+  .bs-run-summary-title b, .bs-run-summary-title small { display: block; }
+  .bs-run-summary-title b { color: var(--text); font-size: 10.5px; }
+  .bs-run-summary-title small { color: var(--t3); font-size: 8.5px; }
+  .bs-run-stat { min-width: 62px; padding: 5px 8px; background: var(--inset); border-radius: 5px; color: var(--t3); }
+  .bs-run-stat b, .bs-run-stat span { display: block; }
+  .bs-run-stat b { color: var(--text); font-family: var(--mono); font-size: 11px; font-weight: 700; }
+  .bs-run-stat span { margin-top: 1px; font-size: 8.5px; }
   .bs-run-stat.pass b { color: var(--green, #10b981); }
   .bs-run-stat.fail b { color: var(--red); }
   .bs-run-stat.stopped { color: var(--red); font-weight: 600; }
@@ -446,32 +590,52 @@
     align-items: center;
     gap: 5px;
     height: 30px;
-    padding: 0 12px;
+    padding: 0 9px;
     border-radius: 7px;
-    border: 0.5px solid var(--sep);
+    border: 1px solid var(--sep);
     background: var(--inset);
-    font-size: 12.5px;
+    font-size: 10.5px;
     font-weight: 600;
     color: var(--text);
   }
   .bs-run-btn:hover { background: var(--hover); }
-  .bs-run-btn .material-symbols-outlined { color: var(--t2); }
+  .bs-run-btn .material-symbols-outlined { color: var(--t2); font-size: 14px; }
 
-  .bs-run-results { flex: 1; min-height: 0; overflow: auto; padding: 8px 12px 16px; }
+  .bs-run-results { flex: 1; min-height: 0; overflow: auto; padding: 12px 14px 14px; }
+  .bs-run-results-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 8px;
+    padding: 0 2px;
+  }
+  .bs-run-results-head b, .bs-run-results-head div > span { display: block; }
+  .bs-run-results-head b { color: var(--text); font-size: 11.5px; }
+  .bs-run-results-head div > span { margin-top: 1px; color: var(--t3); font-size: 9.5px; }
+  .bs-run-live { display: inline-flex; align-items: center; gap: 5px; color: var(--t2); font-size: 9.5px; }
+  .bs-run-live i { width: 6px; height: 6px; background: var(--green); border-radius: 50%; animation: run-pulse 1.5s ease-in-out infinite; }
+  @keyframes run-pulse { 50% { opacity: 0.35; } }
   .bs-run-empty {
+    width: 100%;
+    min-height: 180px;
+    height: 100%;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 10px;
-    height: 100%;
+    gap: 7px;
+    margin: 0;
+    padding: 20px;
     color: var(--t3);
     text-align: center;
   }
-  .bs-run-empty p { font-size: 13px; max-width: 340px; }
+  .bs-run-empty-symbol { margin-bottom: 3px; color: var(--t3); font-size: 26px; }
+  .bs-run-empty h3 { margin: 0; color: var(--text); font-size: 13px; }
+  .bs-run-empty p { margin: 0; font-size: 10.5px; max-width: 340px; }
   .bs-run-row {
-    border: 0.5px solid var(--sepsoft);
-    border-radius: 8px;
+    background: var(--surface);
+    border: 1px solid var(--sepsoft);
+    border-radius: 6px;
     margin-bottom: 6px;
     overflow: hidden;
   }
@@ -536,7 +700,25 @@
 
   .bs-spacer { flex: 1; }
 
+  @media (max-width: 920px) {
+    .bs-run-config-grid { grid-template-columns: minmax(220px, 1fr) 120px 120px; }
+    .bs-run-stop { grid-column: 1 / -1; }
+  }
+  @media (max-width: 680px) {
+    .bs-run-hero { min-height: 56px; padding: 8px 10px; }
+    .bs-run-config { margin: 10px 10px 0; }
+    .bs-run-config-grid { grid-template-columns: 1fr 1fr; }
+    .bs-run-field.scope, .bs-run-stop { grid-column: 1 / -1; }
+    .bs-run-data-row { align-items: flex-start; flex-wrap: wrap; }
+    .bs-run-file, .bs-run-datafile { width: 100%; margin-left: 0; }
+    .bs-run-summary { margin: 10px 10px 0; }
+    .bs-run-summary-title { width: 100%; }
+    .bs-run-results { padding: 10px; }
+    .bs-run-target { display: none; }
+  }
+
   @media (prefers-reduced-motion: reduce) {
-    .bs-run-bar { transition: none; }
+    .bs-run-bar, .bs-run-switch, .bs-run-switch i { transition: none; }
+    .bs-run-live i { animation: none; }
   }
 </style>

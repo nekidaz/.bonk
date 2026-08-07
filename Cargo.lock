@@ -430,7 +430,7 @@ dependencies = [
 
 [[package]]
 name = "bonk"
-version = "0.1.5"
+version = "0.1.6"
 dependencies = [
  "bonk-core",
  "reqwest",
@@ -446,7 +446,7 @@ dependencies = [
 
 [[package]]
 name = "bonk-core"
-version = "0.1.5"
+version = "0.1.6"
 dependencies = [
  "base64 0.22.1",
  "bytes",
@@ -4690,6 +4690,7 @@ dependencies = [
  "libc",
  "mio",
  "pin-project-lite",
+ "signal-hook-registry",
  "socket2",
  "tokio-macros",
  "windows-sys 0.61.2",

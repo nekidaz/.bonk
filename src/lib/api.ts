@@ -3,6 +3,20 @@ import type { HttpRequest, HttpResponse, RequestSettings, ServiceTree, GrpcResul
 import type { TreeNode, RequestNode, GitStatus, GitCommit, FileDiff } from './domain/types';
 import { parseScriptResult, type ScriptPhase, type ScriptResult } from './domain/scripts';
 
+export interface TerminalOutput {
+  stdout: string;
+  stderr: string;
+  status: number;
+  elapsedMs: number;
+  cwd: string;
+}
+
+export const terminalDefaultCwd = (): Promise<string> =>
+  invoke<string>('terminal_default_cwd');
+
+export const terminalRun = (cwd: string | null, command: string): Promise<TerminalOutput> =>
+  invoke<TerminalOutput>('terminal_run', { cwd, command });
+
 export const cancelRequest = (requestId: string): Promise<void> =>
   invoke<void>('cancel_request', { requestId });
 

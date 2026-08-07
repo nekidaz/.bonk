@@ -20,7 +20,7 @@ export function newHttpTab(): Tab {
 }
 
 export function newGrpcTab(): Tab {
-  const grpc: GrpcTabState = { endpoint: '', plaintext: true, message: '{}', metadata: {} };
+  const grpc: GrpcTabState = { endpoint: '', plaintext: true, message: '', metadata: {} };
   return {
     id: crypto.randomUUID(),
     protocol: 'grpc',

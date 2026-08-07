@@ -1,11 +1,11 @@
 export type RequestProtocol = 'http' | 'grpc';
 /**
  * Tab kinds: the two request protocols plus the special full-pane tabs —
- * 'git' (diff / project-diff views), 'env' (the Environments manager), and
- * 'runner' (the Collection Runner). Special tabs hold no request state and are
- * never persisted.
+ * 'git' (diff / project-diff views), 'env' (the Environments manager),
+ * 'runner' (the Collection Runner), and 'flow' (a Flow canvas). Special tabs
+ * hold no request state and are never persisted.
  */
-export type Protocol = RequestProtocol | 'git' | 'env' | 'runner';
+export type Protocol = RequestProtocol | 'git' | 'env' | 'runner' | 'flow';
 export type BodyMode = 'none' | 'form-data' | 'urlencoded' | 'raw' | 'binary' | 'graphql';
 export type RawBodyFormat = 'JSON' | 'Text' | 'JavaScript' | 'HTML' | 'XML';
 export type BodyParamKind = 'text' | 'file';
@@ -104,6 +104,8 @@ export interface Tab {
   params?: Param[];
   /** Latest pre-request + test script output for this tab (runtime-only). */
   testResults?: TabTestResults;
+  /** id of the Flow this tab shows (protocol 'flow' only). */
+  flowId?: string;
 }
 
 /** Aggregated script output attached to a tab after a send (not persisted). */
@@ -233,6 +235,8 @@ export interface RunResultRow {
   tests: ScriptTestResult[];
   logs: string[];
   error?: string;          // transport/connect/fatal error message
+  /** Response body (HTTP) / result body (gRPC); Flows pass it downstream. */
+  responseBody?: string;
 }
 
 /** Lifecycle of a Collection Runner run. */

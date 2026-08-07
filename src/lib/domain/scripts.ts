@@ -8,7 +8,7 @@
  */
 import type { GrpcResult, HttpRequest, HttpResponse, ScriptTestResult, VarRow } from './types';
 
-export type ScriptPhase = 'pre-request' | 'test';
+export type ScriptPhase = 'pre-request' | 'test' | 'flow';
 
 /** Parsed shape of the `__out` object the QuickJS `run_script` returns. */
 export interface ScriptResult {
@@ -26,6 +26,8 @@ export interface ScriptResult {
   requestPatch?: RequestPatch | null;
   /** Fatal error (thrown/timeout) captured from the script, if any. */
   error?: string | null;
+  /** The script's top-level `return` value (Flow blocks); undefined when none. */
+  returnValue?: unknown;
 }
 
 /** The subset of request fields a pre-request script may overwrite. */
@@ -60,6 +62,8 @@ export interface ScriptContext {
    * precedence over env/globals in `pm.variables.get`.
    */
   iterationData: Record<string, string>;
+  /** Flow block payload, exposed to the script as the `payload` global. */
+  payload?: unknown;
 }
 
 /**
@@ -260,6 +264,7 @@ export function parseScriptResult(raw: string): ScriptResult {
           }
         : null,
     error: typeof data.error === 'string' ? data.error : null,
+    returnValue: data.returnValue,
   };
 }
 

@@ -19,6 +19,11 @@ describe('inferGrpcPlaintext', () => {
     expect(inferGrpcPlaintext('{{host}}'.replace('{{host}}', 'api.example.com:443'))).toBe(false);
   });
 
+  it('honours an explicit scheme on any port', () => {
+    expect(inferGrpcPlaintext('https://partner-program:9090')).toBe(false);
+    expect(inferGrpcPlaintext('http://api.example.com:443')).toBe(true);
+  });
+
   it('does not match :443 embedded in a longer port', () => {
     expect(inferGrpcPlaintext('localhost:4433')).toBe(true);
   });

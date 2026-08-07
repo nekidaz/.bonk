@@ -6,6 +6,43 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.1.6] - 2026-08-08
+
+### Added
+- **Flows**: a node canvas that chains saved requests into a runnable graph —
+  request, script, condition, forEach, delay and start blocks, wired by dragging
+  between output ports. A single JSON payload travels along each edge, requests
+  never abort the run (branch on `payload.ok` instead), and a step cap keeps
+  cyclic graphs terminating. Live per-block badges and an output log while it
+  runs.
+- Scripts can now `return` a value; in a Flow it becomes the payload handed to
+  the next block, and the incoming `payload` is exposed as a global.
+- **Utility panel** at the bottom of the window with three modes: an integrated
+  **Terminal** (persistent cwd across commands, so `cd` carries over), a
+  **Console** for app-level log output, and **Issues**.
+- **Themes**: six editor-inspired colour schemes — Zed Light, Zed Dark, Nord,
+  Tokyo Night, Ayu Mirage and Rosé Pine — with swatch previews in Settings.
+  Existing `light`/`dark` preferences keep working.
+- gRPC **metadata editor**: key/value rows replacing raw JSON, with header-name
+  validation, duplicate-key highlighting and paste-to-parse of `key: value`
+  blocks.
+- gRPC editor sections (message / metadata / proto / scripts) and a searchable
+  method picker that matches on service names and fully-qualified symbols.
+- `grpcurl` code snippets for gRPC requests, generated from the same draft the
+  app sends.
+- Readable gRPC failures: status codes are presented with an explanation and
+  likely cause instead of a raw status string.
+
+### Fixed
+- gRPC over TLS: the client now loads the system root certificates, so `grpcs://`
+  endpoints connect instead of failing certificate verification.
+
+### Security
+- Script context is handed to the sandbox via `JSON.parse` of a string literal
+  rather than being interpolated into the evaluated source. A response body
+  could previously break out of the context literal and inject code into the
+  sandbox.
+
 ## [0.1.5] - 2026-07-07
 
 ### Added

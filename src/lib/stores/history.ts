@@ -22,7 +22,7 @@ export function openHistoryEntry(entry: HistoryEntry): void {
   let tab: Tab;
   if (entry.protocol === 'grpc') {
     const grpc: GrpcTabState =
-      grpcSnapshot(entry.grpc) ?? { endpoint: '', plaintext: true, message: '{}', metadata: {} };
+      grpcSnapshot(entry.grpc) ?? { endpoint: '', plaintext: true, message: '', metadata: {} };
     tab = {
       id: crypto.randomUUID(),
       protocol: 'grpc',

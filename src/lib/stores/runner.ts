@@ -140,16 +140,17 @@ export function clearData(): void {
 }
 
 // ---- Run scope helpers (recomputed FRESH per request; see the fold note) ----
+// Exported for stores/flow.ts, which shares the same script-context needs.
 
 /** The active environment's `name → value` map, or `{}` when none is selected. */
-function activeEnvMap(): Record<string, string> {
+export function activeEnvMap(): Record<string, string> {
   const id = get(activeEnvironmentId);
   const env = id ? get(environments).find((e) => e.id === id) : undefined;
   return mergeScope([], env);
 }
 
 /** The globals `name → value` map. */
-function globalsMap(): Record<string, string> {
+export function globalsMap(): Record<string, string> {
   return mergeScope(get(globals), undefined);
 }
 
@@ -194,6 +195,8 @@ interface HttpRunOutcome {
   tests: ScriptTestResult[];
   logs: string[];
   error?: string;
+  /** Response body (absent when the pre-request script aborted the send). */
+  body?: string;
 }
 
 /**
@@ -240,7 +243,7 @@ async function runHttp(
     error = post.error ?? undefined;
   }
 
-  return { status: res.status, elapsedMs: res.elapsed_ms, tests, logs, error };
+  return { status: res.status, elapsedMs: res.elapsed_ms, tests, logs, error, body: res.body };
 }
 
 /** True when every recorded test passed (vacuously true with no tests). */
@@ -261,8 +264,9 @@ function pushRow(row: RunResultRow): void {
 /**
  * Execute one saved HTTP request for iteration `iteration` and return its row.
  * A transport throw becomes an `ok:false` row (never crashes the run).
+ * Exported for stores/flow.ts (a Flow request block is one runner row).
  */
-async function runHttpNode(
+export async function runHttpNode(
   node: RequestNode,
   iteration: number,
   iterationData: Record<string, string>,
@@ -289,6 +293,7 @@ async function runHttpNode(
       tests: out.tests,
       logs: out.logs,
       error: out.error,
+      responseBody: out.body,
     };
   } catch (e) {
     return {
@@ -316,8 +321,9 @@ async function runHttpNode(
  * needed just to know the method exists), so it can patch message/metadata but
  * not the endpoint. The whole connect → (proto/reflect) → call cycle is
  * wrapped so ANY failure yields an `ok:false` row and the run continues.
+ * Exported for stores/flow.ts (a Flow request block is one runner row).
  */
-async function runGrpcNode(
+export async function runGrpcNode(
   node: RequestNode,
   iteration: number,
   iterationData: Record<string, string>,
@@ -402,6 +408,7 @@ async function runGrpcNode(
       ok: result.ok && error === undefined && allTestsPassed(tests),
       elapsedMs: result.elapsed_ms,
       error,
+      responseBody: result.body,
     };
   } catch (e) {
     return {

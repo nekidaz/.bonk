@@ -34,6 +34,8 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             commands::cancel_request,
+            commands::terminal_default_cwd,
+            commands::terminal_run,
             commands::http_send,
             commands::run_script,
             commands::grpc_connect,

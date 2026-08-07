@@ -1,7 +1,18 @@
 /* Status bar */
-.bs-status { height: 30px; flex-shrink: 0; display: flex; align-items: center; gap: 15px; padding: 0 13px; background: var(--tb); border-top: 0.5px solid var(--sep); font-size: 12px; color: var(--t2); }
-.bs-status .it { display: flex; align-items: center; gap: 6px; }
-.bs-status .it:hover { color: var(--text); }
+.bs-status { height: 30px; flex-shrink: 0; display: flex; align-items: center; gap: 8px; padding: 0 8px; background: var(--tb); border-top: 0.5px solid var(--sep); font-size: 12px; color: var(--t2); }
+.bs-status-leading,
+.bs-status-actions { height: 100%; display: flex; align-items: center; gap: 1px; }
+.bs-status-mark,
+.bs-status-label,
+.bs-status-link,
+.bs-status-icon { height: 100%; display: inline-flex; align-items: center; justify-content: center; color: var(--t3); }
+.bs-status-mark { width: 20px; }
+.bs-status-label,
+.bs-status-link { padding: 0 5px; white-space: nowrap; }
+.bs-status-link:hover,
+.bs-status-icon:hover { color: var(--text); background: var(--hover2); }
+.bs-status-link.on { color: var(--text); background: var(--hover); }
+.bs-status-icon { width: 22px; border-radius: 3px; }
 .bs-status svg { width: 14px; height: 14px; }
 
 /* Popover menus (create / collection actions) */
@@ -239,4 +250,3 @@
 
 .bs ::-webkit-scrollbar { width: 11px; height: 11px; }
 .bs ::-webkit-scrollbar-thumb { background: rgba(120, 120, 128, 0.35); border-radius: 6px; border: 3px solid transparent; background-clip: padding-box; }
-

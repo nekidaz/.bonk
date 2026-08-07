@@ -50,7 +50,11 @@ pub async fn connect(endpoint: &str, plaintext: bool) -> Result<Channel, String>
         .connect_timeout(std::time::Duration::from_secs(8));
     if !plaintext {
         builder = builder
-            .tls_config(ClientTlsConfig::new().domain_name(tls_domain(endpoint)))
+            .tls_config(
+                ClientTlsConfig::new()
+                    .domain_name(tls_domain(endpoint))
+                    .with_enabled_roots(),
+            )
             .map_err(|e| format!("tls config failed: {e}"))?;
     }
     builder

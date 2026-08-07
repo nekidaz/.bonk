@@ -59,3 +59,25 @@
 /* History "recording paused" indicator. */
 .bs-paused { display: inline-flex; align-items: center; gap: 2px; color: var(--orange); text-transform: none; letter-spacing: 0; font-weight: 600; }
 
+/* Postman-style docked secondary navigation. */
+.bs-railrow { position: relative; justify-content: center; }
+.bs-railnav { display: flex; align-items: center; gap: 2px; }
+.bs-side-dock { flex: 0 0 auto; border-top: 0.5px solid var(--sepsoft); background: var(--side); }
+.bs-dock-section { border-top: 0.5px solid var(--sepsoft); }
+.bs-dock-section:first-child { border-top: 0; }
+.bs-dock-head { min-height: 30px; display: flex; align-items: center; }
+.bs-dock-toggle { min-width: 0; min-height: 30px; flex: 1; display: flex; align-items: center; gap: 4px; padding: 0 8px; color: var(--t2); text-align: left; font-size: 10px; font-weight: 700; letter-spacing: 0.055em; text-transform: uppercase; }
+.bs-dock-toggle:hover { color: var(--text); background: var(--hover2); }
+.bs-dock-summary { min-width: 0; margin-left: auto; overflow: hidden; color: var(--t3); font-size: 9.5px; font-weight: 500; letter-spacing: 0; text-overflow: ellipsis; text-transform: none; white-space: nowrap; }
+.bs-dock-action { width: 26px; height: 24px; margin-right: 5px; display: grid; place-items: center; flex: 0 0 auto; color: var(--t3); border-radius: 5px; }
+.bs-dock-action:hover { color: var(--text); background: var(--hover); }
+.bs-dock-body { max-height: 132px; overflow: auto; padding: 2px 5px 6px 18px; }
+.bs-dock-item { width: 100%; min-height: 25px; display: flex; align-items: center; gap: 7px; padding: 3px 7px; overflow: hidden; color: var(--t2); border-radius: 5px; text-align: left; font-size: 11.5px; }
+.bs-dock-item:hover { color: var(--text); background: var(--hover); }
+.bs-dock-item.on { color: var(--text); background: var(--accentsoft); }
+.bs-dock-item > span:last-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bs-dock-empty { padding: 5px 12px 10px 26px; color: var(--t3); font-size: 10.5px; line-height: 1.4; }
+.bs-workspace-strip { min-height: 28px; display: flex; align-items: center; gap: 4px; padding: 0 7px; border-top: 0.5px solid var(--sepsoft); color: var(--t3); }
+.bs-workspace-strip button { min-width: 0; height: 24px; display: flex; align-items: center; gap: 6px; flex: 1; overflow: hidden; color: var(--t2); font-size: 10.5px; text-align: left; }
+.bs-workspace-strip button span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bs-workspace-strip > div { display: grid; place-items: center; color: var(--green); }

@@ -65,7 +65,7 @@
 
 <div class="bs-reqhead">
   <button class="bs-hb" onclick={onSwitch}>
-    <span class="material-symbols-outlined ti2" style="font-size:18px;color:#2aa3ff">{tab.protocol === 'grpc' ? 'lan' : 'language'}</span>
+    <span class="material-symbols-outlined ti2" style="font-size:18px;color:{tab.protocol === 'grpc' ? 'var(--method-grpc)' : 'var(--method-get)'}">{tab.protocol === 'grpc' ? 'lan' : 'language'}</span>
     <span class="material-symbols-outlined cv2" style="font-size:12px;color:var(--t3)">expand_more</span>
   </button>
   {#if editing}
@@ -80,7 +80,6 @@
   {:else}
     <button class="nm rename" title="Rename request" onclick={startRename}>{tab.title}</button>
   {/if}
-  <span class="star"><span class="material-symbols-outlined" style="font-size:15px">star</span></span>
   <div class="bs-spacer"></div>
   <div class="bs-savegrp">
     <button class="bs-save bs-save-main" class:saved={savedFlash} title={tab.savedPath ? 'Save (⌘S)' : 'Save to…  (⌘S)'} onclick={onSmartSave}>
