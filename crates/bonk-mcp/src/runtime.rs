@@ -133,7 +133,7 @@ impl BonkRuntime {
                 })
             })
             .collect::<Vec<_>>();
-        out.sort_by(|a, b| a.id.to_ascii_lowercase().cmp(&b.id.to_ascii_lowercase()));
+        out.sort_by_key(|item| item.id.to_ascii_lowercase());
         Ok(out)
     }
 
@@ -966,12 +966,10 @@ fn materialize_body_and_params(request: &mut HttpRequest, params: Option<&[Param
                 set_header_if_missing(&mut request.headers, "Content-Type", "application/json");
             }
         }
-        "raw" => {
-            if request.raw_body_format.as_deref() == Some("JSON")
-                && request.body.as_deref().is_some_and(|body| !body.is_empty())
-            {
-                set_header_if_missing(&mut request.headers, "Content-Type", "application/json");
-            }
+        "raw" if request.raw_body_format.as_deref() == Some("JSON")
+            && request.body.as_deref().is_some_and(|body| !body.is_empty()) =>
+        {
+            set_header_if_missing(&mut request.headers, "Content-Type", "application/json");
         }
         _ => {}
     }
