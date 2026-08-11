@@ -4,7 +4,7 @@ All notable changes to bonk are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project aims to
 follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.2.0] - 2026-08-11
+## [0.1.7] - 2026-08-11
 
 ### Added
 - Native MCP server for Claude, ChatGPT/Codex, and other MCP clients, with Bonk
@@ -221,8 +221,8 @@ First public release.
 - macOS builds are currently **unsigned**: on first open use right-click → Open
   to bypass Gatekeeper. Signed/notarized builds are planned.
 
-[Unreleased]: https://github.com/nekidaz/.bonk/compare/v0.2.0...HEAD
-[0.2.0]: https://github.com/nekidaz/.bonk/compare/v0.1.6...v0.2.0
+[Unreleased]: https://github.com/nekidaz/.bonk/compare/v0.1.7...HEAD
+[0.1.7]: https://github.com/nekidaz/.bonk/compare/v0.1.6...v0.1.7
 [0.1.6]: https://github.com/nekidaz/.bonk/compare/v0.1.5...v0.1.6
 [0.1.5]: https://github.com/nekidaz/.bonk/compare/v0.1.4...v0.1.5
 [0.1.4]: https://github.com/nekidaz/.bonk/compare/v0.1.3...v0.1.4
