@@ -19,6 +19,15 @@ pub struct GrpcTabState {
     pub method: Option<String>,
     pub message: String,
     pub metadata: BTreeMap<String, String>,
+    /// Schema source used to encode/decode the call. Defaults to reflection.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub source: Option<String>,
+    /// Workspace-relative or absolute `.proto` paths used when `source=proto`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub proto_paths: Option<Vec<String>>,
+    /// Additional compiler import roots used when `source=proto`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub import_paths: Option<Vec<String>>,
     /// Postman-style pre-request script (JS), run before `{{var}}` resolution.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub pre_request_script: Option<String>,

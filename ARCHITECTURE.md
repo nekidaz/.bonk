@@ -8,6 +8,8 @@ layers with a deliberately thin boundary between them:
   native folder dialog. Owns no business logic.
 - **`crates/bonk-core/`** — Tauri-independent Rust core: all HTTP/gRPC/workspace/
   state logic. Buildable and testable without a webview (`cargo test -p bonk-core`).
+- **`crates/bonk-mcp/`** — headless Model Context Protocol server. Reuses
+  `bonk-core` and exposes workspace resources/tools over STDIO or Streamable HTTP.
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -42,10 +44,18 @@ layers with a deliberately thin boundary between them:
 └────────────────────┘         └───────────────────────────────────┘
 ```
 
+`bonk-mcp` is a sibling frontend to Tauri rather than part of the desktop
+process. Local AI clients spawn it over STDIO. Remote clients connect to its
+single `/mcp` Streamable HTTP endpoint. In both modes it receives one canonical
+workspace root at startup and delegates request persistence and protocol work to
+`bonk-core`. Desktop bundles include it as a Tauri sidecar; `mcp_install.rs`
+copies that sidecar to a stable per-user path and safely adds/removes the `bonk`
+entry in supported local client configurations.
+
 ## Tauri commands (the IPC surface)
 
-`src-tauri/src/lib.rs` registers exactly these; each is a thin wrapper over
-`bonk-core` (except `workspace_pick_folder`, which is the shell-side rfd dialog):
+`src-tauri/src/lib.rs` registers these groups. Most commands are thin wrappers
+over `bonk-core`; folder/file dialogs and MCP client setup are shell-owned:
 
 | Area | Commands |
 | --- | --- |
@@ -53,6 +63,7 @@ layers with a deliberately thin boundary between them:
 | gRPC | `grpc_connect`, `grpc_reflect`, `grpc_template`, `grpc_call` |
 | Workspace | `workspace_pick_folder`, `workspace_load`, `workspace_create_folder`, `workspace_save_request`, `workspace_rename`, `workspace_delete`, `workspace_duplicate`, `workspace_move` |
 | App state | `app_state_load`, `app_state_set` |
+| MCP integration | `mcp_integration_status`, `mcp_install`, `mcp_uninstall` |
 
 Frontend bindings live in `src/lib/api.ts` (workspace/http/gRPC) and
 `src/lib/persist.ts` (app state).

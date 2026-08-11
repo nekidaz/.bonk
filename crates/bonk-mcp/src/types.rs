@@ -1,0 +1,525 @@
+use std::collections::BTreeMap;
+
+use bonk_core::domain::{
+    http::{AuthConfig, BodyParam, HttpRequest, RequestSettings},
+    workspace::{GrpcTabState, Param, RequestNode},
+};
+use rmcp::schemars::JsonSchema;
+use serde::{Deserialize, Serialize};
+use serde_json::Value;
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct BodyParamSpec {
+    pub key: String,
+    #[serde(default)]
+    pub value: String,
+    #[serde(default)]
+    pub description: String,
+    #[serde(default = "default_true")]
+    pub enabled: bool,
+    #[serde(default)]
+    pub kind: Option<String>,
+    #[serde(default)]
+    pub file_path: Option<String>,
+}
+
+impl From<BodyParamSpec> for BodyParam {
+    fn from(value: BodyParamSpec) -> Self {
+        Self {
+            key: value.key,
+            value: value.value,
+            description: value.description,
+            enabled: value.enabled,
+            kind: value.kind,
+            file_path: value.file_path,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct AuthSpec {
+    #[serde(rename = "type", default = "default_auth_type")]
+    pub auth_type: String,
+    #[serde(default)]
+    pub bearer_token: Option<String>,
+    #[serde(default)]
+    pub basic_username: Option<String>,
+    #[serde(default)]
+    pub basic_password: Option<String>,
+    #[serde(default)]
+    pub api_key_name: Option<String>,
+    #[serde(default)]
+    pub api_key_value: Option<String>,
+    #[serde(default)]
+    pub api_key_in: Option<String>,
+}
+
+impl From<AuthSpec> for AuthConfig {
+    fn from(value: AuthSpec) -> Self {
+        Self {
+            auth_type: value.auth_type,
+            bearer_token: value.bearer_token,
+            basic_username: value.basic_username,
+            basic_password: value.basic_password,
+            api_key_name: value.api_key_name,
+            api_key_value: value.api_key_value,
+            api_key_in: value.api_key_in,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct HttpRequestSpec {
+    #[serde(default = "default_method")]
+    pub method: String,
+    pub url: String,
+    #[serde(default)]
+    pub headers: BTreeMap<String, String>,
+    #[serde(default)]
+    pub body: Option<String>,
+    #[serde(default)]
+    pub body_mode: Option<String>,
+    #[serde(default)]
+    pub raw_body_format: Option<String>,
+    #[serde(default)]
+    pub body_params: Option<Vec<BodyParamSpec>>,
+    #[serde(default)]
+    pub auth: Option<AuthSpec>,
+    #[serde(default)]
+    pub pre_request_script: Option<String>,
+    #[serde(default)]
+    pub test_script: Option<String>,
+}
+
+impl From<HttpRequestSpec> for HttpRequest {
+    fn from(value: HttpRequestSpec) -> Self {
+        Self {
+            method: value.method,
+            url: value.url,
+            headers: value.headers,
+            body: value.body,
+            body_mode: value.body_mode,
+            raw_body_format: value.raw_body_format,
+            body_params: value
+                .body_params
+                .map(|rows| rows.into_iter().map(Into::into).collect()),
+            auth: value.auth.map(Into::into),
+            pre_request_script: value.pre_request_script,
+            test_script: value.test_script,
+        }
+    }
+}
+
+fn empty_http_request() -> HttpRequest {
+    HttpRequest {
+        method: default_method(),
+        url: String::new(),
+        headers: BTreeMap::new(),
+        body: None,
+        body_mode: None,
+        raw_body_format: None,
+        body_params: None,
+        auth: None,
+        pre_request_script: None,
+        test_script: None,
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct ParamSpec {
+    pub key: String,
+    #[serde(default)]
+    pub value: String,
+    #[serde(default)]
+    pub description: String,
+    #[serde(default = "default_true")]
+    pub enabled: bool,
+}
+
+impl From<ParamSpec> for Param {
+    fn from(value: ParamSpec) -> Self {
+        Self {
+            key: value.key,
+            value: value.value,
+            description: value.description,
+            enabled: value.enabled,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct GrpcRequestSpec {
+    pub endpoint: String,
+    #[serde(default)]
+    pub plaintext: bool,
+    #[serde(default)]
+    pub method: Option<String>,
+    #[serde(default = "default_json_object")]
+    pub message: String,
+    #[serde(default)]
+    pub metadata: BTreeMap<String, String>,
+    #[serde(default)]
+    pub source: Option<String>,
+    #[serde(default)]
+    pub proto_paths: Option<Vec<String>>,
+    #[serde(default)]
+    pub import_paths: Option<Vec<String>>,
+    #[serde(default)]
+    pub pre_request_script: Option<String>,
+    #[serde(default)]
+    pub test_script: Option<String>,
+}
+
+impl From<GrpcRequestSpec> for GrpcTabState {
+    fn from(value: GrpcRequestSpec) -> Self {
+        Self {
+            endpoint: value.endpoint,
+            plaintext: value.plaintext,
+            connection_id: None,
+            method: value.method,
+            message: value.message,
+            metadata: value.metadata,
+            source: value.source,
+            proto_paths: value.proto_paths,
+            import_paths: value.import_paths,
+            pre_request_script: value.pre_request_script,
+            test_script: value.test_script,
+        }
+    }
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct ListRequestsArgs {
+    #[serde(default)]
+    pub query: Option<String>,
+    #[serde(default)]
+    pub protocol: Option<String>,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct GetRequestArgs {
+    /// Request id returned by list_requests, for example `fs:Auth/Login.bonk.json`.
+    pub id: String,
+    /// Return literal stored credentials. Keep false unless the user explicitly needs them.
+    #[serde(default)]
+    pub include_secrets: bool,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct CreateFolderArgs {
+    /// Parent folder id, or `fs:` for the workspace root.
+    #[serde(default = "root_id")]
+    pub parent: String,
+    pub name: String,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct SaveRequestArgs {
+    /// Existing request id to update. Omit to create a new request.
+    #[serde(default)]
+    pub id: Option<String>,
+    /// Destination folder id. Omit when updating to keep the current folder; defaults to root for new requests.
+    #[serde(default)]
+    pub directory: Option<String>,
+    pub name: String,
+    /// Either `http` or `grpc`.
+    pub protocol: String,
+    #[serde(default)]
+    pub request: Option<HttpRequestSpec>,
+    #[serde(default)]
+    pub params: Option<Vec<ParamSpec>>,
+    #[serde(default)]
+    pub grpc: Option<GrpcRequestSpec>,
+}
+
+impl SaveRequestArgs {
+    pub fn into_node(self) -> Result<(Option<String>, String, RequestNode), String> {
+        let protocol = self.protocol.to_ascii_lowercase();
+        if protocol != "http" && protocol != "grpc" {
+            return Err("protocol must be `http` or `grpc`".into());
+        }
+        if protocol == "http" && self.request.is_none() {
+            return Err("an HTTP request requires the `request` object".into());
+        }
+        if protocol == "grpc" && self.grpc.is_none() {
+            return Err("a gRPC request requires the `grpc` object".into());
+        }
+        let directory = self
+            .directory
+            .unwrap_or_else(|| self.id.as_deref().map(parent_id).unwrap_or_else(root_id));
+        let node = RequestNode {
+            id: self.id.clone().unwrap_or_default(),
+            name: self.name,
+            protocol,
+            request: self
+                .request
+                .map(Into::into)
+                .unwrap_or_else(empty_http_request),
+            params: self
+                .params
+                .map(|rows| rows.into_iter().map(Into::into).collect()),
+            grpc: self.grpc.map(Into::into),
+        };
+        Ok((self.id, directory, node))
+    }
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct NodeArgs {
+    pub id: String,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct RenameNodeArgs {
+    pub id: String,
+    pub name: String,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct MoveNodeArgs {
+    pub id: String,
+    /// Destination folder id, or `fs:` for the workspace root.
+    pub destination: String,
+}
+
+#[derive(Debug, Clone, Default, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct RequestSettingsSpec {
+    #[serde(default)]
+    pub timeout_ms: Option<u64>,
+    #[serde(default)]
+    pub follow_redirects: Option<bool>,
+    #[serde(default)]
+    pub validate_tls: Option<bool>,
+    #[serde(default)]
+    pub max_response_body_bytes: Option<usize>,
+}
+
+impl RequestSettingsSpec {
+    pub fn into_core(self, server_max: usize) -> RequestSettings {
+        let defaults = RequestSettings::default();
+        RequestSettings {
+            timeout_ms: self.timeout_ms.unwrap_or(defaults.timeout_ms),
+            follow_redirects: self.follow_redirects.unwrap_or(defaults.follow_redirects),
+            validate_tls: self.validate_tls.unwrap_or(defaults.validate_tls),
+            max_response_body_bytes: self
+                .max_response_body_bytes
+                .unwrap_or(defaults.max_response_body_bytes)
+                .min(server_max),
+        }
+        .normalized()
+    }
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct RunSavedRequestArgs {
+    pub id: String,
+    /// Values used for `{{name}}` placeholders. Process variables named with the configured prefix are also available.
+    #[serde(default)]
+    pub variables: BTreeMap<String, String>,
+    #[serde(default)]
+    pub settings: RequestSettingsSpec,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct SendHttpArgs {
+    pub request: HttpRequestSpec,
+    #[serde(default)]
+    pub params: Option<Vec<ParamSpec>>,
+    #[serde(default)]
+    pub variables: BTreeMap<String, String>,
+    #[serde(default)]
+    pub settings: RequestSettingsSpec,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct ValidateHttpArgs {
+    pub request: HttpRequestSpec,
+    #[serde(default)]
+    pub params: Option<Vec<ParamSpec>>,
+    #[serde(default)]
+    pub variables: BTreeMap<String, String>,
+}
+
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct GrpcSchemaArgs {
+    #[serde(default)]
+    pub endpoint: String,
+    #[serde(default)]
+    pub plaintext: bool,
+    #[serde(default)]
+    pub proto_paths: Vec<String>,
+    #[serde(default)]
+    pub import_paths: Vec<String>,
+    #[serde(default)]
+    pub variables: BTreeMap<String, String>,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct GrpcTemplateArgs {
+    #[serde(flatten)]
+    pub schema: GrpcSchemaArgs,
+    pub method: String,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct GrpcCallArgs {
+    #[serde(flatten)]
+    pub schema: GrpcSchemaArgs,
+    pub method: String,
+    #[serde(default = "default_value_object")]
+    pub message: Value,
+    #[serde(default)]
+    pub metadata: BTreeMap<String, String>,
+    #[serde(default)]
+    pub timeout_ms: Option<u64>,
+}
+
+#[derive(Debug, Serialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct WorkspaceInfo {
+    pub root: String,
+    pub request_count: usize,
+    pub folder_count: usize,
+    pub read_only: bool,
+    pub expose_secrets: bool,
+    pub network_enabled: bool,
+    pub target_hosts: Vec<String>,
+    pub variable_names: Vec<String>,
+}
+
+/// MCP requires every tool outputSchema to be `type: "object"`, so tools whose
+/// payload is an array or free-form JSON return it under `result`.
+#[derive(Debug, Serialize, JsonSchema)]
+pub struct JsonOutput {
+    pub result: Value,
+}
+
+#[derive(Debug, Serialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct RequestList {
+    pub requests: Vec<RequestSummary>,
+}
+
+#[derive(Debug, Serialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct RequestSummary {
+    pub id: String,
+    pub name: String,
+    pub protocol: String,
+    pub method: String,
+    pub target: String,
+}
+
+#[derive(Debug, Serialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct MutationResult {
+    pub id: Option<String>,
+    pub message: String,
+}
+
+#[derive(Debug, Serialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct ValidationResult {
+    pub valid: bool,
+    pub method: String,
+    pub url: String,
+    pub unresolved_variables: Vec<String>,
+    pub warnings: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct ScriptTest {
+    pub name: String,
+    pub passed: bool,
+    #[serde(default)]
+    pub error: Option<String>,
+}
+
+#[derive(Debug, Serialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct HttpResponseOutput {
+    pub status: u16,
+    pub headers: BTreeMap<String, String>,
+    pub body: String,
+    pub final_url: String,
+    pub elapsed_ms: u64,
+    pub size_bytes: usize,
+    pub body_truncated: bool,
+}
+
+#[derive(Debug, Serialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct HttpRunOutput {
+    pub ok: bool,
+    pub response: HttpResponseOutput,
+    pub tests: Vec<ScriptTest>,
+    pub logs: Vec<String>,
+    pub script_error: Option<String>,
+    pub changed_variables: Vec<String>,
+}
+
+#[derive(Debug, Serialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct GrpcCallOutput {
+    pub ok: bool,
+    pub status: String,
+    pub body: String,
+    pub elapsed_ms: u64,
+    pub size_bytes: usize,
+    pub tests: Vec<ScriptTest>,
+    pub logs: Vec<String>,
+    pub script_error: Option<String>,
+    pub changed_variables: Vec<String>,
+}
+
+pub fn parent_id(id: &str) -> String {
+    let relative = id.strip_prefix("fs:").unwrap_or(id);
+    match relative.rsplit_once('/') {
+        Some((parent, _)) if !parent.is_empty() => format!("fs:{parent}"),
+        _ => root_id(),
+    }
+}
+
+fn default_true() -> bool {
+    true
+}
+
+fn default_method() -> String {
+    "GET".into()
+}
+
+fn default_auth_type() -> String {
+    "none".into()
+}
+
+fn default_json_object() -> String {
+    "{}".into()
+}
+
+fn default_value_object() -> Value {
+    Value::Object(Default::default())
+}
+
+fn root_id() -> String {
+    "fs:".into()
+}

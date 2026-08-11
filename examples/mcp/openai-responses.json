@@ -1,0 +1,10 @@
+{
+  "type": "mcp",
+  "server_label": "bonk",
+  "server_description": "Build and run API requests stored in Bonk",
+  "server_url": "https://mcp.example.com/mcp",
+  "headers": {
+    "Authorization": "Bearer YOUR_TOKEN"
+  },
+  "require_approval": "always"
+}

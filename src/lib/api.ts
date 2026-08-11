@@ -11,11 +11,49 @@ export interface TerminalOutput {
   cwd: string;
 }
 
+export interface McpClientStatus {
+  id: string;
+  name: string;
+  available: boolean;
+  installed: boolean;
+  needsUpdate: boolean;
+  workspace: string | null;
+  detail: string;
+  error: string | null;
+}
+
+export interface McpIntegrationStatus {
+  binaryAvailable: boolean;
+  installedBinary: string;
+  clients: McpClientStatus[];
+}
+
+export interface McpInstallOptions {
+  workspace: string;
+  readOnly: boolean;
+  noNetwork: boolean;
+  targetHosts: string[];
+}
+
+export interface McpOperationResult {
+  status: McpIntegrationStatus;
+  messages: string[];
+}
+
 export const terminalDefaultCwd = (): Promise<string> =>
   invoke<string>('terminal_default_cwd');
 
 export const terminalRun = (cwd: string | null, command: string): Promise<TerminalOutput> =>
   invoke<TerminalOutput>('terminal_run', { cwd, command });
+
+export const mcpIntegrationStatus = (): Promise<McpIntegrationStatus> =>
+  invoke<McpIntegrationStatus>('mcp_integration_status');
+
+export const installMcpIntegration = (options: McpInstallOptions): Promise<McpOperationResult> =>
+  invoke<McpOperationResult>('mcp_install', { options });
+
+export const uninstallMcpIntegration = (): Promise<McpOperationResult> =>
+  invoke<McpOperationResult>('mcp_uninstall');
 
 export const cancelRequest = (requestId: string): Promise<void> =>
   invoke<void>('cancel_request', { requestId });

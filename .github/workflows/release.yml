@@ -34,12 +34,24 @@ jobs:
           - platform: macos-latest
             args: --target aarch64-apple-darwin
             rust-targets: aarch64-apple-darwin
+            mcp-build-args: --target aarch64-apple-darwin
+            mcp-path: target/aarch64-apple-darwin/release/bonk-mcp
+            mcp-asset: bonk-mcp-aarch64-apple-darwin
+            mcp-sidecar: src-tauri/binaries/bonk-mcp-aarch64-apple-darwin
           - platform: ubuntu-22.04
             args: ''
             rust-targets: ''
+            mcp-build-args: ''
+            mcp-path: target/release/bonk-mcp
+            mcp-asset: bonk-mcp-x86_64-unknown-linux-gnu
+            mcp-sidecar: src-tauri/binaries/bonk-mcp-x86_64-unknown-linux-gnu
           - platform: windows-latest
             args: --bundles nsis
             rust-targets: ''
+            mcp-build-args: ''
+            mcp-path: target/release/bonk-mcp.exe
+            mcp-asset: bonk-mcp-x86_64-pc-windows-msvc.exe
+            mcp-sidecar: src-tauri/binaries/bonk-mcp-x86_64-pc-windows-msvc.exe
     runs-on: ${{ matrix.platform }}
     steps:
       - name: Checkout
@@ -81,6 +93,15 @@ jobs:
       - name: Install frontend dependencies
         run: npm ci
 
+      - name: Build MCP server
+        run: cargo build --release -p bonk-mcp ${{ matrix.mcp-build-args }}
+
+      - name: Stage MCP sidecar for desktop bundle
+        shell: bash
+        run: |
+          mkdir -p src-tauri/binaries
+          cp "${{ matrix.mcp-path }}" "${{ matrix.mcp-sidecar }}"
+
       - name: Build and release
         uses: tauri-apps/tauri-action@v0
         env:
@@ -103,3 +124,15 @@ jobs:
           releaseDraft: true
           prerelease: false
           includeUpdaterJson: true
+
+      - name: Upload MCP server to release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.DIST_TOKEN }}
+        run: |
+          mkdir -p mcp-dist
+          cp "${{ matrix.mcp-path }}" "mcp-dist/${{ matrix.mcp-asset }}"
+          gh release upload "${{ github.ref_name }}" \
+            "mcp-dist/${{ matrix.mcp-asset }}" \
+            --clobber \
+            --repo nekidaz/.bonk

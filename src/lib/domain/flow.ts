@@ -30,15 +30,43 @@ export interface FlowBlock {
   x: number;
   y: number;
   config: FlowBlockConfig;
+  /** Canvas accent picked from the node toolbar; the theme accent when unset. */
+  color?: string;
+  /** Skipped at run time — the payload passes straight through to its output. */
+  disabled?: boolean;
 }
 
-/** Directed edge from a block's named output port to a target block. */
+/**
+ * Directed edge. Two kinds, told apart by `toPort`:
+ *  - control edge (`toPort` unset): the target block runs next, with the
+ *    payload leaving `fromPort`.
+ *  - variable edge (`toPort` = `var:<name>`): no control flow. It binds the
+ *    source block's last output to the target request's `{{name}}` for that
+ *    run, the way Postman Flows wires a value into a request variable.
+ */
 export interface FlowEdge {
   id: string;
   from: string;
-  /** 'out' | 'true' | 'false' | 'each' | 'done' — see `outPorts`. */
+  /** 'out' | 'success' | 'fail' | 'true' | 'false' | 'each' | 'done' — see `outPorts`. */
   fromPort: string;
   to: string;
+  /** Target input port. Unset = control flow; `var:<name>` = variable binding. */
+  toPort?: string;
+}
+
+/** Canvas handle id for a request block's `{{name}}` input port. */
+export function varPortId(name: string): string {
+  return `var:${name}`;
+}
+
+/** The variable name behind a `var:<name>` port id, or null for control ports. */
+export function varPortName(port: string | undefined | null): string | null {
+  return port && port.startsWith('var:') ? port.slice(4) : null;
+}
+
+/** True when `edge` moves execution (rather than binding a variable). */
+export function isControlEdge(edge: FlowEdge): boolean {
+  return varPortName(edge.toPort) === null;
 }
 
 export interface Flow {
@@ -51,6 +79,8 @@ export interface Flow {
 /** The named output ports a block type exposes (canvas handles + interpreter). */
 export function outPorts(type: FlowBlockType): string[] {
   switch (type) {
+    case 'request':
+      return ['success', 'fail'];
     case 'if':
       return ['true', 'false'];
     case 'loop':

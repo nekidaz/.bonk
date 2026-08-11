@@ -7,8 +7,8 @@
    *    (folder/request rows, inline-rename input, per-row ⋯ actions),
    *  - the History section (header with count/paused + ⋯, list rows with a
    *    remove button, and the empty state),
-   *  - the Postman-style bottom dock (environments, specs, flows, documents,
-   *    mocks) and compact workspace strip.
+   *  - the Postman-style bottom dock (environments, flows) and compact
+   *    workspace strip.
    *
    * The outer `<aside class="bs-side" style="width:…">` wrapper, the column
    * resize handle, and the sidebar width/resize state live in App.svelte
@@ -36,7 +36,7 @@
     setActiveEnvironment,
     openEnvironmentsTab,
   } from '../stores';
-  import { methodColor } from '../domain/method';
+  import { methodColor, methodLabel } from '../domain/method';
   import type { TreeNode } from '../domain/types';
   import GitPanel from './GitPanel.svelte';
   import { gitStatus, gitStatusMap, gitPrefix, GIT_ENABLED } from '../git';
@@ -61,11 +61,14 @@
 
   const ok = (s: number) => s >= 200 && s < 300;
 
+  // Tree indent: 10px per level, capped so deep nesting doesn't starve the label width.
+  const indent = (depth: number) => 8 + Math.min(depth, 6) * 10;
+
   // Which rail panel is shown in the body. Collections by default; History has
   // its own tab (the clock rail icon) instead of stacking under Collections.
   let panel = $state<'collections' | 'history' | 'git'>('collections');
 
-  type DockSection = 'environments' | 'specs' | 'flows' | 'documents' | 'mocks';
+  type DockSection = 'environments' | 'flows';
   // Postman-style secondary sections stay docked to the bottom instead of
   // opening popovers over the collections tree.
   let dockSection = $state<DockSection | null>('environments');
@@ -195,10 +198,10 @@
 {#snippet node(n: TreeNode, depth: number)}
   {#if n.kind === 'folder'}
     {@const changed = folderChangeCount(gitPrefixVal + idToRel(n.id), gitFiles)}
-    <button class="bs-trow" class:bs-drop={dragOverId === n.id} draggable="true" style="padding-left:{8 + depth * 14}px" onclick={() => { if (editingNodeId !== n.id) toggleFolder(n.id); }} ondragstart={(e) => onDragStart(e, n.id)} ondragend={onDragEnd} ondragover={(e) => onFolderDragOver(e, n.id)} ondragleave={() => { if (dragOverId === n.id) dragOverId = undefined; }} ondrop={(e) => onFolderDrop(e, n.id)}>
+    <button class="bs-trow" class:bs-drop={dragOverId === n.id} draggable="true" style="padding-left:{indent(depth)}px" onclick={() => { if (editingNodeId !== n.id) toggleFolder(n.id); }} ondragstart={(e) => onDragStart(e, n.id)} ondragend={onDragEnd} ondragover={(e) => onFolderDragOver(e, n.id)} ondragleave={() => { if (dragOverId === n.id) dragOverId = undefined; }} ondrop={(e) => onFolderDrop(e, n.id)}>
       <span class="material-symbols-outlined cv" style="font-size:13px">{n.expanded ? 'expand_more' : 'chevron_right'}</span>
       <span class="material-symbols-outlined fo" style="font-size:15px">{n.expanded ? 'folder_open' : 'folder'}</span>
-      {#if editingNodeId === n.id}<!-- svelte-ignore a11y_autofocus --><input class="bs-nm bs-nm-input" bind:value={editValue} autofocus onpointerdown={(e) => e.stopPropagation()} onclick={(e) => e.stopPropagation()} onkeydown={inlineRenameKeydown} onblur={commitInlineRename} />{:else}<span class="bs-nm">{n.name}</span>{/if}
+      {#if editingNodeId === n.id}<!-- svelte-ignore a11y_autofocus --><input class="bs-nm bs-nm-input" bind:value={editValue} autofocus onpointerdown={(e) => e.stopPropagation()} onclick={(e) => e.stopPropagation()} onkeydown={inlineRenameKeydown} onblur={commitInlineRename} />{:else}<span class="bs-nm" title={n.name}>{n.name}</span>{/if}
       {#if changed > 0}
         <span class="bs-git-treecount">{changed}</span>
       {/if}
@@ -206,7 +209,7 @@
     </button>
     {#if n.expanded}
       {#if n.children.length === 0}
-        <div class="bs-empty" style="padding-left:{38 + depth * 14}px"><p>Empty — add a folder or save a request here from ⋯.</p></div>
+        <div class="bs-empty" style="padding-left:{indent(depth) + 30}px"><p>Empty — add a folder or save a request here from ⋯.</p></div>
       {:else}
         {#each n.children as child (child.id)}
           {@render node(child, depth + 1)}
@@ -215,9 +218,9 @@
     {/if}
   {:else}
     {@const st = statusMap.get(gitPrefixVal + idToRel(n.id))}
-    <button class="bs-trow" draggable="true" style="padding-left:{8 + depth * 14}px" onclick={() => { if (editingNodeId !== n.id) openSavedRequest(n); }} ondragstart={(e) => onDragStart(e, n.id)} ondragend={onDragEnd}>
-      <span class="bs-mp" style="color:{methodColor(n.protocol === 'grpc' ? 'GRPC' : n.request.method)}">{n.protocol === 'grpc' ? 'RPC' : n.request.method}</span>
-      {#if editingNodeId === n.id}<!-- svelte-ignore a11y_autofocus --><input class="bs-nm bs-nm-input" bind:value={editValue} autofocus onpointerdown={(e) => e.stopPropagation()} onclick={(e) => e.stopPropagation()} onkeydown={inlineRenameKeydown} onblur={commitInlineRename} />{:else}<span class="bs-nm">{n.name}</span>{/if}
+    <button class="bs-trow" draggable="true" style="padding-left:{indent(depth)}px" onclick={() => { if (editingNodeId !== n.id) openSavedRequest(n); }} ondragstart={(e) => onDragStart(e, n.id)} ondragend={onDragEnd}>
+      <span class="bs-mp" style="color:{methodColor(n.protocol === 'grpc' ? 'GRPC' : n.request.method)}">{n.protocol === 'grpc' ? 'RPC' : methodLabel(n.request.method)}</span>
+      {#if editingNodeId === n.id}<!-- svelte-ignore a11y_autofocus --><input class="bs-nm bs-nm-input" bind:value={editValue} autofocus onpointerdown={(e) => e.stopPropagation()} onclick={(e) => e.stopPropagation()} onkeydown={inlineRenameKeydown} onblur={commitInlineRename} />{:else}<span class="bs-nm" title={n.name}>{n.name}</span>{/if}
       {#if st}
         <span class="bs-git-treebadge" style="color:{statusColor(st)}">{st}</span>
       {/if}
@@ -252,7 +255,7 @@
     {:else}
       {#each visibleHistory.slice(0, 40) as h (h.id)}
         <button class="bs-trow l2" type="button" title="Open in a new tab" onclick={() => openHistoryEntry(h)}>
-          <span class="bs-mp" style="color:{methodColor(h.protocol === 'grpc' ? 'GRPC' : h.request.method)}">{h.protocol === 'grpc' ? 'RPC' : h.request.method}</span>
+          <span class="bs-mp" style="color:{methodColor(h.protocol === 'grpc' ? 'GRPC' : h.request.method)}">{h.protocol === 'grpc' ? 'RPC' : methodLabel(h.request.method)}</span>
           <span class="bs-nm" style="font-family:var(--mono);font-size:11.5px">{h.request.url || '—'}</span>
           <span class="bs-tm" style="color:{(h.ok ?? ok(h.status)) ? 'var(--green)' : 'var(--red)'}">{h.protocol === 'grpc' ? (h.ok ? 'OK' : 'ERR') : h.status}</span>
           <span class="bs-act" role="button" tabindex="0" title="Remove" onclick={(e) => { e.stopPropagation(); removeHistoryEntry(h.id); }} onkeydown={() => {}}><span class="material-symbols-outlined" style="font-size:14px">close</span></span>
@@ -289,15 +292,6 @@
     {/if}
   </section>
 
-  <section class="bs-dock-section" class:open={dockSection === 'specs'}>
-    <div class="bs-dock-head">
-      <button class="bs-dock-toggle" type="button" aria-expanded={dockSection === 'specs'} onclick={() => toggleDock('specs')}>
-        <span class="material-symbols-outlined" aria-hidden="true" style="font-size:13px">{dockSection === 'specs' ? 'expand_more' : 'chevron_right'}</span><span>Specs</span>
-      </button>
-    </div>
-    {#if dockSection === 'specs'}<div class="bs-dock-empty">Service definitions are managed from request tabs.</div>{/if}
-  </section>
-
   <section class="bs-dock-section" class:open={dockSection === 'flows'}>
     <div class="bs-dock-head">
       <button class="bs-dock-toggle" type="button" aria-expanded={dockSection === 'flows'} onclick={() => toggleDock('flows')}>
@@ -319,17 +313,6 @@
       </div>
     {/if}
   </section>
-
-  {#each [{ id: 'documents', label: 'Documents' }, { id: 'mocks', label: 'Mocks' }] as section (section.id)}
-    <section class="bs-dock-section" class:open={dockSection === section.id}>
-      <div class="bs-dock-head">
-        <button class="bs-dock-toggle" type="button" aria-expanded={dockSection === section.id} onclick={() => toggleDock(section.id as DockSection)}>
-          <span class="material-symbols-outlined" aria-hidden="true" style="font-size:13px">{dockSection === section.id ? 'expand_more' : 'chevron_right'}</span><span>{section.label}</span>
-        </button>
-      </div>
-      {#if dockSection === section.id}<div class="bs-dock-empty">Nothing here yet.</div>{/if}
-    </section>
-  {/each}
 </div>
 
 <div class="bs-workspace-strip">

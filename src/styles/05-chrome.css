@@ -231,6 +231,95 @@
 .bs-settings-about { display: flex; flex-direction: column; gap: 3px; padding: 2px 0 0 38px; }
 .bs-settings-appname { font-size: 14px; font-weight: 700; color: var(--text); }
 .bs-settings-about .bs-link { margin-top: 4px; }
+.bs-mcp-clients {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 7px;
+  margin: 4px 0 8px;
+}
+.bs-mcp-client {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px;
+  border: 0.5px solid var(--sepsoft);
+  border-radius: 9px;
+  background: var(--inset);
+}
+.bs-mcp-client.unavailable { opacity: 0.54; }
+.bs-mcp-client-dot {
+  width: 8px;
+  height: 8px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: var(--t3);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--t3) 14%, transparent);
+}
+.bs-mcp-client-dot.on {
+  background: var(--green);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--green) 15%, transparent);
+}
+.bs-mcp-client-copy { min-width: 0; flex: 1; }
+.bs-mcp-client-copy .bs-settings-name,
+.bs-mcp-client-copy .bs-settings-desc {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.bs-mcp-client-copy .bs-settings-name { font-size: 12.5px; }
+.bs-mcp-client-copy .bs-settings-desc { font-size: 10.5px; }
+.bs-mcp-state {
+  display: none;
+  color: var(--t2);
+  font-size: 10.5px;
+}
+.bs-mcp-state.on { color: var(--green); }
+.bs-mcp-host-row { align-items: center; }
+.bs-mcp-hosts {
+  width: min(310px, 48%);
+  height: 32px;
+  margin-left: auto;
+  padding: 0 10px;
+  border: 0.5px solid var(--sep);
+  border-radius: 8px;
+  outline: none;
+  background: var(--inset);
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 11.5px;
+}
+.bs-mcp-hosts:focus {
+  border-color: color-mix(in srgb, var(--accent) 60%, transparent);
+  box-shadow: var(--focus-ring);
+}
+.bs-mcp-feedback {
+  margin-top: 8px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  font-size: 11.5px;
+  line-height: 1.4;
+}
+.bs-mcp-feedback.success {
+  color: var(--green);
+  background: color-mix(in srgb, var(--green) 10%, transparent);
+}
+.bs-mcp-feedback.error {
+  color: var(--red);
+  background: color-mix(in srgb, var(--red) 10%, transparent);
+}
+.bs-mcp-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-top: 12px;
+  border-top: 0.5px solid var(--sepsoft);
+}
+.bs-mcp-actions > .bs-settings-desc { min-width: 0; flex: 1; }
+.bs-mcp-mono {
+  font-family: var(--mono);
+  overflow-wrap: anywhere;
+}
 
 @media (max-width: 760px) {
   .bs-settings-modal { width: min(720px, 94vw); }
@@ -246,6 +335,9 @@
     flex-wrap: wrap;
     height: auto;
   }
+  .bs-mcp-clients { grid-template-columns: 1fr; }
+  .bs-mcp-hosts { width: 100%; margin-left: 0; }
+  .bs-mcp-actions { align-items: stretch; flex-direction: column; }
 }
 
 .bs ::-webkit-scrollbar { width: 11px; height: 11px; }

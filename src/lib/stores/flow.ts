@@ -38,8 +38,11 @@ export interface FlowOutputRow {
 export interface FlowRunState {
   status: 'idle' | 'running' | FlowRunStatus;
   flowId: string | null;
-  /** Per-block badge state + detail (a RunResultRow, an error string, …). */
-  blocks: Record<string, { state: FlowBlockState; detail?: unknown }>;
+  /**
+   * Per-block badge state + detail (a RunResultRow, an error string, …) and
+   * `input`, the payload the block received (the node panel's Input tab).
+   */
+  blocks: Record<string, { state: FlowBlockState; detail?: unknown; input?: unknown }>;
   outputs: FlowOutputRow[];
   logs: string[];
   error?: string;
@@ -139,13 +142,17 @@ function flowScriptContext(payload: unknown): ScriptContext {
 /** The real interpreter effects, streaming progress into `flowRun`. */
 function realEffects(): FlowEffects {
   return {
-    runRequest: async (requestId) => {
+    runRequest: async (requestId, _payload, variables) => {
       const node = findNode(get(collections), requestId);
       if (!node || node.kind !== 'request') {
         throw new Error(`Request block points to a missing request (${requestId}). Re-pick it.`);
       }
+      // Wired-in variables ride the runner's iterationData slot: it already wins
+      // over env/globals in {{var}} resolution and in `pm.variables.get`.
       const row =
-        node.protocol === 'grpc' ? await runGrpcNode(node, 1, {}) : await runHttpNode(node, 1, {});
+        node.protocol === 'grpc'
+          ? await runGrpcNode(node, 1, variables)
+          : await runHttpNode(node, 1, variables);
       flowRun.update((r) => ({ ...r, logs: [...r.logs, ...row.logs] }));
       return {
         row,
@@ -166,7 +173,16 @@ function realEffects(): FlowEffects {
     },
     sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
     onBlock: (blockId, state, detail) =>
-      flowRun.update((r) => ({ ...r, blocks: { ...r.blocks, [blockId]: { state, detail } } })),
+      flowRun.update((r) => {
+        const previous = r.blocks[blockId];
+        // 'running' carries the incoming payload; later states carry the result,
+        // so keep the input around for the panel's Input tab.
+        const entry =
+          state === 'running'
+            ? { state, input: detail }
+            : { state, detail, input: previous?.input };
+        return { ...r, blocks: { ...r.blocks, [blockId]: entry } };
+      }),
     onOutput: (blockId, label, payload) =>
       flowRun.update((r) => ({
         ...r,

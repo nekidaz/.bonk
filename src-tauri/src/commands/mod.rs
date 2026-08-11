@@ -414,7 +414,10 @@ pub fn openapi_import_pick() -> Result<Option<ImportedFile>, String> {
 /// Prompt for a save location and write `contents` there. `Ok(None)` when the
 /// user cancels the dialog; on success returns the chosen path.
 #[tauri::command]
-pub fn openapi_export_save(default_name: String, contents: String) -> Result<Option<String>, String> {
+pub fn openapi_export_save(
+    default_name: String,
+    contents: String,
+) -> Result<Option<String>, String> {
     let Some(path) = rfd::FileDialog::new()
         .set_file_name(&default_name)
         .set_title("Export OpenAPI")

@@ -1,4 +1,5 @@
 mod commands;
+mod mcp_install;
 mod state;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -71,7 +72,10 @@ pub fn run() {
             commands::git_log,
             commands::git_status_diffs,
             commands::git_discard,
-            commands::git_graph
+            commands::git_graph,
+            mcp_install::mcp_integration_status,
+            mcp_install::mcp_install,
+            mcp_install::mcp_uninstall
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

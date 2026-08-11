@@ -9,8 +9,11 @@
   import { SvelteFlow, Background, Controls, type Node, type Edge } from '@xyflow/svelte';
   import '@xyflow/svelte/dist/style.css';
   import { get } from 'svelte/store';
-  import type { Tab, RequestNode, TreeNode } from '../domain/types';
+  import type { Tab, RequestNode, TreeNode, RunResultRow } from '../domain/types';
   import type { FlowBlock, FlowBlockType, FlowEdge } from '../domain/flow';
+  import { isControlEdge, varPortName } from '../domain/flow';
+  import { findNode } from '../domain/tree';
+  import { requestVariableNames, type FlowNodeActions } from '../domain/flowNode';
   import {
     flows,
     collections,
@@ -38,19 +41,70 @@
       id: b.id,
       type: 'bonk',
       position: { x: b.x, y: b.y },
-      data: { config: b.config },
+      data: { config: b.config, color: b.color, disabled: b.disabled, actions },
       deletable: b.config.type !== 'start',
     };
   }
   function toBlock(n: Node): FlowBlock {
-    return { id: n.id, x: n.position.x, y: n.position.y, config: n.data.config as FlowBlock['config'] };
+    return {
+      id: n.id,
+      x: n.position.x,
+      y: n.position.y,
+      config: n.data.config as FlowBlock['config'],
+      color: n.data.color as string | undefined,
+      disabled: n.data.disabled as boolean | undefined,
+    };
   }
   function toCanvasEdge(e: FlowEdge): Edge {
-    return { id: e.id, source: e.from, sourceHandle: e.fromPort, target: e.to };
+    return {
+      id: e.id,
+      source: e.from,
+      sourceHandle: e.fromPort,
+      target: e.to,
+      targetHandle: e.toPort,
+      // A variable wire binds data instead of moving execution — draw it dashed.
+      class: isControlEdge(e) ? undefined : 'fv-var-edge',
+      animated: !isControlEdge(e),
+    };
   }
   function toModelEdge(e: Edge): FlowEdge {
-    return { id: e.id, from: e.source, fromPort: e.sourceHandle ?? 'out', to: e.target };
+    const toPort = e.targetHandle ?? undefined;
+    return {
+      id: e.id,
+      from: e.source,
+      fromPort: e.sourceHandle ?? 'out',
+      to: e.target,
+      ...(varPortName(toPort) ? { toPort } : {}),
+    };
   }
+
+  /** Node hover-toolbar actions, handed to every node through its `data`. */
+  const actions: FlowNodeActions = {
+    setColor: (id, color) => {
+      nodes = nodes.map((n) => (n.id === id ? { ...n, data: { ...n.data, color } } : n));
+    },
+    toggleDisabled: (id) => {
+      nodes = nodes.map((n) =>
+        n.id === id ? { ...n, data: { ...n.data, disabled: !n.data.disabled } } : n,
+      );
+    },
+    duplicate: (id) => {
+      const source = nodes.find((n) => n.id === id);
+      if (!source) return;
+      const copy: Node = {
+        ...source,
+        id: crypto.randomUUID(),
+        position: { x: source.position.x + 40, y: source.position.y + 40 },
+        selected: false,
+      };
+      nodes = [...nodes, copy];
+    },
+    remove: (id) => {
+      if (selectedId === id) selectedId = null;
+      nodes = nodes.filter((n) => n.id !== id);
+      edges = edges.filter((e) => e.source !== id && e.target !== id);
+    },
+  };
 
   const initial = get(flows).find((f) => f.id === flowId);
   let nodes = $state.raw<Node[]>((initial?.blocks ?? []).map(toNode));
@@ -69,6 +123,37 @@
   const selectedBlock = $derived(nodes.find((n) => n.id === selectedId));
   const selectedConfig = $derived(selectedBlock?.data.config as FlowBlock['config'] | undefined);
 
+  /** Panel tab. 'input'/'output'/'tests' read the selected block's last run. */
+  let panelTab = $state<'config' | 'input' | 'output' | 'tests'>('config');
+
+  /** The runner row for the selected request block's last run, if it ran. */
+  const selectedRow = $derived.by(() => {
+    if (!selectedId || selectedConfig?.type !== 'request') return undefined;
+    const detail = $flowRun.blocks[selectedId]?.detail;
+    return detail && typeof detail === 'object' ? (detail as RunResultRow) : undefined;
+  });
+
+  /** The payload that arrived at the selected block on its last run. */
+  const selectedInput = $derived(selectedId ? $flowRun.blocks[selectedId]?.input : undefined);
+  const ranSelected = $derived(Boolean(selectedId && $flowRun.blocks[selectedId]));
+
+  /** `{{vars}}` the selected request references (Postman's per-node Variables). */
+  const selectedVars = $derived.by(() => {
+    if (selectedConfig?.type !== 'request' || !selectedConfig.requestId) return [];
+    const node = findNode($collections, selectedConfig.requestId);
+    return node?.kind === 'request' ? requestVariableNames(node.request) : [];
+  });
+
+  /** Which of those a variable edge already feeds. */
+  const wiredVars = $derived(
+    new Set(
+      edges
+        .filter((e) => e.target === selectedId)
+        .map((e) => varPortName(e.targetHandle))
+        .filter((name): name is string => name !== null),
+    ),
+  );
+
   /** Replace the selected block's config (panel edits). */
   function setConfig(config: FlowBlock['config']): void {
     nodes = nodes.map((n) => (n.id === selectedId ? { ...n, data: { ...n.data, config } } : n));
@@ -85,14 +170,16 @@
 
   function addBlock(type: FlowBlockType): void {
     const id = crypto.randomUUID();
+    // Built through toNode so a palette block carries the same data as a loaded
+    // one (notably `actions`, which the node's hover toolbar calls).
     nodes = [
       ...nodes,
-      {
+      toNode({
         id,
-        type: 'bonk',
-        position: { x: 140 + (nodes.length % 6) * 60, y: 140 + (nodes.length % 8) * 48 },
-        data: { config: defaultBlockConfig(type) },
-      },
+        x: 140 + (nodes.length % 6) * 60,
+        y: 140 + (nodes.length % 8) * 48,
+        config: defaultBlockConfig(type),
+      }),
     ];
     selectedId = id;
   }
@@ -180,8 +267,54 @@
 
     {#if selectedConfig}
       <aside class="fv-panel">
-        <div class="fv-panel-h">{selectedConfig.type}</div>
-        {#if selectedConfig.type === 'start'}
+        {#if selectedConfig.type === 'request'}
+          <div class="fv-tabs">
+            {#each [{ id: 'config', label: 'Config' }, { id: 'input', label: 'Input' }, { id: 'output', label: 'Output' }, { id: 'tests', label: 'Tests' }] as t (t.id)}
+              <button
+                class="fv-tab"
+                class:on={panelTab === t.id}
+                onclick={() => (panelTab = t.id as typeof panelTab)}
+              >
+                {t.label}
+                {#if t.id === 'tests' && selectedRow && selectedRow.tests.length > 0}
+                  <span class="fv-tab-n" class:bad={selectedRow.tests.some((x) => !x.passed)}>{selectedRow.tests.length}</span>
+                {/if}
+              </button>
+            {/each}
+          </div>
+        {:else}
+          <div class="fv-panel-h">{selectedConfig.type}</div>
+        {/if}
+
+        {#if selectedConfig.type === 'request' && panelTab === 'input'}
+          {#if !ranSelected}
+            <p class="fv-hint">Run the flow to see what arrives at this block.</p>
+          {:else}
+            <p class="fv-hint">Payload from the upstream block:</p>
+            <textarea class="fv-in mono" rows="14" readonly value={JSON.stringify(selectedInput ?? null, null, 2)}></textarea>
+          {/if}
+        {:else if selectedConfig.type === 'request' && panelTab !== 'config'}
+          {#if !selectedRow}
+            <p class="fv-hint">Run the flow to see this block's {panelTab}.</p>
+          {:else if panelTab === 'output'}
+            <div class="fv-kv"><span>Status</span><b class:bad={!selectedRow.ok}>{selectedRow.status}</b></div>
+            <div class="fv-kv"><span>Time</span><b>{selectedRow.elapsedMs} ms</b></div>
+            <div class="fv-kv"><span>Target</span><b class="wrap">{selectedRow.target}</b></div>
+            {#if selectedRow.error}<div class="fv-err">{selectedRow.error}</div>{/if}
+            <label class="fv-l" for="fv-body">Response body</label>
+            <textarea id="fv-body" class="fv-in mono" rows="14" readonly value={selectedRow.responseBody ?? ''}></textarea>
+          {:else if selectedRow.tests.length === 0}
+            <p class="fv-hint">No tests ran for this request.</p>
+          {:else}
+            {#each selectedRow.tests as t, i (i)}
+              <div class="fv-test" class:bad={!t.passed}>
+                <span class="material-symbols-outlined" style="font-size:14px">{t.passed ? 'check_circle' : 'cancel'}</span>
+                <span class="fv-test-n">{t.name}</span>
+                {#if t.error}<span class="fv-test-e mono">{t.error}</span>{/if}
+              </div>
+            {/each}
+          {/if}
+        {:else if selectedConfig.type === 'start'}
           <p class="fv-hint">Entry point. Wire its output to the first block.</p>
         {:else if selectedConfig.type === 'request'}
           <label class="fv-l" for="fv-req">Saved request</label>
@@ -196,7 +329,22 @@
               <option value={r.id}>{r.name}</option>
             {/each}
           </select>
-          <p class="fv-hint">Output payload: {'{ status, ok, body, elapsedMs, error }'}.</p>
+          {#if selectedVars.length > 0}
+            <div class="fv-l">Variables ({selectedVars.length})</div>
+            <div class="fv-vars">
+              {#each selectedVars as name (name)}
+                <span class="fv-var mono" class:wired={wiredVars.has(name)}>{name}</span>
+              {/each}
+            </div>
+            <p class="fv-hint">
+              Each has a port on the node's left edge: wire a block's output into it to
+              override that value for this run. Unwired ones come from the environment.
+            </p>
+          {/if}
+          <p class="fv-hint">
+            Leaves through <b>Success</b> or <b>Fail</b>; payload is
+            {'{ status, ok, body, elapsedMs, error }'}. An unwired Fail port ends that branch.
+          </p>
         {:else if selectedConfig.type === 'if'}
           <label class="fv-l" for="fv-cond">Condition (JS, `payload` in scope)</label>
           <textarea
@@ -375,6 +523,42 @@
     gap: 8px;
   }
   .fv-panel-h { font-size: 12px; font-weight: 700; color: var(--text); text-transform: capitalize; }
+  .fv-tabs { display: flex; gap: 2px; border-bottom: 0.5px solid var(--sep); margin: -2px -12px 4px; padding: 0 10px; }
+  .fv-tab {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    height: 26px;
+    padding: 0 8px;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--t3);
+    border-bottom: 2px solid transparent;
+  }
+  .fv-tab:hover { color: var(--text); }
+  .fv-tab.on { color: var(--text); border-bottom-color: var(--accent); }
+  .fv-tab-n { font-size: 9.5px; color: #34a853; }
+  .fv-tab-n.bad { color: #ea4335; }
+  .fv-kv { display: flex; gap: 8px; font-size: 11px; align-items: baseline; }
+  .fv-kv span { color: var(--t3); min-width: 48px; flex: none; }
+  .fv-kv b { color: var(--text); font-family: 'JetBrains Mono', monospace; font-weight: 600; }
+  .fv-kv b.bad { color: #ea4335; }
+  .fv-kv b.wrap { word-break: break-all; }
+  .fv-err { font-size: 11px; color: #ea4335; word-break: break-word; }
+  .fv-vars { display: flex; flex-wrap: wrap; gap: 4px; }
+  .fv-var {
+    font-size: 10px;
+    padding: 2px 6px;
+    border-radius: 5px;
+    background: var(--hover);
+    color: var(--t2);
+  }
+  .fv-var.wired { color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+  .fv-canvas :global(.fv-var-edge path) { stroke-dasharray: 4 3; }
+  .fv-test { display: flex; align-items: baseline; gap: 5px; font-size: 11px; color: #34a853; }
+  .fv-test.bad { color: #ea4335; }
+  .fv-test-n { color: var(--text); word-break: break-word; }
+  .fv-test-e { color: #ea4335; font-size: 10px; word-break: break-word; }
   .fv-l { font-size: 11px; color: var(--t2); }
   .fv-in {
     width: 100%;

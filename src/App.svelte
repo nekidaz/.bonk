@@ -267,15 +267,30 @@
     const prevCursor = document.body.style.cursor;
     document.body.style.userSelect = 'none';
     document.body.style.cursor = cursor;
+    // Coalesce pointermove bursts to one layout per frame; more events than
+    // frames otherwise re-runs full app layout mid-frame and the drag stutters.
+    let pending: PointerEvent | null = null;
+    let raf = 0;
+    function move(ev: PointerEvent): void {
+      pending = ev;
+      if (!raf)
+        raf = requestAnimationFrame(() => {
+          raf = 0;
+          if (pending) onMove(pending);
+          pending = null;
+        });
+    }
     function up(): void {
-      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointermove', move);
       window.removeEventListener('pointerup', up);
       window.removeEventListener('pointercancel', up);
+      if (raf) cancelAnimationFrame(raf);
+      if (pending) onMove(pending);
       document.body.style.userSelect = prevUserSelect;
       document.body.style.cursor = prevCursor;
       onDone();
     }
-    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointermove', move);
     window.addEventListener('pointerup', up);
     window.addEventListener('pointercancel', up);
   }

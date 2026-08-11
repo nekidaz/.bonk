@@ -1,15 +1,18 @@
 {
   "name": "bonk",
-  "version": "0.1.6",
+  "version": "0.2.0",
   "description": "Rust-powered desktop API client for HTTP and gRPC built with Tauri and Svelte.",
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "app": "tauri dev",
+    "app": "npm run prepare:mcp && tauri dev",
     "build": "vite build",
+    "build:mcp": "cargo build --release -p bonk-mcp",
     "preview": "vite preview",
+    "mcp": "cargo run -p bonk-mcp --",
+    "prepare:mcp": "node scripts/prepare-mcp-sidecar.mjs",
     "check": "svelte-check --tsconfig ./tsconfig.app.json",
-    "tauri": "tauri",
+    "tauri": "npm run prepare:mcp && tauri",
     "test": "vitest run",
     "test:watch": "vitest"
   },

@@ -6,15 +6,20 @@
  *
  * Semantics:
  * - Exactly one `start` block is required; execution begins there with `{}`.
- * - A single JSON `payload` travels along each edge; fan-out from one port runs
- *   targets sequentially in edge order.
- * - A `request` block never aborts the run — its outcome (`ok: false` included)
- *   becomes the payload, so failures are handled by branching on `payload.ok`.
+ * - A single JSON `payload` travels along each control edge; fan-out from one
+ *   port runs targets sequentially in edge order.
+ * - A variable edge (`toPort: 'var:<name>'`) moves no execution: it binds the
+ *   source block's last output to that `{{name}}` for the target request only.
+ * - A disabled block is skipped, passing its payload straight through.
+ * - A `request` block never aborts the run — it leaves through `success` or
+ *   `fail` depending on its outcome, and its result (`ok: false` included) is
+ *   the payload. An unwired `fail` port ends that branch; flows authored before
+ *   these ports existed used a single `out`, which still works.
  * - A fatal script error, a forEach over a non-array, or a dangling edge aborts
  *   the run with `status: 'error'`.
  * - A step counter caps total block executions, so a cyclic graph terminates.
  */
-import type { Flow, FlowBlock } from './flow';
+import { isControlEdge, varPortName, type Flow, type FlowBlock } from './flow';
 import type { RunResultRow } from './types';
 
 export interface FlowRequestOutcome {
@@ -32,10 +37,18 @@ export interface FlowScriptOutcome {
   error?: string;
 }
 
-export type FlowBlockState = 'running' | 'ok' | 'error';
+export type FlowBlockState = 'running' | 'ok' | 'error' | 'skipped';
 
 export interface FlowEffects {
-  runRequest(requestId: string, payload: unknown): Promise<FlowRequestOutcome>;
+  /**
+   * `variables` are the values bound by incoming variable edges; they override
+   * the environment for this send only (Postman's per-node variables).
+   */
+  runRequest(
+    requestId: string,
+    payload: unknown,
+    variables: Record<string, string>,
+  ): Promise<FlowRequestOutcome>;
   runScript(code: string, payload: unknown): Promise<FlowScriptOutcome>;
   sleep(ms: number): Promise<void>;
   /** Progress callback per block (canvas badges). `detail` is state-specific. */
@@ -82,21 +95,70 @@ export async function executeFlow(
     return { status: 'error', steps, error: 'Flow needs exactly one Start block.' };
   }
 
-  /** Run every edge leaving `block` on `port`, sequentially, with `payload`. */
+  /** Last payload each block emitted this run — what variable edges read. */
+  const outputs = new Map<string, unknown>();
+
+  /** Run every control edge leaving `block` on `port`, sequentially. */
   async function follow(block: FlowBlock, port: string, payload: unknown): Promise<void> {
+    outputs.set(block.id, payload);
     for (const e of flow.edges) {
-      if (e.from !== block.id || e.fromPort !== port) continue;
+      if (e.from !== block.id || e.fromPort !== port || !isControlEdge(e)) continue;
       const target = byId.get(e.to);
       if (!target) throw new FlowAbort('error', `Edge ${e.id} points to a missing block.`);
       await exec(target, payload);
     }
   }
 
+  /** A value bound into a `{{var}}` is text: objects go in as JSON. */
+  function asVariable(value: unknown): string {
+    if (typeof value === 'string') return value;
+    if (value === undefined || value === null) return '';
+    return typeof value === 'object' ? JSON.stringify(value) : String(value);
+  }
+
+  /**
+   * Variables wired into `block` by variable edges. A source that has not run
+   * yet contributes nothing, so the environment value stands.
+   */
+  function boundVariables(block: FlowBlock): Record<string, string> {
+    const bound: Record<string, string> = {};
+    for (const e of flow.edges) {
+      const name = varPortName(e.toPort);
+      if (e.to !== block.id || name === null) continue;
+      if (!outputs.has(e.from)) continue;
+      bound[name] = asVariable(outputs.get(e.from));
+    }
+    return bound;
+  }
+
   async function exec(block: FlowBlock, payload: unknown): Promise<void> {
     if (fx.isCancelled()) throw new FlowAbort('cancelled', 'Run cancelled.');
     if (++steps > maxSteps) throw new FlowAbort('error', `Flow hit the step limit (${maxSteps}).`);
     const c = block.config;
-    fx.onBlock(block.id, 'running');
+    fx.onBlock(block.id, 'running', payload);
+
+    // A disabled block does nothing but hand its payload to the next block, so a
+    // step can be muted without unwiring the graph. It leaves through the first
+    // wired port of its pass-through preference ('out' covers legacy wiring).
+    if (block.disabled) {
+      fx.onBlock(block.id, 'skipped');
+      outputs.set(block.id, payload);
+      const preferred =
+        c.type === 'request' ? ['success', 'out']
+        : c.type === 'if' ? ['true', 'out']
+        : c.type === 'loop' ? ['done', 'out']
+        : ['out'];
+      for (const port of preferred) {
+        const wired = flow.edges.some(
+          (e) => e.from === block.id && e.fromPort === port && isControlEdge(e),
+        );
+        if (wired) {
+          await follow(block, port, payload);
+          break;
+        }
+      }
+      return;
+    }
 
     switch (c.type) {
       case 'start': {
@@ -105,9 +167,16 @@ export async function executeFlow(
         return;
       }
       case 'request': {
-        const outcome = await fx.runRequest(c.requestId, payload);
+        const outcome = await fx.runRequest(c.requestId, payload, boundVariables(block));
         fx.onBlock(block.id, outcome.row.ok ? 'ok' : 'error', outcome.row);
-        await follow(block, 'out', outcome.output);
+        const port = outcome.row.ok ? 'success' : 'fail';
+        // Flows authored before the success/fail ports wired everything through
+        // 'out'; fall back to it when the outcome's port has no edge, so those
+        // keep running. A new flow that leaves `fail` unwired stops that branch.
+        const wired = flow.edges.some(
+          (e) => e.from === block.id && e.fromPort === port && isControlEdge(e),
+        );
+        await follow(block, wired ? port : 'out', outcome.output);
         return;
       }
       case 'if': {

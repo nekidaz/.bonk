@@ -1,6 +1,6 @@
 [package]
 name = "bonk"
-version = "0.1.6"
+version = "0.2.0"
 description = "Desktop API client for HTTP and gRPC."
 authors = ["Bonk contributors"]
 license = "MIT"
@@ -28,3 +28,4 @@ serde_json = "1"
 rfd = "0.15"
 reqwest = { version = "0.13.4", default-features = false, features = ["json", "multipart", "rustls", "http2", "system-proxy", "gzip", "brotli", "deflate", "zstd"] }
 tokio = { version = "1", features = ["process", "sync", "time"] }
+toml_edit = "0.25.12"

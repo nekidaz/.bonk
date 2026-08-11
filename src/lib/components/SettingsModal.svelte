@@ -1,6 +1,12 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { getVersion } from '@tauri-apps/api/app';
+  import {
+    installMcpIntegration,
+    mcpIntegrationStatus,
+    uninstallMcpIntegration,
+    type McpIntegrationStatus,
+  } from '../api';
   import { theme, setTheme, THEME_OPTIONS } from '../theme';
   import {
     historyLimit,
@@ -10,6 +16,7 @@
     requestFollowRedirects,
     requestTimeoutMs,
     requestValidateTls,
+    requestConfirm,
     responseLineWrap,
     responseBodyLimitMb,
     workspacePath,
@@ -23,12 +30,28 @@
   // which is generated from package.json). Falls back to an empty string in
   // non-Tauri browser smoke tests where the app API is unavailable.
   let appVersion = $state('');
+  let mcpStatus = $state<McpIntegrationStatus | null>(null);
+  let mcpBusy = $state(false);
+  let mcpMessage = $state('');
+  let mcpError = $state('');
+  let mcpAllowWrites = $state(true);
+  let mcpAllowNetwork = $state(true);
+  let mcpTargetHosts = $state('');
+  let mcpWasOpen = $state(false);
   onMount(async () => {
     try {
       appVersion = await getVersion();
     } catch {
       // getVersion is unavailable outside the Tauri runtime; leave it blank.
     }
+    await refreshMcpStatus();
+  });
+
+  // Client installation can change while Bonk is running, so refresh whenever
+  // the settings window is opened instead of relying only on the startup scan.
+  $effect(() => {
+    if (open && !mcpWasOpen) void refreshMcpStatus();
+    mcpWasOpen = open;
   });
 
   const REPO_URL = 'https://github.com/nekidaz/.bonk';
@@ -69,6 +92,78 @@
 
   function setBodyLimitMb(value: number): void {
     responseBodyLimitMb.set(clampInt(value, 1, 250, 25));
+  }
+
+  function errorMessage(error: unknown): string {
+    return error instanceof Error ? error.message : String(error);
+  }
+
+  async function refreshMcpStatus(): Promise<void> {
+    try {
+      mcpStatus = await mcpIntegrationStatus();
+    } catch {
+      // The command is unavailable in browser-only previews.
+    }
+  }
+
+  async function installMcp(): Promise<void> {
+    if (!$workspacePath) {
+      mcpError = 'Choose a workspace folder first.';
+      return;
+    }
+    mcpBusy = true;
+    mcpError = '';
+    mcpMessage = '';
+    try {
+      const targetHosts = mcpTargetHosts
+        .split(/[\s,]+/)
+        .map((host) => host.trim())
+        .filter(Boolean);
+      const result = await installMcpIntegration({
+        workspace: $workspacePath,
+        readOnly: !mcpAllowWrites,
+        noNetwork: !mcpAllowNetwork,
+        targetHosts,
+      });
+      mcpStatus = result.status;
+      mcpMessage = `${result.messages.join(' · ')}. Restart the configured AI apps.`;
+    } catch (error) {
+      mcpError = errorMessage(error);
+    } finally {
+      mcpBusy = false;
+    }
+  }
+
+  async function uninstallMcp(): Promise<void> {
+    const confirmed = await requestConfirm(
+      'Remove the Bonk MCP entry from all detected local AI clients? Other MCP servers will be preserved.',
+      'Remove MCP',
+    );
+    if (!confirmed) return;
+    mcpBusy = true;
+    mcpError = '';
+    mcpMessage = '';
+    try {
+      const result = await uninstallMcpIntegration();
+      mcpStatus = result.status;
+      mcpMessage = result.messages.join(' · ');
+    } catch (error) {
+      mcpError = errorMessage(error);
+    } finally {
+      mcpBusy = false;
+    }
+  }
+
+  function anyMcpInstalled(): boolean {
+    return mcpStatus?.clients.some((client) => client.installed) ?? false;
+  }
+
+  function mcpClientState(client: McpIntegrationStatus['clients'][number]): string {
+    if (client.error) return 'Config error';
+    if (!client.available) return 'Not detected';
+    if (client.installed && client.needsUpdate) return 'Update needed';
+    if (client.installed) return 'Connected';
+    return 'Ready to install';
   }
 </script>
 
@@ -131,6 +226,88 @@
                   </button>
                 {/each}
               </div>
+            </div>
+          </section>
+
+          <section class="bs-settings-section bs-mcp-section">
+            <div class="bs-settings-section-head">
+              <div class="bs-settings-icon" aria-hidden="true">
+                <span class="material-symbols-outlined" style="font-size:18px">smart_toy</span>
+              </div>
+              <div>
+                <div class="bs-settings-kicker">AI / MCP</div>
+                <div class="bs-settings-muted">Connect this workspace to every detected local AI client.</div>
+              </div>
+            </div>
+
+            <div class="bs-mcp-clients" aria-label="Detected MCP clients">
+              {#if mcpStatus}
+                {#each mcpStatus.clients as client (client.id)}
+                  <div class="bs-mcp-client" class:unavailable={!client.available}>
+                    <span class="bs-mcp-client-dot" class:on={client.installed && !client.needsUpdate}></span>
+                    <div class="bs-mcp-client-copy">
+                      <span class="bs-settings-name">{client.name}</span>
+                      <span class="bs-settings-desc">
+                        {client.error ?? (client.workspace ? `${mcpClientState(client)} · ${client.workspace}` : mcpClientState(client))}
+                      </span>
+                    </div>
+                    <span class:on={client.installed && !client.needsUpdate} class="bs-mcp-state">{mcpClientState(client)}</span>
+                  </div>
+                {/each}
+              {:else}
+                <div class="bs-settings-desc">Checking installed clients…</div>
+              {/if}
+            </div>
+
+            <label class="bs-settings-row bs-settings-toggle">
+              <div>
+                <span class="bs-settings-name">Allow workspace edits</span>
+                <span class="bs-settings-desc">AI clients may create, update, move, and delete Bonk requests.</span>
+              </div>
+              <input type="checkbox" checked={mcpAllowWrites} onchange={(e) => (mcpAllowWrites = e.currentTarget.checked)} />
+            </label>
+            <label class="bs-settings-row bs-settings-toggle">
+              <div>
+                <span class="bs-settings-name">Allow API calls</span>
+                <span class="bs-settings-desc">AI clients may execute HTTP and gRPC requests.</span>
+              </div>
+              <input type="checkbox" checked={mcpAllowNetwork} onchange={(e) => (mcpAllowNetwork = e.currentTarget.checked)} />
+            </label>
+            {#if mcpAllowNetwork}
+              <label class="bs-settings-row bs-mcp-host-row">
+                <div>
+                  <span class="bs-settings-name">Allowed API hosts</span>
+                  <span class="bs-settings-desc">Optional comma-separated allowlist. Leave empty to allow any target.</span>
+                </div>
+                <input
+                  class="bs-mcp-hosts"
+                  type="text"
+                  placeholder="api.example.com, *.internal.test"
+                  bind:value={mcpTargetHosts}
+                />
+              </label>
+            {/if}
+
+            {#if mcpMessage}<div class="bs-mcp-feedback success" role="status">{mcpMessage}</div>{/if}
+            {#if mcpError}<div class="bs-mcp-feedback error" role="alert">{mcpError}</div>{/if}
+
+            <div class="bs-mcp-actions">
+              <div class="bs-settings-desc">
+                {#if $workspacePath}
+                  Workspace: <span class="bs-mcp-mono">{$workspacePath}</span>
+                {:else}
+                  Choose a workspace in the Workspace section before installing.
+                {/if}
+              </div>
+              {#if anyMcpInstalled()}
+                <button type="button" class="bs-btn ghost danger" disabled={mcpBusy} onclick={() => void uninstallMcp()}>Remove</button>
+              {/if}
+              <button
+                type="button"
+                class="bs-btn primary"
+                disabled={mcpBusy || !$workspacePath || mcpStatus?.binaryAvailable === false}
+                onclick={() => void installMcp()}
+              >{mcpBusy ? 'Working…' : anyMcpInstalled() ? 'Update all clients' : 'Install for all clients'}</button>
             </div>
           </section>
 

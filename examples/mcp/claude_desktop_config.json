@@ -1,0 +1,16 @@
+{
+  "mcpServers": {
+    "bonk": {
+      "command": "/absolute/path/to/bonk-mcp",
+      "args": [
+        "--workspace",
+        "/absolute/path/to/workspace",
+        "--target-host",
+        "api.example.com"
+      ],
+      "env": {
+        "BONK_VAR_TOKEN": "replace-me"
+      }
+    }
+  }
+}

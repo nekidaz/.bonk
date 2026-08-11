@@ -61,6 +61,9 @@ do-one-thing-well API client that idles at basically zero.
   put a new request.
 - 🕘 **Request history** — configurable limit, pause, and one-click reopen.
 - 📥 **cURL import** — paste a `curl` command, get a request.
+- 🤖 **MCP server** — let Claude, ChatGPT, Codex, and other MCP clients inspect,
+  build, save, validate, and run Bonk HTTP/gRPC requests through a separate
+  headless binary. Supports local STDIO and remote Streamable HTTP transports.
 - 🔄 **Auto-updates** — the app checks for a newer signed release and installs it
   in place.
 - 🌑 **Offline & themed** — fonts vendored (no CDN), Big Sur-inspired UI with
@@ -154,9 +157,40 @@ runtime.
 npm run check
 npm test
 npm run build
-cargo test --manifest-path src-tauri/Cargo.toml
+cargo test --workspace
 cargo clippy --workspace --all-targets -- -D warnings
 ```
+
+## 🤖 AI / MCP
+
+The desktop app has a one-click setup:
+
+1. Open a Bonk workspace.
+2. Open **Settings → AI / MCP**.
+3. Choose whether AI may edit workspace files or call APIs, then click
+   **Install for all clients**.
+4. Restart the configured AI apps.
+
+Bonk detects Claude Desktop, Claude Code, and ChatGPT/Codex, installs its bundled
+MCP server in a stable per-user location, and preserves every unrelated config
+entry. The same button updates an existing integration; **Remove from clients**
+removes only the `bonk` entry.
+
+For a manual or headless setup, build the server directly:
+
+```sh
+cargo build --release -p bonk-mcp
+./target/release/bonk-mcp --workspace /absolute/path/to/workspace
+```
+
+The default transport is STDIO for local clients. It exposes redacted workspace
+resources plus tools for full workspace CRUD, HTTP validation/execution, gRPC
+reflection/templates/calls, `{{VARIABLES}}`, and Bonk pre-request/test scripts.
+It can also serve Streamable HTTP at `/mcp` for remote clients.
+
+See [docs/MCP.md](docs/MCP.md) for one-click behavior, manual Claude and OpenAI
+configuration, ChatGPT web, generic clients, remote deployment, and the security
+model.
 
 ## 📁 Workspace Files
 
