@@ -43,6 +43,11 @@ jobs:
       - name: Frontend build
         run: npm run build
 
+      # The Tauri build script requires the MCP sidecar binary to exist under
+      # src-tauri/binaries/, so stage it before any cargo build of the app crate.
+      - name: Stage MCP sidecar
+        run: node scripts/prepare-mcp-sidecar.mjs
+
       - name: Clippy
         run: cargo clippy --workspace --all-targets -- -D warnings
 
