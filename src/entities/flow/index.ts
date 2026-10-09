@@ -16,10 +16,9 @@ export {
   cancelFlowRun,
   createFlow,
   defaultBlockConfig,
-  flowRun,
   flows,
   openFlowTab,
   renameFlow,
   runFlow,
   updateFlow,
-} from './store';
+} from './store.svelte';

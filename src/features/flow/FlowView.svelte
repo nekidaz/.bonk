@@ -8,7 +8,6 @@
    */
   import { SvelteFlow, Background, Controls, type Node, type Edge } from '@xyflow/svelte';
   import '@xyflow/svelte/dist/style.css';
-  import { get } from 'svelte/store';
   import type { Tab, RequestNode, TreeNode, RunResultRow } from '$shared/model';
   import {
     type FlowBlock,
@@ -21,7 +20,6 @@
     renameFlow,
     runFlow,
     cancelFlowRun,
-    flowRun,
     defaultBlockConfig,
   } from '$entities/flow';
   import { findNode, workspace } from '$entities/workspace';
@@ -107,7 +105,7 @@
     },
   };
 
-  const initial = get(flows).find((f) => f.id === flowId);
+  const initial = flows.list.find((f) => f.id === flowId);
   let nodes = $state.raw<Node[]>((initial?.blocks ?? []).map(toNode));
   let edges = $state.raw<Edge[]>((initial?.edges ?? []).map(toCanvasEdge));
 
@@ -130,13 +128,13 @@
   /** The runner row for the selected request block's last run, if it ran. */
   const selectedRow = $derived.by(() => {
     if (!selectedId || selectedConfig?.type !== 'request') return undefined;
-    const detail = $flowRun.blocks[selectedId]?.detail;
+    const detail = flows.run.blocks[selectedId]?.detail;
     return detail && typeof detail === 'object' ? (detail as RunResultRow) : undefined;
   });
 
   /** The payload that arrived at the selected block on its last run. */
-  const selectedInput = $derived(selectedId ? $flowRun.blocks[selectedId]?.input : undefined);
-  const ranSelected = $derived(Boolean(selectedId && $flowRun.blocks[selectedId]));
+  const selectedInput = $derived(selectedId ? flows.run.blocks[selectedId]?.input : undefined);
+  const ranSelected = $derived(Boolean(selectedId && flows.run.blocks[selectedId]));
 
   /** `{{vars}}` the selected request references (Postman's per-node Variables). */
   const selectedVars = $derived.by(() => {
@@ -209,11 +207,11 @@
 
   // ---- Run state ----
 
-  const run = $derived($flowRun);
+  const run = $derived(flows.run);
   const isThisFlow = $derived(run.flowId === flowId);
   const running = $derived(isThisFlow && run.status === 'running');
 
-  const flowName = $derived($flows.find((f) => f.id === flowId)?.name ?? '');
+  const flowName = $derived(flows.list.find((f) => f.id === flowId)?.name ?? '');
 
   function fmt(payload: unknown): string {
     const s = typeof payload === 'string' ? payload : JSON.stringify(payload);

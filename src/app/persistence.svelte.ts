@@ -80,9 +80,9 @@ async function loadSecrets(g: VarRow[], envs: Environment[]) {
 }
 
 /**
- * Restore persisted state into the stores: tabs, history, settings, the
- * workspace tree, and the previously-focused tab. No subscriptions are
- * registered here — this is the one-shot restore half of hydrate().
+ * Restore persisted state: tabs, history, settings, the
+ * workspace tree, and the previously-focused tab. Nothing is saved
+ * here — this is the one-shot restore half of hydrate().
  */
 async function restoreState(): Promise<void> {
   // loadState verifies the value is an array when the fallback is one, so a
@@ -122,7 +122,7 @@ async function restoreState(): Promise<void> {
   environments.globals = loaded.globals;
   environments.list = loaded.envs;
   environments.activeId = await loadState<string | null>('activeEnvironmentId', null);
-  flows.set(await loadState<Flow[]>('flows', []));
+  flows.list = await loadState<Flow[]>('flows', []);
   Object.assign(collapsedFolders, await loadState<Record<string, string[]>>('collapsedFolders', {}));
   let nextTree: TreeNode[] = [];
   if (savedWorkspacePath) {
@@ -143,14 +143,13 @@ async function restoreState(): Promise<void> {
 }
 
 /**
- * Wire the store→disk persistence subscriptions and return a teardown that drops
- * them all. Production calls hydrate() once and never tears down; the teardown
- * exists for HMR / tests so the (single) live subscription set can be re-armed.
+ * Save state to disk on every change: one $effect per saved key, each re-runs (and saves) when
+ * the state it reads changes, and once right away when wired.
+ * Returns a teardown that stops them all. Production calls hydrate() once and never tears down;
+ * the teardown exists for HMR / tests so the (single) live set can be re-armed.
  */
 function wirePersistence(): () => void {
-  const unsubs = [flows.subscribe((v) => saveStateDebounced('flows', v))];
-  // Rune state: one effect per saved value; each re-runs (and saves) when the value it reads changes.
-  const stopEffects = $effect.root(() => {
+  return $effect.root(() => {
     // Persist requests, not live connections: a tab's gRPC connectionId/tree point
     // at a backend connection that's gone after a restart, so strip them. A restored
     // tab then reconnects on first use instead of failing with "unknown connection".
@@ -176,7 +175,7 @@ function wirePersistence(): () => void {
     $effect(() => saveStateDebounced('historyPaused', history.paused));
     $effect(() => saveStateDebounced('workspacePath', workspace.path));
     // Remember collapsed folders per workspace root (the Rust load always expands all).
-    // Runs on tree changes only: the root is read untracked, as the old subscription did.
+    // Runs on tree changes only: the root is read untracked.
     $effect(() => {
       const tree = workspace.tree;
       const root = untrack(() => workspace.path);
@@ -206,21 +205,18 @@ function wirePersistence(): () => void {
     $effect(() => saveStateDebounced('trustedCaPaths', requestPrefs.trustedCaPaths));
     $effect(() => saveStateDebounced('grpcDeadlineMs', requestPrefs.grpcDeadlineMs));
     $effect(() => saveStateDebounced('grpcAutoReflect', requestPrefs.grpcAutoReflect));
+    $effect(() => saveStateDebounced('flows', flows.list));
   });
-  return () => {
-    for (const unsub of unsubs) unsub();
-    stopEffects();
-  };
 }
 
 /**
- * Restore persisted state, then wire the persistence subscriptions. Returns a
- * teardown that drops the subscriptions and re-arms hydrate (for HMR / tests);
+ * Restore persisted state, then start saving it. Returns a
+ * teardown that stops the saving and re-arms hydrate (for HMR / tests);
  * production calls this once on startup and never tears down.
  */
 export async function hydrate(): Promise<() => void> {
-  // Already hydrated: return a no-op teardown so the (single) live subscription
-  // set is never torn down by a second caller.
+  // Already hydrated: return a no-op teardown so the (single) live set of savers
+  // is never torn down by a second caller.
   if (hydrated) return () => {};
   hydrated = true;
   await restoreState();
@@ -234,7 +230,7 @@ export async function hydrate(): Promise<() => void> {
 // --- HMR (dev only) ---
 // hydrate() is a one-shot (the `hydrated` guard) called once from App.onMount. A
 // partial HMR swap of this module resets the guard and re-wires persistence
-// against freshly re-created (empty) stores without anyone re-calling hydrate(),
+// against freshly re-created (empty) state without anyone re-calling hydrate(),
 // leaving the UI blank until a manual reload. Force a clean full reload so the
 // normal startup path runs again. Stripped from production builds.
 if (import.meta.hot) {

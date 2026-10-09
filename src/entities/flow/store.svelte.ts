@@ -1,4 +1,4 @@
-import { get, writable } from 'svelte/store';
+import { untrack } from 'svelte';
 import { t } from '$shared/i18n';
 import type { Tab, ScriptContext } from '$shared/model';
 import type { Flow, FlowBlockConfig } from './flow';
@@ -7,10 +7,6 @@ import { runScript } from '$shared/ipc';
 import { findNode, workspace } from '$entities/workspace';
 import { tabs } from '$entities/tab';
 import { applyScriptVars, activeEnvMap, globalsMap, runHttpNode, runGrpcNode } from '$entities/request';
-
-// Flows (node-graph orchestration documents). Live in app-state like
-// environments — they reference saved requests by id, not by content.
-export const flows = writable<Flow[]>([]);
 
 /**
  * Flows: CRUD over the persisted `flows` store, the per-run live state the
@@ -48,7 +44,24 @@ export interface FlowRunState {
 
 const IDLE: FlowRunState = { status: 'idle', flowId: null, blocks: {}, outputs: [], logs: [] };
 
-export const flowRun = writable<FlowRunState>({ ...IDLE });
+class Flows {
+  // Flows (node-graph orchestration documents). Live in app-state like
+  // environments — they reference saved requests by id, not by content.
+  list = $state.raw<Flow[]>([]);
+  /** The live (or last) run the canvas renders: block badges + output log. */
+  run = $state.raw<FlowRunState>({ ...IDLE });
+
+  /** Replace the list with `fn(list)`; reads untracked, so the canvas can call it from an $effect. */
+  update(fn: (list: Flow[]) => Flow[]): void {
+    this.list = fn(untrack(() => this.list));
+  }
+
+  /** Replace the run state with `fn(run)`; reads untracked. */
+  updateRun(fn: (run: FlowRunState) => FlowRunState): void {
+    this.run = fn(untrack(() => this.run));
+  }
+}
+export const flows = new Flows();
 
 let cancelRequested = false;
 
@@ -99,7 +112,7 @@ export function openFlowTab(flowId: string): void {
     tabs.activeId = existing.id;
     return;
   }
-  const flow = get(flows).find((f) => f.id === flowId);
+  const flow = flows.list.find((f) => f.id === flowId);
   if (!flow) return;
   const tab: Tab = {
     id: crypto.randomUUID(),
@@ -137,7 +150,7 @@ function flowScriptContext(payload: unknown): ScriptContext {
   };
 }
 
-/** The real interpreter effects, streaming progress into `flowRun`. */
+/** The real interpreter effects, streaming progress into `flows.run`. */
 function realEffects(): FlowEffects {
   return {
     runRequest: async (requestId, _payload, variables) => {
@@ -149,7 +162,7 @@ function realEffects(): FlowEffects {
       // over env/globals in {{var}} resolution and in `pm.variables.get`.
       const row =
         node.protocol === 'grpc' ? await runGrpcNode(node, 1, variables) : await runHttpNode(node, 1, variables);
-      flowRun.update((r) => ({ ...r, logs: [...r.logs, ...row.logs] }));
+      flows.updateRun((r) => ({ ...r, logs: [...r.logs, ...row.logs] }));
       return {
         row,
         output: {
@@ -164,12 +177,12 @@ function realEffects(): FlowEffects {
     runScript: async (code, payload) => {
       const res = await runScript('flow', code, flowScriptContext(payload));
       applyScriptVars(res);
-      if (res.logs.length > 0) flowRun.update((r) => ({ ...r, logs: [...r.logs, ...res.logs] }));
+      if (res.logs.length > 0) flows.updateRun((r) => ({ ...r, logs: [...r.logs, ...res.logs] }));
       return { value: res.returnValue, logs: res.logs, error: res.error ?? undefined };
     },
     sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
     onBlock: (blockId, state, detail) =>
-      flowRun.update((r) => {
+      flows.updateRun((r) => {
         const previous = r.blocks[blockId];
         // 'running' carries the incoming payload; later states carry the result,
         // so keep the input around for the panel's Input tab.
@@ -177,7 +190,7 @@ function realEffects(): FlowEffects {
         return { ...r, blocks: { ...r.blocks, [blockId]: entry } };
       }),
     onOutput: (blockId, label, payload) =>
-      flowRun.update((r) => ({
+      flows.updateRun((r) => ({
         ...r,
         outputs: [...r.outputs, { blockId, label, payload, at: Date.now() }],
       })),
@@ -185,15 +198,15 @@ function realEffects(): FlowEffects {
   };
 }
 
-/** Run a flow, streaming block states + outputs into `flowRun`. Never throws. */
+/** Run a flow, streaming block states + outputs into `flows.run`. Never throws. */
 export async function runFlow(flowId: string): Promise<void> {
-  if (get(flowRun).status === 'running') return;
-  const flow = get(flows).find((f) => f.id === flowId);
+  if (flows.run.status === 'running') return;
+  const flow = flows.list.find((f) => f.id === flowId);
   if (!flow) return;
   cancelRequested = false;
-  flowRun.set({ status: 'running', flowId, blocks: {}, outputs: [], logs: [] });
+  flows.run = { status: 'running', flowId, blocks: {}, outputs: [], logs: [] };
   const summary = await executeFlow(flow, realEffects());
-  flowRun.update((r) => ({ ...r, status: summary.status, error: summary.error }));
+  flows.updateRun((r) => ({ ...r, status: summary.status, error: summary.error }));
 }
 
 /** Default config for a block added from the canvas palette. */

@@ -1,7 +1,7 @@
 <script lang="ts">
   /**
    * One block on the Flow canvas: icon + title + a live status dot fed by the
-   * `flowRun` store. Output ports come from `outPorts(type)` — one right-side
+   * `flows.run` state. Output ports come from `outPorts(type)` — one right-side
    * handle per port, labeled when there are two (request / if / loop).
    *
    * A `request` block renders Postman-Flows-style detail: the folder path it
@@ -13,7 +13,7 @@
    * FlowView through `data.actions` — the canvas owns the node array.
    */
   import { Handle, Position, type NodeProps } from '@xyflow/svelte';
-  import { outPorts, varPortId, type FlowBlockConfig, flowRun } from '$entities/flow';
+  import { outPorts, varPortId, type FlowBlockConfig, flows } from '$entities/flow';
   import { findNode, idToRel, workspace } from '$entities/workspace';
   import { requestVariableNames, type FlowNodeActions } from './flowNode';
   import type { RunResultRow } from '$shared/model';
@@ -27,10 +27,10 @@
   const actions = $derived(data.actions as FlowNodeActions | undefined);
   const ports = $derived(outPorts(config.type));
   // Named runState: a plain `state` binding shadows the `$state` rune below.
-  const runState = $derived($flowRun.blocks[id]?.state);
+  const runState = $derived(flows.run.blocks[id]?.state);
   /** A request block's detail is the runner row for its last run. */
   const row = $derived.by(() => {
-    const detail = $flowRun.blocks[id]?.detail;
+    const detail = flows.run.blocks[id]?.detail;
     return config.type === 'request' && detail && typeof detail === 'object' ? (detail as RunResultRow) : undefined;
   });
 

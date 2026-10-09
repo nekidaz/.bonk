@@ -712,10 +712,10 @@
         </div>
         {#if dockSection === 'flows'}
           <div class="bs-dock-body">
-            {#if $flows.length === 0}
+            {#if flows.list.length === 0}
               <div class="bs-dock-empty">{t('sidebar.noFlows')}</div>
             {:else}
-              {#each $flows as flow (flow.id)}
+              {#each flows.list as flow (flow.id)}
                 <button class="bs-dock-item" type="button" onclick={() => chooseFlow(flow.id)}>
                   <span class="material-symbols-outlined" aria-hidden="true" style="font-size:14px">account_tree</span
                   ><span>{flow.name}</span>
