@@ -24,7 +24,7 @@
     flowRun,
     defaultBlockConfig,
   } from '$entities/flow';
-  import { findNode, collections } from '$entities/workspace';
+  import { findNode, workspace } from '$entities/workspace';
   import { requestVariableNames, type FlowNodeActions } from './flowNode';
   import FlowNode from './FlowNode.svelte';
   import { t } from '$shared/i18n';
@@ -141,7 +141,7 @@
   /** `{{vars}}` the selected request references (Postman's per-node Variables). */
   const selectedVars = $derived.by(() => {
     if (selectedConfig?.type !== 'request' || !selectedConfig.requestId) return [];
-    const node = findNode($collections, selectedConfig.requestId);
+    const node = findNode(workspace.tree, selectedConfig.requestId);
     return node?.kind === 'request' ? requestVariableNames(node.request) : [];
   });
 
@@ -205,7 +205,7 @@
     }
     return out;
   }
-  const requestOptions = $derived(flattenRequests($collections));
+  const requestOptions = $derived(flattenRequests(workspace.tree));
 
   // ---- Run state ----
 

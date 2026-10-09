@@ -1,14 +1,14 @@
 /**
  * Git source-control store + action wrappers.
  *
- * Every action operates on the current workspace path (`get(workspacePath)`),
+ * Every action operates on the current workspace path (`workspace.path`),
  * which the Rust git commands take as their `root`. Actions guard on a
  * non-empty workspace, try/catch-log failures (so a failed git op never throws
  * into the UI), and refresh the cached status afterwards. `refreshGit` is also
  * subscribed to `workspacePath`, so switching/closing the workspace re-reads
  * (or clears) the status automatically.
  */
-import { writable, derived, get } from 'svelte/store';
+import { writable, derived, toStore } from 'svelte/store';
 import type { GitStatus } from '$shared/model';
 import {
   gitStatus as gitStatusApi,
@@ -23,7 +23,7 @@ import {
   gitDiscard,
 } from '$shared/ipc';
 import { statusByPath } from './gitStatus';
-import { workspacePath } from '$entities/workspace';
+import { workspace } from '$entities/workspace';
 
 /**
  * Master switch for the Git feature. When false the source-control UI is hidden
@@ -61,7 +61,7 @@ export async function refreshGit(): Promise<void> {
     gitStatus.set(null);
     return;
   }
-  const path = get(workspacePath);
+  const path = workspace.path;
   if (!path) {
     gitStatus.set(null);
     return;
@@ -76,7 +76,7 @@ export async function refreshGit(): Promise<void> {
 
 /** Run `fn(root)` against the workspace path, then refresh. Logs+swallows errors. */
 async function runGit(name: string, fn: (root: string) => Promise<void>): Promise<void> {
-  const root = get(workspacePath);
+  const root = workspace.path;
   if (!root) return;
   try {
     await fn(root);
@@ -129,7 +129,7 @@ export async function createBranch(name: string): Promise<void> {
  * for the duration.
  */
 export async function pull(): Promise<string> {
-  const root = get(workspacePath);
+  const root = workspace.path;
   if (!root) return '';
   gitBusy.set(true);
   try {
@@ -145,7 +145,7 @@ export async function pull(): Promise<string> {
 }
 
 export async function push(): Promise<string> {
-  const root = get(workspacePath);
+  const root = workspace.path;
   if (!root) return '';
   gitBusy.set(true);
   try {
@@ -162,6 +162,6 @@ export async function push(): Promise<string> {
 
 // Keep git status in sync with the active workspace: switching, opening, or
 // closing the workspace re-reads (or clears, when empty) the status.
-workspacePath.subscribe(() => {
+toStore(() => workspace.path).subscribe(() => {
   void refreshGit();
 });

@@ -18,7 +18,7 @@
     isProtected,
     type EnvColor,
   } from '$entities/environment';
-  import { collections, workspacePath } from '$entities/workspace';
+  import { workspace } from '$entities/workspace';
   import { confirmState, requestConfirm } from '$shared/ui';
   import { type Environment, type VarRow, countRequestsUsingVars, maskSecret } from '$shared/model';
 
@@ -49,10 +49,12 @@
   const rows = $derived(env ? env.vars : draftGlobals);
   const viewRows = $derived<VarRow[]>([...rows, { key: '', value: '', enabled: true }]);
   const filtered = $derived(draft.filter((e) => e.name.toLowerCase().includes(query.trim().toLowerCase())));
-  const workspace = $derived(($workspacePath.split('/').filter(Boolean).at(-1) ?? 'Local Workspace').toUpperCase());
+  const workspaceLabel = $derived(
+    (workspace.path.split('/').filter(Boolean).at(-1) ?? 'Local Workspace').toUpperCase(),
+  );
   const usedIn = $derived(
     countRequestsUsingVars(
-      $collections,
+      workspace.tree,
       rows.map((r) => r.key),
     ),
   );
@@ -206,7 +208,7 @@
 {#snippet content()}
   <header class="head">
     <div>
-      <div class="kicker">{workspace}&nbsp;&nbsp;·&nbsp;&nbsp;{draft.length} {plural(draft.length)}</div>
+      <div class="kicker">{workspaceLabel}&nbsp;&nbsp;·&nbsp;&nbsp;{draft.length} {plural(draft.length)}</div>
       <h2 id="bs-envsheet-title">{t('env.title')}</h2>
     </div>
     {#if !embedded}<button class="icon" type="button" aria-label={t('common.close')} onclick={close}

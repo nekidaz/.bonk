@@ -21,7 +21,7 @@
     searchEnvironments,
     searchRequests,
   } from '$entities/environment';
-  import { collections } from '$entities/workspace';
+  import { workspace } from '$entities/workspace';
   import { openSavedRequest } from '$entities/request';
   import { methodColor, type RequestNode } from '$shared/model';
 
@@ -32,7 +32,7 @@
   let listEl = $state<HTMLDivElement | null>(null);
   let returnFocus: HTMLElement | null = null;
 
-  const requests = $derived(searchRequests($collections, query));
+  const requests = $derived(searchRequests(workspace.tree, query));
   const matchedCommands = $derived(commands.filter((c) => c.label.toLowerCase().includes(query.trim().toLowerCase())));
   const envs = $derived(searchEnvironments($environments, query));
   const counts = $derived({ requests: requests.length, envs: envs.length, commands: matchedCommands.length });

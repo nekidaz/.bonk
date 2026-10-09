@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { collections, moveNode, findNode } from '$entities/workspace';
+  import { moveNode, findNode, workspace } from '$entities/workspace';
   import { FolderPicker } from '$entities/workspace/components';
   import { t } from '$shared/i18n';
 
@@ -33,11 +33,11 @@
       <div class="bs-modal-b">
         <div class="bs-saveto">
           {t('dialog.move.to')}
-          <span>{moveTarget ? (findNode($collections, moveTarget)?.name ?? '—') : t('dialog.move.root')}</span>
+          <span>{moveTarget ? (findNode(workspace.tree, moveTarget)?.name ?? '—') : t('dialog.move.root')}</span>
         </div>
         <div class="bs-collbox">
           <div class="bs-colllist">
-            <FolderPicker nodes={$collections} bind:selected={moveTarget} excludeId={sourceId} />
+            <FolderPicker nodes={workspace.tree} bind:selected={moveTarget} excludeId={sourceId} />
           </div>
         </div>
       </div>

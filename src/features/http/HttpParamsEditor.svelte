@@ -2,13 +2,13 @@
   import { t } from '$shared/i18n';
   import { syncUrlWithParams, type Param, type Tab } from '$shared/model';
   import { emptyParam, paramRows, titleFor } from './httpHeaders';
-  import { collections, findNode } from '$entities/workspace';
+  import { findNode, workspace } from '$entities/workspace';
   import { tabs } from '$entities/tab';
   import { isParamChanged } from '$entities/request';
 
   let { tab }: { tab: Tab } = $props();
   const saved = $derived.by(() => {
-    const n = tab.savedPath ? findNode($collections, tab.savedPath) : undefined;
+    const n = tab.savedPath ? findNode(workspace.tree, tab.savedPath) : undefined;
     return n?.kind === 'request' ? n : undefined;
   });
 

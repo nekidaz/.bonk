@@ -2,7 +2,7 @@ import { get, writable } from 'svelte/store';
 import { t } from '$shared/i18n';
 import type { Tab, RunResultRow, RunStatus } from '$shared/model';
 import { workspaceSaveRequest } from '$shared/ipc';
-import { findNode, idToRel, parentId, collections, workspacePath, ROOT, reloadWorkspace } from '$entities/workspace';
+import { findNode, idToRel, parentId, ROOT, reloadWorkspace, workspace } from '$entities/workspace';
 import {
   pushHistory,
   pushRecord,
@@ -103,7 +103,7 @@ function syncRunnerTabTitle(): void {
   const title =
     get(runnerStage) === 'pick'
       ? t('runner.tab.new')
-      : `Runner · ${runnerScopeTitle(get(runnerConfig).folderIds, get(collections))}`;
+      : `Runner · ${runnerScopeTitle(get(runnerConfig).folderIds, workspace.tree)}`;
   if (tabs.list.some((t) => t.protocol === 'runner' && t.title !== title)) {
     tabs.update((list) => list.map((t) => (t.protocol === 'runner' ? { ...t, title } : t)));
   }
@@ -199,7 +199,7 @@ export function setSaveResponses(saveResponses: boolean): void {
 /** Auto name of a preset: "<scope> · <environment>". */
 export function currentPresetName(): string {
   const env = get(environments).find((e) => e.id === get(activeEnvironmentId));
-  return `${runnerScopeTitle(get(runnerConfig).folderIds, get(collections))} · ${env?.name ?? t('runner.noEnv')}`;
+  return `${runnerScopeTitle(get(runnerConfig).folderIds, workspace.tree)} · ${env?.name ?? t('runner.noEnv')}`;
 }
 
 /** Save the current setup as a preset (same name = update); returns its name. */
@@ -252,7 +252,7 @@ function finishRun(status: RunStatus): void {
   const envId = get(activeEnvironmentId);
   const summary = {
     ...summarizeRun(r.n, r.startedAt, r.finishedAt ?? Date.now(), r.results),
-    title: runnerScopeTitle(folderIds, get(collections)),
+    title: runnerScopeTitle(folderIds, workspace.tree),
     folderIds,
     envId,
     envName: get(environments).find((e) => e.id === envId)?.name,
@@ -340,7 +340,7 @@ export async function runCollection(): Promise<void> {
   stopRequested = false;
   runnerViewing.set(null);
   const config = get(runnerConfig);
-  const requests = plannedRequests(config, get(collections));
+  const requests = plannedRequests(config, workspace.tree);
   const n = (get(runnerHistory).at(-1)?.n ?? 0) + 1;
   if (requests.length === 0) {
     // Nothing to run — surface an empty "done" so the summary/empty state shows.
@@ -400,7 +400,7 @@ async function rerunRows(rows: RunResultRow[]): Promise<void> {
   const config = get(runnerConfig);
   runnerRun.update((r) => ({ ...r, status: 'running' }));
   for (const [k, old] of rows.entries()) {
-    const node = old.nodeId ? findNode(get(collections), old.nodeId) : undefined;
+    const node = old.nodeId ? findNode(workspace.tree, old.nodeId) : undefined;
     if (node?.kind !== 'request') continue;
     const fresh = await runNode(node, old.iteration, config.dataRows[old.iteration - 1] ?? {});
     const row = { ...fresh, id: old.id, startOffsetMs: old.startOffsetMs };
@@ -427,8 +427,8 @@ export function rerunCall(rowId: string): Promise<void> {
  * request's URL uses that variable instead of the hard-coded literal.
  */
 export async function bindIdFrom(targetNodeId: string, b: IdBinding): Promise<boolean> {
-  const root = get(workspacePath);
-  const tree = get(collections);
+  const root = workspace.path;
+  const tree = workspace.tree;
   const src = b.sourceNodeId ? findNode(tree, b.sourceNodeId) : undefined;
   const dst = findNode(tree, targetNodeId);
   if (!root || src?.kind !== 'request' || dst?.kind !== 'request') return false;

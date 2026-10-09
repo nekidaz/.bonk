@@ -8,14 +8,12 @@ export {
   addFolder,
   collapsedFolders,
   collectExpanded,
-  collections,
   deleteWorkspace,
   dropNode,
   duplicateNode,
   moveNode,
   normalizeWorkspaceRecents,
   openWorkspaceFolder,
-  recentWorkspacePaths,
   reloadWorkspace,
   rememberWorkspacePath,
   removeNode,
@@ -30,7 +28,7 @@ export {
   undoDrop,
   withInheritedAuth,
   withSavedCollapse,
-  workspacePath,
-} from './store';
+  workspace,
+} from './store.svelte';
 export { filterTree, findNode, idToRel, parentId } from './tree';
 export { buildWorkspaceExport } from './workspaceExport';

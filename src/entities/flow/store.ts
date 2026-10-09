@@ -4,7 +4,7 @@ import type { Tab, ScriptContext } from '$shared/model';
 import type { Flow, FlowBlockConfig } from './flow';
 import { executeFlow, type FlowBlockState, type FlowEffects, type FlowRunStatus } from './flowRun';
 import { runScript } from '$shared/ipc';
-import { findNode, collections } from '$entities/workspace';
+import { findNode, workspace } from '$entities/workspace';
 import { tabs } from '$entities/tab';
 import { applyScriptVars, activeEnvMap, globalsMap, runHttpNode, runGrpcNode } from '$entities/request';
 
@@ -141,7 +141,7 @@ function flowScriptContext(payload: unknown): ScriptContext {
 function realEffects(): FlowEffects {
   return {
     runRequest: async (requestId, _payload, variables) => {
-      const node = findNode(get(collections), requestId);
+      const node = findNode(workspace.tree, requestId);
       if (!node || node.kind !== 'request') {
         throw new Error(t('flow.run.missingRequest', { id: requestId }));
       }

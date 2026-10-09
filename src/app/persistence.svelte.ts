@@ -1,3 +1,4 @@
+import { untrack } from 'svelte';
 import { derived, get } from 'svelte/store';
 import type { ProxyMode, Tab, HistoryEntry, TreeNode, Environment, VarRow } from '$shared/model';
 import { type Flow, flows } from '$entities/flow';
@@ -8,14 +9,12 @@ import { collectSecrets, mergeSecrets, secretAccountsOf, stripSecrets } from './
 import { normalizeTabTitleState, stripRuntimeTab, tabs } from '$entities/tab';
 import { history, historyLimit, historyPaused } from '$entities/history';
 import {
-  collections,
-  workspacePath,
-  recentWorkspacePaths,
   collapsedFolders,
   collectExpanded,
   normalizeWorkspaceRecents,
   rememberWorkspacePath,
   withSavedCollapse,
+  workspace,
 } from '$entities/workspace';
 import { globals, environments, activeEnvironmentId } from '$entities/environment';
 
@@ -100,7 +99,7 @@ async function restoreState(): Promise<void> {
   await startupOpen.ready;
   if (restoredTabs.length > 0 && startupOpen.current === 'last') tabs.list = restoredTabs;
   history.set(savedHistory);
-  recentWorkspacePaths.set(normalizeWorkspaceRecents(savedRecentWorkspacePaths));
+  workspace.recent = normalizeWorkspaceRecents(savedRecentWorkspacePaths);
   historyLimit.set(await loadState<number>('historyLimit', 500));
   historyPaused.set(await loadState<boolean>('historyPaused', false));
   requestPrefs.responseLineWrap = await loadState<boolean>('responseLineWrap', true);
@@ -130,13 +129,13 @@ async function restoreState(): Promise<void> {
   if (savedWorkspacePath) {
     try {
       nextTree = withSavedCollapse(savedWorkspacePath, await workspaceLoad(savedWorkspacePath));
-      workspacePath.set(savedWorkspacePath);
+      workspace.path = savedWorkspacePath;
       rememberWorkspacePath(savedWorkspacePath);
     } catch {
-      workspacePath.set('');
+      workspace.path = '';
     }
   }
-  collections.set(nextTree);
+  workspace.tree = nextTree;
   // Restore the previously-focused tab if it still exists (git/project-diff tabs
   // aren't persisted, so fall back to the first tab when it doesn't).
   const savedActiveId = await loadState<string>('activeTabId', '');
@@ -156,17 +155,6 @@ function wirePersistence(): () => void {
     // (beforeunload is unreliable in the Tauri webview), so history "reset" on the
     // next launch. Writing on each change keeps the on-disk history current.
     history.subscribe((h) => void saveState('history', h)),
-    workspacePath.subscribe((p) => saveStateDebounced('workspacePath', p)),
-    // Remember collapsed folders per workspace root (the Rust load always expands all).
-    collections.subscribe((tree) => {
-      const root = get(workspacePath);
-      if (!root) return;
-      const expanded = new Map<string, boolean>();
-      collectExpanded(tree, expanded);
-      collapsedFolders[root] = [...expanded].filter(([, open]) => !open).map(([id]) => id);
-      saveStateDebounced('collapsedFolders', collapsedFolders);
-    }),
-    recentWorkspacePaths.subscribe((paths) => saveStateDebounced('recentWorkspacePaths', paths)),
     historyLimit.subscribe((n) => {
       if (n > 0) history.update((h) => h.slice(0, n));
     }),
@@ -193,6 +181,19 @@ function wirePersistence(): () => void {
       ),
     );
     $effect(() => saveStateDebounced('activeTabId', tabs.activeId));
+    $effect(() => saveStateDebounced('workspacePath', workspace.path));
+    // Remember collapsed folders per workspace root (the Rust load always expands all).
+    // Runs on tree changes only: the root is read untracked, as the old subscription did.
+    $effect(() => {
+      const tree = workspace.tree;
+      const root = untrack(() => workspace.path);
+      if (!root) return;
+      const expanded = new Map<string, boolean>();
+      collectExpanded(tree, expanded);
+      collapsedFolders[root] = [...expanded].filter(([, open]) => !open).map(([id]) => id);
+      saveStateDebounced('collapsedFolders', collapsedFolders);
+    });
+    $effect(() => saveStateDebounced('recentWorkspacePaths', workspace.recent));
     $effect(() => saveStateDebounced('responseLineWrap', requestPrefs.responseLineWrap));
     $effect(() => saveStateDebounced('requestTimeoutMs', requestPrefs.requestTimeoutMs));
     $effect(() => saveStateDebounced('requestFollowRedirects', requestPrefs.requestFollowRedirects));

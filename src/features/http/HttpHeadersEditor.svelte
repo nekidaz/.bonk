@@ -1,7 +1,7 @@
 <script lang="ts">
   import { t } from '$shared/i18n';
   import { autoHeaderRows, headerRows } from './httpHeaders';
-  import { collections, withInheritedAuth } from '$entities/workspace';
+  import { withInheritedAuth, workspace } from '$entities/workspace';
   import { tabs } from '$entities/tab';
   import type { HttpRequest, Tab } from '$shared/model';
 
@@ -9,7 +9,7 @@
 
   // S12: one table — manual headers (toggle + description), then the headers bonk adds itself.
   let showAuto = $state(true);
-  const auto = $derived(autoHeaderRows((void $collections, withInheritedAuth(tab, tab.savedPath))));
+  const auto = $derived(autoHeaderRows((void workspace.tree, withInheritedAuth(tab, tab.savedPath))));
   const manualCount = $derived(Object.keys(tab.request.headers ?? {}).length);
   const isVar = (v: string) => /^\{\{[^{}]+\}\}$/.test(v.trim());
 

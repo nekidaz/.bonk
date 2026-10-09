@@ -14,7 +14,7 @@
    */
   import { Handle, Position, type NodeProps } from '@xyflow/svelte';
   import { outPorts, varPortId, type FlowBlockConfig, flowRun } from '$entities/flow';
-  import { collections, findNode, idToRel } from '$entities/workspace';
+  import { findNode, idToRel, workspace } from '$entities/workspace';
   import { requestVariableNames, type FlowNodeActions } from './flowNode';
   import type { RunResultRow } from '$shared/model';
   import { t } from '$shared/i18n';
@@ -52,7 +52,7 @@
   /** The saved request behind a `request` block (undefined until one is picked). */
   const requestNode = $derived.by(() => {
     if (config.type !== 'request' || !config.requestId) return undefined;
-    const node = findNode($collections, config.requestId);
+    const node = findNode(workspace.tree, config.requestId);
     return node?.kind === 'request' ? node : undefined;
   });
 

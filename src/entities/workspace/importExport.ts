@@ -10,7 +10,7 @@ import {
   type ImportedPostmanItem,
   type ParsedPostmanCollection,
 } from './postman';
-import { collections, workspacePath, ROOT, openWorkspaceFolder, reloadWorkspace } from './store';
+import { ROOT, openWorkspaceFolder, reloadWorkspace, workspace } from './store.svelte';
 import { environments, activeEnvironmentId, addEnvironment, setEnvVars } from '$entities/environment';
 
 /**
@@ -22,10 +22,10 @@ import { environments, activeEnvironmentId, addEnvironment, setEnvVars } from '$
 
 /** Ensure a workspace is open (prompting if none); returns its root or null. */
 async function ensureWorkspaceRoot(): Promise<string | null> {
-  let root = get(workspacePath);
+  let root = workspace.path;
   if (!root) {
     await openWorkspaceFolder();
-    root = get(workspacePath);
+    root = workspace.path;
   }
   return root || null;
 }
@@ -191,7 +191,7 @@ function collectHttpRequests(
  * common URL prefix is derived by the builder.
  */
 export async function exportOpenApiFolder(folderId: string, format: 'json' | 'yaml'): Promise<void> {
-  const node = findNode(get(collections), folderId);
+  const node = findNode(workspace.tree, folderId);
   if (!node || node.kind !== 'folder') return;
 
   const { folders, grpcSkipped } = collectHttpRequests(node, null);

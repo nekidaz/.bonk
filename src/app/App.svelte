@@ -3,21 +3,19 @@
   import { slide } from 'svelte/transition';
   import { tabs } from '$entities/tab';
   import {
-    collections,
     revealNode,
     addFolder,
     removeNode,
     renameNode,
     duplicateNode,
     exportOpenApiFolder,
-    workspacePath,
     withInheritedAuth,
     openWorkspaceFolder,
     switchWorkspace,
-    recentWorkspacePaths,
     importApiFile,
     findNode,
     parentId,
+    workspace,
   } from '$entities/workspace';
   import { hydrate } from './persistence.svelte';
   import {
@@ -152,10 +150,10 @@
   // Width is remembered per workspace.
   let sidebarWidths = $state.raw<Record<string, number>>({});
   $effect(() => {
-    sidebarWidth = clamp(sidebarWidths[$workspacePath] ?? SIDEBAR_DEFAULT, SIDEBAR_MIN, SIDEBAR_MAX);
+    sidebarWidth = clamp(sidebarWidths[workspace.path] ?? SIDEBAR_DEFAULT, SIDEBAR_MIN, SIDEBAR_MAX);
   });
   function saveSidebarWidth(): void {
-    sidebarWidths = { ...sidebarWidths, [$workspacePath]: sidebarWidth };
+    sidebarWidths = { ...sidebarWidths, [workspace.path]: sidebarWidth };
     void saveState('sidebarWidths', sidebarWidths);
   }
 
@@ -194,7 +192,7 @@
     closeMenu();
   }
   function nodeRename(): void {
-    const n = menu.nodeId ? findNode($collections, menu.nodeId) : undefined;
+    const n = menu.nodeId ? findNode(workspace.tree, menu.nodeId) : undefined;
     if (!n || !menu.nodeId) {
       closeMenu();
       return;
@@ -223,7 +221,7 @@
     const isFolder = menu.isFolder;
     closeMenu();
     if (!id) return;
-    const name = findNode($collections, id)?.name ?? t('app.node.thisItem');
+    const name = findNode(workspace.tree, id)?.name ?? t('app.node.thisItem');
     const msg = isFolder ? t('app.node.deleteFolder', { name }) : t('app.node.deleteItem', { name });
     if (await requestConfirm(msg, t('common.delete'))) await removeNode(id);
   }
@@ -268,12 +266,12 @@
   // S21: a tab opened from history says so, and links back to the saved request it came from.
   const historySnapshot = $derived.by(() => {
     const entry = active?.historyId ? $history.find((h) => h.id === active.historyId) : undefined;
-    return entry ? { entry, original: matchSaved(entry, searchRequests($collections, '', Infinity)) } : undefined;
+    return entry ? { entry, original: matchSaved(entry, searchRequests(workspace.tree, '', Infinity)) } : undefined;
   });
 
   // Folder of the active saved request: palette offers "new request" right next to it.
   const activeFolderId = $derived(active?.savedPath ? parentId(active.savedPath) : undefined);
-  const activeFolderName = $derived(activeFolderId ? findNode($collections, activeFolderId)?.name : undefined);
+  const activeFolderName = $derived(activeFolderId ? findNode(workspace.tree, activeFolderId)?.name : undefined);
   function newRequestHere(kind: RequestProtocol = 'http'): void {
     if (activeFolderId) void addRequestToFolder(activeFolderId, kind);
     else newTab(kind);
@@ -337,12 +335,12 @@
     void tick().then(() => document.querySelector<HTMLElement>('.bs-tree .bs-trow.sel')?.focus());
   }
   function nodeOpen(): void {
-    const n = menu.nodeId ? findNode($collections, menu.nodeId) : undefined;
+    const n = menu.nodeId ? findNode(workspace.tree, menu.nodeId) : undefined;
     closeMenu();
     if (n?.kind === 'request') openSavedRequest(n);
   }
   function nodeCopyCurl(): void {
-    const n = menu.nodeId ? findNode($collections, menu.nodeId) : undefined;
+    const n = menu.nodeId ? findNode(workspace.tree, menu.nodeId) : undefined;
     closeMenu();
     if (n?.kind !== 'request') return;
     const tab = { id: n.id, protocol: 'http' as const, title: n.name, request: n.request, params: n.params };
@@ -556,7 +554,7 @@
   async function smartSave(): Promise<void> {
     if (!active || (active.protocol !== 'http' && active.protocol !== 'grpc')) return;
     if (active.savedPath) {
-      const prev = findNode($collections, active.savedPath);
+      const prev = findNode(workspace.tree, active.savedPath);
       const folder = parentId(active.savedPath);
       try {
         await saveActiveRequest(folder, active.title);
@@ -564,8 +562,8 @@
         showToast({
           text: t('app.toast.savedIn', {
             where:
-              (folder && findNode($collections, folder)?.name) ||
-              ($workspacePath.split('/').filter(Boolean).at(-1) ?? t('app.toast.workspace')),
+              (folder && findNode(workspace.tree, folder)?.name) ||
+              (workspace.path.split('/').filter(Boolean).at(-1) ?? t('app.toast.workspace')),
           }),
           undo: prev?.kind === 'request' ? () => void restoreSavedRequest(prev) : undefined,
         });
@@ -609,8 +607,7 @@
     }
     // ⌥⌘2…⌥⌘9: jump to the n-th recent workspace from the switcher (S37).
     const recentKey = /^Mod\+Alt\+([2-9])$/.exec(eventToBinding(e) ?? '');
-    const recentPath =
-      recentKey && recentWorkspaceChoices($recentWorkspacePaths, $workspacePath)[Number(recentKey[1]) - 2];
+    const recentPath = recentKey && recentWorkspaceChoices(workspace.recent, workspace.path)[Number(recentKey[1]) - 2];
     if (recentPath) {
       e.preventDefault();
       workspaceMenuOpen = false;

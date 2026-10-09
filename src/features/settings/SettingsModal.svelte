@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount, type Component } from 'svelte';
   import { getVersion } from '@tauri-apps/api/app';
-  import { workspacePath } from '$entities/workspace';
+  import { workspace } from '$entities/workspace';
   import { updater } from '$shared/updater';
   import { t } from '$shared/i18n';
   import '../../styles/settings.css';
@@ -93,8 +93,8 @@
     <div class="st-sheet">
       <nav class="st-nav" aria-label={t('settings.sections')}>
         <div class="st-kicker">{t('settings.kicker')}</div>
-        <div class="st-ws" title={$workspacePath}>
-          {$workspacePath.split('/').filter(Boolean).at(-1) ?? 'Local Workspace'}
+        <div class="st-ws" title={workspace.path}>
+          {workspace.path.split('/').filter(Boolean).at(-1) ?? 'Local Workspace'}
         </div>
         <ul>
           {#each PAGES as p (p.id)}

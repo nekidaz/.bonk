@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { get } from 'svelte/store';
-import { collections, revealNode, collapsedFolders, withSavedCollapse } from './store';
+import { revealNode, collapsedFolders, withSavedCollapse, workspace } from './store.svelte';
 import type { TreeNode } from '$shared/model';
 
 const req: TreeNode = {
@@ -25,9 +24,9 @@ const openIds = (nodes: TreeNode[]): string[] =>
 
 describe('sidebar tree', () => {
   it('revealNode expands only the ancestors of the node', () => {
-    collections.set(tree(false));
+    workspace.tree = tree(false);
     revealNode(req.id);
-    expect(openIds(get(collections))).toEqual(['fs:a', 'fs:a/b']);
+    expect(openIds(workspace.tree)).toEqual(['fs:a', 'fs:a/b']);
   });
 
   it('withSavedCollapse re-applies the collapsed folders remembered for that workspace', () => {

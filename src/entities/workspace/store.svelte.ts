@@ -1,4 +1,3 @@
-import { get, writable } from 'svelte/store';
 import type { AuthConfig, HttpRequest, TreeNode } from '$shared/model';
 import {
   workspaceLoad,
@@ -19,13 +18,21 @@ import { withEffectiveAuth } from './authInherit';
 
 /** fs root rel path. Shared by every workspace/request operation. */
 export const ROOT = '';
-export const collections = writable<TreeNode[]>([]);
-export const workspacePath = writable<string>('');
-export const recentWorkspacePaths = writable<string[]>([]);
+
+/** The open workspace folder (filesystem-as-truth): its path, its tree, and recently opened folders. */
+class Workspace {
+  /** The workspace tree as loaded from disk ([] when no folder is open). Replaced, never mutated. */
+  tree = $state.raw<TreeNode[]>([]);
+  /** Absolute path of the open folder; '' when none. */
+  path = $state('');
+  /** Recently opened folders, newest first (at most 10). */
+  recent = $state.raw<string[]>([]);
+}
+export const workspace = new Workspace();
 
 /** `x` with collection auth resolved into `request.auth` (id = saved request id); use before building/previewing a send. */
 export function withInheritedAuth<T extends { request: HttpRequest }>(x: T, id: string | undefined): T {
-  return withEffectiveAuth(x, get(collections), id);
+  return withEffectiveAuth(x, workspace.tree, id);
 }
 
 // ---------- Recent-workspace bookkeeping ----------
@@ -39,7 +46,7 @@ export function normalizeWorkspaceRecents(paths: string[]): string[] {
 export function rememberWorkspacePath(path: string): void {
   const clean = path.trim();
   if (!clean) return;
-  recentWorkspacePaths.update((paths) => normalizeWorkspaceRecents([clean, ...paths]));
+  workspace.recent = normalizeWorkspaceRecents([clean, ...workspace.recent]);
 }
 
 // ---------- Expanded-state preservation across reloads ----------
@@ -72,19 +79,19 @@ export function withSavedCollapse(root: string, tree: TreeNode[]): TreeNode[] {
 
 /** @internal — used within entities/workspace; not in index.ts. */
 export async function reloadWorkspace(): Promise<void> {
-  const path = get(workspacePath);
+  const path = workspace.path;
   if (!path) return;
   // The Rust `load` always returns folders expanded:true. Preserve the user's
   // current collapse state across the reload instead of re-expanding everything.
   const tree = await workspaceLoad(path);
   const expanded = new Map<string, boolean>();
-  collectExpanded(get(collections), expanded);
-  collections.set(applyExpanded(tree, expanded));
+  collectExpanded(workspace.tree, expanded);
+  workspace.tree = applyExpanded(tree, expanded);
   // Defensive: a tab whose savedPath no longer resolves to a real node would, on
   // the next Save, create a duplicate file instead of overwriting. Per-mutation
   // remaps run before this, so validly-relinked tabs keep their path; clear only
   // genuinely-orphaned links so the next save prompts/creates rather than duplicates.
-  const loaded = get(collections);
+  const loaded = workspace.tree;
   tabs.update((list) =>
     list.map((t) => (t.savedPath && !findNode(loaded, t.savedPath) ? { ...t, savedPath: undefined } : t)),
   );
@@ -120,10 +127,10 @@ export async function switchWorkspace(path: string): Promise<void> {
   const clean = path.trim();
   if (!clean) return;
   const switched = await runWorkspaceOp('switchWorkspace', async () => {
-    const previous = get(workspacePath);
+    const previous = workspace.path;
     const tree = await workspaceLoad(clean);
-    workspacePath.set(clean);
-    collections.set(withSavedCollapse(clean, tree));
+    workspace.path = clean;
+    workspace.tree = withSavedCollapse(clean, tree);
     rememberWorkspacePath(clean);
     if (previous && previous !== clean) {
       // savedPath is relative to the old workspace root. Keeping it after a root
@@ -133,40 +140,40 @@ export async function switchWorkspace(path: string): Promise<void> {
     return true;
   });
   if (!switched) {
-    recentWorkspacePaths.update((paths) => paths.filter((p) => p !== clean));
+    workspace.recent = workspace.recent.filter((p) => p !== clean);
   }
 }
 
 /** Rename the workspace folder on disk, then switch to the new path (recents follow). */
 export async function renameWorkspaceFolder(name: string): Promise<void> {
-  const root = get(workspacePath);
+  const root = workspace.path;
   if (!root || !name.trim()) return;
   const next = await workspaceRenameRoot(root, name);
-  recentWorkspacePaths.update((paths) => paths.filter((p) => p !== root));
+  workspace.recent = workspace.recent.filter((p) => p !== root);
   await switchWorkspace(next);
 }
 
 /** Move the workspace folder to the OS trash and close the tabs linked to it. */
 export async function deleteWorkspace(): Promise<void> {
-  const root = get(workspacePath);
+  const root = workspace.path;
   if (!root) return;
   await workspaceTrash(root);
   tabs.update((list) => list.filter((t) => !t.savedPath));
   const open = tabs.list;
   if (!open.some((t) => t.id === tabs.activeId)) tabs.activeId = open[0]?.id ?? '';
-  recentWorkspacePaths.update((paths) => paths.filter((p) => p !== root));
-  workspacePath.set('');
-  collections.set([]);
+  workspace.recent = workspace.recent.filter((p) => p !== root);
+  workspace.path = '';
+  workspace.tree = [];
 }
 
 // ---------- Tree mutations ----------
 
 export async function addFolder(parentFolderId?: string, name = 'New Folder'): Promise<string | undefined> {
-  let root = get(workspacePath);
+  let root = workspace.path;
   if (!root) {
     // No workspace open yet — prompt the user to pick one, then create in it.
     await openWorkspaceFolder();
-    root = get(workspacePath);
+    root = workspace.path;
     if (!root) return undefined; // user cancelled the picker
   }
   return runWorkspaceOp('addFolder', async () => {
@@ -178,7 +185,7 @@ export async function addFolder(parentFolderId?: string, name = 'New Folder'): P
 
 /** Persist a folder's collection-level auth (null clears it); requests set to inherit pick it up. */
 export async function saveFolderAuth(folderId: string, auth: AuthConfig | null): Promise<void> {
-  const root = get(workspacePath);
+  const root = workspace.path;
   if (!root) return;
   await runWorkspaceOp('saveFolderAuth', async () => {
     await workspaceSaveFolderAuth(root, idToRel(folderId), auth);
@@ -187,7 +194,7 @@ export async function saveFolderAuth(folderId: string, auth: AuthConfig | null):
 }
 
 export async function removeNode(id: string): Promise<void> {
-  const root = get(workspacePath);
+  const root = workspace.path;
   if (!root) return;
   await runWorkspaceOp('removeNode', async () => {
     await workspaceDelete(root, id);
@@ -199,7 +206,7 @@ export async function removeNode(id: string): Promise<void> {
 }
 
 export async function renameNode(id: string, name: string): Promise<void> {
-  const root = get(workspacePath);
+  const root = workspace.path;
   const clean = name.trim();
   if (!root || !clean) return;
   await runWorkspaceOp('renameNode', async () => {
@@ -216,7 +223,7 @@ export async function renameNode(id: string, name: string): Promise<void> {
 }
 
 export async function duplicateNode(id: string): Promise<void> {
-  const root = get(workspacePath);
+  const root = workspace.path;
   if (!root) return;
   await runWorkspaceOp('duplicateNode', async () => {
     await workspaceDuplicate(root, id);
@@ -225,7 +232,7 @@ export async function duplicateNode(id: string): Promise<void> {
 }
 
 export async function moveNode(id: string, destFolderId?: string): Promise<void> {
-  const root = get(workspacePath);
+  const root = workspace.path;
   if (!root) return;
   await runWorkspaceOp('moveNode', async () => {
     const newId = await workspaceMove(root, id, destFolderId ? idToRel(destFolderId) : ROOT);
@@ -247,9 +254,9 @@ export async function dropNode(
   at?: { id: string; after: boolean },
   copy = false,
 ): Promise<string | undefined> {
-  const root = get(workspacePath);
+  const root = workspace.path;
   if (!root || id === at?.id) return undefined;
-  const name = findNode(get(collections), id)?.name;
+  const name = findNode(workspace.tree, id)?.name;
   return runWorkspaceOp('dropNode', async () => {
     let newId = copy ? await workspaceDuplicate(root, id) : id;
     if (parentId(newId) !== dest) {
@@ -259,8 +266,8 @@ export async function dropNode(
       newId = copy && name ? await workspaceRename(root, moved, name) : moved;
     }
     if (at) {
-      const folder = dest ? findNode(get(collections), dest) : undefined;
-      const ids = (folder?.kind === 'folder' ? folder.children : get(collections))
+      const folder = dest ? findNode(workspace.tree, dest) : undefined;
+      const ids = (folder?.kind === 'folder' ? folder.children : workspace.tree)
         .map((n) => n.id)
         .filter((x) => copy || x !== id);
       ids.splice(ids.indexOf(at.id) + (at.after ? 1 : 0), 0, newId);
@@ -273,7 +280,7 @@ export async function dropNode(
 
 /** Undo a `dropNode`: a copy is deleted; a moved node goes back to `parent` with its old sibling order `ids`. */
 export async function undoDrop(newId: string, copy: boolean, parent: string | undefined, ids: string[]): Promise<void> {
-  const root = get(workspacePath);
+  const root = workspace.path;
   if (!root) return;
   await runWorkspaceOp('undoDrop', async () => {
     if (copy) {
@@ -295,11 +302,11 @@ export function revealNode(id: string): void {
     nodes.map((n) =>
       n.kind === 'folder' && id.startsWith(n.id + '/') ? { ...n, expanded: true, children: expandTo(n.children) } : n,
     );
-  collections.update(expandTo);
+  workspace.tree = expandTo(workspace.tree);
 }
 
 export function toggleFolder(id: string): void {
-  collections.update((tree) => toggleIn(tree, id));
+  workspace.tree = toggleIn(workspace.tree, id);
 }
 function toggleIn(nodes: TreeNode[], id: string): TreeNode[] {
   return nodes.map((n) => {

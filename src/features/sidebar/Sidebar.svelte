@@ -17,8 +17,6 @@
    */
   import { tick, untrack } from 'svelte';
   import {
-    collections,
-    workspacePath,
     toggleFolder,
     revealNode,
     addFolder,
@@ -28,6 +26,7 @@
     parentId,
     filterTree,
     findNode,
+    workspace,
   } from '$entities/workspace';
   import { tabs } from '$entities/tab';
   import { history, historyPaused, openHistoryEntry, removeHistoryEntry } from '$entities/history';
@@ -151,7 +150,7 @@
   // matching folders keep their subtree, ancestors stay visible + expanded) and
   // the History list (URL substring). Escape or the ✕ button clears it.
   const filterActive = $derived(filter.trim() !== '');
-  const visibleCollections = $derived(filterTree($collections, filter));
+  const visibleCollections = $derived(filterTree(workspace.tree, filter));
   // S21: newest first, grouped by day.
   const historyGroups = $derived.by(() => {
     const groups: { day: string; entries: typeof $history }[] = [];
@@ -190,7 +189,7 @@
   let press: { id: string; x: number; y: number; moved: boolean; cancelled: boolean } | undefined;
   let expandTimer: ReturnType<typeof setTimeout> | undefined;
   let toastTimer: ReturnType<typeof setTimeout> | undefined;
-  const dragNode = $derived(dragId ? findNode($collections, dragId) : undefined);
+  const dragNode = $derived(dragId ? findNode(workspace.tree, dragId) : undefined);
   $effect(() => {
     document.documentElement.classList.toggle('bs-row-dragging', !!dragId);
   });
@@ -253,7 +252,7 @@
   /** D4: holding over a collapsed folder for 0.6 s opens it. */
   function armExpand(next: { id: string; pos: DropPos } | undefined): void {
     clearTimeout(expandTimer);
-    const n = next?.pos === 'into' && next.id ? findNode($collections, next.id) : undefined;
+    const n = next?.pos === 'into' && next.id ? findNode(workspace.tree, next.id) : undefined;
     if (n?.kind !== 'folder' || n.expanded) return;
     expandTimer = setTimeout(() => {
       if (dropAt?.id === n.id && dropAt.pos === 'into') toggleFolder(n.id);
@@ -297,8 +296,8 @@
   async function commitDrop(src: string, at: { id: string; pos: DropPos }, copy: boolean): Promise<void> {
     const dest = at.id === '' ? undefined : at.pos === 'into' ? at.id : parentId(at.id);
     const from = parentId(src);
-    const fromNode = from ? findNode($collections, from) : undefined;
-    const oldIds = (fromNode?.kind === 'folder' ? fromNode.children : $collections).map((n) => n.id);
+    const fromNode = from ? findNode(workspace.tree, from) : undefined;
+    const oldIds = (fromNode?.kind === 'folder' ? fromNode.children : workspace.tree).map((n) => n.id);
     const newId = await dropNode(
       src,
       dest,
@@ -308,7 +307,9 @@
     if (!newId) return;
     revealNode(newId);
     if (!copy && from === dest) return; // a plain reorder needs no toast
-    const folder = dest ? (findNode($collections, dest)?.name ?? '') : (($workspacePath ?? '').split('/').pop() ?? '');
+    const folder = dest
+      ? (findNode(workspace.tree, dest)?.name ?? '')
+      : ((workspace.path ?? '').split('/').pop() ?? '');
     droppedId = newId;
     clearTimeout(toastTimer);
     toast = {

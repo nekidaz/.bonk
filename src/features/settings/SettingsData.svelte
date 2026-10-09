@@ -11,13 +11,7 @@
     historyDays,
   } from '$entities/history';
   import { requestConfirm } from '$shared/ui';
-  import {
-    importApiFile,
-    workspacePath,
-    collections,
-    buildWorkspaceExport,
-    buildPostmanCollection,
-  } from '$entities/workspace';
+  import { importApiFile, buildWorkspaceExport, buildPostmanCollection, workspace } from '$entities/workspace';
   import { globals, environments } from '$entities/environment';
   import { appDataDir, openapiExportSave, revealPath } from '$shared/ipc';
   import { row, sw, select } from './ui.svelte';
@@ -62,11 +56,11 @@
     });
   const doExport = () =>
     run(async () => {
-      const name = get(workspacePath).split(/[\\/]/).filter(Boolean).at(-1) ?? 'workspace';
+      const name = workspace.path.split(/[\\/]/).filter(Boolean).at(-1) ?? 'workspace';
       const postman = exportFormat.current === 'postman';
       const text = postman
-        ? buildPostmanCollection(name, get(collections), get(globals), exportIncludeSecrets.current)
-        : buildWorkspaceExport(name, get(collections), get(globals), get(environments), exportIncludeSecrets.current);
+        ? buildPostmanCollection(name, workspace.tree, get(globals), exportIncludeSecrets.current)
+        : buildWorkspaceExport(name, workspace.tree, get(globals), get(environments), exportIncludeSecrets.current);
       return (await openapiExportSave(
         postman ? `${name}.postman_collection.json` : `${name}.bonk.json`,
         text,

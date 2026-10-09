@@ -30,12 +30,11 @@ import {
   idToRel,
   findNode,
   parentId,
-  workspacePath,
-  collections,
   ROOT,
   openWorkspaceFolder,
   reloadWorkspace,
   runWorkspaceOp,
+  workspace,
 } from '$entities/workspace';
 import { grpcPathsToRel, grpcPathsToAbs } from './protoPaths';
 import { GRPC_DEFAULT_TITLE, HTTP_DEFAULT_TITLE, grpcSnapshot, titleFromUrl, tabs } from '$entities/tab';
@@ -79,11 +78,11 @@ export function currentRequestSettings(): RequestSettings {
 
 /** Save the active tab into folder `folderId` (root if undefined). `asCopy` («Сохранить как…») writes a new file and points the tab at it, leaving the original untouched. */
 export async function saveActiveRequest(folderId?: string, name?: string, asCopy = false): Promise<void> {
-  let root = get(workspacePath);
+  let root = workspace.path;
   if (!root) {
     // No workspace open — prompt the user to pick one before saving.
     await openWorkspaceFolder();
-    root = get(workspacePath);
+    root = workspace.path;
     if (!root) return; // user cancelled the picker
   }
   const tab = tabs.active;
@@ -121,7 +120,7 @@ export async function saveActiveRequest(folderId?: string, name?: string, asCopy
  * open tabs for it back to that version.
  */
 export async function restoreSavedRequest(prev: RequestNode): Promise<void> {
-  const root = get(workspacePath);
+  const root = workspace.path;
   if (!root) return;
   const folder = parentId(prev.id);
   await workspaceSaveRequest(root, folder ? idToRel(folder) : ROOT, prev.id, prev);
@@ -142,10 +141,10 @@ export async function restoreSavedRequest(prev: RequestNode): Promise<void> {
 
 /** Create a new empty request of `protocol` inside `folderId` (root if undefined) and open it. */
 export async function addRequestToFolder(folderId: string | undefined, protocol: 'http' | 'grpc'): Promise<void> {
-  let root = get(workspacePath);
+  let root = workspace.path;
   if (!root) {
     await openWorkspaceFolder();
-    root = get(workspacePath);
+    root = workspace.path;
     if (!root) return;
   }
   const node: RequestNode =
@@ -168,7 +167,7 @@ export async function addRequestToFolder(folderId: string | undefined, protocol:
   await runWorkspaceOp('addRequestToFolder', async () => {
     const newId = await workspaceSaveRequest(root, folderId ? idToRel(folderId) : ROOT, null, node);
     await reloadWorkspace();
-    const created = findNode(get(collections), newId);
+    const created = findNode(workspace.tree, newId);
     if (created && created.kind === 'request') openSavedRequest(created);
   });
 }
@@ -198,7 +197,7 @@ export function openSavedRequest(req: RequestNode, inNewTab = false): void {
     params: req.params ? req.params.map((p) => ({ ...p })) : undefined,
     // Drop any runtime-only fields that legacy *.bonk.json files may still carry,
     // so a stale connectionId can't block reconnect after an app restart.
-    grpc: grpcPathsToAbs(grpcSnapshot(req.grpc), get(workspacePath)),
+    grpc: grpcPathsToAbs(grpcSnapshot(req.grpc), workspace.path),
     savedPath: req.id,
   };
   tabs.update((list) => (reuse ? list.map((t) => (t.id === tab.id ? tab : t)) : [...list, tab]));

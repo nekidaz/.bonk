@@ -8,7 +8,7 @@
    * Run logic lives in the runner store; the math in runnerStats.ts.
    */
   import { onMount } from 'svelte';
-  import { collections, findNode } from '$entities/workspace';
+  import { findNode, workspace } from '$entities/workspace';
   import { environments, activeEnvironmentId, ENV_COLOR_VAR, envColor } from '$entities/environment';
   import {
     runnerConfig,
@@ -55,16 +55,16 @@
   onMount(() => void loadRunnerState());
 
   // ---- Scope ----
-  const scopeIds = $derived($runnerConfig.folderIds.filter((id) => findNode($collections, id)));
+  const scopeIds = $derived($runnerConfig.folderIds.filter((id) => findNode(workspace.tree, id)));
   // A past run (opened from the bars) shows its own scope + environment, read-only.
   const viewing = $derived($runnerViewing);
   const viewed = $derived(viewing === null ? undefined : $runnerHistory.find((h) => h.n === viewing));
-  const title = $derived(viewed?.title ?? runnerScopeTitle(scopeIds, $collections, t));
-  const planned = $derived(plannedRequests($runnerConfig, $collections));
+  const title = $derived(viewed?.title ?? runnerScopeTitle(scopeIds, workspace.tree, t));
+  const planned = $derived(plannedRequests($runnerConfig, workspace.tree));
   const scopeText = $derived.by(() => {
     const extra = scopeIds
       .slice(1)
-      .map((id) => findNode($collections, id)?.name)
+      .map((id) => findNode(workspace.tree, id)?.name)
       .filter(Boolean);
     const count = `${planned.length} ${tp(planned.length, ['запрос', 'запроса', 'запросов'], ['request', 'requests'])}`;
     return extra.length ? `+ ${extra.join(', ')} · ${count}` : count;
@@ -194,7 +194,7 @@
     if (await bindIdFrom(selCall.nodeId, insight.bind)) bound = selCall.id;
   }
   function openRequest(): void {
-    const node = selCall?.nodeId ? findNode($collections, selCall.nodeId) : undefined;
+    const node = selCall?.nodeId ? findNode(workspace.tree, selCall.nodeId) : undefined;
     if (node?.kind === 'request') openSavedRequest(node);
   }
   const pad2 = (n: number) => String(n).padStart(2, '0');

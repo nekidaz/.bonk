@@ -5,7 +5,7 @@
   import { snapPanelSize, type UtilityMode } from '$shared/ui';
   import { consoleStatus, formatElapsed, matchesConsoleFilter, shortCwd } from './utilPanel';
   import { appConsoleEntries, clearAppConsole } from '$entities/request';
-  import { workspacePath } from '$entities/workspace';
+  import { workspace } from '$entities/workspace';
 
   type TerminalLine = {
     id: string;
@@ -51,7 +51,7 @@
       ? homeDirectory && currentDirectory === homeDirectory
         ? '~'
         : currentDirectory
-      : $workspacePath || '~',
+      : workspace.path || '~',
   );
   const issueCount = $derived($appConsoleEntries.filter((entry) => !entry.ok).length);
   // C1: newest first.
@@ -60,7 +60,7 @@
       .filter((entry) => matchesConsoleFilter(entry, filter))
       .reverse(),
   );
-  const promptDir = $derived(shortCwd(currentDirectory || $workspacePath, homeDirectory));
+  const promptDir = $derived(shortCwd(currentDirectory || workspace.path, homeDirectory));
 
   function addLine(kind: TerminalLine['kind'], text: string, cwd?: string): void {
     if (!text) return;
@@ -87,7 +87,7 @@
     running = true;
     runId = crypto.randomUUID();
     try {
-      const result = await terminalRun(currentDirectory || $workspacePath || null, next, runId ?? undefined);
+      const result = await terminalRun(currentDirectory || workspace.path || null, next, runId ?? undefined);
       currentDirectory = result.cwd;
       addLine('stdout', result.stdout.replace(/\s+$/, ''));
       addLine('stderr', result.stderr.replace(/\s+$/, ''));
@@ -172,14 +172,14 @@
   $effect(() => {
     if (directoryInitialized) return;
     directoryInitialized = true;
-    const workspace = $workspacePath;
+    const root = workspace.path;
     void terminalDefaultCwd()
       .then((home) => {
         homeDirectory = home;
-        currentDirectory = workspace || home;
+        currentDirectory = root || home;
       })
       .catch(() => {
-        currentDirectory = workspace;
+        currentDirectory = root;
       });
   });
 

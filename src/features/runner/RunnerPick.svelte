@@ -4,7 +4,7 @@
    * or repeat one of the recent runs. Picking opens the run setup (R2).
    * Shared atoms (.rn-eyebrow, .rn-btn …) are styled by RunnerView.
    */
-  import { collections } from '$entities/workspace';
+  import { workspace } from '$entities/workspace';
   import {
     runnerHistory,
     runnerPresets,
@@ -45,8 +45,8 @@
   // Top-level folders are the collections; a search reaches any folder.
   const items = $derived(
     q
-      ? allFolders($collections).filter((f) => f.name.toLowerCase().includes(q))
-      : $collections.filter((n): n is FolderNode => n.kind === 'folder'),
+      ? allFolders(workspace.tree).filter((f) => f.name.toLowerCase().includes(q))
+      : workspace.tree.filter((n): n is FolderNode => n.kind === 'folder'),
   );
   const recent = $derived(
     [...$runnerHistory]

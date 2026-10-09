@@ -30,7 +30,7 @@
     push,
     statusColor,
   } from '$entities/git';
-  import { workspacePath } from '$entities/workspace';
+  import { workspace } from '$entities/workspace';
   import { requestConfirm } from '$shared/ui';
   import { gitBranches, gitGraph, gitLog } from '$shared/ipc';
   import type { GitFile, GitCommit } from '$shared/model';
@@ -85,7 +85,7 @@
       branchMenuOpen = false;
       return;
     }
-    const root = $workspacePath;
+    const root = workspace.path;
     if (!root) return;
     try {
       branches = await gitBranches(root);
@@ -138,7 +138,7 @@
   async function toggleLog(): Promise<void> {
     logOpen = !logOpen;
     if (logOpen) {
-      const root = $workspacePath;
+      const root = workspace.path;
       if (!root) return;
       try {
         log = await gitLog(root, 20);
@@ -152,7 +152,7 @@
   async function toggleGraph(): Promise<void> {
     graphOpen = !graphOpen;
     if (graphOpen) {
-      const root = $workspacePath;
+      const root = workspace.path;
       if (!root) return;
       try {
         graph = await gitGraph(root, 32);
@@ -190,7 +190,7 @@
 <svelte:window onpointerdown={() => (branchMenuOpen = false)} />
 
 <div class="bs-tree bs-git">
-  {#if !$workspacePath}
+  {#if !workspace.path}
     <div class="bs-sech">
       <span class="material-symbols-outlined cv" style="font-size:12px">expand_more</span>{t('git.title')}
     </div>

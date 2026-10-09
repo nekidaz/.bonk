@@ -27,7 +27,7 @@ import {
   stripsAuthorization,
   grpcAuthMetadata,
 } from './grpc';
-import { effectiveAuth, collections, workspacePath, withInheritedAuth } from '$entities/workspace';
+import { effectiveAuth, withInheritedAuth, workspace } from '$entities/workspace';
 import { activeEnvironmentId, environments, globals } from '$entities/environment';
 import { currentRequestSettings, applyScriptVars } from './store';
 
@@ -223,7 +223,7 @@ export async function runGrpcNode(
     // Load the schema so the call can be encoded: proto source compiles files,
     // otherwise reflection lists the services.
     if (g.source === 'proto') {
-      const abs = grpcPathsToAbs(g, get(workspacePath));
+      const abs = grpcPathsToAbs(g, workspace.path);
       await grpcLoadProto(connId, abs?.protoPaths ?? [], withGlobalImports(abs?.importPaths ?? []));
     } else {
       await grpcReflect(connId);
@@ -250,7 +250,7 @@ export async function runGrpcNode(
     }
 
     const resolvedMessage = resolveVars(message, scope);
-    const merged = grpcAuthMetadata(effectiveAuth(get(collections), node.id, g.auth), (v) => resolveVars(v, scope));
+    const merged = grpcAuthMetadata(effectiveAuth(workspace.tree, node.id, g.auth), (v) => resolveVars(v, scope));
     for (const [k, v] of Object.entries(metadata)) merged[k] = resolveVars(v, scope);
     const resolvedMetadata = outgoingGrpcMetadata(merged, stripsAuthorization(g, plaintext));
     const result = await grpcCall(

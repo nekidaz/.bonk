@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { collections, findNode, parentId } from '$entities/workspace';
+  import { findNode, parentId, workspace } from '$entities/workspace';
   import { dirtyTabIds } from '$entities/request';
   import { history } from '$entities/history';
   import { renameActiveTab, resetActiveTabTitle } from '$features/tabs';
@@ -44,7 +44,7 @@
     tab.savedPath ?? (tab.historyId ? $history.find((h) => h.id === tab.historyId)?.savedPath : undefined),
   );
   const folderId = $derived(origin ? parentId(origin) : undefined);
-  const folderName = $derived(folderId ? findNode($collections, folderId)?.name : undefined);
+  const folderName = $derived(folderId ? findNode(workspace.tree, folderId)?.name : undefined);
 
   let editing = $state(false);
   let draft = $state('');

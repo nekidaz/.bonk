@@ -1,6 +1,6 @@
 <script lang="ts">
   import { tabs } from '$entities/tab';
-  import { collections, addFolder, findNode, parentId } from '$entities/workspace';
+  import { addFolder, findNode, parentId, workspace } from '$entities/workspace';
   import { saveActiveRequest } from './store';
   import { saveDialog } from './dialogs';
   import { FolderPicker } from '$entities/workspace/components';
@@ -77,11 +77,11 @@
         />
         <div class="bs-saveto">
           {t('dialog.save.to')}
-          <span>{targetId ? (findNode($collections, targetId)?.name ?? '—') : t('dialog.move.root')}</span>
+          <span>{targetId ? (findNode(workspace.tree, targetId)?.name ?? '—') : t('dialog.move.root')}</span>
         </div>
         <div class="bs-collbox">
           <div class="bs-colllist">
-            <FolderPicker nodes={$collections} bind:selected={targetId} />
+            <FolderPicker nodes={workspace.tree} bind:selected={targetId} />
           </div>
         </div>
         {#if saveError}<div class="bs-form-error" id="bs-save-error" role="alert">{saveError}</div>{/if}

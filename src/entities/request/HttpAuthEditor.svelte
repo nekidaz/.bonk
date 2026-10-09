@@ -1,6 +1,6 @@
 <script lang="ts">
   import { t } from '$shared/i18n';
-  import { authFolderFor, collections } from '$entities/workspace';
+  import { authFolderFor, workspace } from '$entities/workspace';
   import { resolveVars, type ApiKeyLocation, type AuthConfig, type AuthType, type Tab } from '$shared/model';
   import { envToneOf, activeEnvironmentId, currentVarScope, environments, globals } from '$entities/environment';
   import { tabs } from '$entities/tab';
@@ -20,7 +20,7 @@
 
   const none: AuthConfig = { type: 'none', apiKeyIn: 'header' };
   const ownAuth = $derived(tab ? (isGrpc ? tab.grpc?.auth : tab.request.auth) : value);
-  const parent = $derived(tab ? authFolderFor($collections, tab.savedPath) : undefined);
+  const parent = $derived(tab ? authFolderFor(workspace.tree, tab.savedPath) : undefined);
   const ownType = $derived(ownAuth?.type ?? 'inherit');
   // S11: a request without its own auth shows (read-only) what its collection hands down.
   const inheriting = $derived(!!parent?.auth && ownType === 'inherit');

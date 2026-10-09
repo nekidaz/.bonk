@@ -1,11 +1,5 @@
 <script lang="ts">
-  import {
-    workspacePath,
-    recentWorkspacePaths,
-    openWorkspaceFolder,
-    switchWorkspace,
-    collections,
-  } from '$entities/workspace';
+  import { openWorkspaceFolder, switchWorkspace, workspace } from '$entities/workspace';
   import { environments } from '$entities/environment';
   import { hotkeys, formatBinding } from '$shared/settings';
   import { mcpIntegrationStatus, revealPath } from '$shared/ipc';
@@ -31,7 +25,7 @@
     let live = true;
     mcpIntegrationStatus()
       .then((s) => {
-        if (live) mcpOn = mcpConnected(s.clients, $workspacePath);
+        if (live) mcpOn = mcpConnected(s.clients, workspace.path);
       })
       .catch(() => {
         if (live) mcpOn = false;
@@ -42,17 +36,17 @@
   });
 
   const nameOf = (path: string) => workspaceName(path) || t('workspace.local');
-  const title = $derived($workspacePath ? nameOf($workspacePath) : t('workspace.local'));
-  const recents = $derived(recentWorkspaceChoices($recentWorkspacePaths, $workspacePath));
+  const title = $derived(workspace.path ? nameOf(workspace.path) : t('workspace.local'));
+  const recents = $derived(recentWorkspaceChoices(workspace.recent, workspace.path));
   const q = $derived(query.trim().toLowerCase());
   const hit = (path: string) => !q || path.toLowerCase().includes(q);
   const shownRecents = $derived(recents.filter(hit));
-  const showCurrent = $derived(!!$workspacePath && hit($workspacePath));
+  const showCurrent = $derived(!!workspace.path && hit(workspace.path));
 
   function countRequests(nodes: TreeNode[]): number {
     return nodes.reduce((n, node) => n + (node.kind === 'folder' ? countRequests(node.children) : 1), 0);
   }
-  const requestCount = $derived(countRequests($collections));
+  const requestCount = $derived(countRequests(workspace.tree));
 
   async function choose(path: string): Promise<void> {
     open = false;
@@ -89,7 +83,7 @@
     class:open
     aria-haspopup="menu"
     aria-expanded={open}
-    title={$workspacePath || t('workspace.local')}
+    title={workspace.path || t('workspace.local')}
     onclick={() => (open = !open)}
   >
     <span class="bs-work-avatar" aria-hidden="true">{workspaceInitials(title)}</span>
@@ -117,13 +111,13 @@
           class="bs-work-item on"
           type="button"
           role="menuitem"
-          title={$workspacePath}
+          title={workspace.path}
           onclick={() => (open = false)}
         >
-          <span class="bs-work-avatar" aria-hidden="true">{workspaceInitials(nameOf($workspacePath))}</span>
+          <span class="bs-work-avatar" aria-hidden="true">{workspaceInitials(nameOf(workspace.path))}</span>
           <span class="text">
-            <span class="main">{nameOf($workspacePath)}</span>
-            <span class="sub">{$workspacePath}</span>
+            <span class="main">{nameOf(workspace.path)}</span>
+            <span class="sub">{workspace.path}</span>
             <span class="meta">
               <span>{requestCount} {tp(requestCount, ['запрос', 'запроса', 'запросов'], ['request', 'requests'])}</span>
               <span
@@ -134,7 +128,7 @@
           </span>
           <span class="material-symbols-outlined ok" aria-hidden="true">check</span>
         </button>
-      {:else if !$workspacePath}
+      {:else if !workspace.path}
         <div class="bs-work-empty">{t('workspace.none')}</div>
       {/if}
 
@@ -166,12 +160,12 @@
         <span class="text"><span class="main">{t('workspace.openFolder')}</span></span>
         {#if hotkeys.current.openFolder}<kbd>{formatBinding(hotkeys.current.openFolder).join('')}</kbd>{/if}
       </button>
-      {#if $workspacePath}
+      {#if workspace.path}
         <button
           class="bs-work-item action"
           type="button"
           role="menuitem"
-          onclick={() => run(() => revealPath($workspacePath))}
+          onclick={() => run(() => revealPath(workspace.path))}
         >
           <span class="material-symbols-outlined" aria-hidden="true">open_in_new</span>
           <span class="text"><span class="main">{t('workspace.reveal')}</span></span>

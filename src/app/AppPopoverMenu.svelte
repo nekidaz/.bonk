@@ -8,7 +8,7 @@
     requestCloseTab,
     togglePinTab,
   } from '$features/tabs';
-  import { collections, findNode } from '$entities/workspace';
+  import { findNode, workspace } from '$entities/workspace';
   import { openSavedRequest } from '$entities/request';
   import { runInRunner } from '$features/runner';
   import { appMenuWidth, type AppMenuState } from '$shared/ui';
@@ -95,7 +95,7 @@
     if (!menu.kind) importOpen = false;
   });
 
-  const node = $derived(menu.nodeId ? findNode($collections, menu.nodeId) : undefined);
+  const node = $derived(menu.nodeId ? findNode(workspace.tree, menu.nodeId) : undefined);
 
   // Open upward when the menu would run past the bottom of the window.
   let menuEl = $state<HTMLDivElement>();

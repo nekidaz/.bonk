@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { collections, saveFolderAuth, findNode } from '$entities/workspace';
+  import { saveFolderAuth, findNode, workspace } from '$entities/workspace';
   import type { AuthConfig } from '$shared/model';
   import { HttpAuthEditor } from '$entities/request/components';
   import { t } from '$shared/i18n';
@@ -7,7 +7,7 @@
   // Collection-level auth (S11): requests set to "inherit" use it. `folderId` open = shown.
   let { folderId = $bindable() }: { folderId: string | undefined } = $props();
 
-  const folder = $derived(folderId ? findNode($collections, folderId) : undefined);
+  const folder = $derived(folderId ? findNode(workspace.tree, folderId) : undefined);
   let draft = $state<AuthConfig | undefined>(undefined);
   $effect(() => {
     draft = folder?.kind === 'folder' ? folder.auth : undefined;

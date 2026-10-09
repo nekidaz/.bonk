@@ -5,7 +5,7 @@
    * file, iterations, delay and stop-on-failure, and what will be sent.
    * Shared atoms (.rn-eyebrow, .rn-btn …) are styled by RunnerView.
    */
-  import { collections, findNode, parentId } from '$entities/workspace';
+  import { findNode, parentId, workspace } from '$entities/workspace';
   import { environments, activeEnvironmentId } from '$entities/environment';
   import {
     runnerConfig,
@@ -33,9 +33,9 @@
   const MUTATING = ['POST', 'PUT', 'PATCH', 'DELETE'];
 
   const cfg = $derived($runnerConfig);
-  const scope = $derived(cfg.folderIds.filter((id) => findNode($collections, id)));
-  const title = $derived(runnerScopeTitle(scope, $collections, t));
-  const all = $derived(orderedRequests(cfg, $collections));
+  const scope = $derived(cfg.folderIds.filter((id) => findNode(workspace.tree, id)));
+  const title = $derived(runnerScopeTitle(scope, workspace.tree, t));
+  const all = $derived(orderedRequests(cfg, workspace.tree));
   const on = (n: RequestNode) => !cfg.excludedIds.includes(n.id);
   const planned = $derived(all.filter(on));
   const links = $derived(varLinks(planned));
@@ -52,7 +52,7 @@
     for (const n of all) {
       const p = parentId(n.id);
       if (p !== last && p && !scope.includes(p)) {
-        out.push({ kind: 'folder', id: p, name: findNode($collections, p)?.name ?? '', ids: [] });
+        out.push({ kind: 'folder', id: p, name: findNode(workspace.tree, p)?.name ?? '', ids: [] });
       }
       last = p;
       const head = out.findLast((r) => r.kind === 'folder');

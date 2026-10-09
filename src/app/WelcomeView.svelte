@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { collections, workspacePath } from '$entities/workspace';
+  import { workspace } from '$entities/workspace';
   import { history, openHistoryEntry } from '$entities/history';
   import { methodColor } from '$shared/model';
   import { recentRequests, timeAgo } from '$entities/environment';
@@ -17,8 +17,8 @@
   } = $props();
 
   let curlInput = $state<HTMLInputElement | null>(null);
-  const workspaceName = $derived($workspacePath.split('/').filter(Boolean).at(-1) ?? t('workspace.local'));
-  const recent = $derived(recentRequests($history, $collections));
+  const workspaceName = $derived(workspace.path.split('/').filter(Boolean).at(-1) ?? t('workspace.local'));
+  const recent = $derived(recentRequests($history, workspace.tree));
   const now = Date.now();
 
   function curlKeydown(e: KeyboardEvent): void {
@@ -30,10 +30,10 @@
   }
 </script>
 
-{#if $collections.length === 0 || recent.length === 0}
+{#if workspace.tree.length === 0 || recent.length === 0}
   <section class="bs-welcome" aria-labelledby="bs-welcome-title">
     <div class="eyebrow">
-      {workspaceName}&nbsp;&nbsp;·&nbsp;&nbsp;{$collections.length === 0
+      {workspaceName}&nbsp;&nbsp;·&nbsp;&nbsp;{workspace.tree.length === 0
         ? t('nav.welcome.newWorkspace')
         : t('nav.welcome.noTabs')}
     </div>

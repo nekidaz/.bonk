@@ -18,7 +18,7 @@
   import { tick, untrack } from 'svelte';
   import { get } from 'svelte/store';
   import { tabs, grpcSnapshot, titleFromUrl, GRPC_DEFAULT_TITLE } from '$entities/tab';
-  import { collections } from '$entities/workspace';
+  import { workspace } from '$entities/workspace';
   import { addHistory } from '$entities/history';
   import { grpcTlsFor, currentGrpcPrefs, withGlobalImports, requestPrefs } from '$shared/settings';
   import {
@@ -437,7 +437,7 @@
       g.auth,
       message,
       metadata,
-      $collections,
+      workspace.tree,
       tab.savedPath,
       scope,
       stripAuth,

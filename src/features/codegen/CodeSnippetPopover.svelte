@@ -9,7 +9,7 @@
   import { methodColor, type Tab } from '$shared/model';
   import { openapiExportSave } from '$shared/ipc';
   import { activeEnvironmentId, environments, globals, currentVarScope } from '$entities/environment';
-  import { collections, withInheritedAuth } from '$entities/workspace';
+  import { withInheritedAuth, workspace } from '$entities/workspace';
 
   let { tab, onClose }: { tab: Tab; onClose: () => void } = $props();
 
@@ -121,7 +121,7 @@
     const t = tab;
     const l = lang;
     void $globals;
-    void $collections;
+    void workspace.tree;
     void $environments;
     void $activeEnvironmentId;
     const scope = resolve ? currentVarScope(true) : {};

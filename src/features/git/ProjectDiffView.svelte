@@ -4,7 +4,7 @@
    * with stage/unstage/discard, plus a commit box. Reads batched diffs from the
    * Rust core and refreshes after every mutation.
    */
-  import { workspacePath } from '$entities/workspace';
+  import { workspace } from '$entities/workspace';
   import { requestConfirm } from '$shared/ui';
   import { gitStatusDiffs } from '$shared/ipc';
   import { gitStatusVersion, gitBusy, stagePaths, unstagePaths, discardPaths, commitChanges } from '$entities/git';
@@ -22,7 +22,7 @@
   const stagedCount = $derived(files.filter((f) => f.staged).length);
 
   async function load(): Promise<void> {
-    const root = $workspacePath;
+    const root = workspace.path;
     if (!root) {
       files = [];
       return;
@@ -44,7 +44,7 @@
 
   // Reload whenever the workspace changes or any git mutation bumps the version.
   $effect(() => {
-    void $workspacePath;
+    void workspace.path;
     void $gitStatusVersion;
     void load();
   });

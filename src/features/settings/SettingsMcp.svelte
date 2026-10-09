@@ -15,7 +15,7 @@
     type McpMethodPolicy,
   } from '$shared/ipc';
   import { requestConfirm } from '$shared/ui';
-  import { workspacePath } from '$entities/workspace';
+  import { workspace } from '$entities/workspace';
   import { environments, mcpPrefs, allowedEnvNames, timeAgo } from '$entities/environment';
   import McpEnvPicker from './McpEnvPicker.svelte';
   import { methodColor } from '$shared/model';
@@ -32,7 +32,7 @@
   const envNames = $derived([...new Set($environments.map((e) => e.name))]);
   const allowedEnvs = $derived(allowedEnvNames(mcpPrefs.current, $environments));
   const opts = $derived<McpInstallOptions>({
-    workspace: $workspacePath,
+    workspace: workspace.path,
     readOnly: !mcpPrefs.current.allowWrites,
     noNetwork: !mcpPrefs.current.allowNetwork,
     targetHosts: mcpPrefs.current.targetHosts,
@@ -40,7 +40,7 @@
     environments: envNames.filter((n) => allowedEnvs.has(n)),
     mutatingMethods: mcpPrefs.current.mutatingMethods,
   });
-  const noWs = $derived(!$workspacePath);
+  const noWs = $derived(!workspace.path);
   const off = $derived(noWs || status?.binaryAvailable === false);
   const stale = $derived(status?.clients.filter((c) => c.installed) ?? []);
 
@@ -265,14 +265,14 @@
       {/if}
       <span class="st-mcp-capt">{t('settings.mcp.ws')}</span>
       <div class="st-mcp-wsrow">
-        <span class="st-mcp-ws" title={$workspacePath}>{$workspacePath ? shortPath($workspacePath) : '—'}</span>
+        <span class="st-mcp-ws" title={workspace.path}>{workspace.path ? shortPath(workspace.path) : '—'}</span>
         <button
           type="button"
           class="st-mcp-ic"
           aria-label={t('settings.mcp.reveal')}
           title={t('settings.mcp.reveal')}
           disabled={noWs}
-          onclick={() => void revealPath($workspacePath).catch((e) => (error = errText(e)))}
+          onclick={() => void revealPath(workspace.path).catch((e) => (error = errText(e)))}
         >
           <span class="material-symbols-outlined" aria-hidden="true">folder_open</span>
         </button>

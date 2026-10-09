@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { workspacePath } from '$entities/workspace';
+  import { workspace } from '$entities/workspace';
   import { gitDiff } from '$shared/ipc';
   import type { GitDiffMode, Tab } from '$shared/model';
   import { diffStats } from './diff';
@@ -19,7 +19,7 @@
   const stats = $derived(diffStats(diffText));
 
   $effect(() => {
-    const root = $workspacePath;
+    const root = workspace.path;
     const key = `${root}\0${path}\0${mode}`;
     if (!root || !path || key === loadedKey) return;
     loadedKey = key;
@@ -47,7 +47,7 @@
 
   function reload(): void {
     loadedKey = '';
-    const root = $workspacePath;
+    const root = workspace.path;
     if (!root || !path) return;
     loadedKey = `${root}\0${path}\0${mode}`;
     void load(root, path, mode);
@@ -65,8 +65,8 @@
       <div class="text">
         <div class="main">{path || t('git.diff.title')}</div>
         <div class="sub">
-          {t('git.diff.sub', { mode: modeLabel(mode) })}{#if $workspacePath}
-            · {$workspacePath}{/if}
+          {t('git.diff.sub', { mode: modeLabel(mode) })}{#if workspace.path}
+            · {workspace.path}{/if}
         </div>
       </div>
     </div>
