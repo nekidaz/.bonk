@@ -91,8 +91,9 @@
 
   function save(): void {
     const ids = new Set(draft.map((e) => e.id));
-    environments.list = draft.map((e) => ({ ...e, name: e.name.trim() || t('env.default_name') }));
-    environments.globals = draftGlobals;
+    // Snapshots: the saved state gets plain copies, not the editor's live $state proxies.
+    environments.list = $state.snapshot(draft).map((e) => ({ ...e, name: e.name.trim() || t('env.default_name') }));
+    environments.globals = $state.snapshot(draftGlobals);
     if (environments.activeId && !ids.has(environments.activeId)) environments.activeId = null;
     if (!embedded) close();
   }
