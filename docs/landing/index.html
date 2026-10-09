@@ -5,314 +5,593 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta
       name="description"
-      content="bonk is a Rust-powered desktop API client for HTTP and gRPC. Native request engine, file-based workspaces, and no Electron runtime."
+      content="Bonk is a local-first desktop API client. Send HTTP and gRPC requests, test collections, build flows, and connect AI tools through MCP. Your workspace stays on your machine."
     />
-    <meta name="theme-color" content="#101114" />
-
+    <meta name="theme-color" content="#f5f7fb" />
     <meta property="og:type" content="website" />
-    <meta property="og:title" content="bonk — local-first API client" />
+    <meta property="og:url" content="https://nekidaz.github.io/.bonk/" />
+    <meta
+      property="og:title"
+      content="bonk — Your API workflow. On your machine."
+    />
     <meta
       property="og:description"
-      content="A Rust-powered API client for HTTP and gRPC with file-based workspaces, server reflection, and fast native requests."
+      content="HTTP, gRPC, scripts, runners, flows, and MCP. A native desktop API client with a workspace you own."
     />
-    <meta property="og:image" content="screenshots/hero.jpg" />
-
-    <title>bonk — Rust-powered API client</title>
+    <meta
+      property="og:image"
+      content="https://nekidaz.github.io/.bonk/screenshots/social.png"
+    />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="canonical" href="https://nekidaz.github.io/.bonk/" />
     <link rel="icon" href="favicon.svg" />
+    <link
+      rel="preload"
+      href="fonts/inter-latin-400.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
+    />
+    <link rel="preload" href="screenshots/hero.jpg" as="image" />
     <link rel="stylesheet" href="landing.css" />
+    <title>bonk — Your API workflow. On your machine.</title>
+    <script src="landing.js" defer></script>
   </head>
   <body>
-    <header class="site-nav" aria-label="Site navigation">
-      <a class="brand" href="#top" aria-label="bonk home">
-        <span class="brand-mark">.bonk</span>
-      </a>
-      <nav class="nav-links" aria-label="Primary navigation">
-        <a href="#features">Features</a>
-        <a href="#performance">Why bonk</a>
-        <a href="#screenshots">Screenshots</a>
-        <a href="#install">Install</a>
-        <a href="https://github.com/nekidaz/.bonk">GitHub</a>
-      </nav>
+    <a class="skip-link" href="#main">Skip to content</a>
+    <header class="site-header">
+      <div class="nav-wrap">
+        <a class="wordmark" href="#" aria-label="bonk home"
+          >.bonk<span class="brand-dot" aria-hidden="true"></span
+        ></a>
+        <nav aria-label="Main navigation">
+          <a href="#workflow">Workflow</a><a href="#workspace">Local first</a
+          ><a href="#ai">AI / MCP</a
+          ><a href="https://github.com/nekidaz/.bonk"
+            >GitHub <span aria-hidden="true">↗</span></a
+          >
+        </nav>
+        <a class="button nav-download" href="#download"
+          >Get bonk <span aria-hidden="true">↓</span></a
+        >
+      </div>
     </header>
-
-    <main id="top">
-      <section class="hero" aria-labelledby="hero-title">
-        <canvas id="hero-scene" class="hero-scene" aria-hidden="true"></canvas>
-        <div class="hero-vignette" aria-hidden="true"></div>
-        <div class="hero-layout">
-          <div class="hero-content">
-            <p class="eyebrow">Rust-powered desktop API client</p>
-            <h1 id="hero-title">bonk</h1>
-            <p class="hero-copy">
-              HTTP, gRPC, workspaces, and history in one native desktop app. The
-              request engine is written in <strong>Rust</strong>, not Electron, so bonk stays fast,
-              small, and <strong>~10× lighter</strong> than typical Electron API clients.
+    <main id="main">
+      <section class="hero container" aria-labelledby="hero-title">
+        <div class="hero-heading">
+          <div>
+            <p class="eyebrow">
+              <span class="status-dot" aria-hidden="true"></span> THE DESKTOP
+              API CLIENT THAT STAYS LOCAL
             </p>
-            <div class="hero-actions" aria-label="Primary actions">
-              <a class="button button-primary" href="https://github.com/nekidaz/.bonk/releases/latest">Download</a>
-              <a class="button button-secondary" href="#install">Install with CLI</a>
-            </div>
-            <dl class="hero-metrics" aria-label="bonk highlights">
-              <div>
-                <dt>200 OK</dt>
-                <dd>native HTTP</dd>
-              </div>
-              <div>
-                <dt>105 ms</dt>
-                <dd>gRPC invoke</dd>
-              </div>
-              <div>
-                <dt>gRPC</dt>
-                <dd>reflection</dd>
-              </div>
-            </dl>
+            <h1 id="hero-title">
+              Your API workflow.<br /><span>On your machine.</span>
+            </h1>
           </div>
+          <div class="hero-description">
+            <p>
+              Send a request. Inspect the response. Test the whole collection.
+              Keep your work in files you own.
+            </p>
+            <p class="muted">
+              HTTP &amp; gRPC, powered by Rust. No account required.
+            </p>
+            <a class="button primary" href="#download"
+              >Download bonk <span aria-hidden="true">↓</span></a
+            >
+            <a class="text-link" href="#workflow"
+              >Take a closer look <span aria-hidden="true">↘</span></a
+            >
+          </div>
+        </div>
+        <div class="product-stage">
+          <div class="stage-label">
+            <span
+              ><span class="status-dot" aria-hidden="true"></span> YOUR
+              WORKSPACE, OPEN FOR BUSINESS</span
+            ><span>HTTP / gRPC / FILES</span>
+          </div>
+          <a
+            class="hero-shot"
+            href="screenshots/hero.jpg"
+            aria-label="Open the full-resolution Bonk workspace screenshot"
+          >
+            <img
+              src="screenshots/hero.jpg"
+              alt="Current Bonk desktop interface with file-based collections, HTTP query parameters and a formatted JSON response side by side"
+              width="2880"
+              height="1800"
+              fetchpriority="high"
+            />
+          </a>
+          <div class="stage-caption">
+            <span
+              >Real app. Example data. Everything on your side of the
+              screen.</span
+            ><span>macOS · Windows · Linux</span>
+          </div>
+        </div>
+        <div class="principles" aria-label="Bonk fundamentals">
+          <p>
+            <span class="principle-symbol" aria-hidden="true">↔</span
+            ><strong>HTTP + gRPC</strong><span>One place for both.</span>
+          </p>
+          <p>
+            <span class="principle-symbol" aria-hidden="true">⌘</span
+            ><strong>Native desktop</strong
+            ><span>Rust engine. Tauri shell.</span>
+          </p>
+          <p>
+            <span class="principle-symbol" aria-hidden="true">{ }</span
+            ><strong>Plain request files</strong
+            ><span>Readable. Portable. Yours.</span>
+          </p>
+          <p>
+            <span class="principle-symbol" aria-hidden="true">◎</span
+            ><strong>No account</strong><span>Open a folder and start.</span>
+          </p>
+        </div>
+      </section>
 
-          <div class="hero-stage" aria-hidden="true">
-            <div class="product-window">
-              <div class="window-bar">
-                <span></span>
-                <span></span>
-                <span></span>
-                <strong>.bonk workspace</strong>
+      <section
+        class="section container"
+        id="workflow"
+        aria-labelledby="workflow-title"
+      >
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">FROM ONE REQUEST TO THE WHOLE WORKFLOW</p>
+            <h2 id="workflow-title">Go beyond<br />the Send button.</h2>
+          </div>
+          <p>
+            Debug an endpoint, explore a service, or run a repeatable API check.
+            The tools fit together in the same workspace.
+          </p>
+        </div>
+        <div class="showcase">
+          <div
+            class="showcase-tabs"
+            role="tablist"
+            aria-label="Explore Bonk features"
+          >
+            <button
+              role="tab"
+              id="tab-http"
+              aria-controls="feature-panel"
+              aria-selected="true"
+              tabindex="0"
+              data-feature="http"
+            >
+              <span class="protocol">HTTP</span><span>Make the request</span
+              ><span aria-hidden="true">↗</span>
+            </button>
+            <button
+              role="tab"
+              id="tab-grpc"
+              aria-controls="feature-panel"
+              aria-selected="false"
+              tabindex="-1"
+              data-feature="grpc"
+            >
+              <span class="protocol">gRPC</span><span>Explore the service</span
+              ><span aria-hidden="true">↗</span>
+            </button>
+            <button
+              role="tab"
+              id="tab-scripts"
+              aria-controls="feature-panel"
+              aria-selected="false"
+              tabindex="-1"
+              data-feature="scripts"
+            >
+              <span class="protocol">TESTS</span><span>Check the response</span
+              ><span aria-hidden="true">↗</span>
+            </button>
+            <button
+              role="tab"
+              id="tab-runner"
+              aria-controls="feature-panel"
+              aria-selected="false"
+              tabindex="-1"
+              data-feature="runner"
+            >
+              <span class="protocol">RUNNER</span><span>Run the collection</span
+              ><span aria-hidden="true">↗</span>
+            </button>
+            <button
+              role="tab"
+              id="tab-environments"
+              aria-controls="feature-panel"
+              aria-selected="false"
+              tabindex="-1"
+              data-feature="environments"
+            >
+              <span class="protocol">ENV</span><span>Switch the context</span
+              ><span aria-hidden="true">↗</span>
+            </button>
+          </div>
+          <div
+            id="feature-panel"
+            role="tabpanel"
+            aria-labelledby="tab-http"
+            tabindex="0"
+          >
+            <div class="feature-copy">
+              <h3 id="feature-title">
+                The details that make debugging easier.
+              </h3>
+              <p id="feature-description">
+                Params, headers, inherited auth, JSON, multipart, binary, and
+                GraphQL bodies. Read responses with syntax highlighting,
+                JSONPath filters, folding, and a side-by-side layout.
+              </p>
+            </div>
+            <a
+              id="feature-image-link"
+              href="screenshots/http.jpg"
+              aria-label="Open the full-resolution feature screenshot"
+              ><img
+                id="feature-image"
+                src="screenshots/http.jpg"
+                alt="Bonk HTTP request editor and formatted response"
+                width="2880"
+                height="1800"
+                loading="lazy"
+            /></a>
+            <p class="screenshot-note" id="feature-caption">
+              HTTP request · query parameters · formatted JSON response
+            </p>
+          </div>
+        </div>
+        <div class="feature-notes">
+          <article>
+            <span class="note-icon" aria-hidden="true">⤳</span>
+            <h3>Connect the steps with Flows.</h3>
+            <p>
+              Chain saved requests, scripts, conditions, loops, and delays on a
+              node canvas. Pass output from one step to the next and follow the
+              run as it happens.
+            </p>
+          </article>
+          <article>
+            <span class="note-icon" aria-hidden="true">⇄</span>
+            <h3>Bring the requests you already have.</h3>
+            <p>
+              Paste cURL. Import Postman collections or OpenAPI / Swagger specs.
+              Export a collection, or turn a request into a code snippet.
+            </p>
+          </article>
+          <article>
+            <span class="note-icon" aria-hidden="true">⌕</span>
+            <h3>Keep your hands on the keyboard.</h3>
+            <p>
+              A command palette, configurable shortcuts, searchable history,
+              resizable panels, a console, and a terminal keep everyday work
+              close.
+            </p>
+          </article>
+        </div>
+      </section>
+
+      <section
+        class="workspace-section"
+        id="workspace"
+        aria-labelledby="workspace-title"
+      >
+        <div class="container workspace-layout">
+          <div>
+            <p class="eyebrow">A FOLDER. NOT A CLOUD WORKSPACE.</p>
+            <h2 id="workspace-title">
+              Your requests<br />belong with<br /><span>your code.</span>
+            </h2>
+            <p>
+              Open a directory and make it your workspace. Each saved request
+              becomes a readable <code>*.bonk.json</code> file. The folders on
+              disk are the collections in your sidebar.
+            </p>
+            <p>
+              Review changes, share the folder, or commit it with your project.
+              Bonk includes Git diffs, staging, commits, branches, pull, and
+              push through your system Git.
+            </p>
+            <div class="local-tags">
+              <span>Works without an account</span
+              ><span>No hosted collection storage</span
+              ><span>Offline editing</span>
+            </div>
+          </div>
+          <div
+            class="file-artifact"
+            aria-label="Example of a Bonk workspace and request file"
+          >
+            <div class="artifact-bar">
+              <span class="status-dot" aria-hidden="true"></span
+              ><span>orbit-api/</span><span>YOUR DISK</span>
+            </div>
+            <div class="file-tree">
+              <div>▾ <strong>payments/</strong></div>
+              <div class="tree-child">
+                <span class="method get">GET</span> list-payments.bonk.json
+                <span class="file-status">M</span>
               </div>
-              <div class="window-tabs">
-                <span class="active">GET fetch story list</span>
-                <span>gRPC CreateEverything</span>
-                <span>Response</span>
+              <div class="tree-child">
+                <span class="method post">POST</span> create-payment.bonk.json
               </div>
-              <div class="request-line">
-                <span>GET</span>
-                <code>{{base_url}}/products/v1/story/categories</code>
-                <button type="button" tabindex="-1">Send</button>
+              <div>▾ <strong>auth/</strong></div>
+              <div class="tree-child">
+                <span class="method post">POST</span> issue-token.bonk.json
               </div>
-              <div class="flow-board">
-                <div class="flow-card source-card">
-                  <span class="flow-label">workspace</span>
-                  <strong>My Workspace</strong>
-                  <small>5 requests saved as files</small>
-                </div>
-                <div class="flow-card request-card">
-                  <span class="flow-label">request</span>
-                  <strong>GET /stories</strong>
-                  <small>query params + headers</small>
-                </div>
-                <div class="flow-card response-card">
-                  <span class="flow-label">response</span>
-                  <strong>200 OK</strong>
-                  <small>105 ms · pretty JSON</small>
-                </div>
-                <span class="flow-line flow-line-a"></span>
-                <span class="flow-line flow-line-b"></span>
+              <div>▾ <strong>grpc/</strong></div>
+              <div class="tree-child">
+                <span class="method grpc">RPC</span> say-hello.bonk.json
               </div>
-              <pre class="response-preview"><code>{
-  "status": "success",
-  "workspace": "bonk",
-  "latency_ms": 105
+            </div>
+            <div class="file-preview">
+              <div class="file-preview-label">
+                payments/list-payments.bonk.json
+              </div>
+              <pre><code>{
+  <span class="code-key">"name"</span>: <span class="code-string">"List payments"</span>,
+  <span class="code-key">"protocol"</span>: <span class="code-string">"http"</span>,
+  <span class="code-key">"request"</span>: {
+    <span class="code-key">"method"</span>: <span class="code-string">"GET"</span>,
+    <span class="code-key">"url"</span>: <span class="code-string">"{{baseUrl}}/v1/payments"</span>,
+    <span class="code-key">"headers"</span>: {}
+  }
 }</code></pre>
             </div>
+            <div class="artifact-footer">
+              <span class="branch-mark" aria-hidden="true">⑂</span> main
+              <span>1 readable change</span>
+            </div>
           </div>
         </div>
       </section>
 
-      <section class="quick-stats" aria-label="Project highlights">
-        <div>
-          <strong>HTTP + gRPC</strong>
-          <span>native execution and cancellation</span>
-        </div>
-        <div>
-          <strong>File-based</strong>
-          <span>requests saved as files</span>
-        </div>
-        <div>
-          <strong>Offline</strong>
-          <span>no hosted workspace required</span>
-        </div>
-        <div>
-          <strong>Rust core</strong>
-          <span>native engine, not Electron</span>
-        </div>
-      </section>
-
-      <section id="features" class="section section-features" aria-labelledby="features-title">
-        <div class="section-heading">
-          <p class="eyebrow">Why it exists</p>
-          <h2 id="features-title">Postman-style workflows without a cloud database.</h2>
+      <section
+        class="section container ai-section"
+        id="ai"
+        aria-labelledby="ai-title"
+      >
+        <div class="ai-copy">
+          <p class="eyebrow">YOUR API WORKSPACE, MEET YOUR AI TOOLS</p>
+          <h2 id="ai-title">
+            Give your assistant<br /><span>something real to work with.</span>
+          </h2>
           <p>
-            bonk keeps the useful parts of an API client and makes the workspace feel like code:
-            folders and request files on disk.
+            Bonk’s MCP server lets compatible assistants inspect your workspace,
+            create requests, explore gRPC schemas, and run API calls with the
+            permissions you choose.
+          </p>
+          <p>
+            Set it up from <strong>Settings → AI / MCP</strong>. Choose an
+            environment, allow editing or network access, and install for
+            detected clients.
+          </p>
+          <a
+            class="text-link"
+            href="https://github.com/nekidaz/.bonk/blob/main/docs/MCP.md"
+            >Read the MCP guide <span aria-hidden="true">↗</span></a
+          >
+        </div>
+        <div class="mcp-card">
+          <div class="mcp-prompt">
+            <span class="assistant-dot" aria-hidden="true">✳</span>
+            <p>
+              “Find the payments requests, inspect the schema, and add a test
+              for the response.”
+            </p>
+          </div>
+          <div class="mcp-connection">
+            <span>Claude / Codex / MCP clients</span
+            ><span aria-hidden="true">↕</span><strong>.bonk MCP</strong>
+          </div>
+          <ul class="mcp-permissions">
+            <li>
+              <span class="check" aria-hidden="true">✓</span> Read workspace
+              &amp; schemas
+            </li>
+            <li>
+              <span class="check" aria-hidden="true">✓</span> Edit requests when
+              permitted
+            </li>
+            <li>
+              <span class="check" aria-hidden="true">✓</span> Call approved API
+              hosts
+            </li>
+          </ul>
+          <p class="mcp-footnote">
+            Local STDIO · remote Streamable HTTP<br />Read-only mode and host
+            allowlists available.
           </p>
         </div>
+      </section>
 
-        <div class="feature-grid">
-          <article class="feature-card">
-            <span class="feature-kicker http">HTTP</span>
-            <h3>Requests that stay readable</h3>
-            <p>Params, headers, auth, raw JSON, form data, binary bodies, redirects, timings, and formatted responses.</p>
-          </article>
-          <article class="feature-card">
-            <span class="feature-kicker grpc">gRPC</span>
-            <h3>Server reflection built in</h3>
-            <p>Connect to a gRPC endpoint, browse reflected services, generate example messages, and invoke methods.</p>
-          </article>
-          <article class="feature-card">
-            <span class="feature-kicker files">Files</span>
-            <h3>Workspace equals folder</h3>
-            <p>Every saved request is a <code>*.bonk.json</code> file. Nested folders mirror the sidebar exactly.</p>
-          </article>
+      <section class="native-strip container" aria-labelledby="native-title">
+        <div>
+          <p class="eyebrow">SMALL BY DESIGN</p>
+          <h2 id="native-title">Rust underneath.<br />Your OS around it.</h2>
+        </div>
+        <p>
+          HTTP, gRPC, file operations, and Git run through a native Rust core.
+          Tauri uses the system WebView, so Bonk ships without a bundled
+          Chromium runtime. Fonts are included locally.
+        </p>
+        <div class="stack">
+          <span>Rust</span><span>Tauri 2</span><span>Svelte 5</span>
         </div>
       </section>
 
-      <section id="performance" class="section section-perf" aria-labelledby="perf-title">
+      <section
+        class="section container download-section"
+        id="download"
+        aria-labelledby="download-title"
+      >
         <div class="section-heading">
-          <p class="eyebrow">Built in Rust</p>
-          <h2 id="perf-title">Rust request engine. Native shell. No Electron tax.</h2>
-          <p>
-            HTTP, gRPC, workspace IO, and history run through a Rust core. The UI
-            renders in the OS-native WebView through Tauri, so bonk ships without bundled Chromium,
-            without Node in production, and without a 400&nbsp;MB runtime.
-          </p>
-        </div>
-
-        <div class="perf-stats" aria-label="Key metrics">
-          <div class="perf-stat">
-            <span class="perf-num">~37<small>MB</small></span>
-            <span class="perf-lbl">RAM at idle</span>
+          <div>
+            <p class="eyebrow">OPEN A FOLDER. SEND YOUR FIRST REQUEST.</p>
+            <h2 id="download-title">Make yourself<br />at localhost.</h2>
           </div>
-          <div class="perf-stat">
-            <span class="perf-num">~7<small>MB</small></span>
-            <span class="perf-lbl">download size</span>
-          </div>
-          <div class="perf-stat">
-            <span class="perf-num">~0<small>%</small></span>
-            <span class="perf-lbl">idle CPU</span>
+          <div>
+            <p>
+              Choose your platform and get started.<br />No signup. No workspace
+              subscription.
+            </p>
+            <a
+              class="text-link"
+              href="https://github.com/nekidaz/.bonk/releases/latest"
+              >View the latest release <span aria-hidden="true">↗</span></a
+            >
           </div>
         </div>
-
-        <div class="perf-table-wrap">
-          <table class="perf-table">
-            <thead>
-              <tr>
-                <th scope="col"></th>
-                <th scope="col" class="perf-win">bonk<small>Rust · Tauri</small></th>
-                <th scope="col">Postman / Insomnia<small>Electron</small></th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr><th scope="row">RAM at idle</th><td class="perf-win">~37 MB</td><td>~400–700 MB</td></tr>
-              <tr><th scope="row">Download size</th><td class="perf-win">~7 MB</td><td>~200 MB – 1 GB</td></tr>
-              <tr><th scope="row">Idle CPU</th><td class="perf-win">~0%</td><td>noticeable</td></tr>
-              <tr><th scope="row">Engine</th><td class="perf-win">Rust + native WebView</td><td>bundled Chromium + Node</td></tr>
-              <tr><th scope="row">Account / cloud</th><td class="perf-win">none — local-first</td><td>account, cloud sync</td></tr>
-              <tr><th scope="row">Collections</th><td class="perf-win">plain files, git-diffable</td><td>proprietary DB / cloud</td></tr>
-            </tbody>
-          </table>
+        <div class="download-grid">
+          <article class="download-card" data-platform="mac">
+            <div class="platform-heading">
+              <h3>macOS</h3>
+              <span>Apple Silicon</span>
+            </div>
+            <p>Install with Homebrew.</p>
+            <div class="command">
+              <code>brew install --cask nekidaz/tap/bonk</code
+              ><button
+                class="copy-button"
+                type="button"
+                data-copy="brew install --cask nekidaz/tap/bonk"
+                aria-label="Copy Homebrew install command"
+              >
+                Copy
+              </button>
+            </div>
+            <a
+              class="download-link"
+              href="https://github.com/nekidaz/.bonk/releases/latest"
+              >Download .dmg <span aria-hidden="true">↓</span></a
+            >
+            <p class="install-note">
+              The app is not notarized by Apple. On first launch, follow the
+              release’s macOS installation notes.
+            </p>
+          </article>
+          <article class="download-card" data-platform="windows">
+            <div class="platform-heading">
+              <h3>Windows</h3>
+              <span>x64</span>
+            </div>
+            <p>
+              Download the installer from the latest release, then follow the
+              setup wizard.
+            </p>
+            <a
+              class="download-link"
+              href="https://github.com/nekidaz/.bonk/releases/latest"
+              >Download Windows installer <span aria-hidden="true">↓</span></a
+            >
+            <p class="install-note">
+              Release assets are the current source of truth for available
+              builds.
+            </p>
+          </article>
+          <article class="download-card" data-platform="linux">
+            <div class="platform-heading">
+              <h3>Linux</h3>
+              <span>x64</span>
+            </div>
+            <p>Choose an AppImage or Debian package.</p>
+            <div class="command">
+              <code>chmod +x bonk_*.AppImage</code
+              ><button
+                class="copy-button"
+                type="button"
+                data-copy="chmod +x bonk_*.AppImage"
+                aria-label="Copy AppImage permission command"
+              >
+                Copy
+              </button>
+            </div>
+            <a
+              class="download-link"
+              href="https://github.com/nekidaz/.bonk/releases/latest"
+              >Download AppImage / .deb <span aria-hidden="true">↓</span></a
+            >
+            <p class="install-note">
+              Then launch the AppImage, or install the .deb with your package
+              manager.
+            </p>
+          </article>
         </div>
-
-        <p class="perf-note">
-          bonk numbers measured on a release build; Electron figures are typical ranges for those apps.
+        <p class="update-note">
+          Already installed? Check for signed updates from Settings.
         </p>
       </section>
 
-      <section id="screenshots" class="section section-gallery" aria-labelledby="screenshots-title">
-        <div class="section-heading">
-          <p class="eyebrow">Screenshots</p>
-          <h2 id="screenshots-title">A workspace that looks like a real tool, not a toy.</h2>
+      <section class="faq container" aria-labelledby="faq-title">
+        <div>
+          <p class="eyebrow">A FEW PRACTICAL DETAILS</p>
+          <h2 id="faq-title">Before you bonk.</h2>
         </div>
-
-        <div class="gallery-tabs" role="tablist" aria-label="Screenshot gallery">
-          <button class="gallery-tab active" type="button" data-shot="http" role="tab" aria-selected="true">HTTP</button>
-          <button class="gallery-tab" type="button" data-shot="grpc" role="tab" aria-selected="false">gRPC</button>
-          <button class="gallery-tab" type="button" data-shot="overview" role="tab" aria-selected="false">Workspace</button>
-        </div>
-
-        <figure class="screenshot-frame">
-          <img id="gallery-image" src="screenshots/http.jpg" alt="HTTP request editor with query params" />
-          <figcaption id="gallery-caption">HTTP requests with query params, tabs, file-backed collections, and a response pane.</figcaption>
-        </figure>
-      </section>
-
-      <section id="install" class="section section-install" aria-labelledby="install-title">
-        <div class="section-heading">
-          <p class="eyebrow">Install and update</p>
-          <h2 id="install-title">Download from GitHub, or install through your package manager.</h2>
-          <p>
-            Tagged releases publish desktop bundles and an updater manifest. Homebrew is wired through the tap workflow;
-            Chocolatey needs the package to be published under the same app name before the public launch.
-          </p>
-        </div>
-
-        <div class="install-grid">
-          <article class="install-card">
-            <div class="install-card-head">
-              <span>macOS</span>
-              <small>Homebrew</small>
-            </div>
-            <button class="copy-command" type="button" data-copy="brew install --cask nekidaz/tap/bonk">
-              <code>brew install --cask nekidaz/tap/bonk</code>
-            </button>
-            <button class="copy-command muted" type="button" data-copy="brew upgrade --cask bonk">
-              <code>brew upgrade --cask bonk</code>
-            </button>
-          </article>
-
-          <article class="install-card">
-            <div class="install-card-head">
-              <span>Windows</span>
-              <small>Chocolatey</small>
-            </div>
-            <button class="copy-command" type="button" data-copy="choco install bonk">
-              <code>choco install bonk</code>
-            </button>
-            <button class="copy-command muted" type="button" data-copy="choco upgrade bonk">
-              <code>choco upgrade bonk</code>
-            </button>
-          </article>
-
-          <article class="install-card">
-            <div class="install-card-head">
-              <span>Linux</span>
-              <small>GitHub Releases</small>
-            </div>
-            <button class="copy-command" type="button" data-copy="chmod +x bonk_*.AppImage && ./bonk_*.AppImage">
-              <code>chmod +x bonk_*.AppImage &amp;&amp; ./bonk_*.AppImage</code>
-            </button>
-            <button class="copy-command muted" type="button" data-copy="sudo apt install ./bonk_*.deb">
-              <code>sudo apt install ./bonk_*.deb</code>
-            </button>
-          </article>
-        </div>
-
-        <div class="release-strip">
-          <div>
-            <strong>Auto-updates</strong>
-            <span>bonk checks the signed release manifest and installs updates in place.</span>
-          </div>
-          <a class="button button-secondary" href="https://github.com/nekidaz/.bonk/releases/latest">Latest release</a>
-        </div>
-      </section>
-
-      <section class="section section-open" aria-labelledby="open-title">
-        <div class="open-copy">
-          <p class="eyebrow">Open source</p>
-          <h2 id="open-title">Built for local workspaces and clean pull requests.</h2>
-          <p>
-            The app is MIT licensed, the core request logic lives in Rust, and the workspace format is intentionally
-            boring JSON so teams can review API changes like code.
-          </p>
-        </div>
-        <div class="open-links" aria-label="Repository links">
-          <a class="button button-primary" href="https://github.com/nekidaz/.bonk">View on GitHub</a>
-          <a class="button button-secondary" href="https://github.com/nekidaz/.bonk/issues">Report an issue</a>
+        <div class="faq-list">
+          <details>
+            <summary>Do I need an account or an internet connection?</summary>
+            <p>
+              No account is required. Editing, organizing, and inspecting saved
+              work is local. Sending a request needs access to the target API;
+              update checks and Git remotes also use the network.
+            </p>
+          </details>
+          <details>
+            <summary>Can I move from Postman or cURL?</summary>
+            <p>
+              Yes. Import a Postman Collection v2.x or an OpenAPI / Swagger
+              file, or paste a cURL command into the request URL bar. Bonk also
+              exports Postman collections and OpenAPI specifications. Import
+              support does not imply full Postman compatibility.
+            </p>
+          </details>
+          <details>
+            <summary>Where do my requests and settings live?</summary>
+            <p>
+              Saved requests live in the workspace folder you select. App
+              preferences and session state live separately in the platform
+              application-data directory. Variables marked as secret use the OS
+              keychain when available; keep credentials out of files you commit.
+            </p>
+          </details>
+          <details>
+            <summary>What does the AI integration allow?</summary>
+            <p>
+              You choose whether the MCP server can edit files or call APIs.
+              Read-only mode, disabled network access, and target-host
+              allowlists are available. Bonk supports local STDIO and remote
+              Streamable HTTP connections.
+            </p>
+          </details>
+          <details>
+            <summary>Is the application source in this repository?</summary>
+            <p>
+              This repository contains public releases, documentation, and the
+              website. The application source is maintained separately. See the
+              included license for the terms that apply to distributed material.
+            </p>
+          </details>
         </div>
       </section>
     </main>
-
-    <footer class="site-footer">
-      <span>.bonk</span>
-      <span>Local-first API client for HTTP and gRPC.</span>
+    <footer class="container site-footer">
+      <a class="wordmark" href="#" aria-label="Back to top"
+        >.bonk<span class="brand-dot" aria-hidden="true"></span
+      ></a>
+      <p>Good requests. Local files.</p>
+      <div>
+        <a href="https://github.com/nekidaz/.bonk/issues">Report an issue ↗</a
+        ><a href="https://github.com/nekidaz/.bonk/blob/main/CHANGELOG.md"
+          >Changelog ↗</a
+        ><a href="https://github.com/nekidaz/.bonk/blob/main/LICENSE"
+          >License ↗</a
+        >
+      </div>
     </footer>
-
-    <script src="landing.js"></script>
+    <div class="copy-status sr-only" role="status" aria-live="polite"></div>
   </body>
 </html>
