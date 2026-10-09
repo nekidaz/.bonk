@@ -97,6 +97,7 @@ html[data-theme='smooth-light'], [data-theme='smooth-light'] .bs {
   --shadow-sm: 0 1px 3px rgba(0, 0, 0, .04);
   --shadow-panel: 0 12px 40px rgba(0, 0, 0, .10), 0 2px 8px rgba(0, 0, 0, .04);
   --focus-ring: 0 0 0 3px #2020201f;
+  --color-focus: #2020201f;
   --color-shadow: rgba(0, 0, 0, .1);
   --canvas-app: #e6e6e6;
   --hover-strong: #0000001a;
@@ -167,6 +168,7 @@ html[data-theme='smooth-dark'], [data-theme='smooth-dark'] .bs {
   --shadow-sm: 0 1px 4px rgba(0, 0, 0, .12);
   --shadow-panel: 0 16px 44px rgba(0, 0, 0, .26), 0 2px 8px rgba(0, 0, 0, .1);
   --focus-ring: 0 0 0 3px #ffffff26;
+  --color-focus: #ffffff26;
   --color-shadow: rgba(0, 0, 0, .26);
   --canvas-app: #0a0a0a;
   --hover-strong: #ffffff1f;

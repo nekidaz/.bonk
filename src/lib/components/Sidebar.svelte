@@ -29,8 +29,8 @@
     openHistoryEntry,
     removeHistoryEntry,
     addFolder,
-    moveNode,
-    placeNode,
+    dropNode,
+    undoDrop,
     flows,
     openFlowTab,
     createFlow,
@@ -46,7 +46,7 @@
   import { gitStatus, gitStatusMap, gitPrefix, GIT_ENABLED } from '../git';
   import { folderChangeCount, statusColor } from '../domain/gitStatus';
   import { clock, historyDay, historyPath } from '../domain/palette';
-  import { idToRel, parentId, filterTree } from '../domain/tree';
+  import { idToRel, parentId, filterTree, findNode } from '../domain/tree';
 
   type MenuKind = 'create' | 'switch' | 'coll' | 'req' | 'history';
 
@@ -171,14 +171,26 @@
   // the workspace is a repo subdir, prefix maps one to the other (empty = same).
   const gitPrefixVal = $derived($gitPrefix);
 
-  // ---- Drag & drop: reorder rows (drop on the top/bottom edge), move into a folder
-  // (drop on its middle), or out to the root (drop on empty tree space).
+  // ---- Drag & drop (Pencil: «Flow · Drag & drop запросов», D1–D6) ----
+  // Drop on a row's top/bottom edge to place before/after it, on a folder's middle to
+  // move into it, on empty tree space to move to the root. ⌥ copies, Esc cancels,
+  // hovering a collapsed folder for 0.6 s opens it, a toast offers Undo (⌘Z).
   // Plain pointer events, not HTML5 DnD: on macOS Tauri's native file-drop handler
   // swallows the webview's dragover/drop, so HTML5 drop targets never fire there.
   type DropPos = 'before' | 'after' | 'into';
   let dragId = $state<string | undefined>(undefined);
   let dropAt = $state<{ id: string; pos: DropPos } | undefined>(undefined); // id '' = root zone
-  let press: { id: string; x: number; y: number } | undefined;
+  let ghostAt = $state({ x: 0, y: 0 });
+  let copyDrag = $state(false);
+  let droppedId = $state<string | undefined>(undefined);
+  let toast = $state<{ text: string; undo: () => void } | undefined>(undefined);
+  let press: { id: string; x: number; y: number; moved: boolean; cancelled: boolean } | undefined;
+  let expandTimer: ReturnType<typeof setTimeout> | undefined;
+  let toastTimer: ReturnType<typeof setTimeout> | undefined;
+  const dragNode = $derived(dragId ? findNode($collections, dragId) : undefined);
+  $effect(() => {
+    document.documentElement.classList.toggle('bs-row-dragging', !!dragId);
+  });
 
   function dropAllowed(src: string | undefined, destFolderId: string | undefined): boolean {
     if (!src) return false;
@@ -188,7 +200,7 @@
     if ((parentId(src) ?? undefined) === destFolderId) return false;
     return true;
   }
-  /** Where a drop at (x, y) would land; undefined = nowhere valid. */
+  /** Where a drop at (x, y) would land; undefined = nowhere valid (outside the tree = cancel). */
   function dropTarget(x: number, y: number): { id: string; pos: DropPos } | undefined {
     const src = dragId;
     const el = document.elementFromPoint(x, y);
@@ -206,39 +218,104 @@
 
   function onRowPointerDown(e: PointerEvent, id: string): void {
     if (e.button !== 0 || panel !== 'collections' || editingNodeId === id) return;
-    press = { id, x: e.clientX, y: e.clientY };
+    press = { id, x: e.clientX, y: e.clientY, moved: false, cancelled: false };
     window.addEventListener('pointermove', onDragMove);
     window.addEventListener('pointerup', onDragEnd);
     window.addEventListener('pointercancel', onDragEnd);
+    window.addEventListener('keydown', onDragKey, true);
+    window.addEventListener('keyup', onDragKey, true);
   }
   function onDragMove(e: PointerEvent): void {
-    if (!press) return;
-    if (!dragId) {
+    if (!press || press.cancelled) return;
+    if (!press.moved) {
       if (Math.hypot(e.clientX - press.x, e.clientY - press.y) < 5) return; // a click, not a drag yet
+      press.moved = true;
       dragId = press.id;
     }
-    dropAt = dropTarget(e.clientX, e.clientY);
+    ghostAt = { x: e.clientX, y: e.clientY };
+    copyDrag = e.altKey;
+    const next = dropTarget(e.clientX, e.clientY);
+    if (next?.id !== dropAt?.id || next?.pos !== dropAt?.pos) armExpand(next);
+    dropAt = next;
+  }
+  /** D4: holding over a collapsed folder for 0.6 s opens it. */
+  function armExpand(next: { id: string; pos: DropPos } | undefined): void {
+    clearTimeout(expandTimer);
+    const n = next?.pos === 'into' && next.id ? findNode($collections, next.id) : undefined;
+    if (n?.kind !== 'folder' || n.expanded) return;
+    expandTimer = setTimeout(() => {
+      if (dropAt?.id === n.id && dropAt.pos === 'into') toggleFolder(n.id);
+    }, 600);
+  }
+  function onDragKey(e: KeyboardEvent): void {
+    if (!press?.moved || press.cancelled) return;
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      e.stopPropagation();
+      press.cancelled = true;
+      resetDrag();
+    } else {
+      copyDrag = e.altKey;
+    }
+  }
+  function resetDrag(): void {
+    clearTimeout(expandTimer);
+    dragId = undefined;
+    dropAt = undefined;
+    copyDrag = false;
   }
   function onDragEnd(e: PointerEvent): void {
     window.removeEventListener('pointermove', onDragMove);
     window.removeEventListener('pointerup', onDragEnd);
     window.removeEventListener('pointercancel', onDragEnd);
-    const src = dragId;
-    const at = e.type === 'pointerup' ? dropAt : undefined;
+    window.removeEventListener('keydown', onDragKey, true);
+    window.removeEventListener('keyup', onDragKey, true);
+    const p = press;
+    const at = dropAt;
     press = undefined;
-    dragId = undefined;
-    dropAt = undefined;
-    if (!src) return;
+    resetDrag();
+    if (!p?.moved) return;
     // Swallow the click that follows the release so the row under it doesn't open.
     const swallow = (ev: MouseEvent) => ev.stopPropagation();
     window.addEventListener('click', swallow, true);
     setTimeout(() => window.removeEventListener('click', swallow, true));
-    if (!at) return;
-    if (at.id === '') void moveNode(src, undefined);
-    else if (at.pos === 'into') void moveNode(src, at.id);
-    else void placeNode(src, at.id, at.pos === 'after');
+    if (at && !p.cancelled && e.type === 'pointerup') void commitDrop(p.id, at, e.altKey);
+  }
+
+  async function commitDrop(src: string, at: { id: string; pos: DropPos }, copy: boolean): Promise<void> {
+    const dest = at.id === '' ? undefined : at.pos === 'into' ? at.id : parentId(at.id);
+    const from = parentId(src);
+    const fromNode = from ? findNode($collections, from) : undefined;
+    const oldIds = (fromNode?.kind === 'folder' ? fromNode.children : $collections).map((n) => n.id);
+    const newId = await dropNode(src, dest, at.pos === 'into' ? undefined : { id: at.id, after: at.pos === 'after' }, copy);
+    if (!newId) return;
+    revealNode(newId);
+    if (!copy && from === dest) return; // a plain reorder needs no toast
+    const folder = dest ? (findNode($collections, dest)?.name ?? '') : ($workspacePath ?? '').split('/').pop();
+    droppedId = newId;
+    clearTimeout(toastTimer);
+    toast = { text: $t(copy ? 'sidebar.copiedTo' : 'sidebar.movedTo', { folder }), undo: () => void undoDrop(newId, copy, from, oldIds) };
+    toastTimer = setTimeout(closeToast, 5000);
+  }
+  function closeToast(): void {
+    clearTimeout(toastTimer);
+    toast = undefined;
+    droppedId = undefined;
+  }
+  function runUndo(): void {
+    const undo = toast?.undo;
+    closeToast();
+    undo?.();
+  }
+  function onWindowKey(e: KeyboardEvent): void {
+    if (!toast || !(e.metaKey || e.ctrlKey) || e.shiftKey || e.key.toLowerCase() !== 'z') return;
+    if ((e.target as HTMLElement | null)?.closest?.('input, textarea, [contenteditable], .cm-editor')) return;
+    e.preventDefault();
+    runUndo();
   }
 </script>
+
+<svelte:window onkeydown={onWindowKey} />
 
 <div class="bs-sidebar-layout">
 <nav class="bs-railrow" aria-label={$t('sidebar.navAria')}>
@@ -251,6 +328,24 @@
   </div>
 </nav>
 <div class="bs-sidebar-content">
+{#if dragNode}
+  <div class="bs-drag-ghost" style="left:{ghostAt.x}px; top:{ghostAt.y}px" aria-hidden="true">
+    {#if dragNode.kind === 'folder'}
+      <span class="material-symbols-outlined">folder</span>
+    {:else}
+      <span class="m" style="color:{methodColor(dragNode.protocol === 'grpc' ? 'GRPC' : dragNode.request.method)}">{dragNode.protocol === 'grpc' ? 'gRPC' : methodLabel(dragNode.request.method)}</span>
+    {/if}
+    <span>{dragNode.name}</span>
+    {#if copyDrag}<span class="plus">+</span>{/if}
+  </div>
+{/if}
+{#if toast}
+  <div class="bs-drop-toast" role="status">
+    <span class="material-symbols-outlined ok">check_circle</span>
+    <span class="tx">{toast.text}</span>
+    <button type="button" class="undo" onclick={runUndo}>{$t('sidebar.undo')} ⌘Z</button>
+  </div>
+{/if}
 <div class="bs-filterrow">
   <div class="bs-fbox">
     <span class="material-symbols-outlined">search</span>
@@ -273,11 +368,13 @@
 {#snippet node(n: TreeNode, depth: number)}
   {#if n.kind === 'folder'}
     {@const changed = folderChangeCount(gitPrefixVal + idToRel(n.id), gitFiles)}
-    <button class="bs-trow" class:bs-drop={dropAt?.id === n.id && dropAt.pos === 'into'} class:bs-drop-before={dropAt?.id === n.id && dropAt.pos === 'before'} class:bs-drop-after={dropAt?.id === n.id && dropAt.pos === 'after'} class:bs-dragsrc={dragId === n.id} data-node-id={n.id} data-folder={n.expanded ? 'open' : 'closed'} style="padding-left:{indent(depth)}px" onpointerdown={(e) => onRowPointerDown(e, n.id)} oncontextmenu={(e) => { e.preventDefault(); openMenu('coll', e, n.id, true); }} onkeydown={(e) => rowKey(e, n)} onclick={() => { if (editingNodeId !== n.id) toggleFolder(n.id); }}>
+    <button class="bs-trow" class:bs-drop={dropAt?.id === n.id && dropAt.pos === 'into'} class:bs-drop-before={dropAt?.id === n.id && dropAt.pos === 'before'} class:bs-drop-after={dropAt?.id === n.id && dropAt.pos === 'after'} class:bs-dragsrc={dragId === n.id} class:bs-dropped={droppedId === n.id} data-node-id={n.id} data-folder={n.expanded ? 'open' : 'closed'} style="padding-left:{indent(depth)}px" onpointerdown={(e) => onRowPointerDown(e, n.id)} oncontextmenu={(e) => { e.preventDefault(); openMenu('coll', e, n.id, true); }} onkeydown={(e) => rowKey(e, n)} onclick={() => { if (editingNodeId !== n.id) toggleFolder(n.id); }}>
       <span class="material-symbols-outlined cv">{n.expanded ? 'keyboard_arrow_down' : 'chevron_right'}</span>
       <span class="material-symbols-outlined fo">folder</span>
       {#if editingNodeId === n.id}<!-- svelte-ignore a11y_autofocus --><input class="bs-nm bs-nm-input" bind:value={editValue} autofocus onpointerdown={(e) => e.stopPropagation()} onclick={(e) => e.stopPropagation()} onkeydown={inlineRenameKeydown} onblur={commitInlineRename} />{:else}<span class="bs-nm" title={n.name}>{n.name}</span>{/if}
-      {#if changed > 0}
+      {#if dropAt?.id === n.id && dropAt.pos === 'into'}
+        <span class="bs-tcount bs-tcount-drop">{n.children.length} → {n.children.length + 1}</span>
+      {:else if changed > 0}
         <span class="bs-git-treecount">{changed}</span>
       {:else if n.children.length > 0}
         <span class="bs-tcount">{n.children.length}</span>
@@ -295,7 +392,7 @@
     {/if}
   {:else}
     {@const st = statusMap.get(gitPrefixVal + idToRel(n.id))}
-    <button class="bs-trow" class:sel={activeSavedPath === n.id} class:bs-drop-before={dropAt?.id === n.id && dropAt.pos === 'before'} class:bs-drop-after={dropAt?.id === n.id && dropAt.pos === 'after'} class:bs-dragsrc={dragId === n.id} data-node-id={n.id} style="padding-left:{indent(depth)}px" onpointerdown={(e) => onRowPointerDown(e, n.id)} oncontextmenu={(e) => { e.preventDefault(); openMenu('req', e, n.id, false); }} onkeydown={(e) => rowKey(e, n)} onclick={(e) => { if (editingNodeId !== n.id) openSavedRequest(n, e.metaKey || e.ctrlKey); }}>
+    <button class="bs-trow" class:sel={activeSavedPath === n.id} class:bs-drop-before={dropAt?.id === n.id && dropAt.pos === 'before'} class:bs-drop-after={dropAt?.id === n.id && dropAt.pos === 'after'} class:bs-dragsrc={dragId === n.id} class:bs-dropped={droppedId === n.id} data-node-id={n.id} style="padding-left:{indent(depth)}px" onpointerdown={(e) => onRowPointerDown(e, n.id)} oncontextmenu={(e) => { e.preventDefault(); openMenu('req', e, n.id, false); }} onkeydown={(e) => rowKey(e, n)} onclick={(e) => { if (editingNodeId !== n.id) openSavedRequest(n, e.metaKey || e.ctrlKey); }}>
       <span class="bs-mp" style="color:{methodColor(n.protocol === 'grpc' ? 'GRPC' : n.request.method)}">{n.protocol === 'grpc' ? 'gRPC' : n.request.method.toUpperCase()}</span>
       {#if editingNodeId === n.id}<!-- svelte-ignore a11y_autofocus --><input class="bs-nm bs-nm-input" bind:value={editValue} autofocus onpointerdown={(e) => e.stopPropagation()} onclick={(e) => e.stopPropagation()} onkeydown={inlineRenameKeydown} onblur={commitInlineRename} />{:else}<span class="bs-nm" title="{n.protocol === 'grpc' ? 'gRPC' : n.request.method.toUpperCase()} {n.name}">{n.name}</span>{/if}
       {#if st}

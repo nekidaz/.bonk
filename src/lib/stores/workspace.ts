@@ -215,21 +215,49 @@ export async function moveNode(id: string, destFolderId?: string): Promise<void>
   });
 }
 
-/** Drag & drop: put node `id` right before/after sibling `targetId`, moving it into that folder if needed. */
-export async function placeNode(id: string, targetId: string, after: boolean): Promise<void> {
+const baseName = (id: string) => idToRel(id).split('/').pop()!;
+
+/**
+ * Drag & drop: move (or, with `copy`, duplicate) node `id` into folder `dest`
+ * (undefined = root), optionally right before/after its child `at.id`.
+ * Returns the resulting node id.
+ */
+export async function dropNode(id: string, dest: string | undefined, at?: { id: string; after: boolean }, copy = false): Promise<string | undefined> {
   const root = get(workspacePath);
-  if (!root || id === targetId) return;
-  const dest = parentId(targetId);
-  await runWorkspaceOp('placeNode', async () => {
-    let newId = id;
-    if (parentId(id) !== dest) {
-      newId = await workspaceMove(root, id, dest ? idToRel(dest) : ROOT);
-      tabs.update((list) => relinkTabPaths(list, id, newId));
+  if (!root || id === at?.id) return undefined;
+  const name = findNode(get(collections), id)?.name;
+  return runWorkspaceOp('dropNode', async () => {
+    let newId = copy ? await workspaceDuplicate(root, id) : id;
+    if (parentId(newId) !== dest) {
+      const moved = await workspaceMove(root, newId, dest ? idToRel(dest) : ROOT);
+      if (!copy) tabs.update((list) => relinkTabPaths(list, id, moved));
+      // A copy in another folder keeps the original name (the backend suffixes it if taken).
+      newId = copy && name ? await workspaceRename(root, moved, name) : moved;
     }
-    const folder = dest ? findNode(get(collections), dest) : undefined;
-    const ids = (folder?.kind === 'folder' ? folder.children : get(collections)).map((n) => n.id).filter((x) => x !== id);
-    ids.splice(ids.indexOf(targetId) + (after ? 1 : 0), 0, newId);
-    await workspaceReorder(root, dest ? idToRel(dest) : ROOT, ids.map((x) => idToRel(x).split('/').pop()!));
+    if (at) {
+      const folder = dest ? findNode(get(collections), dest) : undefined;
+      const ids = (folder?.kind === 'folder' ? folder.children : get(collections)).map((n) => n.id).filter((x) => copy || x !== id);
+      ids.splice(ids.indexOf(at.id) + (at.after ? 1 : 0), 0, newId);
+      await workspaceReorder(root, dest ? idToRel(dest) : ROOT, ids.map(baseName));
+    }
+    await reloadWorkspace();
+    return newId;
+  });
+}
+
+/** Undo a `dropNode`: a copy is deleted; a moved node goes back to `parent` with its old sibling order `ids`. */
+export async function undoDrop(newId: string, copy: boolean, parent: string | undefined, ids: string[]): Promise<void> {
+  const root = get(workspacePath);
+  if (!root) return;
+  await runWorkspaceOp('undoDrop', async () => {
+    if (copy) {
+      await workspaceDelete(root, newId);
+      tabs.update((list) => relinkTabPaths(list, newId, undefined));
+    } else {
+      const back = parentId(newId) === parent ? newId : await workspaceMove(root, newId, parent ? idToRel(parent) : ROOT);
+      tabs.update((list) => relinkTabPaths(list, newId, back));
+      await workspaceReorder(root, parent ? idToRel(parent) : ROOT, ids.map(baseName));
+    }
     await reloadWorkspace();
   });
 }

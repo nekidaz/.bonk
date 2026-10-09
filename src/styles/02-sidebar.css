@@ -23,11 +23,6 @@
 .bs-trow { display: flex; align-items: center; gap: 6px; padding: 5px 7px; border-radius: 7px; font-size: 13px; width: 100%; text-align: left; }
 .bs-trow:hover { background: var(--hover); }
 .bs-trow.bs-drop { background: var(--accentsoft); box-shadow: inset 0 0 0 1px var(--accent); }
-.bs-trow.bs-drop-before { box-shadow: inset 0 2px 0 var(--accent); }
-.bs-trow.bs-drop-after { box-shadow: inset 0 -2px 0 var(--accent); }
-.bs-trow.bs-dragsrc { opacity: 0.45; }
-.bs-tree.bs-dragging { cursor: grabbing; user-select: none; }
-.bs-tree.bs-dragging .bs-trow { cursor: grabbing; }
 .bs-tree.bs-droproot { box-shadow: inset 0 0 0 1px var(--accent); border-radius: 8px; }
 .bs-trow .cv { width: 13px; height: 13px; color: var(--t3); flex-shrink: 0; }
 .bs-trow .fo { width: 15px; height: 15px; color: var(--t2); flex-shrink: 0; }
@@ -86,3 +81,47 @@
 .bs-workspace-strip button { min-width: 0; height: 24px; display: flex; align-items: center; gap: 6px; flex: 1; overflow: hidden; color: var(--t2); font-size: 10.5px; text-align: left; }
 .bs-workspace-strip button span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .bs-workspace-strip > div { display: grid; place-items: center; color: var(--green); }
+
+/* Drag & drop — Pencil «Flow · Drag & drop запросов» (D1–D5). */
+.bs .bs-tree .bs-trow { cursor: grab; }
+:root.bs-row-dragging, :root.bs-row-dragging * { cursor: grabbing !important; }
+.bs-tree.bs-dragging { user-select: none; }
+.bs-tree.bs-dragging .bs-act { visibility: hidden; }
+.bs-tree.bs-dragging .bs-trow:hover:not(.sel):not(.bs-drop) { background: transparent; }
+.bs-tree .bs-trow.bs-dragsrc { opacity: 0.35; }
+.bs-tree.bs-dragging .bs-trow.bs-drop { background: var(--color-selected); box-shadow: inset 0 0 0 1px var(--color-focus, var(--color-border)); color: var(--color-text); }
+.bs-tree .bs-trow .bs-tcount-drop { display: inline-flex !important; color: var(--color-text); }
+.bs-tree .bs-trow.bs-dropped { background: var(--color-selected); }
+/* Insertion line: a ring + 2px rule in the gap between rows (muted text colour: the
+   design's 15% focus tint is too faint on a dark panel). The ghost sits below the cursor
+   so the target row stays readable. */
+.bs-tree .bs-trow.bs-drop-before::after, .bs-tree .bs-trow.bs-drop-after::after {
+  content: ''; position: absolute; left: 8px; right: 8px; height: 6px; z-index: 1; pointer-events: none;
+  --c: var(--color-text-muted);
+  background:
+    radial-gradient(circle at 3px 3px, transparent 1.5px, var(--c) 1.75px 3px, transparent 3.25px),
+    linear-gradient(var(--c), var(--c)) 6px 2px / calc(100% - 6px) 2px no-repeat;
+}
+/* 09-perf's `contain: paint` would clip the line out of the gap; it's one row at a time. */
+.bs-tree .bs-trow.bs-drop-before, .bs-tree .bs-trow.bs-drop-after { contain: none; }
+.bs-tree .bs-trow.bs-drop-before::after { top: -4px; }
+.bs-tree .bs-trow.bs-drop-after::after { bottom: -4px; }
+.bs-drag-ghost {
+  position: fixed; z-index: 1000; pointer-events: none; display: flex; align-items: center; gap: 8px;
+  padding: 7px 12px; border: 1px solid var(--color-border); border-radius: 999px; background: var(--color-raised);
+  box-shadow: 0 10px 24px #000000aa; transform: translate(-18px, 8px) rotate(-2deg);
+  white-space: nowrap; font: 400 12px var(--font-ui); color: var(--color-text);
+}
+.bs-drag-ghost .m { font: 700 9.5px var(--font-code); }
+.bs-drag-ghost .material-symbols-outlined { font-size: 15px; color: var(--color-text-muted); }
+.bs-drag-ghost .plus { display: grid; place-items: center; width: 16px; height: 16px; border-radius: 50%; background: var(--color-success); color: var(--color-raised); font: 700 12px/1 var(--font-ui); }
+.bs-sidebar-content { position: relative; }
+.bs-drop-toast {
+  position: absolute; left: 12px; right: 12px; bottom: 12px; z-index: 20; display: flex; align-items: center; gap: 8px;
+  padding: 10px 12px; border: 1px solid var(--color-border); border-radius: 16px; background: var(--color-raised);
+  box-shadow: 0 8px 24px #00000088; font: 400 12px var(--font-ui); color: var(--color-text);
+}
+.bs-drop-toast .ok { font-size: 15px; color: var(--color-success); }
+.bs-drop-toast .tx { flex: 1; min-width: 0; line-height: 1.35; }
+.bs-drop-toast .undo { flex: none; font-size: 11px; color: var(--color-text-muted); white-space: nowrap; }
+.bs-drop-toast .undo:hover { color: var(--color-text); }
