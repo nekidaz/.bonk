@@ -53,7 +53,10 @@ mod tests {
     #[test]
     fn unpacks_to_pem() {
         let (cert, key) = p12_bytes_to_pem(P12, "secret").unwrap();
-        let (cert, key) = (String::from_utf8(cert).unwrap(), String::from_utf8(key).unwrap());
+        let (cert, key) = (
+            String::from_utf8(cert).unwrap(),
+            String::from_utf8(key).unwrap(),
+        );
         assert!(cert.starts_with("-----BEGIN CERTIFICATE-----\n"));
         assert!(key.starts_with("-----BEGIN PRIVATE KEY-----\n"));
         // reqwest accepts the combined PEM as an identity.

@@ -120,8 +120,8 @@ impl GrpcTls {
         }
         match (&self.client_cert, &self.client_key) {
             (Some(cert), Some(key)) => {
-                let cert = std::fs::read(cert)
-                    .map_err(|e| format!("client certificate {cert}: {e}"))?;
+                let cert =
+                    std::fs::read(cert).map_err(|e| format!("client certificate {cert}: {e}"))?;
                 let key = std::fs::read(key).map_err(|e| format!("client key {key}: {e}"))?;
                 Ok(Some((cert, key)))
             }
