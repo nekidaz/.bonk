@@ -12,7 +12,8 @@ import type {
 import { grpcTlsFor, currentGrpcPrefs, withGlobalImports } from './netPrefs';
 import { httpSend, runScript, grpcConnect, grpcReflect, grpcCall, grpcLoadProto, workspaceSaveRequest } from '../api';
 import { findNode, idToRel, parentId } from '../domain/tree';
-import { pushHistory, summarizeRun, type IdBinding, type RunSummary } from '../domain/runnerStats';
+import { pushHistory, pushRecord, summarizeRun, toRecord, type IdBinding, type RunRecord, type RunSummary } from '../domain/runnerStats';
+import { isPreset, upsertPreset, type RunnerPreset } from '../domain/runnerPreset';
 import { isArrayOf, loadState, saveState, saveStateDebounced } from '../persist';
 import { grpcPathsToAbs } from '../domain/protoPaths';
 import { mergeScope, resolveRequestVars, resolveVars } from '../domain/vars';
@@ -31,6 +32,8 @@ import {
   activeEnvironmentId,
   withInheritedAuth,
   ROOT,
+  requestTimeoutMs,
+  grpcDeadlineMs,
 } from './state';
 import { currentRequestSettings, applyScriptVars } from './requests';
 import { reloadWorkspace } from './workspace';
@@ -74,6 +77,8 @@ export interface RunnerConfig {
   excludedIds: string[];
   /** Custom run order (request ids); requests missing from it keep tree order, after it. */
   orderIds: string[];
+  /** Keep (truncated) response bodies in the saved run records and the exported report. */
+  saveResponses: boolean;
 }
 
 /** Which Runner screen the tab shows: R1 pick a collection, R2 set the run up, R3/R4 the run. */
@@ -107,6 +112,7 @@ const DEFAULT_CONFIG: RunnerConfig = {
   dataRows: [],
   excludedIds: [],
   orderIds: [],
+  saveResponses: true,
 };
 
 const DEFAULT_RUN: RunnerRun = {
@@ -128,9 +134,19 @@ export const runnerRun = writable<RunnerRun>({ ...DEFAULT_RUN, results: [] });
 /** Last HISTORY_LIMIT finished runs (app state, not the workspace). */
 export const runnerHistory = writable<RunSummary[]>([]);
 export const runnerStage = writable<RunnerStage>('pick');
+/** Per-call results of the last HISTORY_LIMIT runs, so a past run can be reopened (R4 bars). */
+export const runnerRecords = writable<RunRecord[]>([]);
+/** Run number shown read-only in the run view (an older run); null = the latest / live run. */
+export const runnerViewing = writable<number | null>(null);
+/** Saved setups (R2 «Сохранить как пресет»), loaded from the R1 list. */
+export const runnerPresets = writable<RunnerPreset[]>([]);
+const PRESETS_KEY = 'runnerPresets';
 
 const CONFIG_KEY = 'runnerConfig';
 const HISTORY_KEY = 'runnerHistory';
+const RECORDS_KEY = 'runnerRecords';
+const isRecord = (v: unknown): v is RunRecord =>
+  typeof v === 'object' && v !== null && typeof (v as RunRecord).n === 'number' && Array.isArray((v as RunRecord).results);
 const isSummary = (v: unknown): v is RunSummary =>
   typeof v === 'object' && v !== null && typeof (v as RunSummary).n === 'number' && typeof (v as RunSummary).durationMs === 'number';
 
@@ -138,9 +154,11 @@ let loaded: Promise<void> | undefined;
 /** Load the persisted runner settings + run history once (idempotent). */
 export function loadRunnerState(): Promise<void> {
   loaded ??= (async () => {
-    const [saved, hist] = await Promise.all([
+    const [saved, hist, records, presets] = await Promise.all([
       loadState<Record<string, unknown>>(CONFIG_KEY, {}),
       loadState(HISTORY_KEY, [] as RunSummary[], isArrayOf(isSummary)),
+      loadState(RECORDS_KEY, [] as RunRecord[], isArrayOf(isRecord)),
+      loadState(PRESETS_KEY, [] as RunnerPreset[], isArrayOf(isPreset)),
     ]);
     const c = typeof saved === 'object' && saved ? saved : {};
     const ids = (v: unknown) => (Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : []);
@@ -152,16 +170,20 @@ export function loadRunnerState(): Promise<void> {
       iterations: typeof c.iterations === 'number' ? c.iterations : cur.iterations,
       delayMs: typeof c.delayMs === 'number' ? c.delayMs : cur.delayMs,
       stopOnFailure: typeof c.stopOnFailure === 'boolean' ? c.stopOnFailure : cur.stopOnFailure,
+      saveResponses: typeof c.saveResponses === 'boolean' ? c.saveResponses : cur.saveResponses,
     }));
     runnerHistory.set(hist);
+    runnerRecords.set(records);
+    runnerPresets.set(presets);
+    runnerPresets.subscribe((list) => saveStateDebounced(PRESETS_KEY, list)); // only after the load, so [] can't wipe it
     syncRunnerTabTitle();
   })();
   return loaded;
 }
 
 function persistConfig(): void {
-  const { folderIds, iterations, delayMs, stopOnFailure, excludedIds, orderIds } = get(runnerConfig);
-  saveStateDebounced(CONFIG_KEY, { folderIds, iterations, delayMs, stopOnFailure, excludedIds, orderIds });
+  const { folderIds, iterations, delayMs, stopOnFailure, excludedIds, orderIds, saveResponses } = get(runnerConfig);
+  saveStateDebounced(CONFIG_KEY, { folderIds, iterations, delayMs, stopOnFailure, excludedIds, orderIds, saveResponses });
 }
 
 /** Header title of the run scope: the first chosen folder, else "Все запросы". */
@@ -262,6 +284,48 @@ export function setStopOnFailure(stopOnFailure: boolean): void {
   runnerConfig.update((c) => ({ ...c, stopOnFailure }));
   persistConfig();
 }
+export function setSaveResponses(saveResponses: boolean): void {
+  runnerConfig.update((c) => ({ ...c, saveResponses }));
+  persistConfig();
+}
+
+// ---- Presets ----
+
+/** Auto name of a preset: "<scope> · <environment>". */
+export function currentPresetName(): string {
+  const env = get(environments).find((e) => e.id === get(activeEnvironmentId));
+  return `${runnerScopeTitle(get(runnerConfig).folderIds, get(collections))} · ${env?.name ?? get(t)('runner.noEnv')}`;
+}
+
+/** Save the current setup as a preset (same name = update); returns its name. */
+export function savePreset(): string {
+  const c = get(runnerConfig);
+  const name = currentPresetName();
+  const preset: RunnerPreset = {
+    name, folderIds: c.folderIds, excludedIds: c.excludedIds, orderIds: c.orderIds, iterations: c.iterations,
+    delayMs: c.delayMs, stopOnFailure: c.stopOnFailure, saveResponses: c.saveResponses, envId: get(activeEnvironmentId),
+  };
+  runnerPresets.update((l) => upsertPreset(l, preset));
+  return name;
+}
+
+export function deletePreset(name: string): void {
+  runnerPresets.update((l) => l.filter((p) => p.name !== name));
+}
+
+/** Restore a preset's setup and open R2. */
+export function applyPreset(p: RunnerPreset): void {
+  runnerViewing.set(null);
+  setRunnerFolders(p.folderIds);
+  runnerConfig.update((c) => ({
+    ...c, excludedIds: p.excludedIds, orderIds: p.orderIds, iterations: p.iterations, delayMs: p.delayMs,
+    stopOnFailure: p.stopOnFailure, saveResponses: p.saveResponses,
+  }));
+  persistConfig();
+  if (p.envId === null || get(environments).some((e) => e.id === p.envId)) setActiveEnvironment(p.envId);
+  setRunnerStage('setup');
+}
+
 /** Load a parsed data file: makes the run data-driven (rows.length iterations). */
 export function loadDataRows(name: string, rows: Record<string, string>[]): void {
   runnerConfig.update((c) => ({ ...c, dataFileName: name, dataRows: rows }));
@@ -503,7 +567,7 @@ export async function runGrpcNode(
     // Plaintext: honour the saved flag, else infer from the RESOLVED endpoint
     // (the :443 may live inside a {{var}} value).
     const plaintext = g.plaintext !== undefined ? g.plaintext : inferGrpcPlaintext(endpoint);
-    const connId = await grpcConnect(endpoint, plaintext, grpcTlsFor(endpoint, g.tls), undefined, currentGrpcPrefs());
+    const connId = await grpcConnect(endpoint, plaintext, grpcTlsFor(endpoint, g.tls), get(requestTimeoutMs), currentGrpcPrefs());
     // Load the schema so the call can be encoded: proto source compiles files,
     // otherwise reflection lists the services.
     if (g.source === 'proto') {
@@ -537,7 +601,7 @@ export async function runGrpcNode(
     const merged = grpcAuthMetadata(effectiveAuth(get(collections), node.id, g.auth), (v) => resolveVars(v, scope));
     for (const [k, v] of Object.entries(metadata)) merged[k] = resolveVars(v, scope);
     const resolvedMetadata = outgoingGrpcMetadata(merged, stripsAuthorization(g, plaintext));
-    const result = await grpcCall(connId, g.method, resolvedMessage, resolvedMetadata);
+    const result = await grpcCall(connId, g.method, resolvedMessage, resolvedMetadata, undefined, get(grpcDeadlineMs));
 
     let error: string | undefined;
     if (g.testScript && g.testScript.trim() !== '') {
@@ -596,6 +660,35 @@ function finishRun(status: RunStatus): void {
   const history = pushHistory(get(runnerHistory), summary);
   runnerHistory.set(history);
   void saveState(HISTORY_KEY, history);
+  persistRecord();
+}
+
+/** Save/refresh the record of the current run (after it finishes and after in-place re-runs). */
+function persistRecord(): void {
+  const r = get(runnerRun);
+  if (r.n === 0 || r.startedAt === null || r.results.length === 0) return;
+  const rec = toRecord({ n: r.n, startedAt: r.startedAt, finishedAt: r.finishedAt ?? Date.now(), iterations: r.iterations, results: r.results }, get(runnerConfig).saveResponses);
+  const list = pushRecord(get(runnerRecords), rec);
+  runnerRecords.set(list);
+  void saveState(RECORDS_KEY, list);
+}
+
+/**
+ * Open a past run read-only (a click on a bar of the "last runs" chart). The latest run is the live
+ * one, so it is shown normally; for an older run the re-run actions are off until the latest is
+ * restored (click its bar) or a new run starts.
+ */
+export function viewRun(n: number): void {
+  if (get(runnerRun).status === 'running') return;
+  const rec = get(runnerRecords).find((r) => r.n === n);
+  if (!rec) return;
+  const latest = get(runnerHistory).at(-1)?.n;
+  runnerRun.set({
+    ...DEFAULT_RUN, status: 'done', results: rec.results, total: rec.results.length, completed: rec.results.length,
+    startedAt: rec.startedAt, finishedAt: rec.finishedAt, n: rec.n, iterations: rec.iterations,
+  });
+  runnerViewing.set(n === latest ? null : n);
+  setRunnerStage('run');
 }
 
 /**
@@ -628,6 +721,7 @@ export async function runCollection(): Promise<void> {
   await loadRunnerState();
   setRunnerStage('run');
   stopRequested = false;
+  runnerViewing.set(null);
   const config = get(runnerConfig);
   const requests = plannedRequests(config, get(collections));
   const n = (get(runnerHistory).at(-1)?.n ?? 0) + 1;
@@ -685,7 +779,7 @@ export async function runCollection(): Promise<void> {
 /** Re-run `rows` in place (same iteration data, same waterfall slot). */
 async function rerunRows(rows: RunResultRow[]): Promise<void> {
   const prevStatus = get(runnerRun).status;
-  if (prevStatus === 'running' || rows.length === 0) return;
+  if (prevStatus === 'running' || rows.length === 0 || get(runnerViewing) !== null) return;
   const config = get(runnerConfig);
   runnerRun.update((r) => ({ ...r, status: 'running' }));
   for (const [k, old] of rows.entries()) {
@@ -697,6 +791,7 @@ async function rerunRows(rows: RunResultRow[]): Promise<void> {
     if (config.delayMs > 0 && k < rows.length - 1) await sleep(config.delayMs);
   }
   runnerRun.update((r) => ({ ...r, status: prevStatus }));
+  persistRecord();
 }
 
 /** "Перезапустить упавшие": re-run only the failed calls of the current run. */
@@ -765,7 +860,7 @@ export async function exportReport(): Promise<boolean> {
     completed: run.completed,
     passed: run.results.filter((r) => r.ok).length,
     failed: run.results.filter((r) => !r.ok).length,
-    rows: run.results,
+    rows: config.saveResponses ? run.results : run.results.map(({ responseBody: _body, ...row }) => row),
   };
   try {
     await navigator.clipboard.writeText(JSON.stringify(report, null, 2));

@@ -137,6 +137,14 @@ export {
   clearData,
   runCollection,
   exportReport,
+  runnerRecords,
+  runnerViewing,
+  runnerPresets,
+  savePreset,
+  deletePreset,
+  applyPreset,
+  viewRun,
+  setSaveResponses,
 } from './runner';
 
 // History.

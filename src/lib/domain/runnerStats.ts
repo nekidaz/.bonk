@@ -288,3 +288,34 @@ export function insightFor(row: RunResultRow, rows: RunResultRow[], tr: Translat
   }
   return null;
 }
+
+// ---- Persisted per-call results of recent runs (R4 bars → open a past run) ----
+
+/** A finished run with its calls, kept (last HISTORY_LIMIT) so a past run can be reopened read-only. */
+export interface RunRecord {
+  n: number;
+  startedAt: number;
+  finishedAt: number;
+  iterations: number;
+  results: RunResultRow[];
+}
+
+/** Bounds keep app state small: 10 runs × RECORD_ROWS × RECORD_BODY chars. */
+export const RECORD_ROWS = 200;
+export const RECORD_BODY = 2000;
+
+/** Snapshot of a run for persistence; response bodies are kept (truncated) only when `keepBodies`. */
+export function toRecord(
+  run: { n: number; startedAt: number; finishedAt: number; iterations: number; results: RunResultRow[] },
+  keepBodies: boolean,
+): RunRecord {
+  const results = run.results.slice(0, RECORD_ROWS).map(({ responseBody, ...row }) =>
+    keepBodies && responseBody !== undefined ? { ...row, responseBody: responseBody.slice(0, RECORD_BODY) } : row,
+  );
+  return { n: run.n, startedAt: run.startedAt, finishedAt: run.finishedAt, iterations: run.iterations, results };
+}
+
+/** Add or replace the record for `rec.n`, keeping the newest `limit`. */
+export function pushRecord(list: RunRecord[], rec: RunRecord, limit = HISTORY_LIMIT): RunRecord[] {
+  return [...list.filter((r) => r.n !== rec.n), rec].sort((a, b) => a.n - b.n).slice(-limit);
+}

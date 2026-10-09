@@ -21,6 +21,8 @@
     setIterations,
     setDelay,
     setStopOnFailure,
+    setSaveResponses,
+    savePreset,
     loadDataRows,
     clearData,
     runCollection,
@@ -109,6 +111,13 @@
     }
   }
 
+  let presetSaved = $state(false);
+  function doSavePreset(): void {
+    savePreset();
+    presetSaved = true;
+    setTimeout(() => (presetSaved = false), 1400);
+  }
+
   // ---- Will be sent ----
   const calls = $derived(planned.length * iterations);
   const estimate = $derived.by(() => {
@@ -140,6 +149,9 @@
       </button>
     </div>
   </div>
+  <button class="rn-btn" type="button" onclick={doSavePreset} disabled={all.length === 0}>
+    <span class="material-symbols-outlined" aria-hidden="true">{presetSaved ? 'check' : 'bookmark_add'}</span>{presetSaved ? $t('runner.preset.saved') : $t('runner.preset.save')}
+  </button>
   <button class="rn-btn primary" type="button" onclick={() => void runCollection()} disabled={planned.length === 0}>
     <span class="material-symbols-outlined" aria-hidden="true">play_arrow</span><b>{$t('runner.setup.run', { n: planned.length, total: all.length })}</b><kbd>⌘R</kbd>
   </button>
@@ -226,6 +238,11 @@
         <span class="rs-lbl">{$t('runner.stopOnFail')}</span>
         <button class="mono-switch sm" type="button" role="switch" aria-checked={cfg.stopOnFailure} aria-label={$t('runner.stopOnFail')}
           onclick={() => setStopOnFailure(!cfg.stopOnFailure)}></button>
+      </div>
+      <div class="rs-set">
+        <span class="rs-lbl">{$t('runner.saveResponses')}<small>{$t('runner.saveResponses.desc')}</small></span>
+        <button class="mono-switch sm" type="button" role="switch" aria-checked={cfg.saveResponses} aria-label={$t('runner.saveResponses')}
+          onclick={() => setSaveResponses(!cfg.saveResponses)}></button>
       </div>
     </div>
 

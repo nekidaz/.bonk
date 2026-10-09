@@ -16,6 +16,9 @@
     runnerRun,
     runnerHistory,
     runnerStage,
+    runnerRecords,
+    runnerViewing,
+    viewRun,
     loadRunnerState,
     runnerScopeTitle,
     plannedRequests,
@@ -47,7 +50,10 @@
 
   // ---- Scope ----
   const scopeIds = $derived($runnerConfig.folderIds.filter((id) => findNode($collections, id)));
-  const title = $derived(runnerScopeTitle(scopeIds, $collections, $t));
+  // A past run (opened from the bars) shows its own scope + environment, read-only.
+  const viewing = $derived($runnerViewing);
+  const viewed = $derived(viewing === null ? undefined : $runnerHistory.find((h) => h.n === viewing));
+  const title = $derived(viewed?.title ?? runnerScopeTitle(scopeIds, $collections, $t));
   const planned = $derived(plannedRequests($runnerConfig, $collections));
   const scopeText = $derived.by(() => {
     const extra = scopeIds.slice(1).map((id) => findNode($collections, id)?.name).filter(Boolean);
@@ -55,7 +61,8 @@
     return extra.length ? `+ ${extra.join(', ')} · ${count}` : count;
   });
 
-  const env = $derived($environments.find((e) => e.id === $activeEnvironmentId));
+  const env = $derived($environments.find((e) => e.id === (viewed ? viewed.envId : $activeEnvironmentId)));
+  const envLabel = $derived(viewed ? (viewed.envName ?? $t('runner.noEnv')) : (env?.name ?? $t('runner.noEnv')));
   const dataDriven = $derived($runnerConfig.dataRows.length > 0);
   const iterationCount = $derived(dataDriven ? $runnerConfig.dataRows.length : $runnerConfig.iterations);
 
@@ -118,6 +125,14 @@
     if (st === 'running' && run.completed === 0) sel = null;
     if ((st === 'done' || st === 'stopped') && !sel && failedRows[0]) sel = { key: keyOf(failedRows[0]), iter: failedRows[0].iteration };
     lastStatus = st;
+  });
+  // Opening another (past) run starts from its first failure.
+  let lastN = 0;
+  $effect(() => {
+    const n = run.n;
+    if (n === lastN) return;
+    lastN = n;
+    if (!running) sel = failedRows[0] ? { key: keyOf(failedRows[0]), iter: failedRows[0].iteration } : null;
   });
   function keyOf(r: { nodeId?: string; method: string; requestName: string }): string {
     return r.nodeId ?? `${r.method} ${r.requestName}`;
@@ -196,7 +211,7 @@
           <span class="material-symbols-outlined" aria-hidden="true">folder</span>{scopeText}
         </button>
         <button class="rn-chip" type="button" onclick={setup} disabled={running}>
-          <i class="rn-dot" style="background:{env ? ENV_COLOR_VAR[envColor(env)] : 'var(--color-text-muted)'}"></i>{env?.name ?? $t('runner.noEnv')}
+          <i class="rn-dot" style="background:{env ? ENV_COLOR_VAR[envColor(env)] : 'var(--color-text-muted)'}"></i>{envLabel}
         </button>
         <button class="rn-chip" type="button" onclick={setup} disabled={running}>
           <span class="material-symbols-outlined" aria-hidden="true">repeat</span>{iterations} {$tp(iterations, ['итерация', 'итерации', 'итераций'], ['iteration', 'iterations'])}
@@ -220,7 +235,9 @@
         <i class="rn-stopicon" aria-hidden="true"></i><b>{$t('runner.stop')}</b><kbd>Esc</kbd>
       </button>
     {:else}
-      {#if failedRows.length > 0}
+      {#if viewing !== null}
+        <span class="rn-viewing">{$t('runner.viewing', { n: viewing })}<button type="button" onclick={() => viewRun($runnerHistory.at(-1)?.n ?? viewing)}>{$t('runner.viewLatest')}</button></span>
+      {:else if failedRows.length > 0}
         <button class="rn-btn" type="button" onclick={() => void rerunFailed()}>
           <span class="material-symbols-outlined danger" aria-hidden="true">replay</span>{$t('runner.rerunFailed', { n: failedRows.length })}
         </button>
@@ -274,7 +291,9 @@
       {@render eyebrow($t('runner.stat.last', { n: Math.max(bars.length, 1), runs: $tp(Math.max(bars.length, 1), ['ПРОГОН', 'ПРОГОНА', 'ПРОГОНОВ'], ['RUN', 'RUNS']) }))}
       <div class="rn-bars" aria-label={$t('runner.stat.durations')}>
         {#each bars as b, i (i)}
-          <i class:failed={b.failed} class:current={b.n === currentN} style="height:{b.h}px" title="#{b.n}"></i>
+          {@const saved = $runnerRecords.some((r) => r.n === b.n)}
+          <button type="button" class="rn-bar" class:failed={b.failed} class:current={b.n === currentN} style="height:{b.h}px"
+            title={saved ? `#${b.n}` : $t('runner.bar.noData')} aria-label={$t('runner.runN', { n: b.n })} disabled={!saved || running} onclick={() => viewRun(b.n)}></button>
         {/each}
       </div>
     </div>
@@ -410,7 +429,7 @@
 
         <div class="rn-actions">
           <button class="rn-btn grow" type="button" onclick={openRequest} disabled={!selCall.nodeId}>{$t('runner.detail.open')}</button>
-          <button class="rn-btn" type="button" onclick={() => selCall && void rerunCall(selCall.id)} disabled={running}>{$t('runner.detail.retry')}</button>
+          <button class="rn-btn" type="button" onclick={() => selCall && void rerunCall(selCall.id)} disabled={running || viewing !== null}>{$t('runner.detail.retry')}</button>
         </div>
       </aside>
     {/if}
@@ -573,9 +592,13 @@
   .rn-delta.warning { background: var(--color-warning-soft); color: var(--color-warning); }
   .rn-delta.danger { background: var(--color-danger-soft); color: var(--color-danger); }
   .rn-bars { height: 28px; display: flex; align-items: flex-end; gap: 4px; }
-  .rn-bars i { width: 14px; border-radius: 4px; background: var(--color-success); opacity: 0.55; }
-  .rn-bars i.failed { background: var(--color-danger); }
-  .rn-bars i.current { opacity: 1; }
+  .rn-bar { width: 14px; padding: 0; border: 0; border-radius: 4px; background: var(--color-success); opacity: 0.55; cursor: pointer; }
+  .rn-bar:disabled { cursor: default; }
+  .rn-bar:hover:not(:disabled) { opacity: 0.85; }
+  .rn-bar.failed { background: var(--color-danger); }
+  .rn-bar.current { opacity: 1; }
+  .rn-viewing { display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 4px 0 10px; border-radius: 999px; background: var(--color-var-soft); color: var(--color-var); font: 500 11px var(--font-ui); white-space: nowrap; }
+  .rn-viewing button { height: 20px; padding: 0 8px; border-radius: 999px; background: var(--color-var); color: var(--color-raised); font: 600 10px var(--font-ui); }
 
   /* Matrix */
   .rn-split { flex: 1; min-height: 0; display: flex; gap: 12px; }
