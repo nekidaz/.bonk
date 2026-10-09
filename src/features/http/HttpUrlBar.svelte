@@ -2,7 +2,7 @@
   import { t, tp } from '$shared/i18n';
   import { cancelRequest } from '$shared/ipc';
   import { busyMap, sendHttpRequest, applyCurlToActiveTab, requestProductionSend } from '$entities/request';
-  import { updateActiveTab, updateTabById } from '$entities/tab';
+  import { tabs } from '$entities/tab';
   import {
     globals,
     environments,
@@ -37,7 +37,7 @@
   ];
 
   function setMethod(method: string): void {
-    updateActiveTab((t) => ({ ...t, request: { ...t.request, method } }));
+    tabs.updateActive((t) => ({ ...t, request: { ...t.request, method } }));
   }
 
   function chooseHttpMethod(method: string): void {
@@ -67,7 +67,7 @@
   }
 
   function setUrl(value: string): void {
-    updateActiveTab((t) => ({
+    tabs.updateActive((t) => ({
       ...t,
       params: mergeParamsFromUrl(value, t.params),
       request: { ...t.request, url: value },
@@ -166,7 +166,7 @@
         elapsed_ms: 0,
         size_bytes: 0,
       };
-      updateTabById(id, (x) => ({ ...x, response: res }));
+      tabs.updateById(id, (x) => ({ ...x, response: res }));
     } finally {
       busyMap.update((m) => {
         if (m[id]?.requestId !== requestId) return m;

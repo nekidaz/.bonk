@@ -1,7 +1,7 @@
 // Public API of entities/tab (like the exported names of a Go package).
 // Code outside src/entities/tab/ imports only from here; files inside use relative paths.
 
-export { activeTabId, tabs, updateActiveTab, updateTabById } from './store';
+export { tabs } from './tabs.svelte';
 export {
   GRPC_DEFAULT_TITLE,
   grpcSnapshot,

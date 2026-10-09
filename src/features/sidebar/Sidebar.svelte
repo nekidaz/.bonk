@@ -29,7 +29,7 @@
     filterTree,
     findNode,
   } from '$entities/workspace';
-  import { tabs, activeTabId } from '$entities/tab';
+  import { tabs } from '$entities/tab';
   import { history, historyPaused, openHistoryEntry, removeHistoryEntry } from '$entities/history';
   import { openSavedRequest } from '$entities/request';
   import { flows, openFlowTab, createFlow } from '$entities/flow';
@@ -88,7 +88,7 @@
   // Selection follows the active tab: open the folders above it and scroll it into view.
   // Derived to a string so editing the request doesn't re-run this (and re-open folders).
   let treeEl = $state<HTMLElement>();
-  const activeSavedPath = $derived($tabs.find((tb) => tb.id === $activeTabId)?.savedPath);
+  const activeSavedPath = $derived(tabs.active?.savedPath);
   $effect(() => {
     const id = activeSavedPath;
     if (!id) return;
@@ -593,7 +593,7 @@
                 {@const good = h.ok ?? ok(h.status)}
                 <button
                   class="bs-history-row"
-                  class:sel={$tabs.find((tb) => tb.id === $activeTabId)?.historyId === h.id}
+                  class:sel={tabs.active?.historyId === h.id}
                   type="button"
                   title={h.envName ? `${t('sidebar.openInNewTab')} · ${h.envName}` : t('sidebar.openInNewTab')}
                   onclick={() => openHistoryEntry(h)}

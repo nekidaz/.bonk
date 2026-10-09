@@ -17,7 +17,7 @@
    */
   import { tick, untrack } from 'svelte';
   import { get } from 'svelte/store';
-  import { tabs, updateActiveTab, updateTabById, grpcSnapshot, titleFromUrl, GRPC_DEFAULT_TITLE } from '$entities/tab';
+  import { tabs, grpcSnapshot, titleFromUrl, GRPC_DEFAULT_TITLE } from '$entities/tab';
   import { collections } from '$entities/workspace';
   import { addHistory } from '$entities/history';
   import { grpcTlsFor, currentGrpcPrefs, withGlobalImports, requestPrefs } from '$shared/settings';
@@ -145,7 +145,7 @@
     tab.grpc?.plaintext ?? inferGrpcPlaintext(resolveVars(tab.grpc?.endpoint ?? '', currentVarScope())),
   );
   function setGrpc(patch: Record<string, unknown>): void {
-    updateActiveTab((t) => (t.grpc ? { ...t, grpc: { ...t.grpc, ...patch } } : t));
+    tabs.updateActive((t) => (t.grpc ? { ...t, grpc: { ...t.grpc, ...patch } } : t));
   }
   function setGrpcScript(field: 'preRequestScript' | 'testScript', value: string): void {
     setGrpc({ [field]: value === '' ? undefined : value });
@@ -161,7 +161,7 @@
     protoDialogOpen = true;
   }
   async function connectProto(protoPaths: string[], importPaths: string[]): Promise<void> {
-    updateTabById(tab.id, (t) =>
+    tabs.updateById(tab.id, (t) =>
       t.grpc
         ? {
             ...t,
@@ -225,12 +225,12 @@
         t.grpc.source === 'proto'
           ? await grpcLoadProto(connId, t.grpc.protoPaths ?? [], withGlobalImports(t.grpc.importPaths ?? []))
           : await grpcReflect(connId, requestPrefs.requestTimeoutMs);
-      updateTabById(tabId, (x) => (x.grpc ? { ...x, grpc: { ...x.grpc, connectionId: connId, tree } } : x));
+      tabs.updateById(tabId, (x) => (x.grpc ? { ...x, grpc: { ...x.grpc, connectionId: connId, tree } } : x));
     } catch (e) {
       const message = grpcConnectFailureMessage(t.grpc?.source, stage, e);
       // S25: an Invoke that can't reach the server is a response, not an editor error.
       if (fromInvoke && stage === 'dial' && !/invalid endpoint|invalid uri|proto/i.test(message)) {
-        updateTabById(tabId, (x) => ({
+        tabs.updateById(tabId, (x) => ({
           ...x,
           grpcStream: undefined,
           grpcResult: {
@@ -254,7 +254,7 @@
   function endpointPaste(text: string): boolean {
     const cmd = parseGrpcurl(text);
     if (!cmd) return false;
-    updateActiveTab((t) => applyGrpcurlImport(t, cmd, titleFromUrl(cmd.endpoint, GRPC_DEFAULT_TITLE)));
+    tabs.updateActive((t) => applyGrpcurlImport(t, cmd, titleFromUrl(cmd.endpoint, GRPC_DEFAULT_TITLE)));
     if (requestPrefs.grpcAutoReflect) void tick().then(ensureConnected);
     return true;
   }
@@ -265,7 +265,7 @@
   }
   /** Set endpoint and drop any stale connection so the next action reconnects. */
   function setEndpoint(v: string): void {
-    updateActiveTab((t) => withGrpcEndpoint(t, v, titleFromUrl(v, GRPC_DEFAULT_TITLE)));
+    tabs.updateActive((t) => withGrpcEndpoint(t, v, titleFromUrl(v, GRPC_DEFAULT_TITLE)));
   }
 
   // S29/S30: connection popover (GrpcTlsPopover) — open state lives here so the response pane can open it.
@@ -291,21 +291,21 @@
   async function loadGrpcTemplate(tabId: string, connectionId: string, symbol: string): Promise<void> {
     try {
       const tpl = await grpcTemplate(connectionId, symbol);
-      updateTabById(tabId, (t) => (t.grpc?.method === symbol ? { ...t, grpc: { ...t.grpc, message: tpl } } : t));
+      tabs.updateById(tabId, (t) => (t.grpc?.method === symbol ? { ...t, grpc: { ...t.grpc, message: tpl } } : t));
     } catch {
       // Keep the selected method; leave the existing message untouched.
     }
   }
   async function grpcLoadExample(): Promise<void> {
     const tabId = tab.id;
-    let g = $tabs.find((t) => t.id === tabId)?.grpc;
+    let g = tabs.list.find((t) => t.id === tabId)?.grpc;
     if (!g?.method) {
       grpcErrorMap.update((m) => ({ ...m, [tabId]: t('grpc.selectMethodFirst') }));
       return;
     }
     if (!g.connectionId) {
       await ensureConnected();
-      g = $tabs.find((t) => t.id === tabId)?.grpc;
+      g = tabs.list.find((t) => t.id === tabId)?.grpc;
     }
     if (!g?.connectionId || !g.method) return;
     grpcErrorMap.update((m) => ({ ...m, [tabId]: '' }));
@@ -315,13 +315,13 @@
   async function grpcSendMore(): Promise<void> {
     const tabId = tab.id;
     const busy = $busyMap[tabId];
-    const g = $tabs.find((t) => t.id === tabId)?.grpc;
+    const g = tabs.list.find((t) => t.id === tabId)?.grpc;
     if (!busy?.writable || !busy.requestId || !g) return;
     const body = resolveVars(g.message, currentVarScope()).trim() || '{}';
     try {
       await grpcStreamSend(busy.requestId, body);
       grpcErrorMap.update((m) => ({ ...m, [tabId]: '' }));
-      updateTabById(tabId, (x) => {
+      tabs.updateById(tabId, (x) => {
         const s = x.grpcStream;
         if (!s) return x;
         return {
@@ -365,7 +365,7 @@
     if (!t0.grpc?.connectionId && t0.grpc?.endpoint.trim()) await grpcDoConnect(true);
     // Re-read the originating tab after the (awaited) connect; never assume the
     // active tab is still this one.
-    const g = $tabs.find((t) => t.id === tabId)?.grpc;
+    const g = tabs.list.find((t) => t.id === tabId)?.grpc;
     // Never no-op silently: any earlier response stays visible in the response
     // pane, so a mute return here makes a dead Invoke look like a fresh success.
     // A failed connect/reflect already left its banner via grpcDoConnect; the
@@ -404,7 +404,7 @@
       logs.push(...pre.logs);
       tests.push(...pre.tests);
       if (pre.error) {
-        updateTabById(tabId, (x) => ({ ...x, testResults: { tests, logs, error: pre.error ?? undefined } }));
+        tabs.updateById(tabId, (x) => ({ ...x, testResults: { tests, logs, error: pre.error ?? undefined } }));
         addAppConsoleEntry({
           protocol: 'grpc',
           method: methodShort(g.method ?? '') || 'gRPC',
@@ -454,13 +454,13 @@
           busyMap.update((m) =>
             m[tabId]?.requestId === requestId ? { ...m, [tabId]: { ...m[tabId], writable: true } } : m,
           );
-        updateTabById(tabId, (x) => ({
+        tabs.updateById(tabId, (x) => ({
           ...x,
           grpcResult: undefined,
           grpcStream: { messages: sent, done: false, startedAt: Date.now() },
         }));
         result = await grpcStream(g.connectionId, g.method, resolvedMessage, resolvedMetadata, requestId, (msg) =>
-          updateTabById(tabId, (x) => {
+          tabs.updateById(tabId, (x) => {
             const s = x.grpcStream ?? { messages: [], done: false, startedAt: Date.now() };
             return {
               ...x,
@@ -469,7 +469,7 @@
           }),
         );
       } else {
-        updateTabById(tabId, (x) => ({ ...x, grpcStream: undefined }));
+        tabs.updateById(tabId, (x) => ({ ...x, grpcStream: undefined }));
         result = await grpcCall(
           g.connectionId,
           g.method,
@@ -504,7 +504,7 @@
     const testResults =
       tests.length > 0 || logs.length > 0 || testError ? { tests, logs, error: testError } : undefined;
 
-    updateTabById(tabId, (x) => ({
+    tabs.updateById(tabId, (x) => ({
       ...x,
       grpcResult: result,
       testResults,

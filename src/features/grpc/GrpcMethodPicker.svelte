@@ -7,7 +7,7 @@
    */
   import { flushSync, untrack } from 'svelte';
   import { t, tp } from '$shared/i18n';
-  import { updateTabById } from '$entities/tab';
+  import { tabs } from '$entities/tab';
   import { filterGrpcServices, grpcMethodKind } from '$entities/request';
   import { grpcMethodLabel } from './grpcActions';
   import { splitMethodSymbol } from './grpcEditor';
@@ -72,7 +72,7 @@
     const tabId = tab.id;
     flushSync(() => {
       open = false;
-      updateTabById(tabId, (t) => (t.grpc ? { ...t, grpc: { ...t.grpc, method: symbol } } : t));
+      tabs.updateById(tabId, (t) => (t.grpc ? { ...t, grpc: { ...t.grpc, method: symbol } } : t));
     });
   }
   function clearSearch(): void {

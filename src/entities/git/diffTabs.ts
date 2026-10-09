@@ -1,7 +1,6 @@
-import { get } from 'svelte/store';
 import { t } from '$shared/i18n';
 import type { GitDiffMode, Tab } from '$shared/model';
-import { tabs, activeTabId } from '$entities/tab';
+import { tabs } from '$entities/tab';
 
 function basename(path: string): string {
   const parts = path.replace(/\/+$/, '').split('/');
@@ -11,9 +10,9 @@ function basename(path: string): string {
 export function openGitDiffTab(path: string, mode: GitDiffMode = 'working'): void {
   const clean = path.trim();
   if (!clean) return;
-  const existing = get(tabs).find((t) => t.protocol === 'git' && t.git?.path === clean && t.git.mode === mode);
+  const existing = tabs.list.find((t) => t.protocol === 'git' && t.git?.path === clean && t.git.mode === mode);
   if (existing) {
-    activeTabId.set(existing.id);
+    tabs.activeId = existing.id;
     return;
   }
   const tab: Tab = {
@@ -25,14 +24,14 @@ export function openGitDiffTab(path: string, mode: GitDiffMode = 'working'): voi
     git: { path: clean, mode },
   };
   tabs.update((list) => [...list, tab]);
-  activeTabId.set(tab.id);
+  tabs.activeId = tab.id;
 }
 
 /** Open (or focus) the single aggregate Project Diff tab. */
 export function openProjectDiffTab(): void {
-  const existing = get(tabs).find((t) => t.protocol === 'git' && t.git?.view === 'project');
+  const existing = tabs.list.find((t) => t.protocol === 'git' && t.git?.view === 'project');
   if (existing) {
-    activeTabId.set(existing.id);
+    tabs.activeId = existing.id;
     return;
   }
   const tab: Tab = {
@@ -44,5 +43,5 @@ export function openProjectDiffTab(): void {
     git: { path: '', mode: 'working', view: 'project' },
   };
   tabs.update((list) => [...list, tab]);
-  activeTabId.set(tab.id);
+  tabs.activeId = tab.id;
 }

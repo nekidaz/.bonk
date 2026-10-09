@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { UtilityMode } from '$shared/ui';
-  import { tabs, activeTabId } from '$entities/tab';
+  import { tabs } from '$entities/tab';
   import { runnerRun } from '$features/runner';
   import { t } from '$shared/i18n';
 
@@ -16,7 +16,7 @@
     onConsole: () => void;
   } = $props();
 
-  const runnerOn = $derived($tabs.find((tb) => tb.id === $activeTabId)?.protocol === 'runner');
+  const runnerOn = $derived(tabs.active?.protocol === 'runner');
 </script>
 
 <div class="bs-status">

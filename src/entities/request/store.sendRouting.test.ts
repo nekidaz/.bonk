@@ -20,7 +20,7 @@ vi.mock('$shared/ipc/api', () => ({
 }));
 
 import { httpSend } from '$shared/ipc';
-import { tabs, activeTabId, updateTabById } from '$entities/tab';
+import { tabs } from '$entities/tab';
 import { sendHttpRequest } from './store';
 
 const mockHttpSend = vi.mocked(httpSend);
@@ -47,8 +47,8 @@ const fakeResponse: HttpResponse = {
 describe('sendHttpRequest routing', () => {
   beforeEach(() => {
     mockHttpSend.mockReset();
-    tabs.set([tab('A'), tab('B')]);
-    activeTabId.set('A');
+    tabs.list = [tab('A'), tab('B')];
+    tabs.activeId = 'A';
   });
 
   it('routes the response to the tab it was started from, not the active tab', async () => {
@@ -64,7 +64,7 @@ describe('sendHttpRequest routing', () => {
     const pending = sendHttpRequest('A', req, 'r1');
 
     // User switches to tab B BEFORE the request returns.
-    activeTabId.set('B');
+    tabs.activeId = 'B';
 
     // Now the slow request resolves.
     resolveSend(fakeResponse);
@@ -87,7 +87,7 @@ describe('sendHttpRequest routing', () => {
   });
 
   it('updateTabById only mutates the targeted tab', () => {
-    updateTabById('B', (t) => ({ ...t, title: 'renamed-B' }));
+    tabs.updateById('B', (t) => ({ ...t, title: 'renamed-B' }));
     const list = getTabs();
     expect(list.find((t) => t.id === 'A')?.title).toBe('A');
     expect(list.find((t) => t.id === 'B')?.title).toBe('renamed-B');
@@ -95,10 +95,5 @@ describe('sendHttpRequest routing', () => {
 });
 
 function getTabs(): Tab[] {
-  let snapshot: Tab[] = [];
-  const unsub = tabs.subscribe((v) => {
-    snapshot = v;
-  });
-  unsub();
-  return snapshot;
+  return tabs.list;
 }

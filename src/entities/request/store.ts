@@ -38,16 +38,7 @@ import {
   runWorkspaceOp,
 } from '$entities/workspace';
 import { grpcPathsToRel, grpcPathsToAbs } from './protoPaths';
-import {
-  GRPC_DEFAULT_TITLE,
-  HTTP_DEFAULT_TITLE,
-  grpcSnapshot,
-  titleFromUrl,
-  tabs,
-  activeTabId,
-  updateActiveTab,
-  updateTabById,
-} from '$entities/tab';
+import { GRPC_DEFAULT_TITLE, HTTP_DEFAULT_TITLE, grpcSnapshot, titleFromUrl, tabs } from '$entities/tab';
 import {
   globals,
   environments,
@@ -95,7 +86,7 @@ export async function saveActiveRequest(folderId?: string, name?: string, asCopy
     root = get(workspacePath);
     if (!root) return; // user cancelled the picker
   }
-  const tab = get(tabs).find((t) => t.id === get(activeTabId));
+  const tab = tabs.active;
   if (!tab) return;
   if (tab.protocol !== 'http' && tab.protocol !== 'grpc') return;
   const finalName =
@@ -184,14 +175,14 @@ export async function addRequestToFolder(folderId: string | undefined, protocol:
 
 /** Focus the request's open tab, or open it; `inNewTab` (⌘-click) always opens another tab. */
 export function openSavedRequest(req: RequestNode, inNewTab = false): void {
-  const existing = !inNewTab && get(tabs).find((t) => t.savedPath === req.id);
+  const existing = !inNewTab && tabs.list.find((t) => t.savedPath === req.id);
   if (existing) {
-    activeTabId.set(existing.id);
+    tabs.activeId = existing.id;
     return;
   }
   // Settings → «Открывать запрос в новой вкладке» off: reuse the active saved
   // request's tab when it has no unsaved changes (scratch tabs are never replaced).
-  const current = get(tabs).find((t) => t.id === get(activeTabId));
+  const current = tabs.active;
   const reuse =
     !inNewTab &&
     !openInNewTab.current &&
@@ -211,7 +202,7 @@ export function openSavedRequest(req: RequestNode, inNewTab = false): void {
     savedPath: req.id,
   };
   tabs.update((list) => (reuse ? list.map((t) => (t.id === tab.id ? tab : t)) : [...list, tab]));
-  activeTabId.set(tab.id);
+  tabs.activeId = tab.id;
 }
 
 /**
@@ -222,7 +213,7 @@ export function openSavedRequest(req: RequestNode, inNewTab = false): void {
 export function applyCurlToActiveTab(curl: string): boolean {
   try {
     const request = parseCurl(curl);
-    updateActiveTab((t) => ({
+    tabs.updateActive((t) => ({
       ...t,
       request,
       params: paramsFromUrl(request.url),
@@ -306,7 +297,7 @@ export async function sendHttpRequest(tabId: string, req: HttpRequest, requestId
     logs.push(...pre.logs);
     tests.push(...pre.tests);
     if (pre.error) {
-      updateTabById(tabId, (t) => ({ ...t, testResults: { tests, logs, error: pre.error ?? undefined } }));
+      tabs.updateById(tabId, (t) => ({ ...t, testResults: { tests, logs, error: pre.error ?? undefined } }));
       addAppConsoleEntry({
         protocol: 'http',
         method: outgoing.method || 'HTTP',
@@ -333,7 +324,7 @@ export async function sendHttpRequest(tabId: string, req: HttpRequest, requestId
     res = await httpSend(
       resolved,
       requestId,
-      withOverrides(currentRequestSettings(), get(tabs).find((t) => t.id === tabId)?.settings),
+      withOverrides(currentRequestSettings(), tabs.list.find((t) => t.id === tabId)?.settings),
     );
   } catch (error) {
     addAppConsoleEntry({
@@ -377,7 +368,7 @@ export async function sendHttpRequest(tabId: string, req: HttpRequest, requestId
   }
 
   const testResults = tests.length > 0 || logs.length > 0 || testError ? { tests, logs, error: testError } : undefined;
-  updateTabById(tabId, (t) => ({ ...t, response: res, testResults }));
+  tabs.updateById(tabId, (t) => ({ ...t, response: res, testResults }));
   addAppConsoleEntry({
     protocol: 'http',
     method: resolved.method || 'HTTP',
@@ -388,7 +379,7 @@ export async function sendHttpRequest(tabId: string, req: HttpRequest, requestId
     message: testError,
     logs,
   });
-  const src = get(tabs).find((t) => t.id === tabId);
+  const src = tabs.list.find((t) => t.id === tabId);
   addHistory({
     id: crypto.randomUUID(),
     protocol: 'http',

@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount, tick, untrack } from 'svelte';
   import { slide } from 'svelte/transition';
-  import { tabs, activeTabId } from '$entities/tab';
+  import { tabs } from '$entities/tab';
   import {
     collections,
     revealNode,
@@ -104,7 +104,7 @@
   import WelcomeView from './WelcomeView.svelte';
   import { checkForUpdate } from '$shared/updater';
 
-  const active = $derived($tabs.find((t) => t.id === $activeTabId));
+  const active = $derived(tabs.active);
 
   // The HTTP method-picker open state stays here because App's
   // `<svelte:window onpointerdown>` below resets it on outside-click; it's
@@ -121,7 +121,7 @@
   let runnerReveal = $state(false);
   const sidebarShown = $derived(!sidebarHidden && (active?.protocol !== 'runner' || runnerReveal));
   $effect(() => {
-    void $activeTabId;
+    void tabs.activeId;
     untrack(() => (runnerReveal = false));
   });
   function setSidebarShown(show: boolean): void {
@@ -309,7 +309,7 @@
   function tabContext(e: MouseEvent, id: string): void {
     e.preventDefault();
     e.stopPropagation();
-    activeTabId.set(id);
+    tabs.activeId = id;
     openMenu('tab', e, id);
   }
   function tabKeydown(e: KeyboardEvent, id: string): void {
@@ -325,7 +325,7 @@
     if (!act) return;
     e.preventDefault();
     e.stopPropagation();
-    activeTabId.set(id);
+    tabs.activeId = id;
     act();
   }
   function tabReveal(): void {
@@ -682,7 +682,7 @@
         settingsOpen = true;
         break;
       case 'closeTab':
-        void requestCloseTab($activeTabId);
+        void requestCloseTab(tabs.activeId);
         break;
       case 'closeAllTabs':
         void closeAllTabs();
@@ -717,9 +717,10 @@
         break;
       case 'nextTab':
       case 'prevTab': {
-        const i = $tabs.findIndex((t) => t.id === $activeTabId);
-        const next = i < 0 ? undefined : nextTabIndex(id === 'prevTab' ? 'ArrowLeft' : 'ArrowRight', i, $tabs.length);
-        if (next !== undefined) activeTabId.set($tabs[next].id);
+        const i = tabs.list.findIndex((t) => t.id === tabs.activeId);
+        const next =
+          i < 0 ? undefined : nextTabIndex(id === 'prevTab' ? 'ArrowLeft' : 'ArrowRight', i, tabs.list.length);
+        if (next !== undefined) tabs.activeId = tabs.list[next].id;
         break;
       }
     }

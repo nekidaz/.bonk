@@ -3,7 +3,7 @@ import { t } from '$shared/i18n';
 import { type Environment, type Tab, type VarRow, mergeScope } from '$shared/model';
 import { mcpPrefs } from './mcpPrefs';
 import { autoAllowNewEnv, renameEnvAllowance } from './mcpEnvs';
-import { tabs, activeTabId } from '$entities/tab';
+import { tabs } from '$entities/tab';
 
 // Postman-style variables. Globals apply everywhere; the active environment's
 // vars override globals. These live in app-state (persist), NOT workspace files,
@@ -35,9 +35,9 @@ export function currentVarScope(redactSecrets = false): Record<string, string> {
 
 /** Open (or focus) the single Environments tab; it hosts the same editor as the sheet. */
 export function openEnvironmentsTab(): void {
-  const existing = get(tabs).find((t) => t.protocol === 'env');
+  const existing = tabs.list.find((t) => t.protocol === 'env');
   if (existing) {
-    activeTabId.set(existing.id);
+    tabs.activeId = existing.id;
     return;
   }
   const tab: Tab = {
@@ -48,7 +48,7 @@ export function openEnvironmentsTab(): void {
     request: { method: 'ENV', url: '', headers: {} },
   };
   tabs.update((list) => [...list, tab]);
-  activeTabId.set(tab.id);
+  tabs.activeId = tab.id;
 }
 
 /** S31: «Manage environments» in the environment dropdown opens the sheet. */

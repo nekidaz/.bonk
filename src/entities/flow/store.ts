@@ -5,7 +5,7 @@ import type { Flow, FlowBlockConfig } from './flow';
 import { executeFlow, type FlowBlockState, type FlowEffects, type FlowRunStatus } from './flowRun';
 import { runScript } from '$shared/ipc';
 import { findNode, collections } from '$entities/workspace';
-import { tabs, activeTabId } from '$entities/tab';
+import { tabs } from '$entities/tab';
 import { applyScriptVars, activeEnvMap, globalsMap, runHttpNode, runGrpcNode } from '$entities/request';
 
 // Flows (node-graph orchestration documents). Live in app-state like
@@ -80,10 +80,10 @@ export function renameFlow(id: string, name: string): void {
 /** Delete a flow and close any tabs showing it. */
 export function deleteFlow(id: string): void {
   flows.update((list) => list.filter((f) => f.id !== id));
-  const remaining = get(tabs).filter((t) => t.flowId !== id);
-  tabs.set(remaining);
-  if (!remaining.some((t) => t.id === get(activeTabId))) {
-    activeTabId.set(remaining[0]?.id ?? '');
+  const remaining = tabs.list.filter((t) => t.flowId !== id);
+  tabs.list = remaining;
+  if (!remaining.some((t) => t.id === tabs.activeId)) {
+    tabs.activeId = remaining[0]?.id ?? '';
   }
 }
 
@@ -94,9 +94,9 @@ export function updateFlow(id: string, fn: (flow: Flow) => Flow): void {
 
 /** Open (or focus) the tab for a flow. */
 export function openFlowTab(flowId: string): void {
-  const existing = get(tabs).find((t) => t.protocol === 'flow' && t.flowId === flowId);
+  const existing = tabs.list.find((t) => t.protocol === 'flow' && t.flowId === flowId);
   if (existing) {
-    activeTabId.set(existing.id);
+    tabs.activeId = existing.id;
     return;
   }
   const flow = get(flows).find((f) => f.id === flowId);
@@ -110,7 +110,7 @@ export function openFlowTab(flowId: string): void {
     flowId,
   };
   tabs.update((list) => [...list, tab]);
-  activeTabId.set(tab.id);
+  tabs.activeId = tab.id;
 }
 
 // ---- Run wiring ----

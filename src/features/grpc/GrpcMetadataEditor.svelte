@@ -1,6 +1,6 @@
 <script lang="ts">
   import { untrack } from 'svelte';
-  import { updateTabById } from '$entities/tab';
+  import { tabs } from '$entities/tab';
   import {
     duplicateGrpcMetadataKeys,
     grpcMetadataRecord,
@@ -25,7 +25,9 @@
   function persist(next: GrpcMetadataRow[]): void {
     rows = withTrailingGrpcMetadataRow(next);
     const metadata = grpcMetadataRecord(rows);
-    updateTabById(tab.id, (current) => (current.grpc ? { ...current, grpc: { ...current.grpc, metadata } } : current));
+    tabs.updateById(tab.id, (current) =>
+      current.grpc ? { ...current, grpc: { ...current.grpc, metadata } } : current,
+    );
   }
 
   function setRow(index: number, field: keyof GrpcMetadataRow, value: string): void {

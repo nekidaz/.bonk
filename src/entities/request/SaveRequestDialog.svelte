@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { tabs, activeTabId } from '$entities/tab';
+  import { tabs } from '$entities/tab';
   import { collections, addFolder, findNode, parentId } from '$entities/workspace';
   import { saveActiveRequest } from './store';
   import { saveDialog } from './dialogs';
@@ -19,7 +19,7 @@
     saveDialog.set(null);
   }
 
-  const active = $derived($tabs.find((tb) => tb.id === $activeTabId));
+  const active = $derived(tabs.active);
 
   let name = $state('');
   let targetId = $state<string | undefined>(undefined); // folder id; undefined = root

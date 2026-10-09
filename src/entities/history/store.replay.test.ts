@@ -1,12 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { get } from 'svelte/store';
 import { openHistoryEntry } from './store';
-import { tabs, activeTabId } from '$entities/tab';
+import { tabs } from '$entities/tab';
 import type { HistoryEntry } from '$shared/model';
 
 describe('openHistoryEntry', () => {
   it('opens an http entry in a new active tab with its request restored', () => {
-    const before = get(tabs).length;
+    const before = tabs.list.length;
     const entry: HistoryEntry = {
       id: 'h1',
       protocol: 'http',
@@ -15,10 +14,10 @@ describe('openHistoryEntry', () => {
       at: 1,
     };
     openHistoryEntry(entry);
-    const list = get(tabs);
+    const list = tabs.list;
     expect(list.length).toBe(before + 1);
     const tab = list[list.length - 1];
-    expect(get(activeTabId)).toBe(tab.id);
+    expect(tabs.activeId).toBe(tab.id);
     expect(tab.protocol).toBe('http');
     expect(tab.request.method).toBe('POST');
     expect(tab.request.url).toBe('https://api.example.com/x');
@@ -49,7 +48,7 @@ describe('openHistoryEntry', () => {
       at: 2,
     };
     openHistoryEntry(entry);
-    const tab = get(tabs).at(-1)!;
+    const tab = tabs.list.at(-1)!;
     expect(tab.protocol).toBe('grpc');
     expect(tab.grpc?.endpoint).toBe('localhost:50051');
     expect(tab.grpc?.method).toBe('pkg.Svc.M');

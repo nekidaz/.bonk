@@ -29,7 +29,7 @@
   import { GRPC_CODES, HTTP_STATUS_TEXT, grpcStatusLabel } from './statusLabel';
   import { get } from 'svelte/store';
   import { requestPrefs } from '$shared/settings';
-  import { updateTabById } from '$entities/tab';
+  import { tabs } from '$entities/tab';
   import ResponseBody, { type BodyInfo } from './ResponseBody.svelte';
   import { EditorTools } from '$shared/editor/components';
   import { countLabel } from '$shared/editor';
@@ -146,7 +146,8 @@
         .join(',') ?? ''
     }]`;
   function clearFeed(): void {
-    if (tab) updateTabById(tab.id, (x) => (x.grpcStream ? { ...x, grpcStream: { ...x.grpcStream, messages: [] } } : x));
+    if (tab)
+      tabs.updateById(tab.id, (x) => (x.grpcStream ? { ...x, grpcStream: { ...x.grpcStream, messages: [] } } : x));
   }
   /** Re-run the request from the editor's Invoke button (same path as ⌘↵). */
   /** gRPC durations: `42 ms`, `3.4 s` (S20/S25/S26). */

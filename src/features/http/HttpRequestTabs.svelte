@@ -16,7 +16,7 @@
     jsonProblem,
     countLabel,
   } from '$shared/editor';
-  import { updateTabById } from '$entities/tab';
+  import { tabs } from '$entities/tab';
   import { EditorTools } from '$shared/editor/components';
 
   let { tab, uiTab = $bindable() }: { tab: Tab; uiTab: HttpEditorTab } = $props();
@@ -58,12 +58,12 @@
   };
 
   function setKind(k: BodyKind): void {
-    updateTabById(tab.id, (x) => ({ ...x, request: applyBodyKind(x.request, k) }));
+    tabs.updateById(tab.id, (x) => ({ ...x, request: applyBodyKind(x.request, k) }));
   }
   function doBeautify(): void {
     try {
       const next = beautify(body, currentRawFormat(tab));
-      updateTabById(tab.id, (x) => ({ ...x, request: { ...x.request, body: next } }));
+      tabs.updateById(tab.id, (x) => ({ ...x, request: { ...x.request, body: next } }));
     } catch {
       // The live JSON check already underlines the problem and flags it next to the size.
     }

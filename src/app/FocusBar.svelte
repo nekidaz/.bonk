@@ -5,7 +5,7 @@
    */
   import { t, uiLanguage } from '$shared/i18n';
   import { busyMap, methodShort } from '$entities/request';
-  import { updateTabById } from '$entities/tab';
+  import { tabs } from '$entities/tab';
   import { focusMode } from '$shared/ui';
   import { formatBytes, methodColor, currentBodyMode, currentRawFormat, type Tab } from '$shared/model';
   import { beautify, bodyKindLabel, BEAUTIFY_MAX_CHARS, textStats, countLabel } from '$shared/editor';
@@ -34,7 +34,7 @@
   function doBeautify(): void {
     try {
       const next = beautify(body, currentRawFormat(tab));
-      updateTabById(tab.id, (x) => ({ ...x, request: { ...x.request, body: next } }));
+      tabs.updateById(tab.id, (x) => ({ ...x, request: { ...x.request, body: next } }));
     } catch {
       // The live JSON check underlines the problem.
     }

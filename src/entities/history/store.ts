@@ -1,7 +1,7 @@
 import { get, writable } from 'svelte/store';
 import type { HistoryEntry, Tab, GrpcTabState } from '$shared/model';
 import { pushCapped } from './history';
-import { GRPC_DEFAULT_TITLE, HTTP_DEFAULT_TITLE, grpcSnapshot, titleFromUrl, tabs, activeTabId } from '$entities/tab';
+import { GRPC_DEFAULT_TITLE, HTTP_DEFAULT_TITLE, grpcSnapshot, titleFromUrl, tabs } from '$entities/tab';
 import { environments, activeEnvironmentId } from '$entities/environment';
 
 export const history = writable<HistoryEntry[]>([]);
@@ -21,9 +21,9 @@ export function addHistory(entry: HistoryEntry): void {
 export function openHistoryEntry(entry: HistoryEntry): void {
   // Re-selecting the same history entry focuses its already-open tab instead of
   // spawning a duplicate (mirrors openSavedRequest's reuse-by-savedPath).
-  const open = get(tabs).find((t) => t.historyId === entry.id);
+  const open = tabs.list.find((t) => t.historyId === entry.id);
   if (open) {
-    activeTabId.set(open.id);
+    tabs.activeId = open.id;
     return;
   }
   let tab: Tab;
@@ -51,7 +51,7 @@ export function openHistoryEntry(entry: HistoryEntry): void {
     };
   }
   tabs.update((list) => [...list, tab]);
-  activeTabId.set(tab.id);
+  tabs.activeId = tab.id;
 }
 
 export function clearHistory(): void {

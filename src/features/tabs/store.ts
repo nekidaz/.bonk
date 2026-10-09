@@ -23,8 +23,6 @@ import {
   switchedProtocol,
   togglePinned,
   tabs,
-  activeTabId,
-  updateActiveTab,
 } from '$entities/tab';
 import { requestConfirm, requestChoice } from '$shared/ui';
 import { confirmCloseUnsaved } from '$shared/settings';
@@ -32,7 +30,7 @@ import { confirmCloseUnsaved } from '$shared/settings';
 export function newTab(protocol: 'http' | 'grpc' = 'http'): void {
   const t = protocol === 'grpc' ? newGrpcTab() : newHttpTab();
   tabs.update((list) => [...list, t]);
-  activeTabId.set(t.id);
+  tabs.activeId = t.id;
 }
 
 export function moveTab(id: string, to: number): void {
@@ -42,7 +40,7 @@ export function moveTab(id: string, to: number): void {
 export function renameActiveTab(name: string): void {
   const clean = name.trim();
   if (!clean) return;
-  const tab = get(tabs).find((t) => t.id === get(activeTabId));
+  const tab = tabs.active;
   if (!tab) return;
   tabs.update((list) => list.map((t) => (t.id === tab.id ? { ...t, title: clean, manualTitle: true } : t)));
   // A saved request is renamed on disk right away (like the sidebar's Rename);
@@ -51,7 +49,7 @@ export function renameActiveTab(name: string): void {
 }
 
 export function resetActiveTabTitle(): void {
-  const tab = get(tabs).find((t) => t.id === get(activeTabId));
+  const tab = tabs.active;
   if (!tab) return;
   if (tab.protocol === 'git' || tab.protocol === 'env' || tab.protocol === 'runner') return;
   const title =
@@ -63,7 +61,7 @@ export function resetActiveTabTitle(): void {
 
 /** P3/P4: switch the active tab between HTTP and gRPC — it becomes an empty request of the new type. Returns the tab as it was (for undo), or undefined when nothing changed. */
 export function setActiveProtocol(protocol: 'http' | 'grpc'): Tab | undefined {
-  const t = get(tabs).find((x) => x.id === get(activeTabId));
+  const t = tabs.active;
   if (!t || t.protocol === protocol || (t.protocol !== 'http' && t.protocol !== 'grpc')) return undefined;
   const next = switchedProtocol(t, protocol);
   tabs.update((list) => list.map((x) => (x.id === t.id ? next : x)));
@@ -79,12 +77,12 @@ export function reopenClosedTab(): boolean {
   if (!tab) return false;
   closedTabs = rest;
   tabs.update((list) => [...list, tab]);
-  activeTabId.set(tab.id);
+  tabs.activeId = tab.id;
   return true;
 }
 
 export function closeTab(id: string): void {
-  const list = get(tabs);
+  const list = tabs.list;
   const idx = list.findIndex((t) => t.id === id);
   if (idx === -1) return;
   // Cancel any in-flight request for this tab and drop its runtime state so a
@@ -105,15 +103,15 @@ export function closeTab(id: string): void {
   const next = list.filter((t) => t.id !== id);
   const closing = list[idx];
   if (closing.protocol === 'http' || closing.protocol === 'grpc') closedTabs = [closing, ...closedTabs].slice(0, 20);
-  tabs.set(next);
+  tabs.list = next;
   if (next.length === 0) {
-    activeTabId.set('');
+    tabs.activeId = '';
     return;
   }
   // If the closed tab was active, activate its neighbour (prefer the previous).
-  if (get(activeTabId) === id) {
+  if (tabs.activeId === id) {
     const neighbour = next[Math.max(0, idx - 1)];
-    activeTabId.set(neighbour.id);
+    tabs.activeId = neighbour.id;
   }
 }
 
@@ -123,7 +121,7 @@ export function closeTab(id: string): void {
  * save-to dialog and the tab closes only once the request is written.
  */
 export async function requestCloseTab(id: string): Promise<void> {
-  const tab = get(tabs).find((x) => x.id === id);
+  const tab = tabs.list.find((x) => x.id === id);
   if (tab && confirmCloseUnsaved.current && get(dirtyTabIds).has(id)) {
     const choice = await requestChoice(
       t('tabs.confirmClose', { title: tab.title }),
@@ -132,7 +130,7 @@ export async function requestCloseTab(id: string): Promise<void> {
     );
     if (choice === false) return;
     if (choice === true) {
-      activeTabId.set(id); // save works on the active tab
+      tabs.activeId = id; // save works on the active tab
       try {
         if (tab.savedPath) await saveActiveRequest(parentId(tab.savedPath), tab.title);
         else if (!(await requestSaveDialog())) return;
@@ -165,7 +163,7 @@ async function closeTabs(ids: string[]): Promise<void> {
  * the live gRPC connection are not carried over).
  */
 export function duplicateTab(id: string): void {
-  const list = get(tabs);
+  const list = tabs.list;
   const idx = list.findIndex((t) => t.id === id);
   if (idx === -1) return;
   const src = list[idx];
@@ -183,19 +181,19 @@ export function duplicateTab(id: string): void {
     testResults: undefined,
   };
   tabs.update((l) => [...l.slice(0, idx + 1), copy, ...l.slice(idx + 1)]);
-  activeTabId.set(copy.id);
+  tabs.activeId = copy.id;
 }
 
 /** Close every unpinned tab except `id` (which becomes active). Reuses closeTab so each closed tab's in-flight request/runtime state is cleaned up. */
 export async function closeOtherTabs(id: string): Promise<void> {
-  if (!get(tabs).some((t) => t.id === id)) return;
-  activeTabId.set(id);
-  await closeTabs(tabsToClose(get(tabs), id, 'others'));
+  if (!tabs.list.some((t) => t.id === id)) return;
+  tabs.activeId = id;
+  await closeTabs(tabsToClose(tabs.list, id, 'others'));
 }
 
 /** S17b: close the unpinned tabs to the right of `id`. */
 export async function closeTabsToRight(id: string): Promise<void> {
-  await closeTabs(tabsToClose(get(tabs), id, 'right'));
+  await closeTabs(tabsToClose(tabs.list, id, 'right'));
 }
 
 /** S17b: pin / unpin `id`; pinned tabs lead the strip. */
@@ -205,5 +203,5 @@ export function togglePinTab(id: string): void {
 
 /** Close every unpinned tab; with none pinned the main panel shows the "no open tabs" screen. */
 export async function closeAllTabs(): Promise<void> {
-  await closeTabs(tabsToClose(get(tabs), '', 'all'));
+  await closeTabs(tabsToClose(tabs.list, '', 'all'));
 }

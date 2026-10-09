@@ -37,7 +37,7 @@ import {
   type RunnerStage,
 } from './runnerPlan';
 import { isArrayOf, loadState, saveState, saveStateDebounced } from '$shared/persist';
-import { tabs, activeTabId } from '$entities/tab';
+import { tabs } from '$entities/tab';
 import { environments, activeEnvironmentId, setActiveEnvironment } from '$entities/environment';
 import { runNode } from '$entities/request';
 
@@ -104,7 +104,7 @@ function syncRunnerTabTitle(): void {
     get(runnerStage) === 'pick'
       ? t('runner.tab.new')
       : `Runner · ${runnerScopeTitle(get(runnerConfig).folderIds, get(collections))}`;
-  if (get(tabs).some((t) => t.protocol === 'runner' && t.title !== title)) {
+  if (tabs.list.some((t) => t.protocol === 'runner' && t.title !== title)) {
     tabs.update((list) => list.map((t) => (t.protocol === 'runner' ? { ...t, title } : t)));
   }
 }
@@ -116,9 +116,9 @@ function syncRunnerTabTitle(): void {
  */
 export function openRunnerTab(): void {
   void loadRunnerState();
-  const existing = get(tabs).find((t) => t.protocol === 'runner');
+  const existing = tabs.list.find((t) => t.protocol === 'runner');
   if (existing) {
-    activeTabId.set(existing.id);
+    tabs.activeId = existing.id;
     syncRunnerTabTitle();
     return;
   }
@@ -131,7 +131,7 @@ export function openRunnerTab(): void {
     request: { method: 'RUN', url: '', headers: {} },
   };
   tabs.update((list) => [...list, tab]);
-  activeTabId.set(tab.id);
+  tabs.activeId = tab.id;
   syncRunnerTabTitle();
 }
 

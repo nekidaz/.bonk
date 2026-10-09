@@ -14,7 +14,7 @@
   import HttpRequestTabs from './HttpRequestTabs.svelte';
   import { ScriptsEditor } from '$shared/editor/components';
   import HttpUrlBar from './HttpUrlBar.svelte';
-  import { updateActiveTab } from '$entities/tab';
+  import { tabs } from '$entities/tab';
   import type { HttpEditorTab } from './httpEditor';
   import type { Tab } from '$shared/model';
 
@@ -22,7 +22,7 @@
 
   function setHttpScript(field: 'preRequestScript' | 'testScript', value: string): void {
     const next = value === '' ? undefined : value;
-    updateActiveTab((t) => ({ ...t, request: { ...t.request, [field]: next } }));
+    tabs.updateActive((t) => ({ ...t, request: { ...t.request, [field]: next } }));
   }
 
   let uiTab = $state<HttpEditorTab>('params');

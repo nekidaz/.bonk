@@ -2,7 +2,7 @@
   import { t } from '$shared/i18n';
   import { autoHeaderRows, headerRows } from './httpHeaders';
   import { collections, withInheritedAuth } from '$entities/workspace';
-  import { updateActiveTab } from '$entities/tab';
+  import { tabs } from '$entities/tab';
   import type { HttpRequest, Tab } from '$shared/model';
 
   let { tab }: { tab: Tab } = $props();
@@ -14,7 +14,7 @@
   const isVar = (v: string) => /^\{\{[^{}]+\}\}$/.test(v.trim());
 
   function patch(fn: (req: HttpRequest) => HttpRequest): void {
-    updateActiveTab((t) => ({ ...t, request: fn(t.request) }));
+    tabs.updateActive((t) => ({ ...t, request: fn(t.request) }));
   }
 
   function setHeaderRow(i: number, field: 'key' | 'value', value: string): void {

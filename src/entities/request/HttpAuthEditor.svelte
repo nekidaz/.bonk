@@ -3,7 +3,7 @@
   import { authFolderFor, collections } from '$entities/workspace';
   import { resolveVars, type ApiKeyLocation, type AuthConfig, type AuthType, type Tab } from '$shared/model';
   import { envToneOf, activeEnvironmentId, currentVarScope, environments, globals } from '$entities/environment';
-  import { updateActiveTab } from '$entities/tab';
+  import { tabs } from '$entities/tab';
 
   // Edits the request's auth (`tab`; gRPC tabs keep it on `tab.grpc`) or, in the folder dialog, a draft `value` (`onChange`).
   let { tab, value, onChange }: { tab?: Tab; value?: AuthConfig; onChange?: (a: AuthConfig) => void } = $props();
@@ -56,8 +56,8 @@
   }
 
   function write(next: AuthConfig): void {
-    if (tab && isGrpc) updateActiveTab((t) => (t.grpc ? { ...t, grpc: { ...t.grpc, auth: next } } : t));
-    else if (tab) updateActiveTab((t) => ({ ...t, request: { ...t.request, auth: next } }));
+    if (tab && isGrpc) tabs.updateActive((t) => (t.grpc ? { ...t, grpc: { ...t.grpc, auth: next } } : t));
+    else if (tab) tabs.updateActive((t) => ({ ...t, request: { ...t.request, auth: next } }));
     else onChange?.(next);
   }
   function setAuthType(type: AuthType): void {

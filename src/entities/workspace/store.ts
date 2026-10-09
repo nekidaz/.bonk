@@ -14,7 +14,7 @@ import {
   workspaceTrash,
 } from '$shared/ipc';
 import { idToRel, findNode, parentId } from './tree';
-import { relinkTabPaths, tabs, activeTabId } from '$entities/tab';
+import { relinkTabPaths, tabs } from '$entities/tab';
 import { withEffectiveAuth } from './authInherit';
 
 /** fs root rel path. Shared by every workspace/request operation. */
@@ -152,8 +152,8 @@ export async function deleteWorkspace(): Promise<void> {
   if (!root) return;
   await workspaceTrash(root);
   tabs.update((list) => list.filter((t) => !t.savedPath));
-  const open = get(tabs);
-  if (!open.some((t) => t.id === get(activeTabId))) activeTabId.set(open[0]?.id ?? '');
+  const open = tabs.list;
+  if (!open.some((t) => t.id === tabs.activeId)) tabs.activeId = open[0]?.id ?? '';
   recentWorkspacePaths.update((paths) => paths.filter((p) => p !== root));
   workspacePath.set('');
   collections.set([]);

@@ -3,7 +3,7 @@
   import { syncUrlWithParams, type Param, type Tab } from '$shared/model';
   import { emptyParam, paramRows, titleFor } from './httpHeaders';
   import { collections, findNode } from '$entities/workspace';
-  import { updateActiveTab } from '$entities/tab';
+  import { tabs } from '$entities/tab';
   import { isParamChanged } from '$entities/request';
 
   let { tab }: { tab: Tab } = $props();
@@ -13,7 +13,7 @@
   });
 
   function setParam(i: number, field: keyof Param, value: string): void {
-    updateActiveTab((t) => {
+    tabs.updateActive((t) => {
       const ps = [...(t.params ?? [])];
       while (i >= ps.length) ps.push(emptyParam());
       ps[i] = { ...ps[i], [field]: value };
@@ -23,7 +23,7 @@
   }
 
   function toggleParam(i: number): void {
-    updateActiveTab((t) => {
+    tabs.updateActive((t) => {
       const ps = [...(t.params ?? [])];
       while (i >= ps.length) ps.push(emptyParam());
       ps[i] = { ...ps[i], enabled: !ps[i].enabled };

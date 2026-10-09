@@ -19,7 +19,7 @@
     type Tab,
   } from '$shared/model';
   import { bodyParamRows, emptyBodyParam, fileName } from './httpHeaders';
-  import { updateActiveTab, updateTabById } from '$entities/tab';
+  import { tabs } from '$entities/tab';
   import { globals, environments, activeEnvironmentId, requestVariableHighlight } from '$entities/environment';
 
   let { tab }: { tab: Tab } = $props();
@@ -108,16 +108,16 @@
 
   function setBody(value: string): void {
     bodyError = '';
-    updateActiveTab((t) => ({ ...t, request: { ...t.request, body: value } }));
+    tabs.updateActive((t) => ({ ...t, request: { ...t.request, body: value } }));
   }
 
   function setGraphqlVariables(value: string): void {
-    updateActiveTab((t) => ({ ...t, request: { ...t.request, graphqlVariables: value } }));
+    tabs.updateActive((t) => ({ ...t, request: { ...t.request, graphqlVariables: value } }));
   }
 
   function setBodyMode(mode: BodyMode): void {
     bodyError = '';
-    updateActiveTab((t) => {
+    tabs.updateActive((t) => {
       const nextRequest = { ...t.request, bodyMode: mode };
       if (mode === 'raw' && !nextRequest.rawBodyFormat) nextRequest.rawBodyFormat = 'JSON';
       return { ...t, request: nextRequest };
@@ -126,11 +126,11 @@
 
   function setRawFormat(format: RawBodyFormat): void {
     bodyError = '';
-    updateActiveTab((t) => ({ ...t, request: { ...t.request, bodyMode: 'raw', rawBodyFormat: format } }));
+    tabs.updateActive((t) => ({ ...t, request: { ...t.request, bodyMode: 'raw', rawBodyFormat: format } }));
   }
 
   function setBodyParam(i: number, field: 'key' | 'value' | 'description' | 'filePath', value: string): void {
-    updateActiveTab((t) => {
+    tabs.updateActive((t) => {
       const rows = [...(t.request.bodyParams ?? [])];
       while (i >= rows.length) rows.push(emptyBodyParam());
       rows[i] = { ...emptyBodyParam(), ...rows[i], [field]: value };
@@ -139,7 +139,7 @@
   }
 
   function setBodyParamKind(i: number, kind: BodyParamKind): void {
-    updateActiveTab((t) => {
+    tabs.updateActive((t) => {
       const rows = [...(t.request.bodyParams ?? [])];
       while (i >= rows.length) rows.push(emptyBodyParam());
       rows[i] = {
@@ -158,7 +158,7 @@
     const tabId = tab.id;
     const path = await filePick();
     if (!path) return;
-    updateTabById(tabId, (t) => {
+    tabs.updateById(tabId, (t) => {
       const rows = [...(t.request.bodyParams ?? [])];
       while (i >= rows.length) rows.push(emptyBodyParam());
       rows[i] = { ...emptyBodyParam(), ...rows[i], kind: 'file', value: fileName(path), filePath: path };
@@ -170,21 +170,21 @@
     const tabId = tab.id;
     const path = await filePick();
     if (!path) return;
-    updateTabById(tabId, (t) => ({
+    tabs.updateById(tabId, (t) => ({
       ...t,
       request: { ...t.request, bodyMode: 'binary', binaryFilePath: path },
     }));
   }
 
   function clearBinaryFile(): void {
-    updateActiveTab((t) => ({
+    tabs.updateActive((t) => ({
       ...t,
       request: { ...t.request, binaryFilePath: undefined },
     }));
   }
 
   function toggleBodyParam(i: number): void {
-    updateActiveTab((t) => {
+    tabs.updateActive((t) => {
       const rows = [...(t.request.bodyParams ?? [])];
       if (rows[i]) rows[i] = { ...rows[i], enabled: !rows[i].enabled };
       return { ...t, request: { ...t.request, bodyParams: rows } };

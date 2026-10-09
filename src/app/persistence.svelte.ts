@@ -5,7 +5,7 @@ import { loadState, saveState, saveStateDebounced } from '$shared/persist';
 import { startupOpen, requestPrefs } from '$shared/settings';
 import { workspaceLoad, secretGet, secretSet, secretDelete } from '$shared/ipc';
 import { collectSecrets, mergeSecrets, secretAccountsOf, stripSecrets } from './secrets';
-import { normalizeTabTitleState, stripRuntimeTab, tabs, activeTabId } from '$entities/tab';
+import { normalizeTabTitleState, stripRuntimeTab, tabs } from '$entities/tab';
 import { history, historyLimit, historyPaused } from '$entities/history';
 import {
   collections,
@@ -98,7 +98,7 @@ async function restoreState(): Promise<void> {
     .map(normalizeTabTitleState)
     .map(stripRuntimeTab);
   await startupOpen.ready;
-  if (restoredTabs.length > 0 && startupOpen.current === 'last') tabs.set(restoredTabs);
+  if (restoredTabs.length > 0 && startupOpen.current === 'last') tabs.list = restoredTabs;
   history.set(savedHistory);
   recentWorkspacePaths.set(normalizeWorkspaceRecents(savedRecentWorkspacePaths));
   historyLimit.set(await loadState<number>('historyLimit', 500));
@@ -140,8 +140,8 @@ async function restoreState(): Promise<void> {
   // Restore the previously-focused tab if it still exists (git/project-diff tabs
   // aren't persisted, so fall back to the first tab when it doesn't).
   const savedActiveId = await loadState<string>('activeTabId', '');
-  const currentTabs = get(tabs);
-  activeTabId.set(currentTabs.some((t) => t.id === savedActiveId) ? savedActiveId : (currentTabs[0]?.id ?? ''));
+  const currentTabs = tabs.list;
+  tabs.activeId = currentTabs.some((t) => t.id === savedActiveId) ? savedActiveId : (currentTabs[0]?.id ?? '');
 }
 
 /**
@@ -151,21 +151,6 @@ async function restoreState(): Promise<void> {
  */
 function wirePersistence(): () => void {
   const unsubs = [
-    // Persist requests, not live connections: a tab's gRPC connectionId/tree point
-    // at a backend connection that's gone after a restart, so strip them. A restored
-    // tab then reconnects on first use instead of failing with "unknown connection".
-    // Special tabs (git diffs, the Environments manager, the Collection Runner) hold
-    // no request state and are not persisted; restoreState's http/grpc whitelist
-    // drops them on load too.
-    tabs.subscribe((t) =>
-      saveStateDebounced(
-        'tabs',
-        t
-          .filter((tab) => tab.protocol !== 'git' && tab.protocol !== 'runner' && tab.protocol !== 'flow')
-          .map(stripRuntimeTab),
-      ),
-    ),
-    activeTabId.subscribe((id) => saveStateDebounced('activeTabId', id)),
     // Persist history immediately (not debounced): entries are low-frequency (one
     // per sent request) and the debounced write was being lost on app quit
     // (beforeunload is unreliable in the Tauri webview), so history "reset" on the
@@ -193,6 +178,21 @@ function wirePersistence(): () => void {
   ];
   // Rune state: one effect per saved value; each re-runs (and saves) when the value it reads changes.
   const stopEffects = $effect.root(() => {
+    // Persist requests, not live connections: a tab's gRPC connectionId/tree point
+    // at a backend connection that's gone after a restart, so strip them. A restored
+    // tab then reconnects on first use instead of failing with "unknown connection".
+    // Special tabs (git diffs, the Environments manager, the Collection Runner) hold
+    // no request state and are not persisted; restoreState's http/grpc whitelist
+    // drops them on load too.
+    $effect(() =>
+      saveStateDebounced(
+        'tabs',
+        tabs.list
+          .filter((tab) => tab.protocol !== 'git' && tab.protocol !== 'runner' && tab.protocol !== 'flow')
+          .map(stripRuntimeTab),
+      ),
+    );
+    $effect(() => saveStateDebounced('activeTabId', tabs.activeId));
     $effect(() => saveStateDebounced('responseLineWrap', requestPrefs.responseLineWrap));
     $effect(() => saveStateDebounced('requestTimeoutMs', requestPrefs.requestTimeoutMs));
     $effect(() => saveStateDebounced('requestFollowRedirects', requestPrefs.requestFollowRedirects));

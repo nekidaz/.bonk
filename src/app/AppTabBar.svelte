@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { activeTabId, tabs, HTTP_DEFAULT_TITLE } from '$entities/tab';
+  import { tabs, HTTP_DEFAULT_TITLE } from '$entities/tab';
   import { requestCloseTab, newTab, moveTab, togglePinTab } from '$features/tabs';
   import { dirtyTabIds } from '$entities/request';
   import { methodColor, type Tab } from '$shared/model';
@@ -22,8 +22,8 @@
   // tab visible when it or the strip changes (new tab, switch, close, reorder).
   let tabsScrollEl = $state<HTMLDivElement | null>(null);
   $effect(() => {
-    const id = $activeTabId;
-    void $tabs.length;
+    const id = tabs.activeId;
+    void tabs.list.length;
     tabsScrollEl
       ?.querySelector(`[data-tab-id="${CSS.escape(id)}"]`)
       ?.scrollIntoView({ inline: 'nearest', block: 'nearest' });
@@ -79,15 +79,15 @@
     class="bs-tabs-scroll"
     bind:this={tabsScrollEl}
     role="presentation"
-    oncontextmenu={(e) => onContext(e, $activeTabId)}
+    oncontextmenu={(e) => onContext(e, tabs.activeId)}
     ondblclick={(e) => {
       if (e.target === e.currentTarget) newTab();
     }}
   >
-    {#each $tabs as tb, i (tb.id)}
+    {#each tabs.list as tb, i (tb.id)}
       <div
         class="bs-tab"
-        class:on={tb.id === $activeTabId}
+        class:on={tb.id === tabs.activeId}
         class:wide={tb.protocol === 'runner'}
         class:dragging={dragTabId === tb.id}
         role="presentation"
@@ -113,10 +113,10 @@
         <button
           class="bs-tab-hit"
           role="tab"
-          aria-selected={tb.id === $activeTabId}
+          aria-selected={tb.id === tabs.activeId}
           type="button"
           title={tabTooltip(tb)}
-          onclick={() => activeTabId.set(tb.id)}
+          onclick={() => (tabs.activeId = tb.id)}
           onkeydown={(e) => onTabKey(e, tb.id)}
         >
           {#if TAB_ICON[tb.protocol]}
