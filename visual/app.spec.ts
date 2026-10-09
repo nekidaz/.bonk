@@ -411,3 +411,39 @@ for (const theme of THEMES) {
     }
   });
 }
+
+// Not a screenshot: what a few interactions save to app state (the shim's state.json), so a change in
+// how state is wired to disk can't silently stop saving a key.
+test('saves the session to app state', async ({ page }) => {
+  await page.goto('/?theme=smooth-light');
+  await page.locator('.bs-status').waitFor();
+  await send(page);
+  await page.getByRole('tab', { name: /Create payment/ }).click();
+  await openRequest(page, 'Get payment');
+  await row(page, 'Auth').click(); // collapse a folder
+  type Saved = {
+    tabs: { id: string; savedPath?: string; testResults?: unknown }[];
+    activeTabId: string;
+    history: { request: { method: string }; status: number }[];
+    collapsedFolders: Record<string, string[]>;
+    workspacePath: string;
+  };
+  const saved = () =>
+    page.evaluate(() =>
+      (
+        window as unknown as { __TAURI_INTERNALS__: { invoke: (c: string) => Promise<Saved> } }
+      ).__TAURI_INTERNALS__.invoke('app_state_load'),
+    );
+  const root = '/Users/aru/work/Acme Payments';
+  await expect.poll(async () => (await saved()).collapsedFolders?.[root]).toContain('fs:auth');
+  await expect
+    .poll(async () => (await saved()).tabs.map((t) => t.savedPath))
+    .toEqual(['fs:payments/list', 'fs:payments/create', undefined, 'fs:payments/get']); // undefined: Environments tab
+  const s = await saved();
+  expect(s.activeTabId).toBe(s.tabs[3].id);
+  expect(s.tabs.some((t) => 'testResults' in t)).toBe(false);
+  expect(s.history).toHaveLength(8);
+  expect([s.history[0].request.method, s.history[0].status]).toEqual(['GET', 200]);
+  expect(s.collapsedFolders[root]).not.toContain('fs:payments');
+  expect(s.workspacePath).toBe(root);
+});
