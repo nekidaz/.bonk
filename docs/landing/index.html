@@ -2,22 +2,23 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>bonk — The API client for you and your AI.</title>
     <meta
       name="description"
-      content="Bonk is a local-first desktop API client. Send HTTP and gRPC requests, test collections, build flows, and connect AI tools through MCP. Your workspace stays on your machine."
+      content="A native HTTP and gRPC client built in Rust. Requests live as files next to your code, and AI agents work with them through the built-in MCP server."
     />
-    <meta name="theme-color" content="#f5f7fb" />
+    <meta name="theme-color" content="#0a0a0a" />
     <meta property="og:type" content="website" />
-    <meta property="og:url" content="https://nekidaz.github.io/.bonk/" />
     <meta
       property="og:title"
-      content="bonk — Your API workflow. On your machine."
+      content="bonk — The API client for you and your AI."
     />
     <meta
       property="og:description"
-      content="HTTP, gRPC, scripts, runners, flows, and MCP. A native desktop API client with a workspace you own."
+      content="Native HTTP and gRPC. Local request files. A built-in MCP server for your AI tools."
     />
+    <meta property="og:url" content="https://nekidaz.github.io/.bonk/" />
     <meta
       property="og:image"
       content="https://nekidaz.github.io/.bonk/screenshots/social.png"
@@ -29,569 +30,1839 @@
     <link rel="icon" href="favicon.svg" />
     <link
       rel="preload"
-      href="fonts/inter-latin-400.woff2"
+      href="fonts/inter-latin-600.woff2"
       as="font"
       type="font/woff2"
       crossorigin
     />
-    <link rel="preload" href="screenshots/hero.jpg" as="image" />
     <link rel="stylesheet" href="landing.css" />
-    <title>bonk — Your API workflow. On your machine.</title>
     <script src="landing.js" defer></script>
   </head>
   <body>
-    <a class="skip-link" href="#main">Skip to content</a>
-    <header class="site-header">
-      <div class="nav-wrap">
-        <a class="wordmark" href="#" aria-label="bonk home"
-          >.bonk<span class="brand-dot" aria-hidden="true"></span
-        ></a>
-        <nav aria-label="Main navigation">
-          <a href="#workflow">Workflow</a><a href="#workspace">Local first</a
-          ><a href="#ai">AI / MCP</a
-          ><a href="https://github.com/nekidaz/.bonk"
-            >GitHub <span aria-hidden="true">↗</span></a
-          >
-        </nav>
-        <a class="button nav-download" href="#download"
-          >Get bonk <span aria-hidden="true">↓</span></a
+    <div class="landing pen-landing-bonk-1" data-design-id="fTBu9">
+      <a class="skip-link" href="#main">Skip to content</a>
+      <header class="site-nav pen-nav-2" data-design-id="akuax">
+        <a class="brand pen-brand-3" href="#" data-design-id="uMhvX">
+          <div class="pen-mark-4" data-design-id="F6tn1">
+            <svg
+              data-icon-name="lightning-fill"
+              data-icon-set="phosphor"
+              viewBox="0 0 14 14"
+              preserveAspectRatio="xMidYMid meet"
+              xmlns="http://www.w3.org/2000/svg"
+              aria-hidden="true"
+              focusable="false"
+              class="pen-bolt-5"
+              data-design-id="fh6uH"
+            >
+              <path
+                d="M11.70313 6.83594l-6.125 6.5625q-0.16406 0.16406-0.30079 0.16406-0.13672 0-0.24609-0.05469-0.10938-0.05469-0.16406-0.1914-0.05469-0.13672-0.05469-0.30078l0.82031-3.99219-3.17187-1.20313q-0.21875-0.05469-0.27344-0.27343-0.05469-0.21875 0.10938-0.4375l6.125-6.5625q0.10938-0.05469 0.24609-0.08204 0.13672-0.02734 0.27344 0.02735 0.13672 0.05469 0.1914 0.1914 0.05469 0.13672 0.05469 0.30079l-0.82031 3.99218 3.17187 1.14844q0.21875 0.10938 0.27344 0.32813 0.05469 0.21875-0.10938 0.38281z"
+                fill="#151515"
+              ></path>
+            </svg>
+          </div>
+          <div class="pen-wordmark-6" data-design-id="CLj6R">bonk</div>
+        </a>
+        <nav
+          class="nav-links pen-links-7"
+          aria-label="Main navigation"
+          data-design-id="p6EOv"
         >
-      </div>
-    </header>
-    <main id="main">
-      <section class="hero container" aria-labelledby="hero-title">
-        <div class="hero-heading">
-          <div>
-            <p class="eyebrow">
-              <span class="status-dot" aria-hidden="true"></span> THE DESKTOP
-              API CLIENT THAT STAYS LOCAL
-            </p>
-            <h1 id="hero-title">
-              Your API workflow.<br /><span>On your machine.</span>
-            </h1>
-          </div>
-          <div class="hero-description">
-            <p>
-              Send a request. Inspect the response. Test the whole collection.
-              Keep your work in files you own.
-            </p>
-            <p class="muted">
-              HTTP &amp; gRPC, powered by Rust. No account required.
-            </p>
-            <a class="button primary" href="#download"
-              >Download bonk <span aria-hidden="true">↓</span></a
-            >
-            <a class="text-link" href="#workflow"
-              >Take a closer look <span aria-hidden="true">↘</span></a
-            >
-          </div>
-        </div>
-        <div class="product-stage">
-          <div class="stage-label">
-            <span
-              ><span class="status-dot" aria-hidden="true"></span> YOUR
-              WORKSPACE, OPEN FOR BUSINESS</span
-            ><span>HTTP / gRPC / FILES</span>
-          </div>
-          <a
-            class="hero-shot"
-            href="screenshots/hero.jpg"
-            aria-label="Open the full-resolution Bonk workspace screenshot"
-          >
-            <img
-              src="screenshots/hero.jpg"
-              alt="Current Bonk desktop interface with file-based collections, HTTP query parameters and a formatted JSON response side by side"
-              width="2880"
-              height="1800"
-              fetchpriority="high"
-            />
+          <a href="#features" class="pen-features-8" data-design-id="uFrr3">
+            <div class="pen-label-9" data-design-id="vaK5f">Features</div>
           </a>
-          <div class="stage-caption">
-            <span
-              >Real app. Example data. Everything on your side of the
-              screen.</span
-            ><span>macOS · Windows · Linux</span>
-          </div>
-        </div>
-        <div class="principles" aria-label="Bonk fundamentals">
-          <p>
-            <span class="principle-symbol" aria-hidden="true">↔</span
-            ><strong>HTTP + gRPC</strong><span>One place for both.</span>
-          </p>
-          <p>
-            <span class="principle-symbol" aria-hidden="true">⌘</span
-            ><strong>Native desktop</strong
-            ><span>Rust engine. Tauri shell.</span>
-          </p>
-          <p>
-            <span class="principle-symbol" aria-hidden="true">{ }</span
-            ><strong>Plain request files</strong
-            ><span>Readable. Portable. Yours.</span>
-          </p>
-          <p>
-            <span class="principle-symbol" aria-hidden="true">◎</span
-            ><strong>No account</strong><span>Open a folder and start.</span>
-          </p>
-        </div>
-      </section>
-
-      <section
-        class="section container"
-        id="workflow"
-        aria-labelledby="workflow-title"
-      >
-        <div class="section-heading">
-          <div>
-            <p class="eyebrow">FROM ONE REQUEST TO THE WHOLE WORKFLOW</p>
-            <h2 id="workflow-title">Go beyond<br />the Send button.</h2>
-          </div>
-          <p>
-            Debug an endpoint, explore a service, or run a repeatable API check.
-            The tools fit together in the same workspace.
-          </p>
-        </div>
-        <div class="showcase">
-          <div
-            class="showcase-tabs"
-            role="tablist"
-            aria-label="Explore Bonk features"
+          <a href="#ai" class="pen-features-8" data-design-id="pMRVG">
+            <div class="pen-label-9" data-design-id="U7cPq8">AI / MCP</div>
+          </a>
+          <a href="#runner" class="pen-features-8" data-design-id="iao7p">
+            <div class="pen-label-9" data-design-id="CSCPa">Runner</div>
+          </a>
+          <a href="#compare" class="pen-features-8" data-design-id="c3Gsz">
+            <div class="pen-label-9" data-design-id="O9FVE">Compare</div>
+          </a>
+          <a
+            href="https://github.com/nekidaz/.bonk/blob/main/CHANGELOG.md"
+            class="pen-features-8"
+            data-design-id="p2e1h"
           >
-            <button
-              role="tab"
-              id="tab-http"
-              aria-controls="feature-panel"
-              aria-selected="true"
-              tabindex="0"
-              data-feature="http"
-            >
-              <span class="protocol">HTTP</span><span>Make the request</span
-              ><span aria-hidden="true">↗</span>
-            </button>
-            <button
-              role="tab"
-              id="tab-grpc"
-              aria-controls="feature-panel"
-              aria-selected="false"
-              tabindex="-1"
-              data-feature="grpc"
-            >
-              <span class="protocol">gRPC</span><span>Explore the service</span
-              ><span aria-hidden="true">↗</span>
-            </button>
-            <button
-              role="tab"
-              id="tab-scripts"
-              aria-controls="feature-panel"
-              aria-selected="false"
-              tabindex="-1"
-              data-feature="scripts"
-            >
-              <span class="protocol">TESTS</span><span>Check the response</span
-              ><span aria-hidden="true">↗</span>
-            </button>
-            <button
-              role="tab"
-              id="tab-runner"
-              aria-controls="feature-panel"
-              aria-selected="false"
-              tabindex="-1"
-              data-feature="runner"
-            >
-              <span class="protocol">RUNNER</span><span>Run the collection</span
-              ><span aria-hidden="true">↗</span>
-            </button>
-            <button
-              role="tab"
-              id="tab-environments"
-              aria-controls="feature-panel"
-              aria-selected="false"
-              tabindex="-1"
-              data-feature="environments"
-            >
-              <span class="protocol">ENV</span><span>Switch the context</span
-              ><span aria-hidden="true">↗</span>
-            </button>
-          </div>
-          <div
-            id="feature-panel"
-            role="tabpanel"
-            aria-labelledby="tab-http"
-            tabindex="0"
+            <div class="pen-label-9" data-design-id="cx7rv">Changelog</div>
+          </a>
+        </nav>
+        <div class="nav-actions pen-actions-10" data-design-id="fzLWH">
+          <a
+            href="https://github.com/nekidaz/.bonk"
+            class="pen-github-11"
+            data-design-id="qULSQ"
           >
-            <div class="feature-copy">
-              <h3 id="feature-title">
-                The details that make debugging easier.
-              </h3>
-              <p id="feature-description">
-                Params, headers, inherited auth, JSON, multipart, binary, and
-                GraphQL bodies. Read responses with syntax highlighting,
-                JSONPath filters, folding, and a side-by-side layout.
-              </p>
+            <svg
+              data-icon-name="github-logo"
+              data-icon-set="phosphor"
+              viewBox="0 0 14 14"
+              preserveAspectRatio="xMidYMid meet"
+              xmlns="http://www.w3.org/2000/svg"
+              aria-hidden="true"
+              focusable="false"
+              class="pen-bolt-5"
+              data-design-id="TZweu"
+            >
+              <path
+                d="M11.8125 11.8125q-0.38281 0-0.62891-0.24609-0.24609-0.24609-0.24609-0.62891l0-0.4375q0-0.4375-0.21875-0.84766-0.21875-0.41016-0.60156-0.6289 0.60156-0.4375 0.92968-1.09375 0.32813-0.65625 0.32813-1.36719l0-0.4375q0-0.82031-0.4375-1.53125 0.21875-0.65625 0.13672-1.33984-0.08203-0.68359-0.41016-1.28516-0.10937-0.21875-0.38281-0.21875-0.76563 0-1.47656 0.35547-0.71094 0.35547-1.14844 0.95703l-1.3125 0q-0.4375-0.60156-1.14844-0.95703-0.71094-0.35547-1.47656-0.35547-0.27344 0-0.38281 0.21875-0.32813 0.60156-0.41016 1.28516-0.08203 0.68359 0.13672 1.33984-0.4375 0.71094-0.4375 1.53125l0 0.4375q0 0.71094 0.32813 1.36719 0.32813 0.65625 0.92968 1.09375-0.38281 0.21875-0.60156 0.6289-0.21875 0.41016-0.21875 0.84766l0 0.4375q0 0.38281-0.24609 0.62891-0.24609 0.24609-0.62891 0.24609-0.16406 0-0.30078 0.13672-0.13672 0.13672-0.13672 0.30078 0 0.16406 0.13672 0.30078 0.13672 0.13672 0.30078 0.13672 0.71094 0 1.23047-0.51953 0.51953-0.51953 0.51953-1.23047l0-0.4375q0-0.38281 0.24609-0.62891 0.24609-0.24609 0.62891-0.24609l0.65625 0 0 2.1875q0 0.38281-0.24609 0.62891-0.24609 0.24609-0.62891 0.24609-0.16406 0-0.30078 0.13672-0.13672 0.13672-0.13672 0.30078 0 0.16406 0.13672 0.30078 0.13672 0.13672 0.30078 0.13672 0.71094 0 1.23047-0.51953 0.51953-0.51953 0.51953-1.23047l0-2.1875 1.3125 0 0 2.1875q0 0.71094 0.51953 1.23047 0.51953 0.51953 1.23047 0.51953 0.16406 0 0.30078-0.13672 0.13672-0.13672 0.13672-0.30078 0-0.16406-0.13672-0.30078-0.13672-0.13672-0.30078-0.13672-0.38281 0-0.62891-0.24609-0.24609-0.24609-0.24609-0.62891l0-2.1875 0.65625 0q0.38281 0 0.62891 0.24609 0.24609 0.24609 0.24609 0.62891l0 0.4375q0 0.71094 0.51953 1.23047 0.51953 0.51953 1.23047 0.51953 0.16406 0 0.30078-0.13672 0.13672-0.13672 0.13672-0.30078 0-0.16406-0.13672-0.30078-0.13672-0.13672-0.30078-0.13672z m-8.3125-5.25l0-0.4375q0-0.65625 0.38281-1.25781 0.16406-0.16406 0.05469-0.38281-0.38281-0.92969 0.05469-1.85938 0.54688 0.05469 1.01172 0.35547 0.46484 0.30078 0.73828 0.73828 0.10938 0.21875 0.38281 0.21875l1.75 0q0.27344 0 0.38281-0.21875 0.27344-0.4375 0.73828-0.73828 0.46484-0.30078 1.01172-0.35547 0.4375 0.92969 0.05469 1.85938-0.10938 0.21875 0.05469 0.38281 0.38281 0.60156 0.38281 1.25781l0 0.4375q0 0.92969-0.62891 1.55859-0.62891 0.62891-1.55859 0.62891l-2.625 0q-0.92969 0-1.55859-0.62891-0.62891-0.62891-0.62891-1.55859z"
+                fill="#aaaaaa"
+              ></path>
+            </svg>
+            <div class="pen-label-9" data-design-id="tr8qF">GitHub</div>
+          </a>
+          <a href="#download" class="pen-download-12" data-design-id="z2G7P">
+            <div class="pen-label-13" data-design-id="MUKiV">Download</div>
+          </a>
+        </div>
+      </header>
+      <main id="main">
+        <section
+          class="hero pen-hero-14"
+          id="hero"
+          aria-labelledby="hero-title"
+          data-design-id="knebQ"
+        >
+          <a
+            class="release-pill pen-release-pill-15"
+            href="#ai"
+            data-design-id="m0VEXk"
+          >
+            <div class="pen-new-16" data-design-id="UYVoy">
+              <div class="pen-label-17" data-design-id="ipVqR">AI</div>
             </div>
+            <div class="pen-text-18" data-design-id="Y1aCEo">
+              bonk 0.1.7 — a built-in MCP server for Claude, ChatGPT and Codex
+            </div>
+            <svg
+              data-icon-name="arrow-right"
+              data-icon-set="lucide"
+              viewBox="0 0 13.99993896484375 14"
+              preserveAspectRatio="xMidYMid meet"
+              xmlns="http://www.w3.org/2000/svg"
+              aria-hidden="true"
+              focusable="false"
+              class="pen-arrow-19"
+              data-design-id="gAMZA"
+            >
+              <path
+                d="M6.90088 2.35156q-0.18115 0.02734-0.32129 0.16748-0.11279 0.11279-0.14697 0.28028-0.03418 0.16748 0.02051 0.32129 0.02734 0.08545 0.25976 0.3247 0.23242 0.23584 1.36377 1.37061 1.58252 1.58252 1.58252 1.59619 0 0.01367-3.45557 0.01367l-3.44531 0-0.08545 0.04102q-0.22217 0.11279-0.30078 0.33838-0.0752 0.22217 0.00684 0.43408 0.05811 0.0957 0.14013 0.18115 0.08545 0.08203 0.16748 0.11963 0.08545 0.03418 0.53321 0.03418l3.01123 0q3.42822 0 3.42822 0.01367 0 0.01367-1.58252 1.59619-1.13135 1.13477-1.36377 1.37402-0.23242 0.23584-0.25976 0.3213-0.05469 0.15381-0.02051 0.32128 0.03418 0.16748 0.14697 0.28028 0.18115 0.18115 0.42041 0.18115l0.04102 0q0.11279 0 0.19824-0.05469 0.14014-0.09912 0.51611-0.46484l1.68164-1.67822q2.1123-2.10205 2.15332-2.18409 0.07178-0.12646 0.07178-0.28027 0-0.15381-0.07178-0.28027-0.04102-0.08203-2.1499-2.18067-2.10547-2.10205-2.17725-2.13623-0.06836-0.0376-0.23584-0.06494-0.04102 0-0.12646 0.01367z"
+                fill="#888888"
+              ></path>
+            </svg>
+          </a>
+          <h1
+            class="headline pen-headline-20"
+            id="hero-title"
+            data-design-id="I1cRF"
+          >
+            <div class="pen-line-1-21" data-design-id="tvMbh">
+              The API client for you
+            </div>
+            <div class="headline-line pen-line-2-22" data-design-id="zLhig">
+              <div class="pen-line-1-21" data-design-id="otByl">and your</div>
+              <div class="pen-ai-23" data-design-id="ztoKt">AI.</div>
+            </div>
+          </h1>
+          <p class="hero-copy pen-subhead-24" data-design-id="P3Tn3Y">
+            A native HTTP and gRPC client built in Rust. Requests live as files
+            next to your code — and AI agents work with them through the
+            built-in MCP server.
+          </p>
+          <div class="hero-actions pen-ctas-25" data-design-id="Qj43G">
             <a
-              id="feature-image-link"
-              href="screenshots/http.jpg"
-              aria-label="Open the full-resolution feature screenshot"
+              href="https://github.com/nekidaz/.bonk/releases/download/v0.1.7/bonk_0.1.7_aarch64.dmg"
+              class="pen-primary-26"
+              data-design-id="A9PPa"
+            >
+              <svg
+                data-icon-name="apple-logo"
+                data-icon-set="phosphor"
+                viewBox="0 0 14 14"
+                preserveAspectRatio="xMidYMid meet"
+                xmlns="http://www.w3.org/2000/svg"
+                aria-hidden="true"
+                focusable="false"
+                class="pen-icon-27"
+                data-design-id="nzhqu"
+              >
+                <path
+                  d="M7.16406 1.64063q0.21875-0.65625 0.79297-1.03907 0.57422-0.38281 1.23047-0.38281 0.16406 0 0.30078 0.13672 0.13672 0.13672 0.13672 0.30078 0 0.16406-0.13672 0.30078-0.13672 0.13672-0.30078 0.13672-0.38281 0-0.73828 0.21875-0.35547 0.21875-0.46484 0.57422-0.10938 0.35547-0.4375 0.30078l-0.16407 0q-0.16406-0.05469-0.24609-0.21875-0.08203-0.16406 0.02734-0.32813z m5.19531 7.4375q-0.60156 1.42188-1.53125 2.29687-0.92969 0.875-1.85937 0.875l-3.9375 0q-0.65625 0-1.36719-0.49219-0.71094-0.49219-1.3125-1.36719-1.25781-1.85938-1.25781-4.04687 0-1.03906 0.54688-1.94141 0.54688-0.90234 1.47656-1.36718 0.92969-0.46484 1.96875-0.38282 1.03906 0.08203 1.91406 0.6836 0.82031-0.60156 1.77734-0.71094 0.95703-0.10938 1.83203 0.27344 0.875 0.38281 1.53125 1.14844 0.10938 0.16406 0.05469 0.35546-0.05469 0.19141-0.21875 0.30079-0.49219 0.27344-0.76562 0.82031-0.27344 0.54688-0.27344 1.14844 0 0.60156 0.32812 1.09375 0.32813 0.49219 0.875 0.76562 0.16406 0.05469 0.21875 0.21875 0.05469 0.16406 0 0.32813z m-0.98437 0q-0.54688-0.38281-0.90234-1.01172-0.35547-0.62891-0.41016-1.33985-0.05469-0.71094 0.21875-1.36718 0.27344-0.65625 0.82031-1.09375-0.82031-0.76563-1.91406-0.76563-1.09375 0-1.85938 0.71094-0.16406 0.10938-0.32812 0.10937-0.16406 0-0.27344-0.10937-0.65625-0.54688-1.47656-0.6836-0.82031-0.13672-1.58594 0.21875-0.76563 0.35547-1.23047 1.06641-0.46484 0.71094-0.46484 1.53125 0 1.3125 0.54688 2.51563 0.4375 1.09375 1.17578 1.80468 0.73828 0.71094 1.33984 0.71094l3.9375 0q0.60156 0 1.28516-0.65625 0.68359-0.65625 1.12109-1.64063z"
+                  fill="#151515"
+                ></path>
+              </svg>
+              <div class="pen-label-28" data-design-id="hLQBO">
+                Download for macOS
+              </div>
+            </a>
+            <button
+              type="button"
+              data-copy="brew install --cask nekidaz/tap/bonk"
+              aria-label="Copy Homebrew install command"
+              class="pen-secondary-29"
+              data-design-id="mYaxY"
+            >
+              <div class="pen-label-30" data-design-id="txwIY">
+                brew install --cask nekidaz/tap/bonk
+              </div>
+              <svg
+                data-icon-name="copy"
+                data-icon-set="lucide"
+                viewBox="0 0 13.99993896484375 14"
+                preserveAspectRatio="xMidYMid meet"
+                xmlns="http://www.w3.org/2000/svg"
+                aria-hidden="true"
+                focusable="false"
+                class="pen-copy-31"
+                data-design-id="CPVCf"
+              >
+                <path
+                  d="M2.15674 0.60156q-0.29395 0.02734-0.58789 0.16748-0.29395 0.14014-0.50586 0.36573-0.30762 0.32129-0.43408 0.78271l-0.04102 0.16748 0 6.33008 0.04102 0.16748q0.22559 0.78271 0.91259 1.13477 0.2085 0.10938 0.46827 0.16748 0.25977 0.05469 0.41357 0.02734 0.24951-0.05469 0.38965-0.24268 0.14014-0.19141 0.08545-0.44433-0.02734-0.16748-0.16065-0.30762-0.1333-0.14014-0.3999-0.16748-0.39307-0.04102-0.5332-0.34863l-0.04102-0.09912 0-6.1045 0.04102-0.09912q0.09912-0.19482 0.29394-0.29394l0.09912-0.04102 6.1045 0 0.09912 0.04102q0.30762 0.14014 0.34863 0.51953 0.02734 0.2666 0.18115 0.42041 0.12646 0.12646 0.30762 0.15381 0.29395 0.05469 0.50586-0.15381 0.11279-0.11279 0.14697-0.24609 0.03418-0.1333 0.02051-0.32813-0.08545-0.646-0.52637-1.07666-0.44092-0.43408-1.08349-0.49219-0.16748-0.02734-3.06592-0.02734-2.89844 0-3.07959 0.02734z m3.5 3.5q-0.29395 0.02734-0.58789 0.16748-0.29395 0.14014-0.50586 0.3794-0.30762 0.32129-0.43408 0.79638l-0.04102 0.1709 0 6.29932 0.04102 0.16748q0.07178 0.25293 0.18115 0.44092 0.11279 0.18799 0.29394 0.37256 0.18457 0.18115 0.37256 0.29394 0.18799 0.10938 0.44092 0.18115l0.16748 0.04102 6.33008 0 0.16748-0.04102q0.25293-0.07178 0.44092-0.18115 0.18799-0.11279 0.36914-0.29394 0.18457-0.18457 0.29394-0.37256 0.11279-0.18799 0.18457-0.44092l0.04102-0.16748 0-6.33008-0.04102-0.16748q-0.12646-0.46143-0.43408-0.78271-0.44775-0.4751-1.13476-0.54688-0.16748-0.01367-3.06592-0.01367-2.89844 0-3.07959 0.02734z m6.24463 1.20313q0.19482 0.09912 0.29394 0.29394l0.04102 0.09912 0 6.1045-0.02735 0.08545q-0.12646 0.26318-0.37939 0.33496-0.08203 0.02734-3.07959 0.02734-2.99756 0-3.07959-0.02734-0.25293-0.07178-0.37939-0.33496l-0.02735-0.08545 0-6.1045 0.04102-0.09912q0.11279-0.24951 0.37939-0.32129 0.08545-0.02734 3.10694-0.02734l3.01123 0.01367 0.09912 0.04102z"
+                  fill="#888888"
+                ></path>
+              </svg>
+            </button>
+          </div>
+          <p class="hero-meta pen-eyebrow-32" data-design-id="u8M2Rt">
+            macOS · WINDOWS · LINUX — MIT, OPEN SOURCE
+          </p>
+        </section>
+        <section
+          class="product-stage pen-product-stage-33"
+          id="product"
+          data-design-id="T8oWj2"
+        >
+          <div class="product-bezel pen-bezel-34" data-design-id="zH1cl">
+            <a
+              class="product-image"
+              href="screenshots/hero.jpg"
+              aria-label="Open the full-resolution Bonk application screenshot"
               ><img
-                id="feature-image"
-                src="screenshots/http.jpg"
-                alt="Bonk HTTP request editor and formatted response"
+                src="screenshots/hero.jpg"
                 width="2880"
                 height="1800"
-                loading="lazy"
+                alt="Bonk desktop interface with HTTP request collections, query parameters, and a formatted JSON response"
+                fetchpriority="high"
             /></a>
-            <p class="screenshot-note" id="feature-caption">
-              HTTP request · query parameters · formatted JSON response
-            </p>
           </div>
-        </div>
-        <div class="feature-notes">
-          <article>
-            <span class="note-icon" aria-hidden="true">⤳</span>
-            <h3>Connect the steps with Flows.</h3>
-            <p>
-              Chain saved requests, scripts, conditions, loops, and delays on a
-              node canvas. Pass output from one step to the next and follow the
-              run as it happens.
-            </p>
-          </article>
-          <article>
-            <span class="note-icon" aria-hidden="true">⇄</span>
-            <h3>Bring the requests you already have.</h3>
-            <p>
-              Paste cURL. Import Postman collections or OpenAPI / Swagger specs.
-              Export a collection, or turn a request into a code snippet.
-            </p>
-          </article>
-          <article>
-            <span class="note-icon" aria-hidden="true">⌕</span>
-            <h3>Keep your hands on the keyboard.</h3>
-            <p>
-              A command palette, configurable shortcuts, searchable history,
-              resizable panels, a console, and a terminal keep everyday work
-              close.
-            </p>
-          </article>
-        </div>
-      </section>
-
-      <section
-        class="workspace-section"
-        id="workspace"
-        aria-labelledby="workspace-title"
-      >
-        <div class="container workspace-layout">
-          <div>
-            <p class="eyebrow">A FOLDER. NOT A CLOUD WORKSPACE.</p>
-            <h2 id="workspace-title">
-              Your requests<br />belong with<br /><span>your code.</span>
-            </h2>
-            <p>
-              Open a directory and make it your workspace. Each saved request
-              becomes a readable <code>*.bonk.json</code> file. The folders on
-              disk are the collections in your sidebar.
-            </p>
-            <p>
-              Review changes, share the folder, or commit it with your project.
-              Bonk includes Git diffs, staging, commits, branches, pull, and
-              push through your system Git.
-            </p>
-            <div class="local-tags">
-              <span>Works without an account</span
-              ><span>No hosted collection storage</span
-              ><span>Offline editing</span>
-            </div>
-          </div>
-          <div
-            class="file-artifact"
-            aria-label="Example of a Bonk workspace and request file"
-          >
-            <div class="artifact-bar">
-              <span class="status-dot" aria-hidden="true"></span
-              ><span>orbit-api/</span><span>YOUR DISK</span>
-            </div>
-            <div class="file-tree">
-              <div>▾ <strong>payments/</strong></div>
-              <div class="tree-child">
-                <span class="method get">GET</span> list-payments.bonk.json
-                <span class="file-status">M</span>
-              </div>
-              <div class="tree-child">
-                <span class="method post">POST</span> create-payment.bonk.json
-              </div>
-              <div>▾ <strong>auth/</strong></div>
-              <div class="tree-child">
-                <span class="method post">POST</span> issue-token.bonk.json
-              </div>
-              <div>▾ <strong>grpc/</strong></div>
-              <div class="tree-child">
-                <span class="method grpc">RPC</span> say-hello.bonk.json
-              </div>
-            </div>
-            <div class="file-preview">
-              <div class="file-preview-label">
-                payments/list-payments.bonk.json
-              </div>
-              <pre><code>{
-  <span class="code-key">"name"</span>: <span class="code-string">"List payments"</span>,
-  <span class="code-key">"protocol"</span>: <span class="code-string">"http"</span>,
-  <span class="code-key">"request"</span>: {
-    <span class="code-key">"method"</span>: <span class="code-string">"GET"</span>,
-    <span class="code-key">"url"</span>: <span class="code-string">"{{baseUrl}}/v1/payments"</span>,
-    <span class="code-key">"headers"</span>: {}
-  }
-}</code></pre>
-            </div>
-            <div class="artifact-footer">
-              <span class="branch-mark" aria-hidden="true">⑂</span> main
-              <span>1 readable change</span>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section
-        class="section container ai-section"
-        id="ai"
-        aria-labelledby="ai-title"
-      >
-        <div class="ai-copy">
-          <p class="eyebrow">YOUR API WORKSPACE, MEET YOUR AI TOOLS</p>
-          <h2 id="ai-title">
-            Give your assistant<br /><span>something real to work with.</span>
-          </h2>
-          <p>
-            Bonk’s MCP server lets compatible assistants inspect your workspace,
-            create requests, explore gRPC schemas, and run API calls with the
-            permissions you choose.
-          </p>
-          <p>
-            Set it up from <strong>Settings → AI / MCP</strong>. Choose an
-            environment, allow editing or network access, and install for
-            detected clients.
-          </p>
-          <a
-            class="text-link"
-            href="https://github.com/nekidaz/.bonk/blob/main/docs/MCP.md"
-            >Read the MCP guide <span aria-hidden="true">↗</span></a
-          >
-        </div>
-        <div class="mcp-card">
-          <div class="mcp-prompt">
-            <span class="assistant-dot" aria-hidden="true">✳</span>
-            <p>
-              “Find the payments requests, inspect the schema, and add a test
-              for the response.”
-            </p>
-          </div>
-          <div class="mcp-connection">
-            <span>Claude / Codex / MCP clients</span
-            ><span aria-hidden="true">↕</span><strong>.bonk MCP</strong>
-          </div>
-          <ul class="mcp-permissions">
-            <li>
-              <span class="check" aria-hidden="true">✓</span> Read workspace
-              &amp; schemas
-            </li>
-            <li>
-              <span class="check" aria-hidden="true">✓</span> Edit requests when
-              permitted
-            </li>
-            <li>
-              <span class="check" aria-hidden="true">✓</span> Call approved API
-              hosts
-            </li>
-          </ul>
-          <p class="mcp-footnote">
-            Local STDIO · remote Streamable HTTP<br />Read-only mode and host
-            allowlists available.
-          </p>
-        </div>
-      </section>
-
-      <section class="native-strip container" aria-labelledby="native-title">
-        <div>
-          <p class="eyebrow">SMALL BY DESIGN</p>
-          <h2 id="native-title">Rust underneath.<br />Your OS around it.</h2>
-        </div>
-        <p>
-          HTTP, gRPC, file operations, and Git run through a native Rust core.
-          Tauri uses the system WebView, so Bonk ships without a bundled
-          Chromium runtime. Fonts are included locally.
-        </p>
-        <div class="stack">
-          <span>Rust</span><span>Tauri 2</span><span>Svelte 5</span>
-        </div>
-      </section>
-
-      <section
-        class="section container download-section"
-        id="download"
-        aria-labelledby="download-title"
-      >
-        <div class="section-heading">
-          <div>
-            <p class="eyebrow">OPEN A FOLDER. SEND YOUR FIRST REQUEST.</p>
-            <h2 id="download-title">Make yourself<br />at localhost.</h2>
-          </div>
-          <div>
-            <p>
-              Choose your platform and get started.<br />No signup. No workspace
-              subscription.
-            </p>
-            <a
-              class="text-link"
-              href="https://github.com/nekidaz/.bonk/releases/latest"
-              >View the latest release <span aria-hidden="true">↗</span></a
-            >
-          </div>
-        </div>
-        <div class="download-grid">
-          <article class="download-card" data-platform="mac">
-            <div class="platform-heading">
-              <h3>macOS</h3>
-              <span>Apple Silicon</span>
-            </div>
-            <p>Install with Homebrew.</p>
-            <div class="command">
-              <code>brew install --cask nekidaz/tap/bonk</code
-              ><button
-                class="copy-button"
-                type="button"
-                data-copy="brew install --cask nekidaz/tap/bonk"
-                aria-label="Copy Homebrew install command"
-              >
-                Copy
-              </button>
-            </div>
-            <a
-              class="download-link"
-              href="https://github.com/nekidaz/.bonk/releases/latest"
-              >Download .dmg <span aria-hidden="true">↓</span></a
-            >
-            <p class="install-note">
-              The app is not notarized by Apple. On first launch, follow the
-              release’s macOS installation notes.
-            </p>
-          </article>
-          <article class="download-card" data-platform="windows">
-            <div class="platform-heading">
-              <h3>Windows</h3>
-              <span>x64</span>
-            </div>
-            <p>
-              Download the installer from the latest release, then follow the
-              setup wizard.
-            </p>
-            <a
-              class="download-link"
-              href="https://github.com/nekidaz/.bonk/releases/latest"
-              >Download Windows installer <span aria-hidden="true">↓</span></a
-            >
-            <p class="install-note">
-              Release assets are the current source of truth for available
-              builds.
-            </p>
-          </article>
-          <article class="download-card" data-platform="linux">
-            <div class="platform-heading">
-              <h3>Linux</h3>
-              <span>x64</span>
-            </div>
-            <p>Choose an AppImage or Debian package.</p>
-            <div class="command">
-              <code>chmod +x bonk_*.AppImage</code
-              ><button
-                class="copy-button"
-                type="button"
-                data-copy="chmod +x bonk_*.AppImage"
-                aria-label="Copy AppImage permission command"
-              >
-                Copy
-              </button>
-            </div>
-            <a
-              class="download-link"
-              href="https://github.com/nekidaz/.bonk/releases/latest"
-              >Download AppImage / .deb <span aria-hidden="true">↓</span></a
-            >
-            <p class="install-note">
-              Then launch the AppImage, or install the .deb with your package
-              manager.
-            </p>
-          </article>
-        </div>
-        <p class="update-note">
-          Already installed? Check for signed updates from Settings.
-        </p>
-      </section>
-
-      <section class="faq container" aria-labelledby="faq-title">
-        <div>
-          <p class="eyebrow">A FEW PRACTICAL DETAILS</p>
-          <h2 id="faq-title">Before you bonk.</h2>
-        </div>
-        <div class="faq-list">
-          <details>
-            <summary>Do I need an account or an internet connection?</summary>
-            <p>
-              No account is required. Editing, organizing, and inspecting saved
-              work is local. Sending a request needs access to the target API;
-              update checks and Git remotes also use the network.
-            </p>
-          </details>
-          <details>
-            <summary>Can I move from Postman or cURL?</summary>
-            <p>
-              Yes. Import a Postman Collection v2.x or an OpenAPI / Swagger
-              file, or paste a cURL command into the request URL bar. Bonk also
-              exports Postman collections and OpenAPI specifications. Import
-              support does not imply full Postman compatibility.
-            </p>
-          </details>
-          <details>
-            <summary>Where do my requests and settings live?</summary>
-            <p>
-              Saved requests live in the workspace folder you select. App
-              preferences and session state live separately in the platform
-              application-data directory. Variables marked as secret use the OS
-              keychain when available; keep credentials out of files you commit.
-            </p>
-          </details>
-          <details>
-            <summary>What does the AI integration allow?</summary>
-            <p>
-              You choose whether the MCP server can edit files or call APIs.
-              Read-only mode, disabled network access, and target-host
-              allowlists are available. Bonk supports local STDIO and remote
-              Streamable HTTP connections.
-            </p>
-          </details>
-          <details>
-            <summary>Is the application source in this repository?</summary>
-            <p>
-              This repository contains public releases, documentation, and the
-              website. The application source is maintained separately. See the
-              included license for the terms that apply to distributed material.
-            </p>
-          </details>
-        </div>
-      </section>
-    </main>
-    <footer class="container site-footer">
-      <a class="wordmark" href="#" aria-label="Back to top"
-        >.bonk<span class="brand-dot" aria-hidden="true"></span
-      ></a>
-      <p>Good requests. Local files.</p>
-      <div>
-        <a href="https://github.com/nekidaz/.bonk/issues">Report an issue ↗</a
-        ><a href="https://github.com/nekidaz/.bonk/blob/main/CHANGELOG.md"
-          >Changelog ↗</a
-        ><a href="https://github.com/nekidaz/.bonk/blob/main/LICENSE"
-          >License ↗</a
+        </section>
+        <section
+          class="proof-strip pen-proof-strip-35"
+          id="proof"
+          data-design-id="k9rTVc"
         >
-      </div>
-    </footer>
-    <div class="copy-status sr-only" role="status" aria-live="polite"></div>
+          <div class="proof-row pen-row-36" data-design-id="xlzeI">
+            <div class="pen-stat-1-37" data-design-id="ci57m">
+              <div class="pen-value-38" data-design-id="RwPII">
+                <div class="pen-number-39" data-design-id="XtSrZ">7</div>
+                <div class="pen-unit-40" data-design-id="w6PPwK">MB</div>
+              </div>
+              <p class="pen-desc-41" data-design-id="VizeV">
+                full installer — no Electron
+              </p>
+            </div>
+            <div class="pen-stat-1-37" data-design-id="pV0eX">
+              <div class="pen-value-38" data-design-id="a6gKWN">
+                <div class="pen-number-39" data-design-id="qqMrZ">37</div>
+                <div class="pen-unit-40" data-design-id="X9t6N">MB</div>
+              </div>
+              <p class="pen-desc-41" data-design-id="lsEz3">
+                idle RAM, CPU ≈ 0%
+              </p>
+            </div>
+            <div class="pen-stat-1-37" data-design-id="q1sxSq">
+              <div class="pen-value-38" data-design-id="bInc3">
+                <div class="pen-number-39" data-design-id="z53A1Q">0</div>
+              </div>
+              <p class="pen-desc-41" data-design-id="zd9r8">
+                accounts, clouds or telemetry
+              </p>
+            </div>
+            <div class="pen-stat-4-42" data-design-id="IddvC">
+              <div class="pen-value-38" data-design-id="DkOZJ">
+                <div class="pen-number-39" data-design-id="lCfLy">MCP</div>
+              </div>
+              <p class="pen-desc-41" data-design-id="y8arnY">
+                server for Claude, ChatGPT and Codex
+              </p>
+            </div>
+          </div>
+        </section>
+        <section
+          class="features pen-features-43"
+          id="features"
+          data-design-id="US0q8"
+        >
+          <div class="section-head pen-head-44" data-design-id="qzTEm">
+            <div class="section-title pen-left-45" data-design-id="qPBlL">
+              <p class="pen-eyebrow-46" data-design-id="H1k8Z">01 / FEATURES</p>
+              <h2 class="pen-title-47" data-design-id="eSV1b">
+                Everything for the request.
+                <br />
+                Nothing around it.
+              </h2>
+            </div>
+            <p class="pen-lede-48" data-design-id="Ceif3">
+              No five-level workspaces, activity feeds or marketplaces. One tab,
+              one request, one response.
+            </p>
+          </div>
+          <div class="feature-row-top pen-row-1-49" data-design-id="QtlUt">
+            <div class="card card-http pen-http-grpc-50" data-design-id="z4IlX">
+              <div
+                class="request-demos pen-url-bars-51"
+                aria-hidden="true"
+                data-design-id="Fg49T"
+              >
+                <div class="pen-get-bar-52" data-design-id="AiIMK">
+                  <div class="pen-method-53" data-design-id="DOW3N">
+                    <div class="pen-label-54" data-design-id="locXT">GET</div>
+                  </div>
+                  <div class="pen-url-55" data-design-id="Ouivt">
+                    <div class="pen-part-56" data-design-id="zez2j">
+                      {{baseUrl}}
+                    </div>
+                    <div class="pen-part-57" data-design-id="IMsGz">
+                      /v1/payments?limit=20
+                    </div>
+                  </div>
+                  <div class="pen-send-58" data-design-id="XzS2s">
+                    <div class="pen-label-59" data-design-id="fjHg9">Send</div>
+                  </div>
+                </div>
+                <div class="pen-get-bar-52" data-design-id="qvMLp">
+                  <div class="pen-method-53" data-design-id="MP0eU">
+                    <div class="pen-label-60" data-design-id="W4HMs">gRPC</div>
+                  </div>
+                  <div class="pen-url-55" data-design-id="sA0fS">
+                    <div class="pen-part-56" data-design-id="HtpIE">
+                      {{grpcHost}}
+                    </div>
+                    <div class="pen-part-57" data-design-id="UX74A">
+                      · payments.v1.Ledger/Stream
+                    </div>
+                  </div>
+                  <div class="pen-send-58" data-design-id="M6EdEi">
+                    <div class="pen-label-59" data-design-id="VArZG">
+                      Invoke
+                    </div>
+                  </div>
+                </div>
+                <div class="pen-post-bar-61" data-design-id="SnaZt">
+                  <div class="pen-method-53" data-design-id="P378ik">
+                    <div class="pen-label-62" data-design-id="b4hCIt">POST</div>
+                  </div>
+                  <div class="pen-url-55" data-design-id="ZpG98">
+                    <div class="pen-part-56" data-design-id="LDzDl">
+                      {{baseUrl}}
+                    </div>
+                    <div class="pen-part-57" data-design-id="vM8S0">
+                      /v1/refunds
+                    </div>
+                  </div>
+                  <div class="pen-send-58" data-design-id="Y7reJx">
+                    <div class="pen-label-59" data-design-id="BYyGP">Send</div>
+                  </div>
+                </div>
+              </div>
+              <div class="pen-copy-63" data-design-id="AZSSx">
+                <h3 class="pen-title-64" data-design-id="sGLz8">
+                  HTTP and gRPC in one tab
+                </h3>
+                <p class="pen-desc-65" data-design-id="Z3rZq">
+                  Import a .proto or turn on reflection — methods, messages and
+                  field autocomplete just show up. Unary, server and bidi
+                  streaming.
+                </p>
+              </div>
+            </div>
+            <div
+              class="card card-variables pen-variables-66"
+              data-design-id="M3cPNp"
+            >
+              <div
+                class="variable-demo pen-var-demo-67"
+                aria-hidden="true"
+                data-design-id="HibiR"
+              >
+                <div class="pen-baseurl-68" data-design-id="EWiv1">
+                  <div class="pen-new-16" data-design-id="uPWdV">
+                    <div class="pen-key-69" data-design-id="WZqcC">
+                      {{baseUrl}}
+                    </div>
+                  </div>
+                  <div class="pen-value-70" data-design-id="cBdqE">
+                    api.bonk.dev
+                  </div>
+                </div>
+                <div class="pen-baseurl-68" data-design-id="WNt2h">
+                  <div class="pen-new-16" data-design-id="MA5HQ">
+                    <div class="pen-key-69" data-design-id="g6zIAb">
+                      {{token}}
+                    </div>
+                  </div>
+                  <div class="pen-value-70" data-design-id="HqmPu">
+                    sk_live_••••4f2a
+                  </div>
+                </div>
+                <div class="pen-baseurl-68" data-design-id="MKE2y">
+                  <div class="pen-new-16" data-design-id="dRVLq">
+                    <div class="pen-key-69" data-design-id="p6t0M">
+                      {{grpcHost}}
+                    </div>
+                  </div>
+                  <div class="pen-value-70" data-design-id="GokUr">
+                    grpc.bonk.dev:443
+                  </div>
+                </div>
+                <div class="pen-baseurl-68" data-design-id="PrwBG">
+                  <div class="pen-new-16" data-design-id="DqmjJ">
+                    <div class="pen-key-69" data-design-id="M3ijx">
+                      {{userId}}
+                    </div>
+                  </div>
+                  <div class="pen-value-70" data-design-id="mcFs6">
+                    usr_8c1e
+                  </div>
+                </div>
+              </div>
+              <div class="pen-copy-63" data-design-id="UopYo">
+                <h3 class="pen-title-64" data-design-id="MVrSK">
+                  Variables at a glance
+                </h3>
+                <p class="pen-desc-65" data-design-id="e7dy2I">
+                  Hover any {{…}} to see its value and the environment it came
+                  from.
+                </p>
+              </div>
+            </div>
+          </div>
+          <div class="feature-row-bottom pen-row-1-49" data-design-id="C2BHCf">
+            <div
+              class="card card-environments pen-environments-71"
+              data-design-id="ofB3c"
+            >
+              <div
+                aria-hidden="true"
+                class="pen-env-demo-72"
+                data-design-id="v7JPWc"
+              >
+                <div class="pen-local-73" data-design-id="az3F4">
+                  <div class="pen-dot-74" data-design-id="G7YSU"></div>
+                  <div class="pen-name-75" data-design-id="yMMKX">Local</div>
+                </div>
+                <div class="pen-local-73" data-design-id="lLofG">
+                  <div class="pen-dot-76" data-design-id="c4HE8"></div>
+                  <div class="pen-name-75" data-design-id="olyHR">Staging</div>
+                </div>
+                <div class="pen-production-77" data-design-id="RCJel">
+                  <div class="pen-dot-78" data-design-id="CZV6k"></div>
+                  <div class="pen-name-79" data-design-id="NCPX1">
+                    Production
+                  </div>
+                  <svg
+                    data-icon-name="shield-alert"
+                    data-icon-set="lucide"
+                    viewBox="0 0 13.99993896484375 14"
+                    preserveAspectRatio="xMidYMid meet"
+                    xmlns="http://www.w3.org/2000/svg"
+                    aria-hidden="true"
+                    focusable="false"
+                    class="pen-copy-31"
+                    data-design-id="Xc4N4"
+                  >
+                    <path
+                      d="M6.84619 0.60156q-0.34863 0.02734-0.68701 0.30762-0.51611 0.42041-1.00147 0.70068-0.48193 0.28027-1.01513 0.4751-0.30762 0.11279-0.58789 0.1709-0.28027 0.05469-0.66992 0.08203-0.23926 0.01367-0.36573 0.07178-0.19482 0.06836-0.37939 0.22217-0.18115 0.15381-0.26319 0.34863l-0.01367 0.03076q-0.07178 0.12646-0.08545 0.22217-0.01367 0.15381-0.02734 0.60156l0 1.78076q0 2.25244 0.01367 2.46094 0.14014 1.6543 1.10742 2.88477 0.14014 0.16748 0.43409 0.46142 0.29395 0.29394 0.48877 0.44775 0.92285 0.7417 2.2832 1.27491 0.46143 0.18115 0.65625 0.23926 0.23926 0.05469 0.43408 0.01367 0.16748-0.02734 0.5332-0.15381 1.35693-0.51953 2.27979-1.20313 0.37939-0.2666 0.71435-0.60498 1.37402-1.3706 1.54151-3.37353 0.01367-0.23584 0.01367-2.46094 0-2.22852-0.02734-2.35498-0.07178-0.32129-0.31787-0.56396-0.24268-0.24609-0.5503-0.31788-0.09912-0.02734-0.37939-0.04101-0.48877-0.02734-0.96387-0.18115-0.81348-0.2666-1.55518-0.77246-0.2666-0.18115-0.64257-0.48877-0.42041-0.33496-0.96729-0.28028z m0.43408 1.34326q0.64258 0.51953 1.32959 0.86817 1.2168 0.61865 2.25244 0.68701l0.21192 0-0.01367 4.31348q0 0.33496-0.02735 0.50244-0.22559 1.34326-1.1416 2.27637-0.91602 0.92969-2.66601 1.57226l-0.21192 0.08545-0.18115-0.05469q-2.32422-0.85449-3.2334-2.22851-0.47852-0.71436-0.63232-1.63721-0.02734-0.18115-0.02735-0.50244l-0.01367-4.32715 0.19483 0q0.86816-0.05469 1.84912-0.48193 0.98096-0.42725 1.83545-1.12793 0.16748-0.14014 0.19482-0.14014 0.02734 0 0.28027 0.19482z m-0.37939 2.15674q-0.0957 0.01367-0.17432 0.05127-0.0752 0.03418-0.15381 0.12647-0.0752 0.08887-0.11279 0.16748-0.03418 0.0752-0.03418 0.25634l0 2.46436 0.04102 0.08545q0.04443 0.06836 0.12646 0.15381 0.08545 0.08203 0.16065 0.12646 0.07861 0.04102 0.24609 0.04102 0.16748 0 0.24268-0.04102 0.07861-0.04443 0.16064-0.12646 0.08545-0.08545 0.12988-0.15381l0.04102-0.08545 0-2.33789q0-0.2666-0.02051-0.3418-0.02051-0.07861-0.07861-0.16064l-0.01367-0.01367q-0.09912-0.12646-0.2461-0.18116-0.14697-0.05811-0.31445-0.03076z m-0.05469 4.67578q-0.2085 0.05811-0.32129 0.22559-0.11279 0.16748-0.09912 0.37256 0.01367 0.20166 0.15381 0.35547 0.08545 0.08203 0.15381 0.12646 0.21191 0.0957 0.42041 0.03418 0.2085-0.06494 0.33496-0.24609 0.12646-0.18115 0.08545-0.40674-0.01367-0.10938-0.05127-0.17773-0.03418-0.07178-0.11963-0.14014-0.08203-0.07178-0.16064-0.11279-0.0752-0.04443-0.19483-0.05127-0.11621-0.00684-0.20166 0.0205z"
+                      fill="#ff7a7a"
+                    ></path>
+                  </svg>
+                </div>
+              </div>
+              <div class="pen-copy-63" data-design-id="XICeJ">
+                <h3 class="pen-title-64" data-design-id="P15nY">
+                  Production, guarded
+                </h3>
+                <p class="pen-desc-65" data-design-id="TNpVD">
+                  Production is marked in red and asks for confirmation before
+                  DELETE and PUT.
+                </p>
+              </div>
+            </div>
+            <div
+              class="card card-runner pen-http-grpc-50"
+              id="runner"
+              data-design-id="BeEIJ"
+            >
+              <div
+                aria-hidden="true"
+                class="pen-chart-80"
+                data-design-id="I9wqV"
+              >
+                <div class="pen-head-44" data-design-id="mY0GZ">
+                  <div class="pen-value-38" data-design-id="U4lp5M">
+                    <div class="pen-n-81" data-design-id="EKnIw">142</div>
+                    <div class="pen-u-82" data-design-id="SXFsm">ms p95</div>
+                  </div>
+                  <div class="pen-delta-83" data-design-id="Zf024">
+                    <div class="pen-l-84" data-design-id="hOzKo">−18%</div>
+                  </div>
+                </div>
+                <div class="pen-bars-85" data-design-id="tdnat">
+                  <div class="pen-bar-1-86" data-design-id="hOKoo"></div>
+                  <div class="pen-bar-2-87" data-design-id="gdqSL"></div>
+                  <div class="pen-bar-3-88" data-design-id="oUmlw"></div>
+                  <div class="pen-bar-4-89" data-design-id="j4sdFB"></div>
+                  <div class="pen-bar-5-90" data-design-id="Ld3wq"></div>
+                  <div class="pen-bar-6-91" data-design-id="MqRsI"></div>
+                  <div class="pen-bar-7-92" data-design-id="v386k"></div>
+                  <div class="pen-bar-8-93" data-design-id="kGvP4"></div>
+                  <div class="pen-bar-9-94" data-design-id="e7jjz"></div>
+                  <div class="pen-bar-10-95" data-design-id="E2N1q"></div>
+                  <div class="pen-bar-11-96" data-design-id="Jadi6"></div>
+                  <div class="pen-bar-12-97" data-design-id="JCK4a"></div>
+                </div>
+              </div>
+              <div class="pen-copy-63" data-design-id="EfEMg">
+                <h3 class="pen-title-64" data-design-id="Q5gzS">
+                  A runner that explains
+                </h3>
+                <p class="pen-desc-65" data-design-id="C9AZx">
+                  Collection runs with deltas against the previous run and a
+                  hint on why things failed.
+                </p>
+              </div>
+            </div>
+            <div
+              class="card card-keyboard pen-http-grpc-50"
+              data-design-id="MaKZC"
+            >
+              <div
+                aria-hidden="true"
+                class="pen-copy-63"
+                data-design-id="mgIZz"
+              >
+                <div class="pen-find-anything-98" data-design-id="eXw1P">
+                  <div class="pen-label-9" data-design-id="tGVL9">
+                    Find anything
+                  </div>
+                  <div class="pen-combo-99" data-design-id="j6x2N6">
+                    <div class="pen-key-100" data-design-id="y8vsLj">
+                      <div class="pen-glyph-101" data-design-id="MGsFZ">⌘</div>
+                    </div>
+                    <div class="pen-key-100" data-design-id="Dmieg">
+                      <div class="pen-glyph-101" data-design-id="RAKSE">K</div>
+                    </div>
+                  </div>
+                </div>
+                <div class="pen-find-anything-98" data-design-id="tXM9H">
+                  <div class="pen-label-9" data-design-id="r6JIFa">
+                    Send request
+                  </div>
+                  <div class="pen-combo-99" data-design-id="dTF82">
+                    <div class="pen-key-100" data-design-id="MnfWS">
+                      <div class="pen-glyph-101" data-design-id="yTAzB">⌘</div>
+                    </div>
+                    <div class="pen-key-100" data-design-id="UDMO6">
+                      <div class="pen-glyph-101" data-design-id="j4AHS">↵</div>
+                    </div>
+                  </div>
+                </div>
+                <div class="pen-find-anything-98" data-design-id="p35gOp">
+                  <div class="pen-label-9" data-design-id="dmyZB">
+                    Hide sidebar
+                  </div>
+                  <div class="pen-combo-99" data-design-id="ibrGx">
+                    <div class="pen-key-100" data-design-id="NsH7r">
+                      <div class="pen-glyph-101" data-design-id="m28t6P">⌘</div>
+                    </div>
+                    <div class="pen-key-100" data-design-id="BbZrD">
+                      <div class="pen-glyph-101" data-design-id="tIjXK">\</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="pen-copy-63" data-design-id="F1xs54">
+                <h3 class="pen-title-64" data-design-id="P29D2">
+                  Hands on the keyboard
+                </h3>
+                <p class="pen-desc-65" data-design-id="p08Eu">
+                  Every action has a shortcut. Remap them in settings —
+                  conflicts are highlighted.
+                </p>
+              </div>
+            </div>
+          </div>
+        </section>
+        <section class="ai pen-ai-mcp-102" id="ai" data-design-id="geW0O">
+          <div class="ai-top pen-row-1-49" data-design-id="R8Tml">
+            <div class="ai-pitch pen-pitch-103" data-design-id="edmJT">
+              <div class="pen-copy-104" data-design-id="UGEUW">
+                <div class="pen-brand-3" data-design-id="Y9K7t">
+                  <div class="pen-spark-105" data-design-id="mv0tq">
+                    <svg
+                      data-icon-name="sparkles"
+                      data-icon-set="lucide"
+                      viewBox="0 0 13.99993896484375 14"
+                      preserveAspectRatio="xMidYMid meet"
+                      xmlns="http://www.w3.org/2000/svg"
+                      aria-hidden="true"
+                      focusable="false"
+                      class="pen-icon-106"
+                      data-design-id="iHgwc"
+                    >
+                      <path
+                        d="M6.84619 0.58789q-0.28027 0.04102-0.54687 0.22559-0.29395 0.2085-0.40674 0.57422-0.02734 0.08203-0.3418 1.75683-0.31445 1.67139-0.35889 1.76367-0.04102 0.08887-0.10937 0.16065-0.07178 0.08203-0.15381 0.11279-0.11279 0.04102-0.4751 0.12305l-1.28857 0.23926q-1.68164 0.32129-1.77734 0.34863-0.23926 0.07178-0.44434 0.27002-0.20166 0.19482-0.29395 0.44092-0.08887 0.24268-0.06152 0.50244 0.02734 0.25635 0.16748 0.4956 0.09912 0.16748 0.27344 0.30762 0.17432 0.14014 0.35889 0.19824 0.0957 0.02734 1.76367 0.34863l1.28515 0.25293q0.37939 0.06836 0.50586 0.10938 0.08203 0.04443 0.15381 0.11279 0.05469 0.08545 0.09912 0.16748 0.04102 0.12646 0.10938 0.50586l0.23926 1.24414q0.32129 1.68164 0.34863 1.76367 0.15381 0.46484 0.58789 0.67335 0.2666 0.14014 0.51953 0.14013 0.25293 0 0.51953-0.14013 0.43408-0.2085 0.58789-0.67335 0.02734-0.08203 0.3418-1.74658 0.31445-1.66797 0.3418-1.72265 0.02734-0.11279 0.12646-0.2085 0.09912-0.09912 0.21191-0.14355 0.06836-0.02734 1.73291-0.3418 1.66797-0.31445 1.75-0.3418 0.46484-0.15381 0.67335-0.58789 0.2666-0.51953 0-1.03906-0.09912-0.2085-0.28028-0.36231-0.18115-0.15381-0.39307-0.22558-0.0957-0.02734-1.77734-0.34863l-1.23047-0.23926q-0.37939-0.06836-0.50586-0.10938-0.0957-0.03076-0.15381-0.08545-0.10938-0.11279-0.1538-0.23925-0.02734-0.06836-0.3418-1.73291-0.31445-1.66797-0.3418-1.75-0.14014-0.46484-0.60498-0.68702-0.14014-0.07178-0.31445-0.09912-0.17432-0.02734-0.3418-0.01367z m4.73047 0.01367q-0.12305 0.01367-0.24268 0.09912-0.11963 0.08203-0.1914 0.19483-0.04102 0.08545-0.05469 0.20508-0.01367 0.11621-0.01367 0.35546l0 0.29395-0.36572 0q-0.26318 0.01367-0.32813 0.02051-0.06152 0.00684-0.1333 0.03418-0.2666 0.12646-0.31445 0.42041-0.04785 0.29395 0.14697 0.50586 0.08545 0.08203 0.18115 0.14013 0.08545 0.02734 0.14697 0.03418 0.06494 0.00684 0.31788 0.02051l0.34863 0 0 0.34863q0.01367 0.25293 0.02051 0.31788 0.00683 0.06152 0.03418 0.14697 0.05811 0.0957 0.14013 0.18115 0.21191 0.19482 0.50586 0.14697 0.29395-0.04785 0.42041-0.31445 0.02734-0.08545 0.03418-0.14014 0.00684-0.05811 0.02051-0.32129l0-0.36572 0.29395 0q0.32129 0 0.45458-0.03418 0.1333-0.03418 0.25293-0.15381 0.11963-0.11963 0.15381-0.31445 0.03418-0.19824-0.04785-0.35205-0.04443-0.08203-0.12305-0.15039-0.0752-0.07178-0.1538-0.10596-0.07519-0.0376-0.14014-0.04443-0.06152-0.00684-0.32813-0.02051l-0.3623 0 0-0.34863q0-0.23926-0.00684-0.30762-0.00684-0.07178-0.03418-0.12646-0.08545-0.21191-0.25293-0.30762-0.16748-0.09912-0.37939-0.05811z m-4.26904 2.7583q0.23926 1.26123 0.29394 1.55518 0.05811 0.29395 0.1128 0.42041 0.12646 0.30762 0.38281 0.56738 0.25977 0.25635 0.56738 0.38281 0.12646 0.05469 0.41358 0.1128 0.28711 0.05469 1.54833 0.29394 1.56885 0.29395 1.57569 0.30762 0.00684 0.01367-1.60303 0.31445-1.60986 0.30078-1.72266 0.32813-0.39307 0.09912-0.72119 0.40674-0.32813 0.30762-0.46826 0.70068-0.04443 0.09912-0.09912 0.43408l-0.32129 1.63721q-0.25293 1.37402-0.2666 1.37402-0.01367 0-0.30762-1.55517-0.23926-1.2749-0.29736-1.56202-0.05469-0.28711-0.10938-0.41357-0.09912-0.23584-0.30078-0.46484-0.20166-0.23242-0.41357-0.35889-0.14014-0.09912-0.2666-0.14014-0.16748-0.04102-0.57422-0.12646l-1.28516-0.25293q-1.6543-0.30762-1.64062-0.32129 0.01367-0.01367 1.60986-0.30762l1.51416-0.29394q0.25293-0.05811 0.38965-0.1128 0.29395-0.11279 0.56738-0.37597 0.27344-0.2666 0.3999-0.57422 0.05469-0.12646 0.10938-0.41358 0.05811-0.28711 0.29736-1.56201 0.29395-1.55518 0.30762-1.55517 0.01367 0 0.30762 1.55517z m-5.33203 6.59326q-0.31104 0.07178-0.57764 0.23926-0.26318 0.16748-0.46143 0.42041-0.34863 0.4751-0.34863 1.05615 0 0.58105 0.3418 1.04249 0.34521 0.46143 0.91943 0.6289 0.64258 0.18457 1.25781-0.10937 0.32471-0.15381 0.56055-0.44092 0.23926-0.28711 0.35205-0.65283 0.02734-0.11279 0.03418-0.18116 0.00684-0.06836 0.02051-0.28027 0-0.25293-0.02051-0.3623-0.02051-0.11279-0.10596-0.32471-0.15381-0.36231-0.46826-0.63574-0.31445-0.27344-0.70752-0.38623-0.15381-0.02734-0.3999-0.03418-0.24268-0.00684-0.39648 0.0205z m0.60156 1.18946q0.24951 0.11279 0.31787 0.38623 0.07178 0.27344-0.0957 0.48193-0.12646 0.15381-0.29395 0.21192-0.16748 0.05469-0.33496 0-0.25293-0.07178-0.37939-0.33497-0.04102-0.09912-0.03418-0.23242 0.00684-0.1333 0.04785-0.23242 0.09912-0.22217 0.32129-0.29736 0.22559-0.07861 0.45117 0.01709z"
+                        fill="#5eead4"
+                      ></path>
+                    </svg>
+                  </div>
+                  <p class="pen-eyebrow-46" data-design-id="CcCP1">
+                    02 / AI &amp; MCP
+                  </p>
+                </div>
+                <h2 class="pen-title-107" data-design-id="TfXY9">
+                  Your AI agent
+                  <br />
+                  now speaks API.
+                </h2>
+                <p class="pen-body-108" data-design-id="U6tmP">
+                  bonk ships with its own MCP server. Claude, ChatGPT and Codex
+                  can browse your workspace, build and save requests, send HTTP
+                  and call gRPC — in the same files you use. The app doesn’t
+                  even need to be open.
+                </p>
+              </div>
+              <div class="pen-clients-109" data-design-id="DL6D6">
+                <p class="pen-eyebrow-32" data-design-id="grLhR">WORKS WITH</p>
+                <div class="pen-chips-110" data-design-id="SO1kV">
+                  <div class="pen-claude-desktop-111" data-design-id="q6j7Uk">
+                    <div class="pen-text-18" data-design-id="Z4gdq">
+                      Claude Desktop
+                    </div>
+                  </div>
+                  <div class="pen-claude-desktop-111" data-design-id="GhRiH">
+                    <div class="pen-text-18" data-design-id="Emm9l">
+                      Claude Code
+                    </div>
+                  </div>
+                  <div class="pen-claude-desktop-111" data-design-id="oHXrV">
+                    <div class="pen-text-18" data-design-id="p2s5iv">
+                      ChatGPT
+                    </div>
+                  </div>
+                  <div class="pen-claude-desktop-111" data-design-id="IvI2S">
+                    <div class="pen-text-18" data-design-id="BZyRt">Codex</div>
+                  </div>
+                </div>
+                <div class="pen-note-112" data-design-id="eTciT">
+                  + any MCP client — locally over STDIO or remotely over
+                  Streamable HTTP
+                </div>
+              </div>
+            </div>
+            <div
+              class="agent-session pen-agent-session-113"
+              aria-label="Illustrative MCP agent session"
+              data-design-id="Zg19c"
+            >
+              <div class="pen-header-114" data-design-id="rXpbh">
+                <div class="pen-brand-3" data-design-id="vn7rh">
+                  <div class="pen-dot-74" data-design-id="xVgSC"></div>
+                  <div class="pen-title-115" data-design-id="l3zDNQ">
+                    Claude Code · mcp: bonk
+                  </div>
+                </div>
+                <div class="pen-u-82" data-design-id="UEbXA">
+                  ~/work/payments-api
+                </div>
+              </div>
+              <div class="pen-user-message-116" data-design-id="LeTzS">
+                <div class="pen-bubble-117" data-design-id="F7epeu">
+                  <div class="pen-text-118" data-design-id="zq45Z">
+                    Add POST /v1/refunds to Payments API and run it on staging.
+                    Take the token from the environment.
+                  </div>
+                </div>
+              </div>
+              <div class="pen-tool-calls-119" data-design-id="tb0RA">
+                <div class="pen-list-workspace-120" data-design-id="gTu7Q">
+                  <div class="pen-icon-box-121" data-design-id="A9PwXX">
+                    <svg
+                      data-icon-name="folder-tree"
+                      data-icon-set="lucide"
+                      viewBox="0 0 13.99993896484375 14"
+                      preserveAspectRatio="xMidYMid meet"
+                      xmlns="http://www.w3.org/2000/svg"
+                      aria-hidden="true"
+                      focusable="false"
+                      class="pen-arrow-19"
+                      data-design-id="o2jrw"
+                    >
+                      <path
+                        d="M1.59619 1.18945q-0.25293 0.08545-0.37939 0.30762l-0.04102 0.08545 0.01367 7.50244q0 0.57422 0.02735 0.65967 0.2666 0.98096 1.26123 1.28857 0.08545 0.02734 0.25293 0.02735l0.95019 0.01367 0.96729 0q0.15381 0 0.22217-0.02734 0.21191-0.08545 0.3247-0.29395 0.04102-0.09912 0.04102-0.25293 0-0.09912-0.00684-0.14014-0.00684-0.04102-0.03418-0.11279-0.04443-0.08203-0.13672-0.16406-0.08887-0.08545-0.17431-0.11963-0.08203-0.0376-0.22217-0.0376l-0.81348 0q-0.93652 0-1.03564-0.02734-0.29395-0.05811-0.43408-0.33496l-0.04102-0.09912 0-4.50831q0-0.39307 0.01367-0.37939 0.14014 0.04443 0.3794 0.07178 0.15381 0.02734 1.04248 0.02734 0.88867 0 1.00146-0.02734 0.16748-0.02734 0.29395-0.15381 0.22217-0.22559 0.16748-0.51953-0.05469-0.29395-0.34863-0.43408-0.05811-0.02734-0.19825-0.02735l-1.91748-0.02734-0.09912-0.04102q-0.0957-0.04443-0.14014-0.08545-0.04102-0.04102-0.09912-0.12304-0.05469-0.08545-0.07519-0.14014-0.02051-0.05811-0.03418-0.78613 0-0.54687-0.00684-0.64258-0.00684-0.09912-0.03418-0.1709-0.09912-0.18115-0.28027-0.2666-0.08545-0.04102-0.22559-0.04785-0.14014-0.00684-0.18115 0.00683z m5.68408 0.01368q-0.22559 0.07178-0.42724 0.23242-0.20166 0.16064-0.30078 0.36914l-0.02735 0.03076q-0.05811 0.12305-0.07177 0.2085-0.02734 0.12646-0.02735 0.44775l0 1.04932 0 1.66796q0 0.24951 0.02735 0.34864 0.07178 0.28027 0.32128 0.51953 0.11279 0.10938 0.22559 0.18115 0.11279 0.06836 0.2666 0.11279l0.12647 0.04102 4.46386 0 0.12647-0.04102q0.16748-0.04443 0.27344-0.11279 0.10596-0.07178 0.23242-0.19482 0.15381-0.15381 0.21533-0.28711 0.06494-0.1333 0.09228-0.21875 0.01367-0.11279 0.02735-0.36231l0-0.82715 0-0.81347q-0.01367-0.24951-0.02735-0.36231-0.02734-0.08545-0.09228-0.21875-0.06152-0.1333-0.21533-0.28711-0.15381-0.15381-0.29395-0.22216-0.18457-0.09912-0.33154-0.1128-0.14697-0.01367-0.83057-0.01367l-0.82715-0.01367-0.29394-0.3794q-0.22559-0.30762-0.35205-0.44091-0.12305-0.1333-0.26319-0.20166-0.18457-0.09912-0.34521-0.1128-0.16064-0.01367-0.78955-0.01367-0.50244 0-0.65283 0.00684-0.14697 0.00684-0.22901 0.02051z m1.77735 1.5415q0.25293 0.33496 0.3623 0.44092 0.11279 0.10596 0.28711 0.19824 0.17773 0.08887 0.33838 0.10254 0.16064 0.01367 0.83399 0.01367l0.79638 0 0 1.75-4.10156 0 0-2.92578 1.17578 0 0.30762 0.42041z m-1.60987 4.84326q-0.39307 0.05469-0.68701 0.34863-0.23584 0.22559-0.30761 0.50586-0.02734 0.09912-0.02735 0.34864l0 1.41503 0 1.30225q0 0.32129 0.02735 0.44775 0.01367 0.08545 0.07177 0.2085l0.02735 0.03076q0.09912 0.22217 0.30761 0.38281 0.2085 0.16065 0.44776 0.21875 0.11279 0.04102 2.31738 0.04102 2.20459 0 2.31738-0.04102 0.23926-0.0581 0.44776-0.21875 0.2085-0.16065 0.30761-0.38281l0.01368-0.01367q0.07178-0.14014 0.08545-0.21191 0.02734-0.11279 0.02734-0.34864l0-0.78613-0.01367-1.03564q0-0.16748-0.02735-0.25293-0.08545-0.24951-0.29052-0.44434-0.20166-0.19824-0.46827-0.29736l-0.14013-0.04102-1.90381-0.01367-0.15381-0.30762q-0.12305-0.25293-0.20166-0.3623-0.07861-0.11279-0.16064-0.19824-0.19482-0.16748-0.46143-0.25293-0.09912-0.02734-0.20508-0.03418-0.10254-0.00684-0.58105-0.00684-0.65625-0.01367-0.76905 0z m1.40137 1.49707q0.10938 0.21191 0.15723 0.29736 0.05127 0.08203 0.12304 0.15039 0.29395 0.32471 0.71094 0.36573 0.12646 0.02734 0.98096 0.02734l0.85449 0 0 1.75-4.10156 0 0-2.92578 1.10742 0 0.16748 0.33496z"
+                        fill="#aaaaaa"
+                      ></path>
+                    </svg>
+                  </div>
+                  <div class="pen-call-122" data-design-id="c3UDG">
+                    <div class="pen-tool-123" data-design-id="IgZvb">
+                      list_workspace
+                    </div>
+                  </div>
+                  <div class="pen-result-124" data-design-id="OoxXy">
+                    <div class="pen-u-82" data-design-id="Ioavb">
+                      3 folders · 14 requests
+                    </div>
+                  </div>
+                </div>
+                <div class="pen-list-workspace-120" data-design-id="rQLgG">
+                  <div class="pen-icon-box-121" data-design-id="Nrl24">
+                    <svg
+                      data-icon-name="radio-tower"
+                      data-icon-set="lucide"
+                      viewBox="0 0 13.99993896484375 14"
+                      preserveAspectRatio="xMidYMid meet"
+                      xmlns="http://www.w3.org/2000/svg"
+                      aria-hidden="true"
+                      focusable="false"
+                      class="pen-arrow-19"
+                      data-design-id="QZH3j"
+                    >
+                      <path
+                        d="M2.73096 0.54688q-0.12646 0.02734-0.22559 0.10595-0.0957 0.0752-0.29394 0.30078-1.38428 1.53809-1.60987 3.62305-0.02734 0.2666-0.02734 0.67334 0 0.40674 0.02734 0.67334 0.22559 2.08496 1.62354 3.65381 0.18457 0.19482 0.27344 0.27344 0.09229 0.0752 0.20507 0.10253 0.18115 0.0581 0.38282-0.02734 0.20508-0.08545 0.28711-0.2666 0.07178-0.11279 0.06494-0.2666-0.00684-0.15381-0.06494-0.26319-0.04102-0.07178-0.25293-0.31103-0.48877-0.52979-0.79639-1.13135-0.30762-0.60156-0.44092-1.18262-0.1333-0.58105-0.1333-1.25439 0-0.67334 0.1333-1.25439 0.1333-0.58105 0.44092-1.17579 0.30762-0.59473 0.81348-1.13818 0.19482-0.23926 0.23584-0.31103 0.05811-0.10938 0.06494-0.26319 0.00684-0.15381-0.06494-0.2666-0.02734-0.07178-0.1128-0.14697-0.08203-0.07861-0.16064-0.1128-0.0752-0.03418-0.18799-0.04785-0.11279-0.01367-0.18115 0.01367z m8.27148-0.00001q-0.10938 0.02734-0.22217 0.1128-0.11279 0.08203-0.17089 0.19482-0.05469 0.11279-0.04786 0.25977 0.00684 0.14697 0.06494 0.25635 0.04101 0.07178 0.23584 0.31103 0.31104 0.33496 0.51954 0.64258 0.71435 1.06299 0.85449 2.35156 0.01367 0.18115 0.01367 0.54688 0 0.3623-0.01367 0.54687-0.19482 1.75-1.41504 3.04883-0.14014 0.15723-0.18115 0.22559-0.04102 0.06836-0.07178 0.18115-0.04101 0.19824 0.04785 0.36572 0.09229 0.16748 0.25977 0.25977 0.1709 0.08887 0.36572 0.04785 0.14014-0.01367 0.21533-0.06836 0.07861-0.05811 0.25977-0.2666 0.61865-0.65967 1.02197-1.48682 0.61865-1.2168 0.68701-2.56006 0.05469-1.2749-0.37939-2.46435-0.43408-1.18945-1.29883-2.15674-0.14014-0.15381-0.21875-0.21533-0.0752-0.06494-0.15381-0.09913-0.07861-0.03418-0.19141-0.04101-0.10938-0.00684-0.18115 0.00683z m-6.54883 1.62354q-0.18457 0.02734-0.37939 0.22217-0.42041 0.43408-0.70068 1.03222-0.28027 0.59473-0.37256 1.24415-0.08887 0.64941 0.03759 1.32959 0.12646 0.68018 0.46143 1.28173 0.11279 0.19482 0.19482 0.27344 0.08545 0.0752 0.22559 0.11963 0.23926 0.06836 0.45459-0.05811 0.21533-0.12646 0.27344-0.37597 0.02734-0.12646 0.00683-0.22559-0.02051-0.09912-0.16064-0.34863-0.23926-0.47852-0.30762-0.89551-0.12646-0.70068 0.06153-1.35693 0.18799-0.65967 0.68017-1.22022 0.11279-0.12646 0.14697-0.20849 0.03418-0.08545 0.04786-0.19825 0.01367-0.23926-0.1128-0.39306-0.0957-0.12305-0.24267-0.18457-0.14697-0.06494-0.31446-0.0376z m4.84326 0.06836q-0.25293 0.08545-0.37939 0.30762-0.04102 0.08545-0.04102 0.24609 0 0.16064 0.04102 0.24609 0.04102 0.08203 0.16748 0.22217 0.33838 0.36572 0.51953 0.7417 0.28027 0.60498 0.2666 1.30567-0.01367 0.69727-0.30761 1.28515l-0.15381 0.29395q-0.04443 0.08545-0.05811 0.12646-0.01367 0.04102-0.01367 0.12647 0 0.2666 0.16748 0.42724 0.16748 0.16064 0.40674 0.16065 0.18115 0.01367 0.31445-0.08203 0.1333-0.09912 0.25977-0.31104 0.34863-0.60156 0.48193-1.29883 0.1333-0.70068 0.03418-1.37402-0.0957-0.61523-0.37598-1.18945-0.28027-0.57422-0.70068-1.0083-0.12646-0.14014-0.21875-0.18116-0.08887-0.04443-0.229-0.05127-0.14014-0.00684-0.18116 0.00684z m-2.57714 1.28857q-0.3623 0.05811-0.69385 0.2837-0.32813 0.22217-0.52295 0.52978-0.11279 0.19482-0.18457 0.44092-0.06836 0.24268-0.06836 0.46142 0 0.21533 0.06836 0.46827 0.07178 0.25293 0.18457 0.43408 0.22217 0.37939 0.60156 0.60156l0.12647 0.08545-1.1211 3.06592q-0.98096 2.71387-1.0083 2.81299-0.04102 0.12647 0 0.27343 0.04102 0.14697 0.15381 0.2461 0.05811 0.06836 0.16065 0.11963 0.10596 0.04785 0.1914 0.06152 0.14014 0.01367 0.30078-0.05469 0.16064-0.07178 0.22901-0.19824 0.05811-0.06836 0.12646-0.2666l0.65967-1.80469 2.15332 0 0.65967 1.80469q0.06836 0.19824 0.12646 0.2666 0.06836 0.12647 0.22901 0.19824 0.16064 0.06836 0.30078 0.05469 0.08545-0.01367 0.18799-0.06152 0.10596-0.05127 0.16406-0.11963 0.12646-0.12646 0.16748-0.30762 0.01367-0.11279-0.01367-0.21875-0.02734-0.10596-1.0083-2.80615l-1.1211-3.06592 0.12647-0.08545q0.50586-0.29395 0.72803-0.85449 0.12646-0.30762 0.12646-0.64258 0-0.33496-0.12646-0.64258-0.18115-0.43408-0.54004-0.72119-0.35547-0.28711-0.8169-0.35889-0.28027-0.04102-0.54687 0z m0.5332 1.20313q0.18115 0.08545 0.2666 0.2666 0.02734 0.05811 0.04102 0.09912 0.01367 0.04102 0.01367 0.15381 0 0.11279-0.01367 0.15381-0.01367 0.04102-0.04102 0.09912-0.09912 0.18115-0.2666 0.28027-0.08545 0.04102-0.25293 0.04102-0.16748 0-0.25293-0.04102-0.16748-0.09912-0.2666-0.28027-0.02734-0.05811-0.04102-0.09912-0.01367-0.04102-0.01367-0.15381 0-0.11279 0.01367-0.15381 0.01367-0.04102 0.04102-0.09912 0.11279-0.22217 0.36572-0.30762 0.04102-0.01367 0.18115-0.00683 0.14014 0.00684 0.22559 0.04785z m0.06836 4.28613q0.30762 0.84082 0.32129 0.875 0.01709 0.03418-0.64258 0.03418-0.65967 0-0.64258-0.02734 0.0957-0.2666 0.36914-1.00147 0.27344-0.73486 0.28028-0.73486 0.00684 0 0.31445 0.85449z"
+                        fill="#aaaaaa"
+                      ></path>
+                    </svg>
+                  </div>
+                  <div class="pen-call-122" data-design-id="m8EHsz">
+                    <div class="pen-tool-123" data-design-id="i4BdX">
+                      grpc_reflect
+                    </div>
+                    <div class="pen-value-70" data-design-id="JVspf">
+                      payments.v1
+                    </div>
+                  </div>
+                  <div class="pen-result-124" data-design-id="scfUF">
+                    <div class="pen-u-82" data-design-id="rNhW5">
+                      Ledger, Refunds
+                    </div>
+                  </div>
+                </div>
+                <div class="pen-list-workspace-120" data-design-id="elgMR">
+                  <div class="pen-icon-box-121" data-design-id="wPyPp">
+                    <svg
+                      data-icon-name="file-plus"
+                      data-icon-set="lucide"
+                      viewBox="0 0 13.99993896484375 14"
+                      preserveAspectRatio="xMidYMid meet"
+                      xmlns="http://www.w3.org/2000/svg"
+                      aria-hidden="true"
+                      focusable="false"
+                      class="pen-arrow-19"
+                      data-design-id="U5xOA"
+                    >
+                      <path
+                        d="M3.33252 0.60156q-0.58789 0.04102-1.02197 0.44776-0.43408 0.40674-0.53321 0.99463-0.02734 0.16748-0.02734 4.95605 0 4.78857 0.02734 4.95605 0.09912 0.5332 0.46827 0.92627 0.37256 0.38965 0.90576 0.50245 0.10938 0.01367 0.66992 0.02734l3.17871 0 3.17871 0q0.56055-0.01367 0.66992-0.02734 0.5332-0.11279 0.90235-0.50245 0.37256-0.39307 0.47168-0.92627 0.02734-0.16748 0.02734-3.80078 0-3.6333-0.02734-3.80078-0.08545-0.51953-0.40674-0.92285-0.11279-0.14014-1.24756-1.2749-0.89551-0.88184-1.10742-1.06983-0.2085-0.19141-0.41699-0.29052-0.30762-0.15381-0.67334-0.19483-0.14014-0.02734-2.4917-0.02734-2.35156 0-2.54639 0.02734z m4.25537 2.42334l0 1.27149 0.04102 0.14013q0.08545 0.22559 0.24609 0.40674 0.16064 0.18115 0.35547 0.28028 0.14014 0.07178 0.22558 0.08544 0.12646 0.02734 0.40674 0.04102l2.21143 0 0 6.11816q0 0.43408-0.0376 0.51954-0.03418 0.08203-0.11963 0.17431-0.08203 0.08887-0.16406 0.1333l-0.09912 0.04102-7.30762 0-0.09912-0.04102q-0.08203-0.04443-0.16748-0.1333-0.08203-0.09228-0.11963-0.17431-0.03418-0.08545-0.03418-0.70069l0-4.18701 0-4.18701q0-0.61523 0.02734-0.6836 0.05811-0.12646 0.16749-0.23242 0.11279-0.10596 0.23925-0.1333 0.08545-0.01367 2.14307-0.01367l2.07129 0 0.01367 1.2749z m2.21143 0.01367l1.03564 1.03565-2.08496 0 0-1.03565q0-1.03564 0-1.04931l1.04932 1.04931z m-2.95313 3.40088q-0.25293 0.08545-0.37939 0.30762-0.02734 0.07178-0.03418 0.16406-0.00684 0.08887-0.00684 0.59131l0 0.67334-1.34326 0-0.08545 0.05469q-0.18115 0.09912-0.28027 0.2666-0.04102 0.08545-0.04102 0.25293 0 0.16748 0.04102 0.24609 0.04443 0.0752 0.12646 0.16065 0.08545 0.08203 0.15381 0.11963 0.07178 0.03418 0.16064 0.04101 0.09229 0.00684 0.59473 0.00684l0.67334 0 0 0.67334q0 0.50244 0.00684 0.59473 0.00684 0.08887 0.04101 0.16064 0.0376 0.06836 0.11963 0.15381 0.08545 0.08203 0.16065 0.12646 0.07861 0.04102 0.24609 0.04102 0.16748 0 0.24268-0.04102 0.07861-0.04443 0.16064-0.12646 0.08545-0.08545 0.11963-0.15381 0.0376-0.07178 0.04443-0.16064 0.00684-0.09229 0.00684-0.59473l0-0.67334 0.67334 0q0.50244 0 0.59131-0.00684 0.09229-0.00684 0.16064-0.04101 0.07178-0.0376 0.15381-0.11963 0.08545-0.08545 0.12647-0.16065 0.04443-0.07861 0.04443-0.24609 0-0.16748-0.04102-0.25293-0.09912-0.16748-0.28027-0.2666l-0.08545-0.05469-1.34326 0 0-0.67334q0-0.50244-0.00684-0.59131-0.00684-0.09229-0.03418-0.16406-0.09912-0.18115-0.28027-0.2666-0.08545-0.04102-0.22559-0.04785-0.14014-0.00684-0.18115 0.00683z"
+                        fill="#aaaaaa"
+                      ></path>
+                    </svg>
+                  </div>
+                  <div class="pen-call-122" data-design-id="LIHcB">
+                    <div class="pen-tool-123" data-design-id="oXzJf">
+                      save_request
+                    </div>
+                    <div class="pen-value-70" data-design-id="JaCsD">
+                      Payments API/Create refund.bonk.json
+                    </div>
+                  </div>
+                  <div class="pen-new-16" data-design-id="S9jCZu">
+                    <div class="pen-label-125" data-design-id="v7gq4d">
+                      created
+                    </div>
+                  </div>
+                </div>
+                <div class="pen-run-saved-request-126" data-design-id="Blzwg">
+                  <div class="pen-icon-box-121" data-design-id="oCKjK">
+                    <svg
+                      data-icon-name="play"
+                      data-icon-set="lucide"
+                      viewBox="0 0 13.99993896484375 14"
+                      preserveAspectRatio="xMidYMid meet"
+                      xmlns="http://www.w3.org/2000/svg"
+                      aria-hidden="true"
+                      focusable="false"
+                      class="pen-arrow-19"
+                      data-design-id="rhzhS"
+                    >
+                      <path
+                        d="M3.75293 1.20313q-0.5332 0.09912-0.91943 0.49218-0.38281 0.38965-0.46827 0.90918-0.02734 0.15381-0.02734 4.39551 0 4.2417 0.02734 4.39551 0.08545 0.51953 0.4751 0.90918 0.5332 0.54687 1.31934 0.51953 0.19482-0.01367 0.34179-0.04785 0.14697-0.0376 0.31446-0.10596 0.12646-0.05811 3.58887-2.07812 3.46582-2.02344 3.63671-2.13624 0.23584-0.15381 0.417-0.38281 0.18457-0.23242 0.27343-0.50586 0.09228-0.27344 0.09229-0.56738 0-0.29395-0.08545-0.57422-0.19482-0.5332-0.65625-0.85449-0.11279-0.08203-3.59912-2.11231-3.48633-2.03027-3.61279-2.10205-0.24951-0.12646-0.5503-0.16748-0.30078-0.04102-0.56738 0.01368z m0.56055 1.18945q0.12305 0.04443 3.62988 2.09521 3.51025 2.05078 3.5581 2.10205 0.04785 0.04785 0.10596 0.15723 0.02734 0.07178 0.04102 0.11963 0.01367 0.04785 0.01367 0.1333 0 0.08545-0.01367 0.1333-0.01367 0.04785-0.04102 0.11963-0.05811 0.10938-0.11621 0.16748-0.05469 0.05469-3.61621 2.12939-3.56152 2.07129-3.66748 2.09864-0.10596 0.02734-0.20508 0.01367-0.32129-0.07178-0.44775-0.33496l-0.04102-0.09912 0-8.45606 0.04102-0.09912q0.09912-0.2085 0.32129-0.29053 0.22559-0.08545 0.4375 0.01026z"
+                        fill="#aaaaaa"
+                      ></path>
+                    </svg>
+                  </div>
+                  <div class="pen-call-122" data-design-id="hnv0U">
+                    <div class="pen-tool-123" data-design-id="wApDR">
+                      run_saved_request
+                    </div>
+                    <div class="pen-value-70" data-design-id="B3UT3">
+                      POST {{baseUrl}}/v1/refunds
+                    </div>
+                  </div>
+                  <div class="pen-delta-83" data-design-id="Y4NFF">
+                    <div class="pen-label-127" data-design-id="BSs02">
+                      201 Created · 142 ms
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="pen-answer-128" data-design-id="Oec9z">
+                <div class="pen-text-129" data-design-id="KzDHM">
+                  Done. The request is saved next to the others — it shows up in
+                  the bonk tree and in git diff. The token was filled in from
+                  {{TOKEN}}; its value was never shared with me.
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="trust-row pen-row-1-49" data-design-id="NHCrS">
+            <div
+              class="card card-install pen-one-click-install-130"
+              data-design-id="B4MGA"
+            >
+              <div
+                aria-hidden="true"
+                class="pen-copy-63"
+                data-design-id="qmQNY"
+              >
+                <div class="pen-path-131" data-design-id="Qxe8j">
+                  <div class="pen-u-82" data-design-id="BMHue">Settings</div>
+                  <svg
+                    data-icon-name="chevron-right"
+                    data-icon-set="lucide"
+                    viewBox="0 0 13.99993896484375 14"
+                    preserveAspectRatio="xMidYMid meet"
+                    xmlns="http://www.w3.org/2000/svg"
+                    aria-hidden="true"
+                    focusable="false"
+                    class="pen-chevron-132"
+                    data-design-id="rir3O"
+                  >
+                    <path
+                      d="M5.09619 2.93945q-0.25293 0.08545-0.37939 0.30762-0.04102 0.08545-0.04102 0.25293 0 0.16748 0.04102 0.25293 0.04443 0.08203 1.62353 1.66455l1.58252 1.58252-1.58252 1.58252q-1.5791 1.58252-1.62353 1.66797-0.04102 0.08203-0.04102 0.23584 0 0.15381 0.03418 0.23926 0.0376 0.08203 0.1333 0.18115 0.09912 0.0957 0.18115 0.1333 0.08545 0.03418 0.23926 0.03418 0.15381 0 0.24268-0.04785 0.09229-0.05127 1.90381-1.8628 1.81494-1.81494 1.86279-1.9038 0.05127-0.09229 0.05127-0.25977 0-0.16748-0.04443-0.24951-0.04102-0.08545-1.85938-1.90723l-1.44238-1.42871q-0.33496-0.33496-0.46143-0.41699-0.09912-0.07178-0.19824-0.07178l-0.04102 0q-0.14014 0-0.18115 0.01367z"
+                      fill="#888888"
+                    ></path>
+                  </svg>
+                  <div class="pen-u-82" data-design-id="B27Gg">AI / MCP</div>
+                </div>
+                <div class="pen-install-button-133" data-design-id="ngh7e">
+                  <svg
+                    data-icon-name="plug-zap"
+                    data-icon-set="lucide"
+                    viewBox="0 0 13.99993896484375 14"
+                    preserveAspectRatio="xMidYMid meet"
+                    xmlns="http://www.w3.org/2000/svg"
+                    aria-hidden="true"
+                    focusable="false"
+                    class="pen-icon-134"
+                    data-design-id="HbESn"
+                  >
+                    <path
+                      d="M10.34619 1.18945q-0.11279 0.04102-0.32471 0.23243-0.2085 0.18799-1.104 1.08349-1.23047 1.23389-1.25781 1.30225-0.12646 0.22559-0.04444 0.46484 0.08545 0.23584 0.32129 0.34863l0.09912 0.04102 2.21143 0.01367-0.70068 0.70068q-0.44775 0.44775-0.58106 0.5879-0.12988 0.14014-0.16064 0.20849-0.10938 0.23926-0.01367 0.46485 0.09912 0.22217 0.32128 0.32128 0.22559 0.0957 0.46485-0.01367 0.06836-0.03076 0.29053-0.23926 0.22559-0.2085 1.04248-1.03564 0.82031-0.82715 1.0288-1.04932 0.21191-0.22559 0.25635-0.28027 0.0957-0.23926 0.01026-0.46143-0.08203-0.22559-0.32129-0.33837-0.05469-0.02734-0.2085-0.02735l-2.08496-0.01367 0.70068-0.70068q0.68359-0.71436 0.73145-0.79639 0.05127-0.08545 0.05127-0.23926 0-0.15381-0.0376-0.23584-0.03418-0.08545-0.12988-0.18457-0.15381-0.15381-0.3794-0.16748-0.14014 0-0.18115 0.01367z m-4.62109 4.66211q-0.0957 0.01367-0.17432 0.05811-0.0752 0.04102-0.62207 0.58789l-0.54687 0.54346-0.26661-0.24952q-0.25293-0.25293-0.35205-0.30761-0.0957-0.05811-0.26318-0.05811l-0.01367 0q-0.14014 0-0.21875 0.0376-0.0752 0.03418-0.25635 0.20166-0.12646 0.10938-0.56055 0.56055l-0.0581 0.05468q-0.7417 0.7417-0.83399 0.86817-0.08887 0.12646-0.18798 0.32129-0.0957 0.19482-0.14014 0.34863-0.0957 0.35205-0.05469 0.71777 0.04102 0.3623 0.19483 0.6836 0.14014 0.2666 0.46484 0.60156l0.24951 0.25293-0.69726 0.71435q-0.70068 0.70068-0.72803 0.76905-0.14014 0.2666-0.01709 0.5332 0.12646 0.2666 0.42041 0.32129 0.19824 0.02734 0.37939-0.07178 0.06836-0.02734 0.76905-0.72803l0.71435-0.69726 0.25293 0.24951q0.33496 0.32471 0.60156 0.46485 0.30762 0.15381 0.67676 0.18798 0.37256 0.03418 0.72461-0.04785 0.15381-0.04443 0.34863-0.14013 0.19482-0.09912 0.32129-0.18799 0.12646-0.09229 0.875-0.84766 0.74854-0.75879 0.79639-0.84082 0.05127-0.08545 0.05127-0.25293 0-0.16748-0.05811-0.26318-0.05469-0.09912-0.29052-0.33838l-0.26661-0.28028 0.56055-0.54687q0.54346-0.56055 0.58789-0.62891 0.0957-0.21191 0.02393-0.44775-0.06836-0.23926-0.27686-0.33496-0.12646-0.07178-0.28711-0.07178-0.16064 0-0.27343 0.07178-0.06836 0.04102-0.61524 0.58789l-0.56055 0.54346-0.90918-0.90918 0.54346-0.56055q0.56055-0.56055 0.58789-0.62891 0.09912-0.18115 0.07178-0.37939-0.05469-0.23584-0.24609-0.36914-0.18799-0.1333-0.44092-0.09229z m-0.88184 3.31885l1.32959 1.32959-0.52978 0.51953q-0.42041 0.43408-0.54004 0.51953-0.11963 0.08203-0.28028 0.11621-0.16064 0.03418-0.32129 0-0.16064-0.03418-0.2871-0.11962-0.07178-0.05469-0.90918-0.89551-0.58789-0.58789-0.72803-0.73487-0.14014-0.14697-0.16748-0.23242-0.09912-0.22217-0.07178-0.46142 0.02734-0.14014 0.06152-0.21534 0.0376-0.07861 0.16407-0.21875 0.0957-0.0957 0.40332-0.42041 0.51953-0.51611 0.5332-0.51611 0.01367 0 1.34326 1.32959z"
+                      fill="#151515"
+                    ></path>
+                  </svg>
+                  <div class="pen-label-13" data-design-id="rVnOJ">
+                    Install for all clients
+                  </div>
+                </div>
+                <div class="pen-files-135" data-design-id="PnnIr">
+                  <div
+                    class="pen-claude-desktop-config-json-136"
+                    data-design-id="TcUbU"
+                  >
+                    <svg
+                      data-icon-name="check"
+                      data-icon-set="lucide"
+                      viewBox="0 0 13.99993896484375 14"
+                      preserveAspectRatio="xMidYMid meet"
+                      xmlns="http://www.w3.org/2000/svg"
+                      aria-hidden="true"
+                      focusable="false"
+                      class="pen-chevron-132"
+                      data-design-id="VRcjL"
+                    >
+                      <path
+                        d="M11.48096 2.95313q-0.07178 0.01367-0.12989 0.0581-0.05469 0.04102-3.07617 3.06592l-3.0249 3.00781-1.28857-1.28857q-1.28857-1.28516-1.38086-1.32618-0.08887-0.04443-0.22217-0.04443-0.1333 0-0.23242 0.0376-0.0957 0.03418-0.18799 0.11279-0.08887 0.0752-0.1333 0.1709-0.02734 0.07178-0.03418 0.11279-0.00684 0.04102-0.00684 0.14014l0 0.04102q-0.01367 0.11279 0.04102 0.19824 0.07178 0.10938 0.36572 0.40332 0.19482 0.21191 0.96729 0.98096l1.49707 1.48339q0.28027 0.2666 0.38964 0.33838 0.07178 0.05469 0.18457 0.04102l0.09571 0.01367q0.07178 0 0.14013-0.02734 0.08545-0.07178 0.32129-0.28711 0.23926-0.21875 0.79981-0.76221l2.2832-2.2832q2.08496-2.09863 2.7002-2.71387 0.61524-0.61865 0.64599-0.68701 0.04102-0.08545 0.04102-0.23926 0-0.09912-0.00684-0.14014-0.00684-0.04102-0.03418-0.11279-0.04443-0.08203-0.13672-0.16406-0.08887-0.08545-0.18115-0.11963-0.08887-0.0376-0.20849-0.0376-0.11963 0-0.18799 0.02734z"
+                        fill="#5bd69a"
+                      ></path>
+                    </svg>
+                    <div class="pen-label-137" data-design-id="quDqH">
+                      claude_desktop_config.json
+                    </div>
+                  </div>
+                  <div
+                    class="pen-claude-desktop-config-json-136"
+                    data-design-id="iylOm"
+                  >
+                    <svg
+                      data-icon-name="check"
+                      data-icon-set="lucide"
+                      viewBox="0 0 13.99993896484375 14"
+                      preserveAspectRatio="xMidYMid meet"
+                      xmlns="http://www.w3.org/2000/svg"
+                      aria-hidden="true"
+                      focusable="false"
+                      class="pen-chevron-132"
+                      data-design-id="vU4JH"
+                    >
+                      <path
+                        d="M11.48096 2.95313q-0.07178 0.01367-0.12989 0.0581-0.05469 0.04102-3.07617 3.06592l-3.0249 3.00781-1.28857-1.28857q-1.28857-1.28516-1.38086-1.32618-0.08887-0.04443-0.22217-0.04443-0.1333 0-0.23242 0.0376-0.0957 0.03418-0.18799 0.11279-0.08887 0.0752-0.1333 0.1709-0.02734 0.07178-0.03418 0.11279-0.00684 0.04102-0.00684 0.14014l0 0.04102q-0.01367 0.11279 0.04102 0.19824 0.07178 0.10938 0.36572 0.40332 0.19482 0.21191 0.96729 0.98096l1.49707 1.48339q0.28027 0.2666 0.38964 0.33838 0.07178 0.05469 0.18457 0.04102l0.09571 0.01367q0.07178 0 0.14013-0.02734 0.08545-0.07178 0.32129-0.28711 0.23926-0.21875 0.79981-0.76221l2.2832-2.2832q2.08496-2.09863 2.7002-2.71387 0.61524-0.61865 0.64599-0.68701 0.04102-0.08545 0.04102-0.23926 0-0.09912-0.00684-0.14014-0.00684-0.04102-0.03418-0.11279-0.04443-0.08203-0.13672-0.16406-0.08887-0.08545-0.18115-0.11963-0.08887-0.0376-0.20849-0.0376-0.11963 0-0.18799 0.02734z"
+                        fill="#5bd69a"
+                      ></path>
+                    </svg>
+                    <div class="pen-label-137" data-design-id="DUHn6">
+                      config.toml
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="pen-env-demo-72" data-design-id="Zi3BQ">
+                <h3 class="pen-title-138" data-design-id="Y0dEC">
+                  One-click setup
+                </h3>
+                <p class="pen-desc-139" data-design-id="BS2JY">
+                  bonk finds Claude Desktop, Claude Code and ChatGPT/Codex and
+                  adds itself to their configs. Existing settings stay untouched
+                  and get backed up.
+                </p>
+              </div>
+            </div>
+            <div
+              class="card card-permissions pen-permissions-140"
+              data-design-id="Yi8gJ"
+            >
+              <div
+                aria-hidden="true"
+                class="pen-env-demo-72"
+                data-design-id="lLmTw"
+              >
+                <div
+                  class="pen-allow-workspace-edits-141"
+                  data-design-id="GcyN9"
+                >
+                  <div class="pen-text-18" data-design-id="QoACW">
+                    Allow workspace edits
+                  </div>
+                  <div class="pen-switch-142" data-design-id="TYawj">
+                    <div class="pen-knob-143" data-design-id="mk7AF"></div>
+                  </div>
+                </div>
+                <div
+                  class="pen-allow-workspace-edits-141"
+                  data-design-id="MeSUS"
+                >
+                  <div class="pen-text-18" data-design-id="EU4yF">
+                    Allow API calls
+                  </div>
+                  <div class="pen-switch-142" data-design-id="En4bm">
+                    <div class="pen-knob-143" data-design-id="T5QyZY"></div>
+                  </div>
+                </div>
+                <div
+                  class="pen-allow-workspace-edits-141"
+                  data-design-id="vDyZk"
+                >
+                  <div class="pen-label-144" data-design-id="jFNu7">
+                    Only api.staging.dev
+                  </div>
+                  <div class="pen-switch-142" data-design-id="aZtcR">
+                    <div class="pen-knob-143" data-design-id="alKWA"></div>
+                  </div>
+                </div>
+              </div>
+              <div class="pen-env-demo-72" data-design-id="i2k4k">
+                <h3 class="pen-title-138" data-design-id="JjjKm">
+                  Agents do only what you allow
+                </h3>
+                <p class="pen-desc-139" data-design-id="mxyVC">
+                  Read-only mode, no-network mode and a host allowlist. Every
+                  tool is marked read-only or destructive, so your client knows
+                  when to ask.
+                </p>
+              </div>
+            </div>
+            <div
+              class="card card-secrets pen-one-click-install-130"
+              data-design-id="cqGLl"
+            >
+              <div
+                aria-hidden="true"
+                class="pen-redaction-145"
+                data-design-id="k9RtTQ"
+              >
+                <div class="pen-authorization-146" data-design-id="WE0BY">
+                  <div class="pen-key-147" data-design-id="w5HTM7">
+                    Authorization
+                  </div>
+                  <div class="pen-value-148" data-design-id="ZRURR">
+                    <div class="pen-label-125" data-design-id="FvSke">
+                      Bearer {{TOKEN}}
+                    </div>
+                  </div>
+                </div>
+                <div class="pen-authorization-146" data-design-id="dloa9">
+                  <div class="pen-key-147" data-design-id="XgOWv">
+                    X-Api-Key
+                  </div>
+                  <div class="pen-value-149" data-design-id="myE4h">
+                    <div class="pen-u-82" data-design-id="BkXBa">
+                      [redacted]
+                    </div>
+                  </div>
+                </div>
+                <div class="pen-authorization-146" data-design-id="q8jl4W">
+                  <div class="pen-key-147" data-design-id="bRQkl">Cookie</div>
+                  <div class="pen-value-149" data-design-id="nGE4a">
+                    <div class="pen-u-82" data-design-id="o8Sr2d">
+                      [redacted]
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="pen-env-demo-72" data-design-id="XNuw4">
+                <h3 class="pen-title-138" data-design-id="FnC6B">
+                  Secrets never reach the model
+                </h3>
+                <p class="pen-desc-139" data-design-id="b7xGJ">
+                  Tokens from BONK_VAR_* are injected into requests but never
+                  shown to the agent. Stored keys, cookies and passwords are
+                  redacted by default.
+                </p>
+              </div>
+            </div>
+          </div>
+        </section>
+        <section
+          class="platforms pen-platforms-150"
+          id="platforms"
+          data-design-id="CrhdZ"
+        >
+          <div class="platform-pitch pen-left-151" data-design-id="QU4zm">
+            <p class="pen-eyebrow-46" data-design-id="H10Jx">03 / PLATFORMS</p>
+            <h2 class="pen-title-152" data-design-id="o1Wwox">
+              Native on
+              <br />
+              macOS and Linux.
+            </h2>
+            <p class="pen-body-108" data-design-id="N8rRoY">
+              Rust and the system WebView instead of a bundled Chromium. The
+              installer is about 7 MB, and the app updates itself from signed
+              releases in one click.
+            </p>
+            <div class="pen-update-note-153" data-design-id="l9glJ">
+              <div class="pen-icon-box-154" data-design-id="m9uDwz">
+                <svg
+                  data-icon-name="refresh-cw"
+                  data-icon-set="lucide"
+                  viewBox="0 0 13.99993896484375 14"
+                  preserveAspectRatio="xMidYMid meet"
+                  xmlns="http://www.w3.org/2000/svg"
+                  aria-hidden="true"
+                  focusable="false"
+                  class="pen-icon-106"
+                  data-design-id="XWqwY"
+                >
+                  <path
+                    d="M6.56592 1.18945q-1.12109 0.08545-2.1294 0.57422-0.9502 0.46143-1.66455 1.22022-0.71436 0.75537-1.13476 1.71924-0.22217 0.54688-0.34864 1.13476-0.12646 0.58789-0.11279 1.10742 0 0.19482 0.03418 0.28028 0.0376 0.08203 0.1333 0.18115 0.09912 0.0957 0.18115 0.1333 0.08545 0.03418 0.22559 0.03418 0.14014 0 0.22217-0.03418 0.08545-0.0376 0.1914-0.1333 0.10596-0.09912 0.14014-0.23926 0.03418-0.14014 0.03418-0.39307 0.01367-0.30762 0.0957-0.71777 0.08545-0.41357 0.22559-0.75195 0.42041-1.09033 1.31592-1.85254 0.89551-0.76563 2.04394-1.01514 0.30762-0.07178 0.72803-0.09228 0.42041-0.02051 0.75537 0.0205 1.76709 0.18115 3.11035 1.4834l0.22217 0.22559-0.7417 0q-0.7417 0-0.85449 0.02734-0.24951 0.02734-0.38281 0.23242-0.1333 0.20166-0.09912 0.43409 0.03418 0.229 0.24609 0.36914l0.01367 0.01367q0.08203 0.05811 0.15381 0.07178 0.11279 0.01367 0.43408 0.02734l2.79932-0.01367 0.09912-0.04102q0.18115-0.08545 0.28027-0.28027l0.04102-0.07178 0-3.26074-0.04102-0.08545q-0.09912-0.16748-0.28027-0.2666-0.05811-0.02734-0.09912-0.04102-0.04102-0.01367-0.15381-0.01367-0.11279 0-0.15381 0.01367-0.04101 0.01367-0.09912 0.04102-0.18115 0.09912-0.28027 0.2666l-0.04102 0.08545 0 1.67822-0.28027-0.26318q-0.3623-0.36572-0.72119-0.62207-0.35547-0.25977-0.78955-0.48535-1.10742-0.58789-2.38233-0.70069-0.15381-0.01367-0.4751-0.01367-0.32129 0-0.46142 0.01367z m5.53027 5.25q-0.11279 0.04102-0.21875 0.12647-0.10254 0.08545-0.14697 0.18115-0.04102 0.05811-0.04102 0.15381l-0.05468 0.54687q-0.04443 0.65967-0.30762 1.28858-0.47851 1.18945-1.47998 1.96191-0.99805 0.76904-2.24561 0.93653-0.7417 0.08203-1.5039-0.05811-0.76221-0.14014-1.43555-0.48877-0.72803-0.39307-1.3877-1.03564l-0.10937-0.12647 0.75537 0q0.50244 0 0.66992-0.01367 0.22559-0.01367 0.30762-0.04102 0.08545-0.03076 0.1709-0.12646 0.22217-0.22559 0.16748-0.51953-0.05469-0.29395-0.34863-0.43408l-0.08545-0.02735-3.20606 0-0.08545 0.04102q-0.19482 0.08545-0.29394 0.28027l-0.04102 0.07178 0 3.26074 0.04102 0.08545q0.04443 0.06836 0.12646 0.15381 0.08545 0.08203 0.16065 0.12646 0.07861 0.04102 0.24609 0.04102 0.16748 0 0.24268-0.04102 0.07861-0.04443 0.16064-0.12646 0.08545-0.08545 0.12988-0.15381l0.04102-0.08545 0-1.67822 0.25293 0.24951q0.24951 0.23926 0.43408 0.39307 1.37061 1.14844 3.20606 1.40136 0.2085 0.02734 0.63574 0.03418 0.42725 0.00684 0.64941-0.00683 1.3877-0.12646 2.57715-0.8545 1.14844-0.72803 1.87646-1.87646 0.72803-1.17578 0.8545-2.57715 0.02734-0.22217 0.01367-0.44775 0-0.19482-0.0376-0.27686-0.03418-0.08545-0.11621-0.18457-0.16748-0.15381-0.39307-0.16748-0.14014 0-0.18115 0.01367z"
+                    fill="#5bd69a"
+                  ></path>
+                </svg>
+              </div>
+              <div class="pen-text-18" data-design-id="COgtY">
+                Auto-updates built in
+              </div>
+            </div>
+          </div>
+          <div class="platform-list pen-list-155" data-design-id="ruxm8">
+            <div class="platform-mac pen-macos-156" data-design-id="C9fm0y">
+              <div
+                class="platform-name pen-authorization-146"
+                data-design-id="k3yvk"
+              >
+                <div class="pen-name-157" data-design-id="GApY1">
+                  <svg
+                    data-icon-name="apple-logo"
+                    data-icon-set="phosphor"
+                    viewBox="0 0 14 14"
+                    preserveAspectRatio="xMidYMid meet"
+                    xmlns="http://www.w3.org/2000/svg"
+                    aria-hidden="true"
+                    focusable="false"
+                    class="pen-logo-158"
+                    data-design-id="OI0Tn"
+                  >
+                    <path
+                      d="M7.16406 1.64063q0.21875-0.65625 0.79297-1.03907 0.57422-0.38281 1.23047-0.38281 0.16406 0 0.30078 0.13672 0.13672 0.13672 0.13672 0.30078 0 0.16406-0.13672 0.30078-0.13672 0.13672-0.30078 0.13672-0.38281 0-0.73828 0.21875-0.35547 0.21875-0.46484 0.57422-0.10938 0.35547-0.4375 0.30078l-0.16407 0q-0.16406-0.05469-0.24609-0.21875-0.08203-0.16406 0.02734-0.32813z m5.19531 7.4375q-0.60156 1.42188-1.53125 2.29687-0.92969 0.875-1.85937 0.875l-3.9375 0q-0.65625 0-1.36719-0.49219-0.71094-0.49219-1.3125-1.36719-1.25781-1.85938-1.25781-4.04687 0-1.03906 0.54688-1.94141 0.54688-0.90234 1.47656-1.36718 0.92969-0.46484 1.96875-0.38282 1.03906 0.08203 1.91406 0.6836 0.82031-0.60156 1.77734-0.71094 0.95703-0.10938 1.83203 0.27344 0.875 0.38281 1.53125 1.14844 0.10938 0.16406 0.05469 0.35546-0.05469 0.19141-0.21875 0.30079-0.49219 0.27344-0.76562 0.82031-0.27344 0.54688-0.27344 1.14844 0 0.60156 0.32812 1.09375 0.32813 0.49219 0.875 0.76562 0.16406 0.05469 0.21875 0.21875 0.05469 0.16406 0 0.32813z m-0.98437 0q-0.54688-0.38281-0.90234-1.01172-0.35547-0.62891-0.41016-1.33985-0.05469-0.71094 0.21875-1.36718 0.27344-0.65625 0.82031-1.09375-0.82031-0.76563-1.91406-0.76563-1.09375 0-1.85938 0.71094-0.16406 0.10938-0.32812 0.10937-0.16406 0-0.27344-0.10937-0.65625-0.54688-1.47656-0.6836-0.82031-0.13672-1.58594 0.21875-0.76563 0.35547-1.23047 1.06641-0.46484 0.71094-0.46484 1.53125 0 1.3125 0.54688 2.51563 0.4375 1.09375 1.17578 1.80468 0.73828 0.71094 1.33984 0.71094l3.9375 0q0.60156 0 1.28516-0.65625 0.68359-0.65625 1.12109-1.64063z"
+                      fill="#eeeeee"
+                    ></path>
+                  </svg>
+                  <div class="pen-label-159" data-design-id="C5KuV">macOS</div>
+                </div>
+                <div class="pen-meta-160" data-design-id="xAhup">
+                  Apple Silicon · .dmg · Homebrew
+                </div>
+              </div>
+              <div
+                class="install-command pen-command-161"
+                data-design-id="u6Jccp"
+              >
+                <div class="pen-prompt-162" data-design-id="Sixfs">$</div>
+                <div class="pen-cmd-163" data-design-id="gicp7">
+                  brew install --cask nekidaz/tap/bonk
+                </div>
+                <button
+                  type="button"
+                  data-copy="brew install --cask nekidaz/tap/bonk"
+                  aria-label="Copy Homebrew install command"
+                  class="pen-copy-164"
+                  data-design-id="XEyTb"
+                >
+                  <svg
+                    data-icon-name="copy"
+                    data-icon-set="lucide"
+                    viewBox="0 0 13.99993896484375 14"
+                    preserveAspectRatio="xMidYMid meet"
+                    xmlns="http://www.w3.org/2000/svg"
+                    aria-hidden="true"
+                    focusable="false"
+                    class="pen-arrow-19"
+                    data-design-id="zf90K"
+                  >
+                    <path
+                      d="M2.15674 0.60156q-0.29395 0.02734-0.58789 0.16748-0.29395 0.14014-0.50586 0.36573-0.30762 0.32129-0.43408 0.78271l-0.04102 0.16748 0 6.33008 0.04102 0.16748q0.22559 0.78271 0.91259 1.13477 0.2085 0.10938 0.46827 0.16748 0.25977 0.05469 0.41357 0.02734 0.24951-0.05469 0.38965-0.24268 0.14014-0.19141 0.08545-0.44433-0.02734-0.16748-0.16065-0.30762-0.1333-0.14014-0.3999-0.16748-0.39307-0.04102-0.5332-0.34863l-0.04102-0.09912 0-6.1045 0.04102-0.09912q0.09912-0.19482 0.29394-0.29394l0.09912-0.04102 6.1045 0 0.09912 0.04102q0.30762 0.14014 0.34863 0.51953 0.02734 0.2666 0.18115 0.42041 0.12646 0.12646 0.30762 0.15381 0.29395 0.05469 0.50586-0.15381 0.11279-0.11279 0.14697-0.24609 0.03418-0.1333 0.02051-0.32813-0.08545-0.646-0.52637-1.07666-0.44092-0.43408-1.08349-0.49219-0.16748-0.02734-3.06592-0.02734-2.89844 0-3.07959 0.02734z m3.5 3.5q-0.29395 0.02734-0.58789 0.16748-0.29395 0.14014-0.50586 0.3794-0.30762 0.32129-0.43408 0.79638l-0.04102 0.1709 0 6.29932 0.04102 0.16748q0.07178 0.25293 0.18115 0.44092 0.11279 0.18799 0.29394 0.37256 0.18457 0.18115 0.37256 0.29394 0.18799 0.10938 0.44092 0.18115l0.16748 0.04102 6.33008 0 0.16748-0.04102q0.25293-0.07178 0.44092-0.18115 0.18799-0.11279 0.36914-0.29394 0.18457-0.18457 0.29394-0.37256 0.11279-0.18799 0.18457-0.44092l0.04102-0.16748 0-6.33008-0.04102-0.16748q-0.12646-0.46143-0.43408-0.78271-0.44775-0.4751-1.13476-0.54688-0.16748-0.01367-3.06592-0.01367-2.89844 0-3.07959 0.02734z m6.24463 1.20313q0.19482 0.09912 0.29394 0.29394l0.04102 0.09912 0 6.1045-0.02735 0.08545q-0.12646 0.26318-0.37939 0.33496-0.08203 0.02734-3.07959 0.02734-2.99756 0-3.07959-0.02734-0.25293-0.07178-0.37939-0.33496l-0.02735-0.08545 0-6.1045 0.04102-0.09912q0.11279-0.24951 0.37939-0.32129 0.08545-0.02734 3.10694-0.02734l3.01123 0.01367 0.09912 0.04102z"
+                      fill="#aaaaaa"
+                    ></path>
+                  </svg>
+                  <div class="pen-text-18" data-design-id="ZerFh">Copy</div>
+                </button>
+              </div>
+            </div>
+            <div class="platform-linux pen-linux-165" data-design-id="HqIaC">
+              <div
+                class="platform-name pen-authorization-146"
+                data-design-id="b6TIF"
+              >
+                <div class="pen-name-157" data-design-id="JSPRY">
+                  <svg
+                    data-icon-name="linux-logo"
+                    data-icon-set="phosphor"
+                    viewBox="0 0 14 14"
+                    preserveAspectRatio="xMidYMid meet"
+                    xmlns="http://www.w3.org/2000/svg"
+                    aria-hidden="true"
+                    focusable="false"
+                    class="pen-logo-158"
+                    data-design-id="H21OV"
+                  >
+                    <path
+                      d="M12.46875 12.19531q-0.16406 0.10938-0.32813 0.05469-0.16406-0.05469-0.27343-0.21875-0.4375-0.82031-0.92969-2.07812-0.875-2.46094-0.875-4.70313 0-0.82031-0.41016-1.53125-0.41016-0.71094-1.12109-1.12109-0.71094-0.41016-1.53125-0.41016-0.82031 0-1.53125 0.41016-0.71094 0.41016-1.12109 1.12109-0.41016 0.71094-0.41016 1.53125 0 2.24219-0.875 4.70313-0.49219 1.25781-0.92969 2.07812-0.10938 0.21875-0.38281 0.21875-0.10938 0-0.24609-0.08203-0.13672-0.08203-0.19141-0.24609-0.05469-0.16406 0.05469-0.32813 0.16406-0.27344 0.4375-0.92969 0.49219-1.09375 0.82031-2.29687 0.4375-1.64063 0.4375-3.11719 0-1.09375 0.51953-1.99609 0.51953-0.90234 1.42188-1.42188 0.90234-0.51953 1.99609-0.51953 1.09375 0 1.99609 0.51953 0.90234 0.51953 1.42188 1.42188 0.51953 0.90234 0.51953 1.99609 0 1.47656 0.4375 3.11719 0.32813 1.20313 0.82031 2.29687 0.27344 0.65625 0.4375 0.92969 0.10938 0.16406 0.05469 0.32813-0.05469 0.16406-0.21875 0.27343z m-7-6.94531q-0.27344 0-0.46484 0.19141-0.19141 0.19141-0.19141 0.46484 0 0.27344 0.19141 0.46484 0.19141 0.19141 0.46484 0.19141 0.27344 0 0.46484-0.19141 0.19141-0.19141 0.19141-0.46484 0-0.27344-0.19141-0.46484-0.19141-0.19141-0.46484-0.19141z m3.71875 0.65625q0-0.27344-0.19141-0.46484-0.19141-0.19141-0.46484-0.19141-0.27344 0-0.46484 0.19141-0.19141 0.19141-0.19141 0.46484 0 0.27344 0.19141 0.46484 0.19141 0.19141 0.46484 0.19141 0.27344 0 0.46484-0.19141 0.19141-0.19141 0.19141-0.46484z m-3.71875 1.58594q-0.27344-0.10938-0.46484 0.02734-0.19141 0.13672-0.19141 0.38281 0 0.24609 0.21875 0.35547l1.75 0.875q0.21875 0.10938 0.4375 0l1.75-0.875q0.21875-0.10938 0.21875-0.35547 0-0.24609-0.19141-0.38281-0.19141-0.13672-0.46484-0.02734l-1.53125 0.76562-1.53125-0.76562z m1.53125 2.57031q-0.82031 0-1.53125 0.41016-0.71094 0.41016-1.14844 1.12109-0.10938 0.21875 0 0.46484 0.10938 0.24609 0.38281 0.21875 0.27344-0.02734 0.38282-0.24609 0.32813-0.49219 0.82031-0.79297 0.49219-0.30078 1.09375-0.30078 0.60156 0 1.09375 0.30078 0.49219 0.30078 0.82031 0.79297 0.10938 0.21875 0.38282 0.21875 0.10938 0 0.21875-0.08203 0.10938-0.08203 0.16406-0.24609 0.05469-0.16406 0-0.32813-0.4375-0.71094-1.14844-1.12109-0.71094-0.41016-1.53125-0.41016z"
+                      fill="#eeeeee"
+                    ></path>
+                  </svg>
+                  <div class="pen-label-159" data-design-id="laLvm">Linux</div>
+                </div>
+                <div class="pen-meta-160" data-design-id="rLHjv">
+                  x86-64 · AppImage · .deb
+                </div>
+              </div>
+              <div
+                class="install-command pen-command-161"
+                data-design-id="GtfpU"
+              >
+                <div class="pen-prompt-162" data-design-id="pGk9J">$</div>
+                <div class="pen-cmd-163" data-design-id="qWYlH">
+                  sudo apt install ./bonk_*.deb
+                </div>
+                <button
+                  type="button"
+                  data-copy="sudo apt install ./bonk_*.deb"
+                  aria-label="Copy Linux install command"
+                  class="pen-copy-164"
+                  data-design-id="KyDLu"
+                >
+                  <svg
+                    data-icon-name="copy"
+                    data-icon-set="lucide"
+                    viewBox="0 0 13.99993896484375 14"
+                    preserveAspectRatio="xMidYMid meet"
+                    xmlns="http://www.w3.org/2000/svg"
+                    aria-hidden="true"
+                    focusable="false"
+                    class="pen-arrow-19"
+                    data-design-id="bvN08"
+                  >
+                    <path
+                      d="M2.15674 0.60156q-0.29395 0.02734-0.58789 0.16748-0.29395 0.14014-0.50586 0.36573-0.30762 0.32129-0.43408 0.78271l-0.04102 0.16748 0 6.33008 0.04102 0.16748q0.22559 0.78271 0.91259 1.13477 0.2085 0.10938 0.46827 0.16748 0.25977 0.05469 0.41357 0.02734 0.24951-0.05469 0.38965-0.24268 0.14014-0.19141 0.08545-0.44433-0.02734-0.16748-0.16065-0.30762-0.1333-0.14014-0.3999-0.16748-0.39307-0.04102-0.5332-0.34863l-0.04102-0.09912 0-6.1045 0.04102-0.09912q0.09912-0.19482 0.29394-0.29394l0.09912-0.04102 6.1045 0 0.09912 0.04102q0.30762 0.14014 0.34863 0.51953 0.02734 0.2666 0.18115 0.42041 0.12646 0.12646 0.30762 0.15381 0.29395 0.05469 0.50586-0.15381 0.11279-0.11279 0.14697-0.24609 0.03418-0.1333 0.02051-0.32813-0.08545-0.646-0.52637-1.07666-0.44092-0.43408-1.08349-0.49219-0.16748-0.02734-3.06592-0.02734-2.89844 0-3.07959 0.02734z m3.5 3.5q-0.29395 0.02734-0.58789 0.16748-0.29395 0.14014-0.50586 0.3794-0.30762 0.32129-0.43408 0.79638l-0.04102 0.1709 0 6.29932 0.04102 0.16748q0.07178 0.25293 0.18115 0.44092 0.11279 0.18799 0.29394 0.37256 0.18457 0.18115 0.37256 0.29394 0.18799 0.10938 0.44092 0.18115l0.16748 0.04102 6.33008 0 0.16748-0.04102q0.25293-0.07178 0.44092-0.18115 0.18799-0.11279 0.36914-0.29394 0.18457-0.18457 0.29394-0.37256 0.11279-0.18799 0.18457-0.44092l0.04102-0.16748 0-6.33008-0.04102-0.16748q-0.12646-0.46143-0.43408-0.78271-0.44775-0.4751-1.13476-0.54688-0.16748-0.01367-3.06592-0.01367-2.89844 0-3.07959 0.02734z m6.24463 1.20313q0.19482 0.09912 0.29394 0.29394l0.04102 0.09912 0 6.1045-0.02735 0.08545q-0.12646 0.26318-0.37939 0.33496-0.08203 0.02734-3.07959 0.02734-2.99756 0-3.07959-0.02734-0.25293-0.07178-0.37939-0.33496l-0.02735-0.08545 0-6.1045 0.04102-0.09912q0.11279-0.24951 0.37939-0.32129 0.08545-0.02734 3.10694-0.02734l3.01123 0.01367 0.09912 0.04102z"
+                      fill="#aaaaaa"
+                    ></path>
+                  </svg>
+                  <div class="pen-text-18" data-design-id="VX32P">Copy</div>
+                </button>
+              </div>
+            </div>
+          </div>
+        </section>
+        <section
+          class="workspace pen-files-in-git-166"
+          id="workspace"
+          data-design-id="AIcva"
+        >
+          <div class="workspace-panel pen-panel-167" data-design-id="qmjLN">
+            <div class="diff-panel pen-diff-168" data-design-id="qKcqq">
+              <div class="pen-file-bar-169" data-design-id="nRC3R">
+                <svg
+                  data-icon-name="file-code"
+                  data-icon-set="lucide"
+                  viewBox="0 0 13.99993896484375 14"
+                  preserveAspectRatio="xMidYMid meet"
+                  xmlns="http://www.w3.org/2000/svg"
+                  aria-hidden="true"
+                  focusable="false"
+                  class="pen-copy-31"
+                  data-design-id="B20fD"
+                >
+                  <path
+                    d="M3.33252 0.60156q-0.58789 0.04102-1.02197 0.44776-0.43408 0.40674-0.53321 0.99463-0.02734 0.16748-0.02734 4.95605 0 4.78857 0.02734 4.95605 0.09912 0.5332 0.46827 0.92627 0.37256 0.38965 0.90576 0.50245 0.10938 0.01367 0.66992 0.02734l3.17871 0 3.17871 0q0.56055-0.01367 0.66992-0.02734 0.5332-0.11279 0.90235-0.50245 0.37256-0.39307 0.47168-0.92627 0.02734-0.16748 0.02734-3.80078 0-3.6333-0.02734-3.80078-0.08545-0.51953-0.40674-0.92285-0.11279-0.14014-1.24756-1.2749-0.89551-0.88184-1.10742-1.06983-0.2085-0.19141-0.41699-0.29052-0.30762-0.15381-0.67334-0.19483-0.14014-0.02734-2.4917-0.02734-2.35156 0-2.54639 0.02734z m4.25537 2.42334l0 1.27149 0.04102 0.14013q0.08545 0.22559 0.24609 0.40674 0.16064 0.18115 0.35547 0.28028 0.14014 0.07178 0.22558 0.08544 0.12646 0.02734 0.40674 0.04102l2.21143 0 0 6.11816q0 0.43408-0.0376 0.51954-0.03418 0.08203-0.11963 0.17431-0.08203 0.08887-0.16406 0.1333l-0.09912 0.04102-7.30762 0-0.09912-0.04102q-0.08203-0.04443-0.16748-0.1333-0.08203-0.09228-0.11963-0.17431-0.03418-0.08545-0.03418-0.70069l0-4.18701 0-4.18701q0-0.61523 0.02734-0.6836 0.05811-0.12646 0.16749-0.23242 0.11279-0.10596 0.23925-0.1333 0.08545-0.01367 2.14307-0.01367l2.07129 0 0.01367 1.2749z m2.21143 0.01367l1.03564 1.03565-2.08496 0 0-1.03565q0-1.03564 0-1.04931l1.04932 1.04931z m-4.07422 3.68116q-0.18115 0.04102-0.30762 0.17431-0.12646 0.1333-0.68701 0.84766-0.55713 0.71436-0.60156 0.78271-0.04102 0.09912-0.04102 0.22559 0 0.12646 0.04102 0.22559 0.04443 0.06836 0.60156 0.78271 0.56055 0.71436 0.68701 0.85449 0.18115 0.18115 0.42725 0.18116 0.24609 0 0.41357-0.19483 0.12646-0.12646 0.15381-0.30078 0.02734-0.17774-0.04102-0.31787-0.05811-0.0957-0.49902-0.65625-0.44092-0.56055-0.44092-0.57422 0-0.01367 0.44092-0.57422 0.44092-0.56055 0.48877-0.64941 0.05127-0.09229 0.05127-0.21192 0-0.11963-0.02734-0.229-0.07178-0.18457-0.26661-0.29395-0.19482-0.11279-0.39306-0.07177z m2.33789 0q-0.14014 0.02734-0.2666 0.1333-0.12305 0.10596-0.16748 0.22558-0.04102 0.11621-0.04102 0.23584 0 0.11963 0.04785 0.21192 0.05127 0.08887 0.49219 0.64941 0.44092 0.56055 0.44092 0.57422 0 0.01367-0.44092 0.57422-0.44092 0.56055-0.49902 0.65625-0.06836 0.14014-0.04102 0.31787 0.02734 0.17432 0.15381 0.30078 0.16748 0.19482 0.41357 0.19483 0.24609 0 0.42725-0.18116 0.12646-0.14014 0.68359-0.85449 0.56055-0.71436 0.60498-0.78271 0.04102-0.09912 0.04102-0.22559 0-0.12646-0.04443-0.22217-0.04102-0.09912-0.62891-0.82715l-0.57422-0.71435q-0.10938-0.12646-0.18115-0.18115-0.06836-0.05811-0.18799-0.07862-0.11963-0.02051-0.23242-0.00683z"
+                    fill="#888888"
+                  ></path>
+                </svg>
+                <div class="pen-path-170" data-design-id="LFdSv">
+                  payments/list-payments.bonk.json
+                </div>
+                <div class="pen-chips-110" data-design-id="usTfp">
+                  <div class="pen-label-127" data-design-id="ZIUSm">+3</div>
+                  <div class="pen-del-171" data-design-id="NazaX">−1</div>
+                </div>
+              </div>
+              <div class="pen-lines-172" data-design-id="g9HZbE">
+                <div class="pen-l1-173" data-design-id="WDkQi">
+                  <div class="pen-no-174" data-design-id="jcfhd">1</div>
+                  <div class="pen-sign-175" data-design-id="LwiRN"></div>
+                  <div class="pen-code-176" data-design-id="MHp4b">{</div>
+                </div>
+                <div class="pen-l1-173" data-design-id="f1EBWa">
+                  <div class="pen-no-174" data-design-id="M8EmD">2</div>
+                  <div class="pen-sign-175" data-design-id="V0joE"></div>
+                  <div class="pen-code-176" data-design-id="t8CkYG">
+                    "name": "List payments",
+                  </div>
+                </div>
+                <div class="pen-l1-173" data-design-id="hpZqf">
+                  <div class="pen-no-174" data-design-id="ZbflE">3</div>
+                  <div class="pen-sign-175" data-design-id="njTpQ"></div>
+                  <div class="pen-code-176" data-design-id="DQJ9o">
+                    "method": "GET",
+                  </div>
+                </div>
+                <div class="pen-l4-177" data-design-id="amWcP">
+                  <div class="pen-no-174" data-design-id="tknLk">4</div>
+                  <div class="pen-sign-178" data-design-id="W0XYV">-</div>
+                  <div class="pen-code-179" data-design-id="qxhzs">
+                    "url": "{{baseUrl}}/v1/payments",
+                  </div>
+                </div>
+                <div class="pen-l5-180" data-design-id="fpzT1">
+                  <div class="pen-no-174" data-design-id="VqOZV">5</div>
+                  <div class="pen-sign-181" data-design-id="w11xr">+</div>
+                  <div class="pen-code-182" data-design-id="C5vEh">
+                    "url": "{{baseUrl}}/v1/payments?limit=20",
+                  </div>
+                </div>
+                <div class="pen-l1-173" data-design-id="AkwId">
+                  <div class="pen-no-174" data-design-id="H3WEcS">6</div>
+                  <div class="pen-sign-175" data-design-id="iNmdS"></div>
+                  <div class="pen-code-176" data-design-id="z9m0BW">
+                    "headers": {
+                  </div>
+                </div>
+                <div class="pen-l1-173" data-design-id="Gk9dO">
+                  <div class="pen-no-174" data-design-id="u1OlN">7</div>
+                  <div class="pen-sign-175" data-design-id="vOkfO"></div>
+                  <div class="pen-code-176" data-design-id="H3rzIQ">
+                    "Authorization": "Bearer {{TOKEN}}",
+                  </div>
+                </div>
+                <div class="pen-l5-180" data-design-id="mDbo9">
+                  <div class="pen-no-174" data-design-id="TGcxz">8</div>
+                  <div class="pen-sign-181" data-design-id="hOM1d">+</div>
+                  <div class="pen-code-182" data-design-id="T6pkcF">
+                    "Idempotency-Key": "{{uuid}}",
+                  </div>
+                </div>
+                <div class="pen-l5-180" data-design-id="sqXq9">
+                  <div class="pen-no-174" data-design-id="W97npB">9</div>
+                  <div class="pen-sign-181" data-design-id="oyhK0">+</div>
+                  <div class="pen-code-182" data-design-id="tdixm">
+                    "Accept": "application/json"
+                  </div>
+                </div>
+                <div class="pen-l1-173" data-design-id="D9P4v">
+                  <div class="pen-no-174" data-design-id="YBhF9">10</div>
+                  <div class="pen-sign-175" data-design-id="oOiuR"></div>
+                  <div class="pen-code-176" data-design-id="waK2z">},</div>
+                </div>
+                <div class="pen-l1-173" data-design-id="jU8dy">
+                  <div class="pen-no-174" data-design-id="pb5Ov">11</div>
+                  <div class="pen-sign-175" data-design-id="mYVU8"></div>
+                  <div class="pen-code-176" data-design-id="jk4YG">
+                    "body": { "mode": "none" }
+                  </div>
+                </div>
+                <div class="pen-l1-173" data-design-id="rusru">
+                  <div class="pen-no-174" data-design-id="VxauM">12</div>
+                  <div class="pen-sign-175" data-design-id="UMuB2"></div>
+                  <div class="pen-code-176" data-design-id="mf1LY">}</div>
+                </div>
+                <div class="pen-l1-173" data-design-id="H7WDeK">
+                  <div class="pen-no-174" data-design-id="QHPAr">13</div>
+                  <div class="pen-sign-175" data-design-id="TXTap"></div>
+                  <div class="pen-code-176" data-design-id="LT0CO"></div>
+                </div>
+              </div>
+            </div>
+            <div class="workspace-copy pen-copy-183" data-design-id="Ah1Dr">
+              <div class="pen-top-184" data-design-id="h2qITS">
+                <p class="pen-eyebrow-46" data-design-id="sb4yW">
+                  04 / LOCAL-FIRST
+                </p>
+                <h2 class="pen-title-185" data-design-id="GIKBu">
+                  Collections are just files.
+                </h2>
+                <p class="pen-body-186" data-design-id="NTzBf">
+                  Your folder on disk is the workspace: a folder is a folder, a
+                  request is a *.bonk.json file. A built-in git panel handles
+                  diff, stage, commit, pull and push without leaving bonk.
+                </p>
+              </div>
+              <div class="import-labels pen-chips-110" data-design-id="PVsyJ">
+                <div class="pen-postman-187" data-design-id="xdIip">
+                  <div class="pen-text-18" data-design-id="qxGVh">Postman</div>
+                </div>
+                <div class="pen-postman-187" data-design-id="uyjkU">
+                  <div class="pen-text-18" data-design-id="AI9Wi">Insomnia</div>
+                </div>
+                <div class="pen-postman-187" data-design-id="LDCIE">
+                  <div class="pen-text-18" data-design-id="kTL7U">OpenAPI</div>
+                </div>
+                <div class="pen-postman-187" data-design-id="B3T76u">
+                  <div class="pen-text-18" data-design-id="A53l0">cURL</div>
+                </div>
+                <div class="pen-postman-187" data-design-id="UYTHN">
+                  <div class="pen-text-18" data-design-id="QzcZI">.proto</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+        <section
+          class="compare pen-comparison-188"
+          id="compare"
+          data-design-id="r78FR"
+        >
+          <div class="pen-head-189" data-design-id="H1ToQU">
+            <p class="pen-eyebrow-46" data-design-id="XkdQ9">05 / COMPARE</p>
+            <h2 class="pen-title-190" data-design-id="CBX2k">
+              10× lighter. No fine print.
+            </h2>
+          </div>
+          <div class="comparison-table pen-table-191" data-design-id="Yt5wd">
+            <div class="pen-header-row-192" data-design-id="xXk2G">
+              <div class="pen-feature-193" data-design-id="A6LJkS"></div>
+              <div class="pen-bonk-194" data-design-id="SPRlF">
+                <div class="pen-mark-195" data-design-id="i2uHa">
+                  <svg
+                    data-icon-name="lightning-fill"
+                    data-icon-set="phosphor"
+                    viewBox="0 0 14 14"
+                    preserveAspectRatio="xMidYMid meet"
+                    xmlns="http://www.w3.org/2000/svg"
+                    aria-hidden="true"
+                    focusable="false"
+                    class="pen-icon-106"
+                    data-design-id="r6kkqy"
+                  >
+                    <path
+                      d="M11.70313 6.83594l-6.125 6.5625q-0.16406 0.16406-0.30079 0.16406-0.13672 0-0.24609-0.05469-0.10938-0.05469-0.16406-0.1914-0.05469-0.13672-0.05469-0.30078l0.82031-3.99219-3.17187-1.20313q-0.21875-0.05469-0.27344-0.27343-0.05469-0.21875 0.10938-0.4375l6.125-6.5625q0.10938-0.05469 0.24609-0.08204 0.13672-0.02734 0.27344 0.02735 0.13672 0.05469 0.1914 0.1914 0.05469 0.13672 0.05469 0.30079l-0.82031 3.99218 3.17187 1.14844q0.21875 0.10938 0.27344 0.32813 0.05469 0.21875-0.10938 0.38281z"
+                      fill="#151515"
+                    ></path>
+                  </svg>
+                </div>
+                <div class="pen-label-196" data-design-id="vO5vm">bonk</div>
+              </div>
+              <div
+                class="pen-electron-clients-postman-insomnia-197"
+                data-design-id="Z9DFa"
+              >
+                <div class="pen-label-198" data-design-id="t3ZsLy">
+                  Electron clients (Postman, Insomnia)
+                </div>
+              </div>
+            </div>
+            <div class="pen-engine-199" data-design-id="PXQfL">
+              <div class="pen-feature-200" data-design-id="W2VpEa">
+                <div class="pen-value-201" data-design-id="wLyW1">Engine</div>
+              </div>
+              <div class="pen-bonk-202" data-design-id="fADQ9">
+                <svg
+                  data-icon-name="check"
+                  data-icon-set="lucide"
+                  viewBox="0 0 13.99993896484375 14"
+                  preserveAspectRatio="xMidYMid meet"
+                  xmlns="http://www.w3.org/2000/svg"
+                  aria-hidden="true"
+                  focusable="false"
+                  class="pen-icon-134"
+                  data-design-id="R7QXAo"
+                >
+                  <path
+                    d="M11.48096 2.95313q-0.07178 0.01367-0.12989 0.0581-0.05469 0.04102-3.07617 3.06592l-3.0249 3.00781-1.28857-1.28857q-1.28857-1.28516-1.38086-1.32618-0.08887-0.04443-0.22217-0.04443-0.1333 0-0.23242 0.0376-0.0957 0.03418-0.18799 0.11279-0.08887 0.0752-0.1333 0.1709-0.02734 0.07178-0.03418 0.11279-0.00684 0.04102-0.00684 0.14014l0 0.04102q-0.01367 0.11279 0.04102 0.19824 0.07178 0.10938 0.36572 0.40332 0.19482 0.21191 0.96729 0.98096l1.49707 1.48339q0.28027 0.2666 0.38964 0.33838 0.07178 0.05469 0.18457 0.04102l0.09571 0.01367q0.07178 0 0.14013-0.02734 0.08545-0.07178 0.32129-0.28711 0.23926-0.21875 0.79981-0.76221l2.2832-2.2832q2.08496-2.09863 2.7002-2.71387 0.61524-0.61865 0.64599-0.68701 0.04102-0.08545 0.04102-0.23926 0-0.09912-0.00684-0.14014-0.00684-0.04102-0.03418-0.11279-0.04443-0.08203-0.13672-0.16406-0.08887-0.08545-0.18115-0.11963-0.08887-0.0376-0.20849-0.0376-0.11963 0-0.18799 0.02734z"
+                    fill="#5bd69a"
+                  ></path>
+                </svg>
+                <div class="pen-value-203" data-design-id="xbnfx">
+                  Rust + native WebView
+                </div>
+              </div>
+              <div class="pen-electron-204" data-design-id="Rflsc">
+                <div class="pen-value-205" data-design-id="uKqjO">
+                  Chromium + Node
+                </div>
+              </div>
+            </div>
+            <div class="pen-engine-199" data-design-id="U3YOV">
+              <div class="pen-feature-200" data-design-id="h4Cwog">
+                <div class="pen-value-201" data-design-id="Uhx7m">Idle RAM</div>
+              </div>
+              <div class="pen-bonk-202" data-design-id="ekIoo">
+                <svg
+                  data-icon-name="check"
+                  data-icon-set="lucide"
+                  viewBox="0 0 13.99993896484375 14"
+                  preserveAspectRatio="xMidYMid meet"
+                  xmlns="http://www.w3.org/2000/svg"
+                  aria-hidden="true"
+                  focusable="false"
+                  class="pen-icon-134"
+                  data-design-id="EThbx"
+                >
+                  <path
+                    d="M11.48096 2.95313q-0.07178 0.01367-0.12989 0.0581-0.05469 0.04102-3.07617 3.06592l-3.0249 3.00781-1.28857-1.28857q-1.28857-1.28516-1.38086-1.32618-0.08887-0.04443-0.22217-0.04443-0.1333 0-0.23242 0.0376-0.0957 0.03418-0.18799 0.11279-0.08887 0.0752-0.1333 0.1709-0.02734 0.07178-0.03418 0.11279-0.00684 0.04102-0.00684 0.14014l0 0.04102q-0.01367 0.11279 0.04102 0.19824 0.07178 0.10938 0.36572 0.40332 0.19482 0.21191 0.96729 0.98096l1.49707 1.48339q0.28027 0.2666 0.38964 0.33838 0.07178 0.05469 0.18457 0.04102l0.09571 0.01367q0.07178 0 0.14013-0.02734 0.08545-0.07178 0.32129-0.28711 0.23926-0.21875 0.79981-0.76221l2.2832-2.2832q2.08496-2.09863 2.7002-2.71387 0.61524-0.61865 0.64599-0.68701 0.04102-0.08545 0.04102-0.23926 0-0.09912-0.00684-0.14014-0.00684-0.04102-0.03418-0.11279-0.04443-0.08203-0.13672-0.16406-0.08887-0.08545-0.18115-0.11963-0.08887-0.0376-0.20849-0.0376-0.11963 0-0.18799 0.02734z"
+                    fill="#5bd69a"
+                  ></path>
+                </svg>
+                <div class="pen-value-203" data-design-id="OhcLh">~37 MB</div>
+              </div>
+              <div class="pen-electron-204" data-design-id="jyT7o">
+                <div class="pen-value-205" data-design-id="zMVvD">
+                  ~400–700 MB
+                </div>
+              </div>
+            </div>
+            <div class="pen-engine-199" data-design-id="lI9KO">
+              <div class="pen-feature-200" data-design-id="Ws2uS">
+                <div class="pen-value-201" data-design-id="JkqNA">
+                  Download size
+                </div>
+              </div>
+              <div class="pen-bonk-202" data-design-id="fGAcx">
+                <svg
+                  data-icon-name="check"
+                  data-icon-set="lucide"
+                  viewBox="0 0 13.99993896484375 14"
+                  preserveAspectRatio="xMidYMid meet"
+                  xmlns="http://www.w3.org/2000/svg"
+                  aria-hidden="true"
+                  focusable="false"
+                  class="pen-icon-134"
+                  data-design-id="BktBr"
+                >
+                  <path
+                    d="M11.48096 2.95313q-0.07178 0.01367-0.12989 0.0581-0.05469 0.04102-3.07617 3.06592l-3.0249 3.00781-1.28857-1.28857q-1.28857-1.28516-1.38086-1.32618-0.08887-0.04443-0.22217-0.04443-0.1333 0-0.23242 0.0376-0.0957 0.03418-0.18799 0.11279-0.08887 0.0752-0.1333 0.1709-0.02734 0.07178-0.03418 0.11279-0.00684 0.04102-0.00684 0.14014l0 0.04102q-0.01367 0.11279 0.04102 0.19824 0.07178 0.10938 0.36572 0.40332 0.19482 0.21191 0.96729 0.98096l1.49707 1.48339q0.28027 0.2666 0.38964 0.33838 0.07178 0.05469 0.18457 0.04102l0.09571 0.01367q0.07178 0 0.14013-0.02734 0.08545-0.07178 0.32129-0.28711 0.23926-0.21875 0.79981-0.76221l2.2832-2.2832q2.08496-2.09863 2.7002-2.71387 0.61524-0.61865 0.64599-0.68701 0.04102-0.08545 0.04102-0.23926 0-0.09912-0.00684-0.14014-0.00684-0.04102-0.03418-0.11279-0.04443-0.08203-0.13672-0.16406-0.08887-0.08545-0.18115-0.11963-0.08887-0.0376-0.20849-0.0376-0.11963 0-0.18799 0.02734z"
+                    fill="#5bd69a"
+                  ></path>
+                </svg>
+                <div class="pen-value-203" data-design-id="pzFzP">~7 MB</div>
+              </div>
+              <div class="pen-electron-204" data-design-id="zQCDG">
+                <div class="pen-value-205" data-design-id="E1cnVI">
+                  200 MB – 1 GB
+                </div>
+              </div>
+            </div>
+            <div class="pen-engine-199" data-design-id="HiByP">
+              <div class="pen-feature-200" data-design-id="wWdfU">
+                <div class="pen-value-201" data-design-id="JRNay">Idle CPU</div>
+              </div>
+              <div class="pen-bonk-202" data-design-id="K0vjAC">
+                <svg
+                  data-icon-name="check"
+                  data-icon-set="lucide"
+                  viewBox="0 0 13.99993896484375 14"
+                  preserveAspectRatio="xMidYMid meet"
+                  xmlns="http://www.w3.org/2000/svg"
+                  aria-hidden="true"
+                  focusable="false"
+                  class="pen-icon-134"
+                  data-design-id="YKPKV"
+                >
+                  <path
+                    d="M11.48096 2.95313q-0.07178 0.01367-0.12989 0.0581-0.05469 0.04102-3.07617 3.06592l-3.0249 3.00781-1.28857-1.28857q-1.28857-1.28516-1.38086-1.32618-0.08887-0.04443-0.22217-0.04443-0.1333 0-0.23242 0.0376-0.0957 0.03418-0.18799 0.11279-0.08887 0.0752-0.1333 0.1709-0.02734 0.07178-0.03418 0.11279-0.00684 0.04102-0.00684 0.14014l0 0.04102q-0.01367 0.11279 0.04102 0.19824 0.07178 0.10938 0.36572 0.40332 0.19482 0.21191 0.96729 0.98096l1.49707 1.48339q0.28027 0.2666 0.38964 0.33838 0.07178 0.05469 0.18457 0.04102l0.09571 0.01367q0.07178 0 0.14013-0.02734 0.08545-0.07178 0.32129-0.28711 0.23926-0.21875 0.79981-0.76221l2.2832-2.2832q2.08496-2.09863 2.7002-2.71387 0.61524-0.61865 0.64599-0.68701 0.04102-0.08545 0.04102-0.23926 0-0.09912-0.00684-0.14014-0.00684-0.04102-0.03418-0.11279-0.04443-0.08203-0.13672-0.16406-0.08887-0.08545-0.18115-0.11963-0.08887-0.0376-0.20849-0.0376-0.11963 0-0.18799 0.02734z"
+                    fill="#5bd69a"
+                  ></path>
+                </svg>
+                <div class="pen-value-203" data-design-id="v6B6z">≈ 0%</div>
+              </div>
+              <div class="pen-electron-204" data-design-id="Jp3IN">
+                <div class="pen-value-205" data-design-id="W8sY2J">
+                  noticeable
+                </div>
+              </div>
+            </div>
+            <div class="pen-engine-199" data-design-id="WW9SZ">
+              <div class="pen-feature-200" data-design-id="K6bcR9">
+                <div class="pen-value-201" data-design-id="rL5WD">
+                  Account &amp; cloud
+                </div>
+              </div>
+              <div class="pen-bonk-202" data-design-id="GRkGV">
+                <svg
+                  data-icon-name="check"
+                  data-icon-set="lucide"
+                  viewBox="0 0 13.99993896484375 14"
+                  preserveAspectRatio="xMidYMid meet"
+                  xmlns="http://www.w3.org/2000/svg"
+                  aria-hidden="true"
+                  focusable="false"
+                  class="pen-icon-134"
+                  data-design-id="H1Tcn"
+                >
+                  <path
+                    d="M11.48096 2.95313q-0.07178 0.01367-0.12989 0.0581-0.05469 0.04102-3.07617 3.06592l-3.0249 3.00781-1.28857-1.28857q-1.28857-1.28516-1.38086-1.32618-0.08887-0.04443-0.22217-0.04443-0.1333 0-0.23242 0.0376-0.0957 0.03418-0.18799 0.11279-0.08887 0.0752-0.1333 0.1709-0.02734 0.07178-0.03418 0.11279-0.00684 0.04102-0.00684 0.14014l0 0.04102q-0.01367 0.11279 0.04102 0.19824 0.07178 0.10938 0.36572 0.40332 0.19482 0.21191 0.96729 0.98096l1.49707 1.48339q0.28027 0.2666 0.38964 0.33838 0.07178 0.05469 0.18457 0.04102l0.09571 0.01367q0.07178 0 0.14013-0.02734 0.08545-0.07178 0.32129-0.28711 0.23926-0.21875 0.79981-0.76221l2.2832-2.2832q2.08496-2.09863 2.7002-2.71387 0.61524-0.61865 0.64599-0.68701 0.04102-0.08545 0.04102-0.23926 0-0.09912-0.00684-0.14014-0.00684-0.04102-0.03418-0.11279-0.04443-0.08203-0.13672-0.16406-0.08887-0.08545-0.18115-0.11963-0.08887-0.0376-0.20849-0.0376-0.11963 0-0.18799 0.02734z"
+                    fill="#5bd69a"
+                  ></path>
+                </svg>
+                <div class="pen-value-203" data-design-id="cUEyc">
+                  not required
+                </div>
+              </div>
+              <div class="pen-electron-204" data-design-id="gWhcq">
+                <div class="pen-value-205" data-design-id="jBoG0">
+                  account, cloud sync
+                </div>
+              </div>
+            </div>
+            <div class="pen-engine-199" data-design-id="ZXUq5">
+              <div class="pen-feature-200" data-design-id="t5AHG">
+                <div class="pen-value-201" data-design-id="B8pC7j">
+                  Collections
+                </div>
+              </div>
+              <div class="pen-bonk-206" data-design-id="EnUgf">
+                <svg
+                  data-icon-name="check"
+                  data-icon-set="lucide"
+                  viewBox="0 0 13.99993896484375 14"
+                  preserveAspectRatio="xMidYMid meet"
+                  xmlns="http://www.w3.org/2000/svg"
+                  aria-hidden="true"
+                  focusable="false"
+                  class="pen-icon-134"
+                  data-design-id="mnu3X"
+                >
+                  <path
+                    d="M11.48096 2.95313q-0.07178 0.01367-0.12989 0.0581-0.05469 0.04102-3.07617 3.06592l-3.0249 3.00781-1.28857-1.28857q-1.28857-1.28516-1.38086-1.32618-0.08887-0.04443-0.22217-0.04443-0.1333 0-0.23242 0.0376-0.0957 0.03418-0.18799 0.11279-0.08887 0.0752-0.1333 0.1709-0.02734 0.07178-0.03418 0.11279-0.00684 0.04102-0.00684 0.14014l0 0.04102q-0.01367 0.11279 0.04102 0.19824 0.07178 0.10938 0.36572 0.40332 0.19482 0.21191 0.96729 0.98096l1.49707 1.48339q0.28027 0.2666 0.38964 0.33838 0.07178 0.05469 0.18457 0.04102l0.09571 0.01367q0.07178 0 0.14013-0.02734 0.08545-0.07178 0.32129-0.28711 0.23926-0.21875 0.79981-0.76221l2.2832-2.2832q2.08496-2.09863 2.7002-2.71387 0.61524-0.61865 0.64599-0.68701 0.04102-0.08545 0.04102-0.23926 0-0.09912-0.00684-0.14014-0.00684-0.04102-0.03418-0.11279-0.04443-0.08203-0.13672-0.16406-0.08887-0.08545-0.18115-0.11963-0.08887-0.0376-0.20849-0.0376-0.11963 0-0.18799 0.02734z"
+                    fill="#5bd69a"
+                  ></path>
+                </svg>
+                <div class="pen-value-203" data-design-id="AuH2A">
+                  plain files, git-diffable
+                </div>
+              </div>
+              <div class="pen-electron-204" data-design-id="r7gZy">
+                <div class="pen-value-205" data-design-id="EPGDZ">
+                  proprietary DB or cloud
+                </div>
+              </div>
+            </div>
+          </div>
+          <p class="pen-footnote-207" data-design-id="B3z71I">
+            bonk numbers are measured on a release build. Electron figures are
+            typical ranges for those apps.
+          </p>
+        </section>
+        <section
+          class="download pen-files-in-git-166"
+          id="download"
+          data-design-id="E2gi0"
+        >
+          <div class="download-panel pen-panel-208" data-design-id="wecGE">
+            <div
+              class="download-request pen-send-bar-209"
+              data-design-id="VGz1U"
+            >
+              <div class="pen-method-53" data-design-id="v5jba9">
+                <div class="pen-label-62" data-design-id="kCBST">POST</div>
+              </div>
+              <div class="pen-url-55" data-design-id="W6mCz">
+                <div class="pen-part-56" data-design-id="SgOL2">{{you}}</div>
+                <div class="pen-part-57" data-design-id="IkvBT">/download</div>
+              </div>
+              <a
+                href="https://github.com/nekidaz/.bonk/releases/download/v0.1.7/bonk_0.1.7_aarch64.dmg"
+                data-platform-download="auto"
+                class="pen-send-210"
+                data-design-id="HBAJP"
+              >
+                <div class="pen-label-59" data-design-id="Ij64e">Send</div>
+                <div class="pen-k-211" data-design-id="thdh8">⌘↵</div>
+              </a>
+            </div>
+            <h2 class="pen-title-212" data-design-id="coOwj">
+              Your first request
+              <br />
+              in 30 seconds.
+            </h2>
+            <p class="pen-body-213" data-design-id="l3e97">
+              Download, open, paste a cURL. No sign-up required.
+            </p>
+            <div
+              class="download-platforms pen-platforms-214"
+              data-design-id="Nlagd"
+            >
+              <a
+                href="https://github.com/nekidaz/.bonk/releases/download/v0.1.7/bonk_0.1.7_aarch64.dmg"
+                class="pen-macos-215"
+                data-design-id="B5oo0"
+              >
+                <svg
+                  data-icon-name="apple-logo"
+                  data-icon-set="phosphor"
+                  viewBox="0 0 14 14"
+                  preserveAspectRatio="xMidYMid meet"
+                  xmlns="http://www.w3.org/2000/svg"
+                  aria-hidden="true"
+                  focusable="false"
+                  class="pen-icon-27"
+                  data-design-id="MSE2f"
+                >
+                  <path
+                    d="M7.16406 1.64063q0.21875-0.65625 0.79297-1.03907 0.57422-0.38281 1.23047-0.38281 0.16406 0 0.30078 0.13672 0.13672 0.13672 0.13672 0.30078 0 0.16406-0.13672 0.30078-0.13672 0.13672-0.30078 0.13672-0.38281 0-0.73828 0.21875-0.35547 0.21875-0.46484 0.57422-0.10938 0.35547-0.4375 0.30078l-0.16407 0q-0.16406-0.05469-0.24609-0.21875-0.08203-0.16406 0.02734-0.32813z m5.19531 7.4375q-0.60156 1.42188-1.53125 2.29687-0.92969 0.875-1.85937 0.875l-3.9375 0q-0.65625 0-1.36719-0.49219-0.71094-0.49219-1.3125-1.36719-1.25781-1.85938-1.25781-4.04687 0-1.03906 0.54688-1.94141 0.54688-0.90234 1.47656-1.36718 0.92969-0.46484 1.96875-0.38282 1.03906 0.08203 1.91406 0.6836 0.82031-0.60156 1.77734-0.71094 0.95703-0.10938 1.83203 0.27344 0.875 0.38281 1.53125 1.14844 0.10938 0.16406 0.05469 0.35546-0.05469 0.19141-0.21875 0.30079-0.49219 0.27344-0.76562 0.82031-0.27344 0.54688-0.27344 1.14844 0 0.60156 0.32812 1.09375 0.32813 0.49219 0.875 0.76562 0.16406 0.05469 0.21875 0.21875 0.05469 0.16406 0 0.32813z m-0.98437 0q-0.54688-0.38281-0.90234-1.01172-0.35547-0.62891-0.41016-1.33985-0.05469-0.71094 0.21875-1.36718 0.27344-0.65625 0.82031-1.09375-0.82031-0.76563-1.91406-0.76563-1.09375 0-1.85938 0.71094-0.16406 0.10938-0.32812 0.10937-0.16406 0-0.27344-0.10937-0.65625-0.54688-1.47656-0.6836-0.82031-0.13672-1.58594 0.21875-0.76563 0.35547-1.23047 1.06641-0.46484 0.71094-0.46484 1.53125 0 1.3125 0.54688 2.51563 0.4375 1.09375 1.17578 1.80468 0.73828 0.71094 1.33984 0.71094l3.9375 0q0.60156 0 1.28516-0.65625 0.68359-0.65625 1.12109-1.64063z"
+                    fill="#151515"
+                  ></path>
+                </svg>
+                <div class="pen-label-216" data-design-id="yYOoI">macOS</div>
+              </a>
+              <a
+                href="https://github.com/nekidaz/.bonk/releases/download/v0.1.7/bonk_0.1.7_x64-setup.exe"
+                class="pen-windows-217"
+                data-design-id="f5F9C"
+              >
+                <svg
+                  data-icon-name="windows-logo"
+                  data-icon-set="phosphor"
+                  viewBox="0 0 14 14"
+                  preserveAspectRatio="xMidYMid meet"
+                  xmlns="http://www.w3.org/2000/svg"
+                  aria-hidden="true"
+                  focusable="false"
+                  class="pen-icon-27"
+                  data-design-id="injpn"
+                >
+                  <path
+                    d="M11.8125 7.4375l-4.375 0q-0.16406 0-0.30078 0.13672-0.13672 0.13672-0.13672 0.30078l0 3.11719q0 0.16406 0.10938 0.30078 0.10938 0.13672 0.27343 0.13672l4.42969 0.82031q0.16406 0 0.30078-0.10937 0.13672-0.10938 0.13672-0.32813l0-3.9375q0-0.16406-0.13672-0.30078-0.13672-0.13672-0.30078-0.13672z m-0.4375 3.82813l-3.5-0.60157 0-2.35156 3.5 0 0 2.95313z m-5.6875-3.82813l-3.5 0q-0.16406 0-0.30078 0.13672-0.13672 0.13672-0.13672 0.30078l0 2.1875q0 0.16406 0.10938 0.27344 0.10938 0.10937 0.27343 0.16406l3.55469 0.60156q0.16406 0.05469 0.30078-0.08203 0.13672-0.13672 0.13672-0.30078l0-2.84375q0-0.16406-0.13672-0.30078-0.13672-0.13672-0.30078-0.13672z m-0.4375 2.73438l-2.625-0.49219 0-1.36719 2.625 0 0 1.85938z m6.83594-8.3125q-0.16406-0.16406-0.32813-0.10938l-4.375 0.82031q-0.16406 0-0.27344 0.13672-0.10938 0.13672-0.10937 0.2461l0 3.17187q0 0.16406 0.13672 0.30078 0.13672 0.13672 0.30078 0.13672l4.375 0q0.16406 0 0.30078-0.13672 0.13672-0.13672 0.13672-0.30078l0-3.9375q0-0.21875-0.16406-0.32813z m-0.71094 3.82812l-3.5 0 0-2.35156 3.5-0.60156 0 2.95312z m-5.41406-2.73438q-0.16406-0.10938-0.32813-0.05468l-3.5 0.60156q-0.16406 0.05469-0.27344 0.16406-0.10938 0.10938-0.10937 0.27344l0 2.1875q0 0.16406 0.13672 0.30078 0.13672 0.13672 0.30078 0.13672l3.5 0q0.16406 0 0.30078-0.13672 0.13672-0.13672 0.13672-0.30078l0-2.84375q0-0.16406-0.16406-0.32813z m-0.71094 2.73438l-2.625 0 0-1.36719 2.625-0.49219 0 1.85938z"
+                    fill="#eeeeee"
+                  ></path>
+                </svg>
+                <div class="pen-label-196" data-design-id="RFIwN">Windows</div>
+              </a>
+              <a
+                href="https://github.com/nekidaz/.bonk/releases/latest"
+                class="pen-windows-217"
+                data-design-id="dXttD"
+              >
+                <svg
+                  data-icon-name="linux-logo"
+                  data-icon-set="phosphor"
+                  viewBox="0 0 14 14"
+                  preserveAspectRatio="xMidYMid meet"
+                  xmlns="http://www.w3.org/2000/svg"
+                  aria-hidden="true"
+                  focusable="false"
+                  class="pen-icon-27"
+                  data-design-id="w9eyTR"
+                >
+                  <path
+                    d="M12.46875 12.19531q-0.16406 0.10938-0.32813 0.05469-0.16406-0.05469-0.27343-0.21875-0.4375-0.82031-0.92969-2.07812-0.875-2.46094-0.875-4.70313 0-0.82031-0.41016-1.53125-0.41016-0.71094-1.12109-1.12109-0.71094-0.41016-1.53125-0.41016-0.82031 0-1.53125 0.41016-0.71094 0.41016-1.12109 1.12109-0.41016 0.71094-0.41016 1.53125 0 2.24219-0.875 4.70313-0.49219 1.25781-0.92969 2.07812-0.10938 0.21875-0.38281 0.21875-0.10938 0-0.24609-0.08203-0.13672-0.08203-0.19141-0.24609-0.05469-0.16406 0.05469-0.32813 0.16406-0.27344 0.4375-0.92969 0.49219-1.09375 0.82031-2.29687 0.4375-1.64063 0.4375-3.11719 0-1.09375 0.51953-1.99609 0.51953-0.90234 1.42188-1.42188 0.90234-0.51953 1.99609-0.51953 1.09375 0 1.99609 0.51953 0.90234 0.51953 1.42188 1.42188 0.51953 0.90234 0.51953 1.99609 0 1.47656 0.4375 3.11719 0.32813 1.20313 0.82031 2.29687 0.27344 0.65625 0.4375 0.92969 0.10938 0.16406 0.05469 0.32813-0.05469 0.16406-0.21875 0.27343z m-7-6.94531q-0.27344 0-0.46484 0.19141-0.19141 0.19141-0.19141 0.46484 0 0.27344 0.19141 0.46484 0.19141 0.19141 0.46484 0.19141 0.27344 0 0.46484-0.19141 0.19141-0.19141 0.19141-0.46484 0-0.27344-0.19141-0.46484-0.19141-0.19141-0.46484-0.19141z m3.71875 0.65625q0-0.27344-0.19141-0.46484-0.19141-0.19141-0.46484-0.19141-0.27344 0-0.46484 0.19141-0.19141 0.19141-0.19141 0.46484 0 0.27344 0.19141 0.46484 0.19141 0.19141 0.46484 0.19141 0.27344 0 0.46484-0.19141 0.19141-0.19141 0.19141-0.46484z m-3.71875 1.58594q-0.27344-0.10938-0.46484 0.02734-0.19141 0.13672-0.19141 0.38281 0 0.24609 0.21875 0.35547l1.75 0.875q0.21875 0.10938 0.4375 0l1.75-0.875q0.21875-0.10938 0.21875-0.35547 0-0.24609-0.19141-0.38281-0.19141-0.13672-0.46484-0.02734l-1.53125 0.76562-1.53125-0.76562z m1.53125 2.57031q-0.82031 0-1.53125 0.41016-0.71094 0.41016-1.14844 1.12109-0.10938 0.21875 0 0.46484 0.10938 0.24609 0.38281 0.21875 0.27344-0.02734 0.38282-0.24609 0.32813-0.49219 0.82031-0.79297 0.49219-0.30078 1.09375-0.30078 0.60156 0 1.09375 0.30078 0.49219 0.30078 0.82031 0.79297 0.10938 0.21875 0.38282 0.21875 0.10938 0 0.21875-0.08203 0.10938-0.08203 0.16406-0.24609 0.05469-0.16406 0-0.32813-0.4375-0.71094-1.14844-1.12109-0.71094-0.41016-1.53125-0.41016z"
+                    fill="#eeeeee"
+                  ></path>
+                </svg>
+                <div class="pen-label-196" data-design-id="W6pAvO">Linux</div>
+              </a>
+            </div>
+            <p class="pen-eyebrow-32" data-design-id="IJ9s3">
+              v0.1.7 · MIT · macOS (APPLE SILICON) · WINDOWS · LINUX
+            </p>
+          </div>
+        </section>
+      </main>
+
+      <footer class="site-footer pen-footer-218" data-design-id="diq0a">
+        <div class="footer-top pen-top-219" data-design-id="zEbdx">
+          <div class="footer-brand pen-brand-220" data-design-id="mIIxk">
+            <div class="pen-brand-3" data-design-id="nPRnT">
+              <div class="pen-mark-4" data-design-id="TDQOO">
+                <svg
+                  data-icon-name="lightning-fill"
+                  data-icon-set="phosphor"
+                  viewBox="0 0 14 14"
+                  preserveAspectRatio="xMidYMid meet"
+                  xmlns="http://www.w3.org/2000/svg"
+                  aria-hidden="true"
+                  focusable="false"
+                  class="pen-bolt-5"
+                  data-design-id="AwzSW"
+                >
+                  <path
+                    d="M11.70313 6.83594l-6.125 6.5625q-0.16406 0.16406-0.30079 0.16406-0.13672 0-0.24609-0.05469-0.10938-0.05469-0.16406-0.1914-0.05469-0.13672-0.05469-0.30078l0.82031-3.99219-3.17187-1.20313q-0.21875-0.05469-0.27344-0.27343-0.05469-0.21875 0.10938-0.4375l6.125-6.5625q0.10938-0.05469 0.24609-0.08204 0.13672-0.02734 0.27344 0.02735 0.13672 0.05469 0.1914 0.1914 0.05469 0.13672 0.05469 0.30079l-0.82031 3.99218 3.17187 1.14844q0.21875 0.10938 0.27344 0.32813 0.05469 0.21875-0.10938 0.38281z"
+                    fill="#151515"
+                  ></path>
+                </svg>
+              </div>
+              <div class="pen-wordmark-6" data-design-id="s4BSxi">bonk</div>
+            </div>
+            <p class="pen-tagline-221" data-design-id="jNu51">
+              The API client for you and your AI.
+            </p>
+          </div>
+          <div class="footer-columns pen-columns-222" data-design-id="BrjR9">
+            <div class="pen-product-223" data-design-id="XIRya">
+              <div class="pen-eyebrow-46" data-design-id="OgO6a">PRODUCT</div>
+              <a
+                href="#features"
+                class="pen-features-224"
+                data-design-id="C1ucM"
+              >
+                Features
+              </a>
+              <a
+                href="#features"
+                class="pen-features-224"
+                data-design-id="ASkmY"
+              >
+                gRPC
+              </a>
+              <a href="#runner" class="pen-features-224" data-design-id="uKkUD">
+                Runner
+              </a>
+              <a
+                href="https://github.com/nekidaz/.bonk/blob/main/CHANGELOG.md"
+                class="pen-features-224"
+                data-design-id="w8Y8Bm"
+              >
+                Changelog
+              </a>
+            </div>
+            <div class="pen-product-223" data-design-id="P36XeL">
+              <div class="pen-eyebrow-46" data-design-id="X4dDY6">
+                RESOURCES
+              </div>
+              <a
+                href="https://github.com/nekidaz/.bonk#your-first-workspace"
+                class="pen-features-224"
+                data-design-id="HrulR"
+              >
+                Docs
+              </a>
+              <a
+                href="https://github.com/nekidaz/.bonk#your-workspace-is-a-directory"
+                class="pen-features-224"
+                data-design-id="ZWfdd"
+              >
+                File format
+              </a>
+              <a
+                href="https://github.com/nekidaz/.bonk#your-first-workspace"
+                class="pen-features-224"
+                data-design-id="nQqnY"
+              >
+                Import from Postman
+              </a>
+              <a
+                href="#features"
+                class="pen-features-224"
+                data-design-id="J7W3e"
+              >
+                Shortcuts
+              </a>
+            </div>
+            <div class="pen-product-223" data-design-id="lBIYP">
+              <div class="pen-eyebrow-46" data-design-id="GOSAy">PROJECT</div>
+              <a
+                href="https://github.com/nekidaz/.bonk"
+                class="pen-features-224"
+                data-design-id="wbvrZ"
+              >
+                GitHub
+              </a>
+              <a
+                href="https://t.me/delayrat"
+                class="pen-features-224"
+                data-design-id="oZvVv"
+              >
+                Telegram
+              </a>
+              <a
+                href="https://github.com/nekidaz/.bonk/blob/main/LICENSE"
+                class="pen-features-224"
+                data-design-id="Cbp6e"
+              >
+                License
+              </a>
+              <a
+                href="https://github.com/nekidaz/.bonk/issues/new"
+                class="pen-features-224"
+                data-design-id="D554lP"
+              >
+                Contact
+              </a>
+            </div>
+          </div>
+        </div>
+        <div
+          class="giant-wordmark pen-giant-wordmark-225"
+          data-design-id="xBWh0"
+        >
+          bonk
+        </div>
+        <div class="footer-bottom pen-bottom-226" data-design-id="irQS7">
+          <p class="pen-footnote-207" data-design-id="fTj8M">
+            © 2026 bonk. Made without trackers.
+          </p>
+          <div class="footer-status pen-actions-10" data-design-id="wfet8">
+            <div class="pen-dot-227" data-design-id="W6uKe1"></div>
+            <div class="pen-u-82" data-design-id="XYVCf">
+              All systems operational — because there are none
+            </div>
+          </div>
+        </div>
+      </footer>
+      <div
+        class="sr-only"
+        id="copy-status"
+        role="status"
+        aria-live="polite"
+      ></div>
+    </div>
   </body>
 </html>
