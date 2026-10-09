@@ -173,9 +173,12 @@
 
   // ---- Drag & drop: reorder rows (drop on the top/bottom edge), move into a folder
   // (drop on its middle), or out to the root (drop on empty tree space).
+  // Plain pointer events, not HTML5 DnD: on macOS Tauri's native file-drop handler
+  // swallows the webview's dragover/drop, so HTML5 drop targets never fire there.
   type DropPos = 'before' | 'after' | 'into';
   let dragId = $state<string | undefined>(undefined);
   let dropAt = $state<{ id: string; pos: DropPos } | undefined>(undefined); // id '' = root zone
+  let press: { id: string; x: number; y: number } | undefined;
 
   function dropAllowed(src: string | undefined, destFolderId: string | undefined): boolean {
     if (!src) return false;
@@ -185,55 +188,55 @@
     if ((parentId(src) ?? undefined) === destFolderId) return false;
     return true;
   }
-  function rowDropPos(e: DragEvent, n: TreeNode): DropPos {
-    const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
-    const y = (e.clientY - r.top) / r.height;
-    if (n.kind !== 'folder') return y < 0.5 ? 'before' : 'after';
+  /** Where a drop at (x, y) would land; undefined = nowhere valid. */
+  function dropTarget(x: number, y: number): { id: string; pos: DropPos } | undefined {
+    const src = dragId;
+    const el = document.elementFromPoint(x, y);
+    const row = el?.closest<HTMLElement>('[data-node-id]');
+    if (!row) return src && el?.closest('.bs-tree') && dropAllowed(src, undefined) ? { id: '', pos: 'into' } : undefined;
+    const id = row.dataset.nodeId!;
+    if (!src || id === src || id.startsWith(src + '/')) return undefined;
+    const r = row.getBoundingClientRect();
+    const f = (y - r.top) / r.height;
+    const folder = row.dataset.folder; // 'open' | 'closed' | undefined (request)
     // An expanded folder's bottom edge sits above its children, so it means "into".
-    return y < 0.25 ? 'before' : y > 0.75 && !n.expanded ? 'after' : 'into';
+    const pos: DropPos = !folder ? (f < 0.5 ? 'before' : 'after') : f < 0.25 ? 'before' : f > 0.75 && folder === 'closed' ? 'after' : 'into';
+    return pos === 'into' && !dropAllowed(src, id) ? undefined : { id, pos };
   }
 
-  function onDragStart(e: DragEvent, id: string): void {
-    dragId = id;
-    if (e.dataTransfer) {
-      e.dataTransfer.effectAllowed = 'move';
-      e.dataTransfer.setData('text/plain', id);
-    }
+  function onRowPointerDown(e: PointerEvent, id: string): void {
+    if (e.button !== 0 || panel !== 'collections' || editingNodeId === id) return;
+    press = { id, x: e.clientX, y: e.clientY };
+    window.addEventListener('pointermove', onDragMove);
+    window.addEventListener('pointerup', onDragEnd);
+    window.addEventListener('pointercancel', onDragEnd);
   }
-  function onDragEnd(): void {
+  function onDragMove(e: PointerEvent): void {
+    if (!press) return;
+    if (!dragId) {
+      if (Math.hypot(e.clientX - press.x, e.clientY - press.y) < 5) return; // a click, not a drag yet
+      dragId = press.id;
+    }
+    dropAt = dropTarget(e.clientX, e.clientY);
+  }
+  function onDragEnd(e: PointerEvent): void {
+    window.removeEventListener('pointermove', onDragMove);
+    window.removeEventListener('pointerup', onDragEnd);
+    window.removeEventListener('pointercancel', onDragEnd);
+    const src = dragId;
+    const at = e.type === 'pointerup' ? dropAt : undefined;
+    press = undefined;
     dragId = undefined;
     dropAt = undefined;
-  }
-  function onRowDragOver(e: DragEvent, n: TreeNode): void {
-    if (panel !== 'collections' || !dragId || dragId === n.id || n.id.startsWith(dragId + '/')) return;
-    const pos = rowDropPos(e, n);
-    if (pos === 'into' && !dropAllowed(dragId, n.id)) return;
-    e.preventDefault();
-    e.stopPropagation();
-    if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
-    dropAt = { id: n.id, pos };
-  }
-  function onRowDrop(e: DragEvent, n: TreeNode): void {
-    e.preventDefault();
-    e.stopPropagation();
-    const src = dragId;
-    const at = dropAt;
-    onDragEnd();
-    if (!src || at?.id !== n.id) return;
-    if (at.pos === 'into') void moveNode(src, n.id);
-    else void placeNode(src, n.id, at.pos === 'after');
-  }
-  function onRootDragOver(e: DragEvent): void {
-    if (panel !== 'collections' || !dropAllowed(dragId, undefined)) return;
-    e.preventDefault();
-    dropAt = { id: '', pos: 'into' };
-  }
-  function onRootDrop(e: DragEvent): void {
-    if (panel !== 'collections') return;
-    e.preventDefault();
-    const src = dragId;
-    onDragEnd();
-    if (src && dropAllowed(src, undefined)) void moveNode(src, undefined);
+    if (!src) return;
+    // Swallow the click that follows the release so the row under it doesn't open.
+    const swallow = (ev: MouseEvent) => ev.stopPropagation();
+    window.addEventListener('click', swallow, true);
+    setTimeout(() => window.removeEventListener('click', swallow, true));
+    if (!at) return;
+    if (at.id === '') void moveNode(src, undefined);
+    else if (at.pos === 'into') void moveNode(src, at.id);
+    else void placeNode(src, at.id, at.pos === 'after');
   }
 </script>
 
@@ -270,7 +273,7 @@
 {#snippet node(n: TreeNode, depth: number)}
   {#if n.kind === 'folder'}
     {@const changed = folderChangeCount(gitPrefixVal + idToRel(n.id), gitFiles)}
-    <button class="bs-trow" class:bs-drop={dropAt?.id === n.id && dropAt.pos === 'into'} class:bs-drop-before={dropAt?.id === n.id && dropAt.pos === 'before'} class:bs-drop-after={dropAt?.id === n.id && dropAt.pos === 'after'} draggable="true" style="padding-left:{indent(depth)}px" oncontextmenu={(e) => { e.preventDefault(); openMenu('coll', e, n.id, true); }} onkeydown={(e) => rowKey(e, n)} onclick={() => { if (editingNodeId !== n.id) toggleFolder(n.id); }} ondragstart={(e) => onDragStart(e, n.id)} ondragend={onDragEnd} ondragover={(e) => onRowDragOver(e, n)} ondragleave={() => { if (dropAt?.id === n.id) dropAt = undefined; }} ondrop={(e) => onRowDrop(e, n)}>
+    <button class="bs-trow" class:bs-drop={dropAt?.id === n.id && dropAt.pos === 'into'} class:bs-drop-before={dropAt?.id === n.id && dropAt.pos === 'before'} class:bs-drop-after={dropAt?.id === n.id && dropAt.pos === 'after'} class:bs-dragsrc={dragId === n.id} data-node-id={n.id} data-folder={n.expanded ? 'open' : 'closed'} style="padding-left:{indent(depth)}px" onpointerdown={(e) => onRowPointerDown(e, n.id)} oncontextmenu={(e) => { e.preventDefault(); openMenu('coll', e, n.id, true); }} onkeydown={(e) => rowKey(e, n)} onclick={() => { if (editingNodeId !== n.id) toggleFolder(n.id); }}>
       <span class="material-symbols-outlined cv">{n.expanded ? 'keyboard_arrow_down' : 'chevron_right'}</span>
       <span class="material-symbols-outlined fo">folder</span>
       {#if editingNodeId === n.id}<!-- svelte-ignore a11y_autofocus --><input class="bs-nm bs-nm-input" bind:value={editValue} autofocus onpointerdown={(e) => e.stopPropagation()} onclick={(e) => e.stopPropagation()} onkeydown={inlineRenameKeydown} onblur={commitInlineRename} />{:else}<span class="bs-nm" title={n.name}>{n.name}</span>{/if}
@@ -292,7 +295,7 @@
     {/if}
   {:else}
     {@const st = statusMap.get(gitPrefixVal + idToRel(n.id))}
-    <button class="bs-trow" class:sel={activeSavedPath === n.id} class:bs-drop-before={dropAt?.id === n.id && dropAt.pos === 'before'} class:bs-drop-after={dropAt?.id === n.id && dropAt.pos === 'after'} draggable="true" style="padding-left:{indent(depth)}px" oncontextmenu={(e) => { e.preventDefault(); openMenu('req', e, n.id, false); }} onkeydown={(e) => rowKey(e, n)} onclick={(e) => { if (editingNodeId !== n.id) openSavedRequest(n, e.metaKey || e.ctrlKey); }} ondragstart={(e) => onDragStart(e, n.id)} ondragend={onDragEnd} ondragover={(e) => onRowDragOver(e, n)} ondragleave={() => { if (dropAt?.id === n.id) dropAt = undefined; }} ondrop={(e) => onRowDrop(e, n)}>
+    <button class="bs-trow" class:sel={activeSavedPath === n.id} class:bs-drop-before={dropAt?.id === n.id && dropAt.pos === 'before'} class:bs-drop-after={dropAt?.id === n.id && dropAt.pos === 'after'} class:bs-dragsrc={dragId === n.id} data-node-id={n.id} style="padding-left:{indent(depth)}px" onpointerdown={(e) => onRowPointerDown(e, n.id)} oncontextmenu={(e) => { e.preventDefault(); openMenu('req', e, n.id, false); }} onkeydown={(e) => rowKey(e, n)} onclick={(e) => { if (editingNodeId !== n.id) openSavedRequest(n, e.metaKey || e.ctrlKey); }}>
       <span class="bs-mp" style="color:{methodColor(n.protocol === 'grpc' ? 'GRPC' : n.request.method)}">{n.protocol === 'grpc' ? 'gRPC' : n.request.method.toUpperCase()}</span>
       {#if editingNodeId === n.id}<!-- svelte-ignore a11y_autofocus --><input class="bs-nm bs-nm-input" bind:value={editValue} autofocus onpointerdown={(e) => e.stopPropagation()} onclick={(e) => e.stopPropagation()} onkeydown={inlineRenameKeydown} onblur={commitInlineRename} />{:else}<span class="bs-nm" title="{n.protocol === 'grpc' ? 'gRPC' : n.request.method.toUpperCase()} {n.name}">{n.name}</span>{/if}
       {#if st}
@@ -307,7 +310,7 @@
   <GitPanel />
 {:else}
 <!-- svelte-ignore a11y_no_static_element_interactions -->
-<div class="bs-tree" bind:this={treeEl} class:bs-flows-selected={panel === 'flows'} class:bs-droproot={dropAt?.id === ''} ondragover={onRootDragOver} ondrop={onRootDrop}>
+<div class="bs-tree" bind:this={treeEl} class:bs-flows-selected={panel === 'flows'} class:bs-droproot={dropAt?.id === ''} class:bs-dragging={!!dragId}>
   {#if panel === 'collections'}
     {#if visibleCollections.length === 0}
       <div class="bs-collection-empty">
