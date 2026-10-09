@@ -1,10 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { HttpRequest, HttpResponse, Tab } from '../src/lib/domain/types';
+import type { HttpRequest, HttpResponse, Tab } from '../domain/types';
 
 // Mock the entire api module. stores.ts imports httpSend (the call under test)
 // plus the workspace* helpers; every named export it uses must be stubbed or the
 // module-eval in stores.ts throws. We never exercise the workspace paths here.
-vi.mock('../src/lib/api', () => ({
+vi.mock('../api', () => ({
   httpSend: vi.fn(),
   runScript: vi.fn(),
   filePick: vi.fn(),
@@ -19,8 +19,8 @@ vi.mock('../src/lib/api', () => ({
   workspaceMove: vi.fn(),
 }));
 
-import { httpSend } from '../src/lib/api';
-import { tabs, activeTabId, sendHttpRequest, updateTabById } from '../src/lib/stores';
+import { httpSend } from '../api';
+import { tabs, activeTabId, sendHttpRequest, updateTabById } from './index';
 
 const mockHttpSend = vi.mocked(httpSend);
 

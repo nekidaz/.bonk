@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { HTTP_DEFAULT_TITLE, titleFromUrl } from '../src/lib/stores';
+import { HTTP_DEFAULT_TITLE, titleFromUrl } from './tab';
 
 describe('titleFromUrl', () => {
   it('uses fallback for an empty URL', () => {

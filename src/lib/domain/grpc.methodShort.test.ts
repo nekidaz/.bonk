@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { methodShort } from '../src/lib/domain/grpc';
+import { methodShort } from './grpc';
 
 describe('methodShort', () => {
   it('takes last dotted segment', () => {

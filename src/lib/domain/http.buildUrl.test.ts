@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { buildUrl, paramsFromUrl, syncUrlWithParams } from '../src/lib/domain/http';
-import type { Param } from '../src/lib/domain/types';
+import { buildUrl, paramsFromUrl, syncUrlWithParams } from './http';
+import type { Param } from './types';
 
 function p(key: string, value: string, enabled = true): Param {
   return { key, value, description: '', enabled };

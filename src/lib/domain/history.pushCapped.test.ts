@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { pushCapped } from '../src/lib/domain/history';
+import { pushCapped } from './history';
 
 describe('pushCapped', () => {
   it('prepends newest and caps length', () => {

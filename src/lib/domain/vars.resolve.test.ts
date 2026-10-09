@@ -5,8 +5,8 @@ import {
   resolveRequestVars,
   findVariables,
   lookupVar,
-} from '../src/lib/domain/vars';
-import type { Environment, HttpRequest, VarRow } from '../src/lib/domain/types';
+} from './vars';
+import type { Environment, HttpRequest, VarRow } from './types';
 
 function v(key: string, value: string, enabled = true): VarRow {
   return { key, value, enabled };

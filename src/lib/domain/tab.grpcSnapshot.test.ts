@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { grpcSnapshot } from '../src/lib/stores';
-import type { GrpcTabState } from '../src/lib/domain/types';
+import { grpcSnapshot } from './tab';
+import type { GrpcTabState } from './types';
 
 describe('grpcSnapshot', () => {
   it('returns undefined for an undefined snapshot', () => {
