@@ -24,7 +24,7 @@
   let recentIds = $state<string[]>(readRecent());
 
   const activeEnv = $derived($environments.find((env) => env.id === $activeEnvironmentId));
-  const environmentName = $derived(activeEnv?.name ?? $t('env.none'));
+  const environmentName = $derived(activeEnv?.name ?? t('env.none'));
   const tone = $derived(activeEnv ? envToneOf(activeEnv) : 'none');
   const q = $derived(query.trim().toLowerCase());
   // S14: the active environment always heads the recents.
@@ -128,7 +128,7 @@
       style:color={env && tn !== 'production' ? ENV_COLOR_VAR[envColor(env)] : undefined}
       aria-hidden="true">{env ? TONE_ICON[tn as EnvTone] : 'block'}</span
     >
-    <span class="label">{env?.name ?? $t('env.none')}</span>
+    <span class="label">{env?.name ?? t('env.none')}</span>
     {#if hint}<span class="hint">{hint}</span>{/if}
   </button>
 {/snippet}
@@ -153,7 +153,7 @@
     <div
       class="bs-env-menu"
       role="menu"
-      aria-label={$t('env.select_aria')}
+      aria-label={t('env.select_aria')}
       tabindex="-1"
       bind:this={menuEl}
       onkeydown={menuKeydown}
@@ -163,35 +163,35 @@
         <input
           bind:this={search}
           bind:value={query}
-          placeholder={$t('env.find')}
-          aria-label={$t('env.find')}
+          placeholder={t('env.find')}
+          aria-label={t('env.find')}
           {@attach (el) => el.focus()}
         />
         <kbd>⌘E</kbd>
       </label>
       {#if recent.length}
-        <div class="bs-env-heading"><span>{$t('env.recent')}</span></div>
+        <div class="bs-env-heading"><span>{t('env.recent')}</span></div>
         {#each recent as env, i (env!.id)}
           {@render item(env!, env!.id === $activeEnvironmentId ? '✓' : keyFor(env!))}
         {/each}
         <div class="bs-env-sep"></div>
       {/if}
       <div class="bs-env-heading">
-        <span>{$t('env.all')}&nbsp;&nbsp;·&nbsp;&nbsp;{all.length}</span><span class="sort">A–Z</span>
+        <span>{t('env.all')}&nbsp;&nbsp;·&nbsp;&nbsp;{all.length}</span><span class="sort">A–Z</span>
       </div>
       <div class="bs-env-scroll">
-        {#if !q || $t('env.none').toLowerCase().includes(q)}{@render item(null, '')}{/if}
+        {#if !q || t('env.none').toLowerCase().includes(q)}{@render item(null, '')}{/if}
         {#each all as env (env.id)}{@render item(env, '')}{/each}
       </div>
       <div class="bs-env-sep"></div>
       <div class="bs-env-foot">
         <button class="bs-env-item" role="menuitem" onclick={manage}
           ><span class="material-symbols-outlined lead" aria-hidden="true">tune</span><span class="label"
-            >{$t('env.manage')}</span
+            >{t('env.manage')}</span
           ></button
         >
         <button class="bs-env-new" role="menuitem" onclick={create}
-          ><span class="material-symbols-outlined" aria-hidden="true">add</span>{$t('env.new_short')}</button
+          ><span class="material-symbols-outlined" aria-hidden="true">add</span>{t('env.new_short')}</button
         >
       </div>
     </div>

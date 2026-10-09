@@ -41,8 +41,8 @@
     };
   });
 
-  const nameOf = (path: string) => workspaceName(path) || $t('workspace.local');
-  const title = $derived($workspacePath ? nameOf($workspacePath) : $t('workspace.local'));
+  const nameOf = (path: string) => workspaceName(path) || t('workspace.local');
+  const title = $derived($workspacePath ? nameOf($workspacePath) : t('workspace.local'));
   const recents = $derived(recentWorkspaceChoices($recentWorkspacePaths, $workspacePath));
   const q = $derived(query.trim().toLowerCase());
   const hit = (path: string) => !q || path.toLowerCase().includes(q);
@@ -89,7 +89,7 @@
     class:open
     aria-haspopup="menu"
     aria-expanded={open}
-    title={$workspacePath || $t('workspace.local')}
+    title={$workspacePath || t('workspace.local')}
     onclick={() => (open = !open)}
   >
     <span class="bs-work-avatar" aria-hidden="true">{workspaceInitials(title)}</span>
@@ -101,18 +101,18 @@
       class="bs-work-menu"
       role="menu"
       tabindex="-1"
-      aria-label={$t('workspace.title')}
+      aria-label={t('workspace.title')}
       bind:this={menuEl}
       onkeydown={menuKeydown}
     >
       <label class="bs-work-search">
         <span class="material-symbols-outlined" aria-hidden="true">search</span>
-        <input bind:this={searchEl} bind:value={query} placeholder={$t('workspace.search')} onkeydown={searchKeydown} />
-        {#if $hotkeys.workspaceMenu}<kbd>{formatBinding($hotkeys.workspaceMenu).join('')}</kbd>{/if}
+        <input bind:this={searchEl} bind:value={query} placeholder={t('workspace.search')} onkeydown={searchKeydown} />
+        {#if hotkeys.current.workspaceMenu}<kbd>{formatBinding(hotkeys.current.workspaceMenu).join('')}</kbd>{/if}
       </label>
 
       {#if showCurrent}
-        <div class="bs-work-menu-label">{$t('workspace.current')}</div>
+        <div class="bs-work-menu-label">{t('workspace.current')}</div>
         <button
           class="bs-work-item on"
           type="button"
@@ -125,22 +125,21 @@
             <span class="main">{nameOf($workspacePath)}</span>
             <span class="sub">{$workspacePath}</span>
             <span class="meta">
-              <span>{requestCount} {$tp(requestCount, ['запрос', 'запроса', 'запросов'], ['request', 'requests'])}</span
-              >
+              <span>{requestCount} {tp(requestCount, ['запрос', 'запроса', 'запросов'], ['request', 'requests'])}</span>
               <span
-                >{`${$environments.length} ${$tp($environments.length, ['окружение', 'окружения', 'окружений'], ['environment', 'environments'])}`}</span
+                >{`${$environments.length} ${tp($environments.length, ['окружение', 'окружения', 'окружений'], ['environment', 'environments'])}`}</span
               >
-              {#if mcpOn}<span class="mcp">{$t('workspace.mcp')}</span>{/if}
+              {#if mcpOn}<span class="mcp">{t('workspace.mcp')}</span>{/if}
             </span>
           </span>
           <span class="material-symbols-outlined ok" aria-hidden="true">check</span>
         </button>
       {:else if !$workspacePath}
-        <div class="bs-work-empty">{$t('workspace.none')}</div>
+        <div class="bs-work-empty">{t('workspace.none')}</div>
       {/if}
 
       {#if shownRecents.length > 0}
-        <div class="bs-work-menu-label">{$t('workspace.recent')}</div>
+        <div class="bs-work-menu-label">{t('workspace.recent')}</div>
         {#each shownRecents as path (path)}
           <button class="bs-work-item" type="button" role="menuitem" title={path} onclick={() => choose(path)}>
             <span class="bs-work-avatar muted" aria-hidden="true">{workspaceInitials(nameOf(path))}</span>
@@ -152,7 +151,7 @@
           </button>
         {/each}
       {:else if q && !showCurrent}
-        <div class="bs-work-empty">{$t('workspace.noMatch')}</div>
+        <div class="bs-work-empty">{t('workspace.noMatch')}</div>
       {/if}
 
       <div class="bs-work-menu-sep" role="separator"></div>
@@ -160,12 +159,12 @@
            No hotkey hint on «new»: the design's ⌘⇧N is already «new collection». -->
       <button class="bs-work-item action" type="button" role="menuitem" onclick={() => run(openWorkspaceFolder)}>
         <span class="material-symbols-outlined" aria-hidden="true">create_new_folder</span>
-        <span class="text"><span class="main">{$t('workspace.new')}</span></span>
+        <span class="text"><span class="main">{t('workspace.new')}</span></span>
       </button>
       <button class="bs-work-item action" type="button" role="menuitem" onclick={() => run(openWorkspaceFolder)}>
         <span class="material-symbols-outlined" aria-hidden="true">folder_open</span>
-        <span class="text"><span class="main">{$t('workspace.openFolder')}</span></span>
-        {#if $hotkeys.openFolder}<kbd>{formatBinding($hotkeys.openFolder).join('')}</kbd>{/if}
+        <span class="text"><span class="main">{t('workspace.openFolder')}</span></span>
+        {#if hotkeys.current.openFolder}<kbd>{formatBinding(hotkeys.current.openFolder).join('')}</kbd>{/if}
       </button>
       {#if $workspacePath}
         <button
@@ -175,13 +174,13 @@
           onclick={() => run(() => revealPath($workspacePath))}
         >
           <span class="material-symbols-outlined" aria-hidden="true">open_in_new</span>
-          <span class="text"><span class="main">{$t('workspace.reveal')}</span></span>
+          <span class="text"><span class="main">{t('workspace.reveal')}</span></span>
         </button>
         <div class="bs-work-menu-sep" role="separator"></div>
         <button class="bs-work-item action" type="button" role="menuitem" onclick={() => run(onSettings)}>
           <span class="material-symbols-outlined" aria-hidden="true">tune</span>
-          <span class="text"><span class="main">{$t('workspace.settings')}</span></span>
-          {#if $hotkeys.settings}<kbd>{formatBinding($hotkeys.settings).join('')}</kbd>{/if}
+          <span class="text"><span class="main">{t('workspace.settings')}</span></span>
+          {#if hotkeys.current.settings}<kbd>{formatBinding(hotkeys.current.settings).join('')}</kbd>{/if}
         </button>
       {/if}
     </div>

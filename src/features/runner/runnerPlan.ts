@@ -3,7 +3,6 @@
  * planning, settings clamping/merging, the exported report and the «Брать id из …»
  * edit plan. No store reads/writes, no IPC — store.ts wires these in.
  */
-import { get } from 'svelte/store';
 import { t, type Translate } from '$shared/i18n';
 import type { RequestNode, RunResultRow, RunStatus, TreeNode } from '$shared/model';
 import type { IdBinding, RunRecord, RunSummary } from './runnerStats';
@@ -126,7 +125,7 @@ export const iterationCount = (c: Pick<RunnerConfig, 'dataRows' | 'iterations'>)
   c.dataRows.length > 0 ? c.dataRows.length : Math.max(1, c.iterations);
 
 /** Header title of the run scope: the first chosen folder, else "Все запросы". */
-export function runnerScopeTitle(folderIds: string[], tree: TreeNode[], tr: Translate = get(t)): string {
+export function runnerScopeTitle(folderIds: string[], tree: TreeNode[], tr: Translate = t): string {
   for (const id of folderIds) {
     const node = findNode(tree, id);
     if (node) return node.name;

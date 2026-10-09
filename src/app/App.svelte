@@ -19,7 +19,7 @@
     findNode,
     parentId,
   } from '$entities/workspace';
-  import { hydrate } from './persistence';
+  import { hydrate } from './persistence.svelte';
   import {
     newTab,
     requestCloseTab,
@@ -80,7 +80,6 @@
   import RequestStrip from './RequestStrip.svelte';
   import { ResponseStrip, ResponsePane } from '$features/response/components';
   import { t } from '$shared/i18n';
-  import { get } from 'svelte/store';
   import { methodColor, toCurl, type RequestProtocol } from '$shared/model';
   import { flushPendingSaves, loadState, saveState } from '$shared/persist';
   import { GrpcEditor } from '$features/grpc/components';
@@ -224,9 +223,9 @@
     const isFolder = menu.isFolder;
     closeMenu();
     if (!id) return;
-    const name = findNode($collections, id)?.name ?? get(t)('app.node.thisItem');
-    const msg = isFolder ? get(t)('app.node.deleteFolder', { name }) : get(t)('app.node.deleteItem', { name });
-    if (await requestConfirm(msg, get(t)('common.delete'))) await removeNode(id);
+    const name = findNode($collections, id)?.name ?? t('app.node.thisItem');
+    const msg = isFolder ? t('app.node.deleteFolder', { name }) : t('app.node.deleteItem', { name });
+    if (await requestConfirm(msg, t('common.delete'))) await removeNode(id);
   }
   function nodeSaveHere(): void {
     if (menu.nodeId) void saveActiveRequest(menu.nodeId);
@@ -379,47 +378,47 @@
     await tick();
     document.querySelector<HTMLElement>('.bs-urlfield .cm-content')?.focus();
   }
-  const keys = (id: string): string => formatBinding($hotkeys[id] ?? '').join('');
+  const keys = (id: string): string => formatBinding(hotkeys.current[id] ?? '').join('');
   const paletteCommands: PaletteCommand[] = $derived([
     {
-      label: activeFolderName ? $t('palette.cmd.newIn', { folder: activeFolderName }) : $t('palette.cmd.new'),
+      label: activeFolderName ? t('palette.cmd.newIn', { folder: activeFolderName }) : t('palette.cmd.new'),
       icon: 'add',
       shortcut: keys('newRequest'),
       run: () => newRequestHere(),
     },
     {
-      label: activeFolderName ? $t('palette.cmd.curlIn', { folder: activeFolderName }) : $t('palette.cmd.curl'),
+      label: activeFolderName ? t('palette.cmd.curlIn', { folder: activeFolderName }) : t('palette.cmd.curl'),
       icon: 'terminal',
       run: () => void pasteCurl(),
     },
-    { label: $t('palette.cmd.openapi'), icon: 'upload_file', run: importOpenApi },
-    { label: $t('palette.cmd.envs'), icon: 'layers', shortcut: keys('env'), run: openEnvironmentsTab },
+    { label: t('palette.cmd.openapi'), icon: 'upload_file', run: importOpenApi },
+    { label: t('palette.cmd.envs'), icon: 'layers', shortcut: keys('env'), run: openEnvironmentsTab },
     {
-      label: $t('palette.cmd.workspace'),
+      label: t('palette.cmd.workspace'),
       icon: 'folder_managed',
       shortcut: keys('workspaceMenu'),
       run: () => (workspaceMenuOpen = true),
     },
     { label: 'Flows', icon: 'account_tree', run: () => showSidebar('flows') },
-    { label: $t('palette.cmd.runner'), icon: 'play_arrow', run: openRunnerTab },
-    { label: $t('palette.cmd.sidebar'), icon: 'left_panel_open', shortcut: keys('sidebar'), run: toggleSidebar },
+    { label: t('palette.cmd.runner'), icon: 'play_arrow', run: openRunnerTab },
+    { label: t('palette.cmd.sidebar'), icon: 'left_panel_open', shortcut: keys('sidebar'), run: toggleSidebar },
     {
-      label: $t('palette.cmd.response'),
+      label: t('palette.cmd.response'),
       icon: 'bottom_panel_open',
       run: () => {
         responseHidden = !responseHidden;
         requestHidden = false;
       },
     },
-    { label: $t('palette.cmd.code'), icon: 'code', shortcut: keys('codePanel'), run: () => toggleCodePanel() },
+    { label: t('palette.cmd.code'), icon: 'code', shortcut: keys('codePanel'), run: () => toggleCodePanel() },
     {
-      label: $t('palette.cmd.folder'),
+      label: t('palette.cmd.folder'),
       icon: 'folder_open',
       shortcut: keys('openFolder'),
       run: () => void openWorkspaceFolder(),
     },
     {
-      label: $t('palette.cmd.settings'),
+      label: t('palette.cmd.settings'),
       icon: 'settings',
       shortcut: keys('settings'),
       run: () => (settingsOpen = true),
@@ -450,7 +449,9 @@
   let innerWidth = $state(window.innerWidth);
   /** E7: request | response side by side — chosen, or automatic on a wide window. Expanded mode wins. */
   const sideBySide = $derived(
-    requestTab && !$focusMode && ($requestLayout === 'side' || ($sideOnWide && innerWidth >= SIDE_BY_SIDE_MIN)),
+    requestTab &&
+      !$focusMode &&
+      (requestLayout.current === 'side' || (sideOnWide.current && innerWidth >= SIDE_BY_SIDE_MIN)),
   );
   /** In stacked layouts a hidden pane folds into its 44 px strip. */
   const respStrip = $derived(!sideBySide && (responseHidden || $focusMode === 'request'));
@@ -483,7 +484,7 @@
       seenResponse.tab === id &&
       seenResponse.res !== res &&
       !sideBySide &&
-      ($requestLayout === 'focus' || $afterSend === 'expand')
+      (requestLayout.current === 'focus' || afterSend.current === 'expand')
     ) {
       untrack(() => {
         responseHidden = false;
@@ -494,7 +495,7 @@
   });
   /** Auto-focus: the pane being worked in fills, the other folds into its strip. */
   function autoFocusIn(e: FocusEvent): void {
-    if ($requestLayout !== 'focus' || sideBySide || $focusMode) return;
+    if (requestLayout.current !== 'focus' || sideBySide || $focusMode) return;
     const el = e.target instanceof Element ? e.target : null;
     if (el?.closest('.bs-reqpane')) {
       requestHidden = false;
@@ -507,12 +508,12 @@
   function showResponse(): void {
     focusMode.set(null);
     responseHidden = false;
-    if ($requestLayout === 'focus') requestHidden = true;
+    if (requestLayout.current === 'focus') requestHidden = true;
   }
   function showRequest(): void {
     focusMode.set(null);
     requestHidden = false;
-    if ($requestLayout === 'focus') responseHidden = true;
+    if (requestLayout.current === 'focus') responseHidden = true;
   }
 
   let utilityMode = $state<UtilityMode | null>(null);
@@ -561,10 +562,10 @@
         await saveActiveRequest(folder, active.title);
         flashSaved();
         showToast({
-          text: get(t)('app.toast.savedIn', {
+          text: t('app.toast.savedIn', {
             where:
               (folder && findNode($collections, folder)?.name) ||
-              ($workspacePath.split('/').filter(Boolean).at(-1) ?? get(t)('app.toast.workspace')),
+              ($workspacePath.split('/').filter(Boolean).at(-1) ?? t('app.toast.workspace')),
           }),
           undo: prev?.kind === 'request' ? () => void restoreSavedRequest(prev) : undefined,
         });
@@ -616,7 +617,7 @@
       void switchWorkspace(recentPath);
       return;
     }
-    const id = commandFor(e, $hotkeys);
+    const id = commandFor(e, hotkeys.current);
     if (!id) return;
     if (
       id === 'send' &&
@@ -727,7 +728,7 @@
   // the code font/size feed --font-code and the editors, density sets row heights.
   $effect(() => {
     const root = document.documentElement;
-    const d = $uiFontSize - 13;
+    const d = uiFontSize.current - 13;
     for (const [token, base] of [
       ['micro', 10],
       ['caption', 11],
@@ -740,15 +741,15 @@
     }
     root.style.setProperty(
       '--font-code',
-      `'${$codeFont}', 'JetBrains Mono', 'SF Mono', ui-monospace, Menlo, monospace`,
+      `'${codeFont.current}', 'JetBrains Mono', 'SF Mono', ui-monospace, Menlo, monospace`,
     );
-    root.style.setProperty('--code-font-size', `${$codeFontSize}px`);
-    root.dataset.density = $density;
+    root.style.setProperty('--code-font-size', `${codeFontSize.current}px`);
+    root.dataset.density = density.current;
   });
 
   // «Как в системе»: track the OS appearance while the setting is on.
   $effect(() => {
-    if (!$themeFollowSystem) return;
+    if (!themeFollowSystem.current) return;
     const mq = matchMedia('(prefers-color-scheme: dark)');
     const sync = () => setTheme(mq.matches ? 'smooth-dark' : 'smooth-light');
     sync();
@@ -795,7 +796,7 @@
     const t = setTimeout(
       () =>
         void autoUpdateCheck.ready.then(() => {
-          if ($autoUpdateCheck) void checkForUpdate();
+          if (autoUpdateCheck.current) void checkForUpdate();
         }),
       2500,
     );
@@ -945,9 +946,9 @@
     if (!prev) return;
     const name = (p: RequestProtocol) => (p === 'grpc' ? 'gRPC' : 'HTTP');
     showToast({
-      text: get(t)('app.toast.protocol', { kind: name(kind) }),
+      text: t('app.toast.protocol', { kind: name(kind) }),
       undo: () => tabs.update((list) => list.map((x) => (x.id === prev.id ? prev : x))),
-      undoLabel: get(t)('app.toast.protocolUndo', { kind: name(prev.protocol as RequestProtocol) }),
+      undoLabel: t('app.toast.protocolUndo', { kind: name(prev.protocol as RequestProtocol) }),
       icon: 'swap_horiz',
       iconColor: methodColor(kind === 'grpc' ? 'GRPC' : 'GET'),
     });
@@ -1013,7 +1014,7 @@
         class:dragging={sidebarDragWidth !== null}
         role="separator"
         aria-orientation="vertical"
-        aria-label={$t('app.sidebar.resize')}
+        aria-label={t('app.sidebar.resize')}
         aria-valuenow={sidebarWidth}
         aria-valuemin={SIDEBAR_MIN}
         aria-valuemax={SIDEBAR_MAX}
@@ -1029,10 +1030,10 @@
         class="bs-side-grip"
         role="separator"
         aria-orientation="vertical"
-        aria-label={$t('app.sidebar.open')}
+        aria-label={t('app.sidebar.open')}
         onpointerdown={startSidebarDrag}
       >
-        <span class="mono-tip" role="tooltip">{$t('app.sidebar.pull')}<kbd>⌘\</kbd></span>
+        <span class="mono-tip" role="tooltip">{t('app.sidebar.pull')}<kbd>⌘\</kbd></span>
       </div>
     {/if}
 
@@ -1079,12 +1080,12 @@
                 <div class="bs-history-banner" role="status">
                   <span class="material-symbols-outlined" aria-hidden="true">history</span>
                   <span class="text"
-                    >{`${$t('app.snapshot')} · ${historyDay(historySnapshot.entry.at, Date.now(), $t).toLowerCase()} ${clock(historySnapshot.entry.at)}${historySnapshot.entry.envName ? ` · ${historySnapshot.entry.envName}` : ''}. ${$t('app.snapshot.note')}`}</span
+                    >{`${t('app.snapshot')} · ${historyDay(historySnapshot.entry.at, Date.now(), t).toLowerCase()} ${clock(historySnapshot.entry.at)}${historySnapshot.entry.envName ? ` · ${historySnapshot.entry.envName}` : ''}. ${t('app.snapshot.note')}`}</span
                   >
                   {#if historySnapshot.original}<button
                       type="button"
                       onclick={() => openSavedRequest(historySnapshot!.original!.node)}
-                      >{$t('app.snapshot.original')}</button
+                      >{t('app.snapshot.original')}</button
                     >{/if}
                 </div>
               {/if}
@@ -1203,7 +1204,7 @@
         >{toast.icon ?? 'check_circle'}</span
       >
       <span class="text">{toast.text}</span>
-      {#if toast.undo}<button type="button" onclick={undoToast}>{toast.undoLabel ?? $t('app.toast.undo')} ⌘Z</button
+      {#if toast.undo}<button type="button" onclick={undoToast}>{toast.undoLabel ?? t('app.toast.undo')} ⌘Z</button
         >{/if}
     </div>
   {/if}

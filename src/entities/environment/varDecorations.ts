@@ -20,7 +20,6 @@ import {
   type Tooltip,
   type ViewUpdate,
 } from '@codemirror/view';
-import { get } from 'svelte/store';
 import { t } from '$shared/i18n';
 import { findVariables } from '$shared/model';
 
@@ -115,7 +114,7 @@ function dot(color: string | undefined, className = 'cm-var-tip-dot'): HTMLEleme
   return d;
 }
 
-const tr = (key: string, vars?: Record<string, string>) => get(t)(key, vars);
+const tr = (key: string, vars?: Record<string, string>) => t(key, vars);
 const mask = (v: string) => '•'.repeat(Math.min(Math.max(v.length, 8), 16));
 
 /** Glyph + name row + source line + «open environments». */

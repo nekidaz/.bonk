@@ -70,7 +70,7 @@ export function parseCurl(input: string): HttpRequest {
     else if (!arg.startsWith('-') && !url) url = arg;
   }
 
-  if (!url) throw new Error(get(t)('import.err.curlUrl'));
+  if (!url) throw new Error(t('import.err.curlUrl'));
   // -G/--get sends the collected -d/--data as the GET query string, not a body.
   if (getMode && bodies.length > 0) {
     url += (url.includes('?') ? '&' : '?') + bodies.join('&');

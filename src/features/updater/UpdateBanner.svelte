@@ -16,8 +16,8 @@
 {#if $updateToast}
   <div class="upd" role="status" aria-live="polite">
     <span class="material-symbols-outlined ic" aria-hidden="true">download_done</span>
-    <span class="txt">{$t('update.downloaded', { v: $updateVersion })}</span>
-    <button class="btn" type="button" onclick={installUpdate}>{$t('update.restart')}</button>
+    <span class="txt">{t('update.downloaded', { v: $updateVersion })}</span>
+    <button class="btn" type="button" onclick={installUpdate}>{t('update.restart')}</button>
   </div>
 {/if}
 

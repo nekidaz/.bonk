@@ -1,4 +1,3 @@
-import { get } from 'svelte/store';
 import { plural, uiLanguage } from '$shared/i18n';
 
 /** Russian plural form: one (1, 21…), few (2–4, 22…), many (0, 5–20…). */
@@ -12,7 +11,7 @@ export function ruPlural(n: number, one: string, few: string, many: string): str
 
 // Language-aware counters (read the language at call time; use the reactive `$tp` in templates when live switching matters).
 const count = (n: number, ru: [string, string, string], en: [string, string]): string =>
-  `${n} ${plural(n, get(uiLanguage) === 'ru' ? ru : en)}`;
+  `${n} ${plural(n, uiLanguage.current === 'ru' ? ru : en)}`;
 export const ruServices = (n: number): string => count(n, ['сервис', 'сервиса', 'сервисов'], ['service', 'services']);
 export const ruMethods = (n: number): string => count(n, ['метод', 'метода', 'методов'], ['method', 'methods']);
 export const ruFiles = (n: number): string => count(n, ['файл', 'файла', 'файлов'], ['file', 'files']);

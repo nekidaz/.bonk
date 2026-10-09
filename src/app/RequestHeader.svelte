@@ -30,12 +30,12 @@
   const callType = $derived.by(() => {
     const m = tab.grpc?.tree?.services.flatMap((s) => s.methods).find((x) => x.symbol === tab.grpc?.method);
     if (!m) return 'gRPC';
-    if (m.clientStreaming && m.serverStreaming) return $t('nav.header.bidi');
+    if (m.clientStreaming && m.serverStreaming) return t('nav.header.bidi');
     return m.serverStreaming
-      ? $t('nav.header.server')
+      ? t('nav.header.server')
       : m.clientStreaming
-        ? $t('nav.header.client')
-        : $t('nav.header.unary');
+        ? t('nav.header.client')
+        : t('nav.header.unary');
   });
 
   // Breadcrumb: the folder the saved request lives in.
@@ -97,8 +97,8 @@
   <button
     class="bs-proto"
     type="button"
-    title={$t('proto.tip', { type: tab.protocol === 'grpc' ? 'gRPC' : 'HTTP' })}
-    aria-label={$t('proto.aria')}
+    title={t('proto.tip', { type: tab.protocol === 'grpc' ? 'gRPC' : 'HTTP' })}
+    aria-label={t('proto.aria')}
     aria-haspopup="menu"
     onclick={onSwitch}
   >
@@ -112,13 +112,13 @@
   <div class="bs-reqtitle">
     <span class="bs-crumb"
       >{origin
-        ? `${folderName ?? $t('workspace.title')}  /  ${tab.protocol === 'grpc' ? callType : tab.request.method}`
-        : `${$t('nav.welcome.newRequest')}  /  ${tab.protocol === 'grpc' ? 'gRPC' : $t('nav.header.unsaved')}`}</span
+        ? `${folderName ?? t('workspace.title')}  /  ${tab.protocol === 'grpc' ? callType : tab.request.method}`
+        : `${t('nav.welcome.newRequest')}  /  ${tab.protocol === 'grpc' ? 'gRPC' : t('nav.header.unsaved')}`}</span
     >
     {#if editing}
       <input
         class="nm title-input"
-        aria-label={$t('nav.header.renameAria')}
+        aria-label={t('nav.header.renameAria')}
         bind:this={input}
         bind:value={draft}
         onblur={commitRename}
@@ -126,11 +126,11 @@
       />
     {:else}
       <span class="bs-title-row">
-        <button class="nm rename" class:draft={!origin} title={$t('nav.header.rename')} onclick={startRename}
+        <button class="nm rename" class:draft={!origin} title={t('nav.header.rename')} onclick={startRename}
           >{tab.title}</button
         >
         {#if tab.savedPath && $dirtyTabIds.has(tab.id)}<span class="bs-modified"
-            ><span class="dot" aria-hidden="true"></span>{$t('nav.header.modified')}</span
+            ><span class="dot" aria-hidden="true"></span>{t('nav.header.modified')}</span
           >{/if}
       </span>
     {/if}
@@ -141,16 +141,16 @@
       class="bs-save bs-save-main"
       class:saved={savedFlash}
       class:primary={$dirtyTabIds.has(tab.id)}
-      title={tab.savedPath ? $t('nav.header.saveTip') : $t('nav.header.saveToTip')}
+      title={tab.savedPath ? t('nav.header.saveTip') : t('nav.header.saveToTip')}
       onclick={onSmartSave}
     >
-      <span class="material-symbols-outlined" aria-hidden="true">save</span>{$t('nav.header.save')}<kbd>⌘S</kbd>
+      <span class="material-symbols-outlined" aria-hidden="true">save</span>{t('nav.header.save')}<kbd>⌘S</kbd>
     </button>
     <button
       class="bs-hb"
       class:on={codeOpen}
-      title={$t('nav.header.codeTip')}
-      aria-label={$t('nav.header.code')}
+      title={t('nav.header.codeTip')}
+      aria-label={t('nav.header.code')}
       aria-pressed={codeOpen}
       onpointerdown={(e) => e.stopPropagation()}
       onclick={onCode}><span class="material-symbols-outlined">code</span></button

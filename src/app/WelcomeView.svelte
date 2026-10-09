@@ -17,7 +17,7 @@
   } = $props();
 
   let curlInput = $state<HTMLInputElement | null>(null);
-  const workspaceName = $derived($workspacePath.split('/').filter(Boolean).at(-1) ?? $t('workspace.local'));
+  const workspaceName = $derived($workspacePath.split('/').filter(Boolean).at(-1) ?? t('workspace.local'));
   const recent = $derived(recentRequests($history, $collections));
   const now = Date.now();
 
@@ -34,24 +34,24 @@
   <section class="bs-welcome" aria-labelledby="bs-welcome-title">
     <div class="eyebrow">
       {workspaceName}&nbsp;&nbsp;·&nbsp;&nbsp;{$collections.length === 0
-        ? $t('nav.welcome.newWorkspace')
-        : $t('nav.welcome.noTabs')}
+        ? t('nav.welcome.newWorkspace')
+        : t('nav.welcome.noTabs')}
     </div>
-    <h1 id="bs-welcome-title">{$t('nav.welcome.firstTitle')}</h1>
-    <p>{$t('nav.welcome.firstText')}</p>
+    <h1 id="bs-welcome-title">{t('nav.welcome.firstTitle')}</h1>
+    <p>{t('nav.welcome.firstText')}</p>
     <div class="actions">
       <button class="primary" type="button" onclick={onNewRequest}
-        ><span class="material-symbols-outlined" aria-hidden="true">add</span>{$t('nav.welcome.newRequest')}<kbd>⌘N</kbd
+        ><span class="material-symbols-outlined" aria-hidden="true">add</span>{t('nav.welcome.newRequest')}<kbd>⌘N</kbd
         ></button
       >
-      <button class="secondary" type="button" onclick={() => onImport()}>{$t('nav.welcome.import')}</button>
+      <button class="secondary" type="button" onclick={() => onImport()}>{t('nav.welcome.import')}</button>
     </div>
     <label class="paste">
       <span class="material-symbols-outlined" aria-hidden="true">terminal</span>
       <input
         bind:this={curlInput}
-        placeholder={$t('nav.welcome.pasteCurl')}
-        aria-label={$t('nav.welcome.pasteCurlAria')}
+        placeholder={t('nav.welcome.pasteCurl')}
+        aria-label={t('nav.welcome.pasteCurlAria')}
         spellcheck="false"
         onpaste={(e) => {
           const text = e.clipboardData?.getData('text') ?? '';
@@ -65,7 +65,7 @@
       <kbd>⌘V</kbd>
     </label>
     <div class="sources">
-      <span class="lbl">{$t('nav.welcome.importFrom')}</span>
+      <span class="lbl">{t('nav.welcome.importFrom')}</span>
       <button type="button" onclick={() => curlInput?.focus()}>cURL</button>
       {#each [['OpenAPI 3', 'openapi'], ['Postman', 'postman'], ['Insomnia', 'insomnia'], ['HAR', 'har']] as const as [label, src] (src)}<button
           type="button"
@@ -75,10 +75,10 @@
   </section>
 {:else}
   <section class="bs-welcome bs-no-tabs" aria-labelledby="bs-welcome-title">
-    <div class="eyebrow">{$t('nav.welcome.noTabs')}</div>
-    <h1 id="bs-welcome-title">{$t('nav.welcome.continue')}</h1>
+    <div class="eyebrow">{t('nav.welcome.noTabs')}</div>
+    <h1 id="bs-welcome-title">{t('nav.welcome.continue')}</h1>
     <div class="recent">
-      <div class="lbl">{$t('nav.welcome.recent')}</div>
+      <div class="lbl">{t('nav.welcome.recent')}</div>
       {#each recent as r, i (r.entry.id)}
         <button class="row" class:on={i === 0} type="button" onclick={() => openHistoryEntry(r.entry)}>
           <span class="m" style="color:{methodColor(r.method === 'gRPC' ? 'GRPC' : r.method)}">{r.method}</span>
@@ -90,10 +90,10 @@
       {/each}
     </div>
     <div class="hints">
-      <span><kbd>⌘N</kbd>{$t('nav.welcome.hintNew')}</span>
-      <span><kbd>⌘K</kbd>{$t('nav.welcome.hintSearch')}</span>
-      <span><kbd>⌘E</kbd>{$t('nav.welcome.hintEnv')}</span>
-      <span><kbd>⌘⇧T</kbd>{$t('nav.welcome.hintReopen')}</span>
+      <span><kbd>⌘N</kbd>{t('nav.welcome.hintNew')}</span>
+      <span><kbd>⌘K</kbd>{t('nav.welcome.hintSearch')}</span>
+      <span><kbd>⌘E</kbd>{t('nav.welcome.hintEnv')}</span>
+      <span><kbd>⌘⇧T</kbd>{t('nav.welcome.hintReopen')}</span>
     </div>
   </section>
 {/if}

@@ -130,8 +130,8 @@
     <span class="material-symbols-outlined lead" aria-hidden="true">schema</span>
     {#if tab.grpc?.method}<span class="path"
         ><span class="svc">{methodPath.service}/</span><b>{methodPath.name}</b></span
-      >{:else if noAddress}<span class="path">{$t('grpc.enterAddressFirst')}</span>{:else}<span class="path"
-        >{grpcMethodLabel(tab, connecting, $t)}</span
+      >{:else if noAddress}<span class="path">{t('grpc.enterAddressFirst')}</span>{:else}<span class="path"
+        >{grpcMethodLabel(tab, connecting, t)}</span
       >{/if}
     <span class="material-symbols-outlined" style="font-size:16px">unfold_more</span>
   </button>
@@ -143,8 +143,8 @@
           <input
             bind:this={searchInput}
             bind:value={search}
-            aria-label={$t('grpc.picker.searchAria')}
-            placeholder={$t('grpc.picker.searchPlaceholder')}
+            aria-label={t('grpc.picker.searchAria')}
+            placeholder={t('grpc.picker.searchPlaceholder')}
             autocomplete="off"
             spellcheck="false"
             onkeydown={searchKeydown}
@@ -153,8 +153,8 @@
             <span class="mp-count">{filteredMethodCount}</span>
             <button
               type="button"
-              aria-label={$t('grpc.picker.clearAria')}
-              title={$t('grpc.picker.clear')}
+              aria-label={t('grpc.picker.clearAria')}
+              title={t('grpc.picker.clear')}
               onclick={clearSearch}
             >
               <span class="material-symbols-outlined" aria-hidden="true">close</span>
@@ -165,21 +165,21 @@
         </div>
         <div class="mp-source">
           <span class="dot" aria-hidden="true"></span>
-          {`${isProtoSource ? `${$t('grpc.picker.fromProto')} · ${protoFileNames.join(', ')}` : `Server reflection · ${tab.grpc.endpoint}`} · ${tab.grpc.tree.services.length} ${$tp(tab.grpc.tree.services.length, ['сервис', 'сервиса', 'сервисов'], ['service', 'services'])}`}
+          {`${isProtoSource ? `${t('grpc.picker.fromProto')} · ${protoFileNames.join(', ')}` : `Server reflection · ${tab.grpc.endpoint}`} · ${tab.grpc.tree.services.length} ${tp(tab.grpc.tree.services.length, ['сервис', 'сервиса', 'сервисов'], ['service', 'services'])}`}
         </div>
       {/if}
-      <div class="mp-list" role="menu" aria-label={$t('grpc.picker.methods')}>
+      <div class="mp-list" role="menu" aria-label={t('grpc.picker.methods')}>
         {#if connecting}
-          <div class="mp-empty">{$t('grpc.connecting')}</div>
+          <div class="mp-empty">{t('grpc.connecting')}</div>
         {:else if !tab.grpc?.tree}
           <div class="mp-empty">
-            {isProtoSource && !protoFileNames.length ? $t('grpc.picker.importFirst') : $t('grpc.picker.connectFirst')}
+            {isProtoSource && !protoFileNames.length ? t('grpc.picker.importFirst') : t('grpc.picker.connectFirst')}
           </div>
         {:else if filteredServices.length === 0}
           <div class="mp-empty">
             <span class="material-symbols-outlined" aria-hidden="true">search_off</span>
-            <strong>{$t('grpc.picker.noMatch')}</strong>
-            <span>{$t('grpc.picker.noMatchHint')}</span>
+            <strong>{t('grpc.picker.noMatch')}</strong>
+            <span>{t('grpc.picker.noMatchHint')}</span>
           </div>
         {:else}
           {#each filteredServices as service (service.name)}
@@ -201,7 +201,7 @@
                 }}
                 onclick={() => select(m.symbol)}
                 type="button"
-                title={m.clientStreaming ? $t('grpc.picker.noClientStream') : undefined}
+                title={m.clientStreaming ? t('grpc.picker.noClientStream') : undefined}
               >
                 <span class="mp-line">
                   <span class="mp-name">{m.name}</span>
@@ -222,11 +222,11 @@
       <div class="mp-foot">
         <button type="button" onclick={onRefresh}>
           <span class="material-symbols-outlined" aria-hidden="true">refresh</span>{isProtoSource
-            ? $t('grpc.picker.rereadProto')
-            : $t('grpc.picker.refreshReflection')}
+            ? t('grpc.picker.rereadProto')
+            : t('grpc.picker.refreshReflection')}
         </button>
         <button type="button" onclick={onImportProto}>
-          <span class="material-symbols-outlined" aria-hidden="true">upload_file</span>{$t('grpc.picker.importProto')}
+          <span class="material-symbols-outlined" aria-hidden="true">upload_file</span>{t('grpc.picker.importProto')}
         </button>
       </div>
     </div>

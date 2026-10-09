@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { get } from 'svelte/store';
   import { t } from '$shared/i18n';
   import {
     hotkeys,
@@ -18,15 +17,15 @@
   let query = $state('');
   let recording = $state<string | null>(null);
 
-  const conflicts = $derived(findConflicts($hotkeys));
+  const conflicts = $derived(findConflicts(hotkeys.current));
   const label = (id: string) => {
     const c = HOTKEY_COMMANDS.find((c) => c.id === id);
-    return c ? $t(c.label) : id;
+    return c ? t(c.label) : id;
   };
   const groups = $derived(
     HOTKEY_GROUPS.map((g) => ({
       group: g,
-      rows: HOTKEY_COMMANDS.filter((c) => c.group === g && matchesQuery($t(c.label), $hotkeys[c.id])),
+      rows: HOTKEY_COMMANDS.filter((c) => c.group === g && matchesQuery(t(c.label), hotkeys.current[c.id])),
     })).filter((g) => g.rows.length),
   );
 
@@ -65,34 +64,34 @@
   });
 
   async function resetAll(): Promise<void> {
-    if (await requestConfirm(get(t)('settings.hotkeys.resetAll.confirm'), get(t)('settings.hotkeys.resetAll.ok')))
+    if (await requestConfirm(t('settings.hotkeys.resetAll.confirm'), t('settings.hotkeys.resetAll.ok')))
       resetAllBindings();
   }
 </script>
 
 <div class="st-hk-bar">
-  <input class="st-text" placeholder={$t('settings.hotkeys.search')} bind:value={query} />
-  <button type="button" class="bs-btn ghost" onclick={() => void resetAll()}>{$t('settings.hotkeys.resetAll')}</button>
+  <input class="st-text" placeholder={t('settings.hotkeys.search')} bind:value={query} />
+  <button type="button" class="bs-btn ghost" onclick={() => void resetAll()}>{t('settings.hotkeys.resetAll')}</button>
 </div>
 {#each groups as g (g.group)}
-  <div class="st-group">{$t(g.group).toUpperCase()}</div>
+  <div class="st-group">{t(g.group).toUpperCase()}</div>
   <div class="st-card">
     {#each g.rows as c (c.id)}
       {@const other = conflicts[c.id]}
       <div class="st-row">
         <span class="st-copy">
-          <span class="st-name">{$t(c.label)}</span>
+          <span class="st-name">{t(c.label)}</span>
           {#if other}<span class="st-err st-hk-hint"
-              >{$t('settings.hotkeys.conflict')}: {other.map(label).join(', ')}</span
+              >{t('settings.hotkeys.conflict')}: {other.map(label).join(', ')}</span
             >{/if}
         </span>
         <span class="st-hk-end">
-          {#if c.id in $hotkeyOverrides}
+          {#if c.id in hotkeyOverrides.current}
             <button
               type="button"
               class="st-hk-reset"
-              title={$t('settings.hotkeys.default')}
-              aria-label={$t('settings.hotkeys.default')}
+              title={t('settings.hotkeys.default')}
+              aria-label={t('settings.hotkeys.default')}
               onclick={() => resetBinding(c.id)}>↺</button
             >
           {/if}
@@ -104,10 +103,10 @@
             onclick={() => (recording = recording === c.id ? null : c.id)}
           >
             {#if recording === c.id}
-              <span class="st-rec">{$t('settings.hotkeys.press')}</span>
+              <span class="st-rec">{t('settings.hotkeys.press')}</span>
             {:else}
-              {#each formatBinding($hotkeys[c.id]) as k, i (i)}<kbd>{k}</kbd>{:else}<span class="st-rec"
-                  >{$t('settings.hotkeys.unset')}</span
+              {#each formatBinding(hotkeys.current[c.id]) as k, i (i)}<kbd>{k}</kbd>{:else}<span class="st-rec"
+                  >{t('settings.hotkeys.unset')}</span
                 >{/each}
             {/if}
           </button>
@@ -116,5 +115,5 @@
     {/each}
   </div>
 {:else}
-  <p class="st-note">{$t('settings.hotkeys.none')}</p>
+  <p class="st-note">{t('settings.hotkeys.none')}</p>
 {/each}

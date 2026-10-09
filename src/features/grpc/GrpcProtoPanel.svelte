@@ -4,8 +4,8 @@
   import { abbrevHome } from './proto';
   import { t, tp } from '$shared/i18n';
 
-  const svc = (n: number): string => `${n} ${$tp(n, ['сервис', 'сервиса', 'сервисов'], ['service', 'services'])}`;
-  const mth = (n: number): string => `${n} ${$tp(n, ['метод', 'метода', 'методов'], ['method', 'methods'])}`;
+  const svc = (n: number): string => `${n} ${tp(n, ['сервис', 'сервиса', 'сервисов'], ['service', 'services'])}`;
+  const mth = (n: number): string => `${n} ${tp(n, ['метод', 'метода', 'методов'], ['method', 'methods'])}`;
 
   let {
     tab,
@@ -174,43 +174,43 @@
         role="tab"
         aria-selected={source === 'reflection'}
         class:on={source === 'reflection'}
-        onclick={() => onSetSource('reflection')}>{$t('grpc.proto.reflection')}</button
+        onclick={() => onSetSource('reflection')}>{t('grpc.proto.reflection')}</button
       >
       <button
         type="button"
         role="tab"
         aria-selected={source === 'proto'}
         class:on={source === 'proto'}
-        onclick={() => onSetSource('proto')}>{$t('grpc.proto.files')}</button
+        onclick={() => onSetSource('proto')}>{t('grpc.proto.files')}</button
       >
     </div>
     <div class="gpp-grow"></div>
     {#if source === 'proto' && okFiles.length > 0}
       <span class="gpp-counts">
-        {`${okFiles.length} ${$tp(okFiles.length, ['ФАЙЛ', 'ФАЙЛА', 'ФАЙЛОВ'], ['FILE', 'FILES'])} · ${svc(serviceCount).toUpperCase()} · ${mth(methodCount).toUpperCase()}`}
+        {`${okFiles.length} ${tp(okFiles.length, ['ФАЙЛ', 'ФАЙЛА', 'ФАЙЛОВ'], ['FILE', 'FILES'])} · ${svc(serviceCount).toUpperCase()} · ${mth(methodCount).toUpperCase()}`}
       </span>
     {/if}
     <button type="button" class="gpp-add" onclick={onAddProto}>
-      <span class="material-symbols-outlined">upload_file</span>{$t('grpc.proto.add')}
+      <span class="material-symbols-outlined">upload_file</span>{t('grpc.proto.add')}
     </button>
   </div>
 
   {#if source === 'reflection'}
     <div class="gpp-empty">
-      <div class="a">{$t('grpc.proto.reflectionNote')}</div>
+      <div class="a">{t('grpc.proto.reflectionNote')}</div>
       <div class="b">
         {#if treeServices.length > 0}
           {svc(treeServices.length)} · {mth(treeMethods)}
         {:else}
-          {$t('grpc.proto.connectHint')}
+          {t('grpc.proto.connectHint')}
         {/if}
       </div>
     </div>
   {:else if files.length === 0}
     <div class="gpp-empty">
-      <div class="a">{$t('grpc.proto.none')}</div>
-      <div class="b">{$t('grpc.proto.noneHint')}</div>
-      <button type="button" class="gpp-add" onclick={onAddProto}>{$t('grpc.proto.add')}</button>
+      <div class="a">{t('grpc.proto.none')}</div>
+      <div class="b">{t('grpc.proto.noneHint')}</div>
+      <button type="button" class="gpp-add" onclick={onAddProto}>{t('grpc.proto.add')}</button>
     </div>
   {:else}
     <div class="gpp-body">
@@ -234,7 +234,7 @@
             <span class="material-symbols-outlined ic">link</span>
             <span class="gpp-fmain">
               <span class="gpp-fname">{wk}</span>
-              <span class="gpp-fmeta">{$t('grpc.proto.wellKnown')}</span>
+              <span class="gpp-fmeta">{t('grpc.proto.wellKnown')}</span>
             </span>
           </button>
         {/each}
@@ -249,7 +249,7 @@
               <span class="gpp-code"
                 >{#each tokenize(line) as tok}<span class={tok.cls}>{tok.text}</span>{/each}</span
               >
-              {#if i + 1 === currentLine}<span class="gpp-pill">{$t('grpc.proto.current')}</span>{/if}
+              {#if i + 1 === currentLine}<span class="gpp-pill">{t('grpc.proto.current')}</span>{/if}
             </div>
           {/each}
         {/if}

@@ -26,7 +26,7 @@
   class="bs-resizer-row"
   role="separator"
   aria-orientation="horizontal"
-  aria-label={$t('response.resize')}
+  aria-label={t('response.resize')}
   onpointerdown={onResize}
   ondblclick={onResetSize}
 ></div>

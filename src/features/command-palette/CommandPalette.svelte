@@ -100,14 +100,14 @@
       if (e.target === e.currentTarget) close();
     }}
   >
-    <div class="bs-palette" role="dialog" aria-modal="true" aria-label={$t('palette.title')}>
+    <div class="bs-palette" role="dialog" aria-modal="true" aria-label={t('palette.title')}>
       <div class="bs-palette-search">
         <span class="material-symbols-outlined" aria-hidden="true">search</span>
         <input
           bind:value={query}
           {@attach (el) => el.focus()}
-          placeholder={$t('palette.search')}
-          aria-label={$t('palette.search')}
+          placeholder={t('palette.search')}
+          aria-label={t('palette.search')}
           role="combobox"
           aria-expanded="true"
           aria-controls="bs-palette-list"
@@ -118,7 +118,7 @@
       </div>
       <div class="bs-palette-list" id="bs-palette-list" role="listbox" bind:this={listEl}>
         {#if requests.length}
-          <div class="bs-palette-heading"><span>{$t('palette.requests')}</span><span>{requests.length}</span></div>
+          <div class="bs-palette-heading"><span>{t('palette.requests')}</span><span>{requests.length}</span></div>
           {#each requests as r, i (r.node.id)}
             <div
               class="bs-palette-item"
@@ -142,7 +142,7 @@
           {/each}
         {/if}
         {#if envs.length}
-          <div class="bs-palette-heading"><span>{$t('palette.envs')}</span><span>{envs.length}</span></div>
+          <div class="bs-palette-heading"><span>{t('palette.envs')}</span><span>{envs.length}</span></div>
           {#each envs as env, j (env.id)}
             {@const i = requests.length + j}
             {@const tone = envToneOf(env)}
@@ -172,7 +172,7 @@
         {/if}
         {#if matchedCommands.length}
           <div class="bs-palette-heading">
-            <span>{$t('palette.commands')}</span><span>{matchedCommands.length}</span>
+            <span>{t('palette.commands')}</span><span>{matchedCommands.length}</span>
           </div>
           {#each matchedCommands as c, j (c.label)}
             {@const i = requests.length + envs.length + j}
@@ -194,12 +194,12 @@
             </div>
           {/each}
         {/if}
-        {#if !total}<div class="bs-palette-empty">{$t('palette.empty', { q: query.trim() })}</div>{/if}
+        {#if !total}<div class="bs-palette-empty">{t('palette.empty', { q: query.trim() })}</div>{/if}
       </div>
       <div class="bs-palette-foot">
-        <span><kbd class="code">↑↓</kbd>{$t('palette.select')}</span>
-        <span><kbd>↵</kbd>{$t('palette.open')}</span>
-        <span><kbd>⌘↵</kbd>{$t('palette.openSend')}</span>
+        <span><kbd class="code">↑↓</kbd>{t('palette.select')}</span>
+        <span><kbd>↵</kbd>{t('palette.open')}</span>
+        <span><kbd>⌘↵</kbd>{t('palette.openSend')}</span>
       </div>
     </div>
   </div>

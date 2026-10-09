@@ -1,9 +1,8 @@
-import { get } from 'svelte/store';
 import { t, type Translate } from '$shared/i18n';
 import { type Tab, currentBodyMode, currentRawFormat } from '$shared/model';
 
 /** Map a 0-based character `position` in `raw` to a "line N, column M" string. */
-export function jsonLineCol(raw: string, position: number, tr: Translate = get(t)): string {
+export function jsonLineCol(raw: string, position: number, tr: Translate = t): string {
   const before = raw.slice(0, Math.max(0, position));
   const lines = before.split('\n');
   return tr('http.json.line_col', { line: lines.length, col: lines[lines.length - 1].length + 1 });
@@ -13,7 +12,7 @@ export function jsonLineCol(raw: string, position: number, tr: Translate = get(t
  * Turn a thrown JSON parse error into a human-readable message, resolving any
  * "line/column" or "position" the engine reports back to a line/column in `raw`.
  */
-export function jsonErrorMessage(raw: string, error: unknown, tr: Translate = get(t)): string {
+export function jsonErrorMessage(raw: string, error: unknown, tr: Translate = t): string {
   const message = error instanceof Error ? error.message : String(error);
   const lineColumn = message.match(/line\s+(\d+)\s+column\s+(\d+)/i);
   if (lineColumn)
@@ -82,7 +81,7 @@ export function maybeInsertCommaBeforeJsonValue(value: string, cursor: number): 
 }
 
 /** Placeholder text for the body editor based on the tab's body mode / raw format. */
-export function bodyPlaceholder(tab: Tab | undefined, tr: Translate = get(t)): string {
+export function bodyPlaceholder(tab: Tab | undefined, tr: Translate = t): string {
   const mode = currentBodyMode(tab);
   if (mode === 'graphql') return 'query GetUser {\n  user(id: "1") {\n    id\n  }\n}';
   if (mode === 'binary') return tr('http.body.ph_binary');

@@ -59,10 +59,10 @@
 
   /** «1 окружение · 2–4 окружения · 5+ окружений». */
   function plural(n: number): string {
-    return $tp(n, ['окружение', 'окружения', 'окружений'], ['environment', 'environments']).toUpperCase();
+    return tp(n, ['окружение', 'окружения', 'окружений'], ['environment', 'environments']).toUpperCase();
   }
   function requestsWord(n: number): string {
-    return $tp(n, ['запросе', 'запросах', 'запросах'], ['request', 'requests']);
+    return tp(n, ['запросе', 'запросах', 'запросах'], ['request', 'requests']);
   }
 
   const shown = $derived(embedded || $environmentsSheetOpen);
@@ -99,7 +99,7 @@
 
   function save(): void {
     const ids = new Set(draft.map((e) => e.id));
-    environments.set(draft.map((e) => ({ ...e, name: e.name.trim() || $t('env.default_name') })));
+    environments.set(draft.map((e) => ({ ...e, name: e.name.trim() || t('env.default_name') })));
     globals.set(draftGlobals);
     if ($activeEnvironmentId && !ids.has($activeEnvironmentId)) activeEnvironmentId.set(null);
     if (!embedded) close();
@@ -146,7 +146,7 @@
 
   async function addEnv(): Promise<void> {
     const id = crypto.randomUUID();
-    draft = [...draft, { id, name: $t('env.new'), vars: [] }];
+    draft = [...draft, { id, name: t('env.new'), vars: [] }];
     query = '';
     select(id);
     await tick();
@@ -159,7 +159,7 @@
     const id = crypto.randomUUID();
     draft = [
       ...draft,
-      { ...env, id, name: $t('env.copy_suffix', { name: env.name }), vars: env.vars.map((r) => ({ ...r })) },
+      { ...env, id, name: t('env.copy_suffix', { name: env.name }), vars: env.vars.map((r) => ({ ...r })) },
     ];
     select(id);
   }
@@ -174,7 +174,7 @@
   async function removeEnv(): Promise<void> {
     menuOpen = false;
     if (!env) return;
-    if (!(await requestConfirm($t('env.delete_confirm', { name: env.name }), $t('common.delete')))) return;
+    if (!(await requestConfirm(t('env.delete_confirm', { name: env.name }), t('common.delete')))) return;
     const id = env.id;
     const next = draft.filter((e) => e.id !== id);
     draft = next;
@@ -207,9 +207,9 @@
   <header class="head">
     <div>
       <div class="kicker">{workspace}&nbsp;&nbsp;·&nbsp;&nbsp;{draft.length} {plural(draft.length)}</div>
-      <h2 id="bs-envsheet-title">{$t('env.title')}</h2>
+      <h2 id="bs-envsheet-title">{t('env.title')}</h2>
     </div>
-    {#if !embedded}<button class="icon" type="button" aria-label={$t('common.close')} onclick={close}
+    {#if !embedded}<button class="icon" type="button" aria-label={t('common.close')} onclick={close}
         ><span class="material-symbols-outlined" aria-hidden="true">close</span></button
       >{/if}
   </header>
@@ -218,7 +218,7 @@
     <aside class="list">
       <label class="search">
         <span class="material-symbols-outlined" aria-hidden="true">search</span>
-        <input bind:this={searchInput} bind:value={query} placeholder={$t('env.find')} aria-label={$t('env.find')} />
+        <input bind:this={searchInput} bind:value={query} placeholder={t('env.find')} aria-label={t('env.find')} />
       </label>
       <div class="items">
         <button class="item" class:on={selected === GLOBALS} type="button" onclick={() => select(GLOBALS)}>
@@ -229,14 +229,14 @@
           <button class="item" class:on={selected === e.id} type="button" onclick={() => select(e.id)}>
             <span class="dot" style:background={ENV_COLOR_VAR[envColor(e)]} aria-hidden="true"></span>
             <span class="label">{e.name}</span>
-            {#if isProtected(e)}<span class="material-symbols-outlined lock" role="img" aria-label={$t('env.protected')}
+            {#if isProtected(e)}<span class="material-symbols-outlined lock" role="img" aria-label={t('env.protected')}
                 >lock</span
               >{/if}
           </button>
         {/each}
       </div>
       <button class="add" type="button" onclick={addEnv}
-        ><span class="material-symbols-outlined" aria-hidden="true">add</span>{$t('env.new')}</button
+        ><span class="material-symbols-outlined" aria-hidden="true">add</span>{t('env.new')}</button
       >
     </aside>
 
@@ -252,26 +252,26 @@
               value={env.name}
               oninput={(e) => patchEnv({ name: e.currentTarget.value })}
               onblur={() => {
-                if (!env?.name.trim()) patchEnv({ name: $t('env.default_name') });
+                if (!env?.name.trim()) patchEnv({ name: t('env.default_name') });
               }}
               onkeydown={(e) => {
                 if (e.key === 'Enter') e.currentTarget.blur();
               }}
-              aria-label={$t('env.name_aria')}
+              aria-label={t('env.name_aria')}
             /></label
           >
           {#if isProtected(env)}<span class="badge"
-              ><span class="material-symbols-outlined" aria-hidden="true">lock</span>{$t('env.protected')}</span
+              ><span class="material-symbols-outlined" aria-hidden="true">lock</span>{t('env.protected')}</span
             >{/if}
           <div class="grow"></div>
           <button class="quiet" type="button" onclick={duplicate}
-            ><span class="material-symbols-outlined" aria-hidden="true">content_copy</span>{$t('env.duplicate')}</button
+            ><span class="material-symbols-outlined" aria-hidden="true">content_copy</span>{t('env.duplicate')}</button
           >
           <div class="more">
             <button
               class="icon"
               type="button"
-              aria-label={$t('env.more')}
+              aria-label={t('env.more')}
               aria-haspopup="menu"
               aria-expanded={menuOpen}
               onclick={() => (menuOpen = !menuOpen)}
@@ -279,8 +279,8 @@
             >
             {#if menuOpen}
               <div class="menu" role="menu">
-                <button type="button" role="menuitem" onclick={startRename}>{$t('env.rename')}</button>
-                <button type="button" role="menuitem" class="danger" onclick={removeEnv}>{$t('common.delete')}</button>
+                <button type="button" role="menuitem" onclick={startRename}>{t('env.rename')}</button>
+                <button type="button" role="menuitem" class="danger" onclick={removeEnv}>{t('common.delete')}</button>
               </div>
             {/if}
           </div>
@@ -292,9 +292,9 @@
       {#if env}
         <div class="cards">
           <div class="card">
-            <div class="eyebrow">{$t('env.protection')}</div>
+            <div class="eyebrow">{t('env.protection')}</div>
             <div class="switchrow">
-              <span id="bs-env-protect-label">{$t('env.protect_label')}</span>
+              <span id="bs-env-protect-label">{t('env.protect_label')}</span>
               <button
                 class="mono-switch"
                 type="button"
@@ -306,8 +306,8 @@
             </div>
           </div>
           <div class="card">
-            <div class="eyebrow">{$t('env.label_color')}</div>
-            <div class="swatches" role="radiogroup" aria-label={$t('env.label_color_aria')}>
+            <div class="eyebrow">{t('env.label_color')}</div>
+            <div class="swatches" role="radiogroup" aria-label={t('env.label_color_aria')}>
               {#each ENV_COLORS as c (c)}
                 <button
                   class="swatch"
@@ -315,7 +315,7 @@
                   type="button"
                   role="radio"
                   aria-checked={envColor(env) === c}
-                  aria-label={$t(COLOR_LABEL[c])}
+                  aria-label={t(COLOR_LABEL[c])}
                   style:background={ENV_COLOR_VAR[c]}
                   onclick={() => patchEnv({ color: c })}
                 ></button>
@@ -326,15 +326,15 @@
       {/if}
 
       <div class="varhead">
-        <span class="eyebrow">{$t('env.variables')}&nbsp;&nbsp;·&nbsp;&nbsp;{rows.length}</span>
-        <span class="used">{$t('env.used_in', { n: usedIn, word: requestsWord(usedIn) })}</span>
+        <span class="eyebrow">{t('env.variables')}&nbsp;&nbsp;·&nbsp;&nbsp;{rows.length}</span>
+        <span class="used">{t('env.used_in', { n: usedIn, word: requestsWord(usedIn) })}</span>
       </div>
 
-      <div class="table" role="table" aria-label={$t('env.variables_aria')}>
+      <div class="table" role="table" aria-label={t('env.variables_aria')}>
         <div class="tr th" role="row">
-          <span class="c-key" role="columnheader">{$t('env.col.key')}</span>
-          <span class="c-val" role="columnheader">{$t('env.col.value')}</span>
-          <span class="c-sec" role="columnheader">{$t('env.col.secret')}</span>
+          <span class="c-key" role="columnheader">{t('env.col.key')}</span>
+          <span class="c-val" role="columnheader">{t('env.col.value')}</span>
+          <span class="c-sec" role="columnheader">{t('env.col.secret')}</span>
         </div>
         <div class="rows">
           {#each viewRows as row, i (i)}
@@ -343,8 +343,8 @@
               <span class="c-key" role="cell"
                 ><input
                   class="key"
-                  placeholder={$t('env.new_var')}
-                  aria-label={$t('env.key_aria')}
+                  placeholder={t('env.new_var')}
+                  aria-label={t('env.key_aria')}
                   value={row.key}
                   oninput={(e) => patchRow(i, { key: e.currentTarget.value })}
                 /></span
@@ -352,8 +352,8 @@
               <span class="c-val" role="cell">
                 <input
                   class="val"
-                  placeholder={$t('env.value_aria')}
-                  aria-label={$t('env.value_aria')}
+                  placeholder={t('env.value_aria')}
+                  aria-label={t('env.value_aria')}
                   value={valueShown(row, i)}
                   readonly={!!row.secret && !revealed.includes(i) && !isNew}
                   oninput={(e) => patchRow(i, { value: e.currentTarget.value })}
@@ -364,7 +364,7 @@
                   <button
                     class="icon sm del"
                     type="button"
-                    aria-label={$t('env.delete_var')}
+                    aria-label={t('env.delete_var')}
                     onclick={() => removeRow(i)}
                     ><span class="material-symbols-outlined" aria-hidden="true">close</span></button
                   >
@@ -372,7 +372,7 @@
                     <button
                       class="icon sm"
                       type="button"
-                      aria-label={revealed.includes(i) ? $t('env.hide_value') : $t('env.show_value')}
+                      aria-label={revealed.includes(i) ? t('env.hide_value') : t('env.show_value')}
                       aria-pressed={revealed.includes(i)}
                       onclick={() => toggleReveal(i)}
                       ><span class="material-symbols-outlined" aria-hidden="true"
@@ -385,7 +385,7 @@
                     type="button"
                     role="switch"
                     aria-checked={!!row.secret}
-                    aria-label={$t('env.secret')}
+                    aria-label={t('env.secret')}
                     onclick={() => {
                       revealed = [];
                       patchRow(i, { secret: !row.secret });
@@ -401,9 +401,9 @@
   </div>
 
   <footer class="foot">
-    <span class="note">{$t('env.secrets_note')}</span>
-    <button class="bs-btn ghost" type="button" onclick={close}>{$t('common.cancel')}</button>
-    <button class="bs-btn primary" type="button" onclick={save}>{$t('common.save')}</button>
+    <span class="note">{t('env.secrets_note')}</span>
+    <button class="bs-btn ghost" type="button" onclick={close}>{t('common.cancel')}</button>
+    <button class="bs-btn primary" type="button" onclick={save}>{t('common.save')}</button>
   </footer>
 {/snippet}
 

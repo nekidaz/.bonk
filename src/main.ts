@@ -17,6 +17,7 @@ import '@fontsource/material-symbols-outlined/300.css';
 import './app.css';
 import './bigsur.css';
 import { applyStoredTheme } from '$shared/settings';
+import { watchDocumentLang } from '$shared/i18n';
 import App from './app/App.svelte';
 
 // Native macOS title bars overlay their traffic lights on our toolbar — except in full screen, where macOS hides them.
@@ -33,6 +34,8 @@ if (nativeMacos) {
 
 // Apply the persisted theme before mount to avoid a flash.
 applyStoredTheme();
+// Background watchers (like goroutines started in main): they live as long as the window.
+watchDocumentLang();
 
 const app = mount(App, {
   target: document.getElementById('app')!,

@@ -1,4 +1,3 @@
-import { get } from 'svelte/store';
 import { t } from '$shared/i18n';
 import {
   paramsFromUrl,
@@ -110,7 +109,7 @@ function insomniaRequest(res: RecordValue): ImportedPostmanItem {
 
 export function parseInsomniaExport(text: string): ParsedPostmanCollection {
   const doc = parseJson(text);
-  if (!doc || !isInsomniaExport(text)) throw new Error(get(t)('import.err.insomnia'));
+  if (!doc || !isInsomniaExport(text)) throw new Error(t('import.err.insomnia'));
   const resources = rows(doc.resources);
   const workspace = resources.find((r) => r._type === 'workspace');
   const workspaceId = str(workspace?._id);
@@ -157,7 +156,7 @@ const HAR_SKIP_HEADERS = new Set(['cookie', 'content-length', 'host']);
 
 export function parseHar(text: string): ParsedPostmanCollection {
   const log = object(parseJson(text)?.log);
-  if (!log || !Array.isArray(log.entries)) throw new Error(get(t)('import.err.har'));
+  if (!log || !Array.isArray(log.entries)) throw new Error(t('import.err.har'));
   const items: ImportedPostmanItem[] = [];
   const seen = new Set<string>();
   for (const entry of rows(log.entries)) {
@@ -212,7 +211,7 @@ export function parseCurlFile(text: string): ParsedPostmanCollection {
     .split(/\r?\n/)
     .map((l) => l.trim())
     .filter((l) => /^curl\s/i.test(l));
-  if (commands.length === 0) throw new Error(get(t)('import.err.noCurl'));
+  if (commands.length === 0) throw new Error(t('import.err.noCurl'));
   const items = commands.map((c) => {
     const request = parseCurl(c);
     let path = request.url;

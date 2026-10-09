@@ -44,7 +44,7 @@
   let currentDirectory = $state('');
   let homeDirectory = $state('');
   let directoryInitialized = $state(false);
-  let lines = $state<TerminalLine[]>([{ id: crypto.randomUUID(), kind: 'meta', text: $t('util.terminal.welcome') }]);
+  let lines = $state<TerminalLine[]>([{ id: crypto.randomUUID(), kind: 'meta', text: t('util.terminal.welcome') }]);
 
   const directoryLabel = $derived(
     currentDirectory
@@ -92,11 +92,11 @@
       addLine('stdout', result.stdout.replace(/\s+$/, ''));
       addLine('stderr', result.stderr.replace(/\s+$/, ''));
       if (result.status !== 0)
-        addLine('meta', $t('util.terminal.exited', { code: result.status, ms: result.elapsedMs }));
+        addLine('meta', t('util.terminal.exited', { code: result.status, ms: result.elapsedMs }));
     } catch (error) {
       const text = String(error);
       if (text === 'interrupted') addLine('meta', '^C');
-      else addLine('stderr', text.includes('__TAURI_INTERNALS__') ? $t('util.terminal.desktop_only') : text);
+      else addLine('stderr', text.includes('__TAURI_INTERNALS__') ? t('util.terminal.desktop_only') : text);
     } finally {
       running = false;
       runId = null;
@@ -198,12 +198,12 @@
   class="bs-utility-panel"
   class:collapsing={collapsePreview}
   style="height:{height}px"
-  aria-label={$t('util.aria')}
+  aria-label={t('util.aria')}
 >
   <div
     class="bs-utility-resize"
     role="separator"
-    aria-label={$t('util.resize_aria')}
+    aria-label={t('util.resize_aria')}
     onpointerdown={startResize}
     ondblclick={() => {
       height = 220;
@@ -211,7 +211,7 @@
     }}
   ></div>
   <header class="bs-utility-head">
-    <div class="bs-utility-tabs" role="tablist" aria-label={$t('util.aria')}>
+    <div class="bs-utility-tabs" role="tablist" aria-label={t('util.aria')}>
       <button
         type="button"
         role="tab"
@@ -219,7 +219,7 @@
         aria-selected={mode === 'console'}
         onclick={() => onSelect('console')}
       >
-        {$t('util.tab.console')}
+        {t('util.tab.console')}
         {#if $appConsoleEntries.length}<span class="bs-utility-count">{$appConsoleEntries.length}</span>{/if}
       </button>
       <button
@@ -229,7 +229,7 @@
         aria-selected={mode === 'terminal'}
         onclick={() => onSelect('terminal')}
       >
-        {$t('util.tab.terminal')}
+        {t('util.tab.terminal')}
       </button>
       <button
         type="button"
@@ -238,7 +238,7 @@
         aria-selected={mode === 'issues'}
         onclick={() => onSelect('issues')}
       >
-        {$t('util.tab.issues')}
+        {t('util.tab.issues')}
         {#if issueCount}<span class="bs-utility-count error">{issueCount}</span>{/if}
       </button>
     </div>
@@ -249,20 +249,20 @@
         <input
           type="search"
           bind:value={filter}
-          placeholder={$t('util.filter.placeholder')}
-          aria-label={$t('util.filter.placeholder')}
+          placeholder={t('util.filter.placeholder')}
+          aria-label={t('util.filter.placeholder')}
           autocomplete="off"
           spellcheck="false"
         />
       </label>
     {/if}
     {#if mode === 'terminal'}<span class="bs-utility-context" title={currentDirectory}>{directoryLabel}</span>{/if}
-    <button class="bs-utility-action" type="button" onclick={clearCurrent}>{$t('util.clear')}</button>
+    <button class="bs-utility-action" type="button" onclick={clearCurrent}>{t('util.clear')}</button>
     <button
       class="bs-utility-icon"
       type="button"
-      aria-label={$t('util.clear_aria')}
-      title={$t('util.clear')}
+      aria-label={t('util.clear_aria')}
+      title={t('util.clear')}
       onclick={clearCurrent}
     >
       <span class="material-symbols-outlined">delete_outline</span>
@@ -270,8 +270,8 @@
     <button
       class="bs-utility-icon"
       type="button"
-      aria-label={$t('util.close_aria')}
-      title={$t('common.close')}
+      aria-label={t('util.close_aria')}
+      title={t('common.close')}
       onclick={onClose}
     >
       <span class="material-symbols-outlined">close</span>
@@ -301,23 +301,23 @@
         <input
           bind:this={inputEl}
           bind:value={command}
-          aria-label={$t('util.terminal.command_aria')}
+          aria-label={t('util.terminal.command_aria')}
           autocomplete="off"
           spellcheck="false"
           readonly={running}
-          placeholder={running ? $t('util.terminal.running') : $t('util.terminal.placeholder')}
+          placeholder={running ? t('util.terminal.running') : t('util.terminal.placeholder')}
           onkeydown={terminalKeydown}
         />
         {#if running}<span class="bs-terminal-running material-symbols-outlined">progress_activity</span>{/if}
       </form>
-      <div class="bs-terminal-hint">{$t('util.terminal.hint')}</div>
+      <div class="bs-terminal-hint">{t('util.terminal.hint')}</div>
     </div>
   {:else}
     <div class="bs-console-output" bind:this={consoleOutputEl} role="log" aria-live="polite">
       {#if visibleConsoleEntries.length === 0}
         <div class="bs-utility-empty">
           <span class="material-symbols-outlined">data_object</span>
-          <div>{mode === 'issues' ? $t('util.empty.issues') : $t('util.empty.console')}</div>
+          <div>{mode === 'issues' ? t('util.empty.issues') : t('util.empty.console')}</div>
         </div>
       {:else}
         {#each visibleConsoleEntries as entry (entry.id)}

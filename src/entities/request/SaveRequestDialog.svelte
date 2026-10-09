@@ -59,13 +59,13 @@
   <div class="bs-overlay" role="dialog" aria-modal="true">
     <div class="bs-modal">
       <div class="bs-modal-h">
-        <span class="t">{copy ? $t('dialog.save.copyTitle') : $t('dialog.save.title')}</span>
-        <button class="x" aria-label={$t('common.close')} onclick={() => close(false)}
+        <span class="t">{copy ? t('dialog.save.copyTitle') : t('dialog.save.title')}</span>
+        <button class="x" aria-label={t('common.close')} onclick={() => close(false)}
           ><span class="material-symbols-outlined" style="font-size:18px">close</span></button
         >
       </div>
       <div class="bs-modal-b">
-        <label class="bs-flabel" for="bs-save-name">{$t('dialog.save.name')}</label>
+        <label class="bs-flabel" for="bs-save-name">{t('dialog.save.name')}</label>
         <!-- svelte-ignore a11y_autofocus -->
         <input
           class="bs-input"
@@ -76,8 +76,8 @@
           aria-describedby={saveError ? 'bs-save-error' : undefined}
         />
         <div class="bs-saveto">
-          {$t('dialog.save.to')}
-          <span>{targetId ? (findNode($collections, targetId)?.name ?? '—') : $t('dialog.move.root')}</span>
+          {t('dialog.save.to')}
+          <span>{targetId ? (findNode($collections, targetId)?.name ?? '—') : t('dialog.move.root')}</span>
         </div>
         <div class="bs-collbox">
           <div class="bs-colllist">
@@ -89,11 +89,11 @@
       <div class="bs-modal-f">
         <button class="bs-btn link" onclick={newFolderInDialog}
           ><span class="material-symbols-outlined" style="font-size:15px;vertical-align:-3px">add</span>
-          {$t('dialog.save.newFolder')}</button
+          {t('dialog.save.newFolder')}</button
         >
         <div class="grow"></div>
-        <button class="bs-btn primary" onclick={confirmSave}>{$t('common.save')}</button>
-        <button class="bs-btn ghost" onclick={() => close(false)}>{$t('common.cancel')}</button>
+        <button class="bs-btn primary" onclick={confirmSave}>{t('common.save')}</button>
+        <button class="bs-btn ghost" onclick={() => close(false)}>{t('common.cancel')}</button>
       </div>
     </div>
   </div>

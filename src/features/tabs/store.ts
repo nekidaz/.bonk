@@ -124,11 +124,11 @@ export function closeTab(id: string): void {
  */
 export async function requestCloseTab(id: string): Promise<void> {
   const tab = get(tabs).find((x) => x.id === id);
-  if (tab && get(confirmCloseUnsaved) && get(dirtyTabIds).has(id)) {
+  if (tab && confirmCloseUnsaved.current && get(dirtyTabIds).has(id)) {
     const choice = await requestChoice(
-      get(t)('tabs.confirmClose', { title: tab.title }),
-      get(t)('common.save'),
-      get(t)('tabs.dontSave'),
+      t('tabs.confirmClose', { title: tab.title }),
+      t('common.save'),
+      t('tabs.dontSave'),
     );
     if (choice === false) return;
     if (choice === true) {
@@ -150,8 +150,8 @@ async function closeTabs(ids: string[]): Promise<void> {
   const n = ids.filter((id) => dirty.has(id)).length;
   if (
     n &&
-    get(confirmCloseUnsaved) &&
-    !(await requestConfirm(get(t)('tabs.confirmCloseMany', { n }), get(t)('tabs.closeWithoutSaving')))
+    confirmCloseUnsaved.current &&
+    !(await requestConfirm(t('tabs.confirmCloseMany', { n }), t('tabs.closeWithoutSaving')))
   )
     return;
   for (const id of ids) closeTab(id);

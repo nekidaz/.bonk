@@ -10,7 +10,7 @@ import {
 } from './jsonEditor';
 import type { Tab } from '$shared/model';
 
-uiLanguage.set('en'); // these assertions check the English strings
+uiLanguage.current = 'en'; // these assertions check the English strings
 
 function tab(overrides: Partial<Tab['request']> = {}): Tab {
   return {

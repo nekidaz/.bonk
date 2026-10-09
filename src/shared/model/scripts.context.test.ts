@@ -10,7 +10,7 @@ import {
 } from './scripts';
 import type { GrpcResult, HttpRequest, HttpResponse, VarRow } from './types';
 
-uiLanguage.set('en'); // these assertions check the English strings
+uiLanguage.current = 'en'; // these assertions check the English strings
 
 function v(key: string, value: string, enabled = true): VarRow {
   return { key, value, enabled };

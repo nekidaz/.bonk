@@ -5,7 +5,6 @@
    * file, iterations, delay and stop-on-failure, and what will be sent.
    * Shared atoms (.rn-eyebrow, .rn-btn …) are styled by RunnerView.
    */
-  import { get } from 'svelte/store';
   import { collections, findNode, parentId } from '$entities/workspace';
   import { environments, activeEnvironmentId } from '$entities/environment';
   import {
@@ -35,7 +34,7 @@
 
   const cfg = $derived($runnerConfig);
   const scope = $derived(cfg.folderIds.filter((id) => findNode($collections, id)));
-  const title = $derived(runnerScopeTitle(scope, $collections, $t));
+  const title = $derived(runnerScopeTitle(scope, $collections, t));
   const all = $derived(orderedRequests(cfg, $collections));
   const on = (n: RequestNode) => !cfg.excludedIds.includes(n.id);
   const planned = $derived(all.filter(on));
@@ -102,7 +101,7 @@
     dataError = '';
     try {
       const parsed = parseDataFile(file.name, await file.text());
-      if (parsed.length === 0) dataError = get(t)('runner.dataEmpty');
+      if (parsed.length === 0) dataError = t('runner.dataEmpty');
       else loadDataRows(file.name, parsed);
     } catch (err) {
       dataError = err instanceof Error ? err.message : String(err);
@@ -127,10 +126,10 @@
   const mutatingText = $derived.by(() => {
     const n = mutating.length * iterations;
     const methods = MUTATING.filter((m) => mutating.some((x) => methodOf(x) === m)).join(', ');
-    const word = $tp(n, ['изменяющий', 'изменяющих', 'изменяющих'], ['mutating', 'mutating']);
+    const word = tp(n, ['изменяющий', 'изменяющих', 'изменяющих'], ['mutating', 'mutating']);
     return env
-      ? $t('runner.setup.mutatingIn', { n, word, methods, env: env.name })
-      : $t('runner.setup.mutating', { n, word, methods });
+      ? t('runner.setup.mutatingIn', { n, word, methods, env: env.name })
+      : t('runner.setup.mutating', { n, word, methods });
   });
 </script>
 
@@ -147,21 +146,21 @@
 
 <header class="rs-head">
   <div class="rs-crumb">
-    <div class="rn-eyebrow">{$t('runner.setup.crumb')}</div>
+    <div class="rn-eyebrow">{t('runner.setup.crumb')}</div>
     <div class="rs-titlerow">
       <h2 class="rs-title" {title}>{title}</h2>
       <button class="rs-change" type="button" onclick={() => setRunnerStage('pick')}>
-        <span class="material-symbols-outlined" aria-hidden="true">swap_horiz</span>{$t('runner.setup.change')}
+        <span class="material-symbols-outlined" aria-hidden="true">swap_horiz</span>{t('runner.setup.change')}
       </button>
     </div>
   </div>
   <button class="rn-btn" type="button" onclick={doSavePreset} disabled={all.length === 0}>
     <span class="material-symbols-outlined" aria-hidden="true">{presetSaved ? 'check' : 'bookmark_add'}</span
-    >{presetSaved ? $t('runner.preset.saved') : $t('runner.preset.save')}
+    >{presetSaved ? t('runner.preset.saved') : t('runner.preset.save')}
   </button>
   <button class="rn-btn primary" type="button" onclick={() => void runCollection()} disabled={planned.length === 0}>
     <span class="material-symbols-outlined" aria-hidden="true">play_arrow</span><b
-      >{$t('runner.setup.run', { n: planned.length, total: all.length })}</b
+      >{t('runner.setup.run', { n: planned.length, total: all.length })}</b
     ><kbd>⌘R</kbd>
   </button>
 </header>
@@ -176,18 +175,18 @@
             all.map((n) => n.id),
             v,
           ),
-        $t('runner.col.request'),
+        t('runner.col.request'),
       )}
-      <span class="rn-eyebrow">{$t('runner.setup.requests', { n: planned.length, total: all.length })}</span>
+      <span class="rn-eyebrow">{t('runner.setup.requests', { n: planned.length, total: all.length })}</span>
       <span class="sp"></span>
       {#if failedIds.size > 0}
         <button class="rs-pill" type="button" onclick={onlyFailed}>
-          <span class="material-symbols-outlined" aria-hidden="true">replay</span>{$t('runner.setup.onlyFailed', {
+          <span class="material-symbols-outlined" aria-hidden="true">replay</span>{t('runner.setup.onlyFailed', {
             n: $runnerRun.n,
           })}
         </button>
       {/if}
-      <span class="rs-hint">{$t('runner.setup.drag')}</span>
+      <span class="rs-hint">{t('runner.setup.drag')}</span>
     </div>
     <div class="rs-scroll">
       {#each rows as r (r.kind === 'folder' ? `f:${r.id}` : r.node.id)}
@@ -230,52 +229,52 @@
             <span class="rs-name" title={n.name}>{n.name}</span>
             {#if link}
               {#each link.sets as v (v)}
-                <span class="rs-var sets" title={$t('runner.setup.sets', { name: v })}
+                <span class="rs-var sets" title={t('runner.setup.sets', { name: v })}
                   ><span class="material-symbols-outlined" aria-hidden="true">output</span>{`{{${v}}}`}</span
                 >
               {/each}
               {#each link.uses as v (v)}
-                <span class="rs-var" title={$t('runner.setup.uses', { name: v })}
+                <span class="rs-var" title={t('runner.setup.uses', { name: v })}
                   ><span class="material-symbols-outlined" aria-hidden="true">link</span>{`{{${v}}}`}</span
                 >
               {/each}
             {/if}
             <span class="rs-tests"
-              >{tests ? `${tests} ${$tp(tests, ['тест', 'теста', 'тестов'], ['test', 'tests'])}` : ''}</span
+              >{tests ? `${tests} ${tp(tests, ['тест', 'теста', 'тестов'], ['test', 'tests'])}` : ''}</span
             >
           </div>
         {/if}
       {/each}
-      {#if all.length === 0}<p class="rn-muted rs-empty">{$t('runner.empty')}</p>{/if}
+      {#if all.length === 0}<p class="rn-muted rs-empty">{t('runner.empty')}</p>{/if}
     </div>
   </section>
 
   <aside class="rs-side">
     <div class="rs-card">
       <div class="rs-set">
-        <span class="rs-lbl">{$t('runner.setup.env')}</span>
+        <span class="rs-lbl">{t('runner.setup.env')}</span>
         <span class="rs-env"><EnvironmentSelector /></span>
       </div>
       <div class="rs-set">
-        <span class="rs-lbl">{$t('runner.setup.data')}<small>{$t('runner.setup.dataDesc')}</small></span>
+        <span class="rs-lbl">{t('runner.setup.data')}<small>{t('runner.setup.dataDesc')}</small></span>
         {#if cfg.dataFileName}
           <span class="rs-file"
-            >{cfg.dataFileName}<button type="button" aria-label={$t('runner.dataRemove')} onclick={clearData}
+            >{cfg.dataFileName}<button type="button" aria-label={t('runner.dataRemove')} onclick={clearData}
               ><span class="material-symbols-outlined" aria-hidden="true">close</span></button
             ></span
           >
         {:else}
-          <button class="rn-btn sm" type="button" onclick={() => fileInput?.click()}>{$t('runner.dataPick')}</button>
+          <button class="rn-btn sm" type="button" onclick={() => fileInput?.click()}>{t('runner.dataPick')}</button>
         {/if}
         <input bind:this={fileInput} type="file" accept=".csv,.json" onchange={onFilePicked} hidden />
       </div>
       {#if dataError}<div class="rn-err" role="alert">{dataError}</div>{/if}
       <div class="rs-set">
         <span class="rs-lbl"
-          >{$t('runner.setup.iter')}{#if dataDriven}<small
-              >{$t('runner.setup.iterFile', {
+          >{t('runner.setup.iter')}{#if dataDriven}<small
+              >{t('runner.setup.iterFile', {
                 n: iterations,
-                rows: $tp(iterations, ['строка', 'строки', 'строк'], ['row', 'rows']),
+                rows: tp(iterations, ['строка', 'строки', 'строк'], ['row', 'rows']),
               })}</small
             >{/if}</span
         >
@@ -285,52 +284,52 @@
           min="1"
           value={iterations}
           disabled={dataDriven}
-          aria-label={$t('runner.setup.iter')}
+          aria-label={t('runner.setup.iter')}
           oninput={(e) => setIterations(Number(e.currentTarget.value))}
         />
       </div>
       <div class="rs-set">
-        <span class="rs-lbl">{$t('runner.setup.delay')}<small>{$t('runner.setup.delayDesc')}</small></span>
+        <span class="rs-lbl">{t('runner.setup.delay')}<small>{t('runner.setup.delayDesc')}</small></span>
         <label class="rs-num unit"
           ><input
             type="number"
             min="0"
             step="50"
             value={cfg.delayMs}
-            aria-label={$t('runner.setup.delay')}
+            aria-label={t('runner.setup.delay')}
             oninput={(e) => setDelay(Number(e.currentTarget.value))}
           /><span>ms</span></label
         >
       </div>
       <div class="rs-set">
-        <span class="rs-lbl">{$t('runner.stopOnFail')}</span>
+        <span class="rs-lbl">{t('runner.stopOnFail')}</span>
         <button
           class="mono-switch sm"
           type="button"
           role="switch"
           aria-checked={cfg.stopOnFailure}
-          aria-label={$t('runner.stopOnFail')}
+          aria-label={t('runner.stopOnFail')}
           onclick={() => setStopOnFailure(!cfg.stopOnFailure)}
         ></button>
       </div>
       <div class="rs-set">
-        <span class="rs-lbl">{$t('runner.saveResponses')}<small>{$t('runner.saveResponses.desc')}</small></span>
+        <span class="rs-lbl">{t('runner.saveResponses')}<small>{t('runner.saveResponses.desc')}</small></span>
         <button
           class="mono-switch sm"
           type="button"
           role="switch"
           aria-checked={cfg.saveResponses}
-          aria-label={$t('runner.saveResponses')}
+          aria-label={t('runner.saveResponses')}
           onclick={() => setSaveResponses(!cfg.saveResponses)}
         ></button>
       </div>
     </div>
 
     <div class="rs-card rs-sum">
-      <div class="rn-eyebrow">{$t('runner.setup.willSend')}</div>
+      <div class="rn-eyebrow">{t('runner.setup.willSend')}</div>
       <div class="rs-sumrow">
         <b>{calls}</b><span
-          >{$tp(calls, ['запрос', 'запроса', 'запросов'], ['request', 'requests'])} · ~{estimate} s</span
+          >{tp(calls, ['запрос', 'запроса', 'запросов'], ['request', 'requests'])} · ~{estimate} s</span
         >
       </div>
       {#if mutating.length > 0}

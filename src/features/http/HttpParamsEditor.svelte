@@ -36,7 +36,7 @@
 <div class="bs-pwrap">
   <div class="bs-qp">
     <span class="t"
-      >{$t('http.params.title')}<span aria-hidden="true">&nbsp;&nbsp;·&nbsp;&nbsp;</span>{(tab.params ?? []).filter(
+      >{t('http.params.title')}<span aria-hidden="true">&nbsp;&nbsp;·&nbsp;&nbsp;</span>{(tab.params ?? []).filter(
         (p) => p.key.trim(),
       ).length}</span
     >
@@ -44,9 +44,9 @@
   <div class="bs-pt">
     <div class="bs-pr h">
       <div class="bs-pc c"></div>
-      <div class="bs-pc k">{$t('http.col.key')}</div>
-      <div class="bs-pc v">{$t('http.col.value')}</div>
-      <div class="bs-pc d">{$t('http.col.description')}</div>
+      <div class="bs-pc k">{t('http.col.key')}</div>
+      <div class="bs-pc v">{t('http.col.value')}</div>
+      <div class="bs-pc d">{t('http.col.description')}</div>
       <div class="bs-pc m"></div>
     </div>
     {#each paramRows(tab) as p, i (i)}
@@ -61,26 +61,26 @@
             type="checkbox"
             checked={p.enabled}
             onchange={() => toggleParam(i)}
-            aria-label={$t('http.params.enable')}
+            aria-label={t('http.params.enable')}
           />
         </div>
         <div class="bs-pc k">
           <input
-            placeholder={$t('http.col.key')}
+            placeholder={t('http.col.key')}
             value={p.key}
             oninput={(e) => setParam(i, 'key', e.currentTarget.value)}
           />
         </div>
         <div class="bs-pc v">
           <input
-            placeholder={$t('http.col.value')}
+            placeholder={t('http.col.value')}
             value={p.value}
             oninput={(e) => setParam(i, 'value', e.currentTarget.value)}
           />
         </div>
         <div class="bs-pc d">
           <input
-            placeholder={$t('http.col.description')}
+            placeholder={t('http.col.description')}
             value={p.description}
             oninput={(e) => setParam(i, 'description', e.currentTarget.value)}
           />

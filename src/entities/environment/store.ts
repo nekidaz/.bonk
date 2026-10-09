@@ -57,16 +57,16 @@ export function openEnvironmentsSheet(): void {
 }
 
 /** Create a new environment, append it, make it active, and return its id. */
-export function addEnvironment(name = get(t)('env.new')): string {
+export function addEnvironment(name = t('env.new')): string {
   const id = crypto.randomUUID();
   // Names must be unique: the AI allow-list (and MCP `environment`) is name-based.
-  const base = name.trim() || get(t)('env.new');
+  const base = name.trim() || t('env.new');
   const taken = new Set(get(environments).map((e) => e.name));
   let unique = base;
   for (let n = 2; taken.has(unique); n++) unique = `${base} ${n}`;
   const env: Environment = { id, name: unique, vars: [] };
   environments.update((list) => [...list, env]);
-  mcpPrefs.update((p) => autoAllowNewEnv(p, env)); // "allow new environments right away" (S32.8)
+  mcpPrefs.current = autoAllowNewEnv(mcpPrefs.current, env); // "allow new environments right away" (S32.8)
   activeEnvironmentId.set(id);
   return id;
 }
@@ -76,7 +76,7 @@ export function renameEnvironment(id: string, name: string): void {
   const old = get(environments).find((e) => e.id === id);
   environments.update((list) => list.map((e) => (e.id === id ? { ...e, name: name.trim() || e.name } : e)));
   const next = get(environments).find((e) => e.id === id);
-  if (old && next) mcpPrefs.update((p) => renameEnvAllowance(p, old.name, next)); // keep the AI allow-list by name in sync
+  if (old && next) mcpPrefs.current = renameEnvAllowance(mcpPrefs.current, old.name, next); // keep the AI allow-list by name in sync
 }
 
 /** Delete an environment; clears the active selection if it was the active one. */

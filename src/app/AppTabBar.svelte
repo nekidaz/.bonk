@@ -124,13 +124,13 @@
           {:else}
             <span class="m" style="color:{tabMethodColor(tb)}">{tabMethodLabel(tb)}</span>
           {/if}
-          <span class="bs-nm">{tb.title === HTTP_DEFAULT_TITLE ? $t('tabs.untitled') : tb.title}</span>
+          <span class="bs-nm">{tb.title === HTTP_DEFAULT_TITLE ? t('tabs.untitled') : tb.title}</span>
         </button>
         {#if tb.pinned}
           <button
             class="x pin"
-            aria-label={$t('tabs.ctxUnpin')}
-            title={$t('tabs.ctxUnpin')}
+            aria-label={t('tabs.ctxUnpin')}
+            title={t('tabs.ctxUnpin')}
             onclick={(e) => {
               e.stopPropagation();
               togglePinTab(tb.id);
@@ -140,8 +140,8 @@
           <button
             class="x"
             class:dirty={$dirtyTabIds.has(tb.id)}
-            aria-label={$dirtyTabIds.has(tb.id) ? $t('tabs.closeTabUnsaved') : $t('tabs.closeTab')}
-            title={$t('tabs.close')}
+            aria-label={$dirtyTabIds.has(tb.id) ? t('tabs.closeTabUnsaved') : t('tabs.closeTab')}
+            title={t('tabs.close')}
             onclick={(e) => {
               e.stopPropagation();
               void requestCloseTab(tb.id);
@@ -154,7 +154,7 @@
         {/if}
       </div>
     {/each}
-    <button class="bs-addt" title={$t('tabs.newRequestHint')} aria-label={$t('tabs.newRequest')} onclick={onNew}
+    <button class="bs-addt" title={t('tabs.newRequestHint')} aria-label={t('tabs.newRequest')} onclick={onNew}
       ><span class="material-symbols-outlined" style="font-size:18px">add</span></button
     >
   </div>

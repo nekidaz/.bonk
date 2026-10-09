@@ -1,9 +1,8 @@
-import { get } from 'svelte/store';
 import type { Tab } from '$shared/model';
 import { t, type Translate } from '$shared/i18n';
 
 /** Human-readable label for the selected gRPC method, falling back to a connecting/placeholder state. */
-export function grpcMethodLabel(tab: Tab | undefined, connecting: boolean, tr: Translate = get(t)): string {
+export function grpcMethodLabel(tab: Tab | undefined, connecting: boolean, tr: Translate = t): string {
   const symbol = tab?.grpc?.method;
   if (!symbol) return connecting ? tr('grpc.connecting') : tr('grpc.selectMethod');
   for (const service of tab?.grpc?.tree?.services ?? []) {

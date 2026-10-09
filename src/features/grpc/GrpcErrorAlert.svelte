@@ -27,15 +27,15 @@
     </div>
     <p>{error.message}</p>
     {#if error.raw !== error.message}
-      <details><summary>{$t('grpc.err.details')}</summary><code>{error.raw}</code></details>
+      <details><summary>{t('grpc.err.details')}</summary><code>{error.raw}</code></details>
     {/if}
   </div>
   <div class="bs-grpc-connect-actions">
     {#if error.kind === 'schema'}
-      <button type="button" onclick={onImportProto}>{$t('grpc.picker.importProto')}</button>
+      <button type="button" onclick={onImportProto}>{t('grpc.picker.importProto')}</button>
     {/if}
   </div>
-  <button class="bs-grpc-connect-dismiss" type="button" aria-label={$t('grpc.err.dismiss')} onclick={onDismiss}>
+  <button class="bs-grpc-connect-dismiss" type="button" aria-label={t('grpc.err.dismiss')} onclick={onDismiss}>
     <span class="material-symbols-outlined">close</span>
   </button>
 </div>

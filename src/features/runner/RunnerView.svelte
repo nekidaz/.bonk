@@ -59,19 +59,19 @@
   // A past run (opened from the bars) shows its own scope + environment, read-only.
   const viewing = $derived($runnerViewing);
   const viewed = $derived(viewing === null ? undefined : $runnerHistory.find((h) => h.n === viewing));
-  const title = $derived(viewed?.title ?? runnerScopeTitle(scopeIds, $collections, $t));
+  const title = $derived(viewed?.title ?? runnerScopeTitle(scopeIds, $collections, t));
   const planned = $derived(plannedRequests($runnerConfig, $collections));
   const scopeText = $derived.by(() => {
     const extra = scopeIds
       .slice(1)
       .map((id) => findNode($collections, id)?.name)
       .filter(Boolean);
-    const count = `${planned.length} ${$tp(planned.length, ['запрос', 'запроса', 'запросов'], ['request', 'requests'])}`;
+    const count = `${planned.length} ${tp(planned.length, ['запрос', 'запроса', 'запросов'], ['request', 'requests'])}`;
     return extra.length ? `+ ${extra.join(', ')} · ${count}` : count;
   });
 
   const env = $derived($environments.find((e) => e.id === (viewed ? viewed.envId : $activeEnvironmentId)));
-  const envLabel = $derived(viewed ? (viewed.envName ?? $t('runner.noEnv')) : (env?.name ?? $t('runner.noEnv')));
+  const envLabel = $derived(viewed ? (viewed.envName ?? t('runner.noEnv')) : (env?.name ?? t('runner.noEnv')));
   const dataDriven = $derived($runnerConfig.dataRows.length > 0);
   const iterationCount = $derived(dataDriven ? $runnerConfig.dataRows.length : $runnerConfig.iterations);
 
@@ -186,7 +186,7 @@
   }
 
   // ---- Detail ----
-  const insight = $derived(selCall ? insightFor(selCall, run.results, $t) : null);
+  const insight = $derived(selCall ? insightFor(selCall, run.results, t) : null);
   const testsPassed = $derived(selCall ? selCall.tests.filter((x) => x.passed).length : 0);
   let bound = $state<string | null>(null);
   async function bind(): Promise<void> {
@@ -224,7 +224,7 @@
       <div class="rn-crumb">
         {@render eyebrow(
           hasRun
-            ? `RUNNER  /  ${$t('runner.runN', { n: run.n })}  ·  ${running ? $t(run.paused ? 'runner.crumb.paused' : 'runner.crumb.live') : runTimeLabel(run.startedAt ?? 0, Date.now(), $t)}`
+            ? `RUNNER  /  ${t('runner.runN', { n: run.n })}  ·  ${running ? t(run.paused ? 'runner.crumb.paused' : 'runner.crumb.live') : runTimeLabel(run.startedAt ?? 0, Date.now(), t)}`
             : 'RUNNER',
         )}
         <div class="rn-titlerow">
@@ -238,7 +238,7 @@
           </button>
           <button class="rn-chip" type="button" onclick={setup} disabled={running}>
             <span class="material-symbols-outlined" aria-hidden="true">repeat</span
-            >{`${iterations} ${$tp(iterations, ['итерация', 'итерации', 'итераций'], ['iteration', 'iterations'])}`}
+            >{`${iterations} ${tp(iterations, ['итерация', 'итерации', 'итераций'], ['iteration', 'iterations'])}`}
           </button>
           <button class="rn-chip" type="button" onclick={setup} disabled={running}>
             <span class="material-symbols-outlined" aria-hidden="true">timer</span>{$runnerConfig.delayMs} ms
@@ -246,8 +246,8 @@
           <button
             class="rn-icon"
             type="button"
-            title={$t('runner.settings')}
-            aria-label={$t('runner.settings')}
+            title={t('runner.settings')}
+            aria-label={t('runner.settings')}
             onclick={setup}
             disabled={running}
           >
@@ -257,8 +257,8 @@
             <button
               class="rn-icon"
               type="button"
-              title={copied ? $t('runner.copied') : $t('runner.exportReport')}
-              aria-label={$t('runner.exportReport')}
+              title={copied ? t('runner.copied') : t('runner.exportReport')}
+              aria-label={t('runner.exportReport')}
               onclick={doExport}
             >
               <span class="material-symbols-outlined" aria-hidden="true">{copied ? 'check' : 'ios_share'}</span>
@@ -268,22 +268,22 @@
       </div>
       {#if running}
         <button class="rn-btn" type="button" onclick={togglePause}
-          >{run.paused ? $t('runner.resume') : $t('runner.pause')}</button
+          >{run.paused ? t('runner.resume') : t('runner.pause')}</button
         >
         <button class="rn-btn stop" type="button" onclick={stopRun}>
-          <i class="rn-stopicon" aria-hidden="true"></i><b>{$t('runner.stop')}</b><kbd>Esc</kbd>
+          <i class="rn-stopicon" aria-hidden="true"></i><b>{t('runner.stop')}</b><kbd>Esc</kbd>
         </button>
       {:else}
         {#if viewing !== null}
           <span class="rn-viewing"
-            >{$t('runner.viewing', { n: viewing })}<button
+            >{t('runner.viewing', { n: viewing })}<button
               type="button"
-              onclick={() => viewRun($runnerHistory.at(-1)?.n ?? viewing)}>{$t('runner.viewLatest')}</button
+              onclick={() => viewRun($runnerHistory.at(-1)?.n ?? viewing)}>{t('runner.viewLatest')}</button
             ></span
           >
         {:else if failedRows.length > 0}
           <button class="rn-btn" type="button" onclick={() => void rerunFailed()}>
-            <span class="material-symbols-outlined danger" aria-hidden="true">replay</span>{$t('runner.rerunFailed', {
+            <span class="material-symbols-outlined danger" aria-hidden="true">replay</span>{t('runner.rerunFailed', {
               n: failedRows.length,
             })}
           </button>
@@ -294,7 +294,7 @@
           onclick={() => void runCollection()}
           disabled={planned.length === 0}
         >
-          <span class="material-symbols-outlined" aria-hidden="true">play_arrow</span><b>{$t('runner.runAll')}</b><kbd
+          <span class="material-symbols-outlined" aria-hidden="true">play_arrow</span><b>{t('runner.runAll')}</b><kbd
             >⌘R</kbd
           >
         </button>
@@ -304,15 +304,14 @@
     {#if running}
       <section class="rn-progress" aria-live="polite">
         <div class="rn-prow">
-          <b class="rn-pnum">{run.completed}</b><span class="rn-pof">{$t('runner.progress.of', { n: run.total })}</span>
+          <b class="rn-pnum">{run.completed}</b><span class="rn-pof">{t('runner.progress.of', { n: run.total })}</span>
           {#if run.iterations > 1}<span class="rn-ppill"
-              >{$t('runner.progress.iter', { i: curIter, n: run.iterations })}</span
+              >{t('runner.progress.iter', { i: curIter, n: run.iterations })}</span
             >{/if}
           <span class="sp"></span>
           <span class="rn-pok">{okCount} ✓</span>
           {#if run.completed - okCount > 0}<span class="rn-pbad">{run.completed - okCount} ✗</span>{/if}
-          <span class="rn-ptime">{$t('runner.progress.time', { el: elapsedS.toFixed(1), left: leftS.toFixed(1) })}</span
-          >
+          <span class="rn-ptime">{t('runner.progress.time', { el: elapsedS.toFixed(1), left: leftS.toFixed(1) })}</span>
         </div>
         <div class="rn-segs" class:dense={run.total > 60}>
           {#each { length: run.total } as _, i (i)}
@@ -327,21 +326,21 @@
     {:else}
       <section class="rn-stats">
         <div class="rn-stat">
-          {@render eyebrow($t('runner.stat.passed'))}
+          {@render eyebrow(t('runner.stat.passed'))}
           <div class="rn-stat-row">
             <b class="ok">{current ? current.passed : '—'}</b>{#if current}<span>/ {current.total}</span>{/if}
-            {@render delta(current ? passedDelta(current, prev, $t) : null)}
+            {@render delta(current ? passedDelta(current, prev, t) : null)}
           </div>
         </div>
         <div class="rn-stat">
-          {@render eyebrow($t('runner.stat.total'))}
+          {@render eyebrow(t('runner.stat.total'))}
           <div class="rn-stat-row">
             <b>{current ? (current.durationMs / 1000).toFixed(1) : '—'}</b>{#if current}<span>s</span>{/if}
             {@render delta(current ? durationDelta(current, prev) : null)}
           </div>
         </div>
         <div class="rn-stat">
-          {@render eyebrow($t('runner.stat.p95'))}
+          {@render eyebrow(t('runner.stat.p95'))}
           <div class="rn-stat-row">
             <b>{current ? current.p95Ms : '—'}</b>{#if current}<span>ms</span>{/if}
             {@render delta(current ? p95Delta(current, prev) : null)}
@@ -349,12 +348,12 @@
         </div>
         <div class="rn-stat">
           {@render eyebrow(
-            $t('runner.stat.last', {
+            t('runner.stat.last', {
               n: Math.max(bars.length, 1),
-              runs: $tp(Math.max(bars.length, 1), ['ПРОГОН', 'ПРОГОНА', 'ПРОГОНОВ'], ['RUN', 'RUNS']),
+              runs: tp(Math.max(bars.length, 1), ['ПРОГОН', 'ПРОГОНА', 'ПРОГОНОВ'], ['RUN', 'RUNS']),
             }),
           )}
-          <div class="rn-bars" aria-label={$t('runner.stat.durations')}>
+          <div class="rn-bars" aria-label={t('runner.stat.durations')}>
             {#each bars as b, i (i)}
               {@const saved = $runnerRecords.some((r) => r.n === b.n)}
               <button
@@ -363,8 +362,8 @@
                 class:failed={b.failed}
                 class:current={b.n === currentN}
                 style="height:{b.h}px"
-                title={saved ? `#${b.n}` : $t('runner.bar.noData')}
-                aria-label={$t('runner.runN', { n: b.n })}
+                title={saved ? `#${b.n}` : t('runner.bar.noData')}
+                aria-label={t('runner.runN', { n: b.n })}
                 disabled={!saved || running}
                 onclick={() => viewRun(b.n)}
               ></button>
@@ -379,11 +378,10 @@
         <div class="rn-scroll">
           <div class="rn-grid rn-ghead">
             <span></span>
-            <span>{$t('runner.col.request')}</span>
-            {#each { length: iterations } as _, i (i)}<span class="c">{$t('runner.col.iter', { n: i + 1 })}</span
-              >{/each}
-            <span>{$t('runner.col.waterfall', { n: wfIter })}</span>
-            <span class="r">{$t('runner.col.time')}</span>
+            <span>{t('runner.col.request')}</span>
+            {#each { length: iterations } as _, i (i)}<span class="c">{t('runner.col.iter', { n: i + 1 })}</span>{/each}
+            <span>{t('runner.col.waterfall', { n: wfIter })}</span>
+            <span class="r">{t('runner.col.time')}</span>
           </div>
           {#each rows as row, ri (row.key)}
             {@const call = row.cells[wfIter - 1]}
@@ -413,10 +411,10 @@
                     class:cur
                     class:on={!running && ri === selIdx && sel?.iter === ci + 1}
                     disabled={running}
-                    aria-label={$t('runner.cell.aria', {
+                    aria-label={t('runner.cell.aria', {
                       name: row.name,
                       n: ci + 1,
-                      status: c ? statusLabel(c.status) : $t('runner.cell.noData'),
+                      status: c ? statusLabel(c.status) : t('runner.cell.noData'),
                     })}
                     onclick={(e) => {
                       e.stopPropagation();
@@ -440,24 +438,24 @@
             </div>
           {/each}
           <div class="rn-legend">
-            <span><i></i>{$t('runner.legend.normal')}</span>
-            <span><i class="slow"></i>{$t('runner.legend.slow')}</span>
-            <span><i class="error"></i>{$t('runner.legend.error')}</span>
+            <span><i></i>{t('runner.legend.normal')}</span>
+            <span><i class="slow"></i>{t('runner.legend.slow')}</span>
+            <span><i class="error"></i>{t('runner.legend.error')}</span>
             <span class="sp"></span>
-            <span>{$t('runner.legend.keys')}</span>
+            <span>{t('runner.legend.keys')}</span>
           </div>
           {#if rows.length === 0}
-            <p class="rn-empty">{$t('runner.empty')}</p>
+            <p class="rn-empty">{t('runner.empty')}</p>
           {/if}
         </div>
       </section>
 
       {#if running}
-        <aside class="rn-detail rn-log" aria-label={$t('runner.log')}>
-          {@render eyebrow($t('runner.log'))}
+        <aside class="rn-detail rn-log" aria-label={t('runner.log')}>
+          {@render eyebrow(t('runner.log'))}
           <div class="rn-logcur">
             <span class="rn-logstate"
-              ><i class:paused={run.paused}></i>{run.paused ? $t('runner.log.paused') : $t('runner.log.running')}</span
+              ><i class:paused={run.paused}></i>{run.paused ? t('runner.log.paused') : t('runner.log.running')}</span
             >
             {#if run.current}<span class="rn-logcall"
                 >{run.current.method} {run.current.name} · {((now - run.current.startedAt) / 1000).toFixed(1)} s</span
@@ -473,14 +471,14 @@
                     <small class:bad={!e.r.ok}
                       >{e.r.status} · {e.r.ok
                         ? `${e.r.elapsedMs} ms`
-                        : (e.r.error ?? $t('runner.log.testFailed'))}</small
+                        : (e.r.error ?? t('runner.log.testFailed'))}</small
                     >
                   </span>
                 {:else}
                   <span class="rn-logbody">
-                    <b>{$t('runner.log.iter', { n: e.n })}</b>
+                    <b>{t('runner.log.iter', { n: e.n })}</b>
                     {#if $runnerConfig.dataFileName}<small class="mute"
-                        >{$t('runner.log.row', { file: $runnerConfig.dataFileName, n: e.n })}</small
+                        >{t('runner.log.row', { file: $runnerConfig.dataFileName, n: e.n })}</small
                       >{/if}
                   </span>
                 {/if}
@@ -489,17 +487,17 @@
           </div>
         </aside>
       {:else if selCall}
-        <aside class="rn-detail" aria-label={$t('runner.detail')}>
+        <aside class="rn-detail" aria-label={t('runner.detail')}>
           <div class="rn-dhead">
             <div class="rn-drow">
               {@render eyebrow(
-                $t('runner.detail.iteration', {
+                t('runner.detail.iteration', {
                   n: selCall.iteration,
                   pos: pad2(selIdx + 1),
                   total: pad2(rows.length),
                 }),
               )}
-              <button class="rn-icon" type="button" aria-label={$t('common.close')} onclick={() => (sel = null)}>
+              <button class="rn-icon" type="button" aria-label={t('common.close')} onclick={() => (sel = null)}>
                 <span class="material-symbols-outlined" aria-hidden="true">close</span>
               </button>
             </div>
@@ -521,7 +519,7 @@
           {#if insight}
             <div class="rn-insight">
               <div class="rn-insight-head">
-                <span class="material-symbols-outlined" aria-hidden="true">lightbulb</span>{$t('runner.detail.cause')}
+                <span class="material-symbols-outlined" aria-hidden="true">lightbulb</span>{t('runner.detail.cause')}
               </div>
               <p>{insight.text}</p>
               {#if insight.bind && selCall.nodeId}
@@ -530,8 +528,8 @@
                     >{bound === selCall.id ? 'check' : 'link'}</span
                   >
                   {bound === selCall.id
-                    ? $t('runner.detail.bound', { name: insight.bind.varName })
-                    : $t('runner.detail.bindFrom', { name: insight.bind.sourceName })}
+                    ? t('runner.detail.bound', { name: insight.bind.varName })
+                    : t('runner.detail.bindFrom', { name: insight.bind.sourceName })}
                 </button>
               {/if}
             </div>
@@ -539,7 +537,7 @@
 
           {#if selCall.tests.length > 0}
             <div class="rn-tests">
-              {@render eyebrow($t('runner.detail.tests', { passed: testsPassed, total: selCall.tests.length }))}
+              {@render eyebrow(t('runner.detail.tests', { passed: testsPassed, total: selCall.tests.length }))}
               {#each selCall.tests as tr, i (i)}
                 <div class="rn-test" class:fail={!tr.passed}>
                   <b>{tr.passed ? '✓' : '✗'}</b><span>{tr.name}</span><small>{testDetail(tr, selCall)}</small>
@@ -550,20 +548,20 @@
 
           {#if selCall.responseBody}
             <div class="rn-resp">
-              {@render eyebrow($t('runner.detail.response'))}
+              {@render eyebrow(t('runner.detail.response'))}
               <div class="rn-code">{@html highlightJson(compactJson(selCall.responseBody), false)}</div>
             </div>
           {/if}
 
           <div class="rn-actions">
             <button class="rn-btn grow" type="button" onclick={openRequest} disabled={!selCall.nodeId}
-              >{$t('runner.detail.open')}</button
+              >{t('runner.detail.open')}</button
             >
             <button
               class="rn-btn"
               type="button"
               onclick={() => selCall && void rerunCall(selCall.id)}
-              disabled={running || viewing !== null}>{$t('runner.detail.retry')}</button
+              disabled={running || viewing !== null}>{t('runner.detail.retry')}</button
             >
           </div>
         </aside>

@@ -42,15 +42,15 @@
   >
 {/snippet}
 <div class="lb-tabrow">
-  <div class="bs-rtabs" role="tablist" aria-label={$t('grpc.tab.request')} use:tablist>
-    {@render gtab('message', $t('grpc.tab.message'))}
-    {@render gtab('metadata', $t('grpc.tab.metadata'), metadataCount)}
-    {@render gtab('auth', $t('grpc.tab.auth'))}
-    {@render gtab('proto', $t('grpc.tab.proto'))}
+  <div class="bs-rtabs" role="tablist" aria-label={t('grpc.tab.request')} use:tablist>
+    {@render gtab('message', t('grpc.tab.message'))}
+    {@render gtab('metadata', t('grpc.tab.metadata'), metadataCount)}
+    {@render gtab('auth', t('grpc.tab.auth'))}
+    {@render gtab('proto', t('grpc.tab.proto'))}
     <!-- Not in the S19 mock: kept only for requests that already carry scripts. -->
     {#if SCRIPTS_ENABLED && (tab.grpc?.preRequestScript || tab.grpc?.testScript || section === 'scripts')}{@render gtab(
         'scripts',
-        $t('grpc.tab.scripts'),
+        t('grpc.tab.scripts'),
       )}{/if}
   </div>
   {#if messageStats}
@@ -63,7 +63,7 @@
         >
       {/if}
       <span class="lb-stats"
-        >{`${messageStats.approx ? '~' : ''}${formatBytes(messageStats.bytes)}  ·  ${countLabel(messageStats.lines, 'lines', $uiLanguage)}`}</span
+        >{`${messageStats.approx ? '~' : ''}${formatBytes(messageStats.bytes)}  ·  ${countLabel(messageStats.lines, 'lines', uiLanguage.current)}`}</span
       >
       <EditorTools
         scope="#bs-grpcpanel"
@@ -74,8 +74,8 @@
           <button
             type="button"
             class="bs-ric bs-grpc-example"
-            aria-label={$t('grpc.msg.example')}
-            title={$t('grpc.msg.example')}
+            aria-label={t('grpc.msg.example')}
+            title={t('grpc.msg.example')}
             onclick={onLoadExample}
             ><span class="material-symbols-outlined" aria-hidden="true">description</span></button
           >

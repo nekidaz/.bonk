@@ -3,7 +3,6 @@
  * module is a leaf: it imports only types, never stores, so the stores import
  * graph stays acyclic (state imports it; requests imports it).
  */
-import { get } from 'svelte/store';
 import { t as tr } from '$shared/i18n';
 import type { Environment, HttpRequest, TreeNode, VarRow } from './types';
 
@@ -120,10 +119,10 @@ export function resolveRequestVars(req: HttpRequest, scope: Record<string, strin
       try {
         variables = JSON.parse(source);
       } catch {
-        throw new Error(get(tr)('http.gql.vars_invalid'));
+        throw new Error(tr('http.gql.vars_invalid'));
       }
       if (variables === null || typeof variables !== 'object' || Array.isArray(variables)) {
-        throw new Error(get(tr)('http.gql.vars_object'));
+        throw new Error(tr('http.gql.vars_object'));
       }
     }
     const resolveValue = (value: unknown): unknown => {

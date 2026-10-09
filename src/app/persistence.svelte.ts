@@ -2,21 +2,7 @@ import { derived, get } from 'svelte/store';
 import type { ProxyMode, Tab, HistoryEntry, TreeNode, Environment, VarRow } from '$shared/model';
 import { type Flow, flows } from '$entities/flow';
 import { loadState, saveState, saveStateDebounced } from '$shared/persist';
-import {
-  startupOpen,
-  responseLineWrap,
-  requestTimeoutMs,
-  requestFollowRedirects,
-  requestValidateTls,
-  responseBodyLimitMb,
-  responsePrettyDefault,
-  proxyMode,
-  proxyUrl,
-  proxyBypass,
-  trustedCaPaths,
-  grpcDeadlineMs,
-  grpcAutoReflect,
-} from '$shared/settings';
+import { startupOpen, requestPrefs } from '$shared/settings';
 import { workspaceLoad, secretGet, secretSet, secretDelete } from '$shared/ipc';
 import { collectSecrets, mergeSecrets, secretAccountsOf, stripSecrets } from './secrets';
 import { normalizeTabTitleState, stripRuntimeTab, tabs, activeTabId } from '$entities/tab';
@@ -112,23 +98,23 @@ async function restoreState(): Promise<void> {
     .map(normalizeTabTitleState)
     .map(stripRuntimeTab);
   await startupOpen.ready;
-  if (restoredTabs.length > 0 && get(startupOpen) === 'last') tabs.set(restoredTabs);
+  if (restoredTabs.length > 0 && startupOpen.current === 'last') tabs.set(restoredTabs);
   history.set(savedHistory);
   recentWorkspacePaths.set(normalizeWorkspaceRecents(savedRecentWorkspacePaths));
   historyLimit.set(await loadState<number>('historyLimit', 500));
   historyPaused.set(await loadState<boolean>('historyPaused', false));
-  responseLineWrap.set(await loadState<boolean>('responseLineWrap', true));
-  requestTimeoutMs.set(await loadState<number>('requestTimeoutMs', 30_000));
-  requestFollowRedirects.set(await loadState<boolean>('requestFollowRedirects', true));
-  requestValidateTls.set(await loadState<boolean>('requestValidateTls', true));
-  responseBodyLimitMb.set(await loadState<number>('responseBodyLimitMb', 25));
-  responsePrettyDefault.set(await loadState<boolean>('responsePrettyDefault', true));
-  proxyMode.set(await loadState<ProxyMode>('proxyMode', 'system'));
-  proxyUrl.set(await loadState<string>('proxyUrl', ''));
-  proxyBypass.set(await loadState<string>('proxyBypass', ''));
-  trustedCaPaths.set(await loadState<string[]>('trustedCaPaths', []));
-  grpcDeadlineMs.set(await loadState<number>('grpcDeadlineMs', 30_000));
-  grpcAutoReflect.set(await loadState<boolean>('grpcAutoReflect', true));
+  requestPrefs.responseLineWrap = await loadState<boolean>('responseLineWrap', true);
+  requestPrefs.requestTimeoutMs = await loadState<number>('requestTimeoutMs', 30_000);
+  requestPrefs.requestFollowRedirects = await loadState<boolean>('requestFollowRedirects', true);
+  requestPrefs.requestValidateTls = await loadState<boolean>('requestValidateTls', true);
+  requestPrefs.responseBodyLimitMb = await loadState<number>('responseBodyLimitMb', 25);
+  requestPrefs.responsePrettyDefault = await loadState<boolean>('responsePrettyDefault', true);
+  requestPrefs.proxyMode = await loadState<ProxyMode>('proxyMode', 'system');
+  requestPrefs.proxyUrl = await loadState<string>('proxyUrl', '');
+  requestPrefs.proxyBypass = await loadState<string>('proxyBypass', '');
+  requestPrefs.trustedCaPaths = await loadState<string[]>('trustedCaPaths', []);
+  requestPrefs.grpcDeadlineMs = await loadState<number>('grpcDeadlineMs', 30_000);
+  requestPrefs.grpcAutoReflect = await loadState<boolean>('grpcAutoReflect', true);
   // Postman-style variables. The array fallbacks make loadState reject a corrupt
   // non-array value; activeEnvironmentId falls back to null (No environment).
   const loaded = await loadSecrets(
@@ -201,24 +187,28 @@ function wirePersistence(): () => void {
     }),
     historyLimit.subscribe((n) => saveStateDebounced('historyLimit', n)),
     historyPaused.subscribe((p) => saveStateDebounced('historyPaused', p)),
-    responseLineWrap.subscribe((v) => saveStateDebounced('responseLineWrap', v)),
-    requestTimeoutMs.subscribe((n) => saveStateDebounced('requestTimeoutMs', n)),
-    requestFollowRedirects.subscribe((v) => saveStateDebounced('requestFollowRedirects', v)),
-    requestValidateTls.subscribe((v) => saveStateDebounced('requestValidateTls', v)),
-    responseBodyLimitMb.subscribe((n) => saveStateDebounced('responseBodyLimitMb', n)),
-    responsePrettyDefault.subscribe((v) => saveStateDebounced('responsePrettyDefault', v)),
-    proxyMode.subscribe((v) => saveStateDebounced('proxyMode', v)),
-    proxyUrl.subscribe((v) => saveStateDebounced('proxyUrl', v)),
-    proxyBypass.subscribe((v) => saveStateDebounced('proxyBypass', v)),
-    trustedCaPaths.subscribe((v) => saveStateDebounced('trustedCaPaths', v)),
-    grpcDeadlineMs.subscribe((n) => saveStateDebounced('grpcDeadlineMs', n)),
-    grpcAutoReflect.subscribe((v) => saveStateDebounced('grpcAutoReflect', v)),
     derived([globals, environments], (v) => v).subscribe(scheduleSecretSync),
     activeEnvironmentId.subscribe((id) => saveStateDebounced('activeEnvironmentId', id)),
     flows.subscribe((v) => saveStateDebounced('flows', v)),
   ];
+  // Rune state: one effect per saved value; each re-runs (and saves) when the value it reads changes.
+  const stopEffects = $effect.root(() => {
+    $effect(() => saveStateDebounced('responseLineWrap', requestPrefs.responseLineWrap));
+    $effect(() => saveStateDebounced('requestTimeoutMs', requestPrefs.requestTimeoutMs));
+    $effect(() => saveStateDebounced('requestFollowRedirects', requestPrefs.requestFollowRedirects));
+    $effect(() => saveStateDebounced('requestValidateTls', requestPrefs.requestValidateTls));
+    $effect(() => saveStateDebounced('responseBodyLimitMb', requestPrefs.responseBodyLimitMb));
+    $effect(() => saveStateDebounced('responsePrettyDefault', requestPrefs.responsePrettyDefault));
+    $effect(() => saveStateDebounced('proxyMode', requestPrefs.proxyMode));
+    $effect(() => saveStateDebounced('proxyUrl', requestPrefs.proxyUrl));
+    $effect(() => saveStateDebounced('proxyBypass', requestPrefs.proxyBypass));
+    $effect(() => saveStateDebounced('trustedCaPaths', requestPrefs.trustedCaPaths));
+    $effect(() => saveStateDebounced('grpcDeadlineMs', requestPrefs.grpcDeadlineMs));
+    $effect(() => saveStateDebounced('grpcAutoReflect', requestPrefs.grpcAutoReflect));
+  });
   return () => {
     for (const unsub of unsubs) unsub();
+    stopEffects();
   };
 }
 

@@ -1,10 +1,9 @@
-import { get } from 'svelte/store';
 import { t, type Translate } from '$shared/i18n';
 
 const SCHEMES = ['http:', 'https:', 'socks5:', 'socks5h:'];
 
 /** Localized error for a manual proxy URL, or '' when it is acceptable. Pass `$t` from a component so it re-runs on language change. */
-export function proxyUrlError(raw: string, tr: Translate = get(t)): string {
+export function proxyUrlError(raw: string, tr: Translate = t): string {
   let v = raw.trim();
   if (!v) return tr('settings.proxy.err.empty');
   if (!v.includes('://')) v = `http://${v}`; // bare host:port means http://

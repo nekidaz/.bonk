@@ -60,10 +60,10 @@
     const s = stats(f);
     const unit =
       s.grpc === s.requests && s.requests > 0
-        ? $tp(s.requests, ['метод', 'метода', 'методов'], ['method', 'methods'])
-        : $tp(s.requests, ['запрос', 'запроса', 'запросов'], ['request', 'requests']);
+        ? tp(s.requests, ['метод', 'метода', 'методов'], ['method', 'methods'])
+        : tp(s.requests, ['запрос', 'запроса', 'запросов'], ['request', 'requests']);
     const folders = s.folders
-      ? ` · ${s.folders} ${$tp(s.folders, ['папка', 'папки', 'папок'], ['folder', 'folders'])}`
+      ? ` · ${s.folders} ${tp(s.folders, ['папка', 'папки', 'папок'], ['folder', 'folders'])}`
       : '';
     return `${s.requests} ${unit}${folders}`;
   }
@@ -77,9 +77,9 @@
 <div class="rp">
   <div class="rp-col">
     <div class="rp-head">
-      <div class="rn-eyebrow">{$t('runner.pick.crumb')}</div>
-      <h2>{$t('runner.pick.title')}</h2>
-      <p>{$t('runner.pick.sub')}</p>
+      <div class="rn-eyebrow">{t('runner.pick.crumb')}</div>
+      <h2>{t('runner.pick.title')}</h2>
+      <p>{t('runner.pick.sub')}</p>
     </div>
 
     <label class="rp-search">
@@ -88,8 +88,8 @@
       <input
         type="search"
         bind:value={query}
-        placeholder={$t('runner.pick.search')}
-        aria-label={$t('runner.pick.search')}
+        placeholder={t('runner.pick.search')}
+        aria-label={t('runner.pick.search')}
         autofocus
         onkeydown={(e) => e.key === 'Enter' && items[0] && pick(items[0].id)}
       />
@@ -104,13 +104,13 @@
             <span class="rp-name"><b>{f.name}</b><small>{subtitle(f)}</small></span>
             <span class="rp-last">
               {#if last}
-                <i class="rn-dot" class:bad={last.passed < last.total}></i>{$t('runner.pick.last', {
+                <i class="rn-dot" class:bad={last.passed < last.total}></i>{t('runner.pick.last', {
                   passed: last.passed,
                   total: last.total,
-                  when: relDay(last.startedAt, $uiLanguage),
+                  when: relDay(last.startedAt, uiLanguage.current),
                 })}
               {:else}
-                {$t('runner.pick.never')}
+                {t('runner.pick.never')}
               {/if}
             </span>
             <span class="material-symbols-outlined rp-chev" aria-hidden="true">chevron_right</span>
@@ -118,11 +118,11 @@
         {/each}
       </div>
     {:else}
-      <p class="rn-muted rp-empty">{q ? $t('runner.pick.none') : $t('runner.pick.empty')}</p>
+      <p class="rn-muted rp-empty">{q ? t('runner.pick.none') : t('runner.pick.empty')}</p>
     {/if}
 
     {#if recent.length > 0}
-      <div class="rn-eyebrow">{$t('runner.pick.recent')}</div>
+      <div class="rn-eyebrow">{t('runner.pick.recent')}</div>
       <div class="rp-recent">
         {#each recent as h (h.n)}
           <button class="rp-card" type="button" onclick={() => repeatRun(h)}>
@@ -130,14 +130,14 @@
               ><span>#{h.n}</span><b class:bad={h.passed < h.total}>{h.passed}/{h.total}</b></span
             >
             <span class="rp-card-name">{h.title}</span>
-            <small>{[h.envName ?? $t('runner.noEnv'), `×${h.iterations ?? 1}`].join(' · ')}</small>
+            <small>{[h.envName ?? t('runner.noEnv'), `×${h.iterations ?? 1}`].join(' · ')}</small>
           </button>
         {/each}
       </div>
     {/if}
 
     {#if $runnerPresets.length > 0}
-      <div class="rn-eyebrow">{$t('runner.preset.title')}</div>
+      <div class="rn-eyebrow">{t('runner.preset.title')}</div>
       <div class="rp-recent">
         {#each [...$runnerPresets].reverse() as p (p.name)}
           <div class="rp-card rp-preset">
@@ -148,8 +148,8 @@
             <button
               class="rp-pdel"
               type="button"
-              title={$t('runner.preset.delete')}
-              aria-label={$t('runner.preset.delete')}
+              title={t('runner.preset.delete')}
+              aria-label={t('runner.preset.delete')}
               onclick={() => deletePreset(p.name)}
             >
               <span class="material-symbols-outlined" aria-hidden="true">close</span>
@@ -160,7 +160,7 @@
     {/if}
 
     <p class="rp-hint">
-      <span class="material-symbols-outlined" aria-hidden="true">info</span>{$t('runner.pick.hint')}
+      <span class="material-symbols-outlined" aria-hidden="true">info</span>{t('runner.pick.hint')}
     </p>
   </div>
 </div>

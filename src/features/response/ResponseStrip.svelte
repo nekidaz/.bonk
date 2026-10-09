@@ -33,8 +33,8 @@
     const status = r.status
       ? `${r.status} ${HTTP_STATUS_TEXT[r.status] ?? ''}`.trim()
       : isCancelled(r)
-        ? $t('response.status.cancelled')
-        : $t('response.status.none');
+        ? t('response.status.cancelled')
+        : t('response.status.none');
     return {
       tone,
       glyph: tone === 'success' ? '✓' : r.status ? '!' : '×',
@@ -47,20 +47,20 @@
   const preview = $derived(info ? oneLinePreview(info.body) : '');
 </script>
 
-<div class="lb-strip" role="group" aria-label={$t('lb.strip.response')}>
-  <span class="label">{$t('lb.strip.response')}</span>
+<div class="lb-strip" role="group" aria-label={t('lb.strip.response')}>
+  <span class="label">{t('lb.strip.response')}</span>
   {#if sending}
-    <span class="bs-stpill sending"><span class="g" aria-hidden="true">◌</span>{$t('response.sending')}</span>
+    <span class="bs-stpill sending"><span class="g" aria-hidden="true">◌</span>{t('response.sending')}</span>
   {:else if info}
     <span class="bs-stpill {info.tone}"><span class="g" aria-hidden="true">{info.glyph}</span>{info.status}</span>
     <span class="meta">{`${elapsedLabel(info.ms)}  ·  ${info.size}`}</span>
     <span class="preview" title={preview}>{preview}</span>
   {:else}
-    <span class="preview">{$t('lb.strip.noResponse')}</span>
+    <span class="preview">{t('lb.strip.noResponse')}</span>
   {/if}
   <button type="button" class="act" onclick={onShow}>
-    <span class="material-symbols-outlined" aria-hidden="true">expand_less</span>{$t('lb.strip.showResponse')}<kbd
-      >{formatBinding($hotkeys.toggleResponse ?? '').join('')}</kbd
+    <span class="material-symbols-outlined" aria-hidden="true">expand_less</span>{t('lb.strip.showResponse')}<kbd
+      >{formatBinding(hotkeys.current.toggleResponse ?? '').join('')}</kbd
     >
   </button>
 </div>

@@ -102,7 +102,7 @@ function persistConfig(): void {
 function syncRunnerTabTitle(): void {
   const title =
     get(runnerStage) === 'pick'
-      ? get(t)('runner.tab.new')
+      ? t('runner.tab.new')
       : `Runner · ${runnerScopeTitle(get(runnerConfig).folderIds, get(collections))}`;
   if (get(tabs).some((t) => t.protocol === 'runner' && t.title !== title)) {
     tabs.update((list) => list.map((t) => (t.protocol === 'runner' ? { ...t, title } : t)));
@@ -199,7 +199,7 @@ export function setSaveResponses(saveResponses: boolean): void {
 /** Auto name of a preset: "<scope> · <environment>". */
 export function currentPresetName(): string {
   const env = get(environments).find((e) => e.id === get(activeEnvironmentId));
-  return `${runnerScopeTitle(get(runnerConfig).folderIds, get(collections))} · ${env?.name ?? get(t)('runner.noEnv')}`;
+  return `${runnerScopeTitle(get(runnerConfig).folderIds, get(collections))} · ${env?.name ?? t('runner.noEnv')}`;
 }
 
 /** Save the current setup as a preset (same name = update); returns its name. */

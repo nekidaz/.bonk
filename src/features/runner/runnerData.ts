@@ -7,7 +7,6 @@
  * import graph stays acyclic. All values are coerced to strings because the
  * resolution scope and the QuickJS context are `Record<string, string>`.
  */
-import { get } from 'svelte/store';
 import { t } from '$shared/i18n';
 
 /**
@@ -105,14 +104,14 @@ export function parseJson(text: string): Record<string, string>[] {
   try {
     data = JSON.parse(text);
   } catch (e) {
-    throw new Error(get(t)('runner.err.badJson', { msg: e instanceof Error ? e.message : String(e) }));
+    throw new Error(t('runner.err.badJson', { msg: e instanceof Error ? e.message : String(e) }));
   }
   if (!Array.isArray(data)) {
-    throw new Error(get(t)('runner.err.jsonArray'));
+    throw new Error(t('runner.err.jsonArray'));
   }
   return data.map((entry, i) => {
     if (!entry || typeof entry !== 'object' || Array.isArray(entry)) {
-      throw new Error(get(t)('runner.err.jsonRow', { n: i + 1 }));
+      throw new Error(t('runner.err.jsonRow', { n: i + 1 }));
     }
     const row: Record<string, string> = {};
     for (const [key, value] of Object.entries(entry as Record<string, unknown>)) {
@@ -134,5 +133,5 @@ export function parseDataFile(name: string, text: string): Record<string, string
   const ext = name.slice(name.lastIndexOf('.')).toLowerCase();
   if (ext === '.csv') return parseCsv(text);
   if (ext === '.json') return parseJson(text);
-  throw new Error(get(t)('runner.err.unsupported', { ext: ext || name }));
+  throw new Error(t('runner.err.unsupported', { ext: ext || name }));
 }

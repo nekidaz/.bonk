@@ -1,5 +1,4 @@
 import { invoke } from '@tauri-apps/api/core';
-import { writable, type Writable } from 'svelte/store';
 
 type PendingSave = { timer: ReturnType<typeof setTimeout>; value: unknown };
 const pendingSaves = new Map<string, PendingSave>();
@@ -84,22 +83,4 @@ export async function flushPendingSaves(): Promise<void> {
       return saveState(key, pending.value);
     }),
   );
-}
-
-export type PersistedStore<T> = Writable<T> & { ready: Promise<void> };
-
-/**
- * A writable that restores itself from app-state on creation and saves every
- * later change, so a settings module needs no wiring in app/persistence.ts.
- * Holds `fallback` until `ready` resolves; without `validate`, a stored value of
- * a different type than `fallback` is ignored.
- */
-export function persisted<T>(key: string, fallback: T, validate?: (v: unknown) => v is T): PersistedStore<T> {
-  const store = writable(fallback);
-  const sameType = (v: unknown): v is T => typeof v === typeof fallback && Array.isArray(v) === Array.isArray(fallback);
-  const ready = loadState(key, fallback, validate ?? sameType).then((v) => {
-    store.set(v);
-    store.subscribe((value) => saveStateDebounced(key, value));
-  });
-  return { ...store, ready };
 }

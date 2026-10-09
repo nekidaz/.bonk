@@ -25,15 +25,15 @@
   <div class="bs-overlay" role="dialog" aria-modal="true">
     <div class="bs-modal">
       <div class="bs-modal-h">
-        <span class="t">{$t('dialog.move.title')}</span>
-        <button class="x" aria-label={$t('common.close')} onclick={() => (open = false)}
+        <span class="t">{t('dialog.move.title')}</span>
+        <button class="x" aria-label={t('common.close')} onclick={() => (open = false)}
           ><span class="material-symbols-outlined" style="font-size:18px">close</span></button
         >
       </div>
       <div class="bs-modal-b">
         <div class="bs-saveto">
-          {$t('dialog.move.to')}
-          <span>{moveTarget ? (findNode($collections, moveTarget)?.name ?? '—') : $t('dialog.move.root')}</span>
+          {t('dialog.move.to')}
+          <span>{moveTarget ? (findNode($collections, moveTarget)?.name ?? '—') : t('dialog.move.root')}</span>
         </div>
         <div class="bs-collbox">
           <div class="bs-colllist">
@@ -43,8 +43,8 @@
       </div>
       <div class="bs-modal-f">
         <div class="grow"></div>
-        <button class="bs-btn primary" onclick={confirmMove}>{$t('dialog.move.confirm')}</button>
-        <button class="bs-btn ghost" onclick={() => (open = false)}>{$t('common.cancel')}</button>
+        <button class="bs-btn primary" onclick={confirmMove}>{t('dialog.move.confirm')}</button>
+        <button class="bs-btn ghost" onclick={() => (open = false)}>{t('common.cancel')}</button>
       </div>
     </div>
   </div>

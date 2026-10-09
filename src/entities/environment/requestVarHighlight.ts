@@ -26,7 +26,7 @@ export function requestVariableHighlight(
   activeEnvId: string | null,
 ): Extension {
   const active = activeEnvId !== null ? envs.find((e) => e.id === activeEnvId) : undefined;
-  const globalsSource = { name: get(t)('env.scope_globals') };
+  const globalsSource = { name: t('env.scope_globals') };
   const source = (env: Environment) => ({ name: env.name, color: ENV_COLOR_VAR[envColor(env)] });
   const findRow = (rows: VarRow[], key: string) => rows.findLast((r) => r.enabled && r.key.trim() === key);
   return variableHighlight({

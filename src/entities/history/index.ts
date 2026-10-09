@@ -1,7 +1,7 @@
 // Public API of entities/history (like the exported names of a Go package).
 // Code outside src/entities/history/ imports only from here; files inside use relative paths.
 
-export { exportFormat, exportIncludeSecrets, historyDays } from './dataPrefs';
+export { exportFormat, exportIncludeSecrets, historyDays } from './dataPrefs.svelte';
 export {
   addHistory,
   clearHistory,

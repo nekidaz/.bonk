@@ -1,7 +1,6 @@
 <script lang="ts">
   import { importApiText, importApiFile } from '$entities/workspace';
   import { t } from '$shared/i18n';
-  import { get } from 'svelte/store';
 
   // `open` is the trigger held by App.svelte; the paste buffer + error live here.
   let { open = $bindable() }: { open: boolean } = $props();
@@ -24,14 +23,14 @@
     try {
       text = await navigator.clipboard.readText();
     } catch (err) {
-      error = get(t)('import.clipboardFail');
+      error = t('import.clipboardFail');
       console.error('openapi: clipboard read failed', err);
     }
   }
 
   async function doImport(): Promise<void> {
     if (text.trim() === '') {
-      error = get(t)('import.pasteFirst');
+      error = t('import.pasteFirst');
       return;
     }
     error = '';
@@ -67,13 +66,13 @@
   <div class="bs-overlay" role="dialog" aria-modal="true">
     <div class="bs-modal">
       <div class="bs-modal-h">
-        <span class="t">{$t('import.title')}</span>
-        <button class="x" aria-label={$t('common.close')} onclick={() => (open = false)}
+        <span class="t">{t('import.title')}</span>
+        <button class="x" aria-label={t('common.close')} onclick={() => (open = false)}
           ><span class="material-symbols-outlined" style="font-size:18px">close</span></button
         >
       </div>
       <div class="bs-modal-b">
-        <label class="bs-flabel" for="bs-import-text">{$t('import.label')}</label>
+        <label class="bs-flabel" for="bs-import-text">{t('import.label')}</label>
         <!-- svelte-ignore a11y_autofocus -->
         <textarea
           class="bs-input oai-paste"
@@ -89,17 +88,17 @@
       <div class="bs-modal-f">
         <button class="bs-btn link" onclick={pasteFromClipboard}
           ><span class="material-symbols-outlined" style="font-size:15px;vertical-align:-3px">content_paste</span>
-          {$t('import.paste')}</button
+          {t('import.paste')}</button
         >
         <button class="bs-btn link" onclick={pickFile} disabled={busy}
           ><span class="material-symbols-outlined" style="font-size:15px;vertical-align:-3px">upload_file</span>
-          {$t('import.selectFile')}</button
+          {t('import.selectFile')}</button
         >
         <div class="grow"></div>
         <button class="bs-btn primary" onclick={doImport} disabled={busy}
-          >{busy ? $t('import.importing') : $t('import.confirm')}</button
+          >{busy ? t('import.importing') : t('import.confirm')}</button
         >
-        <button class="bs-btn ghost" onclick={() => (open = false)}>{$t('common.cancel')}</button>
+        <button class="bs-btn ghost" onclick={() => (open = false)}>{t('common.cancel')}</button>
       </div>
     </div>
   </div>

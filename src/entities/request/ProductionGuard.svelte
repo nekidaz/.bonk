@@ -58,8 +58,8 @@
       aria-labelledby="bs-guard-title"
       aria-describedby="bs-guard-text"
     >
-      <h2 id="bs-guard-title">{$t('app.guard.title', { method: guard.method, env: guard.envName })}</h2>
-      <p id="bs-guard-text">{$t('app.guard.text')}</p>
+      <h2 id="bs-guard-title">{t('app.guard.title', { method: guard.method, env: guard.envName })}</h2>
+      <p id="bs-guard-text">{t('app.guard.text')}</p>
       <div class="bs-guard-summary">
         <div class="bs-guard-req">
           <span class="m" style="color:{methodColor(guard.method)}">{guard.method}</span><span
@@ -74,7 +74,7 @@
           {#if guard.host}<span class="host">{guard.host}</span>{/if}
         </div>
       </div>
-      <label class="bs-guard-label" for="bs-guard-input">{$t('app.guard.type', { env: guard.envName })}</label>
+      <label class="bs-guard-label" for="bs-guard-input">{t('app.guard.type', { env: guard.envName })}</label>
       <input
         id="bs-guard-input"
         class="bs-guard-input"
@@ -85,9 +85,9 @@
         onkeydown={keydown}
       />
       <div class="bs-guard-actions">
-        <button type="button" class="bs-guard-cancel" onclick={() => close(false)}>{$t('common.cancel')}</button>
+        <button type="button" class="bs-guard-cancel" onclick={() => close(false)}>{t('common.cancel')}</button>
         <button type="button" class="bs-guard-send" disabled={!matches} onclick={() => close(true)}
-          >{$t('app.guard.send', { env: guard.envName })}</button
+          >{t('app.guard.send', { env: guard.envName })}</button
         >
       </div>
     </div>

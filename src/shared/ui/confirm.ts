@@ -10,7 +10,7 @@ export const confirmState = writable<{
 } | null>(null);
 
 /** Show an in-app confirm modal (the Tauri webview has no window.confirm). */
-export function requestConfirm(message: string, confirmLabel = get(t)('app.confirm.ok')): Promise<boolean> {
+export function requestConfirm(message: string, confirmLabel = t('app.confirm.ok')): Promise<boolean> {
   return requestChoice(message, confirmLabel).then((r) => r === true);
 }
 

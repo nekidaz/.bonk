@@ -61,7 +61,7 @@
     await unstagePaths([f.path]);
   }
   async function discard(f: FileDiff): Promise<void> {
-    if (await requestConfirm($t('git.discard.confirm', { name: basename(f.path) }), $t('git.discard'))) {
+    if (await requestConfirm(t('git.discard.confirm', { name: basename(f.path) }), t('git.discard'))) {
       await discardPaths([f.path]);
     }
   }
@@ -74,7 +74,7 @@
 
 <div class="bs-projdiff">
   <div class="bs-projdiff-commit">
-    <textarea class="bs-git-msg" placeholder={$t('git.commit.placeholder')} rows="2" bind:value={commitMessage}
+    <textarea class="bs-git-msg" placeholder={t('git.commit.placeholder')} rows="2" bind:value={commitMessage}
     ></textarea>
     <button
       class="bs-btn primary"
@@ -83,7 +83,7 @@
       onclick={commit}
     >
       <span class="material-symbols-outlined" style="font-size:15px;vertical-align:-3px">check</span>
-      {$t('git.commit')}{stagedCount ? ` (${stagedCount})` : ''}
+      {t('git.commit')}{stagedCount ? ` (${stagedCount})` : ''}
     </button>
   </div>
 
@@ -92,10 +92,10 @@
   {:else if loading && files.length === 0}
     <div class="bs-git-diff-empty">
       <span class="send-spinner" aria-hidden="true"></span>
-      {$t('git.changes.loading')}
+      {t('git.changes.loading')}
     </div>
   {:else if files.length === 0}
-    <div class="bs-git-diff-empty">{$t('git.changes.none')}</div>
+    <div class="bs-git-diff-empty">{t('git.changes.none')}</div>
   {:else}
     {#each files as f (f.path)}
       {@const s = diffStats(f.diff)}
@@ -110,11 +110,11 @@
           {/if}
           <div class="grow"></div>
           {#if f.staged}
-            <button class="bs-btn ghost" type="button" onclick={() => unstage(f)}>{$t('git.unstage')}</button>
+            <button class="bs-btn ghost" type="button" onclick={() => unstage(f)}>{t('git.unstage')}</button>
           {:else}
-            <button class="bs-btn ghost" type="button" onclick={() => stage(f)}>{$t('git.stage')}</button>
+            <button class="bs-btn ghost" type="button" onclick={() => stage(f)}>{t('git.stage')}</button>
           {/if}
-          <button class="bs-btn ghost" type="button" onclick={() => discard(f)}>{$t('git.discard')}</button>
+          <button class="bs-btn ghost" type="button" onclick={() => discard(f)}>{t('git.discard')}</button>
         </div>
         <DiffBlock text={f.diff} />
       </div>

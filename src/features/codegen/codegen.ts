@@ -6,7 +6,6 @@
  */
 import { HTTPSnippet } from 'httpsnippet-lite';
 import type { HarRequest, TargetId } from 'httpsnippet-lite';
-import { get } from 'svelte/store';
 import { t as tr } from '$shared/i18n';
 import {
   type Tab,
@@ -175,6 +174,6 @@ export async function generateSnippet(tab: Tab, langId: string, scope: Record<st
     if (Array.isArray(out)) return restore(out.join('\n'));
     return typeof out === 'string' ? restore(out) : `// No ${lang.label} output.`;
   } catch (e) {
-    return get(tr)('code.codegen_failed', { lang: lang.label, error: e instanceof Error ? e.message : String(e) });
+    return tr('code.codegen_failed', { lang: lang.label, error: e instanceof Error ? e.message : String(e) });
   }
 }

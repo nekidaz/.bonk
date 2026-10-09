@@ -36,7 +36,7 @@
           },
         ],
   );
-  const preview = $derived(noBody ? $t('lb.strip.noBody') : oneLinePreview(body));
+  const preview = $derived(noBody ? t('lb.strip.noBody') : oneLinePreview(body));
 
   async function open(section: string): Promise<void> {
     if (grpc) openGrpcEditorSection(tab.id, section as GrpcEditorSection);
@@ -46,15 +46,15 @@
   }
 </script>
 
-<div class="lb-strip req" role="group" aria-label={$t('lb.strip.request')}>
-  <span class="label">{$t('lb.strip.request')}</span>
+<div class="lb-strip req" role="group" aria-label={t('lb.strip.request')}>
+  <span class="label">{t('lb.strip.request')}</span>
   {#each chips as c (c.id)}
     <button type="button" class="chip" onclick={() => open(c.id)}>{c.label}<b>{c.value}</b></button>
   {/each}
   <span class="preview" title={preview}>{preview}</span>
   <button type="button" class="act" onclick={() => open(grpc ? 'message' : 'body')}>
-    <span class="material-symbols-outlined" aria-hidden="true">expand_more</span>{$t('lb.strip.showBody')}<kbd
-      >{formatBinding($hotkeys.toggleRequest ?? '').join('')}</kbd
+    <span class="material-symbols-outlined" aria-hidden="true">expand_more</span>{t('lb.strip.showBody')}<kbd
+      >{formatBinding(hotkeys.current.toggleRequest ?? '').join('')}</kbd
     >
   </button>
 </div>

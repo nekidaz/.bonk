@@ -1,4 +1,3 @@
-import { get } from 'svelte/store';
 import { type AuthConfig, type GrpcField, type GrpcTabState, tokenize } from '$shared/model';
 import { t, ru, en } from '$shared/i18n';
 
@@ -18,7 +17,7 @@ export function grpcInputType(grpc: GrpcTabState | undefined): string {
  * services could not be listed (no reflection support): neutral "load a
  * schema" advice instead of a red error.
  */
-export const grpcNoServicesHint = (): string => get(t)('grpc.noServicesHint');
+export const grpcNoServicesHint = (): string => t('grpc.noServicesHint');
 
 /** True for the hint in either UI language (a stored error may predate a language switch). */
 export const isGrpcNoServicesHint = (msg: string): boolean =>

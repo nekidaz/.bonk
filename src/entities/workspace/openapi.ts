@@ -51,10 +51,10 @@ function parseDocument(text: string): Doc {
     try {
       doc = parseYaml(text);
     } catch {
-      throw new Error(get(t)('import.err.notDoc'));
+      throw new Error(t('import.err.notDoc'));
     }
   }
-  if (!isObject(doc)) throw new Error(get(t)('import.err.notObject'));
+  if (!isObject(doc)) throw new Error(t('import.err.notObject'));
   return doc;
 }
 
@@ -62,7 +62,7 @@ function parseDocument(text: string): Doc {
 function detectVersion(doc: Doc): 'oas3' | 'swagger2' {
   if (typeof doc.openapi === 'string' && doc.openapi.startsWith('3.')) return 'oas3';
   if (doc.swagger === '2.0') return 'swagger2';
-  throw new Error(get(t)('import.err.unsupported'));
+  throw new Error(t('import.err.unsupported'));
 }
 
 /** Substitute `{var}` templating in an OAS3 server URL using its `variables` defaults. */

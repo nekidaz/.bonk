@@ -1,4 +1,3 @@
-import { get } from 'svelte/store';
 import { t } from '$shared/i18n';
 import {
   paramsFromUrl,
@@ -223,12 +222,12 @@ export function parsePostmanCollection(text: string): ParsedPostmanCollection {
   try {
     value = JSON.parse(text);
   } catch {
-    throw new Error(get(t)('import.err.postmanJson'));
+    throw new Error(t('import.err.postmanJson'));
   }
   const document = object(value);
   const info = object(document?.info);
   if (!document || !info || !Array.isArray(document.item)) {
-    throw new Error(get(t)('import.err.postmanShape'));
+    throw new Error(t('import.err.postmanShape'));
   }
   const title = str(info.name).trim() || 'Imported Postman Collection';
   return {

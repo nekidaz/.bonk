@@ -1,5 +1,4 @@
 import type { RequestNode, RunResultRow, ScriptTestResult } from '$shared/model';
-import { get } from 'svelte/store';
 import { t, type Translate } from '$shared/i18n';
 
 /**
@@ -68,7 +67,7 @@ export function pushHistory(list: RunSummary[], s: RunSummary, limit = HISTORY_L
 
 const sign = (d: number) => (d < 0 ? '−' : '+');
 
-export function passedDelta(cur: RunSummary, prev: RunSummary | undefined, tr: Translate = get(t)): Delta | null {
+export function passedDelta(cur: RunSummary, prev: RunSummary | undefined, tr: Translate = t): Delta | null {
   if (!prev) return null;
   const d = cur.passed - prev.passed;
   if (d === 0) return null;
@@ -105,7 +104,7 @@ export function runBars(history: RunSummary[], maxH = 28): { n: number; h: numbe
 }
 
 /** "СЕГОДНЯ 14:20", or "07.10 14:20" for another day. */
-export function runTimeLabel(ts: number, now = Date.now(), tr: Translate = get(t)): string {
+export function runTimeLabel(ts: number, now = Date.now(), tr: Translate = t): string {
   const d = new Date(ts);
   const pad = (x: number) => String(x).padStart(2, '0');
   const hm = `${pad(d.getHours())}:${pad(d.getMinutes())}`;
@@ -326,7 +325,7 @@ function findBinding(row: RunResultRow, rows: RunResultRow[]): IdBinding | undef
 }
 
 /** "Похоже на причину" for a failed call, or null when nothing honest to say. */
-export function insightFor(row: RunResultRow, rows: RunResultRow[], tr: Translate = get(t)): Insight | null {
+export function insightFor(row: RunResultRow, rows: RunResultRow[], tr: Translate = t): Insight | null {
   if (row.ok || typeof row.status !== 'number') return null;
   const prev = rows.find(
     (r) => r.iteration < row.iteration && r.ok && rowKey(r) === rowKey(row) && r.target === row.target,

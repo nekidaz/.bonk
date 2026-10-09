@@ -1,19 +1,12 @@
 import { get } from 'svelte/store';
 import {
   openInNewTab,
-  requestTimeoutMs,
-  requestFollowRedirects,
-  requestValidateTls,
-  responseBodyLimitMb,
-  proxyMode,
-  proxyUrl,
-  proxyBypass,
-  trustedCaPaths,
   proxyAuth,
   proxyUser,
   proxyPassword,
   trustSystemCas,
   activeClientCerts,
+  requestPrefs,
 } from '$shared/settings';
 import { dirtyTabIds } from './dirtyTabs';
 import {
@@ -72,23 +65,23 @@ function clampInt(value: number, min: number, max: number, fallback: number): nu
 }
 
 export function currentRequestSettings(): RequestSettings {
-  const timeoutMs = clampInt(get(requestTimeoutMs), 0, 600_000, 30_000);
-  const maxResponseBodyMb = clampInt(get(responseBodyLimitMb), 1, 250, 25);
-  const auth = get(proxyMode) === 'manual' && get(proxyAuth);
+  const timeoutMs = clampInt(requestPrefs.requestTimeoutMs, 0, 600_000, 30_000);
+  const maxResponseBodyMb = clampInt(requestPrefs.responseBodyLimitMb, 1, 250, 25);
+  const auth = requestPrefs.proxyMode === 'manual' && proxyAuth.current;
   return {
     timeoutMs,
-    followRedirects: get(requestFollowRedirects),
-    validateTls: get(requestValidateTls),
+    followRedirects: requestPrefs.requestFollowRedirects,
+    validateTls: requestPrefs.requestValidateTls,
     maxResponseBodyBytes: maxResponseBodyMb * 1024 * 1024,
     proxy: {
-      mode: get(proxyMode),
-      url: get(proxyUrl).trim(),
-      bypass: get(proxyBypass).trim(),
-      username: auth ? get(proxyUser).trim() : '',
-      password: auth ? get(proxyPassword) : '',
+      mode: requestPrefs.proxyMode,
+      url: requestPrefs.proxyUrl.trim(),
+      bypass: requestPrefs.proxyBypass.trim(),
+      username: auth ? proxyUser.current.trim() : '',
+      password: auth ? proxyPassword.current : '',
     },
-    caPaths: get(trustedCaPaths),
-    trustSystemCas: get(trustSystemCas),
+    caPaths: requestPrefs.trustedCaPaths,
+    trustSystemCas: trustSystemCas.current,
     clientCerts: activeClientCerts(),
   };
 }
@@ -201,7 +194,7 @@ export function openSavedRequest(req: RequestNode, inNewTab = false): void {
   const current = get(tabs).find((t) => t.id === get(activeTabId));
   const reuse =
     !inNewTab &&
-    !get(openInNewTab) &&
+    !openInNewTab.current &&
     current?.savedPath &&
     (current.protocol === 'http' || current.protocol === 'grpc') &&
     !get(dirtyTabIds).has(current.id);

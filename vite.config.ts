@@ -6,11 +6,15 @@ import { fileURLToPath } from 'node:url';
 const { version } = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8'));
 
 const host = process.env.TAURI_DEV_HOST;
+const test = !!process.env.VITEST;
 
 export default defineConfig({
-  plugins: [svelte()],
+  // Tests run in node, which compiles `.svelte.ts` state for the server, where $effect never runs.
+  // Under vitest compile it for the client and load Svelte's client runtime (`browser` condition).
+  plugins: [svelte(test ? { dynamicCompileOptions: () => ({ generate: 'client' }) } : {})],
   // Layer aliases: `$shared/ipc`, `$entities/tab`, `$features/http/components` (docs/GUIDE.md «Слои фронта»).
   resolve: {
+    ...(test && { conditions: ['browser'] }),
     alias: {
       $shared: fileURLToPath(new URL('./src/shared', import.meta.url)),
       $entities: fileURLToPath(new URL('./src/entities', import.meta.url)),

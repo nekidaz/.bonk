@@ -19,7 +19,7 @@ export function openGitDiffTab(path: string, mode: GitDiffMode = 'working'): voi
   const tab: Tab = {
     id: crypto.randomUUID(),
     protocol: 'git',
-    title: mode === 'staged' ? get(t)('git.tab.staged', { name: basename(clean) }) : basename(clean),
+    title: mode === 'staged' ? t('git.tab.staged', { name: basename(clean) }) : basename(clean),
     manualTitle: true,
     request: { method: 'DIFF', url: clean, headers: {} },
     git: { path: clean, mode },
@@ -38,7 +38,7 @@ export function openProjectDiffTab(): void {
   const tab: Tab = {
     id: crypto.randomUUID(),
     protocol: 'git',
-    title: get(t)('git.tab.changes'),
+    title: t('git.tab.changes'),
     manualTitle: true,
     request: { method: 'DIFF', url: '', headers: {} },
     git: { path: '', mode: 'working', view: 'project' },

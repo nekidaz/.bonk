@@ -26,10 +26,10 @@
 
   const currentValue = $derived(stage === 'pre-request' ? preRequestScript : testScript);
   const currentSnippets = $derived(stage === 'pre-request' ? PRE_REQUEST_SNIPPETS : TEST_SNIPPETS);
-  const currentTitle = $derived(stage === 'pre-request' ? $t('script.pre.title') : $t('script.post.title'));
-  const currentDescription = $derived(stage === 'pre-request' ? $t('script.pre.desc') : $t('script.post.desc'));
+  const currentTitle = $derived(stage === 'pre-request' ? t('script.pre.title') : t('script.post.title'));
+  const currentDescription = $derived(stage === 'pre-request' ? t('script.pre.desc') : t('script.post.desc'));
   const currentPlaceholder = $derived(
-    stage === 'pre-request' ? $t('script.pre.placeholder') : $t('script.post.placeholder'),
+    stage === 'pre-request' ? t('script.pre.placeholder') : t('script.post.placeholder'),
   );
   const currentDocId = $derived(`${docId}:${stage}`);
   const lineCount = $derived((currentValue.match(/\n/g)?.length ?? 0) + 1);
@@ -37,7 +37,7 @@
     const query = snippetSearch.trim().toLowerCase();
     if (!query) return currentSnippets;
     return currentSnippets.filter(
-      (snippet) => $t(snippet.label).toLowerCase().includes(query) || snippet.code.toLowerCase().includes(query),
+      (snippet) => t(snippet.label).toLowerCase().includes(query) || snippet.code.toLowerCase().includes(query),
     );
   });
 
@@ -57,19 +57,19 @@
 </script>
 
 <div class="bs-scripts-workspace">
-  <nav class="bs-script-nav" aria-label={$t('script.stage_aria')}>
-    <div class="bs-script-nav-label">{$t('script.lifecycle')}</div>
+  <nav class="bs-script-nav" aria-label={t('script.stage_aria')}>
+    <div class="bs-script-nav-label">{t('script.lifecycle')}</div>
     <button class:on={stage === 'pre-request'} type="button" onclick={() => selectStage('pre-request')}>
       <span class="material-symbols-outlined">play_circle</span>
-      <span><b>{$t('script.pre.name')}</b><small>{$t('script.pre.when')}</small></span>
+      <span><b>{t('script.pre.name')}</b><small>{t('script.pre.when')}</small></span>
     </button>
     <button class:on={stage === 'post-response'} type="button" onclick={() => selectStage('post-response')}>
       <span class="material-symbols-outlined">fact_check</span>
-      <span><b>{$t('script.post.name')}</b><small>{$t('script.post.when')}</small></span>
+      <span><b>{t('script.post.name')}</b><small>{t('script.post.when')}</small></span>
     </button>
     <div class="bs-script-nav-note">
       <span class="material-symbols-outlined">shield_lock</span>
-      <span>{$t('script.sandbox_a')}<br />{$t('script.sandbox_b')}</span>
+      <span>{t('script.sandbox_a')}<br />{t('script.sandbox_b')}</span>
     </div>
   </nav>
 
@@ -83,10 +83,10 @@
         class:on={snippetsOpen}
         type="button"
         onclick={() => (snippetsOpen = !snippetsOpen)}
-        title={$t('script.toggle_snippets')}
+        title={t('script.toggle_snippets')}
       >
         <span class="material-symbols-outlined">data_object</span>
-        {$t('script.snippets')}
+        {t('script.snippets')}
       </button>
     </header>
 
@@ -108,17 +108,17 @@
 
     <footer class="bs-script-status">
       <span>JavaScript</span>
-      <span>{lineCount} {$tp(lineCount, ['строка', 'строки', 'строк'], ['line', 'lines'])}</span>
+      <span>{lineCount} {tp(lineCount, ['строка', 'строки', 'строк'], ['line', 'lines'])}</span>
       <span class="bs-spacer"></span>
-      <span>{$t('script.autocomplete_a')}<code>pm.</code>{$t('script.autocomplete_b')}</span>
+      <span>{t('script.autocomplete_a')}<code>pm.</code>{t('script.autocomplete_b')}</span>
     </footer>
   </section>
 
   {#if snippetsOpen}
-    <aside class="bs-script-snippets" aria-label={$t('script.snippets_aria')}>
+    <aside class="bs-script-snippets" aria-label={t('script.snippets_aria')}>
       <div class="bs-script-snippets-head">
-        <div><b>{$t('script.snippets')}</b><small>{$t('script.insert_at_cursor')}</small></div>
-        <button type="button" aria-label={$t('script.close_snippets')} onclick={() => (snippetsOpen = false)}>
+        <div><b>{t('script.snippets')}</b><small>{t('script.insert_at_cursor')}</small></div>
+        <button type="button" aria-label={t('script.close_snippets')} onclick={() => (snippetsOpen = false)}>
           <span class="material-symbols-outlined">close</span>
         </button>
       </div>
@@ -126,19 +126,19 @@
         <span class="material-symbols-outlined">search</span>
         <input
           bind:value={snippetSearch}
-          placeholder={$t('script.search_snippets')}
-          aria-label={$t('script.search_snippets')}
+          placeholder={t('script.search_snippets')}
+          aria-label={t('script.search_snippets')}
         />
       </label>
       <div class="bs-script-snippet-group">
-        <div class="label">{stage === 'pre-request' ? $t('script.group.pre') : $t('script.group.post')}</div>
+        <div class="label">{stage === 'pre-request' ? t('script.group.pre') : t('script.group.post')}</div>
         {#each filteredSnippets as snippet (snippet.label)}
           <button type="button" onclick={() => insertSnippet(snippet)}>
-            <span>{$t(snippet.label)}</span>
+            <span>{t(snippet.label)}</span>
             <span class="material-symbols-outlined">add</span>
           </button>
         {:else}
-          <div class="bs-script-no-snippets">{$t('script.no_snippets')}</div>
+          <div class="bs-script-no-snippets">{t('script.no_snippets')}</div>
         {/each}
       </div>
     </aside>

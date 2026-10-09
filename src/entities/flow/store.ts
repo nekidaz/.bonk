@@ -60,7 +60,7 @@ export function cancelFlowRun(): void {
 // ---- CRUD ----
 
 /** Create a flow (with its Start block), select it, and open its tab. */
-export function createFlow(name = get(t)('flow.new')): Flow {
+export function createFlow(name = t('flow.new')): Flow {
   const flow: Flow = {
     id: crypto.randomUUID(),
     name,
@@ -143,7 +143,7 @@ function realEffects(): FlowEffects {
     runRequest: async (requestId, _payload, variables) => {
       const node = findNode(get(collections), requestId);
       if (!node || node.kind !== 'request') {
-        throw new Error(get(t)('flow.run.missingRequest', { id: requestId }));
+        throw new Error(t('flow.run.missingRequest', { id: requestId }));
       }
       // Wired-in variables ride the runner's iterationData slot: it already wins
       // over env/globals in {{var}} resolution and in `pm.variables.get`.
@@ -212,7 +212,7 @@ export function defaultBlockConfig(type: FlowBlockConfig['type']): FlowBlockConf
     case 'delay':
       return { type: 'delay', ms: 1000 };
     case 'output':
-      return { type: 'output', label: get(t)('flow.block.output') };
+      return { type: 'output', label: t('flow.block.output') };
   }
 }
 

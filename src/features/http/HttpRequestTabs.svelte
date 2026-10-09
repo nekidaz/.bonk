@@ -87,41 +87,41 @@
 
 <div class="lb-tabrow">
   <div class="bs-rtabs">
-    <div class="bs-rtabs-list" role="tablist" aria-label={$t('http.tabs.aria')} use:tablist>
-      {@render rtab('params', $t('http.tabs.params'), paramCount || undefined)}
-      {@render rtab('auth', $t('http.tabs.auth'))}
-      {@render rtab('headers', $t('http.tabs.headers'), headerCount || undefined)}
-      {@render rtab('body', $t('http.tabs.body'))}
-      {#if SCRIPTS_ENABLED}{@render rtab('scripts', $t('http.tabs.scripts'), scriptCount || undefined)}{/if}
+    <div class="bs-rtabs-list" role="tablist" aria-label={t('http.tabs.aria')} use:tablist>
+      {@render rtab('params', t('http.tabs.params'), paramCount || undefined)}
+      {@render rtab('auth', t('http.tabs.auth'))}
+      {@render rtab('headers', t('http.tabs.headers'), headerCount || undefined)}
+      {@render rtab('body', t('http.tabs.body'))}
+      {#if SCRIPTS_ENABLED}{@render rtab('scripts', t('http.tabs.scripts'), scriptCount || undefined)}{/if}
     </div>
   </div>
   {#if large && stats}
     <div class="lb-tabrow-tools">
       <span class="lb-fmt" class:raw={RAW_KINDS.includes(kind)}>
         {#if RAW_KINDS.includes(kind)}<span class="kind" aria-hidden="true">Raw</span>{/if}
-        <select aria-label={$t('lb.format')} value={kind} onchange={(e) => setKind(e.currentTarget.value as BodyKind)}>
-          <optgroup label={$t('lb.fmt.text')}>
+        <select aria-label={t('lb.format')} value={kind} onchange={(e) => setKind(e.currentTarget.value as BodyKind)}>
+          <optgroup label={t('lb.fmt.text')}>
             {#each RAW_KINDS as k (k)}<option value={k}
-                >{KIND_LABEL[k].startsWith('http.') ? $t(KIND_LABEL[k]) : KIND_LABEL[k]}</option
+                >{KIND_LABEL[k].startsWith('http.') ? t(KIND_LABEL[k]) : KIND_LABEL[k]}</option
               >{/each}
           </optgroup>
-          <optgroup label={$t('lb.fmt.other')}>
+          <optgroup label={t('lb.fmt.other')}>
             {#each OTHER_KINDS as k (k)}<option value={k}
-                >{KIND_LABEL[k].startsWith('http.') ? $t(KIND_LABEL[k]) : KIND_LABEL[k]}</option
+                >{KIND_LABEL[k].startsWith('http.') ? t(KIND_LABEL[k]) : KIND_LABEL[k]}</option
               >{/each}
           </optgroup>
         </select>
         <span class="material-symbols-outlined" aria-hidden="true">keyboard_arrow_down</span>
       </span>
       <span class="lb-stats"
-        >{`${stats.approx ? '~' : ''}${formatBytes(stats.bytes)}  ·  ${countLabel(stats.lines, 'lines', $uiLanguage)}`}{#if invalid}<b
-            class="bad">{'  ·  '}{$t('lb.json.invalid')}</b
+        >{`${stats.approx ? '~' : ''}${formatBytes(stats.bytes)}  ·  ${countLabel(stats.lines, 'lines', uiLanguage.current)}`}{#if invalid}<b
+            class="bad">{'  ·  '}{t('lb.json.invalid')}</b
           >{/if}</span
       >
       <EditorTools
         scope="#bs-reqpanel"
         onBeautify={canBeautify ? doBeautify : undefined}
-        beautifyTitle={body.length > BEAUTIFY_MAX_CHARS ? $t('lb.beautifyTooLarge') : ''}
+        beautifyTitle={body.length > BEAUTIFY_MAX_CHARS ? t('lb.beautifyTooLarge') : ''}
         onExpand={() => focusMode.update((m) => toggleFocus(m, 'request'))}
         expanded={$focusMode === 'request'}
       />

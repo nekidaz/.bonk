@@ -34,16 +34,16 @@
   <div class="upd" role="presentation" onpointerdown={(e) => e.stopPropagation()}>
     <button class="pill" type="button" aria-haspopup="dialog" aria-expanded={open} onclick={() => (open = !open)}>
       <span class="material-symbols-outlined" aria-hidden="true">arrow_circle_up</span>
-      <span class="label">{$t('update.pill')}</span>
+      <span class="label">{t('update.pill')}</span>
       <span class="ver">{$updateVersion}</span>
     </button>
     {#if open}
-      <div class="pop" role="dialog" aria-label={$t('update.ready')}>
+      <div class="pop" role="dialog" aria-label={t('update.ready')}>
         <div class="head">
-          <span class="eyebrow">{$t('update.ready')}</span>
+          <span class="eyebrow">{t('update.ready')}</span>
           <div class="title-row">
             <span class="title">Bonk {$updateVersion}</span>{#if $updateCurrent}<span class="cur"
-                >{$t('update.current', { v: $updateCurrent })}</span
+                >{t('update.current', { v: $updateCurrent })}</span
               >{/if}
           </div>
         </div>
@@ -64,17 +64,17 @@
           </ul>
         {/if}
         <button class="link" type="button" onclick={openReleaseNotes}
-          >{$t('update.allChanges')}<span class="material-symbols-outlined" aria-hidden="true">arrow_outward</span
+          >{t('update.allChanges')}<span class="material-symbols-outlined" aria-hidden="true">arrow_outward</span
           ></button
         >
         <div class="divider"></div>
-        <p class="note">{$t('update.restoreNote')}</p>
+        <p class="note">{t('update.restoreNote')}</p>
         <div class="actions">
-          <button class="btn quiet" type="button" onclick={() => (open = false)}>{$t('update.later')}</button>
+          <button class="btn quiet" type="button" onclick={() => (open = false)}>{t('update.later')}</button>
           <button class="btn primary" type="button" disabled={busy} onclick={installUpdate}>
             <span class="material-symbols-outlined" aria-hidden="true">restart_alt</span>{busy
-              ? $t('update.restarting')
-              : $t('update.restart')}
+              ? t('update.restarting')
+              : t('update.restart')}
           </button>
         </div>
       </div>

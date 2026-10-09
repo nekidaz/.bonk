@@ -21,7 +21,6 @@
  */
 import { isControlEdge, varPortName, type Flow, type FlowBlock } from './flow';
 import type { RunResultRow } from '$shared/model';
-import { get } from 'svelte/store';
 import { t } from '$shared/i18n';
 
 export interface FlowRequestOutcome {
@@ -90,7 +89,7 @@ export async function executeFlow(
   let steps = 0;
 
   if (starts.length !== 1) {
-    return { status: 'error', steps, error: get(t)('flow.run.needStart') };
+    return { status: 'error', steps, error: t('flow.run.needStart') };
   }
 
   /** Last payload each block emitted this run — what variable edges read. */
@@ -102,7 +101,7 @@ export async function executeFlow(
     for (const e of flow.edges) {
       if (e.from !== block.id || e.fromPort !== port || !isControlEdge(e)) continue;
       const target = byId.get(e.to);
-      if (!target) throw new FlowAbort('error', get(t)('flow.run.badEdge', { id: e.id }));
+      if (!target) throw new FlowAbort('error', t('flow.run.badEdge', { id: e.id }));
       await exec(target, payload);
     }
   }
@@ -130,8 +129,8 @@ export async function executeFlow(
   }
 
   async function exec(block: FlowBlock, payload: unknown): Promise<void> {
-    if (fx.isCancelled()) throw new FlowAbort('cancelled', get(t)('flow.run.cancelled'));
-    if (++steps > maxSteps) throw new FlowAbort('error', get(t)('flow.run.stepLimit', { max: maxSteps }));
+    if (fx.isCancelled()) throw new FlowAbort('cancelled', t('flow.run.cancelled'));
+    if (++steps > maxSteps) throw new FlowAbort('error', t('flow.run.stepLimit', { max: maxSteps }));
     const c = block.config;
     fx.onBlock(block.id, 'running', payload);
 
@@ -189,7 +188,7 @@ export async function executeFlow(
       case 'loop': {
         if (c.kind === 'forEach') {
           if (!Array.isArray(payload)) {
-            const msg = get(t)('flow.run.loopNeedsArray');
+            const msg = t('flow.run.loopNeedsArray');
             fx.onBlock(block.id, 'error', msg);
             throw new FlowAbort('error', msg);
           }

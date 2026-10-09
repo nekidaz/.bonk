@@ -26,7 +26,7 @@
     type="button"
     aria-pressed={utilityMode === 'console' || utilityMode === 'issues'}
     onclick={onConsole}
-    ><span class="material-symbols-outlined" aria-hidden="true">data_object</span>{$t('nav.status.console')}</button
+    ><span class="material-symbols-outlined" aria-hidden="true">data_object</span>{t('nav.status.console')}</button
   >
   <button
     class="bs-status-link"
@@ -34,13 +34,13 @@
     type="button"
     aria-pressed={utilityMode === 'terminal'}
     onclick={onTerminal}
-    ><span class="material-symbols-outlined" aria-hidden="true">terminal</span>{$t('nav.status.terminal')}</button
+    ><span class="material-symbols-outlined" aria-hidden="true">terminal</span>{t('nav.status.terminal')}</button
   >
   <div class="bs-spacer"></div>
   <button class="bs-status-link runner" class:on={runnerOn} type="button" aria-pressed={runnerOn} onclick={onRunner}
     ><span class="material-symbols-outlined" class:spin={$runnerRun.status === 'running'} aria-hidden="true"
       >{$runnerRun.status === 'running' ? 'progress_activity' : 'play_arrow'}</span
-    >{$t('nav.status.runner')}</button
+    >{t('nav.status.runner')}</button
   >
 </div>
 

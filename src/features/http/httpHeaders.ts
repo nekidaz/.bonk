@@ -1,4 +1,3 @@
-import { get } from 'svelte/store';
 import { t, type Translate } from '$shared/i18n';
 import { titleFromUrl, HTTP_DEFAULT_TITLE } from '$entities/tab';
 import {
@@ -95,7 +94,7 @@ export function headerRows(t: Tab | undefined): HeaderPreview[] {
     { key: '', value: '', source: '' },
   ];
 }
-export function fileName(path: string | undefined, tr: Translate = get(t)): string {
+export function fileName(path: string | undefined, tr: Translate = t): string {
   if (!path) return tr('http.file.choose');
   return path.split(/[\\/]/).filter(Boolean).at(-1) ?? path;
 }

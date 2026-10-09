@@ -4,7 +4,6 @@
 -->
 <script module lang="ts">
   import type { Snippet } from 'svelte';
-  import { get } from 'svelte/store';
   import { t } from '$shared/i18n';
   export { row, sw, number, select, seg, chips };
 
@@ -78,7 +77,7 @@
       <span class="st-chip"
         >{item}<button
           type="button"
-          aria-label={get(t)('settings.chips.remove', { item })}
+          aria-label={t('settings.chips.remove', { item })}
           onclick={() => set(items.filter((x) => x !== item))}
           ><span class="material-symbols-outlined" style="font-size:12px" aria-hidden="true">close</span></button
         ></span

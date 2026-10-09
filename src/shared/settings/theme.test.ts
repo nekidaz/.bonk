@@ -1,18 +1,17 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { get } from 'svelte/store';
-import { theme, setTheme, isDarkTheme, DEFAULT_THEME } from './theme';
+import { theme, setTheme, isDarkTheme, DEFAULT_THEME } from './theme.svelte';
 
 describe('theme', () => {
   beforeEach(() => setTheme(DEFAULT_THEME));
 
   it('defaults to Bonk Light', () => {
     expect(DEFAULT_THEME).toBe('smooth-light');
-    expect(get(theme)).toBe('smooth-light');
+    expect(theme.current).toBe('smooth-light');
   });
 
   it('setTheme sets the value', () => {
     setTheme('smooth-dark');
-    expect(get(theme)).toBe('smooth-dark');
+    expect(theme.current).toBe('smooth-dark');
     expect(isDarkTheme('smooth-dark')).toBe(true);
     expect(isDarkTheme('smooth-light')).toBe(false);
   });
@@ -48,8 +47,8 @@ describe('persisted theme', () => {
     ['rose-pine', 'smooth-dark'],
   ])('maps a stored %s to %s and persists it', async (stored, expected) => {
     const values = storedTheme(stored);
-    const fresh = await import('./theme');
-    expect(get(fresh.theme)).toBe(expected);
+    const fresh = await import('./theme.svelte');
+    expect(fresh.theme.current).toBe(expected);
     expect(values.get('bonk.theme')).toBe(expected);
   });
 });

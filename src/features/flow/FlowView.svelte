@@ -226,32 +226,31 @@
     <input
       class="fv-name"
       value={flowName}
-      onchange={(e) =>
-        renameFlow(flowId, (e.currentTarget as HTMLInputElement).value.trim() || get(t)('flow.untitled'))}
+      onchange={(e) => renameFlow(flowId, (e.currentTarget as HTMLInputElement).value.trim() || t('flow.untitled'))}
     />
     <div class="fv-palette">
       {#each PALETTE as p (p.type)}
         <button
           class="fv-pbtn"
-          title={$t('flow.add', { label: $t(`flow.block.${p.type}`) })}
+          title={t('flow.add', { label: t(`flow.block.${p.type}`) })}
           onclick={() => addBlock(p.type)}
         >
           <span class="material-symbols-outlined" style="font-size:14px">{p.icon}</span>
-          {$t(`flow.block.${p.type}`)}
+          {t(`flow.block.${p.type}`)}
         </button>
       {/each}
     </div>
     <div class="fv-spacer"></div>
     {#if isThisFlow && run.status !== 'idle' && run.status !== 'running'}
-      <span class="fv-status {run.status}">{$t(`flow.status.${run.status}`)}{run.error ? ` — ${run.error}` : ''}</span>
+      <span class="fv-status {run.status}">{t(`flow.status.${run.status}`)}{run.error ? ` — ${run.error}` : ''}</span>
     {/if}
     {#if running}
       <button class="fv-run stop" onclick={cancelFlowRun}>
-        <span class="material-symbols-outlined" style="font-size:15px">stop</span>{$t('flow.stop')}
+        <span class="material-symbols-outlined" style="font-size:15px">stop</span>{t('flow.stop')}
       </button>
     {:else}
       <button class="fv-run" onclick={() => void runFlow(flowId)}>
-        <span class="material-symbols-outlined" style="font-size:15px">play_arrow</span>{$t('flow.run')}
+        <span class="material-symbols-outlined" style="font-size:15px">play_arrow</span>{t('flow.run')}
       </button>
     {/if}
   </div>
@@ -278,7 +277,7 @@
           <div class="fv-tabs">
             {#each PANEL_TABS as pt (pt)}
               <button class="fv-tab" class:on={panelTab === pt} onclick={() => (panelTab = pt)}>
-                {$t(`flow.tab.${pt}`)}
+                {t(`flow.tab.${pt}`)}
                 {#if pt === 'tests' && selectedRow && selectedRow.tests.length > 0}
                   <span class="fv-tab-n" class:bad={selectedRow.tests.some((x) => !x.passed)}
                     >{selectedRow.tests.length}</span
@@ -288,32 +287,32 @@
             {/each}
           </div>
         {:else}
-          <div class="fv-panel-h">{$t(`flow.block.${selectedConfig.type}`)}</div>
+          <div class="fv-panel-h">{t(`flow.block.${selectedConfig.type}`)}</div>
         {/if}
 
         {#if selectedConfig.type === 'request' && panelTab === 'input'}
           {#if !ranSelected}
-            <p class="fv-hint">{$t('flow.panel.runFirstInput')}</p>
+            <p class="fv-hint">{t('flow.panel.runFirstInput')}</p>
           {:else}
-            <p class="fv-hint">{$t('flow.panel.payloadUpstream')}</p>
+            <p class="fv-hint">{t('flow.panel.payloadUpstream')}</p>
             <textarea class="fv-in mono" rows="14" readonly value={JSON.stringify(selectedInput ?? null, null, 2)}
             ></textarea>
           {/if}
         {:else if selectedConfig.type === 'request' && panelTab !== 'config'}
           {#if !selectedRow}
-            <p class="fv-hint">{$t('flow.panel.runFirstTab', { tab: $t(`flow.tab.${panelTab}`) })}</p>
+            <p class="fv-hint">{t('flow.panel.runFirstTab', { tab: t(`flow.tab.${panelTab}`) })}</p>
           {:else if panelTab === 'output'}
             <div class="fv-kv">
-              <span>{$t('flow.panel.status')}</span><b class:bad={!selectedRow.ok}>{selectedRow.status}</b>
+              <span>{t('flow.panel.status')}</span><b class:bad={!selectedRow.ok}>{selectedRow.status}</b>
             </div>
-            <div class="fv-kv"><span>{$t('flow.panel.time')}</span><b>{selectedRow.elapsedMs} ms</b></div>
-            <div class="fv-kv"><span>{$t('flow.panel.target')}</span><b class="wrap">{selectedRow.target}</b></div>
+            <div class="fv-kv"><span>{t('flow.panel.time')}</span><b>{selectedRow.elapsedMs} ms</b></div>
+            <div class="fv-kv"><span>{t('flow.panel.target')}</span><b class="wrap">{selectedRow.target}</b></div>
             {#if selectedRow.error}<div class="fv-err">{selectedRow.error}</div>{/if}
-            <label class="fv-l" for="fv-body">{$t('flow.panel.responseBody')}</label>
+            <label class="fv-l" for="fv-body">{t('flow.panel.responseBody')}</label>
             <textarea id="fv-body" class="fv-in mono" rows="14" readonly value={selectedRow.responseBody ?? ''}
             ></textarea>
           {:else if selectedRow.tests.length === 0}
-            <p class="fv-hint">{$t('flow.panel.noTests')}</p>
+            <p class="fv-hint">{t('flow.panel.noTests')}</p>
           {:else}
             {#each selectedRow.tests as tr, i (i)}
               <div class="fv-test" class:bad={!tr.passed}>
@@ -326,39 +325,39 @@
             {/each}
           {/if}
         {:else if selectedConfig.type === 'start'}
-          <p class="fv-hint">{$t('flow.panel.startHint')}</p>
+          <p class="fv-hint">{t('flow.panel.startHint')}</p>
         {:else if selectedConfig.type === 'request'}
-          <label class="fv-l" for="fv-req">{$t('flow.panel.savedRequest')}</label>
+          <label class="fv-l" for="fv-req">{t('flow.panel.savedRequest')}</label>
           <select
             id="fv-req"
             class="fv-in"
             value={selectedConfig.requestId}
             onchange={(e) => setConfig({ type: 'request', requestId: (e.currentTarget as HTMLSelectElement).value })}
           >
-            <option value="" disabled>{$t('flow.panel.pickRequest')}</option>
+            <option value="" disabled>{t('flow.panel.pickRequest')}</option>
             {#each requestOptions as r (r.id)}
               <option value={r.id}>{r.name}</option>
             {/each}
           </select>
           {#if selectedVars.length > 0}
-            <div class="fv-l">{$t('flow.panel.variables', { n: selectedVars.length })}</div>
+            <div class="fv-l">{t('flow.panel.variables', { n: selectedVars.length })}</div>
             <div class="fv-vars">
               {#each selectedVars as name (name)}
                 <span class="fv-var mono" class:wired={wiredVars.has(name)}>{name}</span>
               {/each}
             </div>
             <p class="fv-hint">
-              {$t('flow.panel.varsHint')}
+              {t('flow.panel.varsHint')}
             </p>
           {/if}
           <p class="fv-hint">
-            {$t('flow.panel.leavesPre')} <b>{$t('flow.port.success')}</b>
-            {$t('flow.panel.leavesOr')} <b>{$t('flow.port.fail')}</b>{$t('flow.panel.leavesPost', {
+            {t('flow.panel.leavesPre')} <b>{t('flow.port.success')}</b>
+            {t('flow.panel.leavesOr')} <b>{t('flow.port.fail')}</b>{t('flow.panel.leavesPost', {
               shape: '{ status, ok, body, elapsedMs, error }',
             })}
           </p>
         {:else if selectedConfig.type === 'if'}
-          <label class="fv-l" for="fv-cond">{$t('flow.panel.condition')}</label>
+          <label class="fv-l" for="fv-cond">{t('flow.panel.condition')}</label>
           <textarea
             id="fv-cond"
             class="fv-in mono"
@@ -367,7 +366,7 @@
             onchange={(e) => setConfig({ type: 'if', condition: (e.currentTarget as HTMLTextAreaElement).value })}
           ></textarea>
         {:else if selectedConfig.type === 'loop'}
-          <label class="fv-l" for="fv-kind">{$t('flow.panel.kind')}</label>
+          <label class="fv-l" for="fv-kind">{t('flow.panel.kind')}</label>
           <select
             id="fv-kind"
             class="fv-in"
@@ -379,11 +378,11 @@
                 count: selectedConfig.type === 'loop' ? selectedConfig.count : 3,
               })}
           >
-            <option value="count">{$t('flow.panel.loopCount')}</option>
-            <option value="forEach">{$t('flow.panel.loopEach')}</option>
+            <option value="count">{t('flow.panel.loopCount')}</option>
+            <option value="forEach">{t('flow.panel.loopEach')}</option>
           </select>
           {#if selectedConfig.kind === 'count'}
-            <label class="fv-l" for="fv-count">{$t('flow.panel.count')}</label>
+            <label class="fv-l" for="fv-count">{t('flow.panel.count')}</label>
             <input
               id="fv-count"
               class="fv-in"
@@ -395,7 +394,7 @@
             />
           {/if}
         {:else if selectedConfig.type === 'script'}
-          <label class="fv-l" for="fv-code">{$t('flow.panel.script')}</label>
+          <label class="fv-l" for="fv-code">{t('flow.panel.script')}</label>
           <!-- ponytail: plain textarea; swap in the CodeMirror wrapper if flows get heavy script use -->
           <textarea
             id="fv-code"
@@ -405,7 +404,7 @@
             onchange={(e) => setConfig({ type: 'script', code: (e.currentTarget as HTMLTextAreaElement).value })}
           ></textarea>
         {:else if selectedConfig.type === 'delay'}
-          <label class="fv-l" for="fv-ms">{$t('flow.panel.delay')}</label>
+          <label class="fv-l" for="fv-ms">{t('flow.panel.delay')}</label>
           <input
             id="fv-ms"
             class="fv-in"
@@ -415,7 +414,7 @@
             onchange={(e) => setConfig({ type: 'delay', ms: Number((e.currentTarget as HTMLInputElement).value) })}
           />
         {:else if selectedConfig.type === 'output'}
-          <label class="fv-l" for="fv-label">{$t('flow.panel.label')}</label>
+          <label class="fv-l" for="fv-label">{t('flow.panel.label')}</label>
           <input
             id="fv-label"
             class="fv-in"
@@ -426,10 +425,10 @@
         {#if selectedConfig.type !== 'start'}
           <button class="fv-del" onclick={deleteSelected}>
             <span class="material-symbols-outlined" style="font-size:14px">delete</span>
-            {$t('flow.panel.deleteBlock')}
+            {t('flow.panel.deleteBlock')}
           </button>
         {/if}
-        <p class="fv-hint">{$t('flow.panel.deleteHint')}</p>
+        <p class="fv-hint">{t('flow.panel.deleteHint')}</p>
       </aside>
     {/if}
   </div>
@@ -440,11 +439,11 @@
         <div class="fv-out-row"><span class="k">{o.label}</span><span class="v mono">{fmt(o.payload)}</span></div>
       {/each}
       {#each run.logs as l, i (i)}
-        <div class="fv-out-row log"><span class="k">{$t('flow.log')}</span><span class="v mono">{l}</span></div>
+        <div class="fv-out-row log"><span class="k">{t('flow.log')}</span><span class="v mono">{l}</span></div>
       {/each}
       {#if run.error}
         <div class="fv-out-row err">
-          <span class="k">{$t('flow.error')}</span><span class="v mono">{run.error}</span>
+          <span class="k">{t('flow.error')}</span><span class="v mono">{run.error}</span>
         </div>
       {/if}
     </div>

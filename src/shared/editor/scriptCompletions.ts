@@ -4,12 +4,11 @@
  * QuickJS prelude in `crates/bonk-core/src/application/scripts.rs` — keep the
  * two in sync when the sandbox grows.
  */
-import { get } from 'svelte/store';
 import { t } from '$shared/i18n';
 import { snippetCompletion, type Completion } from '@codemirror/autocomplete';
 
 /** Tooltip text resolved when shown, so it follows the UI language. */
-const lazyInfo = (key: string) => (): Node => document.createTextNode(get(t)(key));
+const lazyInfo = (key: string) => (): Node => document.createTextNode(t(key));
 
 function method(template: string, label: string, detail: string, info: string): Completion {
   return snippetCompletion(template, { label, detail, info: lazyInfo(info), type: 'method' });

@@ -51,7 +51,6 @@
   import { createFindPanel } from './findPanel';
   import { linter, type Diagnostic } from '@codemirror/lint';
   import { tags } from '@lezer/highlight';
-  import { get } from 'svelte/store';
   import { uiLanguage } from '$shared/i18n';
   import { lineHighlight } from './lineHighlight';
   import { foldLargeArrays, largeFolding } from './largeFold';
@@ -591,7 +590,7 @@
         : [
             search({ top: true, createPanel: createFindPanel }),
             keymap.of(searchKeymap),
-            ...(get(uiLanguage) === 'ru' ? [EditorState.phrases.of(RU_SEARCH)] : []),
+            ...(uiLanguage.current === 'ru' ? [EditorState.phrases.of(RU_SEARCH)] : []),
           ]),
       ...(fold ? [largeFolding(), keymap.of(foldKeymap)] : []),
       ...(lintJson && !readOnly ? [linter(lintSource, { delay: 400 })] : []),

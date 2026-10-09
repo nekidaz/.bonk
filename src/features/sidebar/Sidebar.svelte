@@ -145,7 +145,7 @@
   function manageEnvs(): void {
     openEnvironmentsTab();
   }
-  const activeEnvName = $derived($environments.find((e) => e.id === $activeEnvironmentId)?.name ?? $t('sidebar.noEnv'));
+  const activeEnvName = $derived($environments.find((e) => e.id === $activeEnvironmentId)?.name ?? t('sidebar.noEnv'));
 
   // Sidebar filter: narrows the Collections tree (name / URL / gRPC endpoint,
   // matching folders keep their subtree, ancestors stay visible + expanded) and
@@ -312,7 +312,7 @@
     droppedId = newId;
     clearTimeout(toastTimer);
     toast = {
-      text: $t(copy ? 'sidebar.copiedTo' : 'sidebar.movedTo', { folder }),
+      text: t(copy ? 'sidebar.copiedTo' : 'sidebar.movedTo', { folder }),
       undo: () => void undoDrop(newId, copy, from, oldIds),
     };
     toastTimer = setTimeout(closeToast, 5000);
@@ -338,30 +338,29 @@
 <svelte:window onkeydown={onWindowKey} />
 
 <div class="bs-sidebar-layout">
-  <nav class="bs-railrow" aria-label={$t('sidebar.navAria')}>
+  <nav class="bs-railrow" aria-label={t('sidebar.navAria')}>
     <div class="bs-railnav">
       <button
         class="bs-ri"
         class:on={panel === 'collections'}
-        title={$t('sidebar.collections')}
+        title={t('sidebar.collections')}
         onclick={() => (panel = 'collections')}
-        ><span class="material-symbols-outlined">folder</span><span class="bs-ri-label"
-          >{$t('sidebar.collections')}</span
+        ><span class="material-symbols-outlined">folder</span><span class="bs-ri-label">{t('sidebar.collections')}</span
         ></button
       >
       <button
         class="bs-ri"
         class:on={panel === 'history'}
-        title={$t('sidebar.history')}
+        title={t('sidebar.history')}
         onclick={() => (panel = 'history')}
-        ><span class="material-symbols-outlined">history</span><span class="bs-ri-label">{$t('sidebar.history')}</span
+        ><span class="material-symbols-outlined">history</span><span class="bs-ri-label">{t('sidebar.history')}</span
         ></button
       >
       {#if GIT_ENABLED}
         <button
           class="bs-ri"
           class:on={panel === 'git'}
-          title={$t('sidebar.sourceControl')}
+          title={t('sidebar.sourceControl')}
           onclick={() => (panel = 'git')}
           ><span class="material-symbols-outlined">folder_open</span><span class="bs-ri-label">Git</span></button
         >
@@ -386,7 +385,7 @@
       <div class="bs-drop-toast" role="status">
         <span class="material-symbols-outlined ok">check_circle</span>
         <span class="tx">{toast.text}</span>
-        <button type="button" class="undo" onclick={runUndo}>{$t('sidebar.undo')} ⌘Z</button>
+        <button type="button" class="undo" onclick={runUndo}>{t('sidebar.undo')} ⌘Z</button>
       </div>
     {/if}
     <div class="bs-filterrow">
@@ -394,8 +393,8 @@
         <span class="material-symbols-outlined">search</span>
         <input
           class="bs-fbox-input"
-          placeholder={panel === 'history' ? $t('sidebar.filterHistory') : $t('sidebar.filter')}
-          aria-label={$t('sidebar.filterAria')}
+          placeholder={panel === 'history' ? t('sidebar.filterHistory') : t('sidebar.filter')}
+          aria-label={t('sidebar.filterAria')}
           bind:value={filter}
           onkeydown={(e) => {
             if (e.key === 'Escape') {
@@ -407,8 +406,8 @@
         {#if filterActive}
           <button
             class="bs-fbox-clear"
-            title={$t('sidebar.clearFilter')}
-            aria-label={$t('sidebar.clearFilter')}
+            title={t('sidebar.clearFilter')}
+            aria-label={t('sidebar.clearFilter')}
             onclick={() => (filter = '')}
           >
             <span class="material-symbols-outlined" style="font-size:13px">close</span>
@@ -417,8 +416,8 @@
       </div>
       <button
         class="bs-fi"
-        title={$t('sidebar.new')}
-        aria-label={$t('sidebar.new')}
+        title={t('sidebar.new')}
+        aria-label={t('sidebar.new')}
         onclick={(e) => openMenu('create', e)}><span class="material-symbols-outlined">add</span></button
       >
     </div>
@@ -477,7 +476,7 @@
         </button>
         {#if n.expanded}
           {#if n.children.length === 0}
-            <div class="bs-empty" style="padding-left:{indent(depth + 1)}px"><p>{$t('sidebar.folderEmpty')}</p></div>
+            <div class="bs-empty" style="padding-left:{indent(depth + 1)}px"><p>{t('sidebar.folderEmpty')}</p></div>
           {:else}
             {#each n.children as child (child.id)}
               {@render node(child, depth + 1)}
@@ -527,7 +526,7 @@
             class="bs-act"
             role="button"
             tabindex="0"
-            title={$t('sidebar.requestActions')}
+            title={t('sidebar.requestActions')}
             onclick={(e) => {
               e.stopPropagation();
               openMenu('req', e, n.id, false);
@@ -553,10 +552,10 @@
           {#if visibleCollections.length === 0}
             <div class="bs-collection-empty">
               <span class="material-symbols-outlined bs-collection-empty-icon" aria-hidden="true">folder</span>
-              <strong>{filterActive ? $t('sidebar.notFound') : $t('sidebar.noCollections')}</strong>
-              <p>{filterActive ? $t('sidebar.tryOther') : $t('sidebar.collectionHint')}</p>
+              <strong>{filterActive ? t('sidebar.notFound') : t('sidebar.noCollections')}</strong>
+              <p>{filterActive ? t('sidebar.tryOther') : t('sidebar.collectionHint')}</p>
               {#if !filterActive}<button class="bs-empty-action" onclick={() => void addFolder()}
-                  >{$t('sidebar.newCollection')}</button
+                  >{t('sidebar.newCollection')}</button
                 >{/if}
             </div>
           {:else}
@@ -566,11 +565,11 @@
           {/if}
         {:else if panel === 'history'}
           {#if visibleHistory.length === 0}
-            <div class="bs-empty"><p>{filterActive ? $t('sidebar.notFoundDot') : $t('sidebar.historyEmpty')}</p></div>
+            <div class="bs-empty"><p>{filterActive ? t('sidebar.notFoundDot') : t('sidebar.historyEmpty')}</p></div>
             <button
               class="bs-history-options"
               type="button"
-              title={$t('sidebar.historyOptions')}
+              title={t('sidebar.historyOptions')}
               onclick={(e) => openMenu('history', e)}><span class="material-symbols-outlined">more_horiz</span></button
             >
           {:else}
@@ -578,13 +577,13 @@
               <div class="bs-history-day">
                 <span>{group.day}</span>
                 {#if gi === 0}
-                  {#if $historyPaused}<span class="bs-paused" title={$t('sidebar.recordingPaused')}
-                      >{$t('sidebar.paused')}</span
+                  {#if $historyPaused}<span class="bs-paused" title={t('sidebar.recordingPaused')}
+                      >{t('sidebar.paused')}</span
                     >{/if}
                   <button
                     class="bs-history-options"
                     type="button"
-                    title={$t('sidebar.historyOptions')}
+                    title={t('sidebar.historyOptions')}
                     onclick={(e) => openMenu('history', e)}
                     ><span class="material-symbols-outlined">more_horiz</span></button
                   >
@@ -596,7 +595,7 @@
                   class="bs-history-row"
                   class:sel={$tabs.find((tb) => tb.id === $activeTabId)?.historyId === h.id}
                   type="button"
-                  title={h.envName ? `${$t('sidebar.openInNewTab')} · ${h.envName}` : $t('sidebar.openInNewTab')}
+                  title={h.envName ? `${t('sidebar.openInNewTab')} · ${h.envName}` : t('sidebar.openInNewTab')}
                   onclick={() => openHistoryEntry(h)}
                 >
                   <span class="m" style="color:{methodColor(h.protocol === 'grpc' ? 'GRPC' : h.request.method)}"
@@ -615,8 +614,8 @@
                       class="bs-act repeat"
                       role="button"
                       tabindex="0"
-                      title={$t('sidebar.repeat')}
-                      aria-label={$t('sidebar.repeat')}
+                      title={t('sidebar.repeat')}
+                      aria-label={t('sidebar.repeat')}
                       onclick={(e) => {
                         e.stopPropagation();
                         void repeatEntry(h);
@@ -629,8 +628,8 @@
                     class="bs-act"
                     role="button"
                     tabindex="0"
-                    title={$t('sidebar.remove')}
-                    aria-label={$t('sidebar.remove')}
+                    title={t('sidebar.remove')}
+                    aria-label={t('sidebar.remove')}
                     onclick={(e) => {
                       e.stopPropagation();
                       removeHistoryEntry(h.id);
@@ -658,10 +657,10 @@
             <span class="material-symbols-outlined" aria-hidden="true" style="font-size:13px"
               >{dockSection === 'environments' ? 'expand_more' : 'chevron_right'}</span
             >
-            <span>{$t('sidebar.environments')}</span>
+            <span>{t('sidebar.environments')}</span>
             <span class="bs-dock-summary">{activeEnvName}</span>
           </button>
-          <button class="bs-dock-action" type="button" title={$t('sidebar.manageEnvs')} onclick={manageEnvs}
+          <button class="bs-dock-action" type="button" title={t('sidebar.manageEnvs')} onclick={manageEnvs}
             ><span class="material-symbols-outlined" style="font-size:14px">tune</span></button
           >
         </div>
@@ -676,7 +675,7 @@
               <span class="material-symbols-outlined" aria-hidden="true" style="font-size:14px"
                 >{$activeEnvironmentId === null ? 'check' : 'block'}</span
               >
-              <span>{$t('sidebar.noEnv')}</span>
+              <span>{t('sidebar.noEnv')}</span>
             </button>
             {#each $environments as environment (environment.id)}
               <button
@@ -705,16 +704,16 @@
           >
             <span class="material-symbols-outlined" aria-hidden="true" style="font-size:13px"
               >{dockSection === 'flows' ? 'expand_more' : 'chevron_right'}</span
-            ><span>{$t('sidebar.flows')}</span>
+            ><span>{t('sidebar.flows')}</span>
           </button>
-          <button class="bs-dock-action" type="button" title={$t('sidebar.newFlow')} onclick={newFlow}
+          <button class="bs-dock-action" type="button" title={t('sidebar.newFlow')} onclick={newFlow}
             ><span class="material-symbols-outlined" style="font-size:14px">add</span></button
           >
         </div>
         {#if dockSection === 'flows'}
           <div class="bs-dock-body">
             {#if $flows.length === 0}
-              <div class="bs-dock-empty">{$t('sidebar.noFlows')}</div>
+              <div class="bs-dock-empty">{t('sidebar.noFlows')}</div>
             {:else}
               {#each $flows as flow (flow.id)}
                 <button class="bs-dock-item" type="button" onclick={() => chooseFlow(flow.id)}>

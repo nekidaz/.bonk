@@ -147,7 +147,7 @@
 
   function download(): void {
     const name = `${tab.title.replace(/[^\w.-]+/g, '-').toLowerCase() || 'request'}.${EXT[lang] ?? 'txt'}`;
-    void openapiExportSave(name, code, $t('code.snippet.save_title'));
+    void openapiExportSave(name, code, t('code.snippet.save_title'));
   }
 
   function keydown(e: KeyboardEvent): void {
@@ -166,19 +166,19 @@
 <div
   class="bs-snippet"
   role="dialog"
-  aria-label={$t('code.snippet.aria')}
+  aria-label={t('code.snippet.aria')}
   tabindex="-1"
   onpointerdown={(e) => e.stopPropagation()}
   onkeydown={keydown}
   {@attach (el) => el.focus()}
 >
   <div class="head">
-    <span class="eyebrow">{$t('code.snippet.eyebrow')}&nbsp;&nbsp;·&nbsp;&nbsp;{title}</span>
-    <button class="close" type="button" aria-label={$t('common.close')} onclick={onClose}
+    <span class="eyebrow">{t('code.snippet.eyebrow')}&nbsp;&nbsp;·&nbsp;&nbsp;{title}</span>
+    <button class="close" type="button" aria-label={t('common.close')} onclick={onClose}
       ><span class="material-symbols-outlined">close</span></button
     >
   </div>
-  <div class="langs" role="radiogroup" aria-label={$t('code.snippet.lang_aria')}>
+  <div class="langs" role="radiogroup" aria-label={t('code.snippet.lang_aria')}>
     {#each featured as l (l.id)}
       <button
         type="button"
@@ -189,7 +189,7 @@
       >
     {/each}
   </div>
-  <div class="code" role="region" aria-label={$t('code.snippet.generated_aria')}>
+  <div class="code" role="region" aria-label={t('code.snippet.generated_aria')}>
     {#each lines as line, i (i)}
       <div class="line">
         <span class="ln" aria-hidden="true">{i + 1}</span><code
@@ -206,18 +206,18 @@
       <input type="checkbox" role="switch" bind:checked={resolve} />
       <span class="track" aria-hidden="true"></span>
       <span class="text"
-        ><b>{$t('code.snippet.resolve')}</b><small
-          >{resolve ? $t('code.snippet.on') : $t('code.snippet.off', { name: sampleVar })}</small
+        ><b>{t('code.snippet.resolve')}</b><small
+          >{resolve ? t('code.snippet.on') : t('code.snippet.off', { name: sampleVar })}</small
         ></span
       >
     </label>
     <button class="download" type="button" onclick={download}
-      ><span class="material-symbols-outlined" aria-hidden="true">download</span>{$t('code.snippet.download')}</button
+      ><span class="material-symbols-outlined" aria-hidden="true">download</span>{t('code.snippet.download')}</button
     >
     <button class="copy" type="button" onclick={copy}
       ><span class="material-symbols-outlined" aria-hidden="true">{copied ? 'check' : 'content_copy'}</span>{copied
-        ? $t('common.copied')
-        : $t('common.copy')}<kbd>⌘C</kbd></button
+        ? t('common.copied')
+        : t('common.copy')}<kbd>⌘C</kbd></button
     >
   </div>
 </div>

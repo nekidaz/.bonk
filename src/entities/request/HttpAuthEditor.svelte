@@ -26,7 +26,7 @@
   const inheriting = $derived(!!parent?.auth && ownType === 'inherit');
   const auth = $derived<AuthConfig>(inheriting ? parent!.auth! : ownType === 'inherit' ? none : ownAuth!);
   const selectValue = $derived(ownType === 'inherit' && !inheriting && tab ? 'none' : inheriting ? auth.type : ownType);
-  const inheritLabel = $derived(tab ? $t('http.auth.inherit') : $t('http.auth.unset'));
+  const inheritLabel = $derived(tab ? t('http.auth.inherit') : t('http.auth.unset'));
   const current = $derived(authTypes.find((a) => a.key === auth.type) ?? authTypes[3]);
   const secretField = $derived<AuthStringField | null>(
     auth.type === 'bearer'
@@ -90,7 +90,7 @@
       <button
         class="eye"
         type="button"
-        aria-label={shown ? $t('http.auth.hide') : $t('http.auth.show')}
+        aria-label={shown ? t('http.auth.hide') : t('http.auth.show')}
         aria-pressed={shown}
         onclick={() => (reveal = !shown)}
       >
@@ -104,35 +104,35 @@
   {#if inheriting}
     <div class="bs-auth-inherit">
       <span class="material-symbols-outlined" aria-hidden="true">account_tree</span>
-      <span class="msg">{$t('http.auth.inherited_msg', { name: parent?.name ?? '' })}</span>
-      <button type="button" onclick={() => write({ ...auth })}>{$t('http.auth.override')}</button>
+      <span class="msg">{t('http.auth.inherited_msg', { name: parent?.name ?? '' })}</span>
+      <button type="button" onclick={() => write({ ...auth })}>{t('http.auth.override')}</button>
     </div>
   {/if}
   <div class="bs-auth-card">
     <div class="row">
-      <span class="lbl">{$t('http.auth.type')}</span>
+      <span class="lbl">{t('http.auth.type')}</span>
       <span class="bs-auth-select">
         <select
-          aria-label={$t('http.auth.type_aria')}
+          aria-label={t('http.auth.type_aria')}
           value={selectValue}
           onchange={(e) => setAuthType(e.currentTarget.value as AuthType)}
         >
           {#if !tab || (parent && !inheriting)}<option value="inherit">{inheritLabel}</option>{/if}
-          {#each authTypes as item (item.key)}<option value={item.key}>{$t(item.label)}</option>{/each}
+          {#each authTypes as item (item.key)}<option value={item.key}>{t(item.label)}</option>{/each}
         </select>
         <span class="material-symbols-outlined" aria-hidden="true">keyboard_arrow_down</span>
       </span>
-      <span class="hint">{selectValue === 'inherit' ? '' : $t(current.hint)}</span>
+      <span class="hint">{selectValue === 'inherit' ? '' : t(current.hint)}</span>
     </div>
     {#if auth.type === 'bearer'}
-      {@render field($t('http.auth.token'), 'bearerToken', true)}
+      {@render field(t('http.auth.token'), 'bearerToken', true)}
     {:else if auth.type === 'basic'}
-      {@render field($t('http.auth.username'), 'basicUsername')}
-      {@render field($t('http.auth.password'), 'basicPassword', true)}
+      {@render field(t('http.auth.username'), 'basicUsername')}
+      {@render field(t('http.auth.password'), 'basicPassword', true)}
     {:else if auth.type === 'apiKey'}
       <div class="row">
-        <span class="lbl">{$t('http.auth.add_to')}</span>
-        <span class="bs-auth-seg" role="radiogroup" aria-label={$t('http.auth.loc_aria')}>
+        <span class="lbl">{t('http.auth.add_to')}</span>
+        <span class="bs-auth-seg" role="radiogroup" aria-label={t('http.auth.loc_aria')}>
           {#each [['header', 'http.auth.loc.header'], ['query', 'http.auth.loc.query']] as [key, label] (key)}
             <button
               type="button"
@@ -140,17 +140,17 @@
               class:on={(auth.apiKeyIn ?? 'header') === key}
               aria-checked={(auth.apiKeyIn ?? 'header') === key}
               disabled={inheriting}
-              onclick={() => setApiKeyLocation(key as ApiKeyLocation)}>{$t(label)}</button
+              onclick={() => setApiKeyLocation(key as ApiKeyLocation)}>{t(label)}</button
             >
           {/each}
         </span>
       </div>
-      {@render field($t('http.auth.key'), 'apiKeyName')}
-      {@render field($t('http.auth.value'), 'apiKeyValue', true)}
+      {@render field(t('http.auth.key'), 'apiKeyName')}
+      {@render field(t('http.auth.value'), 'apiKeyValue', true)}
     {/if}
     {#if resolved}
       <div class="row resolves">
-        <span class="lbl">{$t('http.auth.resolves')}</span>
+        <span class="lbl">{t('http.auth.resolves')}</span>
         <span class="secret">{reveal ? resolved : mask(resolved)}</span>
         {#if envName}
           <span class="env tone-{envToneOf(activeEnv)}"

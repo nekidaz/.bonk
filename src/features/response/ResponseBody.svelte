@@ -20,7 +20,7 @@
   import { buildDoc, buildView, DISPLAY_CHARS } from './responseRender';
   import { textStats } from '$shared/editor';
   import { t } from '$shared/i18n';
-  import { responseLineWrap } from '$shared/settings';
+  import { requestPrefs } from '$shared/settings';
 
   /** Above this the lezer parser's background work causes visible hitches; use the viewport tokenizer. */
   const LITE_CHARS = 1_000_000;
@@ -73,22 +73,22 @@
         fill
         folding
         autoFold={mode === 'pretty'}
-        wrap={$responseLineWrap}
+        wrap={requestPrefs.responseLineWrap}
         docId={`r${sourceId}:${mode}`}
-        ariaLabel={$t('lb.section.response')}
+        ariaLabel={t('lb.section.response')}
       />
     </div>
   {:else if legacy}
     <div class="bs-rbody pretty">
       {#if legacy.kind === 'plain'}
-        <div class="bs-response-editor" class:wrap={$responseLineWrap}>
+        <div class="bs-response-editor" class:wrap={requestPrefs.responseLineWrap}>
           <div class="bs-response-gutter" aria-hidden="true">
             {#each legacy.lines as n}<div>{n}</div>{/each}
           </div>
           <div class="bs-code">{@html legacy.html}</div>
         </div>
       {:else if legacy.kind === 'lines'}
-        <div class="bs-response-editor chunked" class:wrap={$responseLineWrap}>
+        <div class="bs-response-editor chunked" class:wrap={requestPrefs.responseLineWrap}>
           {#each legacy.chunks as c (c.firstLine)}
             <div class="bs-resp-chunk" style="contain-intrinsic-size: auto {c.estPx}px">
               <div class="bs-response-gutter" aria-hidden="true">

@@ -1,5 +1,3 @@
-import { writable } from 'svelte/store';
-
 /** Bonk Mono palettes (S32.5): light and dark. «Как в системе» picks one of them (App.svelte). */
 export type Theme = 'smooth-light' | 'smooth-dark';
 
@@ -42,17 +40,31 @@ export function applyTheme(t: Theme): void {
   }
 }
 
-export const theme = writable<Theme>(readStored());
+/** The palette in use (`theme.current`). Every assignment is saved to localStorage and applied to the DOM. */
+class ThemeState {
+  #value = $state<Theme>(readStored());
+
+  constructor() {
+    // A legacy stored name is rewritten as its replacement right away.
+    persist(this.#value);
+    applyTheme(this.#value);
+  }
+
+  get current(): Theme {
+    return this.#value;
+  }
+
+  set current(t: Theme) {
+    this.#value = t;
+    persist(t);
+    applyTheme(t);
+  }
+}
+export const theme = new ThemeState();
 
 export function setTheme(t: Theme): void {
-  theme.set(t);
+  theme.current = t;
 }
-
-// Persist + apply on every change (fires immediately with the initial value).
-theme.subscribe((t) => {
-  persist(t);
-  applyTheme(t);
-});
 
 /** Apply the persisted theme to the DOM. Call before mount to avoid a flash. */
 export function applyStoredTheme(): void {

@@ -54,8 +54,8 @@
   const issues = $derived(checkGrpcMessage(tab.grpc?.message ?? '', schemaFields));
   const issueText = (i: GrpcMessageIssue): string =>
     i.kind === 'unknown'
-      ? $t('grpc.msg.unknownField', { field: i.field, type: inputShort })
-      : $t('grpc.msg.wrongType', { field: i.field, expected: i.expected });
+      ? t('grpc.msg.unknownField', { field: i.field, type: inputShort })
+      : t('grpc.msg.wrongType', { field: i.field, expected: i.expected });
 
   /** G4: ⌃Space (or typing) at a top-level key lists the request fields with their types. */
   async function fieldCompletions(ctx: CompletionContext): Promise<CompletionResult | null> {
@@ -73,7 +73,7 @@
     return {
       from: word.text.startsWith('"') ? word.from + 1 : word.from,
       validFor: /^[\w$]*$/,
-      options: fieldCompletionOptions(fields, present, inputShort, $t),
+      options: fieldCompletionOptions(fields, present, inputShort, t),
     };
   }
 </script>
@@ -100,7 +100,7 @@
       <span class="sc-top">
         <span class="sc-icon" aria-hidden="true"><span class="material-symbols-outlined">{icon}</span></span>
         <b>{title}</b>
-        {#if recommended}<span class="sc-tag">{$t('grpc.schema.recommended')}</span>{/if}
+        {#if recommended}<span class="sc-tag">{t('grpc.schema.recommended')}</span>{/if}
         <span class="sc-radio" aria-hidden="true"></span>
       </span>
       <span class="sc-text">{text}</span>
@@ -110,30 +110,30 @@
   {/snippet}
   <div class="bs-http-body bs-grpc-schema">
     <div class="sc-head">
-      <span class="sc-kicker">{$t('grpc.schema.title')}</span>
-      <p>{$t('grpc.schema.sub')}</p>
+      <span class="sc-kicker">{t('grpc.schema.title')}</span>
+      <p>{t('grpc.schema.sub')}</p>
     </div>
-    <div class="sc-choices" role="radiogroup" aria-label={$t('grpc.schema.title')}>
+    <div class="sc-choices" role="radiogroup" aria-label={t('grpc.schema.title')}>
       {@render choice(
         'reflection',
         'manage_search',
         'Server reflection',
-        $t('grpc.schema.reflectionText'),
-        $t('grpc.schema.reflectionPro'),
-        $t('grpc.schema.reflectionCon'),
+        t('grpc.schema.reflectionText'),
+        t('grpc.schema.reflectionPro'),
+        t('grpc.schema.reflectionCon'),
         true,
       )}
       {@render choice(
         'proto',
         'description',
-        $t('grpc.schema.protoTitle'),
-        $t('grpc.schema.protoText'),
-        $t('grpc.schema.protoPro'),
-        $t('grpc.schema.protoCon'),
+        t('grpc.schema.protoTitle'),
+        t('grpc.schema.protoText'),
+        t('grpc.schema.protoPro'),
+        t('grpc.schema.protoCon'),
       )}
     </div>
     <p class="sc-tip">
-      <span class="material-symbols-outlined" aria-hidden="true">lightbulb</span>{$t('grpc.schema.grpcurlTip')}
+      <span class="material-symbols-outlined" aria-hidden="true">lightbulb</span>{t('grpc.schema.grpcurlTip')}
     </p>
   </div>
 {:else}
@@ -141,12 +141,12 @@
     {#if !largeMessage}
       <div class="bs-body-head">
         <span class="bs-body-caption"
-          >{$t('grpc.tab.message')}{#if selectedMethod?.inputType}&nbsp;&nbsp;·&nbsp;&nbsp;{selectedMethod.inputType
+          >{t('grpc.tab.message')}{#if selectedMethod?.inputType}&nbsp;&nbsp;·&nbsp;&nbsp;{selectedMethod.inputType
               .split('.')
               .pop()}{/if}</span
         >
         <button class="bs-body-beautify bs-grpc-example" type="button" onclick={onLoadExample}
-          ><span class="material-symbols-outlined" aria-hidden="true">description</span>{$t('grpc.msg.example')}</button
+          ><span class="material-symbols-outlined" aria-hidden="true">description</span>{t('grpc.msg.example')}</button
         >
       </div>
     {/if}
@@ -156,39 +156,39 @@
         onChange={onMessageChange}
         lang="json"
         minHeight="140px"
-        placeholder={tab.grpc?.tree && !tab.grpc.method ? $t('grpc.msg.pickMethodFirst') : $t('grpc.msg.placeholder')}
+        placeholder={tab.grpc?.tree && !tab.grpc.method ? t('grpc.msg.pickMethodFirst') : t('grpc.msg.placeholder')}
         completionSource={fieldCompletions}
-        completionFooter={$t('grpc.msg.acFoot')}
+        completionFooter={t('grpc.msg.acFoot')}
         varHighlight={[
           varHighlight,
           errorFieldLines([...violations.map((v) => v.field), ...issues.map((i) => i.field)]),
         ]}
         docId={tab.id}
-        ariaLabel={$t('grpc.msg.aria')}
+        ariaLabel={t('grpc.msg.aria')}
       />
     </div>
     {#if violations.length}
       <div class="bs-grpc-valid warn" role="alert">
         <span class="material-symbols-outlined" aria-hidden="true">error</span>
-        {$t('grpc.msg.errors', {
+        {t('grpc.msg.errors', {
           n: violations.length,
-          unit: $tp(violations.length, ['ошибка', 'ошибки', 'ошибок'], ['error', 'errors']),
+          unit: tp(violations.length, ['ошибка', 'ошибки', 'ошибок'], ['error', 'errors']),
           list: violations.map((v) => `${v.field} — ${v.description}`).join('; '),
         })}
       </div>
     {:else if issues.length}
       <div class="bs-grpc-valid warn" role="status">
         <span class="material-symbols-outlined" aria-hidden="true">error</span>
-        {$t('grpc.msg.errors', {
+        {t('grpc.msg.errors', {
           n: issues.length,
-          unit: $tp(issues.length, ['ошибка', 'ошибки', 'ошибок'], ['error', 'errors']),
+          unit: tp(issues.length, ['ошибка', 'ошибки', 'ошибок'], ['error', 'errors']),
           list: issues.map(issueText).join('; '),
         })}
       </div>
     {:else if selectedMethod?.inputType && !messageValid}
       <div class="bs-grpc-valid bad">
         <span class="material-symbols-outlined" aria-hidden="true">error</span>
-        {$t('grpc.msg.invalidJson')}
+        {t('grpc.msg.invalidJson')}
       </div>
     {/if}
   </div>

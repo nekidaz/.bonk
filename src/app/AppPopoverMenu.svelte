@@ -149,7 +149,7 @@
 {/snippet}
 
 {#if menu.kind}
-  <button class="bs-backdrop" aria-label={$t('nav.menu.closeMenu')} onclick={closeMenu}></button>
+  <button class="bs-backdrop" aria-label={t('nav.menu.closeMenu')} onclick={closeMenu}></button>
   <div
     class="bs-menu"
     role="menu"
@@ -159,7 +159,7 @@
     style="left:{menu.x}px; top:{top}px; width:{appMenuWidth(menu.kind)}px"
   >
     {#if menu.kind === 'create'}
-      <div class="lbl">{folderName ? $t('nav.menu.inFolder', { name: folderName }) : $t('nav.menu.newRequest')}</div>
+      <div class="lbl">{folderName ? t('nav.menu.inFolder', { name: folderName }) : t('nav.menu.newRequest')}</div>
       <!-- S22b/S22c: protocol rows, then Folder (Collections only) and Import. -->
       {@render item(
         'language',
@@ -184,7 +184,7 @@
       <div class="dv"></div>
       {#if !inHistory}{@render item(
           'folder',
-          $t('nav.menu.folder'),
+          t('nav.menu.folder'),
           () => {
             closeMenu();
             onNewFolderHere();
@@ -201,12 +201,12 @@
         onclick={showImport}
       >
         <span class="material-symbols-outlined ic" aria-hidden="true">download</span>
-        <span class="lb">{$t('nav.menu.import')}</span>
+        <span class="lb">{t('nav.menu.import')}</span>
         <span class="sc">›</span>
       </button>
       {#if importOpen}
         <div class="bs-menu bs-submenu" role="menu" style="top:{importTop}px">
-          <div class="lbl">{$t('nav.menu.importFrom')}</div>
+          <div class="lbl">{t('nav.menu.importFrom')}</div>
           {@render item(
             'terminal',
             'cURL',
@@ -214,7 +214,7 @@
               closeMenu();
               onImportCurl();
             },
-            $t('nav.menu.pasteClip'),
+            t('nav.menu.pasteClip'),
             'sub hint',
           )}
           {#each importSources as src (src.label)}
@@ -225,7 +225,7 @@
                 closeMenu();
                 onImport(src.src);
               },
-              $t(src.hint),
+              t(src.hint),
               'sub hint',
             )}
           {/each}
@@ -242,44 +242,44 @@
         </button>
       {/each}
     {:else if menu.kind === 'coll'}
-      <div class="lbl">{$t('nav.menu.inFolderDefault', { name: node?.name ?? $t('nav.menu.folderDefault') })}</div>
-      {@render item('add', $t('nav.menu.http'), () => onAddRequest('http'))}
-      {@render item('hub', $t('nav.menu.grpc'), () => onAddRequest('grpc'))}
-      {@render item('create_new_folder', $t('nav.menu.folder'), onAddFolder)}
+      <div class="lbl">{t('nav.menu.inFolderDefault', { name: node?.name ?? t('nav.menu.folderDefault') })}</div>
+      {@render item('add', t('nav.menu.http'), () => onAddRequest('http'))}
+      {@render item('hub', t('nav.menu.grpc'), () => onAddRequest('grpc'))}
+      {@render item('create_new_folder', t('nav.menu.folder'), onAddFolder)}
       {#if menu.nodeId}
-        {@render item('note_add', $t('nav.menu.saveHere'), onSaveHere, '⌘S')}
+        {@render item('note_add', t('nav.menu.saveHere'), onSaveHere, '⌘S')}
         {#if menu.isFolder}
           <div class="dv"></div>
-          {@render item('play_arrow', $t('nav.menu.runInRunner'), () => {
+          {@render item('play_arrow', t('nav.menu.runInRunner'), () => {
             const id = menu.nodeId!;
             closeMenu();
             runInRunner(id);
           })}
-          {@render item('lock', $t('nav.menu.collAuth'), onAuth)}
-          {@render item('upload', $t('nav.menu.exportJson'), () => onExportOpenApi('json'))}
-          {@render item('upload', $t('nav.menu.exportYaml'), () => onExportOpenApi('yaml'))}
+          {@render item('lock', t('nav.menu.collAuth'), onAuth)}
+          {@render item('upload', t('nav.menu.exportJson'), () => onExportOpenApi('json'))}
+          {@render item('upload', t('nav.menu.exportYaml'), () => onExportOpenApi('yaml'))}
         {/if}
         <div class="dv"></div>
-        {@render item('edit', $t('nav.menu.rename'), onRename, 'F2')}
-        {@render item('content_copy', $t('nav.menu.duplicate'), onDuplicate, '⌘D')}
-        {@render item('drive_file_move', $t('nav.menu.moveTo'), onMove, '›')}
+        {@render item('edit', t('nav.menu.rename'), onRename, 'F2')}
+        {@render item('content_copy', t('nav.menu.duplicate'), onDuplicate, '⌘D')}
+        {@render item('drive_file_move', t('nav.menu.moveTo'), onMove, '›')}
         <div class="dv"></div>
-        {@render item('delete', $t('nav.menu.delete'), onDelete, '⌫', 'danger')}
+        {@render item('delete', t('nav.menu.delete'), onDelete, '⌫', 'danger')}
       {/if}
     {:else if menu.kind === 'req'}
-      {@render item('open_in_new', $t('nav.menu.openNewTab'), openRequest, '⌘↵', 'hint')}
-      {@render item('edit', $t('nav.menu.rename'), onRename, 'F2')}
-      {@render item('content_copy', $t('nav.menu.duplicate'), onDuplicate, '⌘D')}
+      {@render item('open_in_new', t('nav.menu.openNewTab'), openRequest, '⌘↵', 'hint')}
+      {@render item('edit', t('nav.menu.rename'), onRename, 'F2')}
+      {@render item('content_copy', t('nav.menu.duplicate'), onDuplicate, '⌘D')}
       <div class="dv"></div>
       {#if node?.kind === 'request' && node.protocol === 'http'}{@render item(
           'code',
-          $t('nav.menu.copyCurl'),
+          t('nav.menu.copyCurl'),
           onCopyCurl,
           '⌥⌘C',
         )}{/if}
-      {@render item('drive_file_move', $t('nav.menu.moveTo'), onMove, '›')}
+      {@render item('drive_file_move', t('nav.menu.moveTo'), onMove, '›')}
       <div class="dv"></div>
-      {@render item('delete', $t('nav.menu.delete'), onDelete, '⌫', 'danger')}
+      {@render item('delete', t('nav.menu.delete'), onDelete, '⌫', 'danger')}
     {:else if menu.kind === 'tab' && tab}
       <!-- S17b: right-click on a tab; App makes it active first, so the request actions reuse the active-tab handlers. -->
       {@const id = tab.id}
@@ -287,7 +287,7 @@
       {#if request}
         {@render item(
           'save',
-          $t('tabs.ctxSave'),
+          t('tabs.ctxSave'),
           () => {
             closeMenu();
             onSaveTab();
@@ -296,7 +296,7 @@
         )}
         {@render item(
           'save_as',
-          $t('tabs.ctxSaveAs'),
+          t('tabs.ctxSaveAs'),
           () => {
             closeMenu();
             onSaveAsTab();
@@ -305,47 +305,47 @@
         )}
         {@render item(
           'content_copy',
-          $t('nav.menu.duplicate'),
+          t('nav.menu.duplicate'),
           () => {
             closeMenu();
             duplicateTab(id);
           },
           '⌘D',
         )}
-        {@render item('edit', $t('nav.menu.rename'), onRenameTab, 'F2')}
+        {@render item('edit', t('nav.menu.rename'), onRenameTab, 'F2')}
       {/if}
-      {@render item('keep', tab.pinned ? $t('tabs.ctxUnpin') : $t('tabs.ctxPin'), () => {
+      {@render item('keep', tab.pinned ? t('tabs.ctxUnpin') : t('tabs.ctxPin'), () => {
         closeMenu();
         togglePinTab(id);
       })}
       {#if request}
-        {@render item('account_tree', $t('tabs.ctxReveal'), onRevealTab, '', '', !tab.savedPath)}
+        {@render item('account_tree', t('tabs.ctxReveal'), onRevealTab, '', '', !tab.savedPath)}
       {/if}
       {#if tab.protocol === 'http'}
         <div class="dv"></div>
-        {@render item('code', $t('nav.menu.copyCurl'), onCopyCurlTab, '⌥⌘C')}
+        {@render item('code', t('nav.menu.copyCurl'), onCopyCurlTab, '⌥⌘C')}
       {/if}
       <div class="dv"></div>
       {@render item(
         'close',
-        $t('tabs.ctxClose'),
+        t('tabs.ctxClose'),
         () => {
           closeMenu();
           void requestCloseTab(id);
         },
         '⌘W',
       )}
-      {@render item('tab_close', $t('tabs.ctxCloseOthers'), () => {
+      {@render item('tab_close', t('tabs.ctxCloseOthers'), () => {
         closeMenu();
         void closeOtherTabs(id);
       })}
-      {@render item('tab_close_right', $t('tabs.ctxCloseRight'), () => {
+      {@render item('tab_close_right', t('tabs.ctxCloseRight'), () => {
         closeMenu();
         void closeTabsToRight(id);
       })}
       {@render item(
         'clear_all',
-        $t('tabs.ctxCloseAll'),
+        t('tabs.ctxCloseAll'),
         () => {
           closeMenu();
           void closeAllTabs();
@@ -355,7 +355,7 @@
     {:else if menu.kind === 'history'}
       {@render item(
         $historyPaused ? 'play_arrow' : 'pause',
-        $historyPaused ? $t('nav.menu.resume') : $t('nav.menu.pause'),
+        $historyPaused ? t('nav.menu.resume') : t('nav.menu.pause'),
         () => {
           historyPaused.set(!$historyPaused);
           closeMenu();
@@ -363,7 +363,7 @@
       )}
       {@render item(
         'delete_sweep',
-        $t('nav.menu.clearHistory'),
+        t('nav.menu.clearHistory'),
         () => {
           clearHistory();
           closeMenu();
@@ -372,11 +372,11 @@
         'danger',
       )}
       <div class="dv"></div>
-      <div class="lbl">{$t('nav.menu.keepLast')}</div>
+      <div class="lbl">{t('nav.menu.keepLast')}</div>
       {#each historyLimits as opt (opt.value)}
         {@render item(
           $historyLimit === opt.value ? 'check' : '',
-          opt.value === 0 ? $t('nav.menu.all') : opt.label,
+          opt.value === 0 ? t('nav.menu.all') : opt.label,
           () => {
             historyLimit.set(opt.value);
             closeMenu();

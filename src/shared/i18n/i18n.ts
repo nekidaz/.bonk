@@ -1,5 +1,4 @@
-import { derived, get } from 'svelte/store';
-import { uiLanguage, type UiLanguage } from './language';
+import { uiLanguage, type UiLanguage } from './language.svelte';
 import * as common from './common';
 import * as app from './app';
 import * as nav from './nav';
@@ -21,21 +20,20 @@ const dicts: Record<UiLanguage, Record<string, string>> = { ru, en };
 export type Params = Record<string, string | number>;
 export type Translate = (key: string, params?: Params) => string;
 
-function make(lang: UiLanguage): Translate {
-  return (key, params) => {
-    const s = dicts[lang][key] ?? ru[key] ?? key;
-    return params ? s.replace(/\{(\w+)\}/g, (m, k) => (k in params ? String(params[k]) : m)) : s;
-  };
-}
-
-/** Reactive translator: `$t('settings.general.language')`, `$t('x', { n: 3 })` for `{n}`. In .ts modules use `get(t)(...)`. */
-export const t = derived(uiLanguage, (l) => make(l));
+/**
+ * Translate: `t('settings.general.language')`, `t('x', { n: 3 })` for `{n}`. A plain function that
+ * reads the current language, so a template (or $derived) calling it re-renders on a language switch.
+ */
+export const t: Translate = (key, params) => {
+  const s = dicts[uiLanguage.current][key] ?? ru[key] ?? key;
+  return params ? s.replace(/\{(\w+)\}/g, (m, k) => (k in params ? String(params[k]) : m)) : s;
+};
 
 /** Pick the plural form: ru takes [one, few, many] (1 файл / 2 файла / 5 файлов), en [one, other]. */
 export function plural(
   n: number,
   forms: [string, string, string] | [string, string],
-  lang: UiLanguage = get(uiLanguage),
+  lang: UiLanguage = uiLanguage.current,
 ): string {
   const a = Math.abs(n);
   if (lang === 'en' || forms.length === 2) return a === 1 ? forms[0] : forms[forms.length - 1];
@@ -46,13 +44,6 @@ export function plural(
   return forms[2];
 }
 
-/** Reactive plural: `$tp(n, ['файл','файла','файлов'], ['file','files'])` → forms chosen by current language. */
-export const tp = derived(
-  uiLanguage,
-  (l) => (n: number, ru: [string, string, string], en: [string, string]) => plural(n, l === 'ru' ? ru : en, l),
-);
-
-if (typeof document !== 'undefined')
-  uiLanguage.subscribe((l) => {
-    document.documentElement.lang = l;
-  });
+/** Plural in the current language: `tp(n, ['файл','файла','файлов'], ['file','files'])`. */
+export const tp = (n: number, ru: [string, string, string], en: [string, string]): string =>
+  plural(n, uiLanguage.current === 'ru' ? ru : en, uiLanguage.current);

@@ -166,18 +166,18 @@
   <div class="bs-overlay pid-overlay" role="dialog" aria-modal="true" aria-labelledby="pid-title">
     <div class="pid">
       <div class="pid-head">
-        <h2 id="pid-title" class="pid-title">{$t('import.proto.title')}</h2>
-        <p class="pid-sub">{$t('import.proto.sub')}</p>
+        <h2 id="pid-title" class="pid-title">{t('import.proto.title')}</h2>
+        <p class="pid-sub">{t('import.proto.sub')}</p>
       </div>
 
       <div class="pid-drop" class:over={dragOver}>
         <span class="material-symbols-outlined pid-drop-ic">upload_file</span>
         <div class="pid-drop-t">
-          <div class="a">{$t('import.proto.dropA')}</div>
-          <div class="b">{$t('import.proto.dropB')}</div>
+          <div class="a">{t('import.proto.dropA')}</div>
+          <div class="b">{t('import.proto.dropB')}</div>
         </div>
-        <button type="button" class="pid-pill" onclick={pickFolder}>{$t('import.proto.pickFolder')}</button>
-        <button type="button" class="pid-pill" onclick={pickFiles}>{$t('import.proto.pick')}</button>
+        <button type="button" class="pid-pill" onclick={pickFolder}>{t('import.proto.pickFolder')}</button>
+        <button type="button" class="pid-pill" onclick={pickFiles}>{t('import.proto.pick')}</button>
       </div>
 
       {#if files.length > 0}
@@ -188,12 +188,12 @@
                 <span class="material-symbols-outlined pid-ic ok">check_circle</span>
                 <div class="pid-main">
                   <div class="pid-name">{f.name}</div>
-                  <div class="pid-meta">{subtitle(f, $tp)}</div>
+                  <div class="pid-meta">{subtitle(f, tp)}</div>
                 </div>
                 <button
                   type="button"
                   class="pid-x"
-                  aria-label={$t('import.proto.remove', { name: f.name })}
+                  aria-label={t('import.proto.remove', { name: f.name })}
                   onclick={() => removeFile(f.path)}
                 >
                   <span class="material-symbols-outlined">close</span>
@@ -208,13 +208,13 @@
                 </div>
                 {#if f.error?.kind === 'missing_import'}
                   <button type="button" class="pid-link" onclick={pickImportFolder}>
-                    <span class="material-symbols-outlined">create_new_folder</span>{$t('import.proto.setPath')}
+                    <span class="material-symbols-outlined">create_new_folder</span>{t('import.proto.setPath')}
                   </button>
                 {/if}
                 <button
                   type="button"
                   class="pid-x"
-                  aria-label={$t('import.proto.remove', { name: f.name })}
+                  aria-label={t('import.proto.remove', { name: f.name })}
                   onclick={() => removeFile(f.path)}
                 >
                   <span class="material-symbols-outlined">close</span>
@@ -226,7 +226,7 @@
       {/if}
 
       <div class="pid-paths">
-        <div class="pid-eyebrow">{$t('import.proto.eyebrow')}</div>
+        <div class="pid-eyebrow">{t('import.proto.eyebrow')}</div>
         <div class="pid-chips">
           {#each imports as dir (dir)}
             <span class="pid-chip">
@@ -234,7 +234,7 @@
               <button
                 type="button"
                 class="pid-chip-x"
-                aria-label={$t('import.proto.remove', { name: dir })}
+                aria-label={t('import.proto.remove', { name: dir })}
                 onclick={() => removeImport(dir)}
               >
                 <span class="material-symbols-outlined">close</span>
@@ -242,25 +242,23 @@
             </span>
           {/each}
           <button type="button" class="pid-chip add" onclick={pickImportFolder}>
-            <span class="material-symbols-outlined">add</span>{$t('import.proto.addPath')}
+            <span class="material-symbols-outlined">add</span>{t('import.proto.addPath')}
           </button>
         </div>
       </div>
 
       <div class="pid-foot">
         <div class="pid-stat">
-          <div class="a">{nServices($tp, serviceCount)} · {nMethods($tp, methodCount)}</div>
+          <div class="a">{nServices(tp, serviceCount)} · {nMethods(tp, methodCount)}</div>
           {#if errCount > 0}
             <div class="w">
-              {errCount === 1
-                ? $t('import.proto.oneErr')
-                : $t('import.proto.manyErr', { files: nFiles($tp, errCount) })}
+              {errCount === 1 ? t('import.proto.oneErr') : t('import.proto.manyErr', { files: nFiles(tp, errCount) })}
             </div>
           {/if}
         </div>
-        <button type="button" class="pid-btn" onclick={close}>{$t('common.cancel')}</button>
+        <button type="button" class="pid-btn" onclick={close}>{t('common.cancel')}</button>
         <button type="button" class="pid-btn primary" disabled={okFiles.length === 0} onclick={connect}>
-          {$t('import.proto.connect', { n: okFiles.length, total: files.length })}
+          {t('import.proto.connect', { n: okFiles.length, total: files.length })}
         </button>
       </div>
     </div>

@@ -1,3 +1,4 @@
+import { untrack } from 'svelte';
 import { get } from 'svelte/store';
 import { persisted } from '$shared/persist';
 import { pruneByAge } from './history';
@@ -20,9 +21,17 @@ export const historyDays = persisted<number>('historyDays', 30);
 void historyDays.ready.then(() => {
   const prune = () => {
     const h = get(history);
-    const kept = pruneByAge(h, get(historyDays));
+    const kept = pruneByAge(
+      h,
+      untrack(() => historyDays.current),
+    );
     if (kept !== h) history.set(kept);
   };
   history.subscribe(prune);
-  historyDays.subscribe(prune);
+  $effect.root(() => {
+    $effect(() => {
+      void historyDays.current;
+      prune();
+    });
+  });
 });

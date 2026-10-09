@@ -116,7 +116,7 @@ export function needsProductionGuard(method: string, env: EnvLike | undefined): 
 }
 
 /** Short localized "time ago" label (ru: сейчас · 5 мин · 2 ч · вчера · 3 дн). Pass `$t` as `tr` from a component so it follows the language. */
-export function timeAgo(at: number, now = Date.now(), tr: Translate = get(t)): string {
+export function timeAgo(at: number, now = Date.now(), tr: Translate = t): string {
   const min = Math.floor((now - at) / 60_000);
   if (min < 1) return tr('app.time.now');
   if (min < 60) return tr('app.time.min', { n: min });
@@ -150,7 +150,7 @@ export function matchSaved(entry: HistoryEntry, saved: PaletteRequest[]): Palett
 }
 
 /** History day group: Сегодня / Вчера / «12 сент.». */
-export function historyDay(at: number, now = Date.now(), tr: Translate = get(t)): string {
+export function historyDay(at: number, now = Date.now(), tr: Translate = t): string {
   const day = (t: number) => new Date(t).setHours(0, 0, 0, 0);
   const diff = Math.round((day(now) - day(at)) / 86_400_000);
   if (diff === 0) return tr('app.day.today');

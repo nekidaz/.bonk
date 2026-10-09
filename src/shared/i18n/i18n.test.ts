@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
-import { get } from 'svelte/store';
+import { tick } from 'svelte';
 
 vi.mock('@tauri-apps/api/core', () => ({ invoke: vi.fn(async () => ({})) }));
 // node env: stub the document so i18n can set <html lang>
@@ -10,7 +10,7 @@ vi.hoisted(() => {
 });
 
 import { t, tp, plural, ru, en } from './i18n';
-import { uiLanguage } from './language';
+import { uiLanguage, watchDocumentLang } from './language.svelte';
 
 describe('i18n', () => {
   it('en and ru have identical keys', () => {
@@ -38,9 +38,7 @@ describe('i18n', () => {
     walk('src');
     const used = new Set<string>();
     for (const f of files) {
-      for (const m of readFileSync(f, 'utf8').matchAll(
-        /(?<![\w.])(?:\$t|\$tp|get\(t\)|tr)\(\s*'([a-z][\w]*(?:\.[\w-]+)+)'/g,
-      ))
+      for (const m of readFileSync(f, 'utf8').matchAll(/(?<![\w.])(?:t|tp|tr|i18nT)\(\s*'([a-z][\w]*(?:\.[\w-]+)+)'/g))
         used.add(m[1]);
     }
     const missing = [...used].filter((k) => !(k in ru));
@@ -48,19 +46,23 @@ describe('i18n', () => {
   });
 
   it('interpolates and falls back to the key', () => {
-    uiLanguage.set('en');
-    expect(get(t)('missing.key.xyz')).toBe('missing.key.xyz');
-    uiLanguage.set('ru');
+    uiLanguage.current = 'en';
+    expect(t('missing.key.xyz')).toBe('missing.key.xyz');
+    uiLanguage.current = 'ru';
   });
 
-  it('switching uiLanguage changes output', () => {
-    uiLanguage.set('ru');
-    expect(get(t)('common.cancel')).toBe('Отмена');
-    uiLanguage.set('en');
-    expect(get(t)('common.cancel')).toBe('Cancel');
+  it('switching uiLanguage changes output and <html lang>', async () => {
+    const stop = watchDocumentLang();
+    uiLanguage.current = 'ru';
+    expect(t('common.cancel')).toBe('Отмена');
+    uiLanguage.current = 'en';
+    expect(t('common.cancel')).toBe('Cancel');
+    await tick();
     expect(document.documentElement.lang).toBe('en');
-    uiLanguage.set('ru');
+    uiLanguage.current = 'ru';
+    await tick();
     expect(document.documentElement.lang).toBe('ru');
+    stop();
   });
 
   it('plural forms', () => {
@@ -76,8 +78,8 @@ describe('i18n', () => {
     ]);
     expect(plural(1, ['entry', 'entries'], 'en')).toBe('entry');
     expect(plural(2, ['entry', 'entries'], 'en')).toBe('entries');
-    uiLanguage.set('en');
-    expect(get(tp)(3, f, ['entry', 'entries'])).toBe('entries');
-    uiLanguage.set('ru');
+    uiLanguage.current = 'en';
+    expect(tp(3, f, ['entry', 'entries'])).toBe('entries');
+    uiLanguage.current = 'ru';
   });
 });

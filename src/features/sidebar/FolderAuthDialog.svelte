@@ -23,8 +23,8 @@
   <div class="bs-overlay" role="dialog" aria-modal="true">
     <div class="bs-modal">
       <div class="bs-modal-h">
-        <span class="t">{$t('dialog.auth.title', { name: folder.name })}</span>
-        <button class="x" aria-label={$t('common.close')} onclick={() => (folderId = undefined)}
+        <span class="t">{t('dialog.auth.title', { name: folder.name })}</span>
+        <button class="x" aria-label={t('common.close')} onclick={() => (folderId = undefined)}
           ><span class="material-symbols-outlined" style="font-size:18px">close</span></button
         >
       </div>
@@ -33,8 +33,8 @@
       </div>
       <div class="bs-modal-f">
         <div class="grow"></div>
-        <button class="bs-btn primary" onclick={save}>{$t('common.save')}</button>
-        <button class="bs-btn ghost" onclick={() => (folderId = undefined)}>{$t('common.cancel')}</button>
+        <button class="bs-btn primary" onclick={save}>{t('common.save')}</button>
+        <button class="bs-btn ghost" onclick={() => (folderId = undefined)}>{t('common.cancel')}</button>
       </div>
     </div>
   </div>

@@ -16,7 +16,7 @@ import {
   buildRequestForSend,
   allTestsPassed,
 } from '$shared/model';
-import { grpcTlsFor, currentGrpcPrefs, withGlobalImports, requestTimeoutMs, grpcDeadlineMs } from '$shared/settings';
+import { grpcTlsFor, currentGrpcPrefs, withGlobalImports, requestPrefs } from '$shared/settings';
 import { httpSend, runScript, grpcConnect, grpcReflect, grpcCall, grpcLoadProto } from '$shared/ipc';
 import { grpcPathsToAbs } from './protoPaths';
 import {
@@ -207,7 +207,7 @@ export async function runGrpcNode(
     nodeId: node.id,
   };
   if (!g || !g.endpoint.trim() || !g.method) {
-    return { ...base, status: 'ERR', ok: false, elapsedMs: 0, error: get(t)('runner.err.missingEndpoint') };
+    return { ...base, status: 'ERR', ok: false, elapsedMs: 0, error: t('runner.err.missingEndpoint') };
   }
   try {
     // Plaintext: honour the saved flag, else infer from the RESOLVED endpoint
@@ -217,7 +217,7 @@ export async function runGrpcNode(
       endpoint,
       plaintext,
       grpcTlsFor(endpoint, g.tls),
-      get(requestTimeoutMs),
+      requestPrefs.requestTimeoutMs,
       currentGrpcPrefs(),
     );
     // Load the schema so the call can be encoded: proto source compiles files,
@@ -253,7 +253,14 @@ export async function runGrpcNode(
     const merged = grpcAuthMetadata(effectiveAuth(get(collections), node.id, g.auth), (v) => resolveVars(v, scope));
     for (const [k, v] of Object.entries(metadata)) merged[k] = resolveVars(v, scope);
     const resolvedMetadata = outgoingGrpcMetadata(merged, stripsAuthorization(g, plaintext));
-    const result = await grpcCall(connId, g.method, resolvedMessage, resolvedMetadata, undefined, get(grpcDeadlineMs));
+    const result = await grpcCall(
+      connId,
+      g.method,
+      resolvedMessage,
+      resolvedMetadata,
+      undefined,
+      requestPrefs.grpcDeadlineMs,
+    );
 
     let error: string | undefined;
     if (g.testScript && g.testScript.trim() !== '') {

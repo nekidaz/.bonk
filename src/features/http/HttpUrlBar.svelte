@@ -28,7 +28,7 @@
 
   let { tab, methodOpen = $bindable() }: { tab: Tab; methodOpen: boolean } = $props();
 
-  const cancelledMsg = $derived($t('http.url.cancelled'));
+  const cancelledMsg = $derived(t('http.url.cancelled'));
   const activeBusy = $derived($busyMap[tab.id]);
   // S38: everyday methods first, service ones (muted) below a divider.
   const methodGroups = [
@@ -227,7 +227,7 @@
           class="bs-method-menu"
           role="menu"
           tabindex="-1"
-          aria-label={$t('http.url.method_aria')}
+          aria-label={t('http.url.method_aria')}
           bind:this={methodMenu}
           onkeydown={methodMenuKeydown}
         >
@@ -260,24 +260,24 @@
         value={tab.request.url}
         onChange={setUrl}
         singleLine
-        placeholder={$t('http.url.placeholder')}
+        placeholder={t('http.url.placeholder')}
         onEnter={() => void send()}
         onPaste={onUrlPaste}
         varHighlight={[varHighlight, urlExtensions, focused && long ? EditorView.lineWrapping : []]}
         docId={tab.id}
-        ariaLabel={$t('http.url.aria')}
+        ariaLabel={t('http.url.aria')}
       />
       {#if focused && long}
         <div class="bs-url-meta">
           <span
-            >{`${paramCount} ${$tp(paramCount, ['параметр', 'параметра', 'параметров'], ['param', 'params'])}\u00a0\u00a0·\u00a0\u00a0${$t('http.url.chars', { n: tab.request.url.length })}`}</span
-          ><span class="hint">{$t('http.url.collapse')}</span>
+            >{`${paramCount} ${tp(paramCount, ['параметр', 'параметра', 'параметров'], ['param', 'params'])}\u00a0\u00a0·\u00a0\u00a0${t('http.url.chars', { n: tab.request.url.length })}`}</span
+          ><span class="hint">{t('http.url.collapse')}</span>
         </div>
       {/if}
     </div>
     {#if !focused && hidden > 0}<span class="bs-url-more" aria-hidden="true"
         ><span class="material-symbols-outlined">unfold_more</span
-        >{`+${hidden} ${$tp(hidden, ['параметр', 'параметра', 'параметров'], ['param', 'params'])}`}</span
+        >{`+${hidden} ${tp(hidden, ['параметр', 'параметра', 'параметров'], ['param', 'params'])}`}</span
       >{/if}
   </div>
   <button
@@ -285,12 +285,12 @@
     class:cancelling={activeBusy?.kind === 'http'}
     aria-busy={activeBusy?.kind === 'http'}
     disabled={activeBusy?.kind !== 'http' && !tab.request.url.trim()}
-    title={activeBusy?.kind === 'http' ? $t('http.url.cancel_title') : undefined}
+    title={activeBusy?.kind === 'http' ? t('http.url.cancel_title') : undefined}
     onclick={send}
   >
     <span class="go">
-      {#if activeBusy?.kind === 'http'}<span>{$t('http.url.cancel')}</span><kbd>Esc</kbd>{:else}<span
-          >{$t('http.url.send')}</span
+      {#if activeBusy?.kind === 'http'}<span>{t('http.url.cancel')}</span><kbd>Esc</kbd>{:else}<span
+          >{t('http.url.send')}</span
         >{/if}
     </span>
   </button>

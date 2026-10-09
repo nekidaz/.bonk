@@ -51,8 +51,8 @@
   {:else}
     <div class="bs-pwrap">
       <div class="bs-empty">
-        <b style="margin-bottom:4px">{$t('http.empty.title', { tab: $t('http.tabs.' + uiTab) })}</b>
-        <p>{$t('http.empty.body', { tab: $t('http.tabs.' + uiTab) })}</p>
+        <b style="margin-bottom:4px">{t('http.empty.title', { tab: t('http.tabs.' + uiTab) })}</b>
+        <p>{t('http.empty.body', { tab: t('http.tabs.' + uiTab) })}</p>
       </div>
     </div>
   {/if}

@@ -1,4 +1,3 @@
-import { get } from 'svelte/store';
 import { t, type Translate } from '$shared/i18n';
 
 export interface GrpcErrorPresentation {
@@ -69,7 +68,7 @@ function cleanMessage(raw: string): string {
     .trim();
 }
 
-export function presentGrpcError(status: string, body: string, tr: Translate = get(t)): GrpcErrorPresentation {
+export function presentGrpcError(status: string, body: string, tr: Translate = t): GrpcErrorPresentation {
   const raw = body.trim() || status.trim() || tr('grpc.error.unknownRaw');
   const code = inferCode(raw, status);
   const presentation = PRESENTATIONS[code] ?? PRESENTATIONS.UNKNOWN;
@@ -103,6 +102,6 @@ const NOTE_CODES = new Set([
   'CANCELLED',
 ]);
 
-export function grpcErrorNote(code: string, numeric: number, tr: Translate = get(t)): string {
+export function grpcErrorNote(code: string, numeric: number, tr: Translate = t): string {
   return NOTE_CODES.has(code) ? tr('grpc.note.line', { n: numeric, note: tr(`grpc.note.${code}`) }) : '';
 }

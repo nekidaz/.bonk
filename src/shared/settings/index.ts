@@ -1,7 +1,7 @@
 // Public API of shared/settings (like the exported names of a Go package).
 // Code outside src/shared/settings/ imports only from here; files inside use relative paths.
 
-export { hotkeyOverrides, hotkeys, resetAllBindings, resetBinding, setBinding } from './hotkeyPrefs';
+export { hotkeyOverrides, hotkeys, resetAllBindings, resetBinding, setBinding } from './hotkeyPrefs.svelte';
 export { commandFor, eventToBinding, findConflicts, formatBinding, HOTKEY_COMMANDS, HOTKEY_GROUPS } from './hotkeys';
 export {
   activeClientCerts,
@@ -21,7 +21,7 @@ export {
   setP12Password,
   trustSystemCas,
   withGlobalImports,
-} from './netPrefs';
+} from './netPrefs.svelte';
 export {
   afterSend,
   type AfterSend,
@@ -46,18 +46,5 @@ export {
   uiFontSize,
 } from './prefs';
 export { fileName, type HostCert, proxyUrlError } from './proxy';
-export {
-  grpcAutoReflect,
-  grpcDeadlineMs,
-  proxyBypass,
-  proxyMode,
-  proxyUrl,
-  requestFollowRedirects,
-  requestTimeoutMs,
-  requestValidateTls,
-  responseBodyLimitMb,
-  responseLineWrap,
-  responsePrettyDefault,
-  trustedCaPaths,
-} from './requestPrefs';
-export { applyStoredTheme, isDarkTheme, setTheme, theme } from './theme';
+export { requestPrefs } from './requestPrefs.svelte';
+export { applyStoredTheme, isDarkTheme, setTheme, theme } from './theme.svelte';

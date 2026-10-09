@@ -47,15 +47,15 @@
     const v = view();
     if (v) toggleFoldAll(v);
   }
-  const expandKeys = $derived(formatBinding($hotkeys.expand ?? '').join(''));
+  const expandKeys = $derived(formatBinding(hotkeys.current.expand ?? '').join(''));
 </script>
 
-<div class="lb-tools" role="toolbar" aria-label={$t('lb.tools')}>
+<div class="lb-tools" role="toolbar" aria-label={t('lb.tools')}>
   {#if editor}
-    <button type="button" class="bs-ric lb-ed" aria-label={$t('lb.find')} title="{$t('lb.find')}  ⌘F" onclick={find}
+    <button type="button" class="bs-ric lb-ed" aria-label={t('lb.find')} title="{t('lb.find')}  ⌘F" onclick={find}
       ><span class="material-symbols-outlined" aria-hidden="true">search</span></button
     >
-    <button type="button" class="bs-ric lb-ed" aria-label={$t('lb.foldAll')} title={$t('lb.foldAll')} onclick={foldAll}
+    <button type="button" class="bs-ric lb-ed" aria-label={t('lb.foldAll')} title={t('lb.foldAll')} onclick={foldAll}
       ><span class="material-symbols-outlined" aria-hidden="true">unfold_less</span></button
     >
   {/if}
@@ -63,8 +63,8 @@
     <button
       type="button"
       class="bs-ric"
-      aria-label={$t('http.body.beautify')}
-      title={beautifyTitle || $t('http.body.beautify')}
+      aria-label={t('http.body.beautify')}
+      title={beautifyTitle || t('http.body.beautify')}
       disabled={!!beautifyTitle}
       onclick={onBeautify}><span class="material-symbols-outlined" aria-hidden="true">format_align_left</span></button
     >
@@ -76,8 +76,8 @@
       class="bs-ric"
       class:on={expanded}
       aria-pressed={expanded}
-      aria-label={expanded ? $t('lb.collapse') : $t('lb.expand')}
-      title="{expanded ? $t('lb.collapse') : $t('lb.expand')}  {expanded ? 'Esc' : expandKeys}"
+      aria-label={expanded ? t('lb.collapse') : t('lb.expand')}
+      title="{expanded ? t('lb.collapse') : t('lb.expand')}  {expanded ? 'Esc' : expandKeys}"
       onclick={onExpand}
       ><span class="material-symbols-outlined" aria-hidden="true">{expanded ? 'close_fullscreen' : 'open_in_full'}</span
       ></button

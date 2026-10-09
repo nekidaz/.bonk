@@ -20,14 +20,7 @@
   import { tabs, updateActiveTab, updateTabById, grpcSnapshot, titleFromUrl, GRPC_DEFAULT_TITLE } from '$entities/tab';
   import { collections } from '$entities/workspace';
   import { addHistory } from '$entities/history';
-  import {
-    requestTimeoutMs,
-    grpcDeadlineMs,
-    grpcAutoReflect,
-    grpcTlsFor,
-    currentGrpcPrefs,
-    withGlobalImports,
-  } from '$shared/settings';
+  import { grpcTlsFor, currentGrpcPrefs, withGlobalImports, requestPrefs } from '$shared/settings';
   import {
     applyScriptVars,
     addAppConsoleEntry,
@@ -146,7 +139,7 @@
   // (see grpcConnectFailureMessage in entities/request/grpc.ts).
   const grpcGuiding = $derived(isGrpcNoServicesHint(activeGrpcError));
   const editorError = $derived(
-    activeGrpcError ? presentEditorError(activeGrpcError, grpcGuiding, tab.grpc?.endpoint ?? '', $t) : undefined,
+    activeGrpcError ? presentEditorError(activeGrpcError, grpcGuiding, tab.grpc?.endpoint ?? '', t) : undefined,
   );
   const grpcPlaintext = $derived(
     tab.grpc?.plaintext ?? inferGrpcPlaintext(resolveVars(tab.grpc?.endpoint ?? '', currentVarScope())),
@@ -206,7 +199,7 @@
     let attempts = 0;
     try {
       if (t.grpc.source === 'proto' && !t.grpc.protoPaths?.length) {
-        throw new Error(get(i18nT)('grpc.selectProtoFirst'));
+        throw new Error(i18nT('grpc.selectProtoFirst'));
       }
       const endpoint = resolveVars(t.grpc.endpoint, currentVarScope());
       let connId: string;
@@ -217,7 +210,7 @@
             endpoint,
             grpcPlaintext,
             grpcTlsFor(endpoint, t.grpc.tls),
-            $requestTimeoutMs,
+            requestPrefs.requestTimeoutMs,
             currentGrpcPrefs(),
           );
           break;
@@ -231,7 +224,7 @@
       const tree =
         t.grpc.source === 'proto'
           ? await grpcLoadProto(connId, t.grpc.protoPaths ?? [], withGlobalImports(t.grpc.importPaths ?? []))
-          : await grpcReflect(connId, $requestTimeoutMs);
+          : await grpcReflect(connId, requestPrefs.requestTimeoutMs);
       updateTabById(tabId, (x) => (x.grpc ? { ...x, grpc: { ...x.grpc, connectionId: connId, tree } } : x));
     } catch (e) {
       const message = grpcConnectFailureMessage(t.grpc?.source, stage, e);
@@ -262,13 +255,13 @@
     const cmd = parseGrpcurl(text);
     if (!cmd) return false;
     updateActiveTab((t) => applyGrpcurlImport(t, cmd, titleFromUrl(cmd.endpoint, GRPC_DEFAULT_TITLE)));
-    if ($grpcAutoReflect) void tick().then(ensureConnected);
+    if (requestPrefs.grpcAutoReflect) void tick().then(ensureConnected);
     return true;
   }
   function chooseSource(source: 'reflection' | 'proto'): void {
     setSource(source);
     if (source === 'proto') importProto();
-    else if ($grpcAutoReflect) void tick().then(ensureConnected);
+    else if (requestPrefs.grpcAutoReflect) void tick().then(ensureConnected);
   }
   /** Set endpoint and drop any stale connection so the next action reconnects. */
   function setEndpoint(v: string): void {
@@ -307,7 +300,7 @@
     const tabId = tab.id;
     let g = $tabs.find((t) => t.id === tabId)?.grpc;
     if (!g?.method) {
-      grpcErrorMap.update((m) => ({ ...m, [tabId]: $t('grpc.selectMethodFirst') }));
+      grpcErrorMap.update((m) => ({ ...m, [tabId]: t('grpc.selectMethodFirst') }));
       return;
     }
     if (!g.connectionId) {
@@ -378,11 +371,11 @@
     // A failed connect/reflect already left its banner via grpcDoConnect; the
     // two cases IT can't explain (blank endpoint, no method) get their own.
     if (!g?.connectionId) {
-      if (!g?.endpoint.trim()) grpcErrorMap.update((m) => ({ ...m, [tabId]: $t('grpc.endpointFirst') }));
+      if (!g?.endpoint.trim()) grpcErrorMap.update((m) => ({ ...m, [tabId]: t('grpc.endpointFirst') }));
       return;
     }
     if (!g.method) {
-      grpcErrorMap.update((m) => ({ ...m, [tabId]: $t('grpc.selectMethodFirst') }));
+      grpcErrorMap.update((m) => ({ ...m, [tabId]: t('grpc.selectMethodFirst') }));
       return;
     }
     const requestId = crypto.randomUUID();
@@ -422,7 +415,7 @@
           message: pre.error,
           logs,
         });
-        grpcErrorMap.update((m) => ({ ...m, [tabId]: $t('grpc.err.preRequest', { err: pre.error ?? '' }) }));
+        grpcErrorMap.update((m) => ({ ...m, [tabId]: t('grpc.err.preRequest', { err: pre.error ?? '' }) }));
         busyMap.update((m) => (m[tabId]?.requestId === requestId ? omitKey(m, tabId) : m));
         return;
       }
@@ -483,7 +476,7 @@
           resolvedMessage,
           resolvedMetadata,
           requestId,
-          $grpcDeadlineMs,
+          requestPrefs.grpcDeadlineMs,
         );
       }
     } catch (e) {
@@ -553,7 +546,7 @@
         style="color:var(--method-grpc)"
         type="button"
         aria-haspopup="menu"
-        title={$t('grpc.requestType')}
+        title={t('grpc.requestType')}
         onclick={onSwitch}
       >
         <span>gRPC</span>
@@ -564,14 +557,14 @@
       value={tab.grpc?.endpoint ?? ''}
       onChange={setEndpoint}
       singleLine
-      placeholder={$t('grpc.endpointPlaceholder')}
+      placeholder={t('grpc.endpointPlaceholder')}
       onPaste={endpointPaste}
       onBlur={() => {
-        if ($grpcAutoReflect) void ensureConnected();
+        if (requestPrefs.grpcAutoReflect) void ensureConnected();
       }}
       {varHighlight}
       docId={tab.id}
-      ariaLabel={$t('grpc.endpointAria')}
+      ariaLabel={t('grpc.endpointAria')}
     />
     <GrpcTlsPopover {tab} plaintext={grpcPlaintext} {stripAuth} bind:open={tlsOpen} onPatch={setGrpc} />
     <GrpcMethodPicker
@@ -585,14 +578,14 @@
     />
   </div>
   {#if streamWritable}
-    <button class="bs-stream-btn" type="button" title={$t('grpc.endStreamTitle')} onclick={grpcEndStream}
-      >{$t('grpc.endStream')}</button
+    <button class="bs-stream-btn" type="button" title={t('grpc.endStreamTitle')} onclick={grpcEndStream}
+      >{t('grpc.endStream')}</button
     >
     <button
       class="bs-stream-btn stop"
       type="button"
-      aria-label={$t('grpc.stop')}
-      title={$t('grpc.stop')}
+      aria-label={t('grpc.stop')}
+      title={t('grpc.stop')}
       onclick={grpcStop}><span class="stop-square" aria-hidden="true"></span></button
     >
   {/if}
@@ -602,16 +595,16 @@
     class:cancelling={grpcInvoking && !streamMethod}
     class:stop={grpcInvoking && streamMethod && !streamWritable}
     aria-busy={grpcInvoking}
-    title={grpcInvoking && !streamWritable ? $t('grpc.invoking') : undefined}
+    title={grpcInvoking && !streamWritable ? t('grpc.invoking') : undefined}
     onclick={grpcDoInvoke}
   >
     <span class="go">
-      {#if streamWritable}<span>{$t('grpc.send')}</span>{:else if grpcInvoking && streamMethod}<span
+      {#if streamWritable}<span>{t('grpc.send')}</span>{:else if grpcInvoking && streamMethod}<span
           class="stop-square"
           aria-hidden="true"
-        ></span><span>{$t('grpc.stop')}</span><kbd>⌘↵</kbd>{:else if grpcInvoking}<span>{$t('common.cancel')}</span><kbd
+        ></span><span>{t('grpc.stop')}</span><kbd>⌘↵</kbd>{:else if grpcInvoking}<span>{t('common.cancel')}</span><kbd
           >Esc</kbd
-        >{:else}<span>{$t('grpc.invoke')}</span><kbd>⌘↵</kbd>{/if}
+        >{:else}<span>{t('grpc.invoke')}</span><kbd>⌘↵</kbd>{/if}
     </span>
   </button>
 </div>

@@ -89,10 +89,10 @@
 <svelte:window onkeydown={onKeydown} />
 
 {#if open}
-  <div class="bs-overlay st-overlay" role="dialog" aria-modal="true" aria-label={$t('settings.title')}>
+  <div class="bs-overlay st-overlay" role="dialog" aria-modal="true" aria-label={t('settings.title')}>
     <div class="st-sheet">
-      <nav class="st-nav" aria-label={$t('settings.sections')}>
-        <div class="st-kicker">{$t('settings.kicker')}</div>
+      <nav class="st-nav" aria-label={t('settings.sections')}>
+        <div class="st-kicker">{t('settings.kicker')}</div>
         <div class="st-ws" title={$workspacePath}>
           {$workspacePath.split('/').filter(Boolean).at(-1) ?? 'Local Workspace'}
         </div>
@@ -107,27 +107,27 @@
                 onclick={() => (pageId = p.id)}
               >
                 <span class="material-symbols-outlined" style="font-size:16px" aria-hidden="true">{p.icon}</span>
-                <span>{$t(p.label)}</span>
+                <span>{t(p.label)}</span>
               </button>
             </li>
           {/each}
         </ul>
         <div class="st-ver">
           Bonk {appVersion}{#if $updateStatus === 'uptodate'}
-            · {$t('settings.update.uptodate')}{:else if $updateStatus === 'ready'}
-            · {$t('settings.update.available')}{:else if $updateStatus === 'checking'}
-            · {$t('settings.update.checking')}{:else if $updateStatus === 'error'}
-            · {$t('settings.update.error')}{/if}
+            · {t('settings.update.uptodate')}{:else if $updateStatus === 'ready'}
+            · {t('settings.update.available')}{:else if $updateStatus === 'checking'}
+            · {t('settings.update.checking')}{:else if $updateStatus === 'error'}
+            · {t('settings.update.error')}{/if}
         </div>
       </nav>
 
       <div class="st-main">
         <header class="st-head">
           <div>
-            <h2>{$t(page.label)}</h2>
-            <p>{$t(page.sub)}</p>
+            <h2>{t(page.label)}</h2>
+            <p>{t(page.sub)}</p>
           </div>
-          <button type="button" class="st-x" aria-label={$t('common.close')} onclick={close}>
+          <button type="button" class="st-x" aria-label={t('common.close')} onclick={close}>
             <span class="material-symbols-outlined" style="font-size:18px" aria-hidden="true">close</span>
           </button>
         </header>

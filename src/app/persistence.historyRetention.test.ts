@@ -21,19 +21,15 @@ vi.mock('$shared/ipc/api', () => ({
 // persist.ts talks to Tauri via `invoke`, unavailable under vitest. `hydrate()`
 // is what registers the "lowering historyLimit truncates existing" subscription,
 // so we run it once with persist stubbed to wire that behavior up.
-vi.mock('$shared/persist/persist', async () => {
-  const { writable: writableOf } = await import('svelte/store');
-  return {
-    persisted: <T>(_k: string, v: T) => Object.assign(writableOf(v), { ready: Promise.resolve() }),
-    loadState: vi.fn(async (_key: string, fallback: unknown) => fallback),
-    saveState: vi.fn(async () => {}),
-    saveStateDebounced: vi.fn(() => {}),
-    flushPendingSaves: vi.fn(async () => {}),
-  };
-});
+vi.mock('$shared/persist/persist', () => ({
+  loadState: vi.fn(async (_key: string, fallback: unknown) => fallback),
+  saveState: vi.fn(async () => {}),
+  saveStateDebounced: vi.fn(() => {}),
+  flushPendingSaves: vi.fn(async () => {}),
+}));
 
 import { history, historyLimit, historyPaused, addHistory } from '$entities/history';
-import { hydrate } from './persistence';
+import { hydrate } from './persistence.svelte';
 
 function entry(id: string): HistoryEntry {
   return {

@@ -84,20 +84,20 @@
 >
   {#if actions && config.type !== 'start'}
     <div class="tools">
-      <button class="tool" title={$t('flow.node.colour')} onclick={() => (showColors = !showColors)}>
+      <button class="tool" title={t('flow.node.colour')} onclick={() => (showColors = !showColors)}>
         <span class="material-symbols-outlined">palette</span>
       </button>
-      <button class="tool" title={$t('flow.node.duplicate')} onclick={() => actions.duplicate(id)}>
+      <button class="tool" title={t('flow.node.duplicate')} onclick={() => actions.duplicate(id)}>
         <span class="material-symbols-outlined">content_copy</span>
       </button>
       <button
         class="tool"
-        title={disabled ? $t('flow.node.enable') : $t('flow.node.mute')}
+        title={disabled ? t('flow.node.enable') : t('flow.node.mute')}
         onclick={() => actions.toggleDisabled(id)}
       >
         <span class="material-symbols-outlined">{disabled ? 'toggle_off' : 'toggle_on'}</span>
       </button>
-      <button class="tool del" title={$t('flow.node.delete')} onclick={() => actions.remove(id)}>
+      <button class="tool del" title={t('flow.node.delete')} onclick={() => actions.remove(id)}>
         <span class="material-symbols-outlined">delete</span>
       </button>
     </div>
@@ -116,7 +116,7 @@
         {/each}
         <button
           class="sw none"
-          title={$t('flow.node.reset')}
+          title={t('flow.node.reset')}
           onclick={() => {
             actions.setColor(id, undefined);
             showColors = false;
@@ -137,21 +137,21 @@
     <div class="txt">
       {#if path}<div class="path">{path}</div>{/if}
       <div class="title">
-        {#if config.type === 'start'}{$t('flow.block.start')}
-        {:else if config.type === 'request'}{requestNode?.name ?? $t('flow.panel.pickRequest')}
-        {:else if config.type === 'if'}{$t('flow.block.if')}
+        {#if config.type === 'start'}{t('flow.block.start')}
+        {:else if config.type === 'request'}{requestNode?.name ?? t('flow.panel.pickRequest')}
+        {:else if config.type === 'if'}{t('flow.block.if')}
         {:else if config.type === 'loop'}{config.kind === 'forEach'
-            ? $t('flow.node.forEach')
-            : $t('flow.node.repeat', { n: config.count ?? 0 })}
-        {:else if config.type === 'script'}{$t('flow.block.script')}
-        {:else if config.type === 'delay'}{$t('flow.node.delayMs', { ms: config.ms })}
-        {:else if config.type === 'output'}{config.label || $t('flow.block.output')}
+            ? t('flow.node.forEach')
+            : t('flow.node.repeat', { n: config.count ?? 0 })}
+        {:else if config.type === 'script'}{t('flow.block.script')}
+        {:else if config.type === 'delay'}{t('flow.node.delayMs', { ms: config.ms })}
+        {:else if config.type === 'output'}{config.label || t('flow.block.output')}
         {/if}
       </div>
       {#if config.type === 'if'}<div class="sub">{config.condition}</div>{/if}
       {#if config.type === 'script'}<div class="sub">{config.code.split('\n')[0]}</div>{/if}
     </div>
-    {#if disabled}<span class="material-symbols-outlined mute-icon" title={$t('flow.node.muted')}>toggle_off</span>{/if}
+    {#if disabled}<span class="material-symbols-outlined mute-icon" title={t('flow.node.muted')}>toggle_off</span>{/if}
     {#if runState}<span class="dot"></span>{/if}
   </div>
 
@@ -166,7 +166,7 @@
           <span class="material-symbols-outlined" style="font-size:12px"
             >{showVars ? 'expand_more' : 'chevron_right'}</span
           >
-          {$t('flow.panel.variables', { n: variables.length })}
+          {t('flow.panel.variables', { n: variables.length })}
         </button>
       {/if}
     </div>
@@ -189,8 +189,8 @@
   {:else if ports.length === 2}
     <Handle id={ports[0]} type="source" position={Position.Right} style="top:26px" />
     <Handle id={ports[1]} type="source" position={Position.Right} style="top:46px" />
-    <span class="port-label a">{portLabel(ports[0], $t)}</span>
-    <span class="port-label b">{portLabel(ports[1], $t)}</span>
+    <span class="port-label a">{portLabel(ports[0], t)}</span>
+    <span class="port-label b">{portLabel(ports[1], t)}</span>
   {/if}
 </div>
 

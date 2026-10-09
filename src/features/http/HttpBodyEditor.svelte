@@ -54,7 +54,7 @@
   });
   const bodyInfo = $derived.by(() => {
     const mode = currentBodyMode(tab);
-    const n = (count: number) => `  ·  ${count} ${$tp(count, ['поле', 'поля', 'полей'], ['field', 'fields'])}`;
+    const n = (count: number) => `  ·  ${count} ${tp(count, ['поле', 'поля', 'полей'], ['field', 'fields'])}`;
     if (mode === 'form-data' || mode === 'urlencoded')
       return `${mode === 'form-data' ? 'multipart/form-data' : 'application/x-www-form-urlencoded'}${n((tab.request.bodyParams ?? []).filter((p) => p.key).length)}`;
     if (mode === 'graphql') return 'application/json  ·  graphql';
@@ -200,7 +200,7 @@
       else setBody(body);
       bodyError = '';
     } catch (e) {
-      bodyError = format === 'JSON' ? jsonErrorMessage(body, e) : $t('http.body.invalid', { format });
+      bodyError = format === 'JSON' ? jsonErrorMessage(body, e) : t('http.body.invalid', { format });
     }
   }
 </script>
@@ -208,19 +208,19 @@
 <div class="bs-http-body">
   {#if !large}
     <div class="bs-body-head">
-      <div class="bs-body-seg" role="radiogroup" aria-label={$t('http.body.type_aria')}>
+      <div class="bs-body-seg" role="radiogroup" aria-label={t('http.body.type_aria')}>
         {#each segments as seg (seg.key)}
           <button
             class:on={segment === seg.key}
             role="radio"
             aria-checked={segment === seg.key}
             type="button"
-            onclick={() => pickSegment(seg.key)}>{$t(seg.label)}</button
+            onclick={() => pickSegment(seg.key)}>{t(seg.label)}</button
           >
         {/each}
       </div>
       {#if segment === 'form'}
-        <div class="bs-body-seg sub" role="radiogroup" aria-label={$t('http.body.enc_aria')}>
+        <div class="bs-body-seg sub" role="radiogroup" aria-label={t('http.body.enc_aria')}>
           <button
             class:on={currentBodyMode(tab) === 'form-data'}
             role="radio"
@@ -239,23 +239,23 @@
       {:else if segment === 'raw'}
         <span class="bs-body-format">
           <select
-            aria-label={$t('http.body.raw_format_aria')}
+            aria-label={t('http.body.raw_format_aria')}
             value={currentBodyMode(tab) === 'graphql' ? 'GraphQL' : currentRawFormat(tab)}
             onchange={(e) => pickRawFormat(e.currentTarget.value)}
           >
             {#each ['JSON', 'Text', 'JavaScript', 'HTML', 'XML', 'GraphQL'] as format (format)}<option value={format}
-                >{format === 'Text' ? $t('http.body.text') : format}</option
+                >{format === 'Text' ? t('http.body.text') : format}</option
               >{/each}
           </select>
           <span class="material-symbols-outlined" aria-hidden="true">keyboard_arrow_down</span>
         </span>
       {/if}
       <span class="bs-body-info"
-        >{bodyInfo}{#if bodyInvalid}<b class="lb-bad">{'  ·  '}{$t('lb.json.invalid')}</b>{/if}</span
+        >{bodyInfo}{#if bodyInvalid}<b class="lb-bad">{'  ·  '}{t('lb.json.invalid')}</b>{/if}</span
       >
       {#if canBeautify}
         <button class="bs-body-beautify" type="button" onclick={beautifyBody}
-          ><span class="material-symbols-outlined" aria-hidden="true">format_align_left</span>{$t(
+          ><span class="material-symbols-outlined" aria-hidden="true">format_align_left</span>{t(
             'http.body.beautify',
           )}</button
         >
@@ -268,16 +268,16 @@
   {#if currentBodyMode(tab) === 'none'}
     <div class="bs-body-empty">
       <span class="material-symbols-outlined" style="font-size:34px">hide_source</span>
-      <div>{$t('http.body.empty')}</div>
+      <div>{t('http.body.empty')}</div>
     </div>
   {:else if currentBodyMode(tab) === 'form-data' || currentBodyMode(tab) === 'urlencoded'}
     <div class="bs-body-kv" class:formdata={currentBodyMode(tab) === 'form-data'}>
       <div class="bs-body-kv-row h">
         <div class="c on"></div>
-        <div class="c key">{$t('http.col.key')}</div>
-        {#if currentBodyMode(tab) === 'form-data'}<div class="c type">{$t('http.body.type')}</div>{/if}
-        <div class="c val">{$t('http.col.value')}</div>
-        <div class="c desc">{$t('http.col.description')}</div>
+        <div class="c key">{t('http.col.key')}</div>
+        {#if currentBodyMode(tab) === 'form-data'}<div class="c type">{t('http.body.type')}</div>{/if}
+        <div class="c val">{t('http.col.value')}</div>
+        <div class="c desc">{t('http.col.description')}</div>
       </div>
       {#each bodyParamRows(tab) as row, i (i)}
         <div class="bs-body-kv-row">
@@ -286,12 +286,12 @@
               type="checkbox"
               checked={row.enabled}
               onchange={() => toggleBodyParam(i)}
-              aria-label={$t('http.body.enable_param')}
+              aria-label={t('http.body.enable_param')}
             />
           </div>
           <div class="c key">
             <input
-              placeholder={$t('http.col.key')}
+              placeholder={t('http.col.key')}
               value={row.key}
               oninput={(e) => setBodyParam(i, 'key', e.currentTarget.value)}
             />
@@ -301,10 +301,10 @@
               <select
                 value={row.kind ?? 'text'}
                 onchange={(e) => setBodyParamKind(i, e.currentTarget.value as BodyParamKind)}
-                aria-label={$t('http.body.param_type_aria')}
+                aria-label={t('http.body.param_type_aria')}
               >
-                <option value="text">{$t('http.body.kind.text')}</option>
-                <option value="file">{$t('http.body.kind.file')}</option>
+                <option value="text">{t('http.body.kind.text')}</option>
+                <option value="file">{t('http.body.kind.file')}</option>
               </select>
             </div>
           {/if}
@@ -312,11 +312,11 @@
             {#if currentBodyMode(tab) === 'form-data' && (row.kind ?? 'text') === 'file'}
               <button class="bs-file-picker" type="button" onclick={() => pickBodyFile(i)}>
                 <span class="material-symbols-outlined" style="font-size:15px">attach_file</span>
-                <span>{fileName(row.filePath ?? row.value, $t)}</span>
+                <span>{fileName(row.filePath ?? row.value, t)}</span>
               </button>
             {:else}
               <input
-                placeholder={$t('http.col.value')}
+                placeholder={t('http.col.value')}
                 value={row.value}
                 oninput={(e) => setBodyParam(i, 'value', e.currentTarget.value)}
               />
@@ -324,7 +324,7 @@
           </div>
           <div class="c desc">
             <input
-              placeholder={$t('http.col.description')}
+              placeholder={t('http.col.description')}
               value={row.description}
               oninput={(e) => setBodyParam(i, 'description', e.currentTarget.value)}
             />
@@ -339,11 +339,11 @@
         <b>{fileName(tab.request.binaryFilePath)}</b>
         <span title={tab.request.binaryFilePath}>{tab.request.binaryFilePath}</span>
       </div>
-      <button type="button" onclick={pickBinaryFile}>{$t('http.body.choose_other')}</button>
+      <button type="button" onclick={pickBinaryFile}>{t('http.body.choose_other')}</button>
       <button
         type="button"
-        aria-label={$t('http.body.remove_file')}
-        title={$t('http.body.remove_file')}
+        aria-label={t('http.body.remove_file')}
+        title={t('http.body.remove_file')}
         onclick={clearBinaryFile}
       >
         <span class="material-symbols-outlined" aria-hidden="true">close</span>
@@ -352,22 +352,22 @@
   {:else if currentBodyMode(tab) === 'graphql'}
     <div class="bs-graphql-editors">
       <section class="bs-graphql-panel">
-        <div class="bs-graphql-label">{$t('http.body.gql_query')}</div>
+        <div class="bs-graphql-label">{t('http.body.gql_query')}</div>
         <div class="bs-body-cm" class:invalid={!!bodyError}>
           <CodeEditor
             value={tab.request.body ?? ''}
             onChange={setBody}
             lang="javascript"
-            placeholder={bodyPlaceholder(tab, $t)}
+            placeholder={bodyPlaceholder(tab, t)}
             fill
             {varHighlight}
             docId={`${tab.id}:graphql-query`}
-            ariaLabel={$t('http.body.gql_query_aria')}
+            ariaLabel={t('http.body.gql_query_aria')}
           />
         </div>
       </section>
       <section class="bs-graphql-panel">
-        <div class="bs-graphql-label">{$t('http.body.gql_vars')}</div>
+        <div class="bs-graphql-label">{t('http.body.gql_vars')}</div>
         <div class="bs-body-cm">
           <CodeEditor
             value={tab.request.graphqlVariables ?? ''}
@@ -377,7 +377,7 @@
             fill
             {varHighlight}
             docId={`${tab.id}:graphql-variables`}
-            ariaLabel={$t('http.body.gql_vars_aria')}
+            ariaLabel={t('http.body.gql_vars_aria')}
           />
         </div>
       </section>
@@ -387,9 +387,9 @@
       <div class="bs-binary-picker">
         <button type="button" onclick={pickBinaryFile}
           ><span class="material-symbols-outlined" aria-hidden="true">attach_file</span>
-          {$t('http.body.select_file')}</button
+          {t('http.body.select_file')}</button
         >
-        <span>{$t('http.body.or_text')}</span>
+        <span>{t('http.body.or_text')}</span>
       </div>
     {/if}
     <div class="bs-body-cm" class:invalid={!!bodyError}>
@@ -397,13 +397,13 @@
         value={tab.request.body ?? ''}
         onChange={setBody}
         lang={bodyLang}
-        placeholder={bodyPlaceholder(tab, $t)}
+        placeholder={bodyPlaceholder(tab, t)}
         minHeight="120px"
         {varHighlight}
         lintJson
         autoFold
         docId={tab.id}
-        ariaLabel={$t('http.body.aria')}
+        ariaLabel={t('http.body.aria')}
       />
     </div>
   {/if}

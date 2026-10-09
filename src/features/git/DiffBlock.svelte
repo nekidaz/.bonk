@@ -6,7 +6,7 @@
   const rows = $derived(diffRows(text));
 </script>
 
-<div class="bs-git-diff-code" role="region" aria-label={$t('util.diff.aria')}>
+<div class="bs-git-diff-code" role="region" aria-label={t('util.diff.aria')}>
   {#each rows as row, i (i)}
     <div class="bs-git-diff-row {row.cls}">
       <span class="old">{row.oldLine}</span>

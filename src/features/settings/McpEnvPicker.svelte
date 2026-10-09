@@ -21,8 +21,8 @@
   let input = $state<HTMLInputElement | undefined>(undefined);
   let pos = $state({ left: 0, top: 0 });
 
-  const scope = $derived(scopeOf($mcpPrefs));
-  const allowed = $derived(allowedEnvNames($mcpPrefs, $environments));
+  const scope = $derived(scopeOf(mcpPrefs.current));
+  const allowed = $derived(allowedEnvNames(mcpPrefs.current, $environments));
   // One row per name: the allow-list is name-based.
   const rows = $derived.by(() => {
     const byName = new Map<string, { name: string; prod: boolean }>();
@@ -34,10 +34,10 @@
   const q = $derived(query.trim().toLowerCase());
   const shown = $derived(rows.filter((r) => !q || r.name.toLowerCase().includes(q)));
   const label = $derived(
-    $t(scope === 'all-but-prod' ? 'settings.mcp.envChip.all' : 'settings.mcp.envChip.sel', { n: allowed.size, total }),
+    t(scope === 'all-but-prod' ? 'settings.mcp.envChip.all' : 'settings.mcp.envChip.sel', { n: allowed.size, total }),
   );
 
-  const apply = (p: Partial<McpPrefs>) => mcpPrefs.update((v) => ({ ...v, ...p }));
+  const apply = (p: Partial<McpPrefs>) => (mcpPrefs.current = { ...mcpPrefs.current, ...p });
 
   async function toggle(): Promise<void> {
     open = !open;
@@ -72,7 +72,7 @@
     {disabled}
     aria-haspopup="dialog"
     aria-expanded={open}
-    aria-label={$t('settings.mcp.envs.aria')}
+    aria-label={t('settings.mcp.envs.aria')}
     onclick={() => void toggle()}
   >
     <span>{label}</span><span class="material-symbols-outlined" aria-hidden="true"
@@ -86,7 +86,7 @@
       class="me-pop"
       style="left:{pos.left}px;top:{pos.top}px"
       role="dialog"
-      aria-label={$t('settings.mcp.envs')}
+      aria-label={t('settings.mcp.envs')}
       tabindex="-1"
       onkeydown={onKey}
     >
@@ -95,21 +95,21 @@
         <input
           bind:this={input}
           bind:value={query}
-          placeholder={$t('settings.mcp.env.search')}
-          aria-label={$t('settings.mcp.env.search')}
+          placeholder={t('settings.mcp.env.search')}
+          aria-label={t('settings.mcp.env.search')}
           autocomplete="off"
           spellcheck="false"
         />
         <span class="me-total">{total}</span>
       </div>
 
-      <div class="me-scope" role="radiogroup" aria-label={$t('settings.mcp.envs')}>
+      <div class="me-scope" role="radiogroup" aria-label={t('settings.mcp.envs')}>
         <button
           type="button"
           role="radio"
           aria-checked={scope === 'all-but-prod'}
           class:on={scope === 'all-but-prod'}
-          onclick={() => apply({ envScope: 'all-but-prod' })}>{$t('settings.mcp.env.scopeAll')}</button
+          onclick={() => apply({ envScope: 'all-but-prod' })}>{t('settings.mcp.env.scopeAll')}</button
         >
         <button
           type="button"
@@ -117,18 +117,18 @@
           aria-checked={scope === 'selected'}
           class:on={scope === 'selected'}
           onclick={() => apply({ envScope: 'selected', environments: [...allowed] })}
-          >{$t('settings.mcp.env.scopeSel')}</button
+          >{t('settings.mcp.env.scopeSel')}</button
         >
       </div>
 
       <div class="me-eyebrow">
-        <span>{$t('settings.mcp.env.allowed', { n: allowed.size, total })}</span>
+        <span>{t('settings.mcp.env.allowed', { n: allowed.size, total })}</span>
         <span class="me-bulk">
           <button type="button" onclick={() => apply(setAllEnvs($environments, true))}
-            >{$t('settings.mcp.env.all')}</button
+            >{t('settings.mcp.env.all')}</button
           >
           <button type="button" onclick={() => apply(setAllEnvs($environments, false))}
-            >{$t('settings.mcp.env.none')}</button
+            >{t('settings.mcp.env.none')}</button
           >
         </span>
       </div>
@@ -139,29 +139,29 @@
             <input
               type="checkbox"
               checked={allowed.has(r.name)}
-              onchange={() => apply(toggleEnv($mcpPrefs, $environments, r.name))}
+              onchange={() => apply(toggleEnv(mcpPrefs.current, $environments, r.name))}
             />
             <span class="me-nm" title={r.name}>{r.name}</span>
-            {#if r.prod}<span class="me-prod">{$t('settings.mcp.env.prod')}</span>{/if}
+            {#if r.prod}<span class="me-prod">{t('settings.mcp.env.prod')}</span>{/if}
           </label>
         {:else}
-          <div class="me-empty">{$t(total ? 'settings.mcp.env.noMatch' : 'settings.mcp.env.empty')}</div>
+          <div class="me-empty">{t(total ? 'settings.mcp.env.noMatch' : 'settings.mcp.env.empty')}</div>
         {/each}
       </div>
 
       <div class="me-auto" class:dim={scope === 'all-but-prod'}>
-        <span id="me-auto-l">{$t('settings.mcp.env.autoNew')}</span>
+        <span id="me-auto-l">{t('settings.mcp.env.autoNew')}</span>
         <button
           type="button"
           class="mono-switch"
           role="switch"
           aria-labelledby="me-auto-l"
           disabled={scope === 'all-but-prod'}
-          aria-checked={!!$mcpPrefs.autoAllowNew}
-          onclick={() => apply({ autoAllowNew: !$mcpPrefs.autoAllowNew })}
+          aria-checked={!!mcpPrefs.current.autoAllowNew}
+          onclick={() => apply({ autoAllowNew: !mcpPrefs.current.autoAllowNew })}
         ></button>
       </div>
-      <p class="me-foot">{$t('settings.mcp.env.footer')}</p>
+      <p class="me-foot">{t('settings.mcp.env.footer')}</p>
     </div>
   {/if}
 </div>
