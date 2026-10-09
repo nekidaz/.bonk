@@ -119,9 +119,15 @@ function prettyEmbeddedJson(raw: string): string | undefined {
  * is shown. The result is hard-capped at DISPLAY_CHARS so the renderer never
  * receives more than ~1 MB regardless of how big the response was.
  */
-export function displayText(body: string, format: ResponseFormat, mode: RenderMode): { text: string; truncated: boolean } {
+export function displayText(
+  body: string,
+  format: ResponseFormat,
+  mode: RenderMode,
+  cap: number = DISPLAY_CHARS,
+  parseBudget: number = PARSE_BUDGET,
+): { text: string; truncated: boolean } {
   let text = body;
-  if (mode !== 'raw' && body.length <= PARSE_BUDGET) {
+  if (mode !== 'raw' && body.length <= parseBudget) {
     if (format === 'JSON') {
       try {
         text = JSON.stringify(JSON.parse(body), null, 2);
@@ -132,8 +138,47 @@ export function displayText(body: string, format: ResponseFormat, mode: RenderMo
       text = formatMarkup(body);
     }
   }
-  if (text.length > DISPLAY_CHARS) return { text: text.slice(0, DISPLAY_CHARS), truncated: true };
+  if (text.length > cap) return { text: text.slice(0, cap), truncated: true };
   return { text, truncated: false };
+}
+
+/**
+ * Bodies up to this many chars go into the read-only CodeMirror viewer (virtualized, searchable, foldable);
+ * beyond it, or for text with extremely long lines, the chunked HTML renderer below stays the fallback.
+ */
+export const CM_MAX_CHARS = 32_000_000;
+/** The CodeMirror path can afford a bigger one-off JSON.parse + indent (~0.5 s at the limit) since it then scrolls natively. */
+export const CM_PARSE_BUDGET = 16_000_000;
+
+export interface ResponseDoc {
+  text: string;
+  truncated: boolean;
+  format: ResponseFormat;
+}
+
+const lineBroken = (text: string): boolean => countNewlines(text) + 1 >= text.length / LONG_LINE_AVG;
+
+/**
+ * Text for the CodeMirror viewer, or undefined when the chunked HTML view should be used instead:
+ * small HTML/XML (the legacy path highlights markup, CM has no markup grammar here), and minified
+ * long-line text (CM slows down on multi-100 KB lines).
+ */
+export function computeDoc(body: string, contentType: string, mode: RenderMode): ResponseDoc | undefined {
+  const format = responseFormat(body, contentType);
+  if ((format === 'HTML' || format === 'XML') && body.length <= PLAIN_LIMIT) return undefined;
+  const { text, truncated } = displayText(body, format, mode, CM_MAX_CHARS, CM_PARSE_BUDGET);
+  if (text.length > PLAIN_LIMIT && !lineBroken(text)) return undefined;
+  return { text, truncated, format };
+}
+
+const docCache = new WeakMap<object, Map<string, ResponseDoc | null>>();
+/** Memoized {@link computeDoc} per response object. */
+export function buildDoc(source: { body: string }, contentType: string, mode: RenderMode): ResponseDoc | undefined {
+  const key = `${mode}:${contentType}`;
+  let m = docCache.get(source);
+  if (!m) docCache.set(source, (m = new Map()));
+  if (!m.has(key)) m.set(key, computeDoc(source.body, contentType, mode) ?? null);
+  return m.get(key) ?? undefined;
 }
 
 function countNewlines(text: string): number {
