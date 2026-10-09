@@ -25,8 +25,9 @@ sidecar: # stage the MCP sidecar binary — src-tauri's build.rs refuses to buil
 
 check: lint test build ## everything CI runs
 
-lint: sidecar ## svelte-check (TS types) + rustfmt check + clippy (warnings = errors)
+lint: sidecar ## svelte-check (TS types) + prettier/rustfmt check + clippy (warnings = errors)
 	npm run check
+	npx prettier --check .
 	cargo fmt --all --check
 	cargo clippy --workspace --all-targets -- -D warnings
 
@@ -48,8 +49,9 @@ visual-baseline: build ## capture screenshots of the current UI as the baseline
 visual: build ## compare the UI against the baseline; diff report in visual/report
 	npx playwright test
 
-fmt: ## format Rust code
+fmt: ## format everything: Rust (rustfmt) + TS/Svelte/CSS (prettier)
 	cargo fmt --all
+	npx prettier --write .
 
 bump: ## set version everywhere: make bump V=0.1.9
 	@test -n "$(V)" || { echo "usage: make bump V=x.y.z"; exit 1; }

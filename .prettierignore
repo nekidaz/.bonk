@@ -1,0 +1,19 @@
+# Prettier formats the frontend; Rust has rustfmt. Generated, vendored and design files stay as-is.
+dist/
+node_modules/
+target/
+src-tauri/
+crates/
+docs/landing/
+design/
+visual/report/
+visual/__screenshots__/
+test-results/
+package-lock.json
+*.md
+.claude/
+.github/
+examples/
+public/
+.superpowers/
+.vscode/
