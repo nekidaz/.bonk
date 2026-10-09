@@ -5,7 +5,7 @@
  * which the Rust git commands take as their `root`. Actions guard on a
  * non-empty workspace, try/catch-log failures (so a failed git op never throws
  * into the UI), and refresh the cached status afterwards. `watchGitWorkspace`
- * (started by main.ts) re-reads (or clears) the status whenever the workspace
+ * (started by app/lifecycle) re-reads (or clears) the status whenever the workspace
  * switches or closes.
  */
 import { untrack } from 'svelte';
@@ -161,7 +161,7 @@ export async function push(): Promise<string> {
 
 /**
  * Keep git status in sync with the active workspace: switching, opening, or closing the
- * workspace re-reads (or clears, when empty) the status. Started once by main.ts; returns a stop function.
+ * workspace re-reads (or clears, when empty) the status. Started once by startApp() (app/lifecycle); returns a stop function.
  */
 export function watchGitWorkspace(): () => void {
   return $effect.root(() => {

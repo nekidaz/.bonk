@@ -17,7 +17,7 @@ export const historyDays = persisted<number>('historyDays', 30);
 /**
  * Drop entries older than `historyDays`: on every history change and when the setting changes, but
  * only once the saved setting has loaded (else the 30-day default would eat a "forever" history).
- * Started once by main.ts; returns a stop function.
+ * Started once by startApp() (app/lifecycle); returns a stop function.
  */
 export function watchHistoryRetention(): () => void {
   return $effect.root(() => {

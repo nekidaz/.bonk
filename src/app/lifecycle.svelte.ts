@@ -1,4 +1,7 @@
-import { onMount } from 'svelte';
+import { onDestroy, onMount } from 'svelte';
+import { watchGitWorkspace } from '$entities/git';
+import { watchHistoryRetention } from '$entities/history';
+import { watchDocumentLang } from '$shared/i18n';
 import { flushPendingSaves } from '$shared/persist';
 import {
   autoUpdateCheck,
@@ -19,6 +22,12 @@ import { hydrate } from './persistence.svelte';
  * listeners belong to App and stop when it unmounts (like `defer` in a Go main).
  */
 export function startApp(): void {
+  // Watchers: each keeps something in sync with one slice's state for the whole session
+  // (like goroutines started in main); onDestroy stops them.
+  onDestroy(watchDocumentLang());
+  onDestroy(watchHistoryRetention());
+  onDestroy(watchGitWorkspace());
+
   layout.startEffects();
 
   // Settings → Внешний вид: text size shifts the whole type scale (13 = design default),
