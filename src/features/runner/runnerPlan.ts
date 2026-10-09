@@ -1,7 +1,7 @@
 /**
  * Pure Collection Runner logic: config/run shapes and defaults, scope → request
  * planning, settings clamping/merging, the exported report and the «Брать id из …»
- * edit plan. No store reads/writes, no IPC — stores/runner.ts wires these in.
+ * edit plan. No store reads/writes, no IPC — store.ts wires these in.
  */
 import { get } from 'svelte/store';
 import { t, type Translate } from '$shared/i18n';

@@ -15,7 +15,7 @@ import { environments, activeEnvironmentId, addEnvironment, setEnvVars } from '$
 
 /**
  * OpenAPI / Swagger import + export orchestration. The pure parse/build logic
- * lives in `domain/openapi`; this module wires it to the workspace, environments,
+ * lives in `openapi.ts`; this module wires it to the workspace, environments,
  * and the native file dialogs (via `api`). Errors surface with `console.error`
  * and a rethrow, matching how other workspace mutations report failure.
  */

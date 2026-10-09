@@ -2,7 +2,7 @@
  * The Flow interpreter: an async depth-first walk of a Flow graph. All side
  * effects (sending requests, running sandbox scripts, sleeping, progress
  * reporting, cancellation) are injected via `FlowEffects`, so this module stays
- * pure and unit-testable; `stores/flow.ts` wires the real implementations.
+ * pure and unit-testable; `entities/flow/store.ts` wires the real implementations.
  *
  * Semantics:
  * - Exactly one `start` block is required; execution begins there with `{}`.

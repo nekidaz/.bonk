@@ -12,7 +12,7 @@ pub(crate) type VariableMap = BTreeMap<String, String>;
 /// (environment, globals, secret values to redact)
 pub(crate) type Scopes = (VariableMap, VariableMap, Vec<String>);
 
-/// Keychain service the Bonk app stores secret variables under (see src/lib/domain/secrets.ts).
+/// Keychain service the Bonk app stores secret variables under (see src/app/secrets.ts).
 const KEYCHAIN_SERVICE: &str = "io.github.nekidaz.bonk";
 
 #[derive(Debug, Default, Deserialize)]

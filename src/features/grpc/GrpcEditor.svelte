@@ -3,7 +3,7 @@
    * gRPC request editor for the active tab: the endpoint bar + method picker,
    * the error banner, and the message / metadata / service-definition sub-tabs.
    * This file owns the connect / invoke / stream orchestration (store-bound);
-   * the UI sections live in ./grpc/ and the pure helpers in domain/grpcEditor.ts.
+   * the UI sections live in this folder (Grpc*.svelte) and the pure helpers in grpcEditor.ts.
    *
    * The response area (`.bs-resp`) and its split-resize handle stay in
    * App.svelte; this component owns only the gRPC request-editing UI and its
@@ -143,7 +143,7 @@
   const activeGrpcError = $derived($grpcErrorMap[tab.id] ?? '');
   // Postman-style: when the dial succeeded but the services can't be listed via
   // reflection, show neutral guidance to load a schema instead of a red error
-  // (see grpcConnectFailureMessage in domain/grpc).
+  // (see grpcConnectFailureMessage in entities/request/grpc.ts).
   const grpcGuiding = $derived(isGrpcNoServicesHint(activeGrpcError));
   const editorError = $derived(
     activeGrpcError ? presentEditorError(activeGrpcError, grpcGuiding, tab.grpc?.endpoint ?? '', $t) : undefined,

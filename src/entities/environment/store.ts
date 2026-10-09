@@ -28,8 +28,8 @@ export function currentVarScope(redactSecrets = false): Record<string, string> {
 }
 
 /**
- * Environment + variable CRUD. Depends only on `state` (never on other feature
- * modules), keeping the stores import graph acyclic. The EnvironmentsSheet
+ * Environment + variable CRUD. Depends only on `entities/tab` and shared
+ * layers (never on other entities), keeping the slice graph acyclic. The EnvironmentsSheet
  * and the toolbar selector drive everything through these helpers.
  */
 

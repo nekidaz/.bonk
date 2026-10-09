@@ -47,10 +47,9 @@ import { runNode } from '$entities/request';
  * streaming results live. It reuses the interactive send + script pipeline
  * (mirroring `sendHttpRequest`) but returns data rather than writing to a tab.
  *
- * Layering matches `requests.ts`: this module depends on `state`, `requests`
- * (for the shared `applyScriptVars` fold + request settings), `api`, and pure
- * `domain/*` helpers only — never the other way round — so the stores import
- * graph stays acyclic.
+ * Layering: this module depends on `entities/request` (the shared `applyScriptVars`
+ * fold + `execute.ts`), `shared/ipc` and pure model helpers only — never the other
+ * way round — so the slice graph stays acyclic.
  *
  * Env/globals writes made by scripts persist across the WHOLE run: each request
  * folds its writes into the real stores via `applyScriptVars`, and every request

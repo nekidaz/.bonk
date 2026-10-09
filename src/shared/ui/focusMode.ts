@@ -1,4 +1,4 @@
-/** Expanded (focus) mode and collapsed-pane helpers. Pure; the UI state lives in stores/ui.ts. */
+/** Expanded (focus) mode and collapsed-pane helpers. Pure; the UI state lives in focusModeStore.ts. */
 export type FocusMode = 'request' | 'response' | null;
 
 /** Expand button: enter `want`, or leave when that pane is already expanded. */

@@ -3,7 +3,7 @@
  * Postman Flows-style feature). A Flow is a document: blocks positioned on a
  * canvas plus directed edges between named output ports and target blocks.
  *
- * Leaf module: types only, no imports from stores/api, so the import graph
+ * Leaf module: types only, no imports from stores or ipc, so the import graph
  * stays acyclic (matches `scripts.ts` / `tab.ts` layering).
  */
 

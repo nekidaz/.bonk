@@ -90,7 +90,7 @@ export type PersistedStore<T> = Writable<T> & { ready: Promise<void> };
 
 /**
  * A writable that restores itself from app-state on creation and saves every
- * later change, so a settings module needs no wiring in stores/persistence.ts.
+ * later change, so a settings module needs no wiring in app/persistence.ts.
  * Holds `fallback` until `ready` resolves; without `validate`, a stored value of
  * a different type than `fallback` is ignored.
  */

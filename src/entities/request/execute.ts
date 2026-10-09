@@ -36,12 +36,12 @@ import { currentRequestSettings, applyScriptVars } from './store';
  * interactive send + script pipeline and returns a result row instead of writing
  * to a tab. Folds script env/globals writes into the real stores via
  * `applyScriptVars`, and recomputes the env/globals maps FRESH per request so a
- * later request sees an earlier one's writes. Depends on `state`, `requests`,
- * `api` and pure `domain/*` only (never on `runner.ts`), keeping the graph acyclic.
+ * later request sees an earlier one's writes. Depends on `store.ts`,
+ * `shared/ipc` and pure model code only (never on `features/runner`), keeping the graph acyclic.
  */
 
 // ---- Run scope helpers (recomputed FRESH per request; see the fold note) ----
-// Exported for stores/flow.ts, which shares the same script-context needs.
+// Exported for entities/flow/store.ts, which shares the same script-context needs.
 
 /** The active environment's `name → value` map, or `{}` when none is selected. */
 export function activeEnvMap(): Record<string, string> {
@@ -124,7 +124,7 @@ async function runHttp(req: HttpRequest, iterationData: Record<string, string>):
 /**
  * Execute one saved HTTP request for iteration `iteration` and return its row.
  * A transport throw becomes an `ok:false` row (never crashes the run).
- * Exported for stores/flow.ts (a Flow request block is one runner row).
+ * Exported for entities/flow/store.ts (a Flow request block is one runner row).
  */
 export async function runHttpNode(
   node: RequestNode,
@@ -182,7 +182,7 @@ export async function runHttpNode(
  * needed just to know the method exists), so it can patch message/metadata but
  * not the endpoint. The whole connect → (proto/reflect) → call cycle is
  * wrapped so ANY failure yields an `ok:false` row and the run continues.
- * Exported for stores/flow.ts (a Flow request block is one runner row).
+ * Exported for entities/flow/store.ts (a Flow request block is one runner row).
  */
 export async function runGrpcNode(
   node: RequestNode,

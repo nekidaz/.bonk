@@ -5,7 +5,7 @@
    * then the run itself — R3 while it goes (progress strip + live log, pause /
    * stop) and R4 once it is done (summary with deltas to the previous run, the
    * requests × iterations matrix with a waterfall, the selected call's details).
-   * Run logic lives in the runner store; the math in domain/runnerStats.
+   * Run logic lives in the runner store; the math in runnerStats.ts.
    */
   import { onMount } from 'svelte';
   import { collections, findNode } from '$entities/workspace';

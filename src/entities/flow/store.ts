@@ -15,13 +15,13 @@ export const flows = writable<Flow[]>([]);
 /**
  * Flows: CRUD over the persisted `flows` store, the per-run live state the
  * canvas renders (block badges + output log), and `runFlow`, which wires the
- * pure interpreter (`domain/flowRun.ts`) to the real app: saved requests run
+ * pure interpreter (`flowRun.ts`) to the real app: saved requests run
  * through the Collection Runner's headless pipeline, scripts/conditions run in
  * the sandbox with the block payload exposed, and env/globals writes fold into
  * the real stores exactly like everywhere else.
  *
- * Layering matches `runner.ts`: depends on `state`, `requests`, `runner`,
- * `api`, and pure `domain/*` only — the stores import graph stays acyclic.
+ * Layering: depends on `entities/request` (incl. `execute.ts`), `entities/tab`,
+ * `entities/workspace`, `shared/ipc` and pure model code only — slices stay acyclic.
  */
 
 // ---- Live run state ----

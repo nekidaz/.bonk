@@ -59,7 +59,7 @@ export interface VariableHighlightOptions {
 const okDeco = Decoration.mark({ class: 'cm-var-ok' });
 const missingDeco = Decoration.mark({ class: 'cm-var-missing' });
 
-/** Same pattern as `resolveVars` (domain/vars.ts) so highlight == resolution. */
+/** Same pattern as `resolveVars` (shared/model/vars.ts) so highlight == resolution. */
 const VAR_PATTERN = /\{\{\s*([^{}]*?)\s*\}\}/g;
 
 function highlightPlugin(opts: VariableHighlightOptions): Extension {

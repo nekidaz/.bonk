@@ -30,12 +30,12 @@ export function withInheritedAuth<T extends { request: HttpRequest }>(x: T, id: 
 
 // ---------- Recent-workspace bookkeeping ----------
 
-/** @internal — used within stores/; not re-exported by the barrel. */
+/** @internal — used within entities/workspace; not in index.ts. */
 export function normalizeWorkspaceRecents(paths: string[]): string[] {
   return Array.from(new Set(paths.map((p) => p.trim()).filter(Boolean))).slice(0, 10);
 }
 
-/** @internal — used within stores/; not re-exported by the barrel. */
+/** @internal — used within entities/workspace; not in index.ts. */
 export function rememberWorkspacePath(path: string): void {
   const clean = path.trim();
   if (!clean) return;
@@ -70,7 +70,7 @@ export function withSavedCollapse(root: string, tree: TreeNode[]): TreeNode[] {
   return applyExpanded(tree, new Map((collapsedFolders[root] ?? []).map((id) => [id, false])));
 }
 
-/** @internal — used within stores/; not re-exported by the barrel. */
+/** @internal — used within entities/workspace; not in index.ts. */
 export async function reloadWorkspace(): Promise<void> {
   const path = get(workspacePath);
   if (!path) return;
@@ -95,7 +95,7 @@ export async function reloadWorkspace(): Promise<void> {
  * `workspace: <name> failed`. Preserves the wrapped fn's return value on
  * success and yields `undefined` on error, so callers that return a value
  * (e.g. a new node id) keep working unchanged.
- * @internal — used within stores/; not re-exported by the barrel.
+ * @internal — used within entities/workspace; not in index.ts.
  */
 export async function runWorkspaceOp<T>(name: string, fn: () => Promise<T>): Promise<T | undefined> {
   try {

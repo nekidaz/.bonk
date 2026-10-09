@@ -2,10 +2,10 @@ import { get } from 'svelte/store';
 import { t } from '$shared/i18n';
 /**
  * Pure OpenAPI / Swagger import + export. This module is a leaf: it imports only
- * `types` and the `yaml` codec, never stores/api/tauri, so it stays fully
+ * `types` and the `yaml` codec, never stores/ipc/tauri, so it stays fully
  * unit-testable and the import graph stays acyclic. Store orchestration
  * (picking files, creating folders/environments, native save) lives in
- * `stores/openapi.ts`.
+ * `importExport.ts`.
  *
  * Import parses an OpenAPI 3.0/3.1 or Swagger 2.0 document (JSON or YAML) into a
  * set of folders of `RequestNode`s plus a base URL. Export walks saved requests

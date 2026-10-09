@@ -5,7 +5,7 @@ import { t, type Translate } from '$shared/i18n';
 /**
  * Pure Collection Runner math: run summaries + history deltas, the
  * requests × iterations matrix, waterfall geometry and the "likely cause"
- * heuristic. No stores, no I/O — RunnerView and stores/runner.ts call in.
+ * heuristic. No stores, no I/O — RunnerView and store.ts call in.
  */
 
 /** One finished run, persisted (last 10) for the summary deltas + bar chart. */

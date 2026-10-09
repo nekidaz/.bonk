@@ -19,11 +19,11 @@ layers with a deliberately thin boundary between them:
 ┌─────────────────────────────────────────────────────────────────┐
 │  src/  — Svelte 5 (WKWebView)                                     │
 │                                                                   │
-│  App.svelte ── stores/ (tabs, workspace, requests, history, …)   │
-│       │            │                                              │
-│       │            ├── api.ts        (invoke wrappers)            │
-│       │            └── persist.ts    (invoke wrappers)            │
-│       │            domain/: types, tree, http, curl, grpc, method │
+│  app/App.svelte ── features/ ── entities/ (tab, workspace, …)     │
+│       │                              │                            │
+│       │            shared/ipc/api.ts, shared/persist/persist.ts   │
+│       │            (invoke wrappers)                              │
+│       │            shared/model: types, http, vars, curl          │
 └───────┼───────────────────────────────────────────────────────────┘
         │  Tauri IPC  (invoke "command", JSON args/results)
 ┌───────▼───────────────────────────────────────────────────────────┐
@@ -69,30 +69,34 @@ over `bonk-core`; folder/file dialogs and MCP client setup are shell-owned:
 | App state | `app_state_load`, `app_state_set` |
 | MCP integration | `mcp_integration_status`, `mcp_install`, `mcp_uninstall` |
 
-Frontend bindings live in `src/lib/api.ts` (workspace/http/gRPC) and
-`src/lib/persist.ts` (app state). The table lists the core commands; the full set
+Frontend bindings live in `src/shared/ipc/api.ts` (workspace/http/gRPC) and
+`src/shared/persist/persist.ts` (app state). The table lists the core commands; the full set
 (git, terminal, secrets, OpenAPI, proto, etc.) is the `generate_handler!` list in
 `src-tauri/src/lib.rs`.
 
-## Frontend layout (`src/lib/`)
+## Frontend layout (`src/`)
 
-| Dir | Holds | Rule |
+Four layers, one folder per slice (`src/<layer>/<slice>/`). Imports only go down; the rules
+are enforced by `src/architecture.test.ts`. Path aliases: `$shared`, `$entities`, `$features`.
+
+| Layer | Holds | Rule |
 | --- | --- | --- |
-| `domain/` | pure TS logic (URL building, curl, tree ops, runner planning, …) | no imports from `stores/` or `components/`; unit-tested |
-| `stores/` | app state split by responsibility, re-exported by `index.ts` | acyclic: `domain` → `state` → feature stores |
-| `components/` | Svelte views; sub-areas in `http/`, `grpc/`, `settings/` | no business logic beyond view-state |
-| `editor/` | CodeMirror extensions | — |
-| `i18n/` | UI strings per area, `ru` + `en` | a missing `en` key is a type error |
+| `app/` | the shell: `App.svelte`, toolbar, tab bar, status bar, `persistence.ts` (hydrate), `secrets.ts` | may import everything; only `main.ts` imports it |
+| `features/` | user capabilities: `http`, `grpc`, `response`, `codegen`, `sidebar`, `environments`, `runner`, `flow`, `git`, `settings`, `command-palette`, `utility-panel`, `workspace-menu`, `updater`, `import`, `tabs` | never import each other |
+| `entities/` | core models and their state (`store.ts` + pure logic): `tab`, `environment`, `workspace`, `history`, `request`, `flow`, `git` | may import each other, never in a cycle |
+| `shared/` | foundation: `persist`, `i18n`, `model` (types + pure request model: http, vars, curl, scripts), `ipc` (`api.ts`), `settings`, `ui`, `editor`, `updater` | no tab/workspace/request state |
 
-Tests sit next to the module they cover (`foo.ts` → `foo.test.ts`).
+A slice's public API is its `index.ts` (code) and `components.ts` (Svelte components); other
+slices import only those, never deep paths. Tests sit next to the module they cover
+(`foo.ts` → `foo.test.ts`). Global CSS stays in `src/app.css`, `src/bigsur.css`, `src/styles/`.
 
 ## HTTP request flow
 
 ```mermaid
 sequenceDiagram
-    participant UI as App.svelte
-    participant S as stores/requests.ts
-    participant API as api.ts
+    participant UI as app/App.svelte
+    participant S as entities/request/store.ts
+    participant API as shared/ipc/api.ts
     participant CMD as commands::http_send
     participant CORE as bonk_core::application::http
     participant NET as target server
@@ -151,9 +155,9 @@ legacy `bonk.json` (old `@tauri-apps/plugin-store` file) if `state.json` is abse
 ## Core data types
 
 - **`TreeNode = FolderNode | RequestNode`** (`domain/workspace.rs`, mirrored in
-  `src/lib/domain/types.ts`) — discriminated by `kind`. On disk a request is a
+  `src/shared/model/types.ts`) — discriminated by `kind`. On disk a request is a
   `RequestFile` (no id/kind; name is authoritative, filename is derived).
-- **`Tab`** (`src/lib/domain/types.ts`) — a frontend session tab: protocol, the
+- **`Tab`** (`src/shared/model/types.ts`) — a frontend session tab: protocol, the
   live `HttpRequest`/`GrpcTabState`, optional `savedPath` linking it to a file,
   and the last `response`. Never persisted to the workspace; only to `state.json`.
 
