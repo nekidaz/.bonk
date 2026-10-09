@@ -8,9 +8,6 @@
   import { findNode, parentId, workspace } from '$entities/workspace';
   import { environments } from '$entities/environment';
   import {
-    runnerConfig,
-    runnerRun,
-    runnerHistory,
     setExcluded,
     setRunOrder,
     setRunnerStage,
@@ -22,7 +19,8 @@
     loadDataRows,
     clearData,
     runCollection,
-  } from './store';
+    runner,
+  } from './store.svelte';
   import { runnerScopeTitle, orderedRequests } from './runnerPlan';
   import { EnvironmentSelector } from '$entities/environment/components';
   import { parseDataFile } from './runnerData';
@@ -32,7 +30,7 @@
 
   const MUTATING = ['POST', 'PUT', 'PATCH', 'DELETE'];
 
-  const cfg = $derived($runnerConfig);
+  const cfg = $derived(runner.config);
   const scope = $derived(cfg.folderIds.filter((id) => findNode(workspace.tree, id)));
   const title = $derived(runnerScopeTitle(scope, workspace.tree, t));
   const all = $derived(orderedRequests(cfg, workspace.tree));
@@ -72,7 +70,7 @@
   const allState = $derived(groupState(all.map((n) => n.id)));
 
   // "Только упавшие в #N": the failed calls of the last run in this tab.
-  const failedIds = $derived(new Set($runnerRun.results.filter((r) => !r.ok && r.nodeId).map((r) => r.nodeId!)));
+  const failedIds = $derived(new Set(runner.run.results.filter((r) => !r.ok && r.nodeId).map((r) => r.nodeId!)));
   const onlyFailed = () => setExcluded(all.filter((n) => !failedIds.has(n.id)).map((n) => n.id));
 
   // ---- Drag to reorder ----
@@ -119,7 +117,7 @@
   const calls = $derived(planned.length * iterations);
   const estimate = $derived.by(() => {
     // ponytail: p95 of the last run per call — a rough upper bound, enough for "~N s".
-    const perCall = $runnerHistory.at(-1)?.p95Ms || 150;
+    const perCall = runner.history.at(-1)?.p95Ms || 150;
     return Math.max(1, Math.round((calls * perCall + cfg.delayMs * Math.max(0, calls - 1)) / 1000));
   });
   const mutating = $derived(planned.filter((n) => MUTATING.includes(methodOf(n))));
@@ -182,7 +180,7 @@
       {#if failedIds.size > 0}
         <button class="rs-pill" type="button" onclick={onlyFailed}>
           <span class="material-symbols-outlined" aria-hidden="true">replay</span>{t('runner.setup.onlyFailed', {
-            n: $runnerRun.n,
+            n: runner.run.n,
           })}
         </button>
       {/if}

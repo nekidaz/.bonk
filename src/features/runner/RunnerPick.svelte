@@ -5,15 +5,7 @@
    * Shared atoms (.rn-eyebrow, .rn-btn …) are styled by RunnerView.
    */
   import { workspace } from '$entities/workspace';
-  import {
-    runnerHistory,
-    runnerPresets,
-    setRunnerFolders,
-    setRunnerStage,
-    repeatRun,
-    applyPreset,
-    deletePreset,
-  } from './store';
+  import { setRunnerFolders, setRunnerStage, repeatRun, applyPreset, deletePreset, runner } from './store.svelte';
   import { uiLanguage, t, tp } from '$shared/i18n';
   import { relDay } from './runnerStats';
   import type { FolderNode, TreeNode } from '$shared/model';
@@ -49,12 +41,12 @@
       : workspace.tree.filter((n): n is FolderNode => n.kind === 'folder'),
   );
   const recent = $derived(
-    [...$runnerHistory]
+    [...runner.history]
       .reverse()
       .filter((h) => h.folderIds)
       .slice(0, 3),
   );
-  const lastFor = (id: string) => $runnerHistory.findLast((h) => h.folderIds?.[0] === id);
+  const lastFor = (id: string) => runner.history.findLast((h) => h.folderIds?.[0] === id);
 
   function subtitle(f: FolderNode): string {
     const s = stats(f);
@@ -136,10 +128,10 @@
       </div>
     {/if}
 
-    {#if $runnerPresets.length > 0}
+    {#if runner.presets.length > 0}
       <div class="rn-eyebrow">{t('runner.preset.title')}</div>
       <div class="rp-recent">
-        {#each [...$runnerPresets].reverse() as p (p.name)}
+        {#each [...runner.presets].reverse() as p (p.name)}
           <div class="rp-card rp-preset">
             <button class="rp-pbody" type="button" onclick={() => applyPreset(p)}>
               <span class="rp-card-name">{p.name}</span>

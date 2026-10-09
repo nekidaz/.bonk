@@ -1,7 +1,7 @@
 <script lang="ts">
   import type { UtilityMode } from '$shared/ui';
   import { tabs } from '$entities/tab';
-  import { runnerRun } from '$features/runner';
+  import { runner } from '$features/runner';
   import { t } from '$shared/i18n';
 
   let {
@@ -38,8 +38,8 @@
   >
   <div class="bs-spacer"></div>
   <button class="bs-status-link runner" class:on={runnerOn} type="button" aria-pressed={runnerOn} onclick={onRunner}
-    ><span class="material-symbols-outlined" class:spin={$runnerRun.status === 'running'} aria-hidden="true"
-      >{$runnerRun.status === 'running' ? 'progress_activity' : 'play_arrow'}</span
+    ><span class="material-symbols-outlined" class:spin={runner.run.status === 'running'} aria-hidden="true"
+      >{runner.run.status === 'running' ? 'progress_activity' : 'play_arrow'}</span
     >{t('nav.status.runner')}</button
   >
 </div>

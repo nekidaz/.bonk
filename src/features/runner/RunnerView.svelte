@@ -11,12 +11,6 @@
   import { findNode, workspace } from '$entities/workspace';
   import { environments, ENV_COLOR_VAR, envColor } from '$entities/environment';
   import {
-    runnerConfig,
-    runnerRun,
-    runnerHistory,
-    runnerStage,
-    runnerRecords,
-    runnerViewing,
     viewRun,
     loadRunnerState,
     setRunnerStage,
@@ -27,7 +21,8 @@
     stopRun,
     bindIdFrom,
     exportReport,
-  } from './store';
+    runner,
+  } from './store.svelte';
   import { runnerScopeTitle, plannedRequests } from './runnerPlan';
   import { openSavedRequest } from '$entities/request';
   import RunnerPick from './RunnerPick.svelte';
@@ -55,12 +50,12 @@
   onMount(() => void loadRunnerState());
 
   // ---- Scope ----
-  const scopeIds = $derived($runnerConfig.folderIds.filter((id) => findNode(workspace.tree, id)));
+  const scopeIds = $derived(runner.config.folderIds.filter((id) => findNode(workspace.tree, id)));
   // A past run (opened from the bars) shows its own scope + environment, read-only.
-  const viewing = $derived($runnerViewing);
-  const viewed = $derived(viewing === null ? undefined : $runnerHistory.find((h) => h.n === viewing));
+  const viewing = $derived(runner.viewing);
+  const viewed = $derived(viewing === null ? undefined : runner.history.find((h) => h.n === viewing));
   const title = $derived(viewed?.title ?? runnerScopeTitle(scopeIds, workspace.tree, t));
-  const planned = $derived(plannedRequests($runnerConfig, workspace.tree));
+  const planned = $derived(plannedRequests(runner.config, workspace.tree));
   const scopeText = $derived.by(() => {
     const extra = scopeIds
       .slice(1)
@@ -72,20 +67,20 @@
 
   const env = $derived(environments.list.find((e) => e.id === (viewed ? viewed.envId : environments.activeId)));
   const envLabel = $derived(viewed ? (viewed.envName ?? t('runner.noEnv')) : (env?.name ?? t('runner.noEnv')));
-  const dataDriven = $derived($runnerConfig.dataRows.length > 0);
-  const iterationCount = $derived(dataDriven ? $runnerConfig.dataRows.length : $runnerConfig.iterations);
+  const dataDriven = $derived(runner.config.dataRows.length > 0);
+  const iterationCount = $derived(dataDriven ? runner.config.dataRows.length : runner.config.iterations);
 
   // ---- Run + summary ----
-  const run = $derived($runnerRun);
+  const run = $derived(runner.run);
   const running = $derived(run.status === 'running');
   const hasRun = $derived(run.n > 0 && run.startedAt !== null);
   const failedRows = $derived(run.results.filter((r) => !r.ok));
   const current = $derived(
     hasRun ? summarizeRun(run.n, run.startedAt ?? 0, run.finishedAt ?? Date.now(), run.results) : undefined,
   );
-  const prev = $derived(current ? $runnerHistory.filter((h) => h.n < current.n).at(-1) : undefined);
-  const bars = $derived(runBars($runnerHistory));
-  const currentN = $derived(run.n || $runnerHistory.at(-1)?.n);
+  const prev = $derived(current ? runner.history.filter((h) => h.n < current.n).at(-1) : undefined);
+  const bars = $derived(runBars(runner.history));
+  const currentN = $derived(run.n || runner.history.at(-1)?.n);
 
   // A live clock while running (elapsed, ETA, the call in flight).
   let now = $state(Date.now());
@@ -160,7 +155,7 @@
   }
 
   function onKey(e: KeyboardEvent): void {
-    const stage = $runnerStage;
+    const stage = runner.stage;
     if ((e.metaKey || e.ctrlKey) && (e.key === 'r' || e.key === 'R')) {
       e.preventDefault();
       if (!running && stage !== 'pick' && planned.length > 0) void runCollection();
@@ -215,9 +210,9 @@
     >{/if}{/snippet}
 
 <div class="rn">
-  {#if $runnerStage === 'pick'}
+  {#if runner.stage === 'pick'}
     <RunnerPick />
-  {:else if $runnerStage === 'setup'}
+  {:else if runner.stage === 'setup'}
     <RunnerSetup />
   {:else}
     <header class="rn-head">
@@ -241,7 +236,7 @@
             >{`${iterations} ${tp(iterations, ['итерация', 'итерации', 'итераций'], ['iteration', 'iterations'])}`}
           </button>
           <button class="rn-chip" type="button" onclick={setup} disabled={running}>
-            <span class="material-symbols-outlined" aria-hidden="true">timer</span>{$runnerConfig.delayMs} ms
+            <span class="material-symbols-outlined" aria-hidden="true">timer</span>{runner.config.delayMs} ms
           </button>
           <button
             class="rn-icon"
@@ -278,7 +273,7 @@
           <span class="rn-viewing"
             >{t('runner.viewing', { n: viewing })}<button
               type="button"
-              onclick={() => viewRun($runnerHistory.at(-1)?.n ?? viewing)}>{t('runner.viewLatest')}</button
+              onclick={() => viewRun(runner.history.at(-1)?.n ?? viewing)}>{t('runner.viewLatest')}</button
             ></span
           >
         {:else if failedRows.length > 0}
@@ -355,7 +350,7 @@
           )}
           <div class="rn-bars" aria-label={t('runner.stat.durations')}>
             {#each bars as b, i (i)}
-              {@const saved = $runnerRecords.some((r) => r.n === b.n)}
+              {@const saved = runner.records.some((r) => r.n === b.n)}
               <button
                 type="button"
                 class="rn-bar"
@@ -477,8 +472,8 @@
                 {:else}
                   <span class="rn-logbody">
                     <b>{t('runner.log.iter', { n: e.n })}</b>
-                    {#if $runnerConfig.dataFileName}<small class="mute"
-                        >{t('runner.log.row', { file: $runnerConfig.dataFileName, n: e.n })}</small
+                    {#if runner.config.dataFileName}<small class="mute"
+                        >{t('runner.log.row', { file: runner.config.dataFileName, n: e.n })}</small
                       >{/if}
                   </span>
                 {/if}

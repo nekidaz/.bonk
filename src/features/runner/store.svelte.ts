@@ -1,4 +1,4 @@
-import { get, writable } from 'svelte/store';
+import { untrack } from 'svelte';
 import { t } from '$shared/i18n';
 import type { Tab, RunResultRow, RunStatus } from '$shared/model';
 import { workspaceSaveRequest } from '$shared/ipc';
@@ -57,18 +57,48 @@ import { runNode } from '$entities/request';
  * sees an earlier one's writes.
  */
 
-export const runnerConfig = writable<RunnerConfig>({ ...DEFAULT_CONFIG });
-export const runnerRun = writable<RunnerRun>({ ...DEFAULT_RUN, results: [] });
-/** Last HISTORY_LIMIT finished runs (app state, not the workspace). */
-export const runnerHistory = writable<RunSummary[]>([]);
-export const runnerStage = writable<RunnerStage>('pick');
-/** Per-call results of the last HISTORY_LIMIT runs, so a past run can be reopened (R4 bars). */
-export const runnerRecords = writable<RunRecord[]>([]);
-/** Run number shown read-only in the run view (an older run); null = the latest / live run. */
-export const runnerViewing = writable<number | null>(null);
-/** Saved setups (R2 «Сохранить как пресет»), loaded from the R1 list. */
-export const runnerPresets = writable<RunnerPreset[]>([]);
 const PRESETS_KEY = 'runnerPresets';
+
+class Runner {
+  config = $state.raw<RunnerConfig>({ ...DEFAULT_CONFIG });
+  run = $state.raw<RunnerRun>({ ...DEFAULT_RUN, results: [] });
+  /** Last HISTORY_LIMIT finished runs (app state, not the workspace). */
+  history = $state.raw<RunSummary[]>([]);
+  stage = $state<RunnerStage>('pick');
+  /** Per-call results of the last HISTORY_LIMIT runs, so a past run can be reopened (R4 bars). */
+  records = $state.raw<RunRecord[]>([]);
+  /** Run number shown read-only in the run view (an older run); null = the latest / live run. */
+  viewing = $state<number | null>(null);
+  #presets = $state.raw<RunnerPreset[]>([]);
+  #presetsLoaded = false;
+
+  /** Saved setups (R2 «Сохранить как пресет»), loaded from the R1 list. Saved on every change once loaded. */
+  get presets(): RunnerPreset[] {
+    return this.#presets;
+  }
+
+  set presets(list: RunnerPreset[]) {
+    this.#presets = list;
+    if (this.#presetsLoaded) saveStateDebounced(PRESETS_KEY, list); // only after the load, so [] can't wipe it
+  }
+
+  /** Set the loaded presets and start saving later changes. */
+  loadPresets(list: RunnerPreset[]): void {
+    this.#presetsLoaded = true;
+    this.presets = list;
+  }
+
+  /** Replace the config with `fn(config)`; reads untracked. */
+  updateConfig(fn: (c: RunnerConfig) => RunnerConfig): void {
+    this.config = fn(untrack(() => this.config));
+  }
+
+  /** Replace the run state with `fn(run)`; reads untracked. */
+  updateRun(fn: (r: RunnerRun) => RunnerRun): void {
+    this.run = fn(untrack(() => this.run));
+  }
+}
+export const runner = new Runner();
 
 const CONFIG_KEY = 'runnerConfig';
 const HISTORY_KEY = 'runnerHistory';
@@ -84,26 +114,25 @@ export function loadRunnerState(): Promise<void> {
       loadState(RECORDS_KEY, [] as RunRecord[], isArrayOf(isRecord)),
       loadState(PRESETS_KEY, [] as RunnerPreset[], isArrayOf(isPreset)),
     ]);
-    runnerConfig.update((cur) => mergeSavedConfig(cur, saved));
-    runnerHistory.set(hist);
-    runnerRecords.set(records);
-    runnerPresets.set(presets);
-    runnerPresets.subscribe((list) => saveStateDebounced(PRESETS_KEY, list)); // only after the load, so [] can't wipe it
+    runner.updateConfig((cur) => mergeSavedConfig(cur, saved));
+    runner.history = hist;
+    runner.records = records;
+    runner.loadPresets(presets);
     syncRunnerTabTitle();
   })();
   return loaded;
 }
 
 function persistConfig(): void {
-  saveStateDebounced(CONFIG_KEY, persistedConfig(get(runnerConfig)));
+  saveStateDebounced(CONFIG_KEY, persistedConfig(runner.config));
 }
 
 /** Keep the runner tab named "Runner · <scope>". */
 function syncRunnerTabTitle(): void {
   const title =
-    get(runnerStage) === 'pick'
+    runner.stage === 'pick'
       ? t('runner.tab.new')
-      : `Runner · ${runnerScopeTitle(get(runnerConfig).folderIds, workspace.tree)}`;
+      : `Runner · ${runnerScopeTitle(runner.config.folderIds, workspace.tree)}`;
   if (tabs.list.some((t) => t.protocol === 'runner' && t.title !== title)) {
     tabs.update((list) => list.map((t) => (t.protocol === 'runner' ? { ...t, title } : t)));
   }
@@ -122,7 +151,7 @@ export function openRunnerTab(): void {
     syncRunnerTabTitle();
     return;
   }
-  if (get(runnerRun).n === 0) runnerStage.set('pick');
+  if (runner.run.n === 0) runner.stage = 'pick';
   const tab: Tab = {
     id: crypto.randomUUID(),
     protocol: 'runner',
@@ -137,21 +166,21 @@ export function openRunnerTab(): void {
 
 /** Switch the Runner screen (R1 pick / R2 setup / R3-R4 run). */
 export function setRunnerStage(stage: RunnerStage): void {
-  runnerStage.set(stage);
+  runner.stage = stage;
   syncRunnerTabTitle();
 }
 
 /** Tree context menu "Запустить в Runner": scope to the folder and open its setup (R2). */
 export function runInRunner(folderId: string): void {
   setRunnerFolders([folderId]);
-  runnerStage.set('setup');
+  runner.stage = 'setup';
   openRunnerTab();
 }
 
 /** R1 "repeat a recent run": restore its scope, iterations and environment, then run. */
 export function repeatRun(s: RunSummary): void {
   if (s.folderIds) setRunnerFolders(s.folderIds);
-  if (s.iterations && get(runnerConfig).dataRows.length === 0) setIterations(s.iterations);
+  if (s.iterations && runner.config.dataRows.length === 0) setIterations(s.iterations);
   if (s.envId !== undefined && (s.envId === null || environments.list.some((e) => e.id === s.envId)))
     setActiveEnvironment(s.envId);
   void runCollection();
@@ -161,7 +190,7 @@ export function repeatRun(s: RunSummary): void {
 
 /** Run scope: folder ids in order (empty = whole tree). A new scope resets the setup's checks and order. */
 export function setRunnerFolders(folderIds: string[]): void {
-  runnerConfig.update((c) =>
+  runner.updateConfig((c) =>
     c.folderIds.join() === folderIds.join() ? c : { ...c, folderIds, excludedIds: [], orderIds: [] },
   );
   persistConfig();
@@ -169,28 +198,28 @@ export function setRunnerFolders(folderIds: string[]): void {
 }
 /** Requests unchecked in the setup list. */
 export function setExcluded(excludedIds: string[]): void {
-  runnerConfig.update((c) => ({ ...c, excludedIds }));
+  runner.updateConfig((c) => ({ ...c, excludedIds }));
   persistConfig();
 }
 /** Custom run order (request ids). */
 export function setRunOrder(orderIds: string[]): void {
-  runnerConfig.update((c) => ({ ...c, orderIds }));
+  runner.updateConfig((c) => ({ ...c, orderIds }));
   persistConfig();
 }
 export function setIterations(iterations: number): void {
-  runnerConfig.update((c) => ({ ...c, iterations: clampIterations(iterations) }));
+  runner.updateConfig((c) => ({ ...c, iterations: clampIterations(iterations) }));
   persistConfig();
 }
 export function setDelay(delayMs: number): void {
-  runnerConfig.update((c) => ({ ...c, delayMs: clampDelay(delayMs) }));
+  runner.updateConfig((c) => ({ ...c, delayMs: clampDelay(delayMs) }));
   persistConfig();
 }
 export function setStopOnFailure(stopOnFailure: boolean): void {
-  runnerConfig.update((c) => ({ ...c, stopOnFailure }));
+  runner.updateConfig((c) => ({ ...c, stopOnFailure }));
   persistConfig();
 }
 export function setSaveResponses(saveResponses: boolean): void {
-  runnerConfig.update((c) => ({ ...c, saveResponses }));
+  runner.updateConfig((c) => ({ ...c, saveResponses }));
   persistConfig();
 }
 
@@ -199,26 +228,26 @@ export function setSaveResponses(saveResponses: boolean): void {
 /** Auto name of a preset: "<scope> · <environment>". */
 export function currentPresetName(): string {
   const env = environments.active;
-  return `${runnerScopeTitle(get(runnerConfig).folderIds, workspace.tree)} · ${env?.name ?? t('runner.noEnv')}`;
+  return `${runnerScopeTitle(runner.config.folderIds, workspace.tree)} · ${env?.name ?? t('runner.noEnv')}`;
 }
 
 /** Save the current setup as a preset (same name = update); returns its name. */
 export function savePreset(): string {
-  const c = get(runnerConfig);
+  const c = runner.config;
   const name = currentPresetName();
-  runnerPresets.update((l) => upsertPreset(l, presetFrom(c, name, environments.activeId)));
+  runner.presets = upsertPreset(runner.presets, presetFrom(c, name, environments.activeId));
   return name;
 }
 
 export function deletePreset(name: string): void {
-  runnerPresets.update((l) => l.filter((p) => p.name !== name));
+  runner.presets = runner.presets.filter((p) => p.name !== name);
 }
 
 /** Restore a preset's setup and open R2. */
 export function applyPreset(p: RunnerPreset): void {
-  runnerViewing.set(null);
+  runner.viewing = null;
   setRunnerFolders(p.folderIds);
-  runnerConfig.update((c) => applyPresetSettings(c, p));
+  runner.updateConfig((c) => applyPresetSettings(c, p));
   persistConfig();
   if (p.envId === null || environments.list.some((e) => e.id === p.envId)) setActiveEnvironment(p.envId);
   setRunnerStage('setup');
@@ -226,11 +255,11 @@ export function applyPreset(p: RunnerPreset): void {
 
 /** Load a parsed data file: makes the run data-driven (rows.length iterations). */
 export function loadDataRows(name: string, rows: Record<string, string>[]): void {
-  runnerConfig.update((c) => ({ ...c, dataFileName: name, dataRows: rows }));
+  runner.updateConfig((c) => ({ ...c, dataFileName: name, dataRows: rows }));
 }
 /** Clear the loaded data file, reverting to the numeric iteration count. */
 export function clearData(): void {
-  runnerConfig.update((c) => ({ ...c, dataFileName: null, dataRows: [] }));
+  runner.updateConfig((c) => ({ ...c, dataFileName: null, dataRows: [] }));
 }
 
 /** Sleep helper for the inter-request delay. */
@@ -240,15 +269,15 @@ function sleep(ms: number): Promise<void> {
 
 /** Append a streamed result row (new array so Svelte reactivity fires). */
 function pushRow(row: RunResultRow): void {
-  runnerRun.update((r) => ({ ...r, results: [...r.results, row], completed: r.completed + 1, current: null }));
+  runner.updateRun((r) => ({ ...r, results: [...r.results, row], completed: r.completed + 1, current: null }));
 }
 
 /** Close the run and record it in the persisted history. */
 function finishRun(status: RunStatus): void {
-  runnerRun.update((r) => ({ ...r, status, finishedAt: Date.now(), paused: false, current: null }));
-  const r = get(runnerRun);
+  runner.updateRun((r) => ({ ...r, status, finishedAt: Date.now(), paused: false, current: null }));
+  const r = runner.run;
   if (r.results.length === 0 || r.startedAt === null) return;
-  const { folderIds } = get(runnerConfig);
+  const { folderIds } = runner.config;
   const envId = environments.activeId;
   const summary = {
     ...summarizeRun(r.n, r.startedAt, r.finishedAt ?? Date.now(), r.results),
@@ -258,15 +287,15 @@ function finishRun(status: RunStatus): void {
     envName: environments.list.find((e) => e.id === envId)?.name,
     iterations: r.iterations,
   };
-  const history = pushHistory(get(runnerHistory), summary);
-  runnerHistory.set(history);
+  const history = pushHistory(runner.history, summary);
+  runner.history = history;
   void saveState(HISTORY_KEY, history);
   persistRecord();
 }
 
 /** Save/refresh the record of the current run (after it finishes and after in-place re-runs). */
 function persistRecord(): void {
-  const r = get(runnerRun);
+  const r = runner.run;
   if (r.n === 0 || r.startedAt === null || r.results.length === 0) return;
   const rec = toRecord(
     {
@@ -276,10 +305,10 @@ function persistRecord(): void {
       iterations: r.iterations,
       results: r.results,
     },
-    get(runnerConfig).saveResponses,
+    runner.config.saveResponses,
   );
-  const list = pushRecord(get(runnerRecords), rec);
-  runnerRecords.set(list);
+  const list = pushRecord(runner.records, rec);
+  runner.records = list;
   void saveState(RECORDS_KEY, list);
 }
 
@@ -289,11 +318,11 @@ function persistRecord(): void {
  * restored (click its bar) or a new run starts.
  */
 export function viewRun(n: number): void {
-  if (get(runnerRun).status === 'running') return;
-  const rec = get(runnerRecords).find((r) => r.n === n);
+  if (runner.run.status === 'running') return;
+  const rec = runner.records.find((r) => r.n === n);
   if (!rec) return;
-  const latest = get(runnerHistory).at(-1)?.n;
-  runnerRun.set({
+  const latest = runner.history.at(-1)?.n;
+  runner.run = {
     ...DEFAULT_RUN,
     status: 'done',
     results: rec.results,
@@ -303,8 +332,8 @@ export function viewRun(n: number): void {
     finishedAt: rec.finishedAt,
     n: rec.n,
     iterations: rec.iterations,
-  });
-  runnerViewing.set(n === latest ? null : n);
+  };
+  runner.viewing = n === latest ? null : n;
   setRunnerStage('run');
 }
 
@@ -319,32 +348,32 @@ let stopRequested = false;
 
 /** R3 "Пауза" / "Продолжить": the run halts before its next call. */
 export function togglePause(): void {
-  runnerRun.update((r) => (r.status === 'running' ? { ...r, paused: !r.paused } : r));
+  runner.updateRun((r) => (r.status === 'running' ? { ...r, paused: !r.paused } : r));
 }
 
 /** R3 "Остановить": the call in flight finishes, nothing after it is sent. */
 export function stopRun(): void {
-  if (get(runnerRun).status === 'running') stopRequested = true;
+  if (runner.run.status === 'running') stopRequested = true;
 }
 
 /** Wait out a pause; true when the run should stop instead. */
 async function holdOrStop(): Promise<boolean> {
-  while (get(runnerRun).paused && !stopRequested) await sleep(100);
+  while (runner.run.paused && !stopRequested) await sleep(100);
   return stopRequested;
 }
 
 export async function runCollection(): Promise<void> {
-  if (get(runnerRun).status === 'running') return;
+  if (runner.run.status === 'running') return;
   await loadRunnerState();
   setRunnerStage('run');
   stopRequested = false;
-  runnerViewing.set(null);
-  const config = get(runnerConfig);
+  runner.viewing = null;
+  const config = runner.config;
   const requests = plannedRequests(config, workspace.tree);
-  const n = (get(runnerHistory).at(-1)?.n ?? 0) + 1;
+  const n = (runner.history.at(-1)?.n ?? 0) + 1;
   if (requests.length === 0) {
     // Nothing to run — surface an empty "done" so the summary/empty state shows.
-    runnerRun.set({ ...DEFAULT_RUN, status: 'done', results: [], startedAt: Date.now(), finishedAt: Date.now() });
+    runner.run = { ...DEFAULT_RUN, status: 'done', results: [], startedAt: Date.now(), finishedAt: Date.now() };
     return;
   }
 
@@ -352,7 +381,7 @@ export async function runCollection(): Promise<void> {
   const iterations = iterationCount(config);
 
   const startedAt = Date.now();
-  runnerRun.set({
+  runner.run = {
     ...DEFAULT_RUN,
     status: 'running',
     results: [],
@@ -360,12 +389,12 @@ export async function runCollection(): Promise<void> {
     startedAt,
     n,
     iterations,
-  });
+  };
 
   for (let i = 1; i <= iterations; i++) {
     const iterationData = dataDriven ? (config.dataRows[i - 1] ?? {}) : {};
     const iterStart = performance.now();
-    runnerRun.update((r) => ({ ...r, iterStarts: [...r.iterStarts, Date.now() - startedAt] }));
+    runner.updateRun((r) => ({ ...r, iterStarts: [...r.iterStarts, Date.now() - startedAt] }));
     let paused = 0;
     for (let j = 0; j < requests.length; j++) {
       const t0 = performance.now();
@@ -373,7 +402,7 @@ export async function runCollection(): Promise<void> {
       paused += performance.now() - t0;
       const node = requests[j];
       const method = node.protocol === 'grpc' ? 'gRPC' : node.request.method;
-      runnerRun.update((r) => ({ ...r, current: { nodeId: node.id, name: node.name, method, startedAt: Date.now() } }));
+      runner.updateRun((r) => ({ ...r, current: { nodeId: node.id, name: node.name, method, startedAt: Date.now() } }));
       const startOffsetMs = Math.round(performance.now() - iterStart - paused);
       const row = { ...(await runNode(node, i, iterationData)), startOffsetMs, endMs: Date.now() - startedAt };
       pushRow(row);
@@ -395,30 +424,30 @@ export async function runCollection(): Promise<void> {
 
 /** Re-run `rows` in place (same iteration data, same waterfall slot). */
 async function rerunRows(rows: RunResultRow[]): Promise<void> {
-  const prevStatus = get(runnerRun).status;
-  if (prevStatus === 'running' || rows.length === 0 || get(runnerViewing) !== null) return;
-  const config = get(runnerConfig);
-  runnerRun.update((r) => ({ ...r, status: 'running' }));
+  const prevStatus = runner.run.status;
+  if (prevStatus === 'running' || rows.length === 0 || runner.viewing !== null) return;
+  const config = runner.config;
+  runner.updateRun((r) => ({ ...r, status: 'running' }));
   for (const [k, old] of rows.entries()) {
     const node = old.nodeId ? findNode(workspace.tree, old.nodeId) : undefined;
     if (node?.kind !== 'request') continue;
     const fresh = await runNode(node, old.iteration, config.dataRows[old.iteration - 1] ?? {});
     const row = { ...fresh, id: old.id, startOffsetMs: old.startOffsetMs };
-    runnerRun.update((r) => ({ ...r, results: r.results.map((x) => (x.id === old.id ? row : x)) }));
+    runner.updateRun((r) => ({ ...r, results: r.results.map((x) => (x.id === old.id ? row : x)) }));
     if (config.delayMs > 0 && k < rows.length - 1) await sleep(config.delayMs);
   }
-  runnerRun.update((r) => ({ ...r, status: prevStatus }));
+  runner.updateRun((r) => ({ ...r, status: prevStatus }));
   persistRecord();
 }
 
 /** "Перезапустить упавшие": re-run only the failed calls of the current run. */
 export function rerunFailed(): Promise<void> {
-  return rerunRows(get(runnerRun).results.filter((r) => !r.ok));
+  return rerunRows(runner.run.results.filter((r) => !r.ok));
 }
 
 /** "Повторить": re-run one call. */
 export function rerunCall(rowId: string): Promise<void> {
-  return rerunRows(get(runnerRun).results.filter((r) => r.id === rowId));
+  return rerunRows(runner.run.results.filter((r) => r.id === rowId));
 }
 
 /**
@@ -453,7 +482,7 @@ export async function bindIdFrom(targetNodeId: string, b: IdBinding): Promise<bo
  * success. Safe to call when nothing has run (reports an empty run).
  */
 export async function exportReport(): Promise<boolean> {
-  const report = buildReport(get(runnerConfig), get(runnerRun));
+  const report = buildReport(runner.config, runner.run);
   try {
     await navigator.clipboard.writeText(JSON.stringify(report, null, 2));
     return true;
