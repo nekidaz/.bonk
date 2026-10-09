@@ -1,6 +1,7 @@
 name: Release
 
-# Build signed macOS + Linux + Windows bundles and publish them to a GitHub
+# Build signed macOS + Linux bundles (Windows dropped 2026-10-09: ~40 min per
+# release on the private-repo runner, 1 download in v0.1.7) and publish them to a GitHub
 # Release when a version tag is pushed, e.g. `git tag v0.1.0 && git push origin v0.1.0`.
 #
 # This is the PRIVATE source repo (nekidaz/bonk-src). The release is cross-
@@ -45,13 +46,6 @@ jobs:
             mcp-path: target/release/bonk-mcp
             mcp-asset: bonk-mcp-x86_64-unknown-linux-gnu
             mcp-sidecar: src-tauri/binaries/bonk-mcp-x86_64-unknown-linux-gnu
-          - platform: windows-latest
-            args: --bundles nsis
-            rust-targets: ''
-            mcp-build-args: ''
-            mcp-path: target/release/bonk-mcp.exe
-            mcp-asset: bonk-mcp-x86_64-pc-windows-msvc.exe
-            mcp-sidecar: src-tauri/binaries/bonk-mcp-x86_64-pc-windows-msvc.exe
     runs-on: ${{ matrix.platform }}
     steps:
       - name: Checkout
