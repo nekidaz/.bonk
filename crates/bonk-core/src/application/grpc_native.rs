@@ -1,7 +1,7 @@
 use crate::conn::GrpcDescriptorCache;
 use crate::domain::grpc::{
-    GrpcErrorDetail, GrpcField, GrpcFieldViolation, GrpcMethod, GrpcPrefs, GrpcResult, GrpcService, GrpcTls,
-    ServiceTree,
+    GrpcErrorDetail, GrpcField, GrpcFieldViolation, GrpcMethod, GrpcPrefs, GrpcResult, GrpcService,
+    GrpcTls, ServiceTree,
 };
 use base64::engine::general_purpose::STANDARD as BASE64;
 use base64::Engine;
@@ -423,7 +423,9 @@ pub async fn call_with(
     // Unary only here; streams go through `call_stream`. Invoking a
     // streaming RPC as unary returns a wrong/partial result or hangs until timeout.
     if method.is_client_streaming() || method.is_server_streaming() {
-        return Err(format!("{method_symbol} is a streaming RPC; use a stream call."));
+        return Err(format!(
+            "{method_symbol} is a streaming RPC; use a stream call."
+        ));
     }
     let (req, path) = prepare_request(&method, parse_message(&method, json_body)?, metadata)?;
 
@@ -910,16 +912,34 @@ reflect_impl!(reflect_v1alpha, v1alpha, "v1alpha");
 fn kind_info(kind: &Kind) -> (String, &'static str) {
     match kind {
         Kind::Bool => ("bool".into(), "boolean"),
-        Kind::String | Kind::Bytes => (if matches!(kind, Kind::Bytes) { "bytes" } else { "string" }.into(), "string"),
-        Kind::Float | Kind::Double | Kind::Int32 | Kind::Sint32 | Kind::Sfixed32 | Kind::Uint32 | Kind::Fixed32
-        | Kind::Int64 | Kind::Sint64 | Kind::Sfixed64 | Kind::Uint64 | Kind::Fixed64 => {
-            (format!("{kind:?}").to_lowercase(), "number")
-        }
+        Kind::String | Kind::Bytes => (
+            if matches!(kind, Kind::Bytes) {
+                "bytes"
+            } else {
+                "string"
+            }
+            .into(),
+            "string",
+        ),
+        Kind::Float
+        | Kind::Double
+        | Kind::Int32
+        | Kind::Sint32
+        | Kind::Sfixed32
+        | Kind::Uint32
+        | Kind::Fixed32
+        | Kind::Int64
+        | Kind::Sint64
+        | Kind::Sfixed64
+        | Kind::Uint64
+        | Kind::Fixed64 => (format!("{kind:?}").to_lowercase(), "number"),
         Kind::Enum(e) => (format!("enum {}", e.name()), "enum"),
         // Well-known types have their own JSON forms (RFC 3339 strings, bare values…).
         Kind::Message(m) => {
             let json = match m.full_name() {
-                "google.protobuf.Timestamp" | "google.protobuf.Duration" | "google.protobuf.FieldMask" => "string",
+                "google.protobuf.Timestamp"
+                | "google.protobuf.Duration"
+                | "google.protobuf.FieldMask" => "string",
                 "google.protobuf.StringValue" | "google.protobuf.BytesValue" => "string",
                 "google.protobuf.BoolValue" => "boolean",
                 "google.protobuf.Value" => "any",
@@ -942,7 +962,11 @@ fn field_doc(field: &FieldDescriptor) -> String {
     info.location
         .iter()
         .find(|l| l.path == field.path())
-        .and_then(|l| l.leading_comments.as_deref().or(l.trailing_comments.as_deref()))
+        .and_then(|l| {
+            l.leading_comments
+                .as_deref()
+                .or(l.trailing_comments.as_deref())
+        })
         .and_then(|c| c.lines().map(str::trim).find(|l| !l.is_empty()))
         .unwrap_or_default()
         .to_string()
@@ -955,9 +979,15 @@ fn field_info(field: &FieldDescriptor) -> GrpcField {
         let entry = kind.as_message().expect("map entry is a message");
         let (k, _) = kind_info(&entry.map_entry_key_field().kind());
         let (v, _) = kind_info(&entry.map_entry_value_field().kind());
-        (format!("map<{k}, {}>", v.trim_start_matches("enum ")), "object")
+        (
+            format!("map<{k}, {}>", v.trim_start_matches("enum ")),
+            "object",
+        )
     } else if field.is_list() {
-        (format!("repeated {}", label.trim_start_matches("enum ")), "array")
+        (
+            format!("repeated {}", label.trim_start_matches("enum ")),
+            "array",
+        )
     } else {
         (label, json)
     };
@@ -1545,9 +1575,16 @@ service RootService { rpc RootCall (dep.Ping) returns (dep.Ping); }
 
         // A client stream takes a JSON array (one message per element) or a single object.
         let cs = &cache.methods["strm.Streamer.ClientStream"];
-        assert_eq!(parse_messages(cs, r#"[{"v":"a"},{"v":"b"}]"#).unwrap().len(), 2);
+        assert_eq!(
+            parse_messages(cs, r#"[{"v":"a"},{"v":"b"}]"#)
+                .unwrap()
+                .len(),
+            2
+        );
         assert_eq!(parse_messages(cs, r#"{"v":"a"}"#).unwrap().len(), 1);
-        assert!(parse_messages(cs, r#"[{"v":"a"},{"nope":1}]"#).unwrap_err().contains("#2"));
+        assert!(parse_messages(cs, r#"[{"v":"a"},{"nope":1}]"#)
+            .unwrap_err()
+            .contains("#2"));
         // A server stream sends exactly the one message it was given.
         let ss = &cache.methods["strm.Streamer.ServerStream"];
         assert!(parse_messages(ss, r#"[{"v":"a"}]"#).is_err());

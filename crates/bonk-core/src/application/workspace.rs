@@ -124,7 +124,10 @@ fn load_dir(root: &Path, dir: &Path) -> Result<Vec<TreeNode>, String> {
                 TreeNode::Request(request) => &request.id,
             };
             let base = id.rsplit(['/', ':']).next().unwrap_or(id);
-            order.iter().position(|name| name == base).unwrap_or(usize::MAX)
+            order
+                .iter()
+                .position(|name| name == base)
+                .unwrap_or(usize::MAX)
         };
         folders.sort_by_key(rank);
     }
@@ -1280,7 +1283,11 @@ mod tests {
         }
         let root_s = root.to_str().unwrap();
         let names = |root_s: &str| -> Vec<String> {
-            load(root_s).unwrap().iter().map(|n| node_name(n).to_string()).collect()
+            load(root_s)
+                .unwrap()
+                .iter()
+                .map(|n| node_name(n).to_string())
+                .collect()
         };
 
         reorder(root_s, "", vec!["C.bonk.json".into(), "A.bonk.json".into()]).unwrap();

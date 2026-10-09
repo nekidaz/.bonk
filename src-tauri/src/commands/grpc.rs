@@ -240,7 +240,12 @@ pub async fn grpc_stream(
     // Client/bidi: keep the request side open for `grpc_stream_send` until `grpc_stream_end`.
     let stream_id = request_id.clone().filter(|id| !id.is_empty());
     let more = match &stream_id {
-        Some(id) if cache.methods.get(&method).is_some_and(|m| m.is_client_streaming()) => {
+        Some(id)
+            if cache
+                .methods
+                .get(&method)
+                .is_some_and(|m| m.is_client_streaming()) =>
+        {
             let (sender, rx) = bonk_core::application::grpc_native::stream_sender(&cache, &method)?;
             state
                 .grpc_streams
