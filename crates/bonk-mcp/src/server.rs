@@ -20,7 +20,8 @@ use rmcp::{
 use serde_json::{json, Value};
 
 use crate::{
-    runtime::{method_gate, redact_sensitive_url, BonkRuntime, MethodGate, DENIED},
+    redact::redact_sensitive_url,
+    runtime::{method_gate, BonkRuntime, MethodGate, DENIED},
     types::{
         CreateFolderArgs, GetRequestArgs, GrpcCallArgs, GrpcTemplateArgs, JournalEntry, JsonOutput,
         ListRequestsArgs, MoveNodeArgs, MutationResult, NodeArgs, RenameNodeArgs, RequestList,
