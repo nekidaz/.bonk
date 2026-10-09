@@ -19,6 +19,7 @@ import './bigsur.css';
 import { applyStoredTheme } from '$shared/settings';
 import { watchDocumentLang } from '$shared/i18n';
 import { watchHistoryRetention } from '$entities/history';
+import { watchGitWorkspace } from '$entities/git';
 import App from './app/App.svelte';
 
 // Native macOS title bars overlay their traffic lights on our toolbar — except in full screen, where macOS hides them.
@@ -38,6 +39,7 @@ applyStoredTheme();
 // Background watchers (like goroutines started in main): they live as long as the window.
 watchDocumentLang();
 watchHistoryRetention();
+watchGitWorkspace();
 
 const app = mount(App, {
   target: document.getElementById('app')!,

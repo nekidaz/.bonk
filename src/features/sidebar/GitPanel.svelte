@@ -1,7 +1,7 @@
 <script lang="ts">
   /**
    * Git source-control panel, shown in the sidebar body when the "Source control"
-   * rail tab is active. Presentational: reads the `gitStatus` store and calls the
+   * rail tab is active. Presentational: reads `git.status` and calls the
    * action wrappers in `../git`. Refreshes status on mount and whenever it is
    * re-shown (the parent re-mounts it via the rail toggle).
    *
@@ -16,8 +16,6 @@
   import {
     openGitDiffTab,
     openProjectDiffTab,
-    gitStatus,
-    gitBusy,
     refreshGit,
     stagePaths,
     unstagePaths,
@@ -29,6 +27,7 @@
     pull,
     push,
     statusColor,
+    git,
   } from '$entities/git';
   import { workspace } from '$entities/workspace';
   import { requestConfirm } from '$shared/ui';
@@ -51,7 +50,7 @@
   let logOpen = $state(false);
   let log = $state<GitCommit[]>([]);
 
-  const status = $derived($gitStatus);
+  const status = $derived(git.status);
 
   // A file is "staged" when its index slot holds a real change (not " " and not
   // the untracked "?"); everything else (worktree change or untracked) is unstaged.
@@ -232,10 +231,10 @@
         </button>
       </div>
       <div class="bs-git-sync">
-        <button class="bs-btn ghost" type="button" title={t('git.pull')} disabled={$gitBusy} onclick={doPull}>
+        <button class="bs-btn ghost" type="button" title={t('git.pull')} disabled={git.busy} onclick={doPull}>
           <span class="material-symbols-outlined" style="font-size:14px;vertical-align:-3px">download</span>Pull
         </button>
-        <button class="bs-btn ghost" type="button" title={t('git.push')} disabled={$gitBusy} onclick={doPush}>
+        <button class="bs-btn ghost" type="button" title={t('git.push')} disabled={git.busy} onclick={doPush}>
           <span class="material-symbols-outlined" style="font-size:14px;vertical-align:-3px">upload</span>Push
         </button>
         <button class="bs-btn ghost" type="button" title={t('git.changes.openAll')} onclick={openProjectDiffTab}>

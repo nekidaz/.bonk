@@ -7,7 +7,7 @@
   import { workspace } from '$entities/workspace';
   import { requestConfirm } from '$shared/ui';
   import { gitStatusDiffs } from '$shared/ipc';
-  import { gitStatusVersion, gitBusy, stagePaths, unstagePaths, discardPaths, commitChanges } from '$entities/git';
+  import { stagePaths, unstagePaths, discardPaths, commitChanges, git } from '$entities/git';
   import type { FileDiff } from '$shared/model';
   import { diffStats } from './diff';
   import DiffBlock from './DiffBlock.svelte';
@@ -45,7 +45,7 @@
   // Reload whenever the workspace changes or any git mutation bumps the version.
   $effect(() => {
     void workspace.path;
-    void $gitStatusVersion;
+    void git.version;
     void load();
   });
 
@@ -79,7 +79,7 @@
     <button
       class="bs-btn primary"
       type="button"
-      disabled={!commitMessage.trim() || stagedCount === 0 || $gitBusy}
+      disabled={!commitMessage.trim() || stagedCount === 0 || git.busy}
       onclick={commit}
     >
       <span class="material-symbols-outlined" style="font-size:15px;vertical-align:-3px">check</span>

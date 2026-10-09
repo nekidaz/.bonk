@@ -7,17 +7,14 @@ export {
   commitChanges,
   createBranch,
   discardPaths,
+  git,
   GIT_ENABLED,
-  gitBusy,
-  gitPrefix,
-  gitStatus,
-  gitStatusMap,
-  gitStatusVersion,
   initRepo,
   pull,
   push,
   refreshGit,
   stagePaths,
   unstagePaths,
-} from './git';
+  watchGitWorkspace,
+} from './git.svelte';
 export { folderChangeCount, statusColor } from './gitStatus';

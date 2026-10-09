@@ -4,11 +4,11 @@
  * Every action operates on the current workspace path (`workspace.path`),
  * which the Rust git commands take as their `root`. Actions guard on a
  * non-empty workspace, try/catch-log failures (so a failed git op never throws
- * into the UI), and refresh the cached status afterwards. `refreshGit` is also
- * subscribed to `workspacePath`, so switching/closing the workspace re-reads
- * (or clears) the status automatically.
+ * into the UI), and refresh the cached status afterwards. `watchGitWorkspace`
+ * (started by main.ts) re-reads (or clears) the status whenever the workspace
+ * switches or closes.
  */
-import { writable, derived, toStore } from 'svelte/store';
+import { untrack } from 'svelte';
 import type { GitStatus } from '$shared/model';
 import {
   gitStatus as gitStatusApi,
@@ -32,25 +32,24 @@ import { workspace } from '$entities/workspace';
  */
 export const GIT_ENABLED = false;
 
-/** Latest git status for the open workspace, or null when no workspace/repo. */
-export const gitStatus = writable<GitStatus | null>(null);
-
-/** Bumps on every successful refresh; views can subscribe to know to reload. */
-export const gitStatusVersion = writable(0);
-
-/** Toplevel-relative path -> effective status letter, derived from gitStatus. */
-export const gitStatusMap = derived(gitStatus, ($s) => statusByPath($s?.files ?? []));
-
-/**
- * Workspace path relative to the git toplevel (trailing-slash form, e.g.
- * `"collections/"`), empty when the workspace is the toplevel. Tree-badge
- * lookups prefix workspace-relative node ids with this to reach the
- * toplevel-relative status keys.
- */
-export const gitPrefix = derived(gitStatus, ($s) => $s?.prefix ?? '');
-
-/** True while a push/pull (or other long op) is in flight — disables buttons. */
-export const gitBusy = writable<boolean>(false);
+class Git {
+  /** Latest git status for the open workspace, or null when no workspace/repo. */
+  status = $state.raw<GitStatus | null>(null);
+  /** Bumps on every successful refresh; views read it to know to reload. */
+  version = $state(0);
+  /** Toplevel-relative path -> effective status letter. */
+  statusMap = $derived(statusByPath(this.status?.files ?? []));
+  /**
+   * Workspace path relative to the git toplevel (trailing-slash form, e.g.
+   * `"collections/"`), empty when the workspace is the toplevel. Tree-badge
+   * lookups prefix workspace-relative node ids with this to reach the
+   * toplevel-relative status keys.
+   */
+  prefix = $derived(this.status?.prefix ?? '');
+  /** True while a push/pull (or other long op) is in flight — disables buttons. */
+  busy = $state(false);
+}
+export const git = new Git();
 
 /**
  * Re-read git status for the current workspace. Empty workspace → null.
@@ -58,17 +57,17 @@ export const gitBusy = writable<boolean>(false);
  */
 export async function refreshGit(): Promise<void> {
   if (!GIT_ENABLED) {
-    gitStatus.set(null);
+    git.status = null;
     return;
   }
   const path = workspace.path;
   if (!path) {
-    gitStatus.set(null);
+    git.status = null;
     return;
   }
   try {
-    gitStatus.set(await gitStatusApi(path));
-    gitStatusVersion.update((n) => n + 1);
+    git.status = await gitStatusApi(path);
+    git.version++;
   } catch (err) {
     console.error('git: status failed', err);
   }
@@ -125,13 +124,13 @@ export async function createBranch(name: string): Promise<void> {
 
 /**
  * Push the current branch. Returns the git output (e.g. "Everything up-to-date")
- * or the error message so the UI can surface it in a status line. Sets gitBusy
+ * or the error message so the UI can surface it in a status line. Sets git.busy
  * for the duration.
  */
 export async function pull(): Promise<string> {
   const root = workspace.path;
   if (!root) return '';
-  gitBusy.set(true);
+  git.busy = true;
   try {
     const out = await gitPull(root);
     await refreshGit();
@@ -140,14 +139,14 @@ export async function pull(): Promise<string> {
     console.error('git: pull failed', err);
     return String(err);
   } finally {
-    gitBusy.set(false);
+    git.busy = false;
   }
 }
 
 export async function push(): Promise<string> {
   const root = workspace.path;
   if (!root) return '';
-  gitBusy.set(true);
+  git.busy = true;
   try {
     const out = await gitPush(root);
     await refreshGit();
@@ -156,12 +155,19 @@ export async function push(): Promise<string> {
     console.error('git: push failed', err);
     return String(err);
   } finally {
-    gitBusy.set(false);
+    git.busy = false;
   }
 }
 
-// Keep git status in sync with the active workspace: switching, opening, or
-// closing the workspace re-reads (or clears, when empty) the status.
-toStore(() => workspace.path).subscribe(() => {
-  void refreshGit();
-});
+/**
+ * Keep git status in sync with the active workspace: switching, opening, or closing the
+ * workspace re-reads (or clears, when empty) the status. Started once by main.ts; returns a stop function.
+ */
+export function watchGitWorkspace(): () => void {
+  return $effect.root(() => {
+    $effect(() => {
+      void workspace.path;
+      void untrack(refreshGit);
+    });
+  });
+}

@@ -43,7 +43,7 @@
   import { methodColor, methodLabel, type TreeNode } from '$shared/model';
   import GitPanel from './GitPanel.svelte';
   import { t } from '$shared/i18n';
-  import { gitStatus, gitStatusMap, gitPrefix, GIT_ENABLED, folderChangeCount, statusColor } from '$entities/git';
+  import { GIT_ENABLED, folderChangeCount, statusColor, git } from '$entities/git';
 
   type MenuKind = 'create' | 'switch' | 'coll' | 'req' | 'history';
 
@@ -166,11 +166,11 @@
     return history.list.filter((h) => (h.request.url || '').toLowerCase().includes(q));
   });
 
-  const gitFiles = $derived($gitStatus?.files ?? []);
-  const statusMap = $derived($gitStatusMap);
+  const gitFiles = $derived(git.status?.files ?? []);
+  const statusMap = $derived(git.statusMap);
   // Status paths are toplevel-relative; node ids are workspace-relative. When
   // the workspace is a repo subdir, prefix maps one to the other (empty = same).
-  const gitPrefixVal = $derived($gitPrefix);
+  const gitPrefixVal = $derived(git.prefix);
 
   // ---- Drag & drop (Pencil: «Flow · Drag & drop запросов», D1–D6) ----
   // Drop on a row's top/bottom edge to place before/after it, on a folder's middle to
