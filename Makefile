@@ -2,10 +2,10 @@
 # Mirrors .github/workflows/ci.yml: if `make check` is green, CI is green.
 
 .DEFAULT_GOAL := help
-.PHONY: help setup dev ui mcp check lint test test-ts test-rs build fmt sidecar bump
+.PHONY: help setup dev ui mcp check lint test test-ts test-rs build visual visual-baseline fmt sidecar bump
 
 help: ## list targets
-	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  make %-9s %s\n", $$1, $$2}'
+	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  make %-16s %s\n", $$1, $$2}'
 
 setup: ## install deps (npm ci) and fetch Rust crates
 	npm ci
@@ -40,6 +40,13 @@ test-rs: sidecar ## cargo test for the whole workspace
 
 build: ## production frontend bundle (dist/)
 	npm run build
+
+visual-baseline: build ## capture screenshots of the current UI as the baseline
+	rm -rf visual/__screenshots__
+	npx playwright test --update-snapshots
+
+visual: build ## compare the UI against the baseline; diff report in visual/report
+	npx playwright test
 
 fmt: ## format Rust code
 	cargo fmt --all

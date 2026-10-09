@@ -1,4 +1,4 @@
-import { defineConfig } from "vite";
+import { defineConfig, configDefaults } from "vitest/config";
 import { svelte } from "@sveltejs/vite-plugin-svelte";
 import { readFileSync } from "node:fs";
 
@@ -10,6 +10,8 @@ export default defineConfig({
   plugins: [svelte()],
   // The app version, shown e.g. in the auto User-Agent header (S12).
   define: { __APP_VERSION__: JSON.stringify(version) },
+  // visual/ holds Playwright specs (`make visual`); vitest must not try to run them.
+  test: { exclude: [...configDefaults.exclude, "visual/**"] },
   clearScreen: false,
   server: {
     port: 1420,
