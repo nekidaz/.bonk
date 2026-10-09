@@ -1,0 +1,70 @@
+// Public API of shared/model (like the exported names of a Go package).
+// Code outside src/shared/model/ imports only from here; files inside use relative paths.
+
+export { parseCurl, toCurl, tokenize } from './curl';
+export { buildUrl, formatBytes, mergeParamsFromUrl, paramsFromUrl, syncUrlWithParams } from './http';
+export { buildRequestForSend, currentBodyMode, currentRawFormat, enabledBodyParams } from './httpBody';
+export { methodColor, methodLabel } from './method';
+export {
+  allTestsPassed,
+  applyEnvPatch,
+  applyGrpcRequestPatch,
+  applyRequestPatch,
+  buildGrpcScriptContext,
+  buildScriptContext,
+  parseScriptResult,
+  type ScriptContext,
+  type ScriptPhase,
+  type ScriptResult,
+  SCRIPTS_ENABLED,
+} from './scripts';
+export {
+  type ApiKeyLocation,
+  type AuthConfig,
+  type AuthType,
+  type BodyMode,
+  type BodyParam,
+  type BodyParamKind,
+  type Environment,
+  type FileDiff,
+  type FolderNode,
+  type GitCommit,
+  type GitDiffMode,
+  type GitFile,
+  type GitStatus,
+  type GrpcCertInfo,
+  type GrpcField,
+  type GrpcMethod,
+  type GrpcPrefs,
+  type GrpcResult,
+  type GrpcService,
+  type GrpcStreamMessage,
+  type GrpcTabState,
+  type GrpcTls,
+  type HistoryEntry,
+  type HttpRequest,
+  type HttpResponse,
+  type Param,
+  type ProxyMode,
+  type RawBodyFormat,
+  type RequestNode,
+  type RequestOverrides,
+  type RequestProtocol,
+  type RequestSettings,
+  type RunResultRow,
+  type RunStatus,
+  type ScriptTestResult,
+  type ServiceTree,
+  type Tab,
+  type TreeNode,
+  type VarRow,
+} from './types';
+export {
+  countRequestsUsingVars,
+  findVariables,
+  lookupVar,
+  maskSecret,
+  mergeScope,
+  resolveRequestVars,
+  resolveVars,
+} from './vars';

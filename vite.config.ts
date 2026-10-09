@@ -1,6 +1,7 @@
 import { defineConfig, configDefaults } from 'vitest/config';
 import { svelte } from '@sveltejs/vite-plugin-svelte';
 import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 
 const { version } = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8'));
 
@@ -8,6 +9,14 @@ const host = process.env.TAURI_DEV_HOST;
 
 export default defineConfig({
   plugins: [svelte()],
+  // Layer aliases: `$shared/ipc`, `$entities/tab`, `$features/http/components` (docs/GUIDE.md «Слои фронта»).
+  resolve: {
+    alias: {
+      $shared: fileURLToPath(new URL('./src/shared', import.meta.url)),
+      $entities: fileURLToPath(new URL('./src/entities', import.meta.url)),
+      $features: fileURLToPath(new URL('./src/features', import.meta.url)),
+    },
+  },
   // The app version, shown e.g. in the auto User-Agent header (S12).
   define: { __APP_VERSION__: JSON.stringify(version) },
   // visual/ holds Playwright specs (`make visual`); vitest must not try to run them.

@@ -16,8 +16,8 @@ import '@fontsource/jetbrains-mono/600.css';
 import '@fontsource/material-symbols-outlined/300.css';
 import './app.css';
 import './bigsur.css';
-import { applyStoredTheme } from './lib/theme';
-import App from './App.svelte';
+import { applyStoredTheme } from '$shared/settings';
+import App from './app/App.svelte';
 
 // Native macOS title bars overlay their traffic lights on our toolbar — except in full screen, where macOS hides them.
 const nativeMacos = isTauri() && /Mac/i.test(navigator.platform);
