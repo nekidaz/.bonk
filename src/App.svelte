@@ -37,7 +37,16 @@
     switchWorkspace,
     recentWorkspacePaths,
     hotkeys,
+    requestLayout,
+    afterSend,
+    sideOnWide,
+    SIDE_BY_SIDE_MIN,
   } from './lib/stores';
+  import { focusMode } from './lib/stores/ui';
+  import { expandTarget } from './lib/domain/focusMode';
+  import FocusBar from './lib/components/FocusBar.svelte';
+  import RequestStrip from './lib/components/RequestStrip.svelte';
+  import ResponseStrip from './lib/components/ResponseStrip.svelte';
   import { t } from './lib/i18n';
   import { get } from 'svelte/store';
   import { commandFor, eventToBinding, formatBinding } from './lib/domain/hotkeys';
@@ -299,6 +308,67 @@
   let responseHidden = $state(false);
   /** The response dragged all the way up: the request editor hides (URL bar and tabs stay). */
   let requestHidden = $state(false);
+  // ---- Layout (S32.5b, E1–E7) ----
+  const requestTab = $derived(active?.protocol === 'http' || active?.protocol === 'grpc');
+  let innerWidth = $state(window.innerWidth);
+  /** E7: request | response side by side — chosen, or automatic on a wide window. Expanded mode wins. */
+  const sideBySide = $derived(requestTab && !$focusMode && ($requestLayout === 'side' || ($sideOnWide && innerWidth >= SIDE_BY_SIDE_MIN)));
+  /** In stacked layouts a hidden pane folds into its 44 px strip. */
+  const respStrip = $derived(!sideBySide && (responseHidden || $focusMode === 'request'));
+  const reqStrip = $derived(!sideBySide && requestHidden && !$focusMode);
+  // Expanded mode belongs to the tab it was opened on.
+  let focusTabId: string | undefined;
+  $effect(() => {
+    const id = active?.id;
+    if (id !== focusTabId) {
+      focusTabId = id;
+      untrack(() => focusMode.set(null));
+    }
+  });
+  // Entering expanded mode brings that pane back from its strip.
+  $effect(() => {
+    const m = $focusMode;
+    untrack(() => {
+      if (m === 'request') requestHidden = false;
+      else if (m === 'response') responseHidden = false;
+    });
+  });
+  // A fresh response (not a tab switch): auto-focus and «После отправки: раскрыть ответ» give it the height.
+  let seenResponse: { tab?: string; res?: unknown } = {};
+  $effect(() => {
+    const res = active?.protocol === 'grpc' ? active.grpcResult : active?.response;
+    const id = active?.id;
+    if (res && id && seenResponse.tab === id && seenResponse.res !== res && !sideBySide && ($requestLayout === 'focus' || $afterSend === 'expand')) {
+      untrack(() => {
+        responseHidden = false;
+        requestHidden = true;
+      });
+    }
+    seenResponse = { tab: id, res };
+  });
+  /** Auto-focus: the pane being worked in fills, the other folds into its strip. */
+  function autoFocusIn(e: FocusEvent): void {
+    if ($requestLayout !== 'focus' || sideBySide || $focusMode) return;
+    const el = e.target instanceof Element ? e.target : null;
+    if (el?.closest('.bs-reqpane')) {
+      requestHidden = false;
+      responseHidden = true;
+    } else if (el?.closest('.bs-resp-host') && !el.closest('.bs-resizer-row')) {
+      responseHidden = false;
+      requestHidden = true;
+    }
+  }
+  function showResponse(): void {
+    focusMode.set(null);
+    responseHidden = false;
+    if ($requestLayout === 'focus') requestHidden = true;
+  }
+  function showRequest(): void {
+    focusMode.set(null);
+    requestHidden = false;
+    if ($requestLayout === 'focus') responseHidden = true;
+  }
+
   let utilityMode = $state<UtilityMode | null>(null);
   let utilityPanelHeight = $state(220);
   function openSaveDialog(): void {
@@ -356,7 +426,14 @@
   function globalKeydown(e: KeyboardEvent): void {
     if (e.key === 'Escape') {
       const trigger = menu.kind ? menuTrigger : document.querySelector<HTMLElement>('[aria-haspopup][aria-expanded="true"]');
-      if (!trigger && !menu.kind) return;
+      if (!trigger && !menu.kind) {
+        // Esc leaves expanded mode; CodeMirror's own Esc (find panel, completion) prevents default first.
+        if ($focusMode && !e.defaultPrevented && !document.querySelector('.bs-modal, .bs-overlay')) {
+          e.preventDefault();
+          focusMode.set(null);
+        }
+        return;
+      }
       e.preventDefault();
       closeMenu();
       httpMethodOpen = grpcMethodOpen = workspaceMenuOpen = false;
@@ -399,6 +476,19 @@
       case 'closeTab': void requestCloseTab($activeTabId); break;
       case 'newTab': newTab(); break;
       case 'reopenTab': reopenClosedTab(); break;
+      case 'expand':
+        if (requestTab) focusMode.update((m) => expandTarget(m, !!document.activeElement?.closest('.bs-resp-host')));
+        break;
+      case 'toggleResponse':
+        if (sideBySide) break;
+        if (respStrip) showResponse();
+        else { focusMode.set(null); responseHidden = true; requestHidden = false; }
+        break;
+      case 'toggleRequest':
+        if (sideBySide) break;
+        if (reqStrip || $focusMode === 'response') showRequest();
+        else { focusMode.set(null); requestHidden = true; responseHidden = false; }
+        break;
       case 'nextTab': case 'prevTab': {
         const i = $tabs.findIndex((t) => t.id === $activeTabId);
         const next = i < 0 ? undefined : nextTabIndex(id === 'prevTab' ? 'ArrowLeft' : 'ArrowRight', i, $tabs.length);
@@ -636,9 +726,9 @@
 
 </script>
 
-<svelte:window onpointerdown={() => { grpcMethodOpen = false; httpMethodOpen = false; workspaceMenuOpen = false; }} onkeydown={globalKeydown} />
+<svelte:window bind:innerWidth onpointerdown={() => { grpcMethodOpen = false; httpMethodOpen = false; workspaceMenuOpen = false; }} onkeydown={globalKeydown} />
 
-<div class="bs" class:sidebar-hidden={!sidebarShown}>
+<div class="bs" class:sidebar-hidden={!sidebarShown} data-focus={requestTab && $focusMode ? $focusMode : undefined}>
   <AppToolbar
     bind:workspaceMenuOpen
     onSearch={() => (paletteOpen = true)}
@@ -682,8 +772,9 @@
       <div class="bs-workspace-main">
         <!-- Main -->
         <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_noninteractive_element_interactions -->
-        <main class="bs-main" class:req-hidden={requestHidden} onclick={(e) => { if (requestHidden && (e.target as HTMLElement).closest('.bs-rtab')) requestHidden = false; }}>
+        <main class="bs-main" class:req-hidden={requestHidden && !sideBySide} class:side={sideBySide} onfocusin={autoFocusIn} onclick={(e) => { if (requestHidden && (e.target as HTMLElement).closest('.bs-rtab')) requestHidden = false; }}>
           <AppTabBar onNew={() => { newTab(); void tick().then(() => document.querySelector<HTMLElement>('.bs-urlbar .cm-content')?.focus()); }} />
+          {#if active && requestTab && $focusMode}<FocusBar tab={active} mode={$focusMode} />{/if}
 
           {#if active}
             {#if active.protocol === 'git'}
@@ -717,15 +808,17 @@
             {:else}
               <HttpRequestEditor tab={active} bind:methodOpen={httpMethodOpen} />
             {/if}
+            {#if reqStrip}<RequestStrip tab={active} onShow={showRequest} />{/if}
             <!-- Stays mounted while hidden so open/close animates (flex-basis → 0). -->
             <div
               class="bs-resp-host"
-              class:closed={responseHidden}
+              class:closed={respStrip}
               class:no-anim={panelDragging}
-              style={responseHeight == null || requestHidden ? '' : `flex:0 0 ${responseHeight}px`}
+              style={responseHeight == null || requestHidden || sideBySide || $focusMode ? '' : `flex:0 0 ${responseHeight}px`}
             >
               <ResponsePane tab={active} onResize={startSplitDrag} onResetSize={resetResponseSize} onSettings={() => (settingsOpen = true)} />
             </div>
+            {#if respStrip}<ResponseStrip tab={active} onShow={showResponse} />{/if}
             {/if}
           {:else}
             <WelcomeView onNewRequest={() => newRequestHere()} onImport={importOpenApi} onPasteCurl={(text) => { newTab(); applyCurlToActiveTab(text); }} />
