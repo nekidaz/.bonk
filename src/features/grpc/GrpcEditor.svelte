@@ -2,16 +2,16 @@
   /**
    * gRPC request editor for the active tab: the endpoint bar + method picker,
    * the error banner, and the message / metadata / service-definition sub-tabs.
-   * This file owns the connect / invoke / stream orchestration (store-bound);
+   * This file owns the connect / invoke / stream orchestration;
    * the UI sections live in this folder (Grpc*.svelte) and the pure helpers in grpcEditor.ts.
    *
    * The response area (`.bs-resp`) and its split-resize handle stay in
-   * App.svelte; this component owns only the gRPC request-editing UI and its
+   * app/AppMain.svelte; this component owns only the gRPC request-editing UI and its
    * state. It reads/writes in-flight + error state via the shared
-   * `busyMap`/`grpcErrorMap` stores (keyed by tab id) so a request started here
+   * `requestRuntime.busy` / `.grpcErrors` maps (keyed by tab id) so a request started here
    * never shows busy/error on another tab.
    *
-   * `methodOpen` is bound from App because App's `<svelte:window onpointerdown>`
+   * `methodOpen` is bound from app/ because App's `<svelte:window onpointerdown>`
    * resets it on outside-click; the picker element stops pointer-down
    * propagation so clicking inside doesn't close it.
    */
@@ -116,7 +116,7 @@
   // E2 (rules 2, 3, 6): a large message loses its head — type, size, lines and tools move into the tabs row.
   const largeMessage = $derived(gTab === 'message' && !chooseSchema && isLargeBody(tab.grpc?.message ?? ''));
   const messageStats = $derived(largeMessage ? textStats(tab.grpc?.message ?? '') : undefined);
-  // Per-tab gRPC in-flight state derived from the shared `busyMap` store so the
+  // Per-tab gRPC in-flight state derived from the shared `requestRuntime.busy` map so the
   // tab's Invoke/Connect buttons reflect ONLY that tab's request.
   const activeBusy = $derived(requestRuntime.busy[tab.id]);
   const grpcConnecting = $derived(activeBusy?.kind === 'connect');
@@ -524,8 +524,7 @@
     });
   }
   // `{{var}}` inline highlight + hover quick-set, shared by the endpoint,
-  // message, and metadata editors; re-derived whenever the variable stores
-  // change.
+  // message, and metadata editors; re-derived whenever the variables change.
   const varHighlight = $derived(
     requestVariableHighlight(environments.globals, environments.list, environments.activeId),
   );

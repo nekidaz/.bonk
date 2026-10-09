@@ -2,7 +2,7 @@
   import { importApiText, importApiFile } from '$entities/workspace';
   import { t } from '$shared/i18n';
 
-  // `open` is the trigger held by App.svelte; the paste buffer + error live here.
+  // `open` is the trigger held by app/ (`shell.importOpen`); the paste buffer + error live here.
   let { open = $bindable() }: { open: boolean } = $props();
 
   let text = $state('');

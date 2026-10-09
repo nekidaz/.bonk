@@ -8,7 +8,7 @@
    *  - gRPC: status/time/size meta and the rendered message, plus its empty state.
    *
    * The outer `.bs-resp` wrapper, the split-resize handle, and the response
-   * height live in App.svelte (resize state is App-level); this component owns
+   * height live in app/layout.svelte.ts (resize state is App-level); this component owns
    * only the response-display state (`respTab`, `respMode`) and derives
    * everything else from `tab`.
    */

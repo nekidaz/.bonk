@@ -18,7 +18,7 @@ const OUTSIDE = new Set(['main.ts', 'vite-env.d.ts', 'architecture.test.ts']);
 type Slice = { layer: string; name: string };
 type Ref = { from: string; spec: string; target: string; alias: boolean; mock: boolean };
 
-/** 'entities/tab/store.ts' → entities/tab · 'app/App.svelte' → app · 'main.ts' → null (paths relative to src/). */
+/** 'entities/tab/store.svelte.ts' → entities/tab · 'app/App.svelte' → app · 'main.ts' → null (paths relative to src/). */
 function sliceOf(path: string): Slice | null {
   const [layer, name] = path.split('/');
   if (layer === 'app') return { layer, name: 'app' };

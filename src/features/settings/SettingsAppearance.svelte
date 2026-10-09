@@ -35,7 +35,7 @@
 </script>
 
 <div class="st-group">{t('settings.appearance.theme')}</div>
-<!-- S32.5: three cards with a mini app preview; «Как в системе» follows the OS (App.svelte). -->
+<!-- S32.5: three cards with a mini app preview; «Как в системе» follows the OS (app/lifecycle.svelte.ts). -->
 <div class="st-card st-pad">
   <div class="st-modes" role="radiogroup" aria-label={t('settings.appearance.theme')}>
     {#each MODES as m (m)}

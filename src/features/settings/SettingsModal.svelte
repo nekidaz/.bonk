@@ -15,7 +15,7 @@
   import SettingsData from './SettingsData.svelte';
   import SettingsMcp from './SettingsMcp.svelte';
 
-  // Two-way bound from the parent (App.svelte holds the source of truth).
+  // Two-way bound from the parent (app/ `shell.settingsOpen` is the source of truth).
   let { open = $bindable() }: { open: boolean } = $props();
 
   // From the running Tauri app (tauri.conf.json); blank in browser-only previews.

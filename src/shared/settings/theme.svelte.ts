@@ -1,4 +1,4 @@
-/** Bonk Mono palettes (S32.5): light and dark. «Как в системе» picks one of them (App.svelte). */
+/** Bonk Mono palettes (S32.5): light and dark. «Как в системе» picks one of them (app/lifecycle.svelte.ts). */
 export type Theme = 'smooth-light' | 'smooth-dark';
 
 export const DEFAULT_THEME: Theme = 'smooth-light';

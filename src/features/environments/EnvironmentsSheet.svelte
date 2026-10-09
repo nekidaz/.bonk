@@ -1,7 +1,7 @@
 <script lang="ts">
   /**
    * S31 · Environments sheet: modal manager for environments and Globals.
-   * Edits go into a local draft (deep copy of the stores) and are written back
+   * Edits go into a local draft (deep copy of `environments`) and are written back
    * only on «Сохранить»; «Отмена» / Esc / scrim discard them.
    * `embedded` renders the same editor inside the Environments tab (no scrim).
    */

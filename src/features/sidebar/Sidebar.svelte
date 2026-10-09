@@ -10,10 +10,10 @@
    *  - the Postman-style bottom dock (environments, flows).
    *
    * The outer `<aside class="bs-side" style="width:…">` wrapper, the column
-   * resize handle, and the sidebar width/resize state live in App.svelte
-   * (resize state is App-level). This component is presentational: it reads the
-   * stores it renders directly and coordinates menus/inline-rename through
-   * props so the menu popovers, modals, and editing state stay in App.
+   * resize handle, and the sidebar width/resize state live in app/ (AppSidebar.svelte,
+   * layout.svelte.ts). This component is presentational: it reads the
+   * state it renders directly and coordinates menus/inline-rename through
+   * props so the menu popovers, modals, and editing state stay in app/.
    */
   import { tick, untrack } from 'svelte';
   import {

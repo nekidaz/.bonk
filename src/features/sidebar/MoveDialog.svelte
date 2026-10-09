@@ -3,7 +3,7 @@
   import { FolderPicker } from '$entities/workspace/components';
   import { t } from '$shared/i18n';
 
-  // `open` is the trigger held by the parent (App.svelte); `sourceId` is the node
+  // `open` is the trigger held by the parent (app/ `shell.moveOpen`); `sourceId` is the node
   // being moved. The chosen destination lives here (undefined = workspace root).
   let { open = $bindable(), sourceId }: { open: boolean; sourceId: string } = $props();
 
