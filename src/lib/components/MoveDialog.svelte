@@ -27,10 +27,15 @@
     <div class="bs-modal">
       <div class="bs-modal-h">
         <span class="t">{$t('dialog.move.title')}</span>
-        <button class="x" aria-label={$t('common.close')} onclick={() => (open = false)}><span class="material-symbols-outlined" style="font-size:18px">close</span></button>
+        <button class="x" aria-label={$t('common.close')} onclick={() => (open = false)}
+          ><span class="material-symbols-outlined" style="font-size:18px">close</span></button
+        >
       </div>
       <div class="bs-modal-b">
-        <div class="bs-saveto">{$t('dialog.move.to')} <span>{moveTarget ? (findNode($collections, moveTarget)?.name ?? '—') : $t('dialog.move.root')}</span></div>
+        <div class="bs-saveto">
+          {$t('dialog.move.to')}
+          <span>{moveTarget ? (findNode($collections, moveTarget)?.name ?? '—') : $t('dialog.move.root')}</span>
+        </div>
         <div class="bs-collbox">
           <div class="bs-colllist">
             <FolderPicker nodes={$collections} bind:selected={moveTarget} excludeId={sourceId} />

@@ -22,7 +22,14 @@
 </script>
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
-<div class="bs-resizer-row" role="separator" aria-orientation="horizontal" aria-label={$t('response.resize')} onpointerdown={onResize} ondblclick={onResetSize}></div>
+<div
+  class="bs-resizer-row"
+  role="separator"
+  aria-orientation="horizontal"
+  aria-label={$t('response.resize')}
+  onpointerdown={onResize}
+  ondblclick={onResetSize}
+></div>
 {#if progress}<div class="bs-resp-progress" aria-hidden="true"><span></span></div>{/if}
 <div class="bs-resp" class:sending>
   <ResponseView {tab} {onSettings} />

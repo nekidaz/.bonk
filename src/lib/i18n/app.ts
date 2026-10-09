@@ -79,7 +79,8 @@ export const ru = {
   'settings.appearance.dark': 'Тёмная',
   'settings.appearance.density': 'ПЛОТНОСТЬ',
   'settings.appearance.density.label': 'Плотность интерфейса',
-  'settings.appearance.density.desc': 'Компактно — меньше отступов в шапке, вкладках, дереве, кнопках и таблицах. Больше места под запрос и ответ.',
+  'settings.appearance.density.desc':
+    'Компактно — меньше отступов в шапке, вкладках, дереве, кнопках и таблицах. Больше места под запрос и ответ.',
   'settings.appearance.light': 'Светлая',
   'settings.appearance.normal': 'Стандартно',
   'settings.appearance.system': 'Как в системе',
@@ -101,7 +102,8 @@ export const ru = {
   'settings.certs.host.desc': 'api.example.com или *.example.com. Пусто = любой хост',
   'settings.certs.hostCert': 'Сертификат для хоста',
   'settings.certs.notPicked': 'не выбран',
-  'settings.certs.note': 'Проверка SSL включается и выключается в разделе «Запросы». Файлы читаются при отправке; ошибка чтения появится как ошибка запроса.',
+  'settings.certs.note':
+    'Проверка SSL включается и выключается в разделе «Запросы». Файлы читаются при отправке; ошибка чтения появится как ошибка запроса.',
   'settings.certs.ownCa': 'Свой CA',
   'settings.certs.ownCa.desc': 'Для внутренних серверов',
   'settings.certs.pickCert': 'Сертификат (PEM)…',
@@ -269,7 +271,8 @@ export const ru = {
   'settings.mcp.write.desc': 'Создавать, менять, перемещать и удалять запросы',
   'settings.mcp.ws': 'ВОРКСПЕЙС',
   'settings.page.mcp': 'AI / MCP',
-  'settings.page.mcp.sub': 'Bonk отдаёт воркспейс AI-клиентам через свой MCP-сервер. Клиент читает коллекции и отправляет запросы — в рамках разрешений ниже.',
+  'settings.page.mcp.sub':
+    'Bonk отдаёт воркспейс AI-клиентам через свой MCP-сервер. Клиент читает коллекции и отправляет запросы — в рамках разрешений ниже.',
   'settings.page.proxy': 'Прокси',
   'settings.page.proxy.sub': 'Через какой прокси уходят запросы.',
   'settings.page.requests': 'Запросы',
@@ -356,7 +359,8 @@ export const en: Record<keyof typeof ru, string> = {
   'app.day.today': 'Today',
   'app.day.yesterday': 'Yesterday',
   'app.guard.send': 'Send to {env}',
-  'app.guard.text': 'This request will change production data and cannot be undone. Make sure the address and environment are correct.',
+  'app.guard.text':
+    'This request will change production data and cannot be undone. Make sure the address and environment are correct.',
   'app.guard.title': 'Send {method} to {env}?',
   'app.guard.type': 'Type {env} to confirm',
   'app.node.deleteFolder': 'Delete folder “{name}” and everything inside it? This can’t be undone.',
@@ -430,7 +434,8 @@ export const en: Record<keyof typeof ru, string> = {
   'settings.appearance.dark': 'Dark',
   'settings.appearance.density': 'DENSITY',
   'settings.appearance.density.label': 'Interface density',
-  'settings.appearance.density.desc': 'Compact trims the padding in the header, tabs, tree, buttons and tables, leaving more room for the request and response.',
+  'settings.appearance.density.desc':
+    'Compact trims the padding in the header, tabs, tree, buttons and tables, leaving more room for the request and response.',
   'settings.appearance.light': 'Light',
   'settings.appearance.normal': 'Standard',
   'settings.appearance.system': 'Follow system',
@@ -452,7 +457,8 @@ export const en: Record<keyof typeof ru, string> = {
   'settings.certs.host.desc': 'api.example.com or *.example.com. Empty = any host',
   'settings.certs.hostCert': 'Host certificate',
   'settings.certs.notPicked': 'not selected',
-  'settings.certs.note': 'SSL verification is toggled in the Requests section. Files are read on send; a read error will show up as a request error.',
+  'settings.certs.note':
+    'SSL verification is toggled in the Requests section. Files are read on send; a read error will show up as a request error.',
   'settings.certs.ownCa': 'Custom CA',
   'settings.certs.ownCa.desc': 'For internal servers',
   'settings.certs.pickCert': 'Certificate (PEM)…',
@@ -620,7 +626,8 @@ export const en: Record<keyof typeof ru, string> = {
   'settings.mcp.write.desc': 'Create, edit, move and delete requests',
   'settings.mcp.ws': 'WORKSPACE',
   'settings.page.mcp': 'AI / MCP',
-  'settings.page.mcp.sub': 'Bonk exposes the workspace to AI clients through its MCP server. A client reads collections and sends requests, within the permissions below.',
+  'settings.page.mcp.sub':
+    'Bonk exposes the workspace to AI clients through its MCP server. A client reads collections and sends requests, within the permissions below.',
   'settings.page.proxy': 'Proxy',
   'settings.page.proxy.sub': 'Which proxy requests go through.',
   'settings.page.requests': 'Requests',
@@ -698,5 +705,5 @@ export const en: Record<keyof typeof ru, string> = {
   'update.restart': 'Restart',
   'update.restarting': 'Restarting…',
   'update.restoreNote': 'Tabs and unsaved changes come back after the restart.',
-  'update.whatsNew': 'What\'s new',
+  'update.whatsNew': "What's new",
 };

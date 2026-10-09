@@ -1,13 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import {
-  esc,
-  hl,
-  highlightJson,
-  highlightMarkup,
-  memoText,
-  bodyEditorHtml,
-  MAX_HIGHLIGHT_CHARS,
-} from './highlight';
+import { esc, hl, highlightJson, highlightMarkup, memoText, bodyEditorHtml, MAX_HIGHLIGHT_CHARS } from './highlight';
 import type { Tab } from './types';
 
 function tab(overrides: Partial<Tab['request']> = {}): Tab {
@@ -113,7 +105,7 @@ describe('highlightMarkup (HTML/XML)', () => {
     const out = highlightMarkup("data-id='42'");
     expect(out).toContain('<span class="attr">data-id</span>');
     expect(out).toContain('<span class="pu">=</span>');
-    expect(out).toContain("<span class=\"s2\">'42'</span>");
+    expect(out).toContain('<span class="s2">\'42\'</span>');
   });
 });
 

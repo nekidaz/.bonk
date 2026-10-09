@@ -52,7 +52,12 @@
   const lines = $derived(doc ? textStats(text).lines : 0);
 
   $effect(() => {
-    info = { cm: !!doc, lines, capped: doc ? doc.truncated : !!legacy?.truncated, shown: doc ? doc.text.length : DISPLAY_CHARS };
+    info = {
+      cm: !!doc,
+      lines,
+      capped: doc ? doc.truncated : !!legacy?.truncated,
+      shown: doc ? doc.text.length : DISPLAY_CHARS,
+    };
   });
 </script>
 
@@ -77,14 +82,18 @@
     <div class="bs-rbody pretty">
       {#if legacy.kind === 'plain'}
         <div class="bs-response-editor" class:wrap={$responseLineWrap}>
-          <div class="bs-response-gutter" aria-hidden="true">{#each legacy.lines as n}<div>{n}</div>{/each}</div>
+          <div class="bs-response-gutter" aria-hidden="true">
+            {#each legacy.lines as n}<div>{n}</div>{/each}
+          </div>
           <div class="bs-code">{@html legacy.html}</div>
         </div>
       {:else if legacy.kind === 'lines'}
         <div class="bs-response-editor chunked" class:wrap={$responseLineWrap}>
           {#each legacy.chunks as c (c.firstLine)}
             <div class="bs-resp-chunk" style="contain-intrinsic-size: auto {c.estPx}px">
-              <div class="bs-response-gutter" aria-hidden="true">{#each c.gutter as n}<div>{n}</div>{/each}</div>
+              <div class="bs-response-gutter" aria-hidden="true">
+                {#each c.gutter as n}<div>{n}</div>{/each}
+              </div>
               <div class="bs-code">{@html c.html}</div>
             </div>
           {/each}
@@ -92,7 +101,9 @@
       {:else}
         <div class="bs-response-editor chunked chars">
           {#each legacy.chunks as c (c.offset)}
-            <div class="bs-resp-cchunk" style="contain-intrinsic-size: auto {c.estPx}px"><div class="bs-code">{@html c.html}</div></div>
+            <div class="bs-resp-cchunk" style="contain-intrinsic-size: auto {c.estPx}px">
+              <div class="bs-code">{@html c.html}</div>
+            </div>
           {/each}
         </div>
       {/if}

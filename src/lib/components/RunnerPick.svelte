@@ -4,7 +4,17 @@
    * or repeat one of the recent runs. Picking opens the run setup (R2).
    * Shared atoms (.rn-eyebrow, .rn-btn …) are styled by RunnerView.
    */
-  import { collections, runnerHistory, runnerPresets, setRunnerFolders, setRunnerStage, repeatRun, applyPreset, deletePreset, uiLanguage } from '../stores';
+  import {
+    collections,
+    runnerHistory,
+    runnerPresets,
+    setRunnerFolders,
+    setRunnerStage,
+    repeatRun,
+    applyPreset,
+    deletePreset,
+    uiLanguage,
+  } from '../stores';
   import { relDay } from '../domain/runnerStats';
   import type { FolderNode, TreeNode } from '../domain/types';
   import { t, tp } from '../i18n';
@@ -28,24 +38,34 @@
     return s;
   }
   function allFolders(list: TreeNode[], out: FolderNode[] = []): FolderNode[] {
-    for (const n of list) if (n.kind === 'folder') out.push(n), allFolders(n.children, out);
+    for (const n of list) if (n.kind === 'folder') (out.push(n), allFolders(n.children, out));
     return out;
   }
 
   const q = $derived(query.trim().toLowerCase());
   // Top-level folders are the collections; a search reaches any folder.
   const items = $derived(
-    q ? allFolders($collections).filter((f) => f.name.toLowerCase().includes(q)) : $collections.filter((n): n is FolderNode => n.kind === 'folder'),
+    q
+      ? allFolders($collections).filter((f) => f.name.toLowerCase().includes(q))
+      : $collections.filter((n): n is FolderNode => n.kind === 'folder'),
   );
-  const recent = $derived([...$runnerHistory].reverse().filter((h) => h.folderIds).slice(0, 3));
+  const recent = $derived(
+    [...$runnerHistory]
+      .reverse()
+      .filter((h) => h.folderIds)
+      .slice(0, 3),
+  );
   const lastFor = (id: string) => $runnerHistory.findLast((h) => h.folderIds?.[0] === id);
 
   function subtitle(f: FolderNode): string {
     const s = stats(f);
-    const unit = s.grpc === s.requests && s.requests > 0
-      ? $tp(s.requests, ['метод', 'метода', 'методов'], ['method', 'methods'])
-      : $tp(s.requests, ['запрос', 'запроса', 'запросов'], ['request', 'requests']);
-    const folders = s.folders ? ` · ${s.folders} ${$tp(s.folders, ['папка', 'папки', 'папок'], ['folder', 'folders'])}` : '';
+    const unit =
+      s.grpc === s.requests && s.requests > 0
+        ? $tp(s.requests, ['метод', 'метода', 'методов'], ['method', 'methods'])
+        : $tp(s.requests, ['запрос', 'запроса', 'запросов'], ['request', 'requests']);
+    const folders = s.folders
+      ? ` · ${s.folders} ${$tp(s.folders, ['папка', 'папки', 'папок'], ['folder', 'folders'])}`
+      : '';
     return `${s.requests} ${unit}${folders}`;
   }
 
@@ -66,8 +86,14 @@
     <label class="rp-search">
       <span class="material-symbols-outlined" aria-hidden="true">search</span>
       <!-- svelte-ignore a11y_autofocus -->
-      <input type="search" bind:value={query} placeholder={$t('runner.pick.search')} aria-label={$t('runner.pick.search')} autofocus
-        onkeydown={(e) => e.key === 'Enter' && items[0] && pick(items[0].id)} />
+      <input
+        type="search"
+        bind:value={query}
+        placeholder={$t('runner.pick.search')}
+        aria-label={$t('runner.pick.search')}
+        autofocus
+        onkeydown={(e) => e.key === 'Enter' && items[0] && pick(items[0].id)}
+      />
     </label>
 
     {#if items.length > 0}
@@ -79,7 +105,11 @@
             <span class="rp-name"><b>{f.name}</b><small>{subtitle(f)}</small></span>
             <span class="rp-last">
               {#if last}
-                <i class="rn-dot" class:bad={last.passed < last.total}></i>{$t('runner.pick.last', { passed: last.passed, total: last.total, when: relDay(last.startedAt, $uiLanguage) })}
+                <i class="rn-dot" class:bad={last.passed < last.total}></i>{$t('runner.pick.last', {
+                  passed: last.passed,
+                  total: last.total,
+                  when: relDay(last.startedAt, $uiLanguage),
+                })}
               {:else}
                 {$t('runner.pick.never')}
               {/if}
@@ -97,7 +127,9 @@
       <div class="rp-recent">
         {#each recent as h (h.n)}
           <button class="rp-card" type="button" onclick={() => repeatRun(h)}>
-            <span class="rp-card-top"><span>#{h.n}</span><b class:bad={h.passed < h.total}>{h.passed}/{h.total}</b></span>
+            <span class="rp-card-top"
+              ><span>#{h.n}</span><b class:bad={h.passed < h.total}>{h.passed}/{h.total}</b></span
+            >
             <span class="rp-card-name">{h.title}</span>
             <small>{[h.envName ?? $t('runner.noEnv'), `×${h.iterations ?? 1}`].join(' · ')}</small>
           </button>
@@ -114,7 +146,13 @@
               <span class="rp-card-name">{p.name}</span>
               <small>{[`×${p.iterations}`, p.delayMs ? `${p.delayMs} ms` : ''].filter(Boolean).join(' · ')}</small>
             </button>
-            <button class="rp-pdel" type="button" title={$t('runner.preset.delete')} aria-label={$t('runner.preset.delete')} onclick={() => deletePreset(p.name)}>
+            <button
+              class="rp-pdel"
+              type="button"
+              title={$t('runner.preset.delete')}
+              aria-label={$t('runner.preset.delete')}
+              onclick={() => deletePreset(p.name)}
+            >
               <span class="material-symbols-outlined" aria-hidden="true">close</span>
             </button>
           </div>
@@ -122,16 +160,44 @@
       </div>
     {/if}
 
-    <p class="rp-hint"><span class="material-symbols-outlined" aria-hidden="true">info</span>{$t('runner.pick.hint')}</p>
+    <p class="rp-hint">
+      <span class="material-symbols-outlined" aria-hidden="true">info</span>{$t('runner.pick.hint')}
+    </p>
   </div>
 </div>
 
 <style>
-  .rp { flex: 1; min-height: 0; overflow: auto; display: flex; justify-content: center; padding: 26px 0 20px; }
-  .rp-col { width: 640px; max-width: 100%; display: flex; flex-direction: column; gap: 14px; }
-  .rp-head { display: flex; flex-direction: column; gap: 6px; margin-bottom: 4px; }
-  .rp-head h2 { margin: 2px 0 0; font: 600 26px/32px var(--font-ui); letter-spacing: -0.5px; }
-  .rp-head p { margin: 0; color: var(--color-text-secondary); font: 13px/18px var(--font-ui); }
+  .rp {
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
+    display: flex;
+    justify-content: center;
+    padding: 26px 0 20px;
+  }
+  .rp-col {
+    width: 640px;
+    max-width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+  .rp-head {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 4px;
+  }
+  .rp-head h2 {
+    margin: 2px 0 0;
+    font: 600 26px/32px var(--font-ui);
+    letter-spacing: -0.5px;
+  }
+  .rp-head p {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font: 13px/18px var(--font-ui);
+  }
 
   .rp-search {
     height: 40px;
@@ -143,9 +209,23 @@
     border-radius: 999px;
     background: var(--color-field);
   }
-  .rp-search:focus-within { border-color: var(--color-border); }
-  .rp-search .material-symbols-outlined { font-size: 16px; color: var(--color-text-muted); }
-  .rp-search input { flex: 1; min-width: 0; border: 0; outline: 0; box-shadow: none; background: none; color: var(--color-text); font: 13px var(--font-ui); }
+  .rp-search:focus-within {
+    border-color: var(--color-border);
+  }
+  .rp-search .material-symbols-outlined {
+    font-size: 16px;
+    color: var(--color-text-muted);
+  }
+  .rp-search input {
+    flex: 1;
+    min-width: 0;
+    border: 0;
+    outline: 0;
+    box-shadow: none;
+    background: none;
+    color: var(--color-text);
+    font: 13px var(--font-ui);
+  }
 
   .rp-list {
     display: flex;
@@ -166,7 +246,11 @@
     text-align: left;
     color: var(--color-text);
   }
-  .rp-item:hover, .rp-item:focus-visible { background: var(--color-selected); outline: 0; }
+  .rp-item:hover,
+  .rp-item:focus-visible {
+    background: var(--color-selected);
+    outline: 0;
+  }
   .rp-ico {
     flex: none;
     width: 32px;
@@ -178,17 +262,54 @@
     background: var(--color-panel);
     color: var(--color-text-secondary);
   }
-  .rp-ico .material-symbols-outlined { font-size: 17px; }
-  .rp-name { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
-  .rp-name b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 600 14px/18px var(--font-ui); }
-  .rp-name small { color: var(--color-text-muted); font: 11px/14px var(--font-ui); }
-  .rp-last { flex: none; display: inline-flex; align-items: center; gap: 7px; color: var(--color-text-secondary); font: 11px var(--font-ui); }
-  .rp-last .rn-dot { background: var(--color-success); }
-  .rp-last .rn-dot.bad { background: var(--color-danger); }
-  .rp-chev { flex: none; font-size: 16px; color: var(--color-text-muted); }
-  .rp-empty { margin: 8px 4px; }
+  .rp-ico .material-symbols-outlined {
+    font-size: 17px;
+  }
+  .rp-name {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .rp-name b {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font: 600 14px/18px var(--font-ui);
+  }
+  .rp-name small {
+    color: var(--color-text-muted);
+    font: 11px/14px var(--font-ui);
+  }
+  .rp-last {
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    color: var(--color-text-secondary);
+    font: 11px var(--font-ui);
+  }
+  .rp-last .rn-dot {
+    background: var(--color-success);
+  }
+  .rp-last .rn-dot.bad {
+    background: var(--color-danger);
+  }
+  .rp-chev {
+    flex: none;
+    font-size: 16px;
+    color: var(--color-text-muted);
+  }
+  .rp-empty {
+    margin: 8px 4px;
+  }
 
-  .rp-recent { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+  .rp-recent {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+  }
   .rp-card {
     min-width: 0;
     display: flex;
@@ -201,18 +322,68 @@
     text-align: left;
     color: var(--color-text);
   }
-  .rp-card:hover { border-color: var(--color-border); }
-  .rp-card-top { display: flex; justify-content: space-between; color: var(--color-text-muted); font: 10px/13px var(--font-code); }
-  .rp-card-top b { color: var(--color-success); font-weight: 600; }
-  .rp-card-top b.bad { color: var(--color-danger); }
-  .rp-card-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 600 12px/16px var(--font-ui); }
-  .rp-card small { color: var(--color-text-muted); font: 11px/14px var(--font-ui); }
+  .rp-card:hover {
+    border-color: var(--color-border);
+  }
+  .rp-card-top {
+    display: flex;
+    justify-content: space-between;
+    color: var(--color-text-muted);
+    font: 10px/13px var(--font-code);
+  }
+  .rp-card-top b {
+    color: var(--color-success);
+    font-weight: 600;
+  }
+  .rp-card-top b.bad {
+    color: var(--color-danger);
+  }
+  .rp-card-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font: 600 12px/16px var(--font-ui);
+  }
+  .rp-card small {
+    color: var(--color-text-muted);
+    font: 11px/14px var(--font-ui);
+  }
 
-  .rp-preset { position: relative; padding: 0; }
-  .rp-pbody { display: flex; flex-direction: column; gap: 3px; padding: 11px 28px 11px 12px; text-align: left; color: inherit; min-width: 0; }
-  .rp-pdel { position: absolute; top: 6px; right: 6px; display: inline-flex; color: var(--color-text-muted); }
-  .rp-pdel:hover { color: var(--color-text); }
-  .rp-pdel .material-symbols-outlined { font-size: 14px; }
-  .rp-hint { display: flex; align-items: center; gap: 7px; margin: 2px 0 0; color: var(--color-text-muted); font: 11px var(--font-ui); }
-  .rp-hint .material-symbols-outlined { font-size: 14px; }
+  .rp-preset {
+    position: relative;
+    padding: 0;
+  }
+  .rp-pbody {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    padding: 11px 28px 11px 12px;
+    text-align: left;
+    color: inherit;
+    min-width: 0;
+  }
+  .rp-pdel {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    display: inline-flex;
+    color: var(--color-text-muted);
+  }
+  .rp-pdel:hover {
+    color: var(--color-text);
+  }
+  .rp-pdel .material-symbols-outlined {
+    font-size: 14px;
+  }
+  .rp-hint {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    margin: 2px 0 0;
+    color: var(--color-text-muted);
+    font: 11px var(--font-ui);
+  }
+  .rp-hint .material-symbols-outlined {
+    font-size: 14px;
+  }
 </style>

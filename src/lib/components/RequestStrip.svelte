@@ -23,13 +23,21 @@
   const chips = $derived(
     grpc
       ? [
-          { id: 'message', label: 'Message', value: body ? [grpcInputType(tab.grpc), formatBytes(body.length)].filter(Boolean).join(' · ') : '—' },
+          {
+            id: 'message',
+            label: 'Message',
+            value: body ? [grpcInputType(tab.grpc), formatBytes(body.length)].filter(Boolean).join(' · ') : '—',
+          },
           { id: 'metadata', label: 'Metadata', value: String(Object.keys(tab.grpc?.metadata ?? {}).length) },
         ]
       : [
           { id: 'body', label: 'Body', value: noBody ? '—' : `${bodyKindLabel(tab)} · ${formatBytes(body.length)}` },
           { id: 'headers', label: 'Headers', value: String(Object.keys(tab.request.headers ?? {}).length) },
-          { id: 'params', label: 'Params', value: String((tab.params ?? []).filter((p) => p.enabled && p.key.trim()).length) },
+          {
+            id: 'params',
+            label: 'Params',
+            value: String((tab.params ?? []).filter((p) => p.enabled && p.key.trim()).length),
+          },
         ],
   );
   const preview = $derived(noBody ? $t('lb.strip.noBody') : oneLinePreview(body));
@@ -49,6 +57,8 @@
   {/each}
   <span class="preview" title={preview}>{preview}</span>
   <button type="button" class="act" onclick={() => open(grpc ? 'message' : 'body')}>
-    <span class="material-symbols-outlined" aria-hidden="true">expand_more</span>{$t('lb.strip.showBody')}<kbd>{formatBinding($hotkeys.toggleRequest ?? '').join('')}</kbd>
+    <span class="material-symbols-outlined" aria-hidden="true">expand_more</span>{$t('lb.strip.showBody')}<kbd
+      >{formatBinding($hotkeys.toggleRequest ?? '').join('')}</kbd
+    >
   </button>
 </div>

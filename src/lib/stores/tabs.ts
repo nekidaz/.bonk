@@ -119,7 +119,11 @@ export function closeTab(id: string): void {
 export async function requestCloseTab(id: string): Promise<void> {
   const tab = get(tabs).find((x) => x.id === id);
   if (tab && get(confirmCloseUnsaved) && get(dirtyTabIds).has(id)) {
-    const choice = await requestChoice(get(t)('tabs.confirmClose', { title: tab.title }), get(t)('common.save'), get(t)('tabs.dontSave'));
+    const choice = await requestChoice(
+      get(t)('tabs.confirmClose', { title: tab.title }),
+      get(t)('common.save'),
+      get(t)('tabs.dontSave'),
+    );
     if (choice === false) return;
     if (choice === true) {
       activeTabId.set(id); // save works on the active tab
@@ -138,7 +142,12 @@ export async function requestCloseTab(id: string): Promise<void> {
 async function closeTabs(ids: string[]): Promise<void> {
   const dirty = get(dirtyTabIds);
   const n = ids.filter((id) => dirty.has(id)).length;
-  if (n && get(confirmCloseUnsaved) && !(await requestConfirm(get(t)('tabs.confirmCloseMany', { n }), get(t)('tabs.closeWithoutSaving')))) return;
+  if (
+    n &&
+    get(confirmCloseUnsaved) &&
+    !(await requestConfirm(get(t)('tabs.confirmCloseMany', { n }), get(t)('tabs.closeWithoutSaving')))
+  )
+    return;
   for (const id of ids) closeTab(id);
 }
 

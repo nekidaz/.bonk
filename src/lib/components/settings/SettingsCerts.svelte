@@ -29,7 +29,11 @@
       if (caInfo[path] !== undefined) continue;
       caInfo[path] = path;
       certFileInfo(path)
-        .then(([cn, notAfter]) => (caInfo[path] = `${cn || fileName(path)} · ${get(t)('settings.certs.until')} ${new Date(notAfter * 1000).toLocaleDateString(get(t)('app.dateLocale'))}`))
+        .then(
+          ([cn, notAfter]) =>
+            (caInfo[path] =
+              `${cn || fileName(path)} · ${get(t)('settings.certs.until')} ${new Date(notAfter * 1000).toLocaleDateString(get(t)('app.dateLocale'))}`),
+        )
         .catch(() => {});
     }
   });
@@ -37,8 +41,12 @@
   // Inline editor for one per-host identity; index -1 = new.
   let draft = $state<(HostCert & { index: number; mode: 'pem' | 'p12'; password: string }) | null>(null);
   const newDraft = () => ({ index: -1, host: '', certPath: '', keyPath: '', mode: 'pem' as const, password: '' });
-  const editDraft = (c: HostCert, index: number) =>
-    ({ ...c, index, mode: c.p12Path ? 'p12' as const : 'pem' as const, password: c.p12Path ? ($p12Passwords[c.p12Path] ?? '') : '' });
+  const editDraft = (c: HostCert, index: number) => ({
+    ...c,
+    index,
+    mode: c.p12Path ? ('p12' as const) : ('pem' as const),
+    password: c.p12Path ? ($p12Passwords[c.p12Path] ?? '') : '',
+  });
   const ready = $derived(!!draft && (draft.mode === 'p12' ? !!draft.p12Path : !!draft.certPath && !!draft.keyPath));
   async function pickInto(field: 'certPath' | 'keyPath' | 'p12Path'): Promise<void> {
     certError = '';
@@ -50,9 +58,10 @@
     const { index, mode, password, p12Path, ...rest } = draft;
     const host = rest.host.trim();
     const old = index >= 0 ? $clientCerts[index]?.p12Path : undefined;
-    const entry: HostCert = mode === 'p12' && p12Path
-      ? { host, certPath: '', keyPath: '', p12Path }
-      : { host, certPath: rest.certPath, keyPath: rest.keyPath };
+    const entry: HostCert =
+      mode === 'p12' && p12Path
+        ? { host, certPath: '', keyPath: '', p12Path }
+        : { host, certPath: rest.certPath, keyPath: rest.keyPath };
     if (entry.p12Path) await setP12Password(entry.p12Path, password);
     clientCerts.update((l) => (index < 0 ? [...l, entry] : l.map((c, i) => (i === index ? entry : c))));
     if (old && old !== entry.p12Path) forgetP12Password(old);
@@ -68,28 +77,50 @@
 <div class="st-group">{$t('settings.certs.cas')}</div>
 <div class="st-card">
   {#snippet sys()}{@render sw($t('settings.certs.system'), $trustSystemCas, (v) => trustSystemCas.set(v))}{/snippet}
-  {@render row($t('settings.certs.system'), $trustSystemCas ? $t('settings.certs.system.on') : $t('settings.certs.system.off'), sys)}
+  {@render row(
+    $t('settings.certs.system'),
+    $trustSystemCas ? $t('settings.certs.system.on') : $t('settings.certs.system.off'),
+    sys,
+  )}
   {#each $trustedCaPaths as path (path)}
     <div class="st-row">
-      <div class="st-copy"><span class="st-name">{fileName(path)}</span><span class="st-desc" title={path}>{caInfo[path] ?? path}</span></div>
-      <button type="button" class="bs-btn ghost danger" onclick={() => trustedCaPaths.update((l) => l.filter((x) => x !== path))}>{$t('common.delete')}</button>
+      <div class="st-copy">
+        <span class="st-name">{fileName(path)}</span><span class="st-desc" title={path}>{caInfo[path] ?? path}</span>
+      </div>
+      <button
+        type="button"
+        class="bs-btn ghost danger"
+        onclick={() => trustedCaPaths.update((l) => l.filter((x) => x !== path))}>{$t('common.delete')}</button
+      >
     </div>
   {/each}
-  {#snippet c1()}<button type="button" class="bs-btn ghost" onclick={() => void addCa()}>{$t('settings.certs.addCa')}</button>{/snippet}
+  {#snippet c1()}<button type="button" class="bs-btn ghost" onclick={() => void addCa()}
+      >{$t('settings.certs.addCa')}</button
+    >{/snippet}
   {@render row($t('settings.certs.ownCa'), $t('settings.certs.ownCa.desc'), c1)}
 </div>
 
 <div class="st-group">{$t('settings.certs.client')}</div>
 <div class="st-card">
   {#if $clientCerts.length}
-    <div class="st-certs st-certs-head"><span>{$t('settings.certs.col.host')}</span><span>{$t('settings.certs.col.cert')}</span><span>{$t('settings.certs.col.key')}</span><span></span></div>
+    <div class="st-certs st-certs-head">
+      <span>{$t('settings.certs.col.host')}</span><span>{$t('settings.certs.col.cert')}</span><span
+        >{$t('settings.certs.col.key')}</span
+      ><span></span>
+    </div>
     {#each $clientCerts as c, i (i)}
       <div class="st-certs">
         <span class="st-name" title={c.host}>{c.host || $t('settings.certs.anyHost')}</span>
         <span class="st-desc" title={c.p12Path ?? c.certPath}>{fileName(c.p12Path ?? c.certPath)}</span>
-        <span class="st-desc" title={c.p12Path ? '' : c.keyPath}>{c.p12Path ? `${$t('settings.certs.pw')} ${$p12Passwords[c.p12Path] ? '••••' : '—'}` : fileName(c.keyPath)}</span>
+        <span class="st-desc" title={c.p12Path ? '' : c.keyPath}
+          >{c.p12Path
+            ? `${$t('settings.certs.pw')} ${$p12Passwords[c.p12Path] ? '••••' : '—'}`
+            : fileName(c.keyPath)}</span
+        >
         <span class="st-file">
-          <button type="button" class="bs-btn ghost" onclick={() => (draft = editDraft(c, i))}>{$t('settings.certs.edit')}</button>
+          <button type="button" class="bs-btn ghost" onclick={() => (draft = editDraft(c, i))}
+            >{$t('settings.certs.edit')}</button
+          >
           <button type="button" class="bs-btn ghost danger" onclick={() => removeCert(i)}>{$t('common.delete')}</button>
         </span>
       </div>
@@ -97,32 +128,71 @@
   {/if}
   {#if draft}
     <div class="st-row st-col">
-      <div class="st-copy"><span class="st-name">{$t('settings.certs.host')}</span><span class="st-desc">{$t('settings.certs.host.desc')}</span></div>
-      <input class="st-text" type="text" spellcheck="false" placeholder="api.example.com" aria-label={$t('settings.certs.host.aria')} bind:value={draft.host} />
-      {@render seg($t('settings.certs.client'), draft.mode, [{ label: $t('settings.certs.fmt.pem'), value: 'pem' }, { label: $t('settings.certs.fmt.p12'), value: 'p12' }], (v) => { if (draft) draft.mode = v === 'p12' ? 'p12' : 'pem'; })}
+      <div class="st-copy">
+        <span class="st-name">{$t('settings.certs.host')}</span><span class="st-desc"
+          >{$t('settings.certs.host.desc')}</span
+        >
+      </div>
+      <input
+        class="st-text"
+        type="text"
+        spellcheck="false"
+        placeholder="api.example.com"
+        aria-label={$t('settings.certs.host.aria')}
+        bind:value={draft.host}
+      />
+      {@render seg(
+        $t('settings.certs.client'),
+        draft.mode,
+        [
+          { label: $t('settings.certs.fmt.pem'), value: 'pem' },
+          { label: $t('settings.certs.fmt.p12'), value: 'p12' },
+        ],
+        (v) => {
+          if (draft) draft.mode = v === 'p12' ? 'p12' : 'pem';
+        },
+      )}
       {#if draft.mode === 'p12'}
         <div class="st-file">
-          <button type="button" class="bs-btn ghost" onclick={() => void pickInto('p12Path')}>{$t('settings.certs.pickP12')}</button>
+          <button type="button" class="bs-btn ghost" onclick={() => void pickInto('p12Path')}
+            >{$t('settings.certs.pickP12')}</button
+          >
           <span class="st-desc">{draft.p12Path ? fileName(draft.p12Path) : $t('settings.certs.notPicked')}</span>
         </div>
-        <input class="st-text" type="password" autocomplete="off" spellcheck="false" placeholder={$t('settings.certs.password')} aria-label={$t('settings.certs.password')} bind:value={draft.password} />
+        <input
+          class="st-text"
+          type="password"
+          autocomplete="off"
+          spellcheck="false"
+          placeholder={$t('settings.certs.password')}
+          aria-label={$t('settings.certs.password')}
+          bind:value={draft.password}
+        />
       {:else}
         <div class="st-file">
-          <button type="button" class="bs-btn ghost" onclick={() => void pickInto('certPath')}>{$t('settings.certs.pickCert')}</button>
+          <button type="button" class="bs-btn ghost" onclick={() => void pickInto('certPath')}
+            >{$t('settings.certs.pickCert')}</button
+          >
           <span class="st-desc">{draft.certPath ? fileName(draft.certPath) : $t('settings.certs.notPicked')}</span>
         </div>
         <div class="st-file">
-          <button type="button" class="bs-btn ghost" onclick={() => void pickInto('keyPath')}>{$t('settings.certs.pickKey')}</button>
+          <button type="button" class="bs-btn ghost" onclick={() => void pickInto('keyPath')}
+            >{$t('settings.certs.pickKey')}</button
+          >
           <span class="st-desc">{draft.keyPath ? fileName(draft.keyPath) : $t('settings.certs.notPicked')}</span>
         </div>
       {/if}
       <div class="st-file">
-        <button type="button" class="bs-btn" disabled={!ready} onclick={() => void saveDraft()}>{$t('common.save')}</button>
+        <button type="button" class="bs-btn" disabled={!ready} onclick={() => void saveDraft()}
+          >{$t('common.save')}</button
+        >
         <button type="button" class="bs-btn ghost" onclick={() => (draft = null)}>{$t('common.cancel')}</button>
       </div>
     </div>
   {:else}
-    {#snippet c2()}<button type="button" class="bs-btn ghost" onclick={() => (draft = newDraft())}>{$t('settings.certs.addHost')}</button>{/snippet}
+    {#snippet c2()}<button type="button" class="bs-btn ghost" onclick={() => (draft = newDraft())}
+        >{$t('settings.certs.addHost')}</button
+      >{/snippet}
     {@render row($t('settings.certs.hostCert'), $clientCerts.length ? '' : $t('settings.certs.empty'), c2)}
   {/if}
 </div>

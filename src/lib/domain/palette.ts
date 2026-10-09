@@ -16,7 +16,8 @@ export function searchRequests(nodes: TreeNode[], query: string, limit = 8): Pal
     for (const n of list) {
       if (out.length >= limit) return;
       if (n.kind === 'folder') walk(n.children, n.name);
-      else if (`${n.name}\n${n.request.url}\n${n.grpc?.endpoint ?? ''}\n${folder}`.toLowerCase().includes(q)) out.push({ node: n, folder });
+      else if (`${n.name}\n${n.request.url}\n${n.grpc?.endpoint ?? ''}\n${folder}`.toLowerCase().includes(q))
+        out.push({ node: n, folder });
     }
   };
   walk(nodes, '');
@@ -37,7 +38,10 @@ export function envShortcutTargets<T extends { id: string }>(recent: T[], all: T
 export type PaletteSlot = { group: 'request' | 'env' | 'command'; index: number };
 
 /** Which group (and position inside it) the flat row `i` of the palette list is: requests, then environments, then commands. */
-export function paletteSlot(i: number, n: { requests: number; envs: number; commands: number }): PaletteSlot | undefined {
+export function paletteSlot(
+  i: number,
+  n: { requests: number; envs: number; commands: number },
+): PaletteSlot | undefined {
   if (i < 0) return undefined;
   if (i < n.requests) return { group: 'request', index: i };
   if (i < n.requests + n.envs) return { group: 'env', index: i - n.requests };
@@ -73,7 +77,11 @@ export const ENV_COLOR_VAR: Record<EnvColor, string> = {
   gray: 'var(--color-text-muted)',
 };
 
-interface EnvLike { name: string; color?: string; protected?: boolean }
+interface EnvLike {
+  name: string;
+  color?: string;
+  protected?: boolean;
+}
 
 /** Explicit flag wins; otherwise production is recognised by name. */
 export function isProtected(env: EnvLike | undefined): boolean {
@@ -134,9 +142,11 @@ export function matchSaved(entry: HistoryEntry, saved: PaletteRequest[]): Palett
     const hit = saved.find(({ node }) => node.id === entry.savedPath);
     if (hit) return hit;
   }
-  return saved.find(({ node }) => entry.protocol === 'grpc'
-    ? node.grpc?.endpoint === entry.grpc?.endpoint && node.grpc?.method === entry.grpc?.method
-    : node.request.method === entry.request.method && node.request.url === entry.request.url);
+  return saved.find(({ node }) =>
+    entry.protocol === 'grpc'
+      ? node.grpc?.endpoint === entry.grpc?.endpoint && node.grpc?.method === entry.grpc?.method
+      : node.request.method === entry.request.method && node.request.url === entry.request.url,
+  );
 }
 
 /** History day group: Сегодня / Вчера / «12 сент.». */
@@ -172,12 +182,16 @@ export function recentRequests(history: HistoryEntry[], nodes: TreeNode[], limit
   const out: RecentRequest[] = [];
   for (const entry of [...history].sort((a, b) => b.at - a.at)) {
     const grpc = entry.protocol === 'grpc';
-    const target = grpc ? `${entry.grpc?.endpoint ?? ''} ${entry.grpc?.method ?? ''}` : `${entry.request.method} ${entry.request.url}`;
+    const target = grpc
+      ? `${entry.grpc?.endpoint ?? ''} ${entry.grpc?.method ?? ''}`
+      : `${entry.request.method} ${entry.request.url}`;
     if (seen.has(target)) continue;
     seen.add(target);
     const match = matchSaved(entry, saved);
     const ok = entry.ok ?? (entry.status >= 200 && entry.status < 300);
-    const fallback = grpc ? (entry.grpc?.method ?? '').split(/[./]/).pop() || 'gRPC' : entry.request.url.replace(/^\w+:\/\/[^/]+/, '') || entry.request.url;
+    const fallback = grpc
+      ? (entry.grpc?.method ?? '').split(/[./]/).pop() || 'gRPC'
+      : entry.request.url.replace(/^\w+:\/\/[^/]+/, '') || entry.request.url;
     out.push({
       entry,
       method: grpc ? 'gRPC' : entry.request.method.toUpperCase(),

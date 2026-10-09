@@ -13,13 +13,7 @@ import { t } from '../i18n';
  * spec preserves path + method; it is intentionally lossy on everything the
  * client doesn't model (schemas, responses, examples beyond a single one).
  */
-import type {
-  AuthConfig,
-  BodyParam,
-  Param,
-  RequestNode,
-  RawBodyFormat,
-} from './types';
+import type { AuthConfig, BodyParam, Param, RequestNode, RawBodyFormat } from './types';
 import { parse as parseYaml, stringify as stringifyYaml } from 'yaml';
 
 // ---------- Import ----------
@@ -125,12 +119,7 @@ function deref(node: Obj, doc: Doc): Obj {
  * results; `oneOf`/`anyOf` take the first. A missing `type` with `properties`
  * is treated as an object.
  */
-export function exampleFromSchema(
-  schema: unknown,
-  doc: Doc,
-  seen: Set<string> = new Set(),
-  depth = 0,
-): unknown {
+export function exampleFromSchema(schema: unknown, doc: Doc, seen: Set<string> = new Set(), depth = 0): unknown {
   if (depth > 6 || !isObject(schema)) return null;
 
   if (typeof schema.$ref === 'string') {
@@ -222,9 +211,8 @@ function templatePath(path: string): string {
 
 /** Look up a security scheme by name across both spec flavors. */
 function findSecurityScheme(doc: Doc, name: string): Obj | null {
-  const oas3 = isObject(doc.components) && isObject(doc.components.securitySchemes)
-    ? doc.components.securitySchemes
-    : undefined;
+  const oas3 =
+    isObject(doc.components) && isObject(doc.components.securitySchemes) ? doc.components.securitySchemes : undefined;
   if (oas3 && isObject(oas3[name])) return oas3[name] as Obj;
   const sw2 = isObject(doc.securityDefinitions) ? doc.securityDefinitions : undefined;
   if (sw2 && isObject(sw2[name])) return sw2[name] as Obj;
@@ -300,9 +288,7 @@ export function parseOpenApi(text: string, fileName: string): ParsedSpec {
 
   const info = isObject(doc.info) ? doc.info : {};
   const title =
-    (typeof info.title === 'string' && info.title.trim()) ||
-    fileName.replace(/\.(json|ya?ml)$/i, '') ||
-    'Imported API';
+    (typeof info.title === 'string' && info.title.trim()) || fileName.replace(/\.(json|ya?ml)$/i, '') || 'Imported API';
   const baseUrl = specBaseUrl(doc, version);
 
   // Folders keyed by tag; a null key holds ungrouped requests. Insertion order is
@@ -392,10 +378,7 @@ export function parseOpenApi(text: string, fileName: string): ParsedSpec {
       }
 
       const auth = resolveAuth(operation, doc);
-      const tag =
-        Array.isArray(operation.tags) && typeof operation.tags[0] === 'string'
-          ? operation.tags[0]
-          : null;
+      const tag = Array.isArray(operation.tags) && typeof operation.tags[0] === 'string' ? operation.tags[0] : null;
 
       const node: RequestNode = {
         kind: 'request',
@@ -503,11 +486,7 @@ function authToScheme(auth: AuthConfig): { name: SecuritySchemeName; scheme: Obj
  * (when provided by the caller, e.g. the env's `baseUrl`) becomes the single
  * server and is stripped from each path; otherwise a common URL prefix is derived.
  */
-export function buildOpenApi(
-  collectionName: string,
-  folders: ExportFolder[],
-  opts: BuildOptions = {},
-): object {
+export function buildOpenApi(collectionName: string, folders: ExportFolder[], opts: BuildOptions = {}): object {
   const all = folders.flatMap((f) => f.requests.map((r) => ({ tag: f.tag, node: r })));
 
   // Determine the server URL + the prefix to strip from each request URL.

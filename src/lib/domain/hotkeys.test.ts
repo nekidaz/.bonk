@@ -1,7 +1,21 @@
 import { describe, expect, it } from 'vitest';
-import { commandFor, effectiveBindings, eventToBinding, findConflicts, formatBinding, HOTKEY_COMMANDS } from './hotkeys';
+import {
+  commandFor,
+  effectiveBindings,
+  eventToBinding,
+  findConflicts,
+  formatBinding,
+  HOTKEY_COMMANDS,
+} from './hotkeys';
 
-const ev = (code: string, o: Partial<KeyboardEvent> = {}) => ({ code, metaKey: false, ctrlKey: false, shiftKey: false, altKey: false, ...o });
+const ev = (code: string, o: Partial<KeyboardEvent> = {}) => ({
+  code,
+  metaKey: false,
+  ctrlKey: false,
+  shiftKey: false,
+  altKey: false,
+  ...o,
+});
 
 describe('eventToBinding', () => {
   it('uses e.code so layouts do not matter, and orders modifiers', () => {

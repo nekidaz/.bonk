@@ -90,7 +90,12 @@ describe('applyRequestPatch', () => {
   });
 });
 
-const grpcReq = { method: 'pkg.Svc.Method', endpoint: 'localhost:50051', message: '{"a":1}', metadata: { authorization: 'Bearer x' } };
+const grpcReq = {
+  method: 'pkg.Svc.Method',
+  endpoint: 'localhost:50051',
+  message: '{"a":1}',
+  metadata: { authorization: 'Bearer x' },
+};
 
 const grpcRes: GrpcResult = { ok: true, status: 'OK', body: '{"id":7}', elapsed_ms: 12, size_bytes: 8 };
 
@@ -144,10 +149,7 @@ describe('applyGrpcRequestPatch', () => {
 describe('applyEnvPatch', () => {
   it('updates an existing key in place and keeps it enabled', () => {
     const rows = [v('token', 'old'), v('host', 'api')];
-    expect(applyEnvPatch(rows, { token: 'new' }, [])).toEqual([
-      v('token', 'new'),
-      v('host', 'api'),
-    ]);
+    expect(applyEnvPatch(rows, { token: 'new' }, [])).toEqual([v('token', 'new'), v('host', 'api')]);
   });
 
   it('re-enables a disabled row when the script sets it', () => {
@@ -157,10 +159,7 @@ describe('applyEnvPatch', () => {
 
   it('appends a new enabled row for a key not present', () => {
     const rows = [v('host', 'api')];
-    expect(applyEnvPatch(rows, { token: 'abc' }, [])).toEqual([
-      v('host', 'api'),
-      v('token', 'abc'),
-    ]);
+    expect(applyEnvPatch(rows, { token: 'abc' }, [])).toEqual([v('host', 'api'), v('token', 'abc')]);
   });
 
   it('removes rows named in unset', () => {

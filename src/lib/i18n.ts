@@ -32,16 +32,27 @@ function make(lang: UiLanguage): Translate {
 export const t = derived(uiLanguage, (l) => make(l));
 
 /** Pick the plural form: ru takes [one, few, many] (1 файл / 2 файла / 5 файлов), en [one, other]. */
-export function plural(n: number, forms: [string, string, string] | [string, string], lang: UiLanguage = get(uiLanguage)): string {
+export function plural(
+  n: number,
+  forms: [string, string, string] | [string, string],
+  lang: UiLanguage = get(uiLanguage),
+): string {
   const a = Math.abs(n);
   if (lang === 'en' || forms.length === 2) return a === 1 ? forms[0] : forms[forms.length - 1];
-  const m10 = a % 10, m100 = a % 100;
+  const m10 = a % 10,
+    m100 = a % 100;
   if (m10 === 1 && m100 !== 11) return forms[0];
   if (m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14)) return forms[1];
   return forms[2];
 }
 
 /** Reactive plural: `$tp(n, ['файл','файла','файлов'], ['file','files'])` → forms chosen by current language. */
-export const tp = derived(uiLanguage, (l) => (n: number, ru: [string, string, string], en: [string, string]) => plural(n, l === 'ru' ? ru : en, l));
+export const tp = derived(
+  uiLanguage,
+  (l) => (n: number, ru: [string, string, string], en: [string, string]) => plural(n, l === 'ru' ? ru : en, l),
+);
 
-if (typeof document !== 'undefined') uiLanguage.subscribe((l) => { document.documentElement.lang = l; });
+if (typeof document !== 'undefined')
+  uiLanguage.subscribe((l) => {
+    document.documentElement.lang = l;
+  });

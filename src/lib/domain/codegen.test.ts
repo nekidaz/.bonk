@@ -28,7 +28,7 @@ describe('generateGrpcurl', () => {
     });
 
     expect(command).toContain("-H \\\n  'authorization: Bearer secret'");
-    expect(command).toContain("-d \\\n  '{\"id\":\"42\"}'");
+    expect(command).toContain('-d \\\n  \'{"id":"42"}\'');
     expect(command).toContain('api.example.com:443');
     expect(command).toContain('partner.v1.PartnerService/GetPartner');
     expect(command).not.toContain('-plaintext');
@@ -46,9 +46,18 @@ describe('generateGrpcurl', () => {
 describe('generateSnippet with unresolved variables', () => {
   it('keeps {{vars}} in the generated code instead of failing on the URL', async () => {
     const { generateSnippet } = await import('./codegen');
-    const tab = { id: 't', protocol: 'http', title: 'List', request: { method: 'GET', url: '{{baseUrl}}/v1/payments?limit=20', headers: { Authorization: 'Bearer {{token}}' } } } as Tab;
+    const tab = {
+      id: 't',
+      protocol: 'http',
+      title: 'List',
+      request: {
+        method: 'GET',
+        url: '{{baseUrl}}/v1/payments?limit=20',
+        headers: { Authorization: 'Bearer {{token}}' },
+      },
+    } as Tab;
     const code = await generateSnippet(tab, 'curl');
-    expect(code).toContain("{{baseUrl}}/v1/payments?limit=20");
+    expect(code).toContain('{{baseUrl}}/v1/payments?limit=20');
     expect(code).toContain('Bearer {{token}}');
     expect(code).not.toContain('bonkvar');
   });

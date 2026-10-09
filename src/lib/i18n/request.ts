@@ -11,7 +11,8 @@ export const ru = {
   'http.auth.unset': 'Не задана',
   'http.auth.hide': 'Скрыть',
   'http.auth.show': 'Показать',
-  'http.auth.inherited_msg': 'Авторизация наследуется от коллекции {name}. Изменения здесь затронут только этот запрос.',
+  'http.auth.inherited_msg':
+    'Авторизация наследуется от коллекции {name}. Изменения здесь затронут только этот запрос.',
   'http.auth.override': 'Переопределить',
   'http.auth.type': 'Тип',
   'http.auth.type_aria': 'Тип авторизации',
@@ -117,7 +118,8 @@ export const ru = {
   'response.endpoint': 'Эндпоинт',
   'response.method': 'Метод',
   'response.unreachable.title': 'Сервер недоступен',
-  'response.unreachable.body': 'Не удалось соединиться с {endpoint} — {reason}. Запрос не дошёл до сервера, повтор безопасен.',
+  'response.unreachable.body':
+    'Не удалось соединиться с {endpoint} — {reason}. Запрос не дошёл до сервера, повтор безопасен.',
   'response.the_server': 'сервером',
   'response.deadline_tls': 'Deadline и TLS',
   'response.unreachable.tls': 'Режим TLS',
@@ -127,7 +129,8 @@ export const ru = {
   'response.technical': 'Технические детали',
   'response.net.timeout_title': 'Сервер не ответил за {n} секунд',
   'response.net.fail_title': 'Не удалось связаться с сервером',
-  'response.net.timeout_body': 'Соединение с {host} открылось, но ответа не было. Запрос мог дойти до сервера — проверьте результат перед повтором.',
+  'response.net.timeout_body':
+    'Соединение с {host} открылось, но ответа не было. Запрос мог дойти до сервера — проверьте результат перед повтором.',
   'response.net.fail_body': 'Запрос не дошёл до сервера: проверьте адрес, сеть, прокси и сертификаты.',
   'response.net.timeout_proxy': 'Таймаут и прокси',
   'response.status.cancelled': 'Отменён',
@@ -196,8 +199,10 @@ export const ru = {
   'script.post.title': 'Post-response скрипт',
   'script.pre.desc': 'Выполняется до подстановки переменных и отправки запроса.',
   'script.post.desc': 'Выполняется после ответа; проверки появляются на вкладке ответа «Тесты».',
-  'script.pre.placeholder': '// Подготовьте переменные, заголовки или данные запроса\npm.environment.set(\'ts\', String(Date.now()));',
-  'script.post.placeholder': '// Проверьте ответ\npm.test(\'status is 200\', function () {\n  pm.expect(pm.response).to.have.status(200);\n});',
+  'script.pre.placeholder':
+    "// Подготовьте переменные, заголовки или данные запроса\npm.environment.set('ts', String(Date.now()));",
+  'script.post.placeholder':
+    "// Проверьте ответ\npm.test('status is 200', function () {\n  pm.expect(pm.response).to.have.status(200);\n});",
   'script.stage_aria': 'Этап скрипта',
   'script.lifecycle': 'Жизненный цикл',
   'script.pre.name': 'Pre-request',
@@ -320,7 +325,8 @@ export const en: Record<keyof typeof ru, string> = {
   'http.auth.unset': 'Not set',
   'http.auth.hide': 'Hide',
   'http.auth.show': 'Show',
-  'http.auth.inherited_msg': 'Authorization is inherited from collection {name}. Changes here affect only this request.',
+  'http.auth.inherited_msg':
+    'Authorization is inherited from collection {name}. Changes here affect only this request.',
   'http.auth.override': 'Override',
   'http.auth.type': 'Type',
   'http.auth.type_aria': 'Authorization type',
@@ -426,7 +432,8 @@ export const en: Record<keyof typeof ru, string> = {
   'response.endpoint': 'Endpoint',
   'response.method': 'Method',
   'response.unreachable.title': 'Server unreachable',
-  'response.unreachable.body': 'Could not connect to {endpoint} — {reason}. The request never reached the server, so retrying is safe.',
+  'response.unreachable.body':
+    'Could not connect to {endpoint} — {reason}. The request never reached the server, so retrying is safe.',
   'response.the_server': 'the server',
   'response.deadline_tls': 'Deadline & TLS',
   'response.unreachable.tls': 'TLS mode',
@@ -436,7 +443,8 @@ export const en: Record<keyof typeof ru, string> = {
   'response.technical': 'Technical details',
   'response.net.timeout_title': 'The server did not respond within {n} seconds',
   'response.net.fail_title': 'Could not reach the server',
-  'response.net.timeout_body': 'The connection to {host} opened, but there was no response. The request may have reached the server — check the result before retrying.',
+  'response.net.timeout_body':
+    'The connection to {host} opened, but there was no response. The request may have reached the server — check the result before retrying.',
   'response.net.fail_body': 'The request did not reach the server: check the address, network, proxy and certificates.',
   'response.net.timeout_proxy': 'Timeout & proxy',
   'response.status.cancelled': 'Cancelled',
@@ -505,8 +513,10 @@ export const en: Record<keyof typeof ru, string> = {
   'script.post.title': 'Post-response script',
   'script.pre.desc': 'Runs before variables resolve and the request is sent.',
   'script.post.desc': 'Runs after the response; assertions appear in the Tests response tab.',
-  'script.pre.placeholder': '// Prepare variables, headers, or request data\npm.environment.set(\'ts\', String(Date.now()));',
-  'script.post.placeholder': '// Validate the response\npm.test(\'status is 200\', function () {\n  pm.expect(pm.response).to.have.status(200);\n});',
+  'script.pre.placeholder':
+    "// Prepare variables, headers, or request data\npm.environment.set('ts', String(Date.now()));",
+  'script.post.placeholder':
+    "// Validate the response\npm.test('status is 200', function () {\n  pm.expect(pm.response).to.have.status(200);\n});",
   'script.stage_aria': 'Script stage',
   'script.lifecycle': 'Lifecycle',
   'script.pre.name': 'Pre-request',
@@ -591,7 +601,7 @@ export const en: Record<keyof typeof ru, string> = {
   'http.body.ph_binary': 'Paste binary-safe text payload',
   'http.body.ph_raw': 'Request body',
   'http.file.choose': 'Choose file...',
-  'env.scope': 'Environment \'{name}\'',
+  'env.scope': "Environment '{name}'",
   'env.scope_globals': 'Globals',
   'http.gql.vars_invalid': 'GraphQL variables must be valid JSON.',
   'http.gql.vars_object': 'GraphQL variables must be a JSON object.',

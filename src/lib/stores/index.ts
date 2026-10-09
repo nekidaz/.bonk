@@ -106,7 +106,21 @@ export {
 } from './requests';
 
 // Tab lifecycle.
-export { renameActiveTab, resetActiveTabTitle, newTab, moveTab, setActiveProtocol, closeTab, requestCloseTab, duplicateTab, closeOtherTabs, closeTabsToRight, closeAllTabs, togglePinTab, reopenClosedTab } from './tabs';
+export {
+  renameActiveTab,
+  resetActiveTabTitle,
+  newTab,
+  moveTab,
+  setActiveProtocol,
+  closeTab,
+  requestCloseTab,
+  duplicateTab,
+  closeOtherTabs,
+  closeTabsToRight,
+  closeAllTabs,
+  togglePinTab,
+  reopenClosedTab,
+} from './tabs';
 
 // Git diff tabs.
 export { openGitDiffTab, openProjectDiffTab } from './git';
@@ -156,12 +170,7 @@ export {
 export { addHistory, openHistoryEntry, clearHistory, removeHistoryEntry } from './history';
 
 // Runtime request console (kept separate from persisted History).
-export {
-  appConsoleEntries,
-  addAppConsoleEntry,
-  clearAppConsole,
-  type AppConsoleEntry,
-} from './console';
+export { appConsoleEntries, addAppConsoleEntry, clearAppConsole, type AppConsoleEntry } from './console';
 
 // OpenAPI / Swagger import & export.
 export { importOpenApiFile, importOpenApiText, importApiFile, importApiText, exportOpenApiFolder } from './openapi';

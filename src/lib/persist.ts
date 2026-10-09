@@ -12,7 +12,10 @@ async function ensureLoaded(): Promise<Record<string, unknown>> {
   if (!loadPromise) {
     loadPromise = invoke<Record<string, unknown>>('app_state_load')
       .then((v) => (cache = v ?? {}))
-      .catch((err) => { console.error('persist: load failed', err); return (cache = {}); });
+      .catch((err) => {
+        console.error('persist: load failed', err);
+        return (cache = {});
+      });
   }
   return loadPromise;
 }
@@ -41,11 +44,7 @@ export function isRecordWithId(v: unknown): v is { id: string } {
  * value must at least be an array before it is cast (cheap structural guard).
  * The `validate` parameter is optional, so existing callers are unaffected.
  */
-export async function loadState<T>(
-  key: string,
-  fallback: T,
-  validate?: (v: unknown) => v is T,
-): Promise<T> {
+export async function loadState<T>(key: string, fallback: T, validate?: (v: unknown) => v is T): Promise<T> {
   const map = await ensureLoaded();
   const v = map[key];
   if (v === undefined || v === null) return fallback;
@@ -79,10 +78,12 @@ export function saveStateDebounced<T>(key: string, value: T, delayMs = 350): voi
 export async function flushPendingSaves(): Promise<void> {
   const entries = [...pendingSaves.entries()];
   pendingSaves.clear();
-  await Promise.all(entries.map(([key, pending]) => {
-    clearTimeout(pending.timer);
-    return saveState(key, pending.value);
-  }));
+  await Promise.all(
+    entries.map(([key, pending]) => {
+      clearTimeout(pending.timer);
+      return saveState(key, pending.value);
+    }),
+  );
 }
 
 export type PersistedStore<T> = Writable<T> & { ready: Promise<void> };

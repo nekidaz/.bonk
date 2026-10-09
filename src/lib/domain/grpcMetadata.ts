@@ -9,10 +9,7 @@ export function emptyGrpcMetadataRow(): GrpcMetadataRow {
 
 /** Convert persisted metadata into editable rows with exactly one blank row. */
 export function grpcMetadataRows(metadata: Record<string, string> | undefined): GrpcMetadataRow[] {
-  return [
-    ...Object.entries(metadata ?? {}).map(([key, value]) => ({ key, value })),
-    emptyGrpcMetadataRow(),
-  ];
+  return [...Object.entries(metadata ?? {}).map(([key, value]) => ({ key, value })), emptyGrpcMetadataRow()];
 }
 
 /** Keep incomplete edits locally while ensuring the table always has a new row. */

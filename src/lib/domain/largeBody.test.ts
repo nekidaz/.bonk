@@ -1,9 +1,19 @@
 import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('@tauri-apps/api/core', () => ({ invoke: vi.fn(async () => ({})) }));
-vi.hoisted(() => { (globalThis as any).document = { documentElement: { lang: '' } }; });
+vi.hoisted(() => {
+  (globalThis as any).document = { documentElement: { lang: '' } };
+});
 
-import { applyBodyKind, beautify, bodyKindLabel, bodyKindOf, isLargeBody, textStats, LARGE_BODY_LINES } from './largeBody';
+import {
+  applyBodyKind,
+  beautify,
+  bodyKindLabel,
+  bodyKindOf,
+  isLargeBody,
+  textStats,
+  LARGE_BODY_LINES,
+} from './largeBody';
 
 describe('large body', () => {
   it('counts lines and UTF-8 bytes', () => {
@@ -25,7 +35,11 @@ describe('large body', () => {
     expect(bodyKindOf(tab({ bodyMode: 'form-data' }))).toBe('multipart');
     expect(bodyKindOf(tab({ bodyMode: 'raw', rawBodyFormat: 'XML' }))).toBe('xml');
     expect(bodyKindOf(tab({ bodyMode: 'graphql' }))).toBe('graphql');
-    expect(applyBodyKind({ bodyMode: 'none', body: 'x' } as never, 'javascript')).toMatchObject({ bodyMode: 'raw', rawBodyFormat: 'JavaScript', body: 'x' });
+    expect(applyBodyKind({ bodyMode: 'none', body: 'x' } as never, 'javascript')).toMatchObject({
+      bodyMode: 'raw',
+      rawBodyFormat: 'JavaScript',
+      body: 'x',
+    });
     expect(applyBodyKind({} as never, 'multipart').bodyMode).toBe('form-data');
     expect(bodyKindLabel(tab({ bodyMode: 'raw', rawBodyFormat: 'JSON' }))).toBe('Raw JSON');
     expect(bodyKindLabel(tab({ bodyMode: 'graphql' }))).toBe('Raw GraphQL');

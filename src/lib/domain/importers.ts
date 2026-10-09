@@ -8,7 +8,7 @@ import type { AuthConfig, HttpRequest, Param, RequestNode, VarRow } from './type
 type RecordValue = Record<string, unknown>;
 
 function object(value: unknown): RecordValue | null {
-  return value !== null && typeof value === 'object' && !Array.isArray(value) ? value as RecordValue : null;
+  return value !== null && typeof value === 'object' && !Array.isArray(value) ? (value as RecordValue) : null;
 }
 
 function str(value: unknown): string {
@@ -16,7 +16,7 @@ function str(value: unknown): string {
 }
 
 function rows(value: unknown): RecordValue[] {
-  return Array.isArray(value) ? value.flatMap((item) => object(item) ? [item as RecordValue] : []) : [];
+  return Array.isArray(value) ? value.flatMap((item) => (object(item) ? [item as RecordValue] : [])) : [];
 }
 
 function parseJson(text: string): RecordValue | null {
@@ -90,7 +90,13 @@ function insomniaRequest(res: RecordValue): ImportedPostmanItem {
     const mime = str(body.mimeType).toLowerCase();
     request.bodyMode = 'raw';
     request.body = insomniaTemplate(body.text);
-    request.rawBodyFormat = mime.includes('json') ? 'JSON' : mime.includes('xml') ? 'XML' : mime.includes('html') ? 'HTML' : 'Text';
+    request.rawBodyFormat = mime.includes('json')
+      ? 'JSON'
+      : mime.includes('xml')
+        ? 'XML'
+        : mime.includes('html')
+          ? 'HTML'
+          : 'Text';
   }
   return makeNode(str(res.name) || `${method} ${url}`, request, params);
 }
@@ -166,10 +172,20 @@ export function parseHar(text: string): ParsedPostmanCollection {
       request.bodyMode = 'raw';
       request.body = postData.text;
       const mime = str(postData.mimeType).toLowerCase();
-      request.rawBodyFormat = mime.includes('json') ? 'JSON' : mime.includes('xml') ? 'XML' : mime.includes('html') ? 'HTML' : 'Text';
+      request.rawBodyFormat = mime.includes('json')
+        ? 'JSON'
+        : mime.includes('xml')
+          ? 'XML'
+          : mime.includes('html')
+            ? 'HTML'
+            : 'Text';
     }
     let path = url;
-    try { path = new URL(url).pathname; } catch { path = url.split(/[?#]/)[0]; }
+    try {
+      path = new URL(url).pathname;
+    } catch {
+      path = url.split(/[?#]/)[0];
+    }
     items.push(makeNode(`${method} ${path}`, request, paramsFromUrl(url)));
   }
   const pageTitle = str(rows(log.pages)[0]?.title).trim();
@@ -184,12 +200,20 @@ export function isCurlText(text: string): boolean {
 
 export function parseCurlFile(text: string): ParsedPostmanCollection {
   // A command starts at a line beginning with `curl`; `\`-continued lines stay with it.
-  const commands = text.replace(/\\\r?\n/g, ' ').split(/\r?\n/).map((l) => l.trim()).filter((l) => /^curl\s/i.test(l));
+  const commands = text
+    .replace(/\\\r?\n/g, ' ')
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .filter((l) => /^curl\s/i.test(l));
   if (commands.length === 0) throw new Error(get(t)('import.err.noCurl'));
   const items = commands.map((c) => {
     const request = parseCurl(c);
     let path = request.url;
-    try { path = new URL(request.url).pathname; } catch { path = request.url.split(/[?#]/)[0]; }
+    try {
+      path = new URL(request.url).pathname;
+    } catch {
+      path = request.url.split(/[?#]/)[0];
+    }
     return makeNode(`${request.method} ${path}`, request, paramsFromUrl(request.url));
   });
   return { title: 'cURL import', items, variables: [] };

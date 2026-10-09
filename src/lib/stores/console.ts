@@ -19,7 +19,9 @@ const MAX_CONSOLE_ENTRIES = 500;
 /** Runtime-only request console. It is intentionally separate from History. */
 export const appConsoleEntries = writable<AppConsoleEntry[]>([]);
 
-export function addAppConsoleEntry(entry: Omit<AppConsoleEntry, 'id' | 'at'> & Partial<Pick<AppConsoleEntry, 'id' | 'at'>>): void {
+export function addAppConsoleEntry(
+  entry: Omit<AppConsoleEntry, 'id' | 'at'> & Partial<Pick<AppConsoleEntry, 'id' | 'at'>>,
+): void {
   const next: AppConsoleEntry = {
     ...entry,
     message: entry.message?.slice(0, 8_000),

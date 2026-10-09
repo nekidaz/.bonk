@@ -7,7 +7,15 @@ import type { Extension } from '@codemirror/state';
  * so `customer.email` marks the `"email"` line.
  */
 export function errorFieldLines(fields: string[]): Extension {
-  const keys = new Set(fields.map((f) => f.split(/[.[\]]/).filter(Boolean).at(-1) ?? f));
+  const keys = new Set(
+    fields.map(
+      (f) =>
+        f
+          .split(/[.[\]]/)
+          .filter(Boolean)
+          .at(-1) ?? f,
+    ),
+  );
   if (!keys.size) return [];
   const line = Decoration.line({ class: 'cm-error-line' });
   const build = (view: EditorView): DecorationSet => {

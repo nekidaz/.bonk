@@ -14,11 +14,13 @@ export function authFolderFor(tree: TreeNode[], id: string | undefined): Folder 
   return undefined;
 }
 
-export const folderAuthFor = (tree: TreeNode[], id: string | undefined): AuthConfig | undefined => authFolderFor(tree, id)?.auth;
+export const folderAuthFor = (tree: TreeNode[], id: string | undefined): AuthConfig | undefined =>
+  authFolderFor(tree, id)?.auth;
 
 function findFolder(nodes: TreeNode[], id: string): Folder | undefined {
   for (const n of nodes) {
-    if (n.kind === 'folder' && (n.id === id || id.startsWith(n.id + '/'))) return n.id === id ? n : findFolder(n.children, id);
+    if (n.kind === 'folder' && (n.id === id || id.startsWith(n.id + '/')))
+      return n.id === id ? n : findFolder(n.children, id);
   }
   return undefined;
 }
@@ -29,6 +31,10 @@ export function effectiveAuth(tree: TreeNode[], id: string | undefined, auth?: A
 }
 
 /** `x` with `request.auth` replaced by its effective auth (never 'inherit'). */
-export function withEffectiveAuth<T extends { request: HttpRequest }>(x: T, tree: TreeNode[], id: string | undefined): T {
+export function withEffectiveAuth<T extends { request: HttpRequest }>(
+  x: T,
+  tree: TreeNode[],
+  id: string | undefined,
+): T {
   return { ...x, request: { ...x.request, auth: effectiveAuth(tree, id, x.request.auth) } };
 }

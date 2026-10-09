@@ -2,12 +2,7 @@
   /** Full-height Postman-style workspace for pre-request and post-response JS. */
   import { t, tp } from '../i18n';
   import CodeEditor from './CodeEditor.svelte';
-  import {
-    PM_COMPLETIONS,
-    PRE_REQUEST_SNIPPETS,
-    TEST_SNIPPETS,
-    type ScriptSnippet,
-  } from '../editor/scriptCompletions';
+  import { PM_COMPLETIONS, PRE_REQUEST_SNIPPETS, TEST_SNIPPETS, type ScriptSnippet } from '../editor/scriptCompletions';
 
   let {
     preRequestScript,
@@ -32,23 +27,17 @@
   const currentValue = $derived(stage === 'pre-request' ? preRequestScript : testScript);
   const currentSnippets = $derived(stage === 'pre-request' ? PRE_REQUEST_SNIPPETS : TEST_SNIPPETS);
   const currentTitle = $derived(stage === 'pre-request' ? $t('script.pre.title') : $t('script.post.title'));
-  const currentDescription = $derived(
-    stage === 'pre-request'
-      ? $t('script.pre.desc')
-      : $t('script.post.desc'),
-  );
+  const currentDescription = $derived(stage === 'pre-request' ? $t('script.pre.desc') : $t('script.post.desc'));
   const currentPlaceholder = $derived(
-    stage === 'pre-request'
-      ? $t('script.pre.placeholder')
-      : $t('script.post.placeholder'),
+    stage === 'pre-request' ? $t('script.pre.placeholder') : $t('script.post.placeholder'),
   );
   const currentDocId = $derived(`${docId}:${stage}`);
   const lineCount = $derived((currentValue.match(/\n/g)?.length ?? 0) + 1);
   const filteredSnippets = $derived.by(() => {
     const query = snippetSearch.trim().toLowerCase();
     if (!query) return currentSnippets;
-    return currentSnippets.filter((snippet) =>
-      $t(snippet.label).toLowerCase().includes(query) || snippet.code.toLowerCase().includes(query),
+    return currentSnippets.filter(
+      (snippet) => $t(snippet.label).toLowerCase().includes(query) || snippet.code.toLowerCase().includes(query),
     );
   });
 
@@ -90,7 +79,12 @@
         <span class="material-symbols-outlined">javascript</span>
         <div><b>{currentTitle}</b><small>{currentDescription}</small></div>
       </div>
-      <button class:on={snippetsOpen} type="button" onclick={() => (snippetsOpen = !snippetsOpen)} title={$t('script.toggle_snippets')}>
+      <button
+        class:on={snippetsOpen}
+        type="button"
+        onclick={() => (snippetsOpen = !snippetsOpen)}
+        title={$t('script.toggle_snippets')}
+      >
         <span class="material-symbols-outlined">data_object</span>
         {$t('script.snippets')}
       </button>
@@ -130,7 +124,11 @@
       </div>
       <label class="bs-script-search">
         <span class="material-symbols-outlined">search</span>
-        <input bind:value={snippetSearch} placeholder={$t('script.search_snippets')} aria-label={$t('script.search_snippets')} />
+        <input
+          bind:value={snippetSearch}
+          placeholder={$t('script.search_snippets')}
+          aria-label={$t('script.search_snippets')}
+        />
       </label>
       <div class="bs-script-snippet-group">
         <div class="label">{stage === 'pre-request' ? $t('script.group.pre') : $t('script.group.post')}</div>
@@ -183,17 +181,38 @@
     border-radius: 7px;
     text-align: left;
   }
-  .bs-script-nav > button:hover { color: var(--text); background: var(--hover); }
+  .bs-script-nav > button:hover {
+    color: var(--text);
+    background: var(--hover);
+  }
   .bs-script-nav > button.on {
     color: var(--text);
     background: var(--surface);
-    box-shadow: inset 2px 0 var(--accent), 0 0 0 1px var(--sepsoft);
+    box-shadow:
+      inset 2px 0 var(--accent),
+      0 0 0 1px var(--sepsoft);
   }
-  .bs-script-nav > button > .material-symbols-outlined { flex: none; font-size: 16px; color: var(--t3); }
-  .bs-script-nav > button.on > .material-symbols-outlined { color: var(--accent); }
-  .bs-script-nav b, .bs-script-nav small { display: block; }
-  .bs-script-nav b { font-size: 11.5px; font-weight: 600; }
-  .bs-script-nav small { margin-top: 1px; color: var(--t3); font-size: 9.5px; }
+  .bs-script-nav > button > .material-symbols-outlined {
+    flex: none;
+    font-size: 16px;
+    color: var(--t3);
+  }
+  .bs-script-nav > button.on > .material-symbols-outlined {
+    color: var(--accent);
+  }
+  .bs-script-nav b,
+  .bs-script-nav small {
+    display: block;
+  }
+  .bs-script-nav b {
+    font-size: 11.5px;
+    font-weight: 600;
+  }
+  .bs-script-nav small {
+    margin-top: 1px;
+    color: var(--t3);
+    font-size: 9.5px;
+  }
   .bs-script-nav-note {
     display: flex;
     align-items: flex-start;
@@ -204,7 +223,10 @@
     font-size: 9.5px;
     line-height: 1.45;
   }
-  .bs-script-nav-note .material-symbols-outlined { flex: none; font-size: 14px; }
+  .bs-script-nav-note .material-symbols-outlined {
+    flex: none;
+    font-size: 14px;
+  }
   .bs-script-main {
     flex: 1;
     min-width: 0;
@@ -222,10 +244,25 @@
     background: var(--surface);
     border-bottom: 1px solid var(--sepsoft);
   }
-  .bs-script-heading { min-width: 0; display: flex; align-items: center; gap: 8px; }
-  .bs-script-heading > .material-symbols-outlined { color: var(--accent); font-size: 19px; }
-  .bs-script-heading b, .bs-script-heading small { display: block; }
-  .bs-script-heading b { color: var(--text); font-size: 11.5px; font-weight: 600; }
+  .bs-script-heading {
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .bs-script-heading > .material-symbols-outlined {
+    color: var(--accent);
+    font-size: 19px;
+  }
+  .bs-script-heading b,
+  .bs-script-heading small {
+    display: block;
+  }
+  .bs-script-heading b {
+    color: var(--text);
+    font-size: 11.5px;
+    font-weight: 600;
+  }
   .bs-script-heading small {
     max-width: 520px;
     margin-top: 1px;
@@ -248,8 +285,13 @@
     border-radius: 6px;
     font-size: 10.5px;
   }
-  .bs-script-toolbar > button.on { color: var(--accent); background: var(--accentsoft); }
-  .bs-script-toolbar > button .material-symbols-outlined { font-size: 14px; }
+  .bs-script-toolbar > button.on {
+    color: var(--accent);
+    background: var(--accentsoft);
+  }
+  .bs-script-toolbar > button .material-symbols-outlined {
+    font-size: 14px;
+  }
   .bs-script-editor {
     flex: 1;
     min-height: 0;
@@ -257,9 +299,16 @@
     display: flex;
     overflow: hidden;
   }
-  .bs-script-editor > :global(.bs-code-editor) { flex: 1; min-height: 0; }
-  .bs-script-editor :global(.cm-editor) { height: 100%; }
-  .bs-script-editor :global(.cm-scroller) { padding-top: 5px; }
+  .bs-script-editor > :global(.bs-code-editor) {
+    flex: 1;
+    min-height: 0;
+  }
+  .bs-script-editor :global(.cm-editor) {
+    height: 100%;
+  }
+  .bs-script-editor :global(.cm-scroller) {
+    padding-top: 5px;
+  }
   .bs-script-status {
     height: 26px;
     display: flex;
@@ -272,7 +321,10 @@
     border-top: 1px solid var(--sepsoft);
     font-size: 9.5px;
   }
-  .bs-script-status code { color: var(--t2); font-family: var(--mono); }
+  .bs-script-status code {
+    color: var(--t2);
+    font-family: var(--mono);
+  }
   .bs-script-snippets {
     width: 236px;
     flex: none;
@@ -290,9 +342,18 @@
     padding: 0 10px 0 12px;
     border-bottom: 1px solid var(--sepsoft);
   }
-  .bs-script-snippets-head b, .bs-script-snippets-head small { display: block; }
-  .bs-script-snippets-head b { color: var(--text); font-size: 11.5px; }
-  .bs-script-snippets-head small { color: var(--t3); font-size: 9.5px; }
+  .bs-script-snippets-head b,
+  .bs-script-snippets-head small {
+    display: block;
+  }
+  .bs-script-snippets-head b {
+    color: var(--text);
+    font-size: 11.5px;
+  }
+  .bs-script-snippets-head small {
+    color: var(--t3);
+    font-size: 9.5px;
+  }
   .bs-script-snippets-head button {
     width: 26px;
     height: 26px;
@@ -302,8 +363,13 @@
     color: var(--t3);
     border-radius: 6px;
   }
-  .bs-script-snippets-head button:hover { color: var(--text); background: var(--hover); }
-  .bs-script-snippets-head .material-symbols-outlined { font-size: 15px; }
+  .bs-script-snippets-head button:hover {
+    color: var(--text);
+    background: var(--hover);
+  }
+  .bs-script-snippets-head .material-symbols-outlined {
+    font-size: 15px;
+  }
   .bs-script-search {
     height: 30px;
     display: flex;
@@ -317,10 +383,26 @@
     border: 1px solid var(--sep);
     border-radius: 7px;
   }
-  .bs-script-search:focus-within { border-color: color-mix(in srgb, var(--accent) 56%, var(--sep)); }
-  .bs-script-search .material-symbols-outlined { font-size: 14px; }
-  .bs-script-search input { min-width: 0; flex: 1; color: var(--text); background: transparent; border: 0; outline: 0; font-size: 10.5px; }
-  .bs-script-snippet-group { min-height: 0; overflow: auto; padding: 0 7px 10px; }
+  .bs-script-search:focus-within {
+    border-color: color-mix(in srgb, var(--accent) 56%, var(--sep));
+  }
+  .bs-script-search .material-symbols-outlined {
+    font-size: 14px;
+  }
+  .bs-script-search input {
+    min-width: 0;
+    flex: 1;
+    color: var(--text);
+    background: transparent;
+    border: 0;
+    outline: 0;
+    font-size: 10.5px;
+  }
+  .bs-script-snippet-group {
+    min-height: 0;
+    overflow: auto;
+    padding: 0 7px 10px;
+  }
   .bs-script-snippet-group .label {
     padding: 4px 5px 6px;
     color: var(--t3);
@@ -342,13 +424,37 @@
     line-height: 1.35;
     text-align: left;
   }
-  .bs-script-snippet-group > button:hover { color: var(--text); background: var(--hover); }
-  .bs-script-snippet-group > button .material-symbols-outlined { flex: none; color: var(--t3); font-size: 14px; }
-  .bs-script-no-snippets { padding: 14px 6px; color: var(--t3); font-size: 10.5px; text-align: center; }
+  .bs-script-snippet-group > button:hover {
+    color: var(--text);
+    background: var(--hover);
+  }
+  .bs-script-snippet-group > button .material-symbols-outlined {
+    flex: none;
+    color: var(--t3);
+    font-size: 14px;
+  }
+  .bs-script-no-snippets {
+    padding: 14px 6px;
+    color: var(--t3);
+    font-size: 10.5px;
+    text-align: center;
+  }
   @media (max-width: 820px) {
-    .bs-script-nav { width: 48px; padding: 8px 5px; }
-    .bs-script-nav-label, .bs-script-nav > button > span:last-child, .bs-script-nav-note { display: none; }
-    .bs-script-nav > button { justify-content: center; padding: 9px 0; }
-    .bs-script-snippets { width: 210px; }
+    .bs-script-nav {
+      width: 48px;
+      padding: 8px 5px;
+    }
+    .bs-script-nav-label,
+    .bs-script-nav > button > span:last-child,
+    .bs-script-nav-note {
+      display: none;
+    }
+    .bs-script-nav > button {
+      justify-content: center;
+      padding: 9px 0;
+    }
+    .bs-script-snippets {
+      width: 210px;
+    }
   }
 </style>

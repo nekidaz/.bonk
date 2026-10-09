@@ -1,13 +1,5 @@
 <script lang="ts">
-  import {
-    activeTabId,
-    requestCloseTab,
-    newTab,
-    moveTab,
-    togglePinTab,
-    tabs,
-    dirtyTabIds,
-  } from '../stores';
+  import { activeTabId, requestCloseTab, newTab, moveTab, togglePinTab, tabs, dirtyTabIds } from '../stores';
   import { methodColor } from '../domain/method';
   import { HTTP_DEFAULT_TITLE } from '../domain/tab';
   import type { Tab } from '../domain/types';
@@ -54,7 +46,12 @@
   });
 
   // Mono: a method is text; protocols without one get an icon instead of a caps badge.
-  const TAB_ICON: Partial<Record<Tab['protocol'], string>> = { git: 'difference', env: 'layers', runner: 'play_arrow', flow: 'account_tree' };
+  const TAB_ICON: Partial<Record<Tab['protocol'], string>> = {
+    git: 'difference',
+    env: 'layers',
+    runner: 'play_arrow',
+    flow: 'account_tree',
+  };
 
   function tabMethodLabel(t: Tab): string {
     return t.protocol === 'grpc' ? 'gRPC' : t.request.method;
@@ -83,7 +80,9 @@
     bind:this={tabsScrollEl}
     role="presentation"
     oncontextmenu={(e) => onContext(e, $activeTabId)}
-    ondblclick={(e) => { if (e.target === e.currentTarget) newTab(); }}
+    ondblclick={(e) => {
+      if (e.target === e.currentTarget) newTab();
+    }}
   >
     {#each $tabs as tb, i (tb.id)}
       <div
@@ -95,13 +94,31 @@
         data-tab-id={tb.id}
         draggable="true"
         oncontextmenu={(e) => onContext(e, tb.id)}
-        onauxclick={(e) => { if (e.button === 1) { e.preventDefault(); void requestCloseTab(tb.id); } }}
-        ondragstart={(e) => { dragTabId = tb.id; if (e.dataTransfer) e.dataTransfer.effectAllowed = 'move'; }}
+        onauxclick={(e) => {
+          if (e.button === 1) {
+            e.preventDefault();
+            void requestCloseTab(tb.id);
+          }
+        }}
+        ondragstart={(e) => {
+          dragTabId = tb.id;
+          if (e.dataTransfer) e.dataTransfer.effectAllowed = 'move';
+        }}
         ondragenter={() => onTabDragEnter(i)}
-        ondragover={(e) => { if (dragTabId) e.preventDefault(); }}
+        ondragover={(e) => {
+          if (dragTabId) e.preventDefault();
+        }}
         ondragend={() => (dragTabId = null)}
       >
-        <button class="bs-tab-hit" role="tab" aria-selected={tb.id === $activeTabId} type="button" title={tabTooltip(tb)} onclick={() => activeTabId.set(tb.id)} onkeydown={(e) => onTabKey(e, tb.id)}>
+        <button
+          class="bs-tab-hit"
+          role="tab"
+          aria-selected={tb.id === $activeTabId}
+          type="button"
+          title={tabTooltip(tb)}
+          onclick={() => activeTabId.set(tb.id)}
+          onkeydown={(e) => onTabKey(e, tb.id)}
+        >
           {#if TAB_ICON[tb.protocol]}
             <span class="mi material-symbols-outlined" aria-hidden="true">{TAB_ICON[tb.protocol]}</span>
           {:else}
@@ -110,19 +127,48 @@
           <span class="bs-nm">{tb.title === HTTP_DEFAULT_TITLE ? $t('tabs.untitled') : tb.title}</span>
         </button>
         {#if tb.pinned}
-          <button class="x pin" aria-label={$t('tabs.ctxUnpin')} title={$t('tabs.ctxUnpin')} onclick={(e) => { e.stopPropagation(); togglePinTab(tb.id); }}><span class="material-symbols-outlined" style="font-size:13px">keep</span></button>
+          <button
+            class="x pin"
+            aria-label={$t('tabs.ctxUnpin')}
+            title={$t('tabs.ctxUnpin')}
+            onclick={(e) => {
+              e.stopPropagation();
+              togglePinTab(tb.id);
+            }}><span class="material-symbols-outlined" style="font-size:13px">keep</span></button
+          >
         {:else}
-          <button class="x" class:dirty={$dirtyTabIds.has(tb.id)} aria-label={$dirtyTabIds.has(tb.id) ? $t('tabs.closeTabUnsaved') : $t('tabs.closeTab')} title={$t('tabs.close')} onclick={(e) => { e.stopPropagation(); void requestCloseTab(tb.id); }}><span class="material-symbols-outlined close" style="font-size:13px">close</span><span class="material-symbols-outlined dot" aria-hidden="true">fiber_manual_record</span></button>
+          <button
+            class="x"
+            class:dirty={$dirtyTabIds.has(tb.id)}
+            aria-label={$dirtyTabIds.has(tb.id) ? $t('tabs.closeTabUnsaved') : $t('tabs.closeTab')}
+            title={$t('tabs.close')}
+            onclick={(e) => {
+              e.stopPropagation();
+              void requestCloseTab(tb.id);
+            }}
+            ><span class="material-symbols-outlined close" style="font-size:13px">close</span><span
+              class="material-symbols-outlined dot"
+              aria-hidden="true">fiber_manual_record</span
+            ></button
+          >
         {/if}
       </div>
     {/each}
-    <button class="bs-addt" title={$t('tabs.newRequestHint')} aria-label={$t('tabs.newRequest')} onclick={onNew}><span class="material-symbols-outlined" style="font-size:18px">add</span></button>
+    <button class="bs-addt" title={$t('tabs.newRequestHint')} aria-label={$t('tabs.newRequest')} onclick={onNew}
+      ><span class="material-symbols-outlined" style="font-size:18px">add</span></button
+    >
   </div>
 </div>
 
 <style>
   /* S36: "Runner · <scope>" gets a wider tab. */
-  .bs-tab.wide { flex-basis: 200px; width: 200px; max-width: 200px; }
+  .bs-tab.wide {
+    flex-basis: 200px;
+    width: 200px;
+    max-width: 200px;
+  }
   /* S17b: a pinned tab keeps its pin where the close button was. */
-  .bs-tab .x.pin { color: var(--color-text-secondary); }
+  .bs-tab .x.pin {
+    color: var(--color-text-secondary);
+  }
 </style>

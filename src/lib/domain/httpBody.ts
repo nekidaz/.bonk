@@ -44,9 +44,7 @@ function encodeFormPart(s: string): string {
   return s
     .split(/(\{\{[^}]*\}\})/)
     .map((seg) =>
-      seg.startsWith('{{') && seg.endsWith('}}')
-        ? seg
-        : new URLSearchParams([['k', seg]]).toString().slice(2),
+      seg.startsWith('{{') && seg.endsWith('}}') ? seg : new URLSearchParams([['k', seg]]).toString().slice(2),
     )
     .join('');
 }
@@ -62,12 +60,11 @@ export function buildUrlEncodedBody(rows: BodyParam[]): string {
 /** Serialize body-param rows as a multipart/form-data body for `boundary`. */
 export function buildMultipartBody(rows: BodyParam[], boundary: string): string {
   return rows
-    .map((row) => [
-      `--${boundary}`,
-      `Content-Disposition: form-data; name="${row.key.replace(/"/g, '%22')}"`,
-      '',
-      row.value,
-    ].join('\r\n'))
+    .map((row) =>
+      [`--${boundary}`, `Content-Disposition: form-data; name="${row.key.replace(/"/g, '%22')}"`, '', row.value].join(
+        '\r\n',
+      ),
+    )
     .concat(`--${boundary}--`)
     .join('\r\n');
 }
@@ -76,9 +73,7 @@ function appendQueryParam(url: string, name: string, value: string): string {
   const hashIndex = url.indexOf('#');
   const beforeHash = hashIndex === -1 ? url : url.slice(0, hashIndex);
   const hash = hashIndex === -1 ? '' : url.slice(hashIndex);
-  const joiner = beforeHash.includes('?')
-    ? beforeHash.endsWith('?') || beforeHash.endsWith('&') ? '' : '&'
-    : '?';
+  const joiner = beforeHash.includes('?') ? (beforeHash.endsWith('?') || beforeHash.endsWith('&') ? '' : '&') : '?';
   return `${beforeHash}${joiner}${encodeQueryPart(name)}=${encodeQueryPart(value)}${hash}`;
 }
 
@@ -87,7 +82,9 @@ function basicAuthToken(username: string, password: string): string {
   const bytes = new TextEncoder().encode(value);
   let binary = '';
   for (const byte of bytes) binary += String.fromCharCode(byte);
-  const fallback = (globalThis as unknown as { Buffer?: { from(input: Uint8Array): { toString(encoding: string): string } } }).Buffer;
+  const fallback = (
+    globalThis as unknown as { Buffer?: { from(input: Uint8Array): { toString(encoding: string): string } } }
+  ).Buffer;
   return typeof btoa === 'function' ? btoa(binary) : (fallback?.from(bytes).toString('base64') ?? '');
 }
 

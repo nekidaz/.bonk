@@ -25,9 +25,7 @@ export interface ParsedPostmanCollection {
 }
 
 function object(value: unknown): RecordValue | null {
-  return value !== null && typeof value === 'object' && !Array.isArray(value)
-    ? value as RecordValue
-    : null;
+  return value !== null && typeof value === 'object' && !Array.isArray(value) ? (value as RecordValue) : null;
 }
 
 function str(value: unknown): string {
@@ -35,7 +33,7 @@ function str(value: unknown): string {
 }
 
 function rows(value: unknown): RecordValue[] {
-  return Array.isArray(value) ? value.flatMap((item) => object(item) ? [item as RecordValue] : []) : [];
+  return Array.isArray(value) ? value.flatMap((item) => (object(item) ? [item as RecordValue] : [])) : [];
 }
 
 function script(events: unknown, listen: 'prerequest' | 'test'): string {
@@ -56,9 +54,7 @@ function script(events: unknown, listen: 'prerequest' | 'test'): string {
  */
 function joinScripts(parts: string[]): string {
   const present = parts.filter(Boolean);
-  return present.length > 1
-    ? present.map((code) => `(function () {\n${code}\n})();`).join('\n')
-    : present[0] ?? '';
+  return present.length > 1 ? present.map((code) => `(function () {\n${code}\n})();`).join('\n') : (present[0] ?? '');
 }
 
 function auth(value: unknown): AuthConfig | undefined {
@@ -96,7 +92,7 @@ function urlAndParams(value: unknown): { url: string; params: Param[] } {
     const protocol = str(source.protocol) || 'https';
     const host = Array.isArray(source.host) ? source.host.map(str).join('.') : str(source.host);
     const path = Array.isArray(source.path) ? source.path.map(str).join('/') : str(source.path);
-    raw = host ? `${protocol}://${host}${path ? '/'+path : ''}` : '';
+    raw = host ? `${protocol}://${host}${path ? '/' + path : ''}` : '';
   }
   if (!Array.isArray(source.query)) return { url: raw, params: paramsFromUrl(raw) };
   const params: Param[] = rows(source.query).map((entry) => ({
@@ -118,10 +114,15 @@ function applyBody(request: HttpRequest, value: unknown): void {
     const rawOptions = object(object(body.options)?.raw);
     const language = str(rawOptions?.language).toLowerCase();
     request.rawBodyFormat =
-      language === 'json' ? 'JSON' :
-      language === 'html' ? 'HTML' :
-      language === 'xml' ? 'XML' :
-      language === 'javascript' ? 'JavaScript' : 'Text';
+      language === 'json'
+        ? 'JSON'
+        : language === 'html'
+          ? 'HTML'
+          : language === 'xml'
+            ? 'XML'
+            : language === 'javascript'
+              ? 'JavaScript'
+              : 'Text';
   } else if (mode === 'urlencoded' || mode === 'formdata') {
     request.bodyMode = mode === 'formdata' ? 'form-data' : 'urlencoded';
     const key = mode === 'formdata' ? 'formdata' : 'urlencoded';
@@ -146,7 +147,12 @@ function applyBody(request: HttpRequest, value: unknown): void {
   }
 }
 
-function parseRequest(item: RecordValue, inheritedAuth: AuthConfig | undefined, pre: string[], post: string[]): ImportedPostmanRequest | null {
+function parseRequest(
+  item: RecordValue,
+  inheritedAuth: AuthConfig | undefined,
+  pre: string[],
+  post: string[],
+): ImportedPostmanRequest | null {
   const source = object(item.request);
   if (!source) return null;
   const method = (str(source.method) || 'GET').toUpperCase();
@@ -177,7 +183,12 @@ function parseRequest(item: RecordValue, inheritedAuth: AuthConfig | undefined, 
   };
 }
 
-function parseItems(items: unknown, inheritedAuth: AuthConfig | undefined, pre: string[], post: string[]): ImportedPostmanItem[] {
+function parseItems(
+  items: unknown,
+  inheritedAuth: AuthConfig | undefined,
+  pre: string[],
+  post: string[],
+): ImportedPostmanItem[] {
   const result: ImportedPostmanItem[] = [];
   for (const item of rows(items)) {
     const nextAuth = item.auth === undefined ? inheritedAuth : auth(item.auth);
@@ -213,7 +224,12 @@ export function parsePostmanCollection(text: string): ParsedPostmanCollection {
   const title = str(info.name).trim() || 'Imported Postman Collection';
   return {
     title,
-    items: parseItems(document.item, auth(document.auth), [script(document.event, 'prerequest')], [script(document.event, 'test')]),
+    items: parseItems(
+      document.item,
+      auth(document.auth),
+      [script(document.event, 'prerequest')],
+      [script(document.event, 'test')],
+    ),
     variables: rows(document.variable)
       .filter((entry) => str(entry.key).trim())
       .map((entry) => ({ key: str(entry.key), value: str(entry.value), enabled: entry.disabled !== true })),
@@ -237,35 +253,68 @@ type Json = Record<string, unknown>;
 const scriptBody = (code: string) => ({ type: 'text/javascript', exec: code.split('\n') });
 
 function events(pre?: string, test?: string): Json[] {
-  return [['prerequest', pre], ['test', test]].flatMap(([listen, code]) => (code ? [{ listen, script: scriptBody(code) }] : []));
+  return [
+    ['prerequest', pre],
+    ['test', test],
+  ].flatMap(([listen, code]) => (code ? [{ listen, script: scriptBody(code) }] : []));
 }
 
 function exportAuth(a: AuthConfig | undefined): Json | undefined {
-  const kv = (pairs: [string, string | undefined][]) => pairs.map(([key, value]) => ({ key, value: value ?? '', type: 'string' }));
+  const kv = (pairs: [string, string | undefined][]) =>
+    pairs.map(([key, value]) => ({ key, value: value ?? '', type: 'string' }));
   switch (a?.type) {
-    case 'none': return { type: 'noauth' };
-    case 'bearer': return { type: 'bearer', bearer: kv([['token', a.bearerToken]]) };
-    case 'basic': return { type: 'basic', basic: kv([['username', a.basicUsername], ['password', a.basicPassword]]) };
-    case 'apiKey': return { type: 'apikey', apikey: kv([['key', a.apiKeyName], ['value', a.apiKeyValue], ['in', a.apiKeyIn ?? 'header']]) };
-    default: return undefined; // inherit / absent: let Postman inherit
+    case 'none':
+      return { type: 'noauth' };
+    case 'bearer':
+      return { type: 'bearer', bearer: kv([['token', a.bearerToken]]) };
+    case 'basic':
+      return {
+        type: 'basic',
+        basic: kv([
+          ['username', a.basicUsername],
+          ['password', a.basicPassword],
+        ]),
+      };
+    case 'apiKey':
+      return {
+        type: 'apikey',
+        apikey: kv([
+          ['key', a.apiKeyName],
+          ['value', a.apiKeyValue],
+          ['in', a.apiKeyIn ?? 'header'],
+        ]),
+      };
+    default:
+      return undefined; // inherit / absent: let Postman inherit
   }
 }
 
 function exportBody(r: HttpRequest): Json | undefined {
-  const params = () => (r.bodyParams ?? []).map((p) => ({
-    key: p.key, value: p.kind === 'file' ? '' : p.value, type: p.kind === 'file' ? 'file' : 'text',
-    ...(p.description ? { description: p.description } : {}), ...(p.enabled ? {} : { disabled: true }),
-  }));
+  const params = () =>
+    (r.bodyParams ?? []).map((p) => ({
+      key: p.key,
+      value: p.kind === 'file' ? '' : p.value,
+      type: p.kind === 'file' ? 'file' : 'text',
+      ...(p.description ? { description: p.description } : {}),
+      ...(p.enabled ? {} : { disabled: true }),
+    }));
   switch (r.bodyMode) {
     case 'raw': {
-      const language = { JSON: 'json', HTML: 'html', XML: 'xml', JavaScript: 'javascript', Text: 'text' }[r.rawBodyFormat ?? 'Text'];
+      const language = { JSON: 'json', HTML: 'html', XML: 'xml', JavaScript: 'javascript', Text: 'text' }[
+        r.rawBodyFormat ?? 'Text'
+      ];
       return { mode: 'raw', raw: r.body ?? '', options: { raw: { language } } };
     }
-    case 'urlencoded': return { mode: 'urlencoded', urlencoded: params() };
-    case 'form-data': return { mode: 'formdata', formdata: params() };
-    case 'graphql': return { mode: 'graphql', graphql: { query: r.body ?? '', variables: r.graphqlVariables ?? '' } };
-    case 'binary': return { mode: 'file' };
-    default: return undefined;
+    case 'urlencoded':
+      return { mode: 'urlencoded', urlencoded: params() };
+    case 'form-data':
+      return { mode: 'formdata', formdata: params() };
+    case 'graphql':
+      return { mode: 'graphql', graphql: { query: r.body ?? '', variables: r.graphqlVariables ?? '' } };
+    case 'binary':
+      return { mode: 'file' };
+    default:
+      return undefined;
   }
 }
 
@@ -274,16 +323,29 @@ function exportRequest(n: RequestNode): Json {
   const off = new Set(r.disabledHeaders ?? []);
   const keys = [...new Set([...Object.keys(r.headers), ...off])];
   const header = keys.map((key) => ({
-    key, value: r.headers[key] ?? '',
-    ...(r.headerNotes?.[key] ? { description: r.headerNotes[key] } : {}), ...(off.has(key) ? { disabled: true } : {}),
+    key,
+    value: r.headers[key] ?? '',
+    ...(r.headerNotes?.[key] ? { description: r.headerNotes[key] } : {}),
+    ...(off.has(key) ? { disabled: true } : {}),
   }));
-  const query = (n.params ?? []).map((p) => ({ key: p.key, value: p.value, ...(p.description ? { description: p.description } : {}), ...(p.enabled ? {} : { disabled: true }) }));
+  const query = (n.params ?? []).map((p) => ({
+    key: p.key,
+    value: p.value,
+    ...(p.description ? { description: p.description } : {}),
+    ...(p.enabled ? {} : { disabled: true }),
+  }));
   const auth = exportAuth(r.auth);
   const body = exportBody(r);
   const event = events(r.preRequestScript, r.testScript);
   return {
     name: n.name,
-    request: { method: r.method, header, url: query.length ? { raw: r.url, query } : { raw: r.url }, ...(body ? { body } : {}), ...(auth ? { auth } : {}) },
+    request: {
+      method: r.method,
+      header,
+      url: query.length ? { raw: r.url, query } : { raw: r.url },
+      ...(body ? { body } : {}),
+      ...(auth ? { auth } : {}),
+    },
     ...(event.length ? { event } : {}),
   };
 }
@@ -297,10 +359,23 @@ function exportItems(nodes: TreeNode[]): Json[] {
 }
 
 /** Postman Collection v2.1 JSON of the HTTP requests in the tree (gRPC is skipped); globals become collection variables. */
-export function buildPostmanCollection(name: string, collections: TreeNode[], globals: VarRow[], includeSecrets: boolean): string {
-  return JSON.stringify({
-    info: { name, schema: 'https://schema.getpostman.com/json/collection/v2.1.0/collection.json' },
-    item: exportItems(collections),
-    variable: globals.map((v) => ({ key: v.key, value: v.secret && !includeSecrets ? '' : v.value, ...(v.enabled ? {} : { disabled: true }) })),
-  }, null, 2);
+export function buildPostmanCollection(
+  name: string,
+  collections: TreeNode[],
+  globals: VarRow[],
+  includeSecrets: boolean,
+): string {
+  return JSON.stringify(
+    {
+      info: { name, schema: 'https://schema.getpostman.com/json/collection/v2.1.0/collection.json' },
+      item: exportItems(collections),
+      variable: globals.map((v) => ({
+        key: v.key,
+        value: v.secret && !includeSecrets ? '' : v.value,
+        ...(v.enabled ? {} : { disabled: true }),
+      })),
+    },
+    null,
+    2,
+  );
 }

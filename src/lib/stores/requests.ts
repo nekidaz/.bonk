@@ -9,12 +9,7 @@ import { grpcPathsToRel, grpcPathsToAbs } from '../domain/protoPaths';
 import { parseCurl } from '../domain/curl';
 import { paramsFromUrl } from '../domain/http';
 import { resolveRequestVars, mergeScope } from '../domain/vars';
-import {
-  applyEnvPatch,
-  applyRequestPatch,
-  buildScriptContext,
-  type ScriptResult,
-} from '../domain/scripts';
+import { applyEnvPatch, applyRequestPatch, buildScriptContext, type ScriptResult } from '../domain/scripts';
 import { GRPC_DEFAULT_TITLE, HTTP_DEFAULT_TITLE, grpcSnapshot, titleFromUrl } from '../domain/tab';
 import {
   tabs,
@@ -57,13 +52,18 @@ export function currentRequestSettings(): RequestSettings {
     followRedirects: get(requestFollowRedirects),
     validateTls: get(requestValidateTls),
     maxResponseBodyBytes: maxResponseBodyMb * 1024 * 1024,
-    proxy: { mode: get(proxyMode), url: get(proxyUrl).trim(), bypass: get(proxyBypass).trim(), username: auth ? get(proxyUser).trim() : '', password: auth ? get(proxyPassword) : '' },
+    proxy: {
+      mode: get(proxyMode),
+      url: get(proxyUrl).trim(),
+      bypass: get(proxyBypass).trim(),
+      username: auth ? get(proxyUser).trim() : '',
+      password: auth ? get(proxyPassword) : '',
+    },
     caPaths: get(trustedCaPaths),
     trustSystemCas: get(trustSystemCas),
     clientCerts: activeClientCerts(),
   };
 }
-
 
 /** Save the active tab into folder `folderId` (root if undefined). `asCopy` («Сохранить как…») writes a new file and points the tab at it, leaving the original untouched. */
 export async function saveActiveRequest(folderId?: string, name?: string, asCopy = false): Promise<void> {
@@ -95,9 +95,7 @@ export async function saveActiveRequest(folderId?: string, name?: string, asCopy
   try {
     const newId = await workspaceSaveRequest(root, dirRel, asCopy ? null : (tab.savedPath ?? null), node);
     tabs.update((list) =>
-      list.map((t) =>
-        t.id === tab.id ? { ...t, title: finalName, manualTitle: true, savedPath: newId } : t,
-      ),
+      list.map((t) => (t.id === tab.id ? { ...t, title: finalName, manualTitle: true, savedPath: newId } : t)),
     );
     await reloadWorkspace();
   } catch (err) {
@@ -115,20 +113,46 @@ export async function restoreSavedRequest(prev: RequestNode): Promise<void> {
   if (!root) return;
   const folder = parentId(prev.id);
   await workspaceSaveRequest(root, folder ? idToRel(folder) : ROOT, prev.id, prev);
-  tabs.update((list) => list.map((t) => (t.savedPath === prev.id
-    ? { ...t, title: prev.name, request: { ...prev.request, headers: { ...prev.request.headers } }, params: prev.params?.map((p) => ({ ...p })) }
-    : t)));
+  tabs.update((list) =>
+    list.map((t) =>
+      t.savedPath === prev.id
+        ? {
+            ...t,
+            title: prev.name,
+            request: { ...prev.request, headers: { ...prev.request.headers } },
+            params: prev.params?.map((p) => ({ ...p })),
+          }
+        : t,
+    ),
+  );
   await reloadWorkspace();
 }
 
 /** Create a new empty request of `protocol` inside `folderId` (root if undefined) and open it. */
 export async function addRequestToFolder(folderId: string | undefined, protocol: 'http' | 'grpc'): Promise<void> {
   let root = get(workspacePath);
-  if (!root) { await openWorkspaceFolder(); root = get(workspacePath); if (!root) return; }
+  if (!root) {
+    await openWorkspaceFolder();
+    root = get(workspacePath);
+    if (!root) return;
+  }
   const node: RequestNode =
     protocol === 'grpc'
-      ? { kind: 'request', id: '', name: 'New gRPC', protocol: 'grpc', request: { method: 'GRPC', url: '', headers: {} }, grpc: { endpoint: '', plaintext: true, message: '', metadata: {} } }
-      : { kind: 'request', id: '', name: 'New Request', protocol: 'http', request: { method: 'GET', url: '', headers: {} } };
+      ? {
+          kind: 'request',
+          id: '',
+          name: 'New gRPC',
+          protocol: 'grpc',
+          request: { method: 'GRPC', url: '', headers: {} },
+          grpc: { endpoint: '', plaintext: true, message: '', metadata: {} },
+        }
+      : {
+          kind: 'request',
+          id: '',
+          name: 'New Request',
+          protocol: 'http',
+          request: { method: 'GET', url: '', headers: {} },
+        };
   await runWorkspaceOp('addRequestToFolder', async () => {
     const newId = await workspaceSaveRequest(root, folderId ? idToRel(folderId) : ROOT, null, node);
     await reloadWorkspace();
@@ -147,7 +171,12 @@ export function openSavedRequest(req: RequestNode, inNewTab = false): void {
   // Settings → «Открывать запрос в новой вкладке» off: reuse the active saved
   // request's tab when it has no unsaved changes (scratch tabs are never replaced).
   const current = get(tabs).find((t) => t.id === get(activeTabId));
-  const reuse = !inNewTab && !get(openInNewTab) && current?.savedPath && (current.protocol === 'http' || current.protocol === 'grpc') && !get(dirtyTabIds).has(current.id);
+  const reuse =
+    !inNewTab &&
+    !get(openInNewTab) &&
+    current?.savedPath &&
+    (current.protocol === 'http' || current.protocol === 'grpc') &&
+    !get(dirtyTabIds).has(current.id);
   const tab: Tab = {
     id: reuse ? current.id : crypto.randomUUID(),
     protocol: req.protocol,
@@ -240,11 +269,7 @@ export function applyScriptVars(result: ScriptResult): void {
  * response here so the caller controls cancelled-vs-failed rendering. A fatal
  * pre-request script error is likewise thrown before any send happens.
  */
-export async function sendHttpRequest(
-  tabId: string,
-  req: HttpRequest,
-  requestId: string,
-): Promise<void> {
+export async function sendHttpRequest(tabId: string, req: HttpRequest, requestId: string): Promise<void> {
   const startedAt = Date.now();
   let outgoing = req;
   const tests: ScriptResult['tests'] = [];
@@ -284,7 +309,11 @@ export async function sendHttpRequest(
   //    values actually sent, not the templates.
   let res: HttpResponse;
   try {
-    res = await httpSend(resolved, requestId, withOverrides(currentRequestSettings(), get(tabs).find((t) => t.id === tabId)?.settings));
+    res = await httpSend(
+      resolved,
+      requestId,
+      withOverrides(currentRequestSettings(), get(tabs).find((t) => t.id === tabId)?.settings),
+    );
   } catch (error) {
     addAppConsoleEntry({
       protocol: 'http',
@@ -326,10 +355,7 @@ export async function sendHttpRequest(
     testError = post.error ?? undefined;
   }
 
-  const testResults =
-    tests.length > 0 || logs.length > 0 || testError
-      ? { tests, logs, error: testError }
-      : undefined;
+  const testResults = tests.length > 0 || logs.length > 0 || testError ? { tests, logs, error: testError } : undefined;
   updateTabById(tabId, (t) => ({ ...t, response: res, testResults }));
   addAppConsoleEntry({
     protocol: 'http',
@@ -342,5 +368,15 @@ export async function sendHttpRequest(
     logs,
   });
   const src = get(tabs).find((t) => t.id === tabId);
-  addHistory({ id: crypto.randomUUID(), protocol: 'http', request: resolved, status: res.status, at: Date.now(), savedPath: src?.savedPath, title: src?.title, raw: src?.request, params: src?.params });
+  addHistory({
+    id: crypto.randomUUID(),
+    protocol: 'http',
+    request: resolved,
+    status: res.status,
+    at: Date.now(),
+    savedPath: src?.savedPath,
+    title: src?.title,
+    raw: src?.request,
+    params: src?.params,
+  });
 }

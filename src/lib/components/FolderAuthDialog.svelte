@@ -10,7 +10,9 @@
 
   const folder = $derived(folderId ? findNode($collections, folderId) : undefined);
   let draft = $state<AuthConfig | undefined>(undefined);
-  $effect(() => { draft = folder?.kind === 'folder' ? folder.auth : undefined; });
+  $effect(() => {
+    draft = folder?.kind === 'folder' ? folder.auth : undefined;
+  });
 
   function save(): void {
     if (folderId) void saveFolderAuth(folderId, draft && draft.type !== 'inherit' ? draft : null);
@@ -23,7 +25,9 @@
     <div class="bs-modal">
       <div class="bs-modal-h">
         <span class="t">{$t('dialog.auth.title', { name: folder.name })}</span>
-        <button class="x" aria-label={$t('common.close')} onclick={() => (folderId = undefined)}><span class="material-symbols-outlined" style="font-size:18px">close</span></button>
+        <button class="x" aria-label={$t('common.close')} onclick={() => (folderId = undefined)}
+          ><span class="material-symbols-outlined" style="font-size:18px">close</span></button
+        >
       </div>
       <div class="bs-modal-b">
         <HttpAuthEditor value={draft} onChange={(a) => (draft = a)} />

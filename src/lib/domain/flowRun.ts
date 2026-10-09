@@ -46,11 +46,7 @@ export interface FlowEffects {
    * `variables` are the values bound by incoming variable edges; they override
    * the environment for this send only (Postman's per-node variables).
    */
-  runRequest(
-    requestId: string,
-    payload: unknown,
-    variables: Record<string, string>,
-  ): Promise<FlowRequestOutcome>;
+  runRequest(requestId: string, payload: unknown, variables: Record<string, string>): Promise<FlowRequestOutcome>;
   runScript(code: string, payload: unknown): Promise<FlowScriptOutcome>;
   sleep(ms: number): Promise<void>;
   /** Progress callback per block (canvas badges). `detail` is state-specific. */
@@ -146,14 +142,15 @@ export async function executeFlow(
       fx.onBlock(block.id, 'skipped');
       outputs.set(block.id, payload);
       const preferred =
-        c.type === 'request' ? ['success', 'out']
-        : c.type === 'if' ? ['true', 'out']
-        : c.type === 'loop' ? ['done', 'out']
-        : ['out'];
+        c.type === 'request'
+          ? ['success', 'out']
+          : c.type === 'if'
+            ? ['true', 'out']
+            : c.type === 'loop'
+              ? ['done', 'out']
+              : ['out'];
       for (const port of preferred) {
-        const wired = flow.edges.some(
-          (e) => e.from === block.id && e.fromPort === port && isControlEdge(e),
-        );
+        const wired = flow.edges.some((e) => e.from === block.id && e.fromPort === port && isControlEdge(e));
         if (wired) {
           await follow(block, port, payload);
           break;
@@ -175,9 +172,7 @@ export async function executeFlow(
         // Flows authored before the success/fail ports wired everything through
         // 'out'; fall back to it when the outcome's port has no edge, so those
         // keep running. A new flow that leaves `fail` unwired stops that branch.
-        const wired = flow.edges.some(
-          (e) => e.from === block.id && e.fromPort === port && isControlEdge(e),
-        );
+        const wired = flow.edges.some((e) => e.from === block.id && e.fromPort === port && isControlEdge(e));
         await follow(block, wired ? port : 'out', outcome.output);
         return;
       }

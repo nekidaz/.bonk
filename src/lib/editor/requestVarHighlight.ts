@@ -67,8 +67,7 @@ export function requestVariableHighlight(
       if (key === '') return;
       // Re-read the stores at click time and re-resolve which scope owns the
       // name, so the write lands where the tooltip's value actually came from.
-      const currentEnv =
-        active !== undefined ? get(environments).find((e) => e.id === active.id) : undefined;
+      const currentEnv = active !== undefined ? get(environments).find((e) => e.id === active.id) : undefined;
       const hit = lookupVar(key, get(globals), currentEnv);
       if (!hit) return;
       if (hit.source === 'env' && currentEnv) {

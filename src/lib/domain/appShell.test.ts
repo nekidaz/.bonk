@@ -37,6 +37,11 @@ describe('workspace switcher helpers', () => {
 describe('mcpConnected', () => {
   it('needs an installed client pointing at exactly this workspace', () => {
     const clients = [{ installed: true, workspace: '/a' }, { installed: false, workspace: '/b' }, { installed: true }];
-    expect([mcpConnected(clients, '/a'), mcpConnected(clients, '/b'), mcpConnected(clients, '/c'), mcpConnected(clients, '')]).toEqual([true, false, false, false]);
+    expect([
+      mcpConnected(clients, '/a'),
+      mcpConnected(clients, '/b'),
+      mcpConnected(clients, '/c'),
+      mcpConnected(clients, ''),
+    ]).toEqual([true, false, false, false]);
   });
 });

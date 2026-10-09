@@ -1,5 +1,10 @@
 <script module lang="ts">
-  export interface PaletteCommand { label: string; icon: string; shortcut?: string; run: () => void }
+  export interface PaletteCommand {
+    label: string;
+    icon: string;
+    shortcut?: string;
+    run: () => void;
+  }
 </script>
 
 <script lang="ts">
@@ -7,7 +12,14 @@
   import { t } from '../i18n';
   import { activeEnvironmentId, collections, environments, openSavedRequest, setActiveEnvironment } from '../stores';
   import { methodColor } from '../domain/method';
-  import { ENV_COLOR_VAR, envColor, envToneOf, paletteSlot, searchEnvironments, searchRequests } from '../domain/palette';
+  import {
+    ENV_COLOR_VAR,
+    envColor,
+    envToneOf,
+    paletteSlot,
+    searchEnvironments,
+    searchRequests,
+  } from '../domain/palette';
   import type { RequestNode } from '../domain/types';
 
   let { open = $bindable(), commands }: { open: boolean; commands: PaletteCommand[] } = $props();
@@ -28,8 +40,13 @@
     query = '';
     returnFocus = document.activeElement as HTMLElement | null;
   });
-  $effect(() => { void query; sel = 0; });
-  $effect(() => { listEl?.querySelector(`[data-index="${sel}"]`)?.scrollIntoView({ block: 'nearest' }); });
+  $effect(() => {
+    void query;
+    sel = 0;
+  });
+  $effect(() => {
+    listEl?.querySelector(`[data-index="${sel}"]`)?.scrollIntoView({ block: 'nearest' });
+  });
 
   function close(): void {
     open = false;
@@ -48,13 +65,20 @@
     const slot = paletteSlot(i, counts);
     if (!slot) return;
     if (slot.group === 'request') void openRequest(requests[slot.index].node, send);
-    else if (slot.group === 'env') { open = false; setActiveEnvironment(envs[slot.index].id); }
-    else { open = false; matchedCommands[slot.index].run(); }
+    else if (slot.group === 'env') {
+      open = false;
+      setActiveEnvironment(envs[slot.index].id);
+    } else {
+      open = false;
+      matchedCommands[slot.index].run();
+    }
   }
 
   function keydown(e: KeyboardEvent): void {
-    if (e.key === 'Escape') { e.preventDefault(); close(); }
-    else if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      close();
+    } else if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
       e.preventDefault();
       if (total) sel = (sel + (e.key === 'ArrowDown' ? 1 : -1) + total) % total;
     } else if (e.key === 'Enter') {
@@ -66,11 +90,17 @@
 </script>
 
 {#if open}
-  <div class="bs-palette-scrim" role="presentation" onpointerdown={(e) => { if (e.target === e.currentTarget) close(); }}>
+  <div
+    class="bs-palette-scrim"
+    role="presentation"
+    onpointerdown={(e) => {
+      if (e.target === e.currentTarget) close();
+    }}
+  >
     <div class="bs-palette" role="dialog" aria-modal="true" aria-label={$t('palette.title')}>
       <div class="bs-palette-search">
         <span class="material-symbols-outlined" aria-hidden="true">search</span>
-          <input
+        <input
           bind:value={query}
           {@attach (el) => el.focus()}
           placeholder={$t('palette.search')}
@@ -87,8 +117,21 @@
         {#if requests.length}
           <div class="bs-palette-heading"><span>{$t('palette.requests')}</span><span>{requests.length}</span></div>
           {#each requests as r, i (r.node.id)}
-            <div class="bs-palette-item" class:on={sel === i} id="bs-palette-{i}" data-index={i} role="option" aria-selected={sel === i} tabindex="-1" onpointermove={() => (sel = i)} onclick={(e) => runAt(i, e.metaKey || e.ctrlKey)} onkeydown={() => {}}>
-              <span class="m" style="color:{methodColor(r.node.protocol === 'grpc' ? 'GRPC' : r.node.request.method)}">{r.node.protocol === 'grpc' ? 'gRPC' : r.node.request.method.toUpperCase()}</span>
+            <div
+              class="bs-palette-item"
+              class:on={sel === i}
+              id="bs-palette-{i}"
+              data-index={i}
+              role="option"
+              aria-selected={sel === i}
+              tabindex="-1"
+              onpointermove={() => (sel = i)}
+              onclick={(e) => runAt(i, e.metaKey || e.ctrlKey)}
+              onkeydown={() => {}}
+            >
+              <span class="m" style="color:{methodColor(r.node.protocol === 'grpc' ? 'GRPC' : r.node.request.method)}"
+                >{r.node.protocol === 'grpc' ? 'gRPC' : r.node.request.method.toUpperCase()}</span
+              >
               <span class="name">{r.node.name}</span>
               <span class="meta">{r.folder}</span>
               {#if sel === i}<kbd>↵</kbd>{/if}
@@ -100,18 +143,48 @@
           {#each envs as env, j (env.id)}
             {@const i = requests.length + j}
             {@const tone = envToneOf(env)}
-            <div class="bs-palette-item cmd" class:on={sel === i} id="bs-palette-{i}" data-index={i} role="option" aria-selected={sel === i} tabindex="-1" onpointermove={() => (sel = i)} onclick={() => runAt(i)} onkeydown={() => {}}>
-              <span class="material-symbols-outlined" style:color={tone === 'production' ? undefined : ENV_COLOR_VAR[envColor(env)]} aria-hidden="true">{tone === 'production' ? 'lock' : 'circle'}</span>
+            <div
+              class="bs-palette-item cmd"
+              class:on={sel === i}
+              id="bs-palette-{i}"
+              data-index={i}
+              role="option"
+              aria-selected={sel === i}
+              tabindex="-1"
+              onpointermove={() => (sel = i)}
+              onclick={() => runAt(i)}
+              onkeydown={() => {}}
+            >
+              <span
+                class="material-symbols-outlined"
+                style:color={tone === 'production' ? undefined : ENV_COLOR_VAR[envColor(env)]}
+                aria-hidden="true">{tone === 'production' ? 'lock' : 'circle'}</span
+              >
               <span class="name">{env.name}</span>
-              {#if env.id === $activeEnvironmentId}<span class="material-symbols-outlined" aria-hidden="true">check</span>{/if}
+              {#if env.id === $activeEnvironmentId}<span class="material-symbols-outlined" aria-hidden="true"
+                  >check</span
+                >{/if}
             </div>
           {/each}
         {/if}
         {#if matchedCommands.length}
-          <div class="bs-palette-heading"><span>{$t('palette.commands')}</span><span>{matchedCommands.length}</span></div>
+          <div class="bs-palette-heading">
+            <span>{$t('palette.commands')}</span><span>{matchedCommands.length}</span>
+          </div>
           {#each matchedCommands as c, j (c.label)}
             {@const i = requests.length + envs.length + j}
-            <div class="bs-palette-item cmd" class:on={sel === i} id="bs-palette-{i}" data-index={i} role="option" aria-selected={sel === i} tabindex="-1" onpointermove={() => (sel = i)} onclick={() => runAt(i)} onkeydown={() => {}}>
+            <div
+              class="bs-palette-item cmd"
+              class:on={sel === i}
+              id="bs-palette-{i}"
+              data-index={i}
+              role="option"
+              aria-selected={sel === i}
+              tabindex="-1"
+              onpointermove={() => (sel = i)}
+              onclick={() => runAt(i)}
+              onkeydown={() => {}}
+            >
               <span class="material-symbols-outlined" aria-hidden="true">{c.icon}</span>
               <span class="name">{c.label}</span>
               {#if c.shortcut}<span class="sc">{c.shortcut}</span>{/if}

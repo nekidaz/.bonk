@@ -5,13 +5,34 @@ import { grpcTlsFor, currentGrpcPrefs, withGlobalImports } from './netPrefs';
 import { httpSend, runScript, grpcConnect, grpcReflect, grpcCall, grpcLoadProto } from '../api';
 import { grpcPathsToAbs } from '../domain/protoPaths';
 import { mergeScope, resolveRequestVars, resolveVars } from '../domain/vars';
-import { applyRequestPatch, buildScriptContext, applyGrpcRequestPatch, buildGrpcScriptContext } from '../domain/scripts';
-import { inferGrpcPlaintext, grpcConnectFailureMessage, methodShort, outgoingGrpcMetadata, stripsAuthorization, grpcAuthMetadata } from '../domain/grpc';
+import {
+  applyRequestPatch,
+  buildScriptContext,
+  applyGrpcRequestPatch,
+  buildGrpcScriptContext,
+} from '../domain/scripts';
+import {
+  inferGrpcPlaintext,
+  grpcConnectFailureMessage,
+  methodShort,
+  outgoingGrpcMetadata,
+  stripsAuthorization,
+  grpcAuthMetadata,
+} from '../domain/grpc';
 import { effectiveAuth } from '../domain/authInherit';
 import { buildUrl } from '../domain/http';
 import { buildRequestForSend } from '../domain/httpBody';
 import { allTestsPassed } from '../domain/runnerPlan';
-import { activeEnvironmentId, collections, environments, globals, workspacePath, withInheritedAuth, requestTimeoutMs, grpcDeadlineMs } from './state';
+import {
+  activeEnvironmentId,
+  collections,
+  environments,
+  globals,
+  workspacePath,
+  withInheritedAuth,
+  requestTimeoutMs,
+  grpcDeadlineMs,
+} from './state';
 import { currentRequestSettings, applyScriptVars } from './requests';
 
 /**
@@ -67,10 +88,7 @@ interface HttpRunOutcome {
  * later requests in the run observe them. `iterationData` feeds both the script
  * context (`pm.iterationData`) and the `{{var}}` scope.
  */
-async function runHttp(
-  req: HttpRequest,
-  iterationData: Record<string, string>,
-): Promise<HttpRunOutcome> {
+async function runHttp(req: HttpRequest, iterationData: Record<string, string>): Promise<HttpRunOutcome> {
   const tests: ScriptTestResult[] = [];
   const logs: string[] = [];
   let outgoing = req;
@@ -123,11 +141,7 @@ export async function runHttpNode(
   try {
     const outgoing = buildRequestForSend(withInheritedAuth(node, node.id), finalUrl);
     const out = await runHttp(outgoing, iterationData);
-    const ok =
-      out.error === undefined &&
-      out.status >= 200 &&
-      out.status < 300 &&
-      allTestsPassed(out.tests);
+    const ok = out.error === undefined && out.status >= 200 && out.status < 300 && allTestsPassed(out.tests);
     return {
       id: crypto.randomUUID(),
       iteration,
@@ -203,7 +217,13 @@ export async function runGrpcNode(
     // Plaintext: honour the saved flag, else infer from the RESOLVED endpoint
     // (the :443 may live inside a {{var}} value).
     const plaintext = g.plaintext !== undefined ? g.plaintext : inferGrpcPlaintext(endpoint);
-    const connId = await grpcConnect(endpoint, plaintext, grpcTlsFor(endpoint, g.tls), get(requestTimeoutMs), currentGrpcPrefs());
+    const connId = await grpcConnect(
+      endpoint,
+      plaintext,
+      grpcTlsFor(endpoint, g.tls),
+      get(requestTimeoutMs),
+      currentGrpcPrefs(),
+    );
     // Load the schema so the call can be encoded: proto source compiles files,
     // otherwise reflection lists the services.
     if (g.source === 'proto') {

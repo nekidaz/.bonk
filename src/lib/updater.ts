@@ -18,14 +18,7 @@ import { flushPendingSaves } from './persist';
 import { openReleases } from './api';
 import { parseReleaseNotes, type NoteItem } from './domain/releaseNotes';
 
-export type UpdateStatus =
-  | 'idle'
-  | 'checking'
-  | 'downloading'
-  | 'ready'
-  | 'installing'
-  | 'uptodate'
-  | 'error';
+export type UpdateStatus = 'idle' | 'checking' | 'downloading' | 'ready' | 'installing' | 'uptodate' | 'error';
 
 /** Current updater state; 'ready' = downloaded, waiting for a restart. */
 export const updateStatus = writable<UpdateStatus>('idle');

@@ -75,7 +75,15 @@
     parseGrpcurl,
     type GrpcConnectStage,
   } from '../domain/grpc';
-  import { presentEditorError, sentEntries, omitKey, invokeFailureResult, withGrpcEndpoint, applyGrpcurlImport, resolveOutgoingGrpc } from '../domain/grpcEditor';
+  import {
+    presentEditorError,
+    sentEntries,
+    omitKey,
+    invokeFailureResult,
+    withGrpcEndpoint,
+    applyGrpcurlImport,
+    resolveOutgoingGrpc,
+  } from '../domain/grpcEditor';
   import type { Tab, GrpcResult } from '../domain/types';
 
   /** The active environment's `name → value` map, or `{}` when none is selected. */
@@ -102,7 +110,9 @@
   } = $props();
 
   // S19: the selected method's request type drives the caption and the validation hint.
-  const selectedMethod = $derived(tab.grpc?.tree?.services.flatMap((s) => s.methods).find((m) => m.symbol === tab.grpc?.method));
+  const selectedMethod = $derived(
+    tab.grpc?.tree?.services.flatMap((s) => s.methods).find((m) => m.symbol === tab.grpc?.method),
+  );
   const metadataCount = $derived(Object.keys(tab.grpc?.metadata ?? {}).length);
   // G1: nothing to show in the editor until there's a schema — pick where it comes from.
   const chooseSchema = $derived(!tab.grpc?.tree && !tab.grpc?.method && !(tab.grpc?.message ?? '').trim());
@@ -127,9 +137,7 @@
   // (see grpcConnectFailureMessage in domain/grpc).
   const grpcGuiding = $derived(isGrpcNoServicesHint(activeGrpcError));
   const editorError = $derived(
-    activeGrpcError
-      ? presentEditorError(activeGrpcError, grpcGuiding, tab.grpc?.endpoint ?? '', $t)
-      : undefined,
+    activeGrpcError ? presentEditorError(activeGrpcError, grpcGuiding, tab.grpc?.endpoint ?? '', $t) : undefined,
   );
   const grpcPlaintext = $derived(
     tab.grpc?.plaintext ?? inferGrpcPlaintext(resolveVars(tab.grpc?.endpoint ?? '', currentVarScope())),
@@ -153,7 +161,10 @@
   async function connectProto(protoPaths: string[], importPaths: string[]): Promise<void> {
     updateTabById(tab.id, (t) =>
       t.grpc
-        ? { ...t, grpc: { ...t.grpc, source: 'proto', protoPaths, importPaths, connectionId: undefined, tree: undefined } }
+        ? {
+            ...t,
+            grpc: { ...t.grpc, source: 'proto', protoPaths, importPaths, connectionId: undefined, tree: undefined },
+          }
         : t,
     );
     await tick();
@@ -185,7 +196,7 @@
     const startedAt = Date.now();
     let attempts = 0;
     try {
-      if (t.grpc.source === 'proto' && !(t.grpc.protoPaths?.length)) {
+      if (t.grpc.source === 'proto' && !t.grpc.protoPaths?.length) {
         throw new Error(get(i18nT)('grpc.selectProtoFirst'));
       }
       const endpoint = resolveVars(t.grpc.endpoint, currentVarScope());
@@ -193,7 +204,13 @@
       for (;;) {
         attempts += 1;
         try {
-          connId = await grpcConnect(endpoint, grpcPlaintext, grpcTlsFor(endpoint, t.grpc.tls), $requestTimeoutMs, currentGrpcPrefs());
+          connId = await grpcConnect(
+            endpoint,
+            grpcPlaintext,
+            grpcTlsFor(endpoint, t.grpc.tls),
+            $requestTimeoutMs,
+            currentGrpcPrefs(),
+          );
           break;
         } catch (e) {
           const wait = backoff[attempts - 1];
@@ -211,7 +228,19 @@
       const message = grpcConnectFailureMessage(t.grpc?.source, stage, e);
       // S25: an Invoke that can't reach the server is a response, not an editor error.
       if (fromInvoke && stage === 'dial' && !/invalid endpoint|invalid uri|proto/i.test(message)) {
-        updateTabById(tabId, (x) => ({ ...x, grpcStream: undefined, grpcResult: { ok: false, status: 'UNAVAILABLE', body: message, elapsed_ms: Date.now() - startedAt, size_bytes: 0, attempts, backoffMs: backoff.slice(0, attempts - 1) } }));
+        updateTabById(tabId, (x) => ({
+          ...x,
+          grpcStream: undefined,
+          grpcResult: {
+            ok: false,
+            status: 'UNAVAILABLE',
+            body: message,
+            elapsed_ms: Date.now() - startedAt,
+            size_bytes: 0,
+            attempts,
+            backoffMs: backoff.slice(0, attempts - 1),
+          },
+        }));
       } else {
         grpcErrorMap.update((m) => ({ ...m, [tabId]: message }));
       }
@@ -260,11 +289,7 @@
   async function loadGrpcTemplate(tabId: string, connectionId: string, symbol: string): Promise<void> {
     try {
       const tpl = await grpcTemplate(connectionId, symbol);
-      updateTabById(tabId, (t) =>
-        t.grpc?.method === symbol
-          ? { ...t, grpc: { ...t.grpc, message: tpl } }
-          : t,
-      );
+      updateTabById(tabId, (t) => (t.grpc?.method === symbol ? { ...t, grpc: { ...t.grpc, message: tpl } } : t));
     } catch {
       // Keep the selected method; leave the existing message untouched.
     }
@@ -297,7 +322,13 @@
       updateTabById(tabId, (x) => {
         const s = x.grpcStream;
         if (!s) return x;
-        return { ...x, grpcStream: { ...s, messages: [...s.messages, ...sentEntries(body, s.messages.filter((m) => m.sent).length)] } };
+        return {
+          ...x,
+          grpcStream: {
+            ...s,
+            messages: [...s.messages, ...sentEntries(body, s.messages.filter((m) => m.sent).length)],
+          },
+        };
       });
     } catch (e) {
       grpcErrorMap.update((m) => ({ ...m, [tabId]: String(e) }));
@@ -308,7 +339,9 @@
     const tabId = tab.id;
     const requestId = $busyMap[tabId]?.requestId;
     if (!requestId) return;
-    busyMap.update((m) => (m[tabId]?.requestId === requestId ? { ...m, [tabId]: { ...m[tabId], writable: false } } : m));
+    busyMap.update((m) =>
+      m[tabId]?.requestId === requestId ? { ...m, [tabId]: { ...m[tabId], writable: false } } : m,
+    );
     await grpcStreamEnd(requestId);
   }
   async function grpcStop(): Promise<void> {
@@ -398,7 +431,15 @@
     // and metadata values just before dispatch.
     const scope = currentVarScope();
     // A visually empty editor represents protobuf's valid empty message: sent as `{}` on the wire.
-    const { message: resolvedMessage, metadata: resolvedMetadata } = resolveOutgoingGrpc(g.auth, message, metadata, $collections, tab.savedPath, scope, stripAuth);
+    const { message: resolvedMessage, metadata: resolvedMetadata } = resolveOutgoingGrpc(
+      g.auth,
+      message,
+      metadata,
+      $collections,
+      tab.savedPath,
+      scope,
+      stripAuth,
+    );
     // S20: streams (server, client, bidi) arrive message by message; everything else is a unary call.
     // A client/bidi stream sends the editor message (an array = one message per element),
     // then stays open for Send until End.
@@ -407,17 +448,34 @@
     try {
       if (streaming) {
         const sent = method?.clientStreaming ? sentEntries(resolvedMessage, 0) : [];
-        if (method?.clientStreaming) busyMap.update((m) => (m[tabId]?.requestId === requestId ? { ...m, [tabId]: { ...m[tabId], writable: true } } : m));
-        updateTabById(tabId, (x) => ({ ...x, grpcResult: undefined, grpcStream: { messages: sent, done: false, startedAt: Date.now() } }));
+        if (method?.clientStreaming)
+          busyMap.update((m) =>
+            m[tabId]?.requestId === requestId ? { ...m, [tabId]: { ...m[tabId], writable: true } } : m,
+          );
+        updateTabById(tabId, (x) => ({
+          ...x,
+          grpcResult: undefined,
+          grpcStream: { messages: sent, done: false, startedAt: Date.now() },
+        }));
         result = await grpcStream(g.connectionId, g.method, resolvedMessage, resolvedMetadata, requestId, (msg) =>
           updateTabById(tabId, (x) => {
             const s = x.grpcStream ?? { messages: [], done: false, startedAt: Date.now() };
-            return { ...x, grpcStream: msg.headers ? { ...s, headers: msg.headers } : { ...s, messages: [...s.messages, msg] } };
+            return {
+              ...x,
+              grpcStream: msg.headers ? { ...s, headers: msg.headers } : { ...s, messages: [...s.messages, msg] },
+            };
           }),
         );
       } else {
         updateTabById(tabId, (x) => ({ ...x, grpcStream: undefined }));
-        result = await grpcCall(g.connectionId, g.method, resolvedMessage, resolvedMetadata, requestId, $grpcDeadlineMs);
+        result = await grpcCall(
+          g.connectionId,
+          g.method,
+          resolvedMessage,
+          resolvedMetadata,
+          requestId,
+          $grpcDeadlineMs,
+        );
       }
     } catch (e) {
       result = invokeFailureResult(e);
@@ -444,7 +502,12 @@
     const testResults =
       tests.length > 0 || logs.length > 0 || testError ? { tests, logs, error: testError } : undefined;
 
-    updateTabById(tabId, (x) => ({ ...x, grpcResult: result, testResults, grpcStream: x.grpcStream && { ...x.grpcStream, done: true } }));
+    updateTabById(tabId, (x) => ({
+      ...x,
+      grpcResult: result,
+      testResults,
+      grpcStream: x.grpcStream && { ...x.grpcStream, done: true },
+    }));
     addAppConsoleEntry({
       protocol: 'grpc',
       method: methodShort(g.method ?? '') || 'gRPC',
@@ -455,20 +518,35 @@
       message: testError || (!result.ok ? result.body : undefined),
       logs,
     });
-    addHistory({ id: crypto.randomUUID(), protocol: 'grpc', request: { method: 'GRPC', url: g.endpoint + ' ' + (g.method ?? ''), headers: {} }, status: 0, ok: result.ok, grpc: grpcSnapshot(g), at: Date.now(), savedPath: tab.savedPath, title: tab.title });
+    addHistory({
+      id: crypto.randomUUID(),
+      protocol: 'grpc',
+      request: { method: 'GRPC', url: g.endpoint + ' ' + (g.method ?? ''), headers: {} },
+      status: 0,
+      ok: result.ok,
+      grpc: grpcSnapshot(g),
+      at: Date.now(),
+      savedPath: tab.savedPath,
+      title: tab.title,
+    });
   }
   // `{{var}}` inline highlight + hover quick-set, shared by the endpoint,
   // message, and metadata editors; re-derived whenever the variable stores
   // change.
-  const varHighlight = $derived(
-    requestVariableHighlight($globals, $environments, $activeEnvironmentId),
-  );
+  const varHighlight = $derived(requestVariableHighlight($globals, $environments, $activeEnvironmentId));
 </script>
 
 <div class="bs-urlbar bs-grpc-bar">
   <div class="bs-urlfield bs-grpc-field">
     <div class="bs-method-wrap">
-      <button class="bs-method" style="color:var(--method-grpc)" type="button" aria-haspopup="menu" title={$t('grpc.requestType')} onclick={onSwitch}>
+      <button
+        class="bs-method"
+        style="color:var(--method-grpc)"
+        type="button"
+        aria-haspopup="menu"
+        title={$t('grpc.requestType')}
+        onclick={onSwitch}
+      >
         <span>gRPC</span>
         <span class="material-symbols-outlined" style="font-size:15px">expand_more</span>
       </button>
@@ -479,7 +557,9 @@
       singleLine
       placeholder={$t('grpc.endpointPlaceholder')}
       onPaste={endpointPaste}
-      onBlur={() => { if ($grpcAutoReflect) void ensureConnected(); }}
+      onBlur={() => {
+        if ($grpcAutoReflect) void ensureConnected();
+      }}
       {varHighlight}
       docId={tab.id}
       ariaLabel={$t('grpc.endpointAria')}
@@ -496,50 +576,81 @@
     />
   </div>
   {#if streamWritable}
-    <button class="bs-stream-btn" type="button" title={$t('grpc.endStreamTitle')} onclick={grpcEndStream}>{$t('grpc.endStream')}</button>
-    <button class="bs-stream-btn stop" type="button" aria-label={$t('grpc.stop')} title={$t('grpc.stop')} onclick={grpcStop}><span class="stop-square" aria-hidden="true"></span></button>
+    <button class="bs-stream-btn" type="button" title={$t('grpc.endStreamTitle')} onclick={grpcEndStream}
+      >{$t('grpc.endStream')}</button
+    >
+    <button
+      class="bs-stream-btn stop"
+      type="button"
+      aria-label={$t('grpc.stop')}
+      title={$t('grpc.stop')}
+      onclick={grpcStop}><span class="stop-square" aria-hidden="true"></span></button
+    >
   {/if}
-  <button class="bs-send" disabled={noAddress && !grpcInvoking} class:cancelling={grpcInvoking && !streamMethod} class:stop={grpcInvoking && streamMethod && !streamWritable} aria-busy={grpcInvoking} title={grpcInvoking && !streamWritable ? $t('grpc.invoking') : undefined} onclick={grpcDoInvoke}>
+  <button
+    class="bs-send"
+    disabled={noAddress && !grpcInvoking}
+    class:cancelling={grpcInvoking && !streamMethod}
+    class:stop={grpcInvoking && streamMethod && !streamWritable}
+    aria-busy={grpcInvoking}
+    title={grpcInvoking && !streamWritable ? $t('grpc.invoking') : undefined}
+    onclick={grpcDoInvoke}
+  >
     <span class="go">
-      {#if streamWritable}<span>{$t('grpc.send')}</span>{:else if grpcInvoking && streamMethod}<span class="stop-square" aria-hidden="true"></span><span>{$t('grpc.stop')}</span><kbd>⌘↵</kbd>{:else if grpcInvoking}<span>{$t('common.cancel')}</span><kbd>Esc</kbd>{:else}<span>{$t('grpc.invoke')}</span><kbd>⌘↵</kbd>{/if}
+      {#if streamWritable}<span>{$t('grpc.send')}</span>{:else if grpcInvoking && streamMethod}<span
+          class="stop-square"
+          aria-hidden="true"
+        ></span><span>{$t('grpc.stop')}</span><kbd>⌘↵</kbd>{:else if grpcInvoking}<span>{$t('common.cancel')}</span><kbd
+          >Esc</kbd
+        >{:else}<span>{$t('grpc.invoke')}</span><kbd>⌘↵</kbd>{/if}
     </span>
   </button>
 </div>
 
 <!-- Connection failures render in the response pane as S25 «Сервер недоступен»; this strip is for the rest. -->
 {#if editorError && editorError.kind !== 'connection'}
-  <GrpcErrorAlert error={editorError} endpoint={tab.grpc?.endpoint ?? ''} onImportProto={importProto} onDismiss={dismissGrpcError} />
+  <GrpcErrorAlert
+    error={editorError}
+    endpoint={tab.grpc?.endpoint ?? ''}
+    onImportProto={importProto}
+    onDismiss={dismissGrpcError}
+  />
 {/if}
 <GrpcRequestTabs {tab} section={gTab} {metadataCount} {messageStats} {selectedMethod} onLoadExample={grpcLoadExample} />
 <div class="bs-reqpane" role="tabpanel" id="bs-grpcpanel" aria-labelledby="bs-gtab-{gTab}">
-{#if gTab === 'message'}
-  <GrpcMessagePanel
-    {tab}
-    {selectedMethod}
-    {chooseSchema}
-    {largeMessage}
-    {varHighlight}
-    {ensureConnected}
-    onMessageChange={(v) => setGrpc({ message: v })}
-    onChooseSource={chooseSource}
-    onLoadExample={grpcLoadExample}
-  />
-{:else if gTab === 'metadata'}
-  <GrpcMetadataEditor {tab} />
-{:else if gTab === 'auth'}
-  <HttpAuthEditor {tab} />
-{:else if gTab === 'scripts'}
-  <ScriptsEditor
-    preRequestScript={tab.grpc?.preRequestScript ?? ''}
-    testScript={tab.grpc?.testScript ?? ''}
-    onPreRequestChange={(v) => setGrpcScript('preRequestScript', v)}
-    onTestChange={(v) => setGrpcScript('testScript', v)}
-    docId={tab.id}
-  />
-{:else}
-  <div class="bs-http-body"><GrpcProtoPanel {tab} onSetSource={setSource} onAddProto={importProto} /></div>
-{/if}
+  {#if gTab === 'message'}
+    <GrpcMessagePanel
+      {tab}
+      {selectedMethod}
+      {chooseSchema}
+      {largeMessage}
+      {varHighlight}
+      {ensureConnected}
+      onMessageChange={(v) => setGrpc({ message: v })}
+      onChooseSource={chooseSource}
+      onLoadExample={grpcLoadExample}
+    />
+  {:else if gTab === 'metadata'}
+    <GrpcMetadataEditor {tab} />
+  {:else if gTab === 'auth'}
+    <HttpAuthEditor {tab} />
+  {:else if gTab === 'scripts'}
+    <ScriptsEditor
+      preRequestScript={tab.grpc?.preRequestScript ?? ''}
+      testScript={tab.grpc?.testScript ?? ''}
+      onPreRequestChange={(v) => setGrpcScript('preRequestScript', v)}
+      onTestChange={(v) => setGrpcScript('testScript', v)}
+      docId={tab.id}
+    />
+  {:else}
+    <div class="bs-http-body"><GrpcProtoPanel {tab} onSetSource={setSource} onAddProto={importProto} /></div>
+  {/if}
 </div>
 
-<ProtoImportDialog bind:open={protoDialogOpen} protoPaths={tab.grpc?.protoPaths ?? []} importPaths={tab.grpc?.importPaths ?? []} onConnect={connectProto} />
+<ProtoImportDialog
+  bind:open={protoDialogOpen}
+  protoPaths={tab.grpc?.protoPaths ?? []}
+  importPaths={tab.grpc?.importPaths ?? []}
+  onConnect={connectProto}
+/>
 <svelte:window onkeydown={onKeydown} />

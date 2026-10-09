@@ -72,11 +72,7 @@ export interface VarLookup {
  * count, and on duplicate keys the *last* enabled row wins (mirroring the
  * last-write-wins map build in `mergeScope`). Returns `null` when unresolved.
  */
-export function lookupVar(
-  name: string,
-  globals: VarRow[],
-  activeEnv: Environment | undefined,
-): VarLookup | null {
+export function lookupVar(name: string, globals: VarRow[], activeEnv: Environment | undefined): VarLookup | null {
   const key = name.trim();
   if (key === '') return null;
   const lastMatch = (rows: VarRow[]): VarRow | undefined => {
@@ -145,9 +141,7 @@ export function resolveRequestVars(req: HttpRequest, scope: Record<string, strin
     url: resolveVars(req.url, scope),
     headers,
     body,
-    ...(req.binaryFilePath === undefined
-      ? {}
-      : { binaryFilePath: resolveVars(req.binaryFilePath, scope) }),
+    ...(req.binaryFilePath === undefined ? {} : { binaryFilePath: resolveVars(req.binaryFilePath, scope) }),
   };
 }
 

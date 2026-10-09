@@ -89,7 +89,15 @@
   import { findNode, parentId } from './lib/domain/tree';
   import { toCurl } from './lib/domain/curl';
   import { clock, historyDay, matchSaved, searchRequests } from './lib/domain/palette';
-  import { appMenuWidth, recentWorkspaceChoices, snapPanelSize, type AppMenuKind, type AppMenuState, type RequestProtocol, type UtilityMode } from './lib/domain/appShell';
+  import {
+    appMenuWidth,
+    recentWorkspaceChoices,
+    snapPanelSize,
+    type AppMenuKind,
+    type AppMenuState,
+    type RequestProtocol,
+    type UtilityMode,
+  } from './lib/domain/appShell';
 
   const active = $derived($tabs.find((t) => t.id === $activeTabId));
 
@@ -133,7 +141,9 @@
   // S35: below this window width the sidebar gives up width first (down to SIDEBAR_MIN),
   // then the main area adapts. Pure CSS, so it tracks window resizes for free.
   const SQUEEZE_BELOW = 1100;
-  const sidebarCssWidth = $derived(`clamp(${SIDEBAR_MIN}px, calc(${sidebarWidth}px + 100vw - ${SQUEEZE_BELOW}px), ${sidebarWidth}px)`);
+  const sidebarCssWidth = $derived(
+    `clamp(${SIDEBAR_MIN}px, calc(${sidebarWidth}px + 100vw - ${SQUEEZE_BELOW}px), ${sidebarWidth}px)`,
+  );
   // Width is remembered per workspace.
   let sidebarWidths = $state.raw<Record<string, number>>({});
   $effect(() => {
@@ -151,7 +161,8 @@
   // Panel open/close animates via CSS; drags must track the pointer 1:1, so
   // this flag turns the transitions off for the duration of a drag.
   let panelDragging = $state(false);
-  const PANEL_ANIM_MS = typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 180;
+  const PANEL_ANIM_MS =
+    typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 180;
 
   let menu = $state<AppMenuState>({ kind: null, x: 0, y: 0 });
   // Escape returns focus here (Mono: menus close on Escape, focus goes back to the trigger).
@@ -160,9 +171,10 @@
     menuTrigger = e.currentTarget as HTMLElement;
     const r = menuTrigger.getBoundingClientRect();
     const w = appMenuWidth(kind);
-    const at = e.type === 'contextmenu'
-      ? { x: e.clientX, y: e.clientY, flipY: e.clientY }
-      : { x: r.left, y: r.bottom + 8, flipY: r.top - 8 };
+    const at =
+      e.type === 'contextmenu'
+        ? { x: e.clientX, y: e.clientY, flipY: e.clientY }
+        : { x: r.left, y: r.bottom + 8, flipY: r.top - 8 };
     menu = { kind, x: Math.min(at.x, window.innerWidth - w - 8), y: at.y, flipY: at.flipY, nodeId, isFolder };
   }
 
@@ -178,7 +190,10 @@
   }
   function nodeRename(): void {
     const n = menu.nodeId ? findNode($collections, menu.nodeId) : undefined;
-    if (!n || !menu.nodeId) { closeMenu(); return; }
+    if (!n || !menu.nodeId) {
+      closeMenu();
+      return;
+    }
     editingNodeId = menu.nodeId;
     editValue = n.name;
     closeMenu();
@@ -190,8 +205,13 @@
     if (v && id) void renameNode(id, v);
   }
   function inlineRenameKeydown(e: KeyboardEvent): void {
-    if (e.key === 'Enter') { e.preventDefault(); commitInlineRename(); }
-    else if (e.key === 'Escape') { e.preventDefault(); editingNodeId = undefined; }
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      commitInlineRename();
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      editingNodeId = undefined;
+    }
   }
   async function nodeDelete(): Promise<void> {
     const id = menu.nodeId;
@@ -199,24 +219,38 @@
     closeMenu();
     if (!id) return;
     const name = findNode($collections, id)?.name ?? get(t)('app.node.thisItem');
-    const msg = isFolder
-      ? get(t)('app.node.deleteFolder', { name })
-      : get(t)('app.node.deleteItem', { name });
+    const msg = isFolder ? get(t)('app.node.deleteFolder', { name }) : get(t)('app.node.deleteItem', { name });
     if (await requestConfirm(msg, get(t)('common.delete'))) await removeNode(id);
   }
   function nodeSaveHere(): void {
     if (menu.nodeId) void saveActiveRequest(menu.nodeId);
     closeMenu();
   }
-  function nodeDuplicate(): void { if (menu.nodeId) void duplicateNode(menu.nodeId); closeMenu(); }
+  function nodeDuplicate(): void {
+    if (menu.nodeId) void duplicateNode(menu.nodeId);
+    closeMenu();
+  }
   let moveOpen = $state(false);
   let moveSourceId = $state<string | undefined>(undefined);
   let authFolderId = $state<string | undefined>(undefined);
-  function nodeAuth(): void { authFolderId = menu.nodeId; closeMenu(); }
-  function nodeMove(): void { moveSourceId = menu.nodeId; moveOpen = true; closeMenu(); }
-  function addReq(p: RequestProtocol): void { void addRequestToFolder(menu.nodeId, p); closeMenu(); }
+  function nodeAuth(): void {
+    authFolderId = menu.nodeId;
+    closeMenu();
+  }
+  function nodeMove(): void {
+    moveSourceId = menu.nodeId;
+    moveOpen = true;
+    closeMenu();
+  }
+  function addReq(p: RequestProtocol): void {
+    void addRequestToFolder(menu.nodeId, p);
+    closeMenu();
+  }
   let importOpen = $state(false);
-  function importOpenApi(): void { closeMenu(); importOpen = true; }
+  function importOpenApi(): void {
+    closeMenu();
+    importOpen = true;
+  }
   // Welcome chips: OpenAPI keeps the paste/file dialog; file formats go straight to the picker (format is sniffed, then the matching importer runs).
   function importFrom(source?: string): void {
     if (!source || source === 'openapi') return importOpenApi();
@@ -245,9 +279,15 @@
   // Clipboard cURL → a fresh request; without clipboard access, focus the URL bar for a manual paste.
   async function importCurlFromClipboard(): Promise<void> {
     let text = '';
-    try { text = await navigator.clipboard.readText(); } catch { /* no clipboard permission */ }
-    if (/^\s*curl\s/i.test(text)) { newTab(); applyCurlToActiveTab(text); }
-    else await pasteCurl();
+    try {
+      text = await navigator.clipboard.readText();
+    } catch {
+      /* no clipboard permission */
+    }
+    if (/^\s*curl\s/i.test(text)) {
+      newTab();
+      applyCurlToActiveTab(text);
+    } else await pasteCurl();
   }
   // Request header ⋯ menu: node actions run against the active tab's saved request (menu.nodeId = savedPath).
   function tabRename(): void {
@@ -269,10 +309,14 @@
   }
   function tabKeydown(e: KeyboardEvent, id: string): void {
     const mod = e.metaKey || e.ctrlKey;
-    const act = e.key === 'F2' ? tabRename
-      : mod && e.altKey && e.code === 'KeyC' ? tabCopyCurl
-      : mod && !e.altKey && e.code === 'KeyD' ? () => duplicateTab(id)
-      : undefined;
+    const act =
+      e.key === 'F2'
+        ? tabRename
+        : mod && e.altKey && e.code === 'KeyC'
+          ? tabCopyCurl
+          : mod && !e.altKey && e.code === 'KeyD'
+            ? () => duplicateTab(id)
+            : undefined;
     if (!act) return;
     e.preventDefault();
     e.stopPropagation();
@@ -306,12 +350,18 @@
   }
   function treeKeydown(e: KeyboardEvent, id: string, isFolder: boolean): void {
     const mod = e.metaKey || e.ctrlKey;
-    const act = e.key === 'F2' ? nodeRename
-      : mod && e.key.toLowerCase() === 'd' ? nodeDuplicate
-      : (e.key === 'Backspace' || e.key === 'Delete') && !isFolder ? nodeDelete
-      : mod && e.altKey && e.code === 'KeyC' && !isFolder ? nodeCopyCurl
-      : mod && e.key === 'Enter' && !isFolder ? nodeOpen
-      : undefined;
+    const act =
+      e.key === 'F2'
+        ? nodeRename
+        : mod && e.key.toLowerCase() === 'd'
+          ? nodeDuplicate
+          : (e.key === 'Backspace' || e.key === 'Delete') && !isFolder
+            ? nodeDelete
+            : mod && e.altKey && e.code === 'KeyC' && !isFolder
+              ? nodeCopyCurl
+              : mod && e.key === 'Enter' && !isFolder
+                ? nodeOpen
+                : undefined;
     if (!act) return;
     e.preventDefault();
     e.stopPropagation();
@@ -325,18 +375,49 @@
   }
   const keys = (id: string): string => formatBinding($hotkeys[id] ?? '').join('');
   const paletteCommands: PaletteCommand[] = $derived([
-    { label: activeFolderName ? $t('palette.cmd.newIn', { folder: activeFolderName }) : $t('palette.cmd.new'), icon: 'add', shortcut: keys('newRequest'), run: () => newRequestHere() },
-    { label: activeFolderName ? $t('palette.cmd.curlIn', { folder: activeFolderName }) : $t('palette.cmd.curl'), icon: 'terminal', run: () => void pasteCurl() },
+    {
+      label: activeFolderName ? $t('palette.cmd.newIn', { folder: activeFolderName }) : $t('palette.cmd.new'),
+      icon: 'add',
+      shortcut: keys('newRequest'),
+      run: () => newRequestHere(),
+    },
+    {
+      label: activeFolderName ? $t('palette.cmd.curlIn', { folder: activeFolderName }) : $t('palette.cmd.curl'),
+      icon: 'terminal',
+      run: () => void pasteCurl(),
+    },
     { label: $t('palette.cmd.openapi'), icon: 'upload_file', run: importOpenApi },
     { label: $t('palette.cmd.envs'), icon: 'layers', shortcut: keys('env'), run: openEnvironmentsTab },
-    { label: $t('palette.cmd.workspace'), icon: 'folder_managed', shortcut: keys('workspaceMenu'), run: () => (workspaceMenuOpen = true) },
+    {
+      label: $t('palette.cmd.workspace'),
+      icon: 'folder_managed',
+      shortcut: keys('workspaceMenu'),
+      run: () => (workspaceMenuOpen = true),
+    },
     { label: 'Flows', icon: 'account_tree', run: () => showSidebar('flows') },
     { label: $t('palette.cmd.runner'), icon: 'play_arrow', run: openRunnerTab },
     { label: $t('palette.cmd.sidebar'), icon: 'left_panel_open', shortcut: keys('sidebar'), run: toggleSidebar },
-    { label: $t('palette.cmd.response'), icon: 'bottom_panel_open', run: () => { responseHidden = !responseHidden; requestHidden = false; } },
+    {
+      label: $t('palette.cmd.response'),
+      icon: 'bottom_panel_open',
+      run: () => {
+        responseHidden = !responseHidden;
+        requestHidden = false;
+      },
+    },
     { label: $t('palette.cmd.code'), icon: 'code', shortcut: keys('codePanel'), run: () => toggleCodePanel() },
-    { label: $t('palette.cmd.folder'), icon: 'folder_open', shortcut: keys('openFolder'), run: () => void openWorkspaceFolder() },
-    { label: $t('palette.cmd.settings'), icon: 'settings', shortcut: keys('settings'), run: () => (settingsOpen = true) },
+    {
+      label: $t('palette.cmd.folder'),
+      icon: 'folder_open',
+      shortcut: keys('openFolder'),
+      run: () => void openWorkspaceFolder(),
+    },
+    {
+      label: $t('palette.cmd.settings'),
+      icon: 'settings',
+      shortcut: keys('settings'),
+      run: () => (settingsOpen = true),
+    },
   ]);
   function exportOpenApi(format: 'json' | 'yaml'): void {
     const id = menu.nodeId;
@@ -362,7 +443,9 @@
   const requestTab = $derived(active?.protocol === 'http' || active?.protocol === 'grpc');
   let innerWidth = $state(window.innerWidth);
   /** E7: request | response side by side — chosen, or automatic on a wide window. Expanded mode wins. */
-  const sideBySide = $derived(requestTab && !$focusMode && ($requestLayout === 'side' || ($sideOnWide && innerWidth >= SIDE_BY_SIDE_MIN)));
+  const sideBySide = $derived(
+    requestTab && !$focusMode && ($requestLayout === 'side' || ($sideOnWide && innerWidth >= SIDE_BY_SIDE_MIN)),
+  );
   /** In stacked layouts a hidden pane folds into its 44 px strip. */
   const respStrip = $derived(!sideBySide && (responseHidden || $focusMode === 'request'));
   const reqStrip = $derived(!sideBySide && requestHidden && !$focusMode);
@@ -388,7 +471,14 @@
   $effect(() => {
     const res = active?.protocol === 'grpc' ? active.grpcResult : active?.response;
     const id = active?.id;
-    if (res && id && seenResponse.tab === id && seenResponse.res !== res && !sideBySide && ($requestLayout === 'focus' || $afterSend === 'expand')) {
+    if (
+      res &&
+      id &&
+      seenResponse.tab === id &&
+      seenResponse.res !== res &&
+      !sideBySide &&
+      ($requestLayout === 'focus' || $afterSend === 'expand')
+    ) {
       untrack(() => {
         responseHidden = false;
         requestHidden = true;
@@ -465,7 +555,11 @@
         await saveActiveRequest(folder, active.title);
         flashSaved();
         showToast({
-          text: get(t)('app.toast.savedIn', { where: (folder && findNode($collections, folder)?.name) || ($workspacePath.split('/').filter(Boolean).at(-1) ?? get(t)('app.toast.workspace')) }),
+          text: get(t)('app.toast.savedIn', {
+            where:
+              (folder && findNode($collections, folder)?.name) ||
+              ($workspacePath.split('/').filter(Boolean).at(-1) ?? get(t)('app.toast.workspace')),
+          }),
           undo: prev?.kind === 'request' ? () => void restoreSavedRequest(prev) : undefined,
         });
       } catch (err) {
@@ -478,7 +572,9 @@
 
   function globalKeydown(e: KeyboardEvent): void {
     if (e.key === 'Escape') {
-      const trigger = menu.kind ? menuTrigger : document.querySelector<HTMLElement>('[aria-haspopup][aria-expanded="true"]');
+      const trigger = menu.kind
+        ? menuTrigger
+        : document.querySelector<HTMLElement>('[aria-haspopup][aria-expanded="true"]');
       if (!trigger && !menu.kind) {
         // Esc leaves expanded mode; CodeMirror's own Esc (find panel, completion) prevents default first.
         if ($focusMode && !e.defaultPrevented && !document.querySelector('.bs-modal, .bs-overlay')) {
@@ -493,14 +589,21 @@
       trigger?.focus();
       return;
     }
-    if (toast?.undo && (e.metaKey || e.ctrlKey) && e.code === 'KeyZ' && !e.shiftKey && !(e.target instanceof Element && e.target.closest('input, textarea, [contenteditable], .cm-editor'))) {
+    if (
+      toast?.undo &&
+      (e.metaKey || e.ctrlKey) &&
+      e.code === 'KeyZ' &&
+      !e.shiftKey &&
+      !(e.target instanceof Element && e.target.closest('input, textarea, [contenteditable], .cm-editor'))
+    ) {
       e.preventDefault();
       undoToast();
       return;
     }
     // ⌥⌘2…⌥⌘9: jump to the n-th recent workspace from the switcher (S37).
     const recentKey = /^Mod\+Alt\+([2-9])$/.exec(eventToBinding(e) ?? '');
-    const recentPath = recentKey && recentWorkspaceChoices($recentWorkspacePaths, $workspacePath)[Number(recentKey[1]) - 2];
+    const recentPath =
+      recentKey && recentWorkspaceChoices($recentWorkspacePaths, $workspacePath)[Number(recentKey[1]) - 2];
     if (recentPath) {
       e.preventDefault();
       workspaceMenuOpen = false;
@@ -509,44 +612,103 @@
     }
     const id = commandFor(e, $hotkeys);
     if (!id) return;
-    if (id === 'send' && !((active?.protocol === 'http' || active?.protocol === 'grpc') && !(e.target instanceof Element && e.target.closest('.bs-modal')))) return;
+    if (
+      id === 'send' &&
+      !(
+        (active?.protocol === 'http' || active?.protocol === 'grpc') &&
+        !(e.target instanceof Element && e.target.closest('.bs-modal'))
+      )
+    )
+      return;
     e.preventDefault();
     switch (id) {
-      case 'send': (document.querySelector('.bs-send') as HTMLButtonElement | null)?.click(); break;
-      case 'save': void smartSave(); break;
-      case 'saveAs': if (active?.protocol === 'http' || active?.protocol === 'grpc') openSaveDialog(true); break;
-      case 'codePanel': toggleCodePanel(); break;
-      case 'newRequest': newRequestHere('http'); break;
-      case 'newGrpc': newRequestHere('grpc'); break;
-      case 'newCollection': void addFolder(); break;
-      case 'newFolder': newFolderHere(); break;
-      case 'palette': paletteOpen = !paletteOpen; break;
-      case 'env': document.querySelector<HTMLButtonElement>('.bs-toolbar-env-button')?.click(); break;
-      case 'sidebar': case 'sidebarAlt': toggleSidebar(); break;
-      case 'showCollections': showSidebar('collections'); break;
-      case 'showHistory': showSidebar('history'); break;
-      case 'terminal': toggleUtilityPanel('terminal'); break;
-      case 'workspaceMenu': workspaceMenuOpen = !workspaceMenuOpen; break;
-      case 'openFolder': void openWorkspaceFolder(); break;
-      case 'settings': settingsOpen = true; break;
-      case 'closeTab': void requestCloseTab($activeTabId); break;
-      case 'closeAllTabs': void closeAllTabs(); break;
-      case 'newTab': newTab(); break;
-      case 'reopenTab': reopenClosedTab(); break;
+      case 'send':
+        (document.querySelector('.bs-send') as HTMLButtonElement | null)?.click();
+        break;
+      case 'save':
+        void smartSave();
+        break;
+      case 'saveAs':
+        if (active?.protocol === 'http' || active?.protocol === 'grpc') openSaveDialog(true);
+        break;
+      case 'codePanel':
+        toggleCodePanel();
+        break;
+      case 'newRequest':
+        newRequestHere('http');
+        break;
+      case 'newGrpc':
+        newRequestHere('grpc');
+        break;
+      case 'newCollection':
+        void addFolder();
+        break;
+      case 'newFolder':
+        newFolderHere();
+        break;
+      case 'palette':
+        paletteOpen = !paletteOpen;
+        break;
+      case 'env':
+        document.querySelector<HTMLButtonElement>('.bs-toolbar-env-button')?.click();
+        break;
+      case 'sidebar':
+      case 'sidebarAlt':
+        toggleSidebar();
+        break;
+      case 'showCollections':
+        showSidebar('collections');
+        break;
+      case 'showHistory':
+        showSidebar('history');
+        break;
+      case 'terminal':
+        toggleUtilityPanel('terminal');
+        break;
+      case 'workspaceMenu':
+        workspaceMenuOpen = !workspaceMenuOpen;
+        break;
+      case 'openFolder':
+        void openWorkspaceFolder();
+        break;
+      case 'settings':
+        settingsOpen = true;
+        break;
+      case 'closeTab':
+        void requestCloseTab($activeTabId);
+        break;
+      case 'closeAllTabs':
+        void closeAllTabs();
+        break;
+      case 'newTab':
+        newTab();
+        break;
+      case 'reopenTab':
+        reopenClosedTab();
+        break;
       case 'expand':
         if (requestTab) focusMode.update((m) => expandTarget(m, !!document.activeElement?.closest('.bs-resp-host')));
         break;
       case 'toggleResponse':
         if (sideBySide) break;
         if (respStrip) showResponse();
-        else { focusMode.set(null); responseHidden = true; requestHidden = false; }
+        else {
+          focusMode.set(null);
+          responseHidden = true;
+          requestHidden = false;
+        }
         break;
       case 'toggleRequest':
         if (sideBySide) break;
         if (reqStrip || $focusMode === 'response') showRequest();
-        else { focusMode.set(null); requestHidden = true; responseHidden = false; }
+        else {
+          focusMode.set(null);
+          requestHidden = true;
+          responseHidden = false;
+        }
         break;
-      case 'nextTab': case 'prevTab': {
+      case 'nextTab':
+      case 'prevTab': {
         const i = $tabs.findIndex((t) => t.id === $activeTabId);
         const next = i < 0 ? undefined : nextTabIndex(id === 'prevTab' ? 'ArrowLeft' : 'ArrowRight', i, $tabs.length);
         if (next !== undefined) activeTabId.set($tabs[next].id);
@@ -560,10 +722,20 @@
   $effect(() => {
     const root = document.documentElement;
     const d = $uiFontSize - 13;
-    for (const [token, base] of [['micro', 10], ['caption', 11], ['body', 12], ['ui', 13], ['label', 14], ['title', 15]] as const) {
+    for (const [token, base] of [
+      ['micro', 10],
+      ['caption', 11],
+      ['body', 12],
+      ['ui', 13],
+      ['label', 14],
+      ['title', 15],
+    ] as const) {
       root.style.setProperty(`--font-size-${token}`, `${base + d}px`);
     }
-    root.style.setProperty('--font-code', `'${$codeFont}', 'JetBrains Mono', 'SF Mono', ui-monospace, Menlo, monospace`);
+    root.style.setProperty(
+      '--font-code',
+      `'${$codeFont}', 'JetBrains Mono', 'SF Mono', ui-monospace, Menlo, monospace`,
+    );
     root.style.setProperty('--code-font-size', `${$codeFontSize}px`);
     root.dataset.density = $density;
   });
@@ -584,7 +756,11 @@
     sidebarHidden = await loadState('sidebarHidden', false);
     const savedResponseHeight = await loadState<number | null>('responseHeight', null);
     responseHeight = savedResponseHeight == null ? null : Math.max(PANE_MIN, savedResponseHeight);
-    utilityPanelHeight = clamp(await loadState('utilityPanelHeight', 220), 140, Math.max(140, window.innerHeight - 180));
+    utilityPanelHeight = clamp(
+      await loadState('utilityPanelHeight', 220),
+      140,
+      Math.max(140, window.innerHeight - 180),
+    );
   });
 
   function clamp(value: number, min: number, max: number): number {
@@ -610,7 +786,13 @@
   // Silently check for an update shortly after launch (Settings → Общие can turn
   // it off); the banner only appears if one is available (failures stay quiet).
   onMount(() => {
-    const t = setTimeout(() => void autoUpdateCheck.ready.then(() => { if ($autoUpdateCheck) void checkForUpdate(); }), 2500);
+    const t = setTimeout(
+      () =>
+        void autoUpdateCheck.ready.then(() => {
+          if ($autoUpdateCheck) void checkForUpdate();
+        }),
+      2500,
+    );
     return () => clearTimeout(t);
   });
 
@@ -636,12 +818,7 @@
    * tracking even when the cursor leaves the thin handle, and `setPointerCapture`
    * is best-effort (some environments reject it for synthetic pointers).
    */
-  function beginDrag(
-    e: PointerEvent,
-    cursor: string,
-    onMove: (ev: PointerEvent) => void,
-    onDone: () => void,
-  ): void {
+  function beginDrag(e: PointerEvent, cursor: string, onMove: (ev: PointerEvent) => void, onDone: () => void): void {
     e.preventDefault();
     const handle = e.currentTarget as HTMLElement;
     try {
@@ -701,8 +878,8 @@
         );
         // Collapsing keeps the pre-drag width so reopening restores the user's
         // layout; a grip pull that never got wide enough changes nothing.
-        sidebarHidden = snapped.collapsed ? (startShown || before.hidden) : false;
-        runnerReveal = snapped.collapsed ? (!startShown && before.reveal) : true;
+        sidebarHidden = snapped.collapsed ? startShown || before.hidden : false;
+        runnerReveal = snapped.collapsed ? !startShown && before.reveal : true;
         sidebarWidth = snapped.collapsed ? startWidth : snapped.size;
         sidebarDragWidth = snapped.collapsed ? null : snapped.size;
       },
@@ -727,7 +904,9 @@
     const startHeight = responseHidden ? 0 : resp.getBoundingClientRect().height;
     // The space the split shares; the request pane is 0 tall while hidden.
     const reqPane = column.querySelector('.bs-reqpane') as HTMLElement | null;
-    const total = reqPane ? startHeight + reqPane.getBoundingClientRect().height : column.getBoundingClientRect().height;
+    const total = reqPane
+      ? startHeight + reqPane.getBoundingClientRect().height
+      : column.getBoundingClientRect().height;
     beginDrag(
       e,
       'row-resize',
@@ -789,17 +968,20 @@
     responseHeight = RESPONSE_DEFAULT_HEIGHT;
     void saveState('responseHeight', responseHeight);
   }
-
 </script>
 
-<svelte:window bind:innerWidth onpointerdown={() => { grpcMethodOpen = false; httpMethodOpen = false; workspaceMenuOpen = false; }} onkeydown={globalKeydown} />
+<svelte:window
+  bind:innerWidth
+  onpointerdown={() => {
+    grpcMethodOpen = false;
+    httpMethodOpen = false;
+    workspaceMenuOpen = false;
+  }}
+  onkeydown={globalKeydown}
+/>
 
 <div class="bs" class:sidebar-hidden={!sidebarShown} data-focus={requestTab && $focusMode ? $focusMode : undefined}>
-  <AppToolbar
-    bind:workspaceMenuOpen
-    onSearch={() => (paletteOpen = true)}
-    onSettings={() => (settingsOpen = true)}
-  />
+  <AppToolbar bind:workspaceMenuOpen onSearch={() => (paletteOpen = true)} onSettings={() => (settingsOpen = true)} />
 
   <div class="bs-body">
     <!-- Sidebar. Stays mounted while hidden: width animates to 0 and the
@@ -820,13 +1002,30 @@
     </aside>
     {#if sidebarShown}
       <!-- svelte-ignore a11y_no_static_element_interactions -->
-      <div class="bs-resizer-col" class:dragging={sidebarDragWidth !== null} role="separator" aria-orientation="vertical" aria-label={$t('app.sidebar.resize')} aria-valuenow={sidebarWidth} aria-valuemin={SIDEBAR_MIN} aria-valuemax={SIDEBAR_MAX} onpointerdown={startSidebarDrag} ondblclick={resetSidebarWidth}>
+      <div
+        class="bs-resizer-col"
+        class:dragging={sidebarDragWidth !== null}
+        role="separator"
+        aria-orientation="vertical"
+        aria-label={$t('app.sidebar.resize')}
+        aria-valuenow={sidebarWidth}
+        aria-valuemin={SIDEBAR_MIN}
+        aria-valuemax={SIDEBAR_MAX}
+        onpointerdown={startSidebarDrag}
+        ondblclick={resetSidebarWidth}
+      >
         <span class="grip" aria-hidden="true"></span>
       </div>
     {:else}
       <!-- S34: no toggle button — the hidden sidebar leaves a grip to pull it back open. -->
       <!-- svelte-ignore a11y_no_static_element_interactions -->
-      <div class="bs-side-grip" role="separator" aria-orientation="vertical" aria-label={$t('app.sidebar.open')} onpointerdown={startSidebarDrag}>
+      <div
+        class="bs-side-grip"
+        role="separator"
+        aria-orientation="vertical"
+        aria-label={$t('app.sidebar.open')}
+        onpointerdown={startSidebarDrag}
+      >
         <span class="mono-tip" role="tooltip">{$t('app.sidebar.pull')}<kbd>⌘\</kbd></span>
       </div>
     {/if}
@@ -835,8 +1034,23 @@
       <div class="bs-workspace-main">
         <!-- Main -->
         <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_noninteractive_element_interactions -->
-        <main class="bs-main" class:req-hidden={requestHidden && !sideBySide} class:side={sideBySide} onfocusin={autoFocusIn} onclick={(e) => { if (requestHidden && (e.target as HTMLElement).closest('.bs-rtab')) requestHidden = false; }}>
-          <AppTabBar onNew={() => { newTab(); void tick().then(() => document.querySelector<HTMLElement>('.bs-urlbar .cm-content')?.focus()); }} onContext={tabContext} onTabKey={tabKeydown} />
+        <main
+          class="bs-main"
+          class:req-hidden={requestHidden && !sideBySide}
+          class:side={sideBySide}
+          onfocusin={autoFocusIn}
+          onclick={(e) => {
+            if (requestHidden && (e.target as HTMLElement).closest('.bs-rtab')) requestHidden = false;
+          }}
+        >
+          <AppTabBar
+            onNew={() => {
+              newTab();
+              void tick().then(() => document.querySelector<HTMLElement>('.bs-urlbar .cm-content')?.focus());
+            }}
+            onContext={tabContext}
+            onTabKey={tabKeydown}
+          />
           {#if active && requestTab && $focusMode}<FocusBar tab={active} mode={$focusMode} />{/if}
 
           {#if active}
@@ -855,36 +1069,65 @@
                 <FlowView tab={active} />
               {/key}
             {:else}
-            {#if historySnapshot}
-              <div class="bs-history-banner" role="status">
-                <span class="material-symbols-outlined" aria-hidden="true">history</span>
-                <span class="text">{`${$t('app.snapshot')} · ${historyDay(historySnapshot.entry.at, Date.now(), $t).toLowerCase()} ${clock(historySnapshot.entry.at)}${historySnapshot.entry.envName ? ` · ${historySnapshot.entry.envName}` : ''}. ${$t('app.snapshot.note')}`}</span>
-                {#if historySnapshot.original}<button type="button" onclick={() => openSavedRequest(historySnapshot!.original!.node)}>{$t('app.snapshot.original')}</button>{/if}
-              </div>
-            {/if}
-            <RequestHeader tab={active} {savedFlash} onSwitch={(e) => openMenu('switch', e)} onSmartSave={smartSave} onOpenSave={openSaveDialog} {codeOpen} onCode={toggleCodePanel} />
+              {#if historySnapshot}
+                <div class="bs-history-banner" role="status">
+                  <span class="material-symbols-outlined" aria-hidden="true">history</span>
+                  <span class="text"
+                    >{`${$t('app.snapshot')} · ${historyDay(historySnapshot.entry.at, Date.now(), $t).toLowerCase()} ${clock(historySnapshot.entry.at)}${historySnapshot.entry.envName ? ` · ${historySnapshot.entry.envName}` : ''}. ${$t('app.snapshot.note')}`}</span
+                  >
+                  {#if historySnapshot.original}<button
+                      type="button"
+                      onclick={() => openSavedRequest(historySnapshot!.original!.node)}
+                      >{$t('app.snapshot.original')}</button
+                    >{/if}
+                </div>
+              {/if}
+              <RequestHeader
+                tab={active}
+                {savedFlash}
+                onSwitch={(e) => openMenu('switch', e)}
+                onSmartSave={smartSave}
+                onOpenSave={openSaveDialog}
+                {codeOpen}
+                onCode={toggleCodePanel}
+              />
 
-            {#if active.protocol === 'grpc'}
-              {#key active.id}
-                <GrpcEditor tab={active} bind:methodOpen={grpcMethodOpen} onSwitch={(e) => openMenu('switch', e)} />
-              {/key}
-            {:else}
-              <HttpRequestEditor tab={active} bind:methodOpen={httpMethodOpen} />
-            {/if}
-            {#if reqStrip}<RequestStrip tab={active} onShow={showRequest} />{/if}
-            <!-- Stays mounted while hidden so open/close animates (flex-basis → 0). -->
-            <div
-              class="bs-resp-host"
-              class:closed={respStrip}
-              class:no-anim={panelDragging}
-              style={responseHeight == null || requestHidden || sideBySide || $focusMode ? '' : `flex:0 0 ${responseHeight}px`}
-            >
-              <ResponsePane tab={active} onResize={startSplitDrag} onResetSize={resetResponseSize} onSettings={() => (active.protocol === 'grpc' ? requestGrpcEditorAction(active.id, 'tls') : (settingsOpen = true))} />
-            </div>
-            {#if respStrip}<ResponseStrip tab={active} onShow={showResponse} />{/if}
+              {#if active.protocol === 'grpc'}
+                {#key active.id}
+                  <GrpcEditor tab={active} bind:methodOpen={grpcMethodOpen} onSwitch={(e) => openMenu('switch', e)} />
+                {/key}
+              {:else}
+                <HttpRequestEditor tab={active} bind:methodOpen={httpMethodOpen} />
+              {/if}
+              {#if reqStrip}<RequestStrip tab={active} onShow={showRequest} />{/if}
+              <!-- Stays mounted while hidden so open/close animates (flex-basis → 0). -->
+              <div
+                class="bs-resp-host"
+                class:closed={respStrip}
+                class:no-anim={panelDragging}
+                style={responseHeight == null || requestHidden || sideBySide || $focusMode
+                  ? ''
+                  : `flex:0 0 ${responseHeight}px`}
+              >
+                <ResponsePane
+                  tab={active}
+                  onResize={startSplitDrag}
+                  onResetSize={resetResponseSize}
+                  onSettings={() =>
+                    active.protocol === 'grpc' ? requestGrpcEditorAction(active.id, 'tls') : (settingsOpen = true)}
+                />
+              </div>
+              {#if respStrip}<ResponseStrip tab={active} onShow={showResponse} />{/if}
             {/if}
           {:else}
-            <WelcomeView onNewRequest={() => newRequestHere()} onImport={importFrom} onPasteCurl={(text) => { newTab(); applyCurlToActiveTab(text); }} />
+            <WelcomeView
+              onNewRequest={() => newRequestHere()}
+              onImport={importFrom}
+              onPasteCurl={(text) => {
+                newTab();
+                applyCurlToActiveTab(text);
+              }}
+            />
           {/if}
         </main>
 
@@ -900,7 +1143,6 @@
           </div>
         {/if}
       </div>
-
     </div>
   </div>
 
@@ -951,9 +1193,12 @@
 
   {#if toast}
     <div class="bs-toast" role="status">
-      <span class="material-symbols-outlined" aria-hidden="true" style:color={toast.iconColor}>{toast.icon ?? 'check_circle'}</span>
+      <span class="material-symbols-outlined" aria-hidden="true" style:color={toast.iconColor}
+        >{toast.icon ?? 'check_circle'}</span
+      >
       <span class="text">{toast.text}</span>
-      {#if toast.undo}<button type="button" onclick={undoToast}>{toast.undoLabel ?? $t('app.toast.undo')} ⌘Z</button>{/if}
+      {#if toast.undo}<button type="button" onclick={undoToast}>{toast.undoLabel ?? $t('app.toast.undo')} ⌘Z</button
+        >{/if}
     </div>
   {/if}
 

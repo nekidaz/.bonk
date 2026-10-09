@@ -40,7 +40,8 @@ export function autoContentType(t: Tab): string {
   if (mode === 'urlencoded' && hasRows) return 'application/x-www-form-urlencoded';
   if (mode === 'form-data' && hasRows) return 'multipart/form-data; boundary=<auto>';
   if (mode === 'raw' && currentRawFormat(t) === 'JSON' && (t.request.body ?? '').length > 0) return 'application/json';
-  if (mode === 'graphql' && ((t.request.body ?? '').length > 0 || t.request.graphqlVariables?.trim())) return 'application/json';
+  if (mode === 'graphql' && ((t.request.body ?? '').length > 0 || t.request.graphqlVariables?.trim()))
+    return 'application/json';
   return '';
 }
 export function generatedAuthHeaders(t: Tab): HeaderPreview[] {
@@ -51,13 +52,22 @@ export function generatedAuthHeaders(t: Tab): HeaderPreview[] {
   if (auth.type === 'basic' && ((auth.basicUsername ?? '') || (auth.basicPassword ?? ''))) {
     return [{ key: 'Authorization', value: 'Basic <generated>', source: 'Auth' }];
   }
-  if (auth.type === 'apiKey' && (auth.apiKeyIn ?? 'header') === 'header' && auth.apiKeyName?.trim() && auth.apiKeyValue != null) {
+  if (
+    auth.type === 'apiKey' &&
+    (auth.apiKeyIn ?? 'header') === 'header' &&
+    auth.apiKeyName?.trim() &&
+    auth.apiKeyValue != null
+  ) {
     return [{ key: auth.apiKeyName.trim(), value: auth.apiKeyValue, source: 'Auth' }];
   }
   return [];
 }
 /** Mirrors the Rust client's `bonk/<version> (<os>)`. */
-const OS = /Mac/i.test(globalThis.navigator?.userAgent ?? '') ? 'macOS' : /Win/i.test(globalThis.navigator?.userAgent ?? '') ? 'Windows' : 'Linux';
+const OS = /Mac/i.test(globalThis.navigator?.userAgent ?? '')
+  ? 'macOS'
+  : /Win/i.test(globalThis.navigator?.userAgent ?? '')
+    ? 'Windows'
+    : 'Linux';
 const USER_AGENT = `bonk/${typeof __APP_VERSION__ === 'string' ? __APP_VERSION__ : '0.0.0'} (${OS})`;
 
 export function autoHeaderRows(t: Tab | undefined): HeaderPreview[] {
@@ -74,7 +84,10 @@ export function autoHeaderRows(t: Tab | undefined): HeaderPreview[] {
   return rows.filter((row) => !hasHeader(headers, row.key));
 }
 export function headerRows(t: Tab | undefined): HeaderPreview[] {
-  return [...Object.entries(t?.request.headers ?? {}).map(([key, value]) => ({ key, value, source: 'Manual' })), { key: '', value: '', source: '' }];
+  return [
+    ...Object.entries(t?.request.headers ?? {}).map(([key, value]) => ({ key, value, source: 'Manual' })),
+    { key: '', value: '', source: '' },
+  ];
 }
 export function fileName(path: string | undefined, tr: Translate = get(t)): string {
   if (!path) return tr('http.file.choose');

@@ -58,7 +58,11 @@ function build(view: EditorView): DecorationSet {
   }
   if (text.length > segStart && segStart > 0) decos.push({ from: segStart, to: text.length, deco: segment });
   // RangeSetBuilder needs ranges sorted by start, then by start side (widgets/outer marks first).
-  decos.sort((a, b) => a.from - b.from || (a.deco === breakHint ? -1 : b.deco === breakHint ? 1 : a.deco === segment ? -1 : b.deco === segment ? 1 : 0));
+  decos.sort(
+    (a, b) =>
+      a.from - b.from ||
+      (a.deco === breakHint ? -1 : b.deco === breakHint ? 1 : a.deco === segment ? -1 : b.deco === segment ? 1 : 0),
+  );
   const builder = new RangeSetBuilder<Decoration>();
   for (const d of decos) builder.add(d.from, d.to, d.deco);
   return builder.finish();

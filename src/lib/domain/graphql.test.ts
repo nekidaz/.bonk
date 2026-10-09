@@ -22,7 +22,10 @@ function graphqlTab(variables: string): Tab {
 
 describe('GraphQL HTTP body', () => {
   it('sends a JSON envelope and resolves variables without breaking JSON escaping', () => {
-    const built = buildRequestForSend(graphqlTab('{"id":"{{userId}}","filter":{"names":["{{name}}"]}}'), 'https://example.com/graphql');
+    const built = buildRequestForSend(
+      graphqlTab('{"id":"{{userId}}","filter":{"names":["{{name}}"]}}'),
+      'https://example.com/graphql',
+    );
     const sent = resolveRequestVars(built, { userId: '42', name: 'Ada "Lovelace"' });
     expect(sent.headers['Content-Type']).toBe('application/json');
     expect(JSON.parse(sent.body ?? '')).toEqual({

@@ -6,12 +6,7 @@ export type DiffRow = {
 };
 
 export function diffLineClass(line: string): string {
-  if (
-    line.startsWith('+++') ||
-    line.startsWith('---') ||
-    line.startsWith('diff --git') ||
-    line.startsWith('index ')
-  )
+  if (line.startsWith('+++') || line.startsWith('---') || line.startsWith('diff --git') || line.startsWith('index '))
     return 'meta';
   if (line.startsWith('@@')) return 'hunk';
   if (line.startsWith('+')) return 'add';

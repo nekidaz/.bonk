@@ -4,11 +4,21 @@ import { collections, revealNode } from './index';
 import { collapsedFolders, withSavedCollapse } from './workspace';
 import type { TreeNode } from '../domain/types';
 
-const req: TreeNode = { kind: 'request', id: 'fs:a/b/r.json', name: 'r', protocol: 'http', request: { method: 'GET', url: '', headers: {} } };
+const req: TreeNode = {
+  kind: 'request',
+  id: 'fs:a/b/r.json',
+  name: 'r',
+  protocol: 'http',
+  request: { method: 'GET', url: '', headers: {} },
+};
 const tree = (open: boolean): TreeNode[] => [
-  { kind: 'folder', id: 'fs:a', name: 'a', expanded: open, children: [
-    { kind: 'folder', id: 'fs:a/b', name: 'b', expanded: open, children: [req] },
-  ] },
+  {
+    kind: 'folder',
+    id: 'fs:a',
+    name: 'a',
+    expanded: open,
+    children: [{ kind: 'folder', id: 'fs:a/b', name: 'b', expanded: open, children: [req] }],
+  },
   { kind: 'folder', id: 'fs:ab', name: 'ab', expanded: false, children: [] },
 ];
 const openIds = (nodes: TreeNode[]): string[] =>

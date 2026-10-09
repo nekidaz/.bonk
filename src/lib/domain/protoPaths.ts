@@ -24,10 +24,7 @@ export function toAbs(path: string, root: string): string {
   return `${prefix}${path}`;
 }
 
-function mapPaths(
-  grpc: GrpcTabState | undefined,
-  fn: (p: string) => string,
-): GrpcTabState | undefined {
+function mapPaths(grpc: GrpcTabState | undefined, fn: (p: string) => string): GrpcTabState | undefined {
   if (!grpc || grpc.source !== 'proto') return grpc;
   return {
     ...grpc,

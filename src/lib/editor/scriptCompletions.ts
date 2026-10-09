@@ -23,7 +23,12 @@ function property(label: string, info: string): Completion {
 export const PM_COMPLETIONS: Completion[] = [
   { label: 'pm', info: lazyInfo('util.pm.pm'), type: 'namespace' },
   method("pm.environment.get('${key}')", 'pm.environment.get', '(key)', 'util.pm.pm.environment.get'),
-  method("pm.environment.set('${key}', '${value}')", 'pm.environment.set', '(key, value)', 'util.pm.pm.environment.set'),
+  method(
+    "pm.environment.set('${key}', '${value}')",
+    'pm.environment.set',
+    '(key, value)',
+    'util.pm.pm.environment.set',
+  ),
   method("pm.environment.unset('${key}')", 'pm.environment.unset', '(key)', 'util.pm.pm.environment.unset'),
   method("pm.globals.get('${key}')", 'pm.globals.get', '(key)', 'util.pm.pm.globals.get'),
   method("pm.globals.set('${key}', '${value}')", 'pm.globals.set', '(key, value)', 'util.pm.pm.globals.set'),
@@ -32,7 +37,12 @@ export const PM_COMPLETIONS: Completion[] = [
   property('pm.request.url', 'util.pm.pm.request.url'),
   property('pm.request.method', 'util.pm.pm.request.method'),
   property('pm.request.body', 'util.pm.pm.request.body'),
-  method("pm.request.headers.add('${Name}', '${value}')", 'pm.request.headers.add', '(name, value)', 'util.pm.pm.request.headers.add'),
+  method(
+    "pm.request.headers.add('${Name}', '${value}')",
+    'pm.request.headers.add',
+    '(name, value)',
+    'util.pm.pm.request.headers.add',
+  ),
   method("pm.request.headers.get('${Name}')", 'pm.request.headers.get', '(name)', 'util.pm.pm.request.headers.get'),
   property('pm.response.code', 'util.pm.pm.response.code'),
   property('pm.response.responseTime', 'util.pm.pm.response.responseTime'),

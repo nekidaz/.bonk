@@ -2,21 +2,15 @@ import { get } from 'svelte/store';
 import type { RequestNode, TreeNode } from '../domain/types';
 import { openapiImportPick, openapiExportSave, workspaceCreateFolder, workspaceSaveRequest } from '../api';
 import { idToRel, findNode } from '../domain/tree';
-import {
-  parseOpenApi,
-  buildOpenApi,
-  serializeSpec,
-  type ExportFolder,
-} from '../domain/openapi';
+import { parseOpenApi, buildOpenApi, serializeSpec, type ExportFolder } from '../domain/openapi';
 import { isCurlText, isHar, isInsomniaExport, parseCurlFile, parseHar, parseInsomniaExport } from '../domain/importers';
-import { isPostmanCollection, parsePostmanCollection, type ImportedPostmanItem, type ParsedPostmanCollection } from '../domain/postman';
 import {
-  collections,
-  workspacePath,
-  environments,
-  activeEnvironmentId,
-  ROOT,
-} from './state';
+  isPostmanCollection,
+  parsePostmanCollection,
+  type ImportedPostmanItem,
+  type ParsedPostmanCollection,
+} from '../domain/postman';
+import { collections, workspacePath, environments, activeEnvironmentId, ROOT } from './state';
 import { addEnvironment, setEnvVars } from './environments';
 import { openWorkspaceFolder, reloadWorkspace } from './workspace';
 
@@ -51,10 +45,7 @@ async function runImportOp(name: string, fn: () => Promise<void>): Promise<void>
  * spec title, a subfolder per tag, one saved request per operation, and a
  * `{{baseUrl}}` environment. Runs as a single workspace op + reload.
  */
-async function saveSpecToWorkspace(
-  root: string,
-  spec: ReturnType<typeof parseOpenApi>,
-): Promise<void> {
+async function saveSpecToWorkspace(root: string, spec: ReturnType<typeof parseOpenApi>): Promise<void> {
   await runImportOp('importOpenApi', async () => {
     const collectionId = await workspaceCreateFolder(root, ROOT, spec.title);
     for (const folder of spec.folders) {
@@ -112,12 +103,12 @@ export async function importApiText(text: string, name = 'pasted'): Promise<void
   const parsed = isCurlText(text)
     ? { kind: 'postman' as const, collection: parseCurlFile(text) }
     : isPostmanCollection(text)
-    ? { kind: 'postman' as const, collection: parsePostmanCollection(text) }
-    : isInsomniaExport(text)
-      ? { kind: 'postman' as const, collection: parseInsomniaExport(text) }
-      : isHar(text)
-        ? { kind: 'postman' as const, collection: parseHar(text) }
-        : { kind: 'openapi' as const, spec: parseOpenApi(text, name) };
+      ? { kind: 'postman' as const, collection: parsePostmanCollection(text) }
+      : isInsomniaExport(text)
+        ? { kind: 'postman' as const, collection: parseInsomniaExport(text) }
+        : isHar(text)
+          ? { kind: 'postman' as const, collection: parseHar(text) }
+          : { kind: 'openapi' as const, spec: parseOpenApi(text, name) };
   const root = await ensureWorkspaceRoot();
   if (!root) return;
   if (parsed.kind === 'postman') await savePostmanToWorkspace(root, parsed.collection);

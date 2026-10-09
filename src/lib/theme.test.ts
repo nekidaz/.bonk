@@ -35,9 +35,17 @@ describe('persisted theme', () => {
   }
 
   it.each([
-    ['smooth-light', 'smooth-light'], ['smooth-dark', 'smooth-dark'],
-    ['light', 'smooth-light'], ['postman-light', 'smooth-light'], ['nope', 'smooth-light'],
-    ['dark', 'smooth-dark'], ['postman-dark', 'smooth-dark'], ['nord', 'smooth-dark'], ['tokyo-night', 'smooth-dark'], ['ayu-mirage', 'smooth-dark'], ['rose-pine', 'smooth-dark'],
+    ['smooth-light', 'smooth-light'],
+    ['smooth-dark', 'smooth-dark'],
+    ['light', 'smooth-light'],
+    ['postman-light', 'smooth-light'],
+    ['nope', 'smooth-light'],
+    ['dark', 'smooth-dark'],
+    ['postman-dark', 'smooth-dark'],
+    ['nord', 'smooth-dark'],
+    ['tokyo-night', 'smooth-dark'],
+    ['ayu-mirage', 'smooth-dark'],
+    ['rose-pine', 'smooth-dark'],
   ])('maps a stored %s to %s and persists it', async (stored, expected) => {
     const values = storedTheme(stored);
     const fresh = await import('./theme');

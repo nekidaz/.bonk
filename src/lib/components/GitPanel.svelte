@@ -52,12 +52,8 @@
 
   // A file is "staged" when its index slot holds a real change (not " " and not
   // the untracked "?"); everything else (worktree change or untracked) is unstaged.
-  const staged = $derived(
-    (status?.files ?? []).filter((f) => f.index !== ' ' && f.index !== '?'),
-  );
-  const unstaged = $derived(
-    (status?.files ?? []).filter((f) => f.worktree !== ' ' || f.index === '?'),
-  );
+  const staged = $derived((status?.files ?? []).filter((f) => f.index !== ' ' && f.index !== '?'));
+  const unstaged = $derived((status?.files ?? []).filter((f) => f.worktree !== ' ' || f.index === '?'));
   const canCommit = $derived(staged.length > 0 && commitMessage.trim().length > 0);
 
   onMount(() => {
@@ -192,13 +188,17 @@
 
 <div class="bs-tree bs-git">
   {#if !$workspacePath}
-    <div class="bs-sech"><span class="material-symbols-outlined cv" style="font-size:12px">expand_more</span>{$t('git.title')}</div>
+    <div class="bs-sech">
+      <span class="material-symbols-outlined cv" style="font-size:12px">expand_more</span>{$t('git.title')}
+    </div>
     <div class="bs-empty" style="padding-left:22px">
       <b>{$t('git.noWorkspace')}</b>
       <p>{$t('git.noWorkspace.hint')}</p>
     </div>
   {:else if status && status.isRepo === false}
-    <div class="bs-sech"><span class="material-symbols-outlined cv" style="font-size:12px">expand_more</span>{$t('git.title')}</div>
+    <div class="bs-sech">
+      <span class="material-symbols-outlined cv" style="font-size:12px">expand_more</span>{$t('git.title')}
+    </div>
     <div class="bs-empty" style="padding-left:22px">
       <b>{$t('git.notRepo')}</b>
       <p>{$t('git.notRepo.hint')}</p>
@@ -236,7 +236,9 @@
           <span class="material-symbols-outlined" style="font-size:14px;vertical-align:-3px">upload</span>Push
         </button>
         <button class="bs-btn ghost" type="button" title={$t('git.changes.openAll')} onclick={openProjectDiffTab}>
-          <span class="material-symbols-outlined" style="font-size:14px;vertical-align:-3px">difference</span>{$t('git.changes')}
+          <span class="material-symbols-outlined" style="font-size:14px;vertical-align:-3px">difference</span>{$t(
+            'git.changes',
+          )}
         </button>
       </div>
     </div>
@@ -245,7 +247,9 @@
       <div class="bs-git-branchmenu" role="presentation" onpointerdown={(e) => e.stopPropagation()}>
         {#each branches as b (b)}
           <button class="bs-git-branchitem" class:on={b === status.branch} type="button" onclick={() => pickBranch(b)}>
-            <span class="material-symbols-outlined" style="font-size:13px;opacity:{b === status.branch ? 1 : 0}">check</span>
+            <span class="material-symbols-outlined" style="font-size:13px;opacity:{b === status.branch ? 1 : 0}"
+              >check</span
+            >
             <span class="bs-nm">{b}</span>
           </button>
         {/each}
@@ -278,7 +282,14 @@
       <span class="material-symbols-outlined cv" style="font-size:12px">expand_more</span>{$t('git.staged')}
       {#if staged.length}<span style="color:var(--t3);font-weight:600">{staged.length}</span>{/if}
       {#if staged.length}
-        <span class="bs-act" role="button" tabindex="0" title={$t('git.unstageAll')} onclick={unstageAll} onkeydown={() => {}}>
+        <span
+          class="bs-act"
+          role="button"
+          tabindex="0"
+          title={$t('git.unstageAll')}
+          onclick={unstageAll}
+          onkeydown={() => {}}
+        >
           <span class="material-symbols-outlined" style="font-size:15px">remove</span>
         </span>
       {/if}
@@ -288,11 +299,26 @@
     {:else}
       {#each staged as f (f.path)}
         <div class="bs-trow bs-git-row">
-          <button class="bs-git-rowmain" type="button" title={$t('git.staged.view')} onclick={() => openGitDiffTab(f.path, 'staged')}>
+          <button
+            class="bs-git-rowmain"
+            type="button"
+            title={$t('git.staged.view')}
+            onclick={() => openGitDiffTab(f.path, 'staged')}
+          >
             <span class="bs-git-badge" style="color:{statusColor(badge(f, true))}">{badge(f, true)}</span>
-            <span class="bs-nm"><b>{basename(f.path)}</b>{#if dirname(f.path)}<span class="bs-git-dir">{dirname(f.path)}</span>{/if}</span>
+            <span class="bs-nm"
+              ><b>{basename(f.path)}</b>{#if dirname(f.path)}<span class="bs-git-dir">{dirname(f.path)}</span
+                >{/if}</span
+            >
           </button>
-          <span class="bs-act" role="button" tabindex="0" title={$t('git.unstage')} onclick={() => unstagePaths([f.path])} onkeydown={() => {}}>
+          <span
+            class="bs-act"
+            role="button"
+            tabindex="0"
+            title={$t('git.unstage')}
+            onclick={() => unstagePaths([f.path])}
+            onkeydown={() => {}}
+          >
             <span class="material-symbols-outlined" style="font-size:15px">remove</span>
           </span>
         </div>
@@ -304,7 +330,14 @@
       <span class="material-symbols-outlined cv" style="font-size:12px">expand_more</span>{$t('git.changes')}
       {#if unstaged.length}<span style="color:var(--t3);font-weight:600">{unstaged.length}</span>{/if}
       {#if unstaged.length}
-        <span class="bs-act" role="button" tabindex="0" title={$t('git.stageAll')} onclick={stageAll} onkeydown={() => {}}>
+        <span
+          class="bs-act"
+          role="button"
+          tabindex="0"
+          title={$t('git.stageAll')}
+          onclick={stageAll}
+          onkeydown={() => {}}
+        >
           <span class="material-symbols-outlined" style="font-size:15px">add</span>
         </span>
       {/if}
@@ -314,14 +347,36 @@
     {:else}
       {#each unstaged as f (f.path)}
         <div class="bs-trow bs-git-row">
-          <button class="bs-git-rowmain" type="button" title={$t('git.working.view')} onclick={() => openGitDiffTab(f.path, 'working')}>
+          <button
+            class="bs-git-rowmain"
+            type="button"
+            title={$t('git.working.view')}
+            onclick={() => openGitDiffTab(f.path, 'working')}
+          >
             <span class="bs-git-badge" style="color:{statusColor(badge(f, false))}">{badge(f, false)}</span>
-            <span class="bs-nm"><b>{basename(f.path)}</b>{#if dirname(f.path)}<span class="bs-git-dir">{dirname(f.path)}</span>{/if}</span>
+            <span class="bs-nm"
+              ><b>{basename(f.path)}</b>{#if dirname(f.path)}<span class="bs-git-dir">{dirname(f.path)}</span
+                >{/if}</span
+            >
           </button>
-          <span class="bs-act" role="button" tabindex="0" title={$t('git.discardChanges')} onclick={() => onDiscard(f.path)} onkeydown={() => {}}>
+          <span
+            class="bs-act"
+            role="button"
+            tabindex="0"
+            title={$t('git.discardChanges')}
+            onclick={() => onDiscard(f.path)}
+            onkeydown={() => {}}
+          >
             <span class="material-symbols-outlined" style="font-size:15px">undo</span>
           </span>
-          <span class="bs-act" role="button" tabindex="0" title={$t('git.stage')} onclick={() => stagePaths([f.path])} onkeydown={() => {}}>
+          <span
+            class="bs-act"
+            role="button"
+            tabindex="0"
+            title={$t('git.stage')}
+            onclick={() => stagePaths([f.path])}
+            onkeydown={() => {}}
+          >
             <span class="material-symbols-outlined" style="font-size:15px">add</span>
           </span>
         </div>
@@ -330,11 +385,7 @@
 
     <!-- Commit box -->
     <div class="bs-git-commit">
-      <textarea
-        class="bs-git-msg"
-        placeholder={$t('git.commit.placeholder')}
-        rows="2"
-        bind:value={commitMessage}
+      <textarea class="bs-git-msg" placeholder={$t('git.commit.placeholder')} rows="2" bind:value={commitMessage}
       ></textarea>
       <button class="bs-btn primary bs-git-commitbtn" type="button" disabled={!canCommit} onclick={onCommit}>
         <span class="material-symbols-outlined" style="font-size:15px;vertical-align:-3px">check</span>
@@ -344,7 +395,9 @@
 
     <!-- Commit graph -->
     <button class="bs-sech bs-sech-act bs-git-loghead" type="button" onclick={toggleGraph}>
-      <span class="material-symbols-outlined cv" style="font-size:12px">{graphOpen ? 'expand_more' : 'chevron_right'}</span>
+      <span class="material-symbols-outlined cv" style="font-size:12px"
+        >{graphOpen ? 'expand_more' : 'chevron_right'}</span
+      >
       {$t('git.graph')}
     </button>
     {#if graphOpen}
@@ -363,7 +416,9 @@
 
     <!-- Recent commits -->
     <button class="bs-sech bs-sech-act bs-git-loghead" type="button" onclick={toggleLog}>
-      <span class="material-symbols-outlined cv" style="font-size:12px">{logOpen ? 'expand_more' : 'chevron_right'}</span>
+      <span class="material-symbols-outlined cv" style="font-size:12px"
+        >{logOpen ? 'expand_more' : 'chevron_right'}</span
+      >
       {$t('git.log')}
     </button>
     {#if logOpen}

@@ -190,11 +190,7 @@ export function applyGrpcRequestPatch(
  * `pm.environment.set/unset` (and the globals equivalents) back into the UI's
  * var-row model.
  */
-export function applyEnvPatch(
-  rows: VarRow[],
-  set: Record<string, string>,
-  unset: string[],
-): VarRow[] {
+export function applyEnvPatch(rows: VarRow[], set: Record<string, string>, unset: string[]): VarRow[] {
   const unsetSet = new Set(unset);
   const next: VarRow[] = [];
   const seen = new Set<string>();

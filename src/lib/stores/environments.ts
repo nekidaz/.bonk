@@ -52,9 +52,7 @@ export function addEnvironment(name = get(t)('env.new')): string {
 /** Rename an environment in place (no-op if the id is unknown). */
 export function renameEnvironment(id: string, name: string): void {
   const old = get(environments).find((e) => e.id === id);
-  environments.update((list) =>
-    list.map((e) => (e.id === id ? { ...e, name: name.trim() || e.name } : e)),
-  );
+  environments.update((list) => list.map((e) => (e.id === id ? { ...e, name: name.trim() || e.name } : e)));
   const next = get(environments).find((e) => e.id === id);
   if (old && next) mcpPrefs.update((p) => renameEnvAllowance(p, old.name, next)); // keep the AI allow-list by name in sync
 }

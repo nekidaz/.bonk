@@ -86,7 +86,12 @@ export interface RequestOverrides {
 }
 
 /** Global gRPC limits / rendering options (bonk-core `GrpcPrefs`). */
-export interface GrpcPrefs { maxMessageMb: number; keepaliveSecs: number; emitDefaults: boolean; int64AsNumber: boolean; }
+export interface GrpcPrefs {
+  maxMessageMb: number;
+  keepaliveSecs: number;
+  emitDefaults: boolean;
+  int64AsNumber: boolean;
+}
 
 /** A single query-parameter row in the HTTP Params table (frontend-only). */
 export interface Param {
@@ -162,7 +167,7 @@ export interface ScriptTestResult {
 
 export interface RequestNode {
   kind: 'request';
-  id: string;            // fs:<relpath>
+  id: string; // fs:<relpath>
   name: string;
   protocol: RequestProtocol;
   request: HttpRequest;
@@ -172,7 +177,7 @@ export interface RequestNode {
 
 export interface FolderNode {
   kind: 'folder';
-  id: string;            // fs:<relpath>
+  id: string; // fs:<relpath>
   name: string;
   expanded: boolean;
   /** Collection-level auth (`.folder.bonk.json`); requests set to 'inherit' use it. */
@@ -187,10 +192,10 @@ export interface HistoryEntry {
   protocol: RequestProtocol;
   request: HttpRequest;
   status: number;
-  ok?: boolean;            // explicit success flag (esp. for grpc)
-  grpc?: GrpcTabState;     // snapshot for replay of grpc requests
+  ok?: boolean; // explicit success flag (esp. for grpc)
+  grpc?: GrpcTabState; // snapshot for replay of grpc requests
   at: number;
-  envName?: string;        // environment active when it was sent
+  envName?: string; // environment active when it was sent
   /** S21: the saved request it came from, and the editable draft as typed (with {{vars}}). */
   savedPath?: string;
   title?: string;
@@ -275,17 +280,56 @@ export interface GrpcField {
   doc?: string;
   enumValues?: string[];
 }
-export interface GrpcService { name: string; methods: GrpcMethod[]; }
-export interface ServiceTree { services: GrpcService[]; }
+export interface GrpcService {
+  name: string;
+  methods: GrpcMethod[];
+}
+export interface ServiceTree {
+  services: GrpcService[];
+}
 /** One message of a server stream (S20). */
-export interface GrpcStreamMessage { index: number; atMs: number; body: string; sizeBytes: number; /** First event only: response headers, before any message. */ headers?: Record<string, string>; /** Frontend only: a message we sent on a client/bidi stream. */ sent?: boolean; }
-export interface GrpcResult { ok: boolean; status: string; body: string; elapsed_ms: number; size_bytes: number; metadata?: Record<string, string>; trailers?: Record<string, string>; details?: GrpcErrorDetail[]; /** S25: dial attempts and the waits between them (frontend only). */ attempts?: number; backoffMs?: number[]; }
+export interface GrpcStreamMessage {
+  index: number;
+  atMs: number;
+  body: string;
+  sizeBytes: number;
+  /** First event only: response headers, before any message. */ headers?: Record<string, string>;
+  /** Frontend only: a message we sent on a client/bidi stream. */ sent?: boolean;
+}
+export interface GrpcResult {
+  ok: boolean;
+  status: string;
+  body: string;
+  elapsed_ms: number;
+  size_bytes: number;
+  metadata?: Record<string, string>;
+  trailers?: Record<string, string>;
+  details?: GrpcErrorDetail[];
+  /** S25: dial attempts and the waits between them (frontend only). */ attempts?: number;
+  backoffMs?: number[];
+}
 /** A decoded `google.rpc.Status` detail; BadRequest carries field violations (S24). */
-export interface GrpcErrorDetail { typeName: string; fieldViolations: { field: string; description: string }[]; }
+export interface GrpcErrorDetail {
+  typeName: string;
+  fieldViolations: { field: string; description: string }[];
+}
 /** Per-request TLS options (S29). Unset = system roots, verified. */
-export interface GrpcTls { insecure?: boolean; caCert?: string; clientCert?: string; clientKey?: string; clientP12?: string; clientP12Password?: string; }
+export interface GrpcTls {
+  insecure?: boolean;
+  caCert?: string;
+  clientCert?: string;
+  clientKey?: string;
+  clientP12?: string;
+  clientP12Password?: string;
+}
 /** The server's leaf certificate as seen in a TLS handshake. */
-export interface GrpcCertInfo { verified: boolean; error?: string | null; subject: string; issuer: string; notAfter: number; }
+export interface GrpcCertInfo {
+  verified: boolean;
+  error?: string | null;
+  subject: string;
+  issuer: string;
+  notAfter: number;
+}
 
 // ---------- Collection Runner ----------
 /**
@@ -295,18 +339,18 @@ export interface GrpcCertInfo { verified: boolean; error?: string | null; subjec
  * `pm.test` passed AND no fatal script/connect error.
  */
 export interface RunResultRow {
-  id: string;              // crypto.randomUUID()
-  iteration: number;       // 1-based
+  id: string; // crypto.randomUUID()
+  iteration: number; // 1-based
   requestName: string;
   protocol: RequestProtocol;
-  method: string;          // HTTP method, or 'gRPC'
-  target: string;          // resolved URL (HTTP) or "endpoint · method" (gRPC)
+  method: string; // HTTP method, or 'gRPC'
+  target: string; // resolved URL (HTTP) or "endpoint · method" (gRPC)
   status: number | string; // HTTP status code, or gRPC status text ('OK', etc)
-  ok: boolean;             // transport ok AND all tests passed AND no fatal error
+  ok: boolean; // transport ok AND all tests passed AND no fatal error
   elapsedMs: number;
   tests: ScriptTestResult[];
   logs: string[];
-  error?: string;          // transport/connect/fatal error message
+  error?: string; // transport/connect/fatal error message
   /** Response body (HTTP) / result body (gRPC); Flows pass it downstream. */
   responseBody?: string;
   /** Saved request node id (Runner re-runs, "Открыть запрос"). */

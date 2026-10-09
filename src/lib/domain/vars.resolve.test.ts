@@ -1,11 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import {
-  mergeScope,
-  resolveVars,
-  resolveRequestVars,
-  findVariables,
-  lookupVar,
-} from './vars';
+import { mergeScope, resolveVars, resolveRequestVars, findVariables, lookupVar } from './vars';
 import type { Environment, HttpRequest, VarRow } from './types';
 
 function v(key: string, value: string, enabled = true): VarRow {
@@ -64,15 +58,11 @@ describe('resolveVars', () => {
   });
 
   it('replaces multiple occurrences, mixing known and unknown', () => {
-    expect(resolveVars('{{host}}/{{missing}}/{{token}}', scope)).toBe(
-      'api.example.com/{{missing}}/abc123',
-    );
+    expect(resolveVars('{{host}}/{{missing}}/{{token}}', scope)).toBe('api.example.com/{{missing}}/abc123');
   });
 
   it('returns text unchanged when there are no variables', () => {
-    expect(resolveVars('https://static.example.com/path', scope)).toBe(
-      'https://static.example.com/path',
-    );
+    expect(resolveVars('https://static.example.com/path', scope)).toBe('https://static.example.com/path');
   });
 
   it('resolves to an empty string when the mapped value is empty', () => {

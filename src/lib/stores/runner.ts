@@ -3,13 +3,38 @@ import { t } from '../i18n';
 import type { Tab, RunResultRow, RunStatus } from '../domain/types';
 import { workspaceSaveRequest } from '../api';
 import { findNode, idToRel, parentId } from '../domain/tree';
-import { pushHistory, pushRecord, summarizeRun, toRecord, type IdBinding, type RunRecord, type RunSummary } from '../domain/runnerStats';
+import {
+  pushHistory,
+  pushRecord,
+  summarizeRun,
+  toRecord,
+  type IdBinding,
+  type RunRecord,
+  type RunSummary,
+} from '../domain/runnerStats';
 import { isPreset, upsertPreset, type RunnerPreset } from '../domain/runnerPreset';
 import {
-  DEFAULT_CONFIG, DEFAULT_RUN, RUNNER_ROOT, applyPresetSettings, bindIdNodes, buildReport, clampDelay, clampIterations,
-  collectRequests, isRecord, isSummary, iterationCount, mergeSavedConfig, orderedRequests, persistedConfig, plannedRequests,
-  presetFrom, runnerScopeTitle,
-  type RunnerConfig, type RunnerRun, type RunnerStage,
+  DEFAULT_CONFIG,
+  DEFAULT_RUN,
+  RUNNER_ROOT,
+  applyPresetSettings,
+  bindIdNodes,
+  buildReport,
+  clampDelay,
+  clampIterations,
+  collectRequests,
+  isRecord,
+  isSummary,
+  iterationCount,
+  mergeSavedConfig,
+  orderedRequests,
+  persistedConfig,
+  plannedRequests,
+  presetFrom,
+  runnerScopeTitle,
+  type RunnerConfig,
+  type RunnerRun,
+  type RunnerStage,
 } from '../domain/runnerPlan';
 import { isArrayOf, loadState, saveState, saveStateDebounced } from '../persist';
 import { tabs, activeTabId, collections, workspacePath, environments, activeEnvironmentId, ROOT } from './state';
@@ -82,7 +107,10 @@ function persistConfig(): void {
 
 /** Keep the runner tab named "Runner · <scope>". */
 function syncRunnerTabTitle(): void {
-  const title = get(runnerStage) === 'pick' ? get(t)('runner.tab.new') : `Runner · ${runnerScopeTitle(get(runnerConfig).folderIds, get(collections))}`;
+  const title =
+    get(runnerStage) === 'pick'
+      ? get(t)('runner.tab.new')
+      : `Runner · ${runnerScopeTitle(get(runnerConfig).folderIds, get(collections))}`;
   if (get(tabs).some((t) => t.protocol === 'runner' && t.title !== title)) {
     tabs.update((list) => list.map((t) => (t.protocol === 'runner' ? { ...t, title } : t)));
   }
@@ -131,7 +159,8 @@ export function runInRunner(folderId: string): void {
 export function repeatRun(s: RunSummary): void {
   if (s.folderIds) setRunnerFolders(s.folderIds);
   if (s.iterations && get(runnerConfig).dataRows.length === 0) setIterations(s.iterations);
-  if (s.envId !== undefined && (s.envId === null || get(environments).some((e) => e.id === s.envId))) setActiveEnvironment(s.envId);
+  if (s.envId !== undefined && (s.envId === null || get(environments).some((e) => e.id === s.envId)))
+    setActiveEnvironment(s.envId);
   void runCollection();
 }
 
@@ -246,7 +275,16 @@ function finishRun(status: RunStatus): void {
 function persistRecord(): void {
   const r = get(runnerRun);
   if (r.n === 0 || r.startedAt === null || r.results.length === 0) return;
-  const rec = toRecord({ n: r.n, startedAt: r.startedAt, finishedAt: r.finishedAt ?? Date.now(), iterations: r.iterations, results: r.results }, get(runnerConfig).saveResponses);
+  const rec = toRecord(
+    {
+      n: r.n,
+      startedAt: r.startedAt,
+      finishedAt: r.finishedAt ?? Date.now(),
+      iterations: r.iterations,
+      results: r.results,
+    },
+    get(runnerConfig).saveResponses,
+  );
   const list = pushRecord(get(runnerRecords), rec);
   runnerRecords.set(list);
   void saveState(RECORDS_KEY, list);
@@ -263,8 +301,15 @@ export function viewRun(n: number): void {
   if (!rec) return;
   const latest = get(runnerHistory).at(-1)?.n;
   runnerRun.set({
-    ...DEFAULT_RUN, status: 'done', results: rec.results, total: rec.results.length, completed: rec.results.length,
-    startedAt: rec.startedAt, finishedAt: rec.finishedAt, n: rec.n, iterations: rec.iterations,
+    ...DEFAULT_RUN,
+    status: 'done',
+    results: rec.results,
+    total: rec.results.length,
+    completed: rec.results.length,
+    startedAt: rec.startedAt,
+    finishedAt: rec.finishedAt,
+    n: rec.n,
+    iterations: rec.iterations,
   });
   runnerViewing.set(n === latest ? null : n);
   setRunnerStage('run');

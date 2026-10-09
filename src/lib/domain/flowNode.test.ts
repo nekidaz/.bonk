@@ -19,14 +19,7 @@ describe('requestVariableNames', () => {
     );
 
     // First-seen order, no duplicates (user_iin appears in both params and body).
-    expect(names).toEqual([
-      'base_url',
-      'user_language',
-      'device_id',
-      'access_token',
-      'user_iin',
-      'user_phone',
-    ]);
+    expect(names).toEqual(['base_url', 'user_language', 'device_id', 'access_token', 'user_iin', 'user_phone']);
   });
 
   it('returns an empty list for a request with no placeholders', () => {

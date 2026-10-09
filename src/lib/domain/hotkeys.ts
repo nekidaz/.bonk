@@ -49,7 +49,10 @@ function keyOf(code: string): string {
 }
 
 /** Binding for a keydown, or null for a bare modifier press / a chord with no Mod/Ctrl/Alt. */
-export function eventToBinding(e: Pick<KeyboardEvent, 'code' | 'metaKey' | 'ctrlKey' | 'shiftKey' | 'altKey'>, mac = IS_MAC): Binding | null {
+export function eventToBinding(
+  e: Pick<KeyboardEvent, 'code' | 'metaKey' | 'ctrlKey' | 'shiftKey' | 'altKey'>,
+  mac = IS_MAC,
+): Binding | null {
   if (!e.code || /^(Meta|Control|Shift|Alt)(Left|Right)$/.test(e.code)) return null;
   const parts: string[] = [];
   if (mac ? e.metaKey : e.ctrlKey || e.metaKey) parts.push('Mod');
@@ -65,7 +68,17 @@ export function matches(e: Parameters<typeof eventToBinding>[0], binding: Bindin
 }
 
 const MAC_MOD: Record<string, string> = { Mod: '⌘', Ctrl: '⌃', Alt: '⌥', Shift: '⇧' };
-const KEY_LABEL: Record<string, string> = { Enter: '↵', Backspace: '⌫', Delete: '⌦', ArrowUp: '↑', ArrowDown: '↓', ArrowLeft: '←', ArrowRight: '→', Space: '␣', Comma: ',' };
+const KEY_LABEL: Record<string, string> = {
+  Enter: '↵',
+  Backspace: '⌫',
+  Delete: '⌦',
+  ArrowUp: '↑',
+  ArrowDown: '↓',
+  ArrowLeft: '←',
+  ArrowRight: '→',
+  Space: '␣',
+  Comma: ',',
+};
 
 /** Key caps, e.g. 'Mod+Shift+T' → ['⇧','⌘','T'] on mac, ['Ctrl','Shift','T'] elsewhere. */
 export function formatBinding(binding: Binding, mac = IS_MAC): string[] {
@@ -75,7 +88,9 @@ export function formatBinding(binding: Binding, mac = IS_MAC): string[] {
   const key = parts.pop()!;
   const mods = ['Ctrl', 'Alt', 'Shift', 'Mod'].filter((m) => parts.includes(m));
   const cap = KEY_LABEL[key] ?? key;
-  return mac ? [...mods.map((m) => MAC_MOD[m]), cap] : [...['Mod', 'Ctrl', 'Alt', 'Shift'].filter((m) => parts.includes(m)).map((m) => (m === 'Mod' ? 'Ctrl' : m)), cap];
+  return mac
+    ? [...mods.map((m) => MAC_MOD[m]), cap]
+    : [...['Mod', 'Ctrl', 'Alt', 'Shift'].filter((m) => parts.includes(m)).map((m) => (m === 'Mod' ? 'Ctrl' : m)), cap];
 }
 
 /** command id → binding. Merges user overrides over defaults ('' = cleared). */
@@ -95,7 +110,11 @@ export function findConflicts(bindings: Record<string, Binding>): Record<string,
 }
 
 /** First command whose binding matches the event. */
-export function commandFor(e: Parameters<typeof eventToBinding>[0], bindings: Record<string, Binding>, mac = IS_MAC): string | undefined {
+export function commandFor(
+  e: Parameters<typeof eventToBinding>[0],
+  bindings: Record<string, Binding>,
+  mac = IS_MAC,
+): string | undefined {
   const b = eventToBinding(e, mac);
   return b ? Object.keys(bindings).find((id) => bindings[id] === b) : undefined;
 }

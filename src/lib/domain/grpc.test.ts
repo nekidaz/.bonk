@@ -69,9 +69,7 @@ describe('grpcConnectFailureMessage', () => {
   });
 
   it('stringifies non-Error throwables', () => {
-    expect(grpcConnectFailureMessage('reflection', 'dial', 'connect failed: refused')).toBe(
-      'connect failed: refused',
-    );
+    expect(grpcConnectFailureMessage('reflection', 'dial', 'connect failed: refused')).toBe('connect failed: refused');
   });
 });
 
@@ -99,7 +97,9 @@ describe('dial retry helpers', () => {
   it('retries only failures that never reached the server', () => {
     expect(isRetryableDialError('connect failed: tcp connect error: Connection refused (os error 61)')).toBe(true);
     expect(isRetryableDialError('invalid endpoint http://{{host}}: invalid uri')).toBe(false);
-    expect(dialFailureReason('connect failed: tcp connect error: Connection refused (os error 61)')).toBe('connection refused');
+    expect(dialFailureReason('connect failed: tcp connect error: Connection refused (os error 61)')).toBe(
+      'connection refused',
+    );
   });
 });
 
@@ -107,7 +107,9 @@ describe('grpcAuthMetadata', () => {
   it('maps auth configs to metadata', () => {
     const r = (v: string) => v.replace('{{t}}', 'tok');
     expect(grpcAuthMetadata({ type: 'bearer', bearerToken: '{{t}}' }, r)).toEqual({ authorization: 'Bearer tok' });
-    expect(grpcAuthMetadata({ type: 'basic', basicUsername: 'a', basicPassword: 'b' }, r)).toEqual({ authorization: 'Basic YTpi' });
+    expect(grpcAuthMetadata({ type: 'basic', basicUsername: 'a', basicPassword: 'b' }, r)).toEqual({
+      authorization: 'Basic YTpi',
+    });
     expect(grpcAuthMetadata({ type: 'apiKey', apiKeyName: 'X-Key', apiKeyValue: '1' }, r)).toEqual({ 'x-key': '1' });
     expect(grpcAuthMetadata({ type: 'none' }, r)).toEqual({});
   });
@@ -129,8 +131,17 @@ describe('parseGrpcurl', () => {
   });
 
   it('reads -proto/-import-path/-insecure and -flag=value, skipping other value flags', () => {
-    const r = parseGrpcurl('grpcurl -insecure -import-path=./protos -proto echo.proto -max-time 5 api:443 bonk.Echo/Ping');
-    expect(r).toMatchObject({ endpoint: 'api:443', method: 'bonk.Echo.Ping', insecure: true, plaintext: false, protoPaths: ['echo.proto'], importPaths: ['./protos'] });
+    const r = parseGrpcurl(
+      'grpcurl -insecure -import-path=./protos -proto echo.proto -max-time 5 api:443 bonk.Echo/Ping',
+    );
+    expect(r).toMatchObject({
+      endpoint: 'api:443',
+      method: 'bonk.Echo.Ping',
+      insecure: true,
+      plaintext: false,
+      protoPaths: ['echo.proto'],
+      importPaths: ['./protos'],
+    });
   });
 
   it('ignores anything that is not grpcurl', () => {
@@ -141,14 +152,21 @@ describe('parseGrpcurl', () => {
 
 const FIELDS: GrpcField[] = [
   { name: 'name', protoName: 'name', typeLabel: 'string', json: 'string' },
-  { name: 'greetingType', protoName: 'greeting_type', typeLabel: 'enum Greeting', json: 'enum', enumValues: ['FORMAL', 'CASUAL'] },
+  {
+    name: 'greetingType',
+    protoName: 'greeting_type',
+    typeLabel: 'enum Greeting',
+    json: 'enum',
+    enumValues: ['FORMAL', 'CASUAL'],
+  },
   { name: 'count', protoName: 'count', typeLabel: 'int64', json: 'number' },
   { name: 'tags', protoName: 'tags', typeLabel: 'repeated string', json: 'array' },
 ];
 
 describe('checkGrpcMessage', () => {
   it('flags unknown keys and wrong JSON types, accepting proto names and {{vars}}', () => {
-    const msg = '{"name": 1, "greeting_type": "LOUD", "count": "9007199254740993", "tags": "a", "extra": true, "nick": null}';
+    const msg =
+      '{"name": 1, "greeting_type": "LOUD", "count": "9007199254740993", "tags": "a", "extra": true, "nick": null}';
     expect(checkGrpcMessage(msg, FIELDS)).toEqual([
       { field: 'name', kind: 'type', expected: 'string' },
       { field: 'greeting_type', kind: 'type', expected: 'enum Greeting' },

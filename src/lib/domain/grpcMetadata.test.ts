@@ -23,11 +23,13 @@ describe('gRPC metadata rows', () => {
   });
 
   it('persists only rows with keys and preserves their values', () => {
-    expect(grpcMetadataRecord([
-      { key: ' authorization ', value: 'Bearer token' },
-      { key: '', value: 'draft' },
-      { key: 'x-note', value: ' a value ' },
-    ])).toEqual({ authorization: 'Bearer token', 'x-note': ' a value ' });
+    expect(
+      grpcMetadataRecord([
+        { key: ' authorization ', value: 'Bearer token' },
+        { key: '', value: 'draft' },
+        { key: 'x-note', value: ' a value ' },
+      ]),
+    ).toEqual({ authorization: 'Bearer token', 'x-note': ' a value ' });
   });
 
   it('parses bulk-pasted metadata and keeps colons inside values', () => {
@@ -38,9 +40,11 @@ describe('gRPC metadata rows', () => {
   });
 
   it('finds case-insensitive duplicates', () => {
-    expect([...duplicateGrpcMetadataKeys([
-      { key: 'Authorization', value: 'a' },
-      { key: 'authorization', value: 'b' },
-    ])]).toEqual(['authorization']);
+    expect([
+      ...duplicateGrpcMetadataKeys([
+        { key: 'Authorization', value: 'a' },
+        { key: 'authorization', value: 'b' },
+      ]),
+    ]).toEqual(['authorization']);
   });
 });

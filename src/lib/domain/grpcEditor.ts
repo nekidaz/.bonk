@@ -2,22 +2,52 @@
 import type { Completion } from '@codemirror/autocomplete';
 import type { Translate } from '../i18n';
 import { effectiveAuth } from './authInherit';
-import { isGrpcConnectionError, grpcFieldStub, grpcAuthMetadata, outgoingGrpcMetadata, type GrpcurlImport } from './grpc';
+import {
+  isGrpcConnectionError,
+  grpcFieldStub,
+  grpcAuthMetadata,
+  outgoingGrpcMetadata,
+  type GrpcurlImport,
+} from './grpc';
 import { resolveVars } from './vars';
 import type { AuthConfig, GrpcField, GrpcResult, GrpcStreamMessage, Tab, TreeNode } from './types';
 
 export type EditorErrorKind = 'connection' | 'schema' | 'validation' | 'script' | 'unknown';
-export interface EditorErrorPresentation { kind: EditorErrorKind; title: string; message: string; raw: string; icon: string }
+export interface EditorErrorPresentation {
+  kind: EditorErrorKind;
+  title: string;
+  message: string;
+  raw: string;
+  icon: string;
+}
 
 /** Classify an editor-side error (not a gRPC status) into the banner shown above the request tabs. */
-export function presentEditorError(error: string, guiding: boolean, endpoint: string, tr: Translate): EditorErrorPresentation {
-  if (guiding) return { kind: 'schema', title: tr('grpc.err.schemaTitle'), message: error, raw: error, icon: 'description' };
+export function presentEditorError(
+  error: string,
+  guiding: boolean,
+  endpoint: string,
+  tr: Translate,
+): EditorErrorPresentation {
+  if (guiding)
+    return { kind: 'schema', title: tr('grpc.err.schemaTitle'), message: error, raw: error, icon: 'description' };
   if (isGrpcConnectionError(error)) {
     const target = endpoint.trim() || tr('grpc.err.theServer');
-    return { kind: 'connection', title: tr('grpc.err.connTitle'), message: tr('grpc.err.connMsg', { target }), raw: error, icon: 'cloud_off' };
+    return {
+      kind: 'connection',
+      title: tr('grpc.err.connTitle'),
+      message: tr('grpc.err.connMsg', { target }),
+      raw: error,
+      icon: 'cloud_off',
+    };
   }
   if (/pre-request script/i.test(error)) {
-    return { kind: 'script', title: tr('grpc.err.scriptTitle'), message: tr('grpc.err.scriptMsg'), raw: error, icon: 'javascript' };
+    return {
+      kind: 'script',
+      title: tr('grpc.err.scriptTitle'),
+      message: tr('grpc.err.scriptMsg'),
+      raw: error,
+      icon: 'javascript',
+    };
   }
   if (/json|select a method|enter an endpoint|выберите метод|укажите адрес/i.test(error)) {
     return { kind: 'validation', title: tr('grpc.err.validationTitle'), message: error, raw: error, icon: 'edit_note' };
@@ -34,8 +64,18 @@ export function splitMethodSymbol(symbol: string): { service: string; name: stri
 /** Feed rows for messages we sent: an array is one message per element. */
 export function sentEntries(json: string, sentSoFar: number, now = Date.now()): GrpcStreamMessage[] {
   let value: unknown;
-  try { value = JSON.parse(json); } catch { return []; }
-  return (Array.isArray(value) ? value : [value]).map((m, i) => ({ index: sentSoFar + i + 1, atMs: now, body: JSON.stringify(m), sizeBytes: 0, sent: true }));
+  try {
+    value = JSON.parse(json);
+  } catch {
+    return [];
+  }
+  return (Array.isArray(value) ? value : [value]).map((m, i) => ({
+    index: sentSoFar + i + 1,
+    atMs: now,
+    body: JSON.stringify(m),
+    sizeBytes: 0,
+    sent: true,
+  }));
 }
 
 /** Last path segment, either separator. */
@@ -45,12 +85,20 @@ export const fileName = (p: string): string => p.split(/[\\/]/).pop() ?? p;
 export function certExpiry(notAfter: number, lang: string, now = Date.now()): { days: number; date: string } {
   return {
     days: Math.floor((notAfter * 1000 - now) / 86_400_000),
-    date: new Date(notAfter * 1000).toLocaleDateString(lang === 'ru' ? 'ru-RU' : 'en-US', { day: 'numeric', month: 'short', year: 'numeric' }).replace(' г.', '').replace('.', ''),
+    date: new Date(notAfter * 1000)
+      .toLocaleDateString(lang === 'ru' ? 'ru-RU' : 'en-US', { day: 'numeric', month: 'short', year: 'numeric' })
+      .replace(' г.', '')
+      .replace('.', ''),
   };
 }
 
 /** G4: completion options for the request's top-level fields; `present` = keys already in the message. */
-export function fieldCompletionOptions(fields: GrpcField[], present: Set<string>, inputShort: string, tr: Translate): Completion[] {
+export function fieldCompletionOptions(
+  fields: GrpcField[],
+  present: Set<string>,
+  inputShort: string,
+  tr: Translate,
+): Completion[] {
   const section = { name: tr('grpc.msg.fieldsHead', { type: inputShort }) };
   return fields.map((f, i) => {
     const set = present.has(f.name) || present.has(f.protoName);
@@ -67,7 +115,11 @@ export function fieldCompletionOptions(fields: GrpcField[], present: Set<string>
         const stub = grpcFieldStub(f);
         const insert = `"${f.protoName}": ${stub}`;
         const caret = start + insert.length - (/^(""|\[\]|\{\})$/.test(stub) ? 1 : 0);
-        view.dispatch({ changes: { from: start, to: end, insert }, selection: { anchor: caret }, userEvent: 'input.complete' });
+        view.dispatch({
+          changes: { from: start, to: end, insert },
+          selection: { anchor: caret },
+          userEvent: 'input.complete',
+        });
       },
     } as Completion;
   });
@@ -95,7 +147,11 @@ export function invokeFailureResult(e: unknown): GrpcResult {
 /** Endpoint edit: retitle (unless renamed by hand) and drop the stale connection so the next action reconnects. */
 export function withGrpcEndpoint(t: Tab, endpoint: string, title: string): Tab {
   if (!t.grpc) return t;
-  return { ...t, title: t.manualTitle ? t.title : title, grpc: { ...t.grpc, endpoint, connectionId: undefined, tree: undefined } };
+  return {
+    ...t,
+    title: t.manualTitle ? t.title : title,
+    grpc: { ...t.grpc, endpoint, connectionId: undefined, tree: undefined },
+  };
 }
 
 /** G1: a pasted `grpcurl …` fills endpoint, TLS, method, message and metadata. */

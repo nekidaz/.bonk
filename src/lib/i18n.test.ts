@@ -5,7 +5,9 @@ import { get } from 'svelte/store';
 
 vi.mock('@tauri-apps/api/core', () => ({ invoke: vi.fn(async () => ({})) }));
 // node env: stub the document so i18n can set <html lang>
-vi.hoisted(() => { (globalThis as any).document = { documentElement: { lang: '' } }; });
+vi.hoisted(() => {
+  (globalThis as any).document = { documentElement: { lang: '' } };
+});
 
 import { t, tp, plural, ru, en } from './i18n';
 import { uiLanguage } from './stores/prefs';
@@ -36,7 +38,10 @@ describe('i18n', () => {
     walk('src');
     const used = new Set<string>();
     for (const f of files) {
-      for (const m of readFileSync(f, 'utf8').matchAll(/(?<![\w.])(?:\$t|\$tp|get\(t\)|tr)\(\s*'([a-z][\w]*(?:\.[\w-]+)+)'/g)) used.add(m[1]);
+      for (const m of readFileSync(f, 'utf8').matchAll(
+        /(?<![\w.])(?:\$t|\$tp|get\(t\)|tr)\(\s*'([a-z][\w]*(?:\.[\w-]+)+)'/g,
+      ))
+        used.add(m[1]);
     }
     const missing = [...used].filter((k) => !(k in ru));
     expect(missing).toEqual([]);
@@ -60,7 +65,15 @@ describe('i18n', () => {
 
   it('plural forms', () => {
     const f: [string, string, string] = ['запись', 'записи', 'записей'];
-    expect([1, 2, 5, 11, 21, 24, 112].map((n) => plural(n, f, 'ru'))).toEqual(['запись', 'записи', 'записей', 'записей', 'запись', 'записи', 'записей']);
+    expect([1, 2, 5, 11, 21, 24, 112].map((n) => plural(n, f, 'ru'))).toEqual([
+      'запись',
+      'записи',
+      'записей',
+      'записей',
+      'запись',
+      'записи',
+      'записей',
+    ]);
     expect(plural(1, ['entry', 'entries'], 'en')).toBe('entry');
     expect(plural(2, ['entry', 'entries'], 'en')).toBe('entries');
     uiLanguage.set('en');

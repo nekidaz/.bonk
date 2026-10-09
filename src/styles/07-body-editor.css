@@ -147,8 +147,7 @@
   justify-content: center;
   gap: 12px;
   color: var(--t2);
-  background:
-    radial-gradient(460px 240px at 50% 34%, rgba(10, 132, 255, 0.075), transparent 70%);
+  background: radial-gradient(460px 240px at 50% 34%, rgba(10, 132, 255, 0.075), transparent 70%);
 }
 
 .bs-body-empty .material-symbols-outlined {
@@ -529,4 +528,3 @@
   color: var(--text);
   outline: none;
 }
-

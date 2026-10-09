@@ -19,7 +19,12 @@
 
 {#snippet folderRow(n: TreeNode, depth: number)}
   {#if n.kind === 'folder' && n.id !== excludeId}
-    <button class="bs-collrow" class:sel={selected === n.id} style="padding-left:{10 + depth * 14}px" onclick={() => (selected = n.id)}>
+    <button
+      class="bs-collrow"
+      class:sel={selected === n.id}
+      style="padding-left:{10 + depth * 14}px"
+      onclick={() => (selected = n.id)}
+    >
       <span class="material-symbols-outlined" style="font-size:15px">folder</span>{n.name}
     </button>
     {#each n.children as c (c.id)}{@render folderRow(c, depth + 1)}{/each}

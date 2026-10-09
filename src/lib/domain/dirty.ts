@@ -24,7 +24,8 @@ export function isTabDirty(tab: Tab, saved: RequestNode | undefined): boolean {
   if (!saved || (tab.protocol !== 'http' && tab.protocol !== 'grpc')) return false;
   if (tab.title !== saved.name) return true;
   if (tab.protocol === 'grpc') {
-    const pick = (g: Tab['grpc']) => g && { endpoint: g.endpoint, method: g.method, message: g.message, metadata: g.metadata, plaintext: g.plaintext };
+    const pick = (g: Tab['grpc']) =>
+      g && { endpoint: g.endpoint, method: g.method, message: g.message, metadata: g.metadata, plaintext: g.plaintext };
     return !same(pick(tab.grpc), pick(saved.grpc));
   }
   return !same(tab.request, saved.request) || !same(realParams(tab.params), realParams(saved.params));
@@ -38,12 +39,13 @@ export function isParamChanged(tab: Tab, saved: RequestNode | undefined, i: numb
   return !same(row, saved.params?.[i]);
 }
 
-
 /** A never-saved request tab holds something worth keeping: closing it asks first, like Postman. Picker defaults (method, body mode, no auth) alone don't count. */
 export function isScratchDirty(tab: Tab): boolean {
   if (tab.savedPath) return false;
   if (tab.protocol === 'grpc') return !!tab.grpc?.endpoint.trim();
   if (tab.protocol !== 'http') return false;
   const { method: _m, bodyMode: _b, rawBodyFormat: _r, auth, ...rest } = tab.request;
-  return !same(rest, {}) || realParams(tab.params).length > 0 || (!!auth && auth.type !== 'none' && auth.type !== 'inherit');
+  return (
+    !same(rest, {}) || realParams(tab.params).length > 0 || (!!auth && auth.type !== 'none' && auth.type !== 'inherit')
+  );
 }

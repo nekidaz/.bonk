@@ -18,8 +18,13 @@ function output(command, args) {
   return result.stdout;
 }
 
-const host = explicitTarget
-  ?? output('rustc', ['-vV']).split('\n').find((line) => line.startsWith('host: '))?.slice(6).trim();
+const host =
+  explicitTarget ??
+  output('rustc', ['-vV'])
+    .split('\n')
+    .find((line) => line.startsWith('host: '))
+    ?.slice(6)
+    .trim();
 if (!host) throw new Error('Could not determine the Rust target triple');
 
 const cargoArgs = ['build', '-p', 'bonk-mcp'];

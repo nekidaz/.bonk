@@ -32,9 +32,7 @@
   /** A request block's detail is the runner row for its last run. */
   const row = $derived.by(() => {
     const detail = $flowRun.blocks[id]?.detail;
-    return config.type === 'request' && detail && typeof detail === 'object'
-      ? (detail as RunResultRow)
-      : undefined;
+    return config.type === 'request' && detail && typeof detail === 'object' ? (detail as RunResultRow) : undefined;
   });
 
   let showVars = $state(true);
@@ -93,7 +91,11 @@
       <button class="tool" title={$t('flow.node.duplicate')} onclick={() => actions.duplicate(id)}>
         <span class="material-symbols-outlined">content_copy</span>
       </button>
-      <button class="tool" title={disabled ? $t('flow.node.enable') : $t('flow.node.mute')} onclick={() => actions.toggleDisabled(id)}>
+      <button
+        class="tool"
+        title={disabled ? $t('flow.node.enable') : $t('flow.node.mute')}
+        onclick={() => actions.toggleDisabled(id)}
+      >
         <span class="material-symbols-outlined">{disabled ? 'toggle_off' : 'toggle_on'}</span>
       </button>
       <button class="tool del" title={$t('flow.node.delete')} onclick={() => actions.remove(id)}>
@@ -107,10 +109,20 @@
             class="sw"
             style="background:{c}"
             title={c}
-            onclick={() => { actions.setColor(id, c); showColors = false; }}
+            onclick={() => {
+              actions.setColor(id, c);
+              showColors = false;
+            }}
           ></button>
         {/each}
-        <button class="sw none" title={$t('flow.node.reset')} onclick={() => { actions.setColor(id, undefined); showColors = false; }}>
+        <button
+          class="sw none"
+          title={$t('flow.node.reset')}
+          onclick={() => {
+            actions.setColor(id, undefined);
+            showColors = false;
+          }}
+        >
           <span class="material-symbols-outlined">format_color_reset</span>
         </button>
       </div>
@@ -129,7 +141,9 @@
         {#if config.type === 'start'}{$t('flow.block.start')}
         {:else if config.type === 'request'}{requestNode?.name ?? $t('flow.panel.pickRequest')}
         {:else if config.type === 'if'}{$t('flow.block.if')}
-        {:else if config.type === 'loop'}{config.kind === 'forEach' ? $t('flow.node.forEach') : $t('flow.node.repeat', { n: config.count ?? 0 })}
+        {:else if config.type === 'loop'}{config.kind === 'forEach'
+            ? $t('flow.node.forEach')
+            : $t('flow.node.repeat', { n: config.count ?? 0 })}
         {:else if config.type === 'script'}{$t('flow.block.script')}
         {:else if config.type === 'delay'}{$t('flow.node.delayMs', { ms: config.ms })}
         {:else if config.type === 'output'}{config.label || $t('flow.block.output')}
@@ -150,7 +164,9 @@
       {/if}
       {#if variables.length > 0}
         <button class="vars" onclick={() => (showVars = !showVars)}>
-          <span class="material-symbols-outlined" style="font-size:12px">{showVars ? 'expand_more' : 'chevron_right'}</span>
+          <span class="material-symbols-outlined" style="font-size:12px"
+            >{showVars ? 'expand_more' : 'chevron_right'}</span
+          >
           {$t('flow.panel.variables', { n: variables.length })}
         </button>
       {/if}
@@ -196,15 +212,39 @@
     color: var(--text);
     position: relative;
   }
-  .fn.wide { min-width: 210px; max-width: 260px; }
-  .fn.selected { border-color: var(--fn-accent); }
-  .fn.running { border-color: var(--fn-accent); }
-  .fn.ok { border-color: #34a853; }
-  .fn.err { border-color: #ea4335; }
-  .fn.muted { opacity: 0.55; border-style: dashed; }
-  .head { display: flex; align-items: center; gap: 8px; }
-  .icon { font-size: 16px; color: var(--fn-accent); flex: none; }
-  .txt { min-width: 0; }
+  .fn.wide {
+    min-width: 210px;
+    max-width: 260px;
+  }
+  .fn.selected {
+    border-color: var(--fn-accent);
+  }
+  .fn.running {
+    border-color: var(--fn-accent);
+  }
+  .fn.ok {
+    border-color: #34a853;
+  }
+  .fn.err {
+    border-color: #ea4335;
+  }
+  .fn.muted {
+    opacity: 0.55;
+    border-style: dashed;
+  }
+  .head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .icon {
+    font-size: 16px;
+    color: var(--fn-accent);
+    flex: none;
+  }
+  .txt {
+    min-width: 0;
+  }
   .path {
     color: var(--t3);
     font-size: 10px;
@@ -213,7 +253,12 @@
     white-space: nowrap;
     max-width: 190px;
   }
-  .title { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .title {
+    font-weight: 600;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
   .sub {
     color: var(--t3);
     font-family: 'JetBrains Mono', monospace;
@@ -223,11 +268,28 @@
     white-space: nowrap;
     max-width: 170px;
   }
-  .mute-icon { font-size: 14px; color: var(--t3); flex: none; margin-left: auto; }
-  .dot { width: 7px; height: 7px; border-radius: 50%; flex: none; margin-left: auto; }
-  .running .dot { background: var(--fn-accent); }
-  .ok .dot { background: #34a853; }
-  .err .dot { background: #ea4335; }
+  .mute-icon {
+    font-size: 14px;
+    color: var(--t3);
+    flex: none;
+    margin-left: auto;
+  }
+  .dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    flex: none;
+    margin-left: auto;
+  }
+  .running .dot {
+    background: var(--fn-accent);
+  }
+  .ok .dot {
+    background: #34a853;
+  }
+  .err .dot {
+    background: #ea4335;
+  }
   .meta {
     display: flex;
     align-items: center;
@@ -243,8 +305,14 @@
     letter-spacing: 0.03em;
     color: var(--fn-accent);
   }
-  .status { font-family: 'JetBrains Mono', monospace; font-size: 9.5px; color: #34a853; }
-  .status.bad { color: #ea4335; }
+  .status {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9.5px;
+    color: #34a853;
+  }
+  .status.bad {
+    color: #ea4335;
+  }
   .vars {
     display: flex;
     align-items: center;
@@ -253,10 +321,25 @@
     color: var(--t3);
     margin-left: auto;
   }
-  .vars:hover { color: var(--text); }
-  .vlist { display: flex; flex-direction: column; gap: 3px; }
-  .vrow { position: relative; display: flex; align-items: center; gap: 5px; height: 16px; }
-  .vname { font-size: 10px; color: var(--t2); }
+  .vars:hover {
+    color: var(--text);
+  }
+  .vlist {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+  .vrow {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    height: 16px;
+  }
+  .vname {
+    font-size: 10px;
+    color: var(--t2);
+  }
   .vrow :global(.vhandle) {
     left: -12px;
     width: 7px;
@@ -264,7 +347,9 @@
     background: var(--surface);
     border: 1.5px solid var(--t3);
   }
-  .vrow:hover :global(.vhandle) { border-color: var(--fn-accent); }
+  .vrow:hover :global(.vhandle) {
+    border-color: var(--fn-accent);
+  }
   .port-label {
     position: absolute;
     right: -6px;
@@ -273,8 +358,12 @@
     color: var(--t3);
     pointer-events: none;
   }
-  .port-label.a { top: 20px; }
-  .port-label.b { top: 40px; }
+  .port-label.a {
+    top: 20px;
+  }
+  .port-label.b {
+    top: 40px;
+  }
   .tools {
     position: absolute;
     top: -34px;
@@ -288,7 +377,10 @@
     box-shadow: 0 3px 10px rgba(0, 0, 0, 0.18);
     z-index: 5;
   }
-  .fn:hover .tools, .fn.selected .tools { display: flex; }
+  .fn:hover .tools,
+  .fn.selected .tools {
+    display: flex;
+  }
   .tool {
     display: flex;
     align-items: center;
@@ -298,9 +390,16 @@
     border-radius: 6px;
     color: var(--t2);
   }
-  .tool:hover { background: var(--hover); color: var(--text); }
-  .tool.del:hover { color: #ea4335; }
-  .tool .material-symbols-outlined { font-size: 14px; }
+  .tool:hover {
+    background: var(--hover);
+    color: var(--text);
+  }
+  .tool.del:hover {
+    color: #ea4335;
+  }
+  .tool .material-symbols-outlined {
+    font-size: 14px;
+  }
   .swatches {
     position: absolute;
     top: -34px;
@@ -314,7 +413,11 @@
     box-shadow: 0 3px 10px rgba(0, 0, 0, 0.18);
     z-index: 6;
   }
-  .sw { width: 14px; height: 14px; border-radius: 4px; }
+  .sw {
+    width: 14px;
+    height: 14px;
+    border-radius: 4px;
+  }
   .sw.none {
     display: flex;
     align-items: center;
@@ -322,5 +425,7 @@
     background: var(--hover);
     color: var(--t2);
   }
-  .sw.none .material-symbols-outlined { font-size: 11px; }
+  .sw.none .material-symbols-outlined {
+    font-size: 11px;
+  }
 </style>

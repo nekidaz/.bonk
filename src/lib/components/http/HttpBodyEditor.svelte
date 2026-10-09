@@ -3,23 +3,10 @@
   import { filePick } from '../../api';
   import CodeEditor, { type CodeEditorLang } from '../CodeEditor.svelte';
   import { formatMarkup } from '../../domain/highlight';
-  import {
-    currentBodyMode,
-    currentRawFormat,
-  } from '../../domain/httpBody';
+  import { currentBodyMode, currentRawFormat } from '../../domain/httpBody';
   import { bodyParamRows, emptyBodyParam, fileName } from '../../domain/httpHeaders';
-  import {
-    bodyPlaceholder,
-    jsonErrorMessage,
-    parseJsonForBeautify,
-  } from '../../domain/jsonEditor';
-  import {
-    updateActiveTab,
-    updateTabById,
-    globals,
-    environments,
-    activeEnvironmentId,
-  } from '../../stores';
+  import { bodyPlaceholder, jsonErrorMessage, parseJsonForBeautify } from '../../domain/jsonEditor';
+  import { updateActiveTab, updateTabById, globals, environments, activeEnvironmentId } from '../../stores';
   import { requestVariableHighlight } from '../../editor/requestVarHighlight';
   import { isLargeBody } from '../../domain/largeBody';
   import { jsonProblem } from '../../domain/jsonLint';
@@ -29,9 +16,7 @@
 
   // `{{var}}` inline highlight + hover quick-set for the body editor. Scripts
   // editors intentionally do NOT get this: `{{}}` is not resolved in scripts.
-  const varHighlight = $derived(
-    requestVariableHighlight($globals, $environments, $activeEnvironmentId),
-  );
+  const varHighlight = $derived(requestVariableHighlight($globals, $environments, $activeEnvironmentId));
 
   let bodyError = $state('');
 
@@ -43,7 +28,13 @@
     { key: 'raw', label: 'http.body.raw' },
     { key: 'binary', label: 'http.body.binary' },
   ];
-  const CONTENT_TYPE: Record<string, string> = { JSON: 'application/json', Text: 'text/plain', JavaScript: 'application/javascript', HTML: 'text/html', XML: 'application/xml' };
+  const CONTENT_TYPE: Record<string, string> = {
+    JSON: 'application/json',
+    Text: 'text/plain',
+    JavaScript: 'application/javascript',
+    HTML: 'text/html',
+    XML: 'application/xml',
+  };
   const segment = $derived.by((): Segment => {
     const mode = currentBodyMode(tab);
     if (mode === 'none') return 'none';
@@ -54,7 +45,8 @@
   const bodyInfo = $derived.by(() => {
     const mode = currentBodyMode(tab);
     const n = (count: number) => `  ·  ${count} ${$tp(count, ['поле', 'поля', 'полей'], ['field', 'fields'])}`;
-    if (mode === 'form-data' || mode === 'urlencoded') return `${mode === 'form-data' ? 'multipart/form-data' : 'application/x-www-form-urlencoded'}${n((tab.request.bodyParams ?? []).filter((p) => p.key).length)}`;
+    if (mode === 'form-data' || mode === 'urlencoded')
+      return `${mode === 'form-data' ? 'multipart/form-data' : 'application/x-www-form-urlencoded'}${n((tab.request.bodyParams ?? []).filter((p) => p.key).length)}`;
     if (mode === 'graphql') return 'application/json  ·  graphql';
     if (mode !== 'raw') return mode === 'binary' ? 'application/octet-stream' : '';
     const format = currentRawFormat(tab);
@@ -66,11 +58,20 @@
       return 'application/json';
     }
   });
-  const canBeautify = $derived(currentBodyMode(tab) === 'raw' && ['JSON', 'HTML', 'XML'].includes(currentRawFormat(tab)));
+  const canBeautify = $derived(
+    currentBodyMode(tab) === 'raw' && ['JSON', 'HTML', 'XML'].includes(currentRawFormat(tab)),
+  );
   // E1: a large text body loses this head — format, size, lines and tools move into the request tabs row.
-  const large = $derived((currentBodyMode(tab) === 'raw' || currentBodyMode(tab) === 'binary') && isLargeBody(tab.request.body ?? ''));
+  const large = $derived(
+    (currentBodyMode(tab) === 'raw' || currentBodyMode(tab) === 'binary') && isLargeBody(tab.request.body ?? ''),
+  );
   // S10: live syntax check, flagged next to the content type (the editor underlines the spot).
-  const bodyInvalid = $derived(!large && currentBodyMode(tab) === 'raw' && currentRawFormat(tab) === 'JSON' && !!jsonProblem(tab.request.body ?? ''));
+  const bodyInvalid = $derived(
+    !large &&
+      currentBodyMode(tab) === 'raw' &&
+      currentRawFormat(tab) === 'JSON' &&
+      !!jsonProblem(tab.request.body ?? ''),
+  );
 
   function pickSegment(key: Segment): void {
     const mode = currentBodyMode(tab);
@@ -192,35 +193,64 @@
       bodyError = format === 'JSON' ? jsonErrorMessage(body, e) : $t('http.body.invalid', { format });
     }
   }
-
 </script>
 
 <div class="bs-http-body">
   {#if !large}
-  <div class="bs-body-head">
-    <div class="bs-body-seg" role="radiogroup" aria-label={$t('http.body.type_aria')}>
-      {#each segments as seg (seg.key)}
-        <button class:on={segment === seg.key} role="radio" aria-checked={segment === seg.key} type="button" onclick={() => pickSegment(seg.key)}>{$t(seg.label)}</button>
-      {/each}
-    </div>
-    {#if segment === 'form'}
-      <div class="bs-body-seg sub" role="radiogroup" aria-label={$t('http.body.enc_aria')}>
-        <button class:on={currentBodyMode(tab) === 'form-data'} role="radio" aria-checked={currentBodyMode(tab) === 'form-data'} type="button" onclick={() => setBodyMode('form-data')}>multipart</button>
-        <button class:on={currentBodyMode(tab) === 'urlencoded'} role="radio" aria-checked={currentBodyMode(tab) === 'urlencoded'} type="button" onclick={() => setBodyMode('urlencoded')}>urlencoded</button>
+    <div class="bs-body-head">
+      <div class="bs-body-seg" role="radiogroup" aria-label={$t('http.body.type_aria')}>
+        {#each segments as seg (seg.key)}
+          <button
+            class:on={segment === seg.key}
+            role="radio"
+            aria-checked={segment === seg.key}
+            type="button"
+            onclick={() => pickSegment(seg.key)}>{$t(seg.label)}</button
+          >
+        {/each}
       </div>
-    {:else if segment === 'raw'}
-      <span class="bs-body-format">
-        <select aria-label={$t('http.body.raw_format_aria')} value={currentBodyMode(tab) === 'graphql' ? 'GraphQL' : currentRawFormat(tab)} onchange={(e) => pickRawFormat(e.currentTarget.value)}>
-          {#each ['JSON', 'Text', 'JavaScript', 'HTML', 'XML', 'GraphQL'] as format (format)}<option value={format}>{format === 'Text' ? $t('http.body.text') : format}</option>{/each}
-        </select>
-        <span class="material-symbols-outlined" aria-hidden="true">keyboard_arrow_down</span>
-      </span>
-    {/if}
-    <span class="bs-body-info">{bodyInfo}{#if bodyInvalid}<b class="lb-bad">{'  ·  '}{$t('lb.json.invalid')}</b>{/if}</span>
-    {#if canBeautify}
-      <button class="bs-body-beautify" type="button" onclick={beautifyBody}><span class="material-symbols-outlined" aria-hidden="true">format_align_left</span>{$t('http.body.beautify')}</button>
-    {/if}
-  </div>
+      {#if segment === 'form'}
+        <div class="bs-body-seg sub" role="radiogroup" aria-label={$t('http.body.enc_aria')}>
+          <button
+            class:on={currentBodyMode(tab) === 'form-data'}
+            role="radio"
+            aria-checked={currentBodyMode(tab) === 'form-data'}
+            type="button"
+            onclick={() => setBodyMode('form-data')}>multipart</button
+          >
+          <button
+            class:on={currentBodyMode(tab) === 'urlencoded'}
+            role="radio"
+            aria-checked={currentBodyMode(tab) === 'urlencoded'}
+            type="button"
+            onclick={() => setBodyMode('urlencoded')}>urlencoded</button
+          >
+        </div>
+      {:else if segment === 'raw'}
+        <span class="bs-body-format">
+          <select
+            aria-label={$t('http.body.raw_format_aria')}
+            value={currentBodyMode(tab) === 'graphql' ? 'GraphQL' : currentRawFormat(tab)}
+            onchange={(e) => pickRawFormat(e.currentTarget.value)}
+          >
+            {#each ['JSON', 'Text', 'JavaScript', 'HTML', 'XML', 'GraphQL'] as format (format)}<option value={format}
+                >{format === 'Text' ? $t('http.body.text') : format}</option
+              >{/each}
+          </select>
+          <span class="material-symbols-outlined" aria-hidden="true">keyboard_arrow_down</span>
+        </span>
+      {/if}
+      <span class="bs-body-info"
+        >{bodyInfo}{#if bodyInvalid}<b class="lb-bad">{'  ·  '}{$t('lb.json.invalid')}</b>{/if}</span
+      >
+      {#if canBeautify}
+        <button class="bs-body-beautify" type="button" onclick={beautifyBody}
+          ><span class="material-symbols-outlined" aria-hidden="true">format_align_left</span>{$t(
+            'http.body.beautify',
+          )}</button
+        >
+      {/if}
+    </div>
   {/if}
 
   {#if bodyError}<div class="bs-body-error">{bodyError}</div>{/if}
@@ -242,12 +272,27 @@
       {#each bodyParamRows(tab) as row, i (i)}
         <div class="bs-body-kv-row">
           <div class="c on">
-            <input type="checkbox" checked={row.enabled} onchange={() => toggleBodyParam(i)} aria-label={$t('http.body.enable_param')} />
+            <input
+              type="checkbox"
+              checked={row.enabled}
+              onchange={() => toggleBodyParam(i)}
+              aria-label={$t('http.body.enable_param')}
+            />
           </div>
-          <div class="c key"><input placeholder={$t('http.col.key')} value={row.key} oninput={(e) => setBodyParam(i, 'key', e.currentTarget.value)} /></div>
+          <div class="c key">
+            <input
+              placeholder={$t('http.col.key')}
+              value={row.key}
+              oninput={(e) => setBodyParam(i, 'key', e.currentTarget.value)}
+            />
+          </div>
           {#if currentBodyMode(tab) === 'form-data'}
             <div class="c type">
-              <select value={row.kind ?? 'text'} onchange={(e) => setBodyParamKind(i, e.currentTarget.value as BodyParamKind)} aria-label={$t('http.body.param_type_aria')}>
+              <select
+                value={row.kind ?? 'text'}
+                onchange={(e) => setBodyParamKind(i, e.currentTarget.value as BodyParamKind)}
+                aria-label={$t('http.body.param_type_aria')}
+              >
                 <option value="text">{$t('http.body.kind.text')}</option>
                 <option value="file">{$t('http.body.kind.file')}</option>
               </select>
@@ -260,10 +305,20 @@
                 <span>{fileName(row.filePath ?? row.value, $t)}</span>
               </button>
             {:else}
-              <input placeholder={$t('http.col.value')} value={row.value} oninput={(e) => setBodyParam(i, 'value', e.currentTarget.value)} />
+              <input
+                placeholder={$t('http.col.value')}
+                value={row.value}
+                oninput={(e) => setBodyParam(i, 'value', e.currentTarget.value)}
+              />
             {/if}
           </div>
-          <div class="c desc"><input placeholder={$t('http.col.description')} value={row.description} oninput={(e) => setBodyParam(i, 'description', e.currentTarget.value)} /></div>
+          <div class="c desc">
+            <input
+              placeholder={$t('http.col.description')}
+              value={row.description}
+              oninput={(e) => setBodyParam(i, 'description', e.currentTarget.value)}
+            />
+          </div>
         </div>
       {/each}
     </div>
@@ -275,7 +330,12 @@
         <span title={tab.request.binaryFilePath}>{tab.request.binaryFilePath}</span>
       </div>
       <button type="button" onclick={pickBinaryFile}>{$t('http.body.choose_other')}</button>
-      <button type="button" aria-label={$t('http.body.remove_file')} title={$t('http.body.remove_file')} onclick={clearBinaryFile}>
+      <button
+        type="button"
+        aria-label={$t('http.body.remove_file')}
+        title={$t('http.body.remove_file')}
+        onclick={clearBinaryFile}
+      >
         <span class="material-symbols-outlined" aria-hidden="true">close</span>
       </button>
     </div>
@@ -315,7 +375,10 @@
   {:else}
     {#if currentBodyMode(tab) === 'binary'}
       <div class="bs-binary-picker">
-        <button type="button" onclick={pickBinaryFile}><span class="material-symbols-outlined" aria-hidden="true">attach_file</span> {$t('http.body.select_file')}</button>
+        <button type="button" onclick={pickBinaryFile}
+          ><span class="material-symbols-outlined" aria-hidden="true">attach_file</span>
+          {$t('http.body.select_file')}</button
+        >
         <span>{$t('http.body.or_text')}</span>
       </div>
     {/if}
@@ -337,10 +400,27 @@
 </div>
 
 <style>
-  .bs-graphql-editors { display: flex; flex: 1; min-height: 0; flex-direction: column; }
-  .bs-graphql-panel { display: flex; flex: 1; min-height: 140px; flex-direction: column; }
-  .bs-graphql-panel + .bs-graphql-panel { border-top: 1px solid var(--sepsoft); }
-  .bs-graphql-label { padding: 10px 16px 0; color: var(--t2); font-size: 12px; font-weight: 650; }
+  .bs-graphql-editors {
+    display: flex;
+    flex: 1;
+    min-height: 0;
+    flex-direction: column;
+  }
+  .bs-graphql-panel {
+    display: flex;
+    flex: 1;
+    min-height: 140px;
+    flex-direction: column;
+  }
+  .bs-graphql-panel + .bs-graphql-panel {
+    border-top: 1px solid var(--sepsoft);
+  }
+  .bs-graphql-label {
+    padding: 10px 16px 0;
+    color: var(--t2);
+    font-size: 12px;
+    font-weight: 650;
+  }
   .bs-binary-picker {
     display: flex;
     align-items: center;
@@ -363,8 +443,12 @@
     white-space: nowrap;
   }
   .bs-binary-picker button:hover,
-  .bs-binary-file button:hover { background: var(--hover) !important; }
-  .bs-binary-picker .material-symbols-outlined { font-size: 15px; }
+  .bs-binary-file button:hover {
+    background: var(--hover) !important;
+  }
+  .bs-binary-picker .material-symbols-outlined {
+    font-size: 15px;
+  }
   .bs-binary-file {
     display: flex;
     align-items: center;
@@ -376,10 +460,28 @@
     border-radius: 6px;
     background: var(--surface);
   }
-  .bs-binary-file > .material-symbols-outlined { color: var(--accent); font-size: 22px; }
-  .bs-binary-file-details { display: flex; flex: 1; flex-direction: column; min-width: 0; gap: 3px; }
+  .bs-binary-file > .material-symbols-outlined {
+    color: var(--accent);
+    font-size: 22px;
+  }
+  .bs-binary-file-details {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    min-width: 0;
+    gap: 3px;
+  }
   .bs-binary-file-details b,
-  .bs-binary-file-details span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .bs-binary-file-details span { color: var(--t3); font-size: 11px; }
-  .bs-binary-file button .material-symbols-outlined { font-size: 15px; }
+  .bs-binary-file-details span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .bs-binary-file-details span {
+    color: var(--t3);
+    font-size: 11px;
+  }
+  .bs-binary-file button .material-symbols-outlined {
+    font-size: 15px;
+  }
 </style>

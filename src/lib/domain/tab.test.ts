@@ -22,10 +22,28 @@ describe('tab pinning (S17b)', () => {
 
 describe('protocol switch (P3/P4)', () => {
   it('starts an empty unsaved request of the new type in the same tab', () => {
-    const http = { id: 't1', protocol: 'http', title: 'List payments', manualTitle: true, savedPath: 'api/list', pinned: true, request: { method: 'POST', url: 'https://x', headers: { a: '1' }, body: '{}' } } as Tab;
+    const http = {
+      id: 't1',
+      protocol: 'http',
+      title: 'List payments',
+      manualTitle: true,
+      savedPath: 'api/list',
+      pinned: true,
+      request: { method: 'POST', url: 'https://x', headers: { a: '1' }, body: '{}' },
+    } as Tab;
     const grpc = switchedProtocol(http, 'grpc');
-    expect(grpc).toMatchObject({ id: 't1', protocol: 'grpc', pinned: true, manualTitle: false, grpc: { endpoint: '', message: '' } });
+    expect(grpc).toMatchObject({
+      id: 't1',
+      protocol: 'grpc',
+      pinned: true,
+      manualTitle: false,
+      grpc: { endpoint: '', message: '' },
+    });
     expect(grpc.savedPath).toBeUndefined();
-    expect(switchedProtocol(grpc, 'http')).toMatchObject({ id: 't1', protocol: 'http', request: { method: 'GET', url: '' } });
+    expect(switchedProtocol(grpc, 'http')).toMatchObject({
+      id: 't1',
+      protocol: 'http',
+      request: { method: 'GET', url: '' },
+    });
   });
 });

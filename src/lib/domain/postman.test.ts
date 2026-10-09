@@ -3,23 +3,53 @@ import { buildPostmanCollection, isPostmanCollection, parsePostmanCollection } f
 import type { TreeNode } from './types';
 
 describe('Postman Collection export', () => {
-  const tree: TreeNode[] = [{
-    kind: 'folder', id: 'fs:a', name: 'Users', expanded: true, auth: { type: 'bearer', bearerToken: 'tok' },
-    children: [
-      {
-        kind: 'request', id: 'fs:a/c', name: 'Create', protocol: 'http',
-        request: {
-          method: 'POST', url: 'https://x.test/u?v=1', headers: { 'X-A': '1', 'X-Off': '2' }, disabledHeaders: ['X-Off'],
-          bodyMode: 'raw', body: '{"a":1}', rawBodyFormat: 'JSON', auth: { type: 'inherit' }, testScript: 'pm.test("ok", () => {});',
+  const tree: TreeNode[] = [
+    {
+      kind: 'folder',
+      id: 'fs:a',
+      name: 'Users',
+      expanded: true,
+      auth: { type: 'bearer', bearerToken: 'tok' },
+      children: [
+        {
+          kind: 'request',
+          id: 'fs:a/c',
+          name: 'Create',
+          protocol: 'http',
+          request: {
+            method: 'POST',
+            url: 'https://x.test/u?v=1',
+            headers: { 'X-A': '1', 'X-Off': '2' },
+            disabledHeaders: ['X-Off'],
+            bodyMode: 'raw',
+            body: '{"a":1}',
+            rawBodyFormat: 'JSON',
+            auth: { type: 'inherit' },
+            testScript: 'pm.test("ok", () => {});',
+          },
+          params: [{ key: 'v', value: '1', description: '', enabled: true }],
         },
-        params: [{ key: 'v', value: '1', description: '', enabled: true }],
-      },
-      { kind: 'request', id: 'fs:a/g', name: 'Rpc', protocol: 'grpc', request: { method: 'POST', url: '', headers: {} } },
-    ],
-  }];
+        {
+          kind: 'request',
+          id: 'fs:a/g',
+          name: 'Rpc',
+          protocol: 'grpc',
+          request: { method: 'POST', url: '', headers: {} },
+        },
+      ],
+    },
+  ];
 
   it('produces a v2.1 collection that the importer reads back', () => {
-    const text = buildPostmanCollection('Ws', tree, [{ key: 'baseUrl', value: 'u', enabled: true }, { key: 's', value: 'sec', enabled: true, secret: true }], false);
+    const text = buildPostmanCollection(
+      'Ws',
+      tree,
+      [
+        { key: 'baseUrl', value: 'u', enabled: true },
+        { key: 's', value: 'sec', enabled: true, secret: true },
+      ],
+      false,
+    );
     const doc = JSON.parse(text);
     expect(doc.info.schema).toContain('v2.1.0');
     expect(doc.variable.map((v: { value: string }) => v.value)).toEqual(['u', '']);
@@ -31,14 +61,22 @@ describe('Postman Collection export', () => {
     expect(folder.items).toHaveLength(1); // the RPC request is skipped
     const req = folder.items[0];
     if (req.kind !== 'request') throw new Error('request expected');
-    expect(req.node.request).toMatchObject({ method: 'POST', body: '{"a":1}', rawBodyFormat: 'JSON', headers: { 'X-A': '1' }, auth: { type: 'bearer', bearerToken: 'tok' } });
+    expect(req.node.request).toMatchObject({
+      method: 'POST',
+      body: '{"a":1}',
+      rawBodyFormat: 'JSON',
+      headers: { 'X-A': '1' },
+      auth: { type: 'bearer', bearerToken: 'tok' },
+    });
     expect(req.node.request.headers['X-Off']).toBeUndefined();
     expect(req.node.request.testScript).toContain('pm.test');
     expect(req.node.params).toHaveLength(1);
   });
 
   it('keeps secret globals only on request', () => {
-    const v = JSON.parse(buildPostmanCollection('W', [], [{ key: 's', value: 'sec', enabled: true, secret: true }], true)).variable;
+    const v = JSON.parse(
+      buildPostmanCollection('W', [], [{ key: 's', value: 'sec', enabled: true, secret: true }], true),
+    ).variable;
     expect(v[0].value).toBe('sec');
   });
 });
@@ -50,26 +88,30 @@ describe('Postman Collection import', () => {
       variable: [{ key: 'baseUrl', value: 'https://example.com' }],
       auth: { type: 'bearer', bearer: [{ key: 'token', value: '{{token}}' }] },
       event: [{ listen: 'prerequest', script: { exec: ['pm.environment.set("sent", "1");'] } }],
-      item: [{
-        name: 'Users',
-        event: [{ listen: 'test', script: { exec: ['pm.test("ok", () => {});'] } }],
-        item: [{
-          name: 'Create user',
-          event: [{ listen: 'test', script: { exec: ['pm.test("request", () => {});'] } }],
-          request: {
-            method: 'POST',
-            url: {
-              raw: '{{baseUrl}}/users?verbose=true&skip=1',
-              query: [
-                { key: 'verbose', value: 'true' },
-                { key: 'skip', value: '1', disabled: true },
-              ],
+      item: [
+        {
+          name: 'Users',
+          event: [{ listen: 'test', script: { exec: ['pm.test("ok", () => {});'] } }],
+          item: [
+            {
+              name: 'Create user',
+              event: [{ listen: 'test', script: { exec: ['pm.test("request", () => {});'] } }],
+              request: {
+                method: 'POST',
+                url: {
+                  raw: '{{baseUrl}}/users?verbose=true&skip=1',
+                  query: [
+                    { key: 'verbose', value: 'true' },
+                    { key: 'skip', value: '1', disabled: true },
+                  ],
+                },
+                header: [{ key: 'X-Trace', value: 'abc' }],
+                body: { mode: 'raw', raw: '{"name":"Ada"}', options: { raw: { language: 'json' } } },
+              },
             },
-            header: [{ key: 'X-Trace', value: 'abc' }],
-            body: { mode: 'raw', raw: '{"name":"Ada"}', options: { raw: { language: 'json' } } },
-          },
-        }],
-      }],
+          ],
+        },
+      ],
     };
     const parsed = parsePostmanCollection(JSON.stringify(source));
     expect(parsed.title).toBe('Users API');
@@ -95,22 +137,30 @@ describe('Postman Collection import', () => {
   it('imports form data and an explicit request auth override', () => {
     const source = {
       info: { name: 'Upload' },
-      item: [{
-        name: 'Upload file',
-        request: {
-          method: 'POST',
-          url: 'https://example.com/upload',
-          auth: { type: 'apikey', apikey: [
-            { key: 'key', value: 'api_key' },
-            { key: 'value', value: '{{secret}}' },
-            { key: 'in', value: 'query' },
-          ] },
-          body: { mode: 'formdata', formdata: [
-            { key: 'name', value: 'report' },
-            { key: 'attachment', type: 'file', src: '/tmp/report.txt' },
-          ] },
+      item: [
+        {
+          name: 'Upload file',
+          request: {
+            method: 'POST',
+            url: 'https://example.com/upload',
+            auth: {
+              type: 'apikey',
+              apikey: [
+                { key: 'key', value: 'api_key' },
+                { key: 'value', value: '{{secret}}' },
+                { key: 'in', value: 'query' },
+              ],
+            },
+            body: {
+              mode: 'formdata',
+              formdata: [
+                { key: 'name', value: 'report' },
+                { key: 'attachment', type: 'file', src: '/tmp/report.txt' },
+              ],
+            },
+          },
         },
-      }],
+      ],
     };
     const parsed = parsePostmanCollection(JSON.stringify(source));
     const item = parsed.items[0];
@@ -131,11 +181,13 @@ describe('Postman Collection import', () => {
     const source = {
       info: { name: 'Scoped' },
       event: [{ listen: 'prerequest', script: { exec: ["const who = 'collection';", 'calls.push(who);', 'return;'] } }],
-      item: [{
-        name: 'Ping',
-        event: [{ listen: 'prerequest', script: { exec: ["const who = 'request';", 'calls.push(who);'] } }],
-        request: { method: 'GET', url: 'https://example.com/ping' },
-      }],
+      item: [
+        {
+          name: 'Ping',
+          event: [{ listen: 'prerequest', script: { exec: ["const who = 'request';", 'calls.push(who);'] } }],
+          request: { method: 'GET', url: 'https://example.com/ping' },
+        },
+      ],
     };
     const item = parsePostmanCollection(JSON.stringify(source)).items[0];
     if (item.kind !== 'request') throw new Error('expected a request');
@@ -155,14 +207,16 @@ describe('Postman Collection import', () => {
   it('preserves a binary file body path for the native sender', () => {
     const source = {
       info: { name: 'Files' },
-      item: [{
-        name: 'Send file',
-        request: {
-          method: 'POST',
-          url: 'https://example.com/files',
-          body: { mode: 'file', file: { src: '/tmp/input.bin' } },
+      item: [
+        {
+          name: 'Send file',
+          request: {
+            method: 'POST',
+            url: 'https://example.com/files',
+            body: { mode: 'file', file: { src: '/tmp/input.bin' } },
+          },
         },
-      }],
+      ],
     };
     const item = parsePostmanCollection(JSON.stringify(source)).items[0];
     expect(item.kind).toBe('request');
@@ -174,14 +228,16 @@ describe('Postman Collection import', () => {
   it('preserves GraphQL query and variables in separate editors', () => {
     const source = {
       info: { name: 'GraphQL' },
-      item: [{
-        name: 'User',
-        request: {
-          method: 'POST',
-          url: 'https://example.com/graphql',
-          body: { mode: 'graphql', graphql: { query: 'query { viewer { id } }', variables: '{"id":"{{userId}}"}' } },
+      item: [
+        {
+          name: 'User',
+          request: {
+            method: 'POST',
+            url: 'https://example.com/graphql',
+            body: { mode: 'graphql', graphql: { query: 'query { viewer { id } }', variables: '{"id":"{{userId}}"}' } },
+          },
         },
-      }],
+      ],
     };
     const item = parsePostmanCollection(JSON.stringify(source)).items[0];
     expect(item.kind).toBe('request');

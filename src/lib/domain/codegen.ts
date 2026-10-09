@@ -41,16 +41,17 @@ export const LANGUAGES: Language[] = [
 ];
 
 /** gRPC snippets currently use grpcurl, the closest CLI equivalent to cURL. */
-export const GRPC_LANGUAGES: Language[] = [
-  { id: 'grpcurl', label: 'grpcurl', target: 'grpcurl', client: 'grpcurl' },
-];
+export const GRPC_LANGUAGES: Language[] = [{ id: 'grpcurl', label: 'grpcurl', target: 'grpcurl', client: 'grpcurl' }];
 
 function shellQuote(value: string): string {
   return `'${value.replace(/'/g, `'"'"'`)}'`;
 }
 
 function grpcurlTarget(endpoint: string): string {
-  return endpoint.trim().replace(/^(?:https?|grpcs?):\/\//i, '').replace(/\/.*$/, '');
+  return endpoint
+    .trim()
+    .replace(/^(?:https?|grpcs?):\/\//i, '')
+    .replace(/\/.*$/, '');
 }
 
 function grpcurlMethod(symbol: string): string {
@@ -72,7 +73,7 @@ export function generateGrpcurl(tab: Tab, scope: Record<string, string> = {}): s
     parts.push('-H', shellQuote(`${resolvedKey}: ${resolveVars(value, scope)}`));
   }
   parts.push('-d', shellQuote(message), endpoint, method);
-  return parts.map((part, index) => index === 0 ? part : `  ${part}`).join(' \\\n');
+  return parts.map((part, index) => (index === 0 ? part : `  ${part}`)).join(' \\\n');
 }
 
 /**
@@ -96,9 +97,26 @@ function protectVars(har: HarRequest): { har: HarRequest; restore: (code: string
     ...har,
     url: swap(har.url, true),
     headers: har.headers.map((h) => ({ name: swap(h.name), value: swap(h.value) })),
-    ...(har.postData ? { postData: { ...har.postData, ...(har.postData.text !== undefined ? { text: swap(har.postData.text) } : {}), ...(har.postData.params ? { params: har.postData.params.map((p) => ({ ...p, name: swap(p.name), ...(p.value !== undefined ? { value: swap(p.value) } : {}) })) } : {}) } } : {}),
+    ...(har.postData
+      ? {
+          postData: {
+            ...har.postData,
+            ...(har.postData.text !== undefined ? { text: swap(har.postData.text) } : {}),
+            ...(har.postData.params
+              ? {
+                  params: har.postData.params.map((p) => ({
+                    ...p,
+                    name: swap(p.name),
+                    ...(p.value !== undefined ? { value: swap(p.value) } : {}),
+                  })),
+                }
+              : {}),
+          },
+        }
+      : {}),
   };
-  const restore = (code: string): string => tokens.reduceRight((acc, [token, original]) => acc.split(token).join(original), code);
+  const restore = (code: string): string =>
+    tokens.reduceRight((acc, [token, original]) => acc.split(token).join(original), code);
   return { har: out, restore };
 }
 
@@ -128,8 +146,7 @@ function toHar(tab: Tab, scope: Record<string, string>): HarRequest {
       ),
     };
   } else if (req.body) {
-    const contentType =
-      headers.find((h) => h.name.toLowerCase() === 'content-type')?.value ?? 'text/plain';
+    const contentType = headers.find((h) => h.name.toLowerCase() === 'content-type')?.value ?? 'text/plain';
     har.postData = { mimeType: contentType, text: req.body };
   }
   return har;
@@ -140,11 +157,7 @@ function toHar(tab: Tab, scope: Record<string, string>): HarRequest {
  * `scope` (e.g. `currentVarScope()`) to interpolate `{{var}}` placeholders into
  * the snippet; omit it to keep them verbatim.
  */
-export async function generateSnippet(
-  tab: Tab,
-  langId: string,
-  scope: Record<string, string> = {},
-): Promise<string> {
+export async function generateSnippet(tab: Tab, langId: string, scope: Record<string, string> = {}): Promise<string> {
   if (tab.protocol === 'grpc') return generateGrpcurl(tab, scope);
   const lang = LANGUAGES.find((l) => l.id === langId) ?? LANGUAGES[0];
   try {

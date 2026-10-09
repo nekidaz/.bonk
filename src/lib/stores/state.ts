@@ -76,7 +76,12 @@ export function withInheritedAuth<T extends { request: HttpRequest }>(x: T, id: 
 }
 
 /** One-shot confirm dialog state; `null` when no dialog is open. `altLabel` adds a third button that resolves `'alt'`. */
-export const confirmState = writable<{ message: string; confirmLabel: string; altLabel?: string; resolve: (ok: boolean | 'alt') => void } | null>(null);
+export const confirmState = writable<{
+  message: string;
+  confirmLabel: string;
+  altLabel?: string;
+  resolve: (ok: boolean | 'alt') => void;
+} | null>(null);
 
 /** Show an in-app confirm modal (the Tauri webview has no window.confirm). */
 export function requestConfirm(message: string, confirmLabel = get(t)('app.confirm.ok')): Promise<boolean> {
@@ -100,7 +105,12 @@ export function requestSaveDialog(copy = false): Promise<boolean> {
 }
 
 /** Production send guard: the request awaiting a typed confirmation; `null` when closed. */
-export interface ProductionSend { method: string; url: string; envName: string; host: string }
+export interface ProductionSend {
+  method: string;
+  url: string;
+  envName: string;
+  host: string;
+}
 export const productionGuard = writable<(ProductionSend & { resolve: (ok: boolean) => void }) | null>(null);
 
 export function requestProductionSend(info: ProductionSend): Promise<boolean> {

@@ -64,11 +64,25 @@
     background: var(--color-danger-soft);
     border-radius: 50%;
   }
-  .guidance .bs-grpc-connect-icon { color: var(--color-text-secondary); background: var(--color-raised); }
-  .bs-grpc-connect-icon .material-symbols-outlined { font-size: 17px; }
-  .bs-grpc-connect-copy { min-width: 0; }
-  .bs-grpc-connect-title { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-  .bs-grpc-connect-title b { font: 600 var(--font-size-ui) var(--font-ui); }
+  .guidance .bs-grpc-connect-icon {
+    color: var(--color-text-secondary);
+    background: var(--color-raised);
+  }
+  .bs-grpc-connect-icon .material-symbols-outlined {
+    font-size: 17px;
+  }
+  .bs-grpc-connect-copy {
+    min-width: 0;
+  }
+  .bs-grpc-connect-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .bs-grpc-connect-title b {
+    font: 600 var(--font-size-ui) var(--font-ui);
+  }
   .bs-grpc-connect-title span {
     max-width: 280px;
     padding: 1px 8px;
@@ -80,9 +94,20 @@
     text-overflow: ellipsis;
     white-space: nowrap;
   }
-  .bs-grpc-connect-copy p { margin: 2px 0 0; color: var(--color-text-secondary); font: var(--font-size-body)/1.45 var(--font-ui); }
-  .bs-grpc-connect-copy details { margin-top: 6px; color: var(--color-text-muted); font-size: var(--font-size-caption); }
-  .bs-grpc-connect-copy summary { width: max-content; cursor: pointer; }
+  .bs-grpc-connect-copy p {
+    margin: 2px 0 0;
+    color: var(--color-text-secondary);
+    font: var(--font-size-body)/1.45 var(--font-ui);
+  }
+  .bs-grpc-connect-copy details {
+    margin-top: 6px;
+    color: var(--color-text-muted);
+    font-size: var(--font-size-caption);
+  }
+  .bs-grpc-connect-copy summary {
+    width: max-content;
+    cursor: pointer;
+  }
   .bs-grpc-connect-copy code {
     display: block;
     margin-top: 6px;
@@ -93,7 +118,11 @@
     font: var(--font-size-caption)/1.5 var(--font-code);
     white-space: pre-wrap;
   }
-  .bs-grpc-connect-actions { display: flex; align-items: center; gap: 6px; }
+  .bs-grpc-connect-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
   .bs-grpc-connect-actions button {
     height: 32px;
     display: inline-flex;
@@ -105,7 +134,9 @@
     border-radius: var(--radius-control);
     font: 500 var(--font-size-body) var(--font-ui);
   }
-  .bs-grpc-connect-actions button:hover { background: var(--color-hover); }
+  .bs-grpc-connect-actions button:hover {
+    background: var(--color-hover);
+  }
   .bs-grpc-connect-dismiss {
     width: 28px;
     height: 28px;
@@ -114,10 +145,20 @@
     color: var(--color-text-muted);
     border-radius: 50%;
   }
-  .bs-grpc-connect-dismiss:hover { color: var(--color-text); background: var(--color-hover); }
-  .bs-grpc-connect-dismiss .material-symbols-outlined { font-size: 15px; }
+  .bs-grpc-connect-dismiss:hover {
+    color: var(--color-text);
+    background: var(--color-hover);
+  }
+  .bs-grpc-connect-dismiss .material-symbols-outlined {
+    font-size: 15px;
+  }
   @media (max-width: 760px) {
-    .bs-grpc-connect-alert { grid-template-columns: 32px minmax(0, 1fr) 28px; }
-    .bs-grpc-connect-actions { grid-column: 2 / -1; justify-self: start; }
+    .bs-grpc-connect-alert {
+      grid-template-columns: 32px minmax(0, 1fr) 28px;
+    }
+    .bs-grpc-connect-actions {
+      grid-column: 2 / -1;
+      justify-self: start;
+    }
   }
 </style>

@@ -35,7 +35,8 @@ export const ru = {
   'flow.panel.savedRequest': 'Сохранённый запрос',
   'flow.panel.pickRequest': 'Выберите запрос…',
   'flow.panel.variables': 'Переменные ({n})',
-  'flow.panel.varsHint': 'У каждой есть порт на левом краю блока: подключите к нему выход другого блока, чтобы переопределить значение на этот запуск. Неподключённые берутся из окружения.',
+  'flow.panel.varsHint':
+    'У каждой есть порт на левом краю блока: подключите к нему выход другого блока, чтобы переопределить значение на этот запуск. Неподключённые берутся из окружения.',
   'flow.panel.leavesPre': 'Выходит через',
   'flow.panel.leavesOr': 'или',
   'flow.panel.leavesPost': '; данные — {shape}. Неподключённый порт «Ошибка» завершает ветку.',
@@ -220,7 +221,8 @@ export const en: Record<keyof typeof ru, string> = {
   'flow.panel.savedRequest': 'Saved request',
   'flow.panel.pickRequest': 'Pick a request…',
   'flow.panel.variables': 'Variables ({n})',
-  'flow.panel.varsHint': "Each has a port on the node's left edge: wire a block's output into it to override that value for this run. Unwired ones come from the environment.",
+  'flow.panel.varsHint':
+    "Each has a port on the node's left edge: wire a block's output into it to override that value for this run. Unwired ones come from the environment.",
   'flow.panel.leavesPre': 'Leaves through',
   'flow.panel.leavesOr': 'or',
   'flow.panel.leavesPost': '; payload is {shape}. An unwired Fail port ends that branch.',
@@ -313,7 +315,8 @@ export const en: Record<keyof typeof ru, string> = {
   'runner.insight.inIter': 'Iteration {n}',
   'runner.insight.gone.deleted': 'deleted',
   'runner.insight.gone.changed': 'changed',
-  'runner.insight.resourceGone': 'In iteration {iter} the request returned {status} — the resource is already {gone}. {next} needs a new id.',
+  'runner.insight.resourceGone':
+    'In iteration {iter} the request returned {status} — the resource is already {gone}. {next} needs a new id.',
   'runner.insight.newId': 'Resource {literal} not found, while {source} returned a new id in this iteration.',
   'runner.insight.token': 'In iteration {n} the request returned {status} — the token looks revoked or expired.',
   'runner.err.missingEndpoint': 'Missing endpoint or method.',

@@ -68,7 +68,9 @@
     <div class="bs-modal">
       <div class="bs-modal-h">
         <span class="t">{$t('import.title')}</span>
-        <button class="x" aria-label={$t('common.close')} onclick={() => (open = false)}><span class="material-symbols-outlined" style="font-size:18px">close</span></button>
+        <button class="x" aria-label={$t('common.close')} onclick={() => (open = false)}
+          ><span class="material-symbols-outlined" style="font-size:18px">close</span></button
+        >
       </div>
       <div class="bs-modal-b">
         <label class="bs-flabel" for="bs-import-text">{$t('import.label')}</label>
@@ -81,15 +83,22 @@
           bind:value={text}
           autofocus
           spellcheck="false"
-          placeholder={'{ "info": { "name": "My API" }, "item": [...] }'}
-        ></textarea>
+          placeholder={'{ "info": { "name": "My API" }, "item": [...] }'}></textarea>
         {#if error}<div class="bs-form-error" id="bs-import-error" role="alert">{error}</div>{/if}
       </div>
       <div class="bs-modal-f">
-        <button class="bs-btn link" onclick={pasteFromClipboard}><span class="material-symbols-outlined" style="font-size:15px;vertical-align:-3px">content_paste</span> {$t('import.paste')}</button>
-        <button class="bs-btn link" onclick={pickFile} disabled={busy}><span class="material-symbols-outlined" style="font-size:15px;vertical-align:-3px">upload_file</span> {$t('import.selectFile')}</button>
+        <button class="bs-btn link" onclick={pasteFromClipboard}
+          ><span class="material-symbols-outlined" style="font-size:15px;vertical-align:-3px">content_paste</span>
+          {$t('import.paste')}</button
+        >
+        <button class="bs-btn link" onclick={pickFile} disabled={busy}
+          ><span class="material-symbols-outlined" style="font-size:15px;vertical-align:-3px">upload_file</span>
+          {$t('import.selectFile')}</button
+        >
         <div class="grow"></div>
-        <button class="bs-btn primary" onclick={doImport} disabled={busy}>{busy ? $t('import.importing') : $t('import.confirm')}</button>
+        <button class="bs-btn primary" onclick={doImport} disabled={busy}
+          >{busy ? $t('import.importing') : $t('import.confirm')}</button
+        >
         <button class="bs-btn ghost" onclick={() => (open = false)}>{$t('common.cancel')}</button>
       </div>
     </div>

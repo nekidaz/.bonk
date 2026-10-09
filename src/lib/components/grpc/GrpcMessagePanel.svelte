@@ -39,7 +39,12 @@
   } = $props();
 
   const messageValid = $derived.by(() => {
-    try { JSON.parse(tab.grpc?.message || '{}'); return true; } catch { return false; }
+    try {
+      JSON.parse(tab.grpc?.message || '{}');
+      return true;
+    } catch {
+      return false;
+    }
   });
   // S24: field violations from the last INVALID_ARGUMENT reply mark the message editor.
   const violations = $derived(tab.grpcResult?.details?.flatMap((d) => d.fieldViolations) ?? []);
@@ -48,7 +53,9 @@
   const inputShort = $derived(selectedMethod?.inputType?.split('.').pop() ?? '');
   const issues = $derived(checkGrpcMessage(tab.grpc?.message ?? '', schemaFields));
   const issueText = (i: GrpcMessageIssue): string =>
-    i.kind === 'unknown' ? $t('grpc.msg.unknownField', { field: i.field, type: inputShort }) : $t('grpc.msg.wrongType', { field: i.field, expected: i.expected });
+    i.kind === 'unknown'
+      ? $t('grpc.msg.unknownField', { field: i.field, type: inputShort })
+      : $t('grpc.msg.wrongType', { field: i.field, expected: i.expected });
 
   /** G4: ⌃Space (or typing) at a top-level key lists the request fields with their types. */
   async function fieldCompletions(ctx: CompletionContext): Promise<CompletionResult | null> {
@@ -73,8 +80,23 @@
 
 {#if chooseSchema}
   {@const source = tab.grpc?.source ?? 'reflection'}
-  {#snippet choice(id: 'reflection' | 'proto', icon: string, title: string, text: string, pro: string, con: string, recommended = false)}
-    <button class="sc-card" class:on={source === id} type="button" role="radio" aria-checked={source === id} onclick={() => onChooseSource(id)}>
+  {#snippet choice(
+    id: 'reflection' | 'proto',
+    icon: string,
+    title: string,
+    text: string,
+    pro: string,
+    con: string,
+    recommended = false,
+  )}
+    <button
+      class="sc-card"
+      class:on={source === id}
+      type="button"
+      role="radio"
+      aria-checked={source === id}
+      onclick={() => onChooseSource(id)}
+    >
       <span class="sc-top">
         <span class="sc-icon" aria-hidden="true"><span class="material-symbols-outlined">{icon}</span></span>
         <b>{title}</b>
@@ -92,17 +114,40 @@
       <p>{$t('grpc.schema.sub')}</p>
     </div>
     <div class="sc-choices" role="radiogroup" aria-label={$t('grpc.schema.title')}>
-      {@render choice('reflection', 'manage_search', 'Server reflection', $t('grpc.schema.reflectionText'), $t('grpc.schema.reflectionPro'), $t('grpc.schema.reflectionCon'), true)}
-      {@render choice('proto', 'description', $t('grpc.schema.protoTitle'), $t('grpc.schema.protoText'), $t('grpc.schema.protoPro'), $t('grpc.schema.protoCon'))}
+      {@render choice(
+        'reflection',
+        'manage_search',
+        'Server reflection',
+        $t('grpc.schema.reflectionText'),
+        $t('grpc.schema.reflectionPro'),
+        $t('grpc.schema.reflectionCon'),
+        true,
+      )}
+      {@render choice(
+        'proto',
+        'description',
+        $t('grpc.schema.protoTitle'),
+        $t('grpc.schema.protoText'),
+        $t('grpc.schema.protoPro'),
+        $t('grpc.schema.protoCon'),
+      )}
     </div>
-    <p class="sc-tip"><span class="material-symbols-outlined" aria-hidden="true">lightbulb</span>{$t('grpc.schema.grpcurlTip')}</p>
+    <p class="sc-tip">
+      <span class="material-symbols-outlined" aria-hidden="true">lightbulb</span>{$t('grpc.schema.grpcurlTip')}
+    </p>
   </div>
 {:else}
   <div class="bs-http-body bs-grpc-message">
     {#if !largeMessage}
       <div class="bs-body-head">
-        <span class="bs-body-caption">{$t('grpc.tab.message')}{#if selectedMethod?.inputType}&nbsp;&nbsp;·&nbsp;&nbsp;{selectedMethod.inputType.split('.').pop()}{/if}</span>
-        <button class="bs-body-beautify bs-grpc-example" type="button" onclick={onLoadExample}><span class="material-symbols-outlined" aria-hidden="true">description</span>{$t('grpc.msg.example')}</button>
+        <span class="bs-body-caption"
+          >{$t('grpc.tab.message')}{#if selectedMethod?.inputType}&nbsp;&nbsp;·&nbsp;&nbsp;{selectedMethod.inputType
+              .split('.')
+              .pop()}{/if}</span
+        >
+        <button class="bs-body-beautify bs-grpc-example" type="button" onclick={onLoadExample}
+          ><span class="material-symbols-outlined" aria-hidden="true">description</span>{$t('grpc.msg.example')}</button
+        >
       </div>
     {/if}
     <div class="bs-body-cm" class:invalid={violations.length > 0 || issues.length > 0}>
@@ -114,7 +159,10 @@
         placeholder={tab.grpc?.tree && !tab.grpc.method ? $t('grpc.msg.pickMethodFirst') : $t('grpc.msg.placeholder')}
         completionSource={fieldCompletions}
         completionFooter={$t('grpc.msg.acFoot')}
-        varHighlight={[varHighlight, errorFieldLines([...violations.map((v) => v.field), ...issues.map((i) => i.field)])]}
+        varHighlight={[
+          varHighlight,
+          errorFieldLines([...violations.map((v) => v.field), ...issues.map((i) => i.field)]),
+        ]}
         docId={tab.id}
         ariaLabel={$t('grpc.msg.aria')}
       />
@@ -122,12 +170,20 @@
     {#if violations.length}
       <div class="bs-grpc-valid warn" role="alert">
         <span class="material-symbols-outlined" aria-hidden="true">error</span>
-        {$t('grpc.msg.errors', { n: violations.length, unit: $tp(violations.length, ['ошибка', 'ошибки', 'ошибок'], ['error', 'errors']), list: violations.map((v) => `${v.field} — ${v.description}`).join('; ') })}
+        {$t('grpc.msg.errors', {
+          n: violations.length,
+          unit: $tp(violations.length, ['ошибка', 'ошибки', 'ошибок'], ['error', 'errors']),
+          list: violations.map((v) => `${v.field} — ${v.description}`).join('; '),
+        })}
       </div>
     {:else if issues.length}
       <div class="bs-grpc-valid warn" role="status">
         <span class="material-symbols-outlined" aria-hidden="true">error</span>
-        {$t('grpc.msg.errors', { n: issues.length, unit: $tp(issues.length, ['ошибка', 'ошибки', 'ошибок'], ['error', 'errors']), list: issues.map(issueText).join('; ') })}
+        {$t('grpc.msg.errors', {
+          n: issues.length,
+          unit: $tp(issues.length, ['ошибка', 'ошибки', 'ошибок'], ['error', 'errors']),
+          list: issues.map(issueText).join('; '),
+        })}
       </div>
     {:else if selectedMethod?.inputType && !messageValid}
       <div class="bs-grpc-valid bad">

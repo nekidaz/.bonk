@@ -23,10 +23,7 @@ describe('encodeQueryPart', () => {
 
 describe('syncUrlWithParams', () => {
   it('rebuilds the query from enabled rows and preserves {{var}}', () => {
-    const url = syncUrlWithParams('https://api.example.com/x', [
-      p('token', '{{authToken}}'),
-      p('q', 'a b'),
-    ]);
+    const url = syncUrlWithParams('https://api.example.com/x', [p('token', '{{authToken}}'), p('q', 'a b')]);
     expect(url).toBe('https://api.example.com/x?token={{authToken}}&q=a%20b');
   });
 

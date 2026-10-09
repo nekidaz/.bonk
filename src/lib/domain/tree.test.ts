@@ -4,9 +4,18 @@ import type { TreeNode } from './types';
 
 const tree: TreeNode[] = [
   {
-    kind: 'folder', id: 'fs:API', name: 'API', expanded: true,
+    kind: 'folder',
+    id: 'fs:API',
+    name: 'API',
+    expanded: true,
     children: [
-      { kind: 'request', id: 'fs:API/Ping.bonk.json', name: 'Ping', protocol: 'http', request: { method: 'GET', url: '', headers: {} } },
+      {
+        kind: 'request',
+        id: 'fs:API/Ping.bonk.json',
+        name: 'Ping',
+        protocol: 'http',
+        request: { method: 'GET', url: '', headers: {} },
+      },
       { kind: 'folder', id: 'fs:API/Sub', name: 'Sub', expanded: true, children: [] },
     ],
   },
@@ -36,9 +45,21 @@ describe('filterTree', () => {
   const req = (id: string, name: string, url = '', endpoint?: string): TreeNode =>
     endpoint === undefined
       ? { kind: 'request', id: `fs:${id}`, name, protocol: 'http', request: { method: 'GET', url, headers: {} } }
-      : { kind: 'request', id: `fs:${id}`, name, protocol: 'grpc', request: { method: 'GRPC', url: '', headers: {} }, grpc: { endpoint, plaintext: true, message: '{}', metadata: {} } };
-  const folder = (id: string, name: string, children: TreeNode[], expanded = false): TreeNode =>
-    ({ kind: 'folder', id: `fs:${id}`, name, expanded, children });
+      : {
+          kind: 'request',
+          id: `fs:${id}`,
+          name,
+          protocol: 'grpc',
+          request: { method: 'GRPC', url: '', headers: {} },
+          grpc: { endpoint, plaintext: true, message: '{}', metadata: {} },
+        };
+  const folder = (id: string, name: string, children: TreeNode[], expanded = false): TreeNode => ({
+    kind: 'folder',
+    id: `fs:${id}`,
+    name,
+    expanded,
+    children,
+  });
 
   const fixture: TreeNode[] = [
     folder('Payments', 'Payments', [

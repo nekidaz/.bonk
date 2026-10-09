@@ -53,7 +53,11 @@ describe('sendHttpRequest routing', () => {
   it('routes the response to the tab it was started from, not the active tab', async () => {
     // httpSend stays pending until we resolve it, simulating a slow request.
     let resolveSend!: (res: HttpResponse) => void;
-    mockHttpSend.mockReturnValue(new Promise<HttpResponse>((resolve) => { resolveSend = resolve; }));
+    mockHttpSend.mockReturnValue(
+      new Promise<HttpResponse>((resolve) => {
+        resolveSend = resolve;
+      }),
+    );
 
     // Start the request from tab A while A is active.
     const pending = sendHttpRequest('A', req, 'r1');
@@ -91,7 +95,9 @@ describe('sendHttpRequest routing', () => {
 
 function getTabs(): Tab[] {
   let snapshot: Tab[] = [];
-  const unsub = tabs.subscribe((v) => { snapshot = v; });
+  const unsub = tabs.subscribe((v) => {
+    snapshot = v;
+  });
   unsub();
   return snapshot;
 }

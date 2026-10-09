@@ -25,7 +25,10 @@ export interface RunSummary {
 }
 
 export type Tone = 'success' | 'warning' | 'danger';
-export interface Delta { text: string; tone: Tone }
+export interface Delta {
+  text: string;
+  tone: Tone;
+}
 
 /** Calls slower than this are amber in the waterfall / time column. */
 export const SLOW_MS = 200;
@@ -69,7 +72,10 @@ export function passedDelta(cur: RunSummary, prev: RunSummary | undefined, tr: T
   if (!prev) return null;
   const d = cur.passed - prev.passed;
   if (d === 0) return null;
-  return { text: tr('runner.delta.vs', { delta: `${sign(d)}${Math.abs(d)}`, n: prev.n }), tone: d < 0 ? 'danger' : 'success' };
+  return {
+    text: tr('runner.delta.vs', { delta: `${sign(d)}${Math.abs(d)}`, n: prev.n }),
+    tone: d < 0 ? 'danger' : 'success',
+  };
 }
 
 export function durationDelta(cur: RunSummary, prev: RunSummary | undefined): Delta | null {
@@ -91,7 +97,11 @@ export function runBars(history: RunSummary[], maxH = 28): { n: number; h: numbe
   const ds = history.map((s) => s.durationMs);
   const min = Math.min(...ds);
   const span = Math.max(...ds) - min || 1;
-  return history.map((s) => ({ n: s.n, h: Math.round(maxH * (0.5 + (0.5 * (s.durationMs - min)) / span)), failed: s.passed < s.total }));
+  return history.map((s) => ({
+    n: s.n,
+    h: Math.round(maxH * (0.5 + (0.5 * (s.durationMs - min)) / span)),
+    failed: s.passed < s.total,
+  }));
 }
 
 /** "СЕГОДНЯ 14:20", or "07.10 14:20" for another day. */
@@ -99,7 +109,9 @@ export function runTimeLabel(ts: number, now = Date.now(), tr: Translate = get(t
   const d = new Date(ts);
   const pad = (x: number) => String(x).padStart(2, '0');
   const hm = `${pad(d.getHours())}:${pad(d.getMinutes())}`;
-  return d.toDateString() === new Date(now).toDateString() ? tr('runner.today', { time: hm }) : `${pad(d.getDate())}.${pad(d.getMonth() + 1)} ${hm}`;
+  return d.toDateString() === new Date(now).toDateString()
+    ? tr('runner.today', { time: hm })
+    : `${pad(d.getDate())}.${pad(d.getMonth() + 1)} ${hm}`;
 }
 
 /** "сегодня" / "вчера" / "3 дня назад" (calendar days, current UI language). */
@@ -120,12 +132,26 @@ export function testCount(n: RequestNode): number {
 export function varsSet(n: RequestNode): string[] {
   const g = n.grpc;
   const src = [n.request.preRequestScript, n.request.testScript, g?.preRequestScript, g?.testScript].join('\n');
-  return [...new Set([...src.matchAll(/\bpm\.(?:environment|globals|collectionVariables|variables)\.set\(\s*['"`]([\w.-]+)/g)].map((m) => m[1]))];
+  return [
+    ...new Set(
+      [...src.matchAll(/\bpm\.(?:environment|globals|collectionVariables|variables)\.set\(\s*['"`]([\w.-]+)/g)].map(
+        (m) => m[1],
+      ),
+    ),
+  ];
 }
 
 /** `{{vars}}` the request reads (url, params, headers, body, gRPC message/metadata). */
 export function varsUsed(n: RequestNode): string[] {
-  const src = JSON.stringify([n.request.url, n.request.headers, n.request.body, n.params, n.grpc?.endpoint, n.grpc?.message, n.grpc?.metadata]);
+  const src = JSON.stringify([
+    n.request.url,
+    n.request.headers,
+    n.request.body,
+    n.params,
+    n.grpc?.endpoint,
+    n.grpc?.message,
+    n.grpc?.metadata,
+  ]);
   return [...new Set([...src.matchAll(/\{\{\s*([\w.-]+)\s*\}\}/g)].map((m) => m[1]))];
 }
 
@@ -143,9 +169,25 @@ export function varLinks(list: RequestNode[]): { sets: string[]; uses: string[] 
 }
 
 const STATUS_TEXT: Record<number, string> = {
-  200: 'OK', 201: 'Created', 202: 'Accepted', 204: 'No Content', 301: 'Moved Permanently', 302: 'Found', 304: 'Not Modified',
-  400: 'Bad Request', 401: 'Unauthorized', 403: 'Forbidden', 404: 'Not Found', 409: 'Conflict', 410: 'Gone', 422: 'Unprocessable Entity',
-  429: 'Too Many Requests', 500: 'Internal Server Error', 502: 'Bad Gateway', 503: 'Service Unavailable', 504: 'Gateway Timeout',
+  200: 'OK',
+  201: 'Created',
+  202: 'Accepted',
+  204: 'No Content',
+  301: 'Moved Permanently',
+  302: 'Found',
+  304: 'Not Modified',
+  400: 'Bad Request',
+  401: 'Unauthorized',
+  403: 'Forbidden',
+  404: 'Not Found',
+  409: 'Conflict',
+  410: 'Gone',
+  422: 'Unprocessable Entity',
+  429: 'Too Many Requests',
+  500: 'Internal Server Error',
+  502: 'Bad Gateway',
+  503: 'Service Unavailable',
+  504: 'Gateway Timeout',
 };
 /** "404 Not Found"; gRPC/text statuses pass through. */
 export function statusLabel(status: number | string): string {
@@ -173,7 +215,14 @@ export function buildMatrix(rows: RunResultRow[], iterations: number): MatrixRow
     const key = rowKey(r);
     let m = byKey.get(key);
     if (!m) {
-      m = { key, name: r.requestName, method: r.method, protocol: r.protocol, nodeId: r.nodeId, cells: Array(iterations).fill(undefined) };
+      m = {
+        key,
+        name: r.requestName,
+        method: r.method,
+        protocol: r.protocol,
+        nodeId: r.nodeId,
+        cells: Array(iterations).fill(undefined),
+      };
       byKey.set(key, m);
     }
     m.cells[r.iteration - 1] = r;
@@ -187,7 +236,11 @@ export function callTone(r: RunResultRow): CallTone {
   return r.elapsedMs > SLOW_MS ? 'slow' : 'normal';
 }
 
-export interface WaterfallBar { left: number; width: number; tone: CallTone }
+export interface WaterfallBar {
+  left: number;
+  width: number;
+  tone: CallTone;
+}
 
 /** Bar geometry (percent of the iteration's span) for one iteration's calls. */
 export function waterfall(cells: (RunResultRow | undefined)[]): (WaterfallBar | null)[] {
@@ -224,8 +277,10 @@ export interface IdBinding {
   literal: string;
   varName: string;
 }
-export interface Insight { text: string; bind?: IdBinding }
-
+export interface Insight {
+  text: string;
+  bind?: IdBinding;
+}
 
 function pathSegments(target: string): string[] {
   try {
@@ -264,7 +319,8 @@ function findBinding(row: RunResultRow, rows: RunResultRow[]): IdBinding | undef
     const prefix = id && idPrefix(id);
     if (!prefix) continue;
     const k = segs.findIndex((s) => s !== id && idPrefix(s) === prefix);
-    if (k >= 0) return { sourceNodeId: r.nodeId, sourceName: r.requestName, literal: segs[k], varName: varNameFor(segs[k - 1]) };
+    if (k >= 0)
+      return { sourceNodeId: r.nodeId, sourceName: r.requestName, literal: segs[k], varName: varNameFor(segs[k - 1]) };
   }
   return undefined;
 }
@@ -272,13 +328,21 @@ function findBinding(row: RunResultRow, rows: RunResultRow[]): IdBinding | undef
 /** "Похоже на причину" for a failed call, or null when nothing honest to say. */
 export function insightFor(row: RunResultRow, rows: RunResultRow[], tr: Translate = get(t)): Insight | null {
   if (row.ok || typeof row.status !== 'number') return null;
-  const prev = rows.find((r) => r.iteration < row.iteration && r.ok && rowKey(r) === rowKey(row) && r.target === row.target);
-  const next = row.iteration >= 1 && row.iteration <= 10 ? tr(`runner.insight.ord.${row.iteration}`) : tr('runner.insight.inIter', { n: row.iteration });
+  const prev = rows.find(
+    (r) => r.iteration < row.iteration && r.ok && rowKey(r) === rowKey(row) && r.target === row.target,
+  );
+  const next =
+    row.iteration >= 1 && row.iteration <= 10
+      ? tr(`runner.insight.ord.${row.iteration}`)
+      : tr('runner.insight.inIter', { n: row.iteration });
   if (row.status === 404 || row.status === 410) {
     const bind = findBinding(row, rows);
     if (prev) {
       const gone = tr(row.method === 'DELETE' ? 'runner.insight.gone.deleted' : 'runner.insight.gone.changed');
-      return { text: tr('runner.insight.resourceGone', { iter: prev.iteration, status: prev.status, gone, next }), bind };
+      return {
+        text: tr('runner.insight.resourceGone', { iter: prev.iteration, status: prev.status, gone, next }),
+        bind,
+      };
     }
     if (bind) return { text: tr('runner.insight.newId', { literal: bind.literal, source: bind.sourceName }), bind };
     return null;
@@ -309,9 +373,11 @@ export function toRecord(
   run: { n: number; startedAt: number; finishedAt: number; iterations: number; results: RunResultRow[] },
   keepBodies: boolean,
 ): RunRecord {
-  const results = run.results.slice(0, RECORD_ROWS).map(({ responseBody, ...row }) =>
-    keepBodies && responseBody !== undefined ? { ...row, responseBody: responseBody.slice(0, RECORD_BODY) } : row,
-  );
+  const results = run.results
+    .slice(0, RECORD_ROWS)
+    .map(({ responseBody, ...row }) =>
+      keepBodies && responseBody !== undefined ? { ...row, responseBody: responseBody.slice(0, RECORD_BODY) } : row,
+    );
   return { n: run.n, startedAt: run.startedAt, finishedAt: run.finishedAt, iterations: run.iterations, results };
 }
 

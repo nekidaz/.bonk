@@ -34,9 +34,7 @@
   const okFiles = $derived(files.filter((f) => f.ok));
   const errCount = $derived(files.length - okFiles.length);
   const serviceCount = $derived(okFiles.reduce((n, f) => n + f.services.length, 0));
-  const methodCount = $derived(
-    okFiles.reduce((n, f) => n + f.services.reduce((m, s) => m + s.methods.length, 0), 0),
-  );
+  const methodCount = $derived(okFiles.reduce((n, f) => n + f.services.reduce((m, s) => m + s.methods.length, 0), 0));
 
   /** Re-inspect; folders are expanded into their files and become import roots. */
   async function refresh(): Promise<void> {
@@ -91,7 +89,10 @@
   }
 
   function connect(): void {
-    onConnect(okFiles.map((f) => f.path), imports);
+    onConnect(
+      okFiles.map((f) => f.path),
+      imports,
+    );
     open = false;
   }
 
@@ -100,12 +101,17 @@
   }
 
   type Tp = (n: number, ru: [string, string, string], en: [string, string]) => string;
-  const nServices = (tp: Tp, n: number): string => `${n} ${tp(n, ['сервис', 'сервиса', 'сервисов'], ['service', 'services'])}`;
-  const nMethods = (tp: Tp, n: number): string => `${n} ${tp(n, ['метод', 'метода', 'методов'], ['method', 'methods'])}`;
+  const nServices = (tp: Tp, n: number): string =>
+    `${n} ${tp(n, ['сервис', 'сервиса', 'сервисов'], ['service', 'services'])}`;
+  const nMethods = (tp: Tp, n: number): string =>
+    `${n} ${tp(n, ['метод', 'метода', 'методов'], ['method', 'methods'])}`;
   const nFiles = (tp: Tp, n: number): string => `${n} ${tp(n, ['файл', 'файла', 'файлов'], ['file', 'files'])}`;
   function subtitle(f: ProtoFileInfo, tp: Tp): string {
     const names = f.services.map((s) => s.name.split('.').pop()).join(', ');
-    const methods = nMethods(tp, f.services.reduce((n, s) => n + s.methods.length, 0));
+    const methods = nMethods(
+      tp,
+      f.services.reduce((n, s) => n + s.methods.length, 0),
+    );
     const wk = f.wellKnownDeps.map((d) => ` · + ${d.split('/').pop()} (well-known)`).join('');
     return `${names ? names + ' · ' : ''}${methods}${wk}`;
   }
@@ -120,7 +126,9 @@
       files = [];
       void refresh();
     });
-    void terminalDefaultCwd().then((h) => (home = h)).catch(() => {});
+    void terminalDefaultCwd()
+      .then((h) => (home = h))
+      .catch(() => {});
   });
 
   // Tauri delivers dropped file paths through the webview, not HTML5 drop.
@@ -182,7 +190,12 @@
                   <div class="pid-name">{f.name}</div>
                   <div class="pid-meta">{subtitle(f, $tp)}</div>
                 </div>
-                <button type="button" class="pid-x" aria-label={$t('import.proto.remove', { name: f.name })} onclick={() => removeFile(f.path)}>
+                <button
+                  type="button"
+                  class="pid-x"
+                  aria-label={$t('import.proto.remove', { name: f.name })}
+                  onclick={() => removeFile(f.path)}
+                >
                   <span class="material-symbols-outlined">close</span>
                 </button>
               </div>
@@ -198,7 +211,12 @@
                     <span class="material-symbols-outlined">create_new_folder</span>{$t('import.proto.setPath')}
                   </button>
                 {/if}
-                <button type="button" class="pid-x" aria-label={$t('import.proto.remove', { name: f.name })} onclick={() => removeFile(f.path)}>
+                <button
+                  type="button"
+                  class="pid-x"
+                  aria-label={$t('import.proto.remove', { name: f.name })}
+                  onclick={() => removeFile(f.path)}
+                >
                   <span class="material-symbols-outlined">close</span>
                 </button>
               </div>
@@ -208,20 +226,25 @@
       {/if}
 
       <div class="pid-paths">
-      <div class="pid-eyebrow">{$t('import.proto.eyebrow')}</div>
-      <div class="pid-chips">
-        {#each imports as dir (dir)}
-          <span class="pid-chip">
-            <span class="pid-chip-t" title={dir}>{abbrevHome(dir, home)}</span>
-            <button type="button" class="pid-chip-x" aria-label={$t('import.proto.remove', { name: dir })} onclick={() => removeImport(dir)}>
-              <span class="material-symbols-outlined">close</span>
-            </button>
-          </span>
-        {/each}
-        <button type="button" class="pid-chip add" onclick={pickImportFolder}>
-          <span class="material-symbols-outlined">add</span>{$t('import.proto.addPath')}
-        </button>
-      </div>
+        <div class="pid-eyebrow">{$t('import.proto.eyebrow')}</div>
+        <div class="pid-chips">
+          {#each imports as dir (dir)}
+            <span class="pid-chip">
+              <span class="pid-chip-t" title={dir}>{abbrevHome(dir, home)}</span>
+              <button
+                type="button"
+                class="pid-chip-x"
+                aria-label={$t('import.proto.remove', { name: dir })}
+                onclick={() => removeImport(dir)}
+              >
+                <span class="material-symbols-outlined">close</span>
+              </button>
+            </span>
+          {/each}
+          <button type="button" class="pid-chip add" onclick={pickImportFolder}>
+            <span class="material-symbols-outlined">add</span>{$t('import.proto.addPath')}
+          </button>
+        </div>
       </div>
 
       <div class="pid-foot">
@@ -246,54 +269,271 @@
 
 <style>
   /* Sizes follow the S27 mock (Pencil node «Proto import dialog»). */
-  .pid-overlay { background: var(--color-scrim); }
-  .pid { width: 600px; max-width: 92vw; max-height: 86vh; overflow: auto; display: flex; flex-direction: column; gap: 18px; padding: 28px; border: 1px solid var(--color-border-subtle); border-radius: var(--radius-dialog); background: var(--color-raised); box-shadow: var(--shadow-panel); color: var(--color-text); }
-  .pid-head { display: flex; flex-direction: column; gap: 6px; }
-  .pid-title { margin: 0; font: 600 18px/22px var(--font-ui); }
-  .pid-sub { margin: 0; color: var(--color-text-secondary); font: var(--font-size-body)/18px var(--font-ui); }
-  .pid-drop { display: flex; align-items: center; gap: 12px; height: 64px; padding: 0 10px 0 18px; border: 1px solid var(--color-border); border-radius: var(--radius-card); background: var(--color-field); transition: border-color var(--duration-hover), background var(--duration-hover); }
-  .pid-drop.over { border-color: var(--color-text); border-style: dashed; background: var(--color-selected); }
-  .pid-drop-ic { font-size: 20px; color: var(--color-text-secondary); }
-  .pid-drop-t { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
-  .pid-drop-t .a { font: 500 var(--font-size-ui)/16px var(--font-ui); }
-  .pid-drop-t .b { color: var(--color-text-muted); font: var(--font-size-caption)/13px var(--font-ui); }
-  .pid-pill { height: 34px; padding: 0 16px; border: 1px solid var(--color-border-subtle); border-radius: var(--radius-control); background: var(--color-panel); color: var(--color-text); font: 500 var(--font-size-body) var(--font-ui); }
-  .pid-pill:hover { background: var(--color-selected); }
-  .pid-list { display: flex; flex-direction: column; overflow: hidden; border: 1px solid var(--color-border-subtle); border-radius: var(--radius-card); }
-  .pid-row { display: flex; align-items: center; gap: 12px; padding: 10px 14px; }
-  .pid-row + .pid-row { border-top: 1px solid var(--color-border-subtle); }
-  .pid-row.warn { background: var(--color-warning-soft); }
-  .pid-ic { flex-shrink: 0; font-size: 16px; }
-  .pid-ic.ok { color: var(--color-success); }
-  .pid-ic.warn { color: var(--color-warning); }
-  .pid-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
-  .pid-name { overflow: hidden; font: 500 var(--font-size-body)/16px var(--font-code); text-overflow: ellipsis; white-space: nowrap; }
-  .pid-meta { overflow: hidden; color: var(--color-text-muted); font: var(--font-size-caption)/13px var(--font-ui); text-overflow: ellipsis; white-space: nowrap; }
-  .pid-msg { color: var(--color-warning); font: var(--font-size-caption)/15px var(--font-code); }
-  .pid-x { flex: none; width: 28px; height: 28px; display: grid; place-items: center; border-radius: 50%; color: var(--color-text-secondary); }
-  .pid-x:hover { background: var(--color-hover); color: var(--color-text); }
-  .pid-x .material-symbols-outlined { font-size: 15px; }
-  .pid-link { flex: none; display: inline-flex; align-items: center; gap: 8px; height: 28px; padding: 0 10px; border-radius: var(--radius-control); color: var(--color-text-secondary); font: 500 var(--font-size-body) var(--font-ui); }
-  .pid-link:hover { background: var(--color-hover); color: var(--color-text); }
-  .pid-link .material-symbols-outlined { font-size: 16px; }
-  .pid-paths { display: flex; flex-direction: column; gap: 8px; }
-  .pid-eyebrow { color: var(--color-text-muted); font: 500 var(--font-size-micro)/13px var(--font-code); letter-spacing: var(--tracking-eyebrow); }
-  .pid-chips { display: flex; flex-wrap: wrap; gap: 6px; }
-  .pid-chip { display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 6px 0 12px; border-radius: var(--radius-control); background: var(--color-selected); font: var(--font-size-caption) var(--font-code); }
-  .pid-chip-t { max-width: 320px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .pid-chip-x { display: flex; color: var(--color-text-muted); }
-  .pid-chip-x:hover { color: var(--color-text); }
-  .pid-chip-x .material-symbols-outlined { font-size: 13px; }
-  .pid-chip.add { gap: 4px; padding: 0 12px 0 8px; border: 1px solid var(--color-border); background: transparent; color: var(--color-text-secondary); font-family: var(--font-ui); }
-  .pid-chip.add:hover { background: var(--color-hover); }
-  .pid-chip.add .material-symbols-outlined { font-size: 14px; }
-  .pid-foot { display: flex; align-items: center; gap: 8px; padding-top: 4px; }
-  .pid-stat { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
-  .pid-stat .a { font: 600 var(--font-size-body)/15px var(--font-ui); }
-  .pid-stat .w { color: var(--color-warning); font: var(--font-size-caption)/13px var(--font-ui); }
-  .pid-btn { height: 34px; padding: 0 16px; border: 1px solid var(--color-border-subtle); border-radius: var(--radius-control); background: var(--color-panel); color: var(--color-text); font: 500 var(--font-size-body) var(--font-ui); }
-  .pid-btn:hover { background: var(--color-selected); }
-  .pid-btn.primary { border-color: transparent; background: var(--color-action); color: var(--color-on-action); font-weight: 600; }
-  .pid-btn.primary:hover { background: var(--primary-hover); }
-  .pid-btn.primary:disabled { opacity: 0.5; cursor: default; }
+  .pid-overlay {
+    background: var(--color-scrim);
+  }
+  .pid {
+    width: 600px;
+    max-width: 92vw;
+    max-height: 86vh;
+    overflow: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    padding: 28px;
+    border: 1px solid var(--color-border-subtle);
+    border-radius: var(--radius-dialog);
+    background: var(--color-raised);
+    box-shadow: var(--shadow-panel);
+    color: var(--color-text);
+  }
+  .pid-head {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .pid-title {
+    margin: 0;
+    font: 600 18px/22px var(--font-ui);
+  }
+  .pid-sub {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font: var(--font-size-body)/18px var(--font-ui);
+  }
+  .pid-drop {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    height: 64px;
+    padding: 0 10px 0 18px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-card);
+    background: var(--color-field);
+    transition:
+      border-color var(--duration-hover),
+      background var(--duration-hover);
+  }
+  .pid-drop.over {
+    border-color: var(--color-text);
+    border-style: dashed;
+    background: var(--color-selected);
+  }
+  .pid-drop-ic {
+    font-size: 20px;
+    color: var(--color-text-secondary);
+  }
+  .pid-drop-t {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .pid-drop-t .a {
+    font: 500 var(--font-size-ui)/16px var(--font-ui);
+  }
+  .pid-drop-t .b {
+    color: var(--color-text-muted);
+    font: var(--font-size-caption)/13px var(--font-ui);
+  }
+  .pid-pill {
+    height: 34px;
+    padding: 0 16px;
+    border: 1px solid var(--color-border-subtle);
+    border-radius: var(--radius-control);
+    background: var(--color-panel);
+    color: var(--color-text);
+    font: 500 var(--font-size-body) var(--font-ui);
+  }
+  .pid-pill:hover {
+    background: var(--color-selected);
+  }
+  .pid-list {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    border: 1px solid var(--color-border-subtle);
+    border-radius: var(--radius-card);
+  }
+  .pid-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 14px;
+  }
+  .pid-row + .pid-row {
+    border-top: 1px solid var(--color-border-subtle);
+  }
+  .pid-row.warn {
+    background: var(--color-warning-soft);
+  }
+  .pid-ic {
+    flex-shrink: 0;
+    font-size: 16px;
+  }
+  .pid-ic.ok {
+    color: var(--color-success);
+  }
+  .pid-ic.warn {
+    color: var(--color-warning);
+  }
+  .pid-main {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .pid-name {
+    overflow: hidden;
+    font: 500 var(--font-size-body)/16px var(--font-code);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .pid-meta {
+    overflow: hidden;
+    color: var(--color-text-muted);
+    font: var(--font-size-caption)/13px var(--font-ui);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .pid-msg {
+    color: var(--color-warning);
+    font: var(--font-size-caption)/15px var(--font-code);
+  }
+  .pid-x {
+    flex: none;
+    width: 28px;
+    height: 28px;
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+    color: var(--color-text-secondary);
+  }
+  .pid-x:hover {
+    background: var(--color-hover);
+    color: var(--color-text);
+  }
+  .pid-x .material-symbols-outlined {
+    font-size: 15px;
+  }
+  .pid-link {
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    height: 28px;
+    padding: 0 10px;
+    border-radius: var(--radius-control);
+    color: var(--color-text-secondary);
+    font: 500 var(--font-size-body) var(--font-ui);
+  }
+  .pid-link:hover {
+    background: var(--color-hover);
+    color: var(--color-text);
+  }
+  .pid-link .material-symbols-outlined {
+    font-size: 16px;
+  }
+  .pid-paths {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .pid-eyebrow {
+    color: var(--color-text-muted);
+    font: 500 var(--font-size-micro)/13px var(--font-code);
+    letter-spacing: var(--tracking-eyebrow);
+  }
+  .pid-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .pid-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 28px;
+    padding: 0 6px 0 12px;
+    border-radius: var(--radius-control);
+    background: var(--color-selected);
+    font: var(--font-size-caption) var(--font-code);
+  }
+  .pid-chip-t {
+    max-width: 320px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .pid-chip-x {
+    display: flex;
+    color: var(--color-text-muted);
+  }
+  .pid-chip-x:hover {
+    color: var(--color-text);
+  }
+  .pid-chip-x .material-symbols-outlined {
+    font-size: 13px;
+  }
+  .pid-chip.add {
+    gap: 4px;
+    padding: 0 12px 0 8px;
+    border: 1px solid var(--color-border);
+    background: transparent;
+    color: var(--color-text-secondary);
+    font-family: var(--font-ui);
+  }
+  .pid-chip.add:hover {
+    background: var(--color-hover);
+  }
+  .pid-chip.add .material-symbols-outlined {
+    font-size: 14px;
+  }
+  .pid-foot {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding-top: 4px;
+  }
+  .pid-stat {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .pid-stat .a {
+    font: 600 var(--font-size-body)/15px var(--font-ui);
+  }
+  .pid-stat .w {
+    color: var(--color-warning);
+    font: var(--font-size-caption)/13px var(--font-ui);
+  }
+  .pid-btn {
+    height: 34px;
+    padding: 0 16px;
+    border: 1px solid var(--color-border-subtle);
+    border-radius: var(--radius-control);
+    background: var(--color-panel);
+    color: var(--color-text);
+    font: 500 var(--font-size-body) var(--font-ui);
+  }
+  .pid-btn:hover {
+    background: var(--color-selected);
+  }
+  .pid-btn.primary {
+    border-color: transparent;
+    background: var(--color-action);
+    color: var(--color-on-action);
+    font-weight: 600;
+  }
+  .pid-btn.primary:hover {
+    background: var(--primary-hover);
+  }
+  .pid-btn.primary:disabled {
+    opacity: 0.5;
+    cursor: default;
+  }
 </style>

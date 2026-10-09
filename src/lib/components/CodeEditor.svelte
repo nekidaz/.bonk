@@ -21,13 +21,7 @@
    *   identifier before the cursor.
    */
   import { untrack } from 'svelte';
-  import {
-    EditorState,
-    Compartment,
-    type Extension,
-    type Transaction,
-    type TransactionSpec,
-  } from '@codemirror/state';
+  import { EditorState, Compartment, type Extension, type Transaction, type TransactionSpec } from '@codemirror/state';
   import {
     EditorView,
     keymap,
@@ -39,13 +33,7 @@
     tooltips,
   } from '@codemirror/view';
   import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands';
-  import {
-    bracketMatching,
-    indentOnInput,
-    indentUnit,
-    syntaxHighlighting,
-    HighlightStyle,
-  } from '@codemirror/language';
+  import { bracketMatching, indentOnInput, indentUnit, syntaxHighlighting, HighlightStyle } from '@codemirror/language';
   import {
     autocompletion,
     closeBrackets,
@@ -235,7 +223,10 @@
     },
     { tag: [tags.comment, tags.lineComment, tags.blockComment], color: 'var(--sp)', fontStyle: 'italic' },
     // Bonk Mono dims JSON punctuation; palettes without --syntax-punct keep the text colour.
-    { tag: [tags.punctuation, tags.bracket, tags.separator, tags.brace, tags.squareBracket], color: 'var(--syntax-punct, inherit)' },
+    {
+      tag: [tags.punctuation, tags.bracket, tags.separator, tags.brace, tags.squareBracket],
+      color: 'var(--syntax-punct, inherit)',
+    },
   ]);
 
   function themeExtension(): Extension {
@@ -272,36 +263,41 @@
         }
       : bare
         ? {
-            '&': { fontSize: 'var(--code-font-size, 12px)', backgroundColor: 'transparent', color: 'var(--text)', height: '100%' },
+            '&': {
+              fontSize: 'var(--code-font-size, 12px)',
+              backgroundColor: 'transparent',
+              color: 'var(--text)',
+              height: '100%',
+            },
             '&.cm-focused': { outline: 'none' },
             '.cm-scroller': { fontFamily: 'var(--mono)', lineHeight: '1.65', overflow: 'auto' },
             '.cm-content': { padding: '8px 0', caretColor: 'var(--accent)' },
             '.cm-line': { padding: '0 16px 0 8px' },
           }
         : {
-          '&': {
-            fontSize: 'var(--code-font-size, 12px)',
-            backgroundColor: 'var(--inset)',
-            color: 'var(--text)',
-            border: '0.5px solid var(--sep)',
-            borderRadius: '7px',
-            ...(fill ? { height: '100%' } : maxHeight ? { maxHeight } : {}),
-          },
-          '&.cm-focused': {
-            outline: 'none',
-            borderColor: 'color-mix(in srgb, var(--accent) 62%, var(--sep))',
-            boxShadow: '0 0 0 2.5px color-mix(in srgb, var(--accent) 15%, transparent)',
-          },
-          '.cm-scroller': {
-            fontFamily: 'var(--mono)',
-            lineHeight: '1.6',
-            borderRadius: '7px',
-            overflow: 'auto',
-            ...(fill ? {} : { minHeight }),
-          },
-          '.cm-content': { padding: '9px 0', caretColor: 'var(--accent)' },
-          '.cm-line': { padding: '0 12px' },
-        };
+            '&': {
+              fontSize: 'var(--code-font-size, 12px)',
+              backgroundColor: 'var(--inset)',
+              color: 'var(--text)',
+              border: '0.5px solid var(--sep)',
+              borderRadius: '7px',
+              ...(fill ? { height: '100%' } : maxHeight ? { maxHeight } : {}),
+            },
+            '&.cm-focused': {
+              outline: 'none',
+              borderColor: 'color-mix(in srgb, var(--accent) 62%, var(--sep))',
+              boxShadow: '0 0 0 2.5px color-mix(in srgb, var(--accent) 15%, transparent)',
+            },
+            '.cm-scroller': {
+              fontFamily: 'var(--mono)',
+              lineHeight: '1.6',
+              borderRadius: '7px',
+              overflow: 'auto',
+              ...(fill ? {} : { minHeight }),
+            },
+            '.cm-content': { padding: '9px 0', caretColor: 'var(--accent)' },
+            '.cm-line': { padding: '0 12px' },
+          };
     return EditorView.theme({
       ...chrome,
       '.cm-gutters': {
@@ -365,7 +361,12 @@
       '.bs-tk-key': { color: 'var(--sb)' },
       '.bs-tk-str': { color: 'var(--ss)' },
       '.bs-tk-lit': { color: 'var(--sn)' },
-      '.cm-foldGutter .cm-gutterElement': { padding: '0 2px', cursor: 'pointer', display: 'flex', alignItems: 'center' },
+      '.cm-foldGutter .cm-gutterElement': {
+        padding: '0 2px',
+        cursor: 'pointer',
+        display: 'flex',
+        alignItems: 'center',
+      },
       '.cm-foldGutter .bs-fold-mark': { fontSize: '14px', color: 'var(--t3)', lineHeight: '1' },
       '.cm-foldPlaceholder': {
         backgroundColor: 'var(--color-selected, var(--hover2))',
@@ -380,10 +381,20 @@
       },
       '.cm-foldPlaceholder:hover': { color: 'var(--color-text, var(--text))' },
       '.cm-searchMatch': { backgroundColor: 'var(--color-warning-soft, rgba(232, 163, 61, 0.3))', outline: 'none' },
-      '.cm-searchMatch.cm-searchMatch-selected': { backgroundColor: 'color-mix(in srgb, var(--accent) 38%, transparent)' },
+      '.cm-searchMatch.cm-searchMatch-selected': {
+        backgroundColor: 'color-mix(in srgb, var(--accent) 38%, transparent)',
+      },
       // E1b: find & replace floats over the editor's top-right instead of pushing the text down.
       // CodeMirror pins the container with an inline `top: 0`, hence the margin.
-      '&.cm-editor .cm-panels.cm-panels-top': { position: 'absolute', marginTop: '8px', right: '12px', left: 'auto', maxWidth: 'calc(100% - 24px)', backgroundColor: 'transparent', border: 'none' },
+      '&.cm-editor .cm-panels.cm-panels-top': {
+        position: 'absolute',
+        marginTop: '8px',
+        right: '12px',
+        left: 'auto',
+        maxWidth: 'calc(100% - 24px)',
+        backgroundColor: 'transparent',
+        border: 'none',
+      },
       '.bs-find': {
         display: 'flex',
         flexDirection: 'column',
@@ -453,9 +464,21 @@
       '.bs-find-toggle.open .material-symbols-outlined': { transform: 'none' },
       '.bs-find-flag': { width: '18px', height: '18px', borderRadius: '5px', color: 'var(--t3)' },
       '.bs-find-flag.on': { backgroundColor: 'var(--color-hover-strong, var(--hover2))', color: 'var(--text)' },
-      '.bs-find-count': { flex: 'none', minWidth: '38px', padding: '0 6px', color: 'var(--t3)', fontFamily: 'var(--font-mono, "JetBrains Mono", monospace)', fontSize: '10.5px', textAlign: 'center' },
+      '.bs-find-count': {
+        flex: 'none',
+        minWidth: '38px',
+        padding: '0 6px',
+        color: 'var(--t3)',
+        fontFamily: 'var(--font-mono, "JetBrains Mono", monospace)',
+        fontSize: '10.5px',
+        textAlign: 'center',
+      },
       '.bs-find-count.none': { color: 'var(--color-danger, var(--red))' },
-      '.cm-diagnostic': { padding: '6px 10px', fontFamily: 'var(--font-ui, inherit)', fontSize: 'var(--font-size-body, 12px)' },
+      '.cm-diagnostic': {
+        padding: '6px 10px',
+        fontFamily: 'var(--font-ui, inherit)',
+        fontSize: 'var(--font-size-body, 12px)',
+      },
       '.cm-diagnostic-error': { borderLeft: '3px solid var(--color-danger, var(--red))' },
       // G4: field list with the type on the right and the .proto comment below.
       '.cm-tooltip.bs-ac-rich': { minWidth: '340px', padding: '4px 6px', borderRadius: '12px' },
@@ -482,7 +505,13 @@
       },
       '.cm-tooltip.bs-ac-rich > ul > li[aria-selected]': { background: 'var(--hover2)', color: 'var(--sb)' },
       '.cm-tooltip.bs-ac-rich > ul > li[aria-selected] .cm-completionDetail': { color: 'var(--t2)' },
-      '.cm-tooltip.bs-ac-rich .cm-completionDetail': { gridColumn: '2', gridRow: '1', margin: '0', fontSize: '10.5px', color: 'var(--t2)' },
+      '.cm-tooltip.bs-ac-rich .cm-completionDetail': {
+        gridColumn: '2',
+        gridRow: '1',
+        margin: '0',
+        fontSize: '10.5px',
+        color: 'var(--t2)',
+      },
       '.cm-tooltip.bs-ac-rich .bs-ac-doc': {
         gridColumn: '1 / -1',
         overflow: 'hidden',
@@ -530,34 +559,40 @@
       : readOnly
         ? [lineNumbers(), bracketMatching(), EditorState.readOnly.of(true)]
         : [
-          lineNumbers(),
-          indentUnit.of('  '),
-          indentOnInput(),
-          bracketMatching(),
-          closeBrackets(),
-          highlightActiveLine(),
-          highlightActiveLineGutter(),
-          // Rich completions outgrow the editor; the request pane clips (contain: paint).
-          completionSource ? tooltips({ parent: document.body }) : [],
-          autocompletion(
-            completionSource
-              ? {
-                  override: [(ctx) => completionSource?.(ctx) ?? null],
-                  icons: false,
-                  tooltipClass: () => 'bs-ac-rich',
-                  optionClass: (c) => ((c as Completion & { set?: boolean }).set ? 'bs-ac-set' : ''),
-                  addToOptions: [{ position: 90, render: renderDoc }],
-                }
-              : completions && completions.length > 0
-                ? { override: [dictionaryCompletions(completions)] }
-                : {},
-          ),
-        ];
+            lineNumbers(),
+            indentUnit.of('  '),
+            indentOnInput(),
+            bracketMatching(),
+            closeBrackets(),
+            highlightActiveLine(),
+            highlightActiveLineGutter(),
+            // Rich completions outgrow the editor; the request pane clips (contain: paint).
+            completionSource ? tooltips({ parent: document.body }) : [],
+            autocompletion(
+              completionSource
+                ? {
+                    override: [(ctx) => completionSource?.(ctx) ?? null],
+                    icons: false,
+                    tooltipClass: () => 'bs-ac-rich',
+                    optionClass: (c) => ((c as Completion & { set?: boolean }).set ? 'bs-ac-set' : ''),
+                    addToOptions: [{ position: 90, render: renderDoc }],
+                  }
+                : completions && completions.length > 0
+                  ? { override: [dictionaryCompletions(completions)] }
+                  : {},
+            ),
+          ];
     const fold = !singleLine && (folding ?? lang === 'json');
     return [
       ...modeExtensions,
       // ⌘F inside any multi-line editor opens the find & replace widget (E1/E4 rule 3, 8; E1b).
-      ...(singleLine ? [] : [search({ top: true, createPanel: createFindPanel }), keymap.of(searchKeymap), ...(get(uiLanguage) === 'ru' ? [EditorState.phrases.of(RU_SEARCH)] : [])]),
+      ...(singleLine
+        ? []
+        : [
+            search({ top: true, createPanel: createFindPanel }),
+            keymap.of(searchKeymap),
+            ...(get(uiLanguage) === 'ru' ? [EditorState.phrases.of(RU_SEARCH)] : []),
+          ]),
       ...(fold ? [largeFolding(), keymap.of(foldKeymap)] : []),
       ...(lintJson && !readOnly ? [linter(lintSource, { delay: 400 })] : []),
       wrapCompartment.of(wrap ? EditorView.lineWrapping : []),
@@ -620,7 +655,9 @@
     const problem = jsonProblem(text);
     if (!problem) return [];
     const from = Math.min(problem.pos, text.length);
-    return [{ from, to: Math.min(from + 1, text.length), severity: 'error', message: jsonErrorMessage(text, problem.error) }];
+    return [
+      { from, to: Math.min(from + 1, text.length), severity: 'error', message: jsonErrorMessage(text, problem.error) },
+    ];
   }
 
   /** Once per (re)loaded document: fold the middle of long JSON arrays. Never re-run on edits. */
@@ -684,10 +721,7 @@
     currentLang = l;
     if (!view) return;
     view.dispatch({
-      effects: [
-        langCompartment.reconfigure(langExtension(l)),
-        placeholderCompartment.reconfigure(cmPlaceholder(p)),
-      ],
+      effects: [langCompartment.reconfigure(langExtension(l)), placeholderCompartment.reconfigure(cmPlaceholder(p))],
     });
   });
 

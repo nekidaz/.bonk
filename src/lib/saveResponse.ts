@@ -4,7 +4,11 @@ const EXT: Record<string, string> = { JSON: 'json', HTML: 'html', XML: 'xml' };
 
 /** `<request title>-response.<ext>`, safe as a save-dialog default name. */
 export function responseFileName(title: string, format: string): string {
-  const base = title.replace(/[^\p{L}\p{N}._-]+/gu, '-').replace(/^-+|-+$/g, '').slice(0, 60) || 'response';
+  const base =
+    title
+      .replace(/[^\p{L}\p{N}._-]+/gu, '-')
+      .replace(/^-+|-+$/g, '')
+      .slice(0, 60) || 'response';
   return `${base}-response.${EXT[format] ?? 'txt'}`;
 }
 

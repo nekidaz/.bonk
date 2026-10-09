@@ -23,24 +23,32 @@ vi.mock('../api', () => ({
 // so we run it once with persist stubbed to wire that behavior up.
 vi.mock('../persist', async () => {
   const { writable: writableOf } = await import('svelte/store');
-  return ({
-  persisted: (<T>(_k: string, v: T) => Object.assign(writableOf(v), { ready: Promise.resolve() })),
-  loadState: vi.fn(async (_key: string, fallback: unknown) => fallback),
-  saveState: vi.fn(async () => {}),
-  saveStateDebounced: vi.fn(() => {}),
-  flushPendingSaves: vi.fn(async () => {}),
-  });
+  return {
+    persisted: <T>(_k: string, v: T) => Object.assign(writableOf(v), { ready: Promise.resolve() }),
+    loadState: vi.fn(async (_key: string, fallback: unknown) => fallback),
+    saveState: vi.fn(async () => {}),
+    saveStateDebounced: vi.fn(() => {}),
+    flushPendingSaves: vi.fn(async () => {}),
+  };
 });
 
 import { history, historyLimit, historyPaused, addHistory, hydrate } from './index';
 
 function entry(id: string): HistoryEntry {
-  return { id, protocol: 'http', request: { method: 'GET', url: `https://example.com/${id}`, headers: {} }, status: 200, at: Date.now() };
+  return {
+    id,
+    protocol: 'http',
+    request: { method: 'GET', url: `https://example.com/${id}`, headers: {} },
+    status: 200,
+    at: Date.now(),
+  };
 }
 
 function getHistory(): HistoryEntry[] {
   let snapshot: HistoryEntry[] = [];
-  const unsub = history.subscribe((v) => { snapshot = v; });
+  const unsub = history.subscribe((v) => {
+    snapshot = v;
+  });
   unsub();
   return snapshot;
 }

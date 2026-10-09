@@ -104,7 +104,11 @@
     if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
       const rows = [...(treeEl?.querySelectorAll<HTMLElement>('.bs-trow') ?? [])];
       rows[rows.indexOf(e.currentTarget as HTMLElement) + (e.key === 'ArrowDown' ? 1 : -1)]?.focus();
-    } else if (n.kind === 'folder' && (e.key === 'ArrowLeft' || e.key === 'ArrowRight') && n.expanded !== (e.key === 'ArrowRight')) {
+    } else if (
+      n.kind === 'folder' &&
+      (e.key === 'ArrowLeft' || e.key === 'ArrowRight') &&
+      n.expanded !== (e.key === 'ArrowRight')
+    ) {
       toggleFolder(n.id);
     } else {
       onTreeKey(e, n.id, n.kind === 'folder');
@@ -117,13 +121,14 @@
   // S22b tree: 24px per level; --d draws one guide line per ancestor level.
   const indent = (depth: number) => 8 + Math.min(depth, 4) * 24;
 
-
   type DockSection = 'environments' | 'flows';
   // Postman-style secondary sections stay docked to the bottom instead of
   // opening popovers over the collections tree.
   let dockSection = $state<DockSection | null>('environments');
 
-  $effect(() => { if (panel === 'flows') dockSection = 'flows'; });
+  $effect(() => {
+    if (panel === 'flows') dockSection = 'flows';
+  });
 
   function toggleDock(section: DockSection): void {
     dockSection = dockSection === section ? null : section;
@@ -141,9 +146,7 @@
   function manageEnvs(): void {
     openEnvironmentsTab();
   }
-  const activeEnvName = $derived(
-    $environments.find((e) => e.id === $activeEnvironmentId)?.name ?? $t('sidebar.noEnv'),
-  );
+  const activeEnvName = $derived($environments.find((e) => e.id === $activeEnvironmentId)?.name ?? $t('sidebar.noEnv'));
 
   // Sidebar filter: narrows the Collections tree (name / URL / gRPC endpoint,
   // matching folders keep their subtree, ancestors stay visible + expanded) and
@@ -206,14 +209,23 @@
     const src = dragId;
     const el = document.elementFromPoint(x, y);
     const row = el?.closest<HTMLElement>('[data-node-id]');
-    if (!row) return src && el?.closest('.bs-tree') && dropAllowed(src, undefined) ? { id: '', pos: 'into' } : undefined;
+    if (!row)
+      return src && el?.closest('.bs-tree') && dropAllowed(src, undefined) ? { id: '', pos: 'into' } : undefined;
     const id = row.dataset.nodeId!;
     if (!src || id === src || id.startsWith(src + '/')) return undefined;
     const r = row.getBoundingClientRect();
     const f = (y - r.top) / r.height;
     const folder = row.dataset.folder; // 'open' | 'closed' | undefined (request)
     // An expanded folder's bottom edge sits above its children, so it means "into".
-    const pos: DropPos = !folder ? (f < 0.5 ? 'before' : 'after') : f < 0.25 ? 'before' : f > 0.75 && folder === 'closed' ? 'after' : 'into';
+    const pos: DropPos = !folder
+      ? f < 0.5
+        ? 'before'
+        : 'after'
+      : f < 0.25
+        ? 'before'
+        : f > 0.75 && folder === 'closed'
+          ? 'after'
+          : 'into';
     return pos === 'into' && !dropAllowed(src, id) ? undefined : { id, pos };
   }
 
@@ -288,14 +300,22 @@
     const from = parentId(src);
     const fromNode = from ? findNode($collections, from) : undefined;
     const oldIds = (fromNode?.kind === 'folder' ? fromNode.children : $collections).map((n) => n.id);
-    const newId = await dropNode(src, dest, at.pos === 'into' ? undefined : { id: at.id, after: at.pos === 'after' }, copy);
+    const newId = await dropNode(
+      src,
+      dest,
+      at.pos === 'into' ? undefined : { id: at.id, after: at.pos === 'after' },
+      copy,
+    );
     if (!newId) return;
     revealNode(newId);
     if (!copy && from === dest) return; // a plain reorder needs no toast
     const folder = dest ? (findNode($collections, dest)?.name ?? '') : (($workspacePath ?? '').split('/').pop() ?? '');
     droppedId = newId;
     clearTimeout(toastTimer);
-    toast = { text: $t(copy ? 'sidebar.copiedTo' : 'sidebar.movedTo', { folder }), undo: () => void undoDrop(newId, copy, from, oldIds) };
+    toast = {
+      text: $t(copy ? 'sidebar.copiedTo' : 'sidebar.movedTo', { folder }),
+      undo: () => void undoDrop(newId, copy, from, oldIds),
+    };
     toastTimer = setTimeout(closeToast, 5000);
   }
   function closeToast(): void {
@@ -319,190 +339,394 @@
 <svelte:window onkeydown={onWindowKey} />
 
 <div class="bs-sidebar-layout">
-<nav class="bs-railrow" aria-label={$t('sidebar.navAria')}>
-  <div class="bs-railnav">
-    <button class="bs-ri" class:on={panel === 'collections'} title={$t('sidebar.collections')} onclick={() => (panel = 'collections')}><span class="material-symbols-outlined">folder</span><span class="bs-ri-label">{$t('sidebar.collections')}</span></button>
-    <button class="bs-ri" class:on={panel === 'history'} title={$t('sidebar.history')} onclick={() => (panel = 'history')}><span class="material-symbols-outlined">history</span><span class="bs-ri-label">{$t('sidebar.history')}</span></button>
-    {#if GIT_ENABLED}
-      <button class="bs-ri" class:on={panel === 'git'} title={$t('sidebar.sourceControl')} onclick={() => (panel = 'git')}><span class="material-symbols-outlined">folder_open</span><span class="bs-ri-label">Git</span></button>
-    {/if}
-  </div>
-</nav>
-<div class="bs-sidebar-content">
-{#if dragNode}
-  <div class="bs-drag-ghost" style="left:{ghostAt.x}px; top:{ghostAt.y}px" aria-hidden="true">
-    {#if dragNode.kind === 'folder'}
-      <span class="material-symbols-outlined">folder</span>
-    {:else}
-      <span class="m" style="color:{methodColor(dragNode.protocol === 'grpc' ? 'GRPC' : dragNode.request.method)}">{dragNode.protocol === 'grpc' ? 'gRPC' : methodLabel(dragNode.request.method)}</span>
-    {/if}
-    <span>{dragNode.name}</span>
-    {#if copyDrag}<span class="plus">+</span>{/if}
-  </div>
-{/if}
-{#if toast}
-  <div class="bs-drop-toast" role="status">
-    <span class="material-symbols-outlined ok">check_circle</span>
-    <span class="tx">{toast.text}</span>
-    <button type="button" class="undo" onclick={runUndo}>{$t('sidebar.undo')} ⌘Z</button>
-  </div>
-{/if}
-<div class="bs-filterrow">
-  <div class="bs-fbox">
-    <span class="material-symbols-outlined">search</span>
-    <input
-      class="bs-fbox-input"
-      placeholder={panel === 'history' ? $t('sidebar.filterHistory') : $t('sidebar.filter')}
-      aria-label={$t('sidebar.filterAria')}
-      bind:value={filter}
-      onkeydown={(e) => { if (e.key === 'Escape') { e.preventDefault(); filter = ''; } }}
-    />
-    {#if filterActive}
-      <button class="bs-fbox-clear" title={$t('sidebar.clearFilter')} aria-label={$t('sidebar.clearFilter')} onclick={() => (filter = '')}>
-        <span class="material-symbols-outlined" style="font-size:13px">close</span>
-      </button>
-    {/if}
-  </div>
-  <button class="bs-fi" title={$t('sidebar.new')} aria-label={$t('sidebar.new')} onclick={(e) => openMenu('create', e)}><span class="material-symbols-outlined">add</span></button>
-</div>
-
-{#snippet node(n: TreeNode, depth: number)}
-  {#if n.kind === 'folder'}
-    {@const changed = folderChangeCount(gitPrefixVal + idToRel(n.id), gitFiles)}
-    <button class="bs-trow" class:bs-drop={dropAt?.id === n.id && dropAt.pos === 'into'} class:bs-drop-before={dropAt?.id === n.id && dropAt.pos === 'before'} class:bs-drop-after={dropAt?.id === n.id && dropAt.pos === 'after'} class:bs-dragsrc={dragId === n.id} class:bs-dropped={droppedId === n.id} data-node-id={n.id} data-folder={n.expanded ? 'open' : 'closed'} style="padding-left:{indent(depth)}px; --d:{Math.min(depth, 4)}" onpointerdown={(e) => onRowPointerDown(e, n.id)} oncontextmenu={(e) => { e.preventDefault(); openMenu('coll', e, n.id, true); }} onkeydown={(e) => rowKey(e, n)} onclick={() => { if (editingNodeId !== n.id) toggleFolder(n.id); }}>
-      <span class="material-symbols-outlined cv">{n.expanded ? 'keyboard_arrow_down' : 'chevron_right'}</span>
-      <span class="material-symbols-outlined fo">{n.expanded ? 'folder_open' : 'folder'}</span>
-      {#if editingNodeId === n.id}<!-- svelte-ignore a11y_autofocus --><input class="bs-nm bs-nm-input" bind:value={editValue} autofocus onpointerdown={(e) => e.stopPropagation()} onclick={(e) => e.stopPropagation()} onkeydown={inlineRenameKeydown} onblur={commitInlineRename} />{:else}<span class="bs-nm" title={n.name}>{n.name}</span>{/if}
-      {#if dropAt?.id === n.id && dropAt.pos === 'into'}
-        <span class="bs-tcount bs-tcount-drop">{n.children.length} → {n.children.length + 1}</span>
-      {:else if changed > 0}
-        <span class="bs-git-treecount">{changed}</span>
-      {:else if n.children.length > 0}
-        <span class="bs-tcount">{n.children.length}</span>
+  <nav class="bs-railrow" aria-label={$t('sidebar.navAria')}>
+    <div class="bs-railnav">
+      <button
+        class="bs-ri"
+        class:on={panel === 'collections'}
+        title={$t('sidebar.collections')}
+        onclick={() => (panel = 'collections')}
+        ><span class="material-symbols-outlined">folder</span><span class="bs-ri-label"
+          >{$t('sidebar.collections')}</span
+        ></button
+      >
+      <button
+        class="bs-ri"
+        class:on={panel === 'history'}
+        title={$t('sidebar.history')}
+        onclick={() => (panel = 'history')}
+        ><span class="material-symbols-outlined">history</span><span class="bs-ri-label">{$t('sidebar.history')}</span
+        ></button
+      >
+      {#if GIT_ENABLED}
+        <button
+          class="bs-ri"
+          class:on={panel === 'git'}
+          title={$t('sidebar.sourceControl')}
+          onclick={() => (panel = 'git')}
+          ><span class="material-symbols-outlined">folder_open</span><span class="bs-ri-label">Git</span></button
+        >
       {/if}
-      <span class="bs-act" role="button" tabindex="0" onclick={(e) => { e.stopPropagation(); openMenu('coll', e, n.id, true); }} onkeydown={() => {}}><span class="material-symbols-outlined" style="font-size:15px">more_horiz</span></span>
-    </button>
-    {#if n.expanded}
-      {#if n.children.length === 0}
-        <div class="bs-empty" style="padding-left:{indent(depth + 1)}px"><p>{$t('sidebar.folderEmpty')}</p></div>
-      {:else}
-        {#each n.children as child (child.id)}
-          {@render node(child, depth + 1)}
-        {/each}
-      {/if}
-    {/if}
-  {:else}
-    {@const st = statusMap.get(gitPrefixVal + idToRel(n.id))}
-    <button class="bs-trow" class:sel={activeSavedPath === n.id} class:bs-drop-before={dropAt?.id === n.id && dropAt.pos === 'before'} class:bs-drop-after={dropAt?.id === n.id && dropAt.pos === 'after'} class:bs-dragsrc={dragId === n.id} class:bs-dropped={droppedId === n.id} data-node-id={n.id} style="padding-left:{indent(depth)}px; --d:{Math.min(depth, 4)}" onpointerdown={(e) => onRowPointerDown(e, n.id)} oncontextmenu={(e) => { e.preventDefault(); openMenu('req', e, n.id, false); }} onkeydown={(e) => rowKey(e, n)} onclick={(e) => { if (editingNodeId !== n.id) openSavedRequest(n, e.metaKey || e.ctrlKey); }}>
-      <span class="bs-mp" style="color:{methodColor(n.protocol === 'grpc' ? 'GRPC' : n.request.method)}">{n.protocol === 'grpc' ? 'gRPC' : methodLabel(n.request.method)}</span>
-      {#if editingNodeId === n.id}<!-- svelte-ignore a11y_autofocus --><input class="bs-nm bs-nm-input" bind:value={editValue} autofocus onpointerdown={(e) => e.stopPropagation()} onclick={(e) => e.stopPropagation()} onkeydown={inlineRenameKeydown} onblur={commitInlineRename} />{:else}<span class="bs-nm" title="{n.protocol === 'grpc' ? 'gRPC' : n.request.method.toUpperCase()} {n.name}">{n.name}</span>{/if}
-      {#if st}
-        <span class="bs-git-treebadge" style="color:{statusColor(st)}">{st}</span>
-      {/if}
-      <span class="bs-act" role="button" tabindex="0" title={$t('sidebar.requestActions')} onclick={(e) => { e.stopPropagation(); openMenu('req', e, n.id, false); }} onkeydown={() => {}}><span class="material-symbols-outlined" style="font-size:14px">more_horiz</span></span>
-    </button>
-  {/if}
-{/snippet}
-
-{#if panel === 'git'}
-  <GitPanel />
-{:else}
-<!-- svelte-ignore a11y_no_static_element_interactions -->
-<div class="bs-tree" bind:this={treeEl} class:bs-flows-selected={panel === 'flows'} class:bs-droproot={dropAt?.id === ''} class:bs-dragging={!!dragId}>
-  {#if panel === 'collections'}
-    {#if visibleCollections.length === 0}
-      <div class="bs-collection-empty">
-        <span class="material-symbols-outlined bs-collection-empty-icon" aria-hidden="true">folder</span>
-        <strong>{filterActive ? $t('sidebar.notFound') : $t('sidebar.noCollections')}</strong>
-        <p>{filterActive ? $t('sidebar.tryOther') : $t('sidebar.collectionHint')}</p>
-        {#if !filterActive}<button class="bs-empty-action" onclick={() => void addFolder()}>{$t('sidebar.newCollection')}</button>{/if}
-      </div>
-    {:else}
-      {#each visibleCollections as n (n.id)}
-        {@render node(n, 0)}
-      {/each}
-    {/if}
-  {:else if panel === 'history'}
-    {#if visibleHistory.length === 0}
-      <div class="bs-empty"><p>{filterActive ? $t('sidebar.notFoundDot') : $t('sidebar.historyEmpty')}</p></div>
-      <button class="bs-history-options" type="button" title={$t('sidebar.historyOptions')} onclick={(e) => openMenu('history', e)}><span class="material-symbols-outlined">more_horiz</span></button>
-    {:else}
-      {#each historyGroups as group, gi (group.day)}
-        <div class="bs-history-day">
-          <span>{group.day}</span>
-          {#if gi === 0}
-            {#if $historyPaused}<span class="bs-paused" title={$t('sidebar.recordingPaused')}>{$t('sidebar.paused')}</span>{/if}
-            <button class="bs-history-options" type="button" title={$t('sidebar.historyOptions')} onclick={(e) => openMenu('history', e)}><span class="material-symbols-outlined">more_horiz</span></button>
-          {/if}
-        </div>
-        {#each group.entries as h (h.id)}
-          {@const good = h.ok ?? ok(h.status)}
-          <button class="bs-history-row" class:sel={$tabs.find((tb) => tb.id === $activeTabId)?.historyId === h.id} type="button" title={h.envName ? `${$t('sidebar.openInNewTab')} · ${h.envName}` : $t('sidebar.openInNewTab')} onclick={() => openHistoryEntry(h)}>
-            <span class="m" style="color:{methodColor(h.protocol === 'grpc' ? 'GRPC' : h.request.method)}">{h.protocol === 'grpc' ? 'gRPC' : methodLabel(h.request.method)}</span>
-            <span class="path">{historyPath(h)}</span>
-            <span class="st" class:warn={!good && h.status >= 400 && h.status < 500} class:err={!good && !(h.status >= 400 && h.status < 500)}>{h.protocol === 'grpc' ? (h.ok ? '0 OK' : 'ERR') : h.status || 'ERR'}</span>
-            <span class="at">{clock(h.at)}</span>
-            {#if h.protocol !== 'grpc'}
-              <span class="bs-act repeat" role="button" tabindex="0" title={$t('sidebar.repeat')} aria-label={$t('sidebar.repeat')} onclick={(e) => { e.stopPropagation(); void repeatEntry(h); }} onkeydown={(e) => actKey(e, () => void repeatEntry(h))}><span class="material-symbols-outlined" style="font-size:14px">replay</span></span>
-            {/if}
-            <span class="bs-act" role="button" tabindex="0" title={$t('sidebar.remove')} aria-label={$t('sidebar.remove')} onclick={(e) => { e.stopPropagation(); removeHistoryEntry(h.id); }} onkeydown={(e) => actKey(e, () => removeHistoryEntry(h.id))}><span class="material-symbols-outlined" style="font-size:14px">close</span></span>
-          </button>
-        {/each}
-      {/each}
-    {/if}
-  {/if}
-</div>
-{/if}
-
-<div class="bs-side-dock" class:bs-flows-selected={panel === 'flows'}>
-  <section class="bs-dock-section" class:open={dockSection === 'environments'}>
-    <div class="bs-dock-head">
-      <button class="bs-dock-toggle" type="button" aria-expanded={dockSection === 'environments'} onclick={() => toggleDock('environments')}>
-        <span class="material-symbols-outlined" aria-hidden="true" style="font-size:13px">{dockSection === 'environments' ? 'expand_more' : 'chevron_right'}</span>
-        <span>{$t('sidebar.environments')}</span>
-        <span class="bs-dock-summary">{activeEnvName}</span>
-      </button>
-      <button class="bs-dock-action" type="button" title={$t('sidebar.manageEnvs')} onclick={manageEnvs}><span class="material-symbols-outlined" style="font-size:14px">tune</span></button>
     </div>
-    {#if dockSection === 'environments'}
-      <div class="bs-dock-body">
-        <button class="bs-dock-item" class:on={$activeEnvironmentId === null} type="button" onclick={() => chooseEnv(null)}>
-          <span class="material-symbols-outlined" aria-hidden="true" style="font-size:14px">{$activeEnvironmentId === null ? 'check' : 'block'}</span>
-          <span>{$t('sidebar.noEnv')}</span>
-        </button>
-        {#each $environments as environment (environment.id)}
-          <button class="bs-dock-item" class:on={$activeEnvironmentId === environment.id} type="button" onclick={() => chooseEnv(environment.id)}>
-            <span class="material-symbols-outlined" aria-hidden="true" style="font-size:14px">{$activeEnvironmentId === environment.id ? 'check' : 'layers'}</span>
-            <span>{environment.name}</span>
-          </button>
-        {/each}
-      </div>
-    {/if}
-  </section>
-
-  <section class="bs-dock-section" class:open={dockSection === 'flows'}>
-    <div class="bs-dock-head">
-      <button class="bs-dock-toggle" type="button" aria-expanded={dockSection === 'flows'} onclick={() => toggleDock('flows')}>
-        <span class="material-symbols-outlined" aria-hidden="true" style="font-size:13px">{dockSection === 'flows' ? 'expand_more' : 'chevron_right'}</span><span>{$t('sidebar.flows')}</span>
-      </button>
-      <button class="bs-dock-action" type="button" title={$t('sidebar.newFlow')} onclick={newFlow}><span class="material-symbols-outlined" style="font-size:14px">add</span></button>
-    </div>
-    {#if dockSection === 'flows'}
-      <div class="bs-dock-body">
-        {#if $flows.length === 0}
-          <div class="bs-dock-empty">{$t('sidebar.noFlows')}</div>
+  </nav>
+  <div class="bs-sidebar-content">
+    {#if dragNode}
+      <div class="bs-drag-ghost" style="left:{ghostAt.x}px; top:{ghostAt.y}px" aria-hidden="true">
+        {#if dragNode.kind === 'folder'}
+          <span class="material-symbols-outlined">folder</span>
         {:else}
-          {#each $flows as flow (flow.id)}
-            <button class="bs-dock-item" type="button" onclick={() => chooseFlow(flow.id)}>
-              <span class="material-symbols-outlined" aria-hidden="true" style="font-size:14px">account_tree</span><span>{flow.name}</span>
-            </button>
-          {/each}
+          <span class="m" style="color:{methodColor(dragNode.protocol === 'grpc' ? 'GRPC' : dragNode.request.method)}"
+            >{dragNode.protocol === 'grpc' ? 'gRPC' : methodLabel(dragNode.request.method)}</span
+          >
+        {/if}
+        <span>{dragNode.name}</span>
+        {#if copyDrag}<span class="plus">+</span>{/if}
+      </div>
+    {/if}
+    {#if toast}
+      <div class="bs-drop-toast" role="status">
+        <span class="material-symbols-outlined ok">check_circle</span>
+        <span class="tx">{toast.text}</span>
+        <button type="button" class="undo" onclick={runUndo}>{$t('sidebar.undo')} ⌘Z</button>
+      </div>
+    {/if}
+    <div class="bs-filterrow">
+      <div class="bs-fbox">
+        <span class="material-symbols-outlined">search</span>
+        <input
+          class="bs-fbox-input"
+          placeholder={panel === 'history' ? $t('sidebar.filterHistory') : $t('sidebar.filter')}
+          aria-label={$t('sidebar.filterAria')}
+          bind:value={filter}
+          onkeydown={(e) => {
+            if (e.key === 'Escape') {
+              e.preventDefault();
+              filter = '';
+            }
+          }}
+        />
+        {#if filterActive}
+          <button
+            class="bs-fbox-clear"
+            title={$t('sidebar.clearFilter')}
+            aria-label={$t('sidebar.clearFilter')}
+            onclick={() => (filter = '')}
+          >
+            <span class="material-symbols-outlined" style="font-size:13px">close</span>
+          </button>
+        {/if}
+      </div>
+      <button
+        class="bs-fi"
+        title={$t('sidebar.new')}
+        aria-label={$t('sidebar.new')}
+        onclick={(e) => openMenu('create', e)}><span class="material-symbols-outlined">add</span></button
+      >
+    </div>
+
+    {#snippet node(n: TreeNode, depth: number)}
+      {#if n.kind === 'folder'}
+        {@const changed = folderChangeCount(gitPrefixVal + idToRel(n.id), gitFiles)}
+        <button
+          class="bs-trow"
+          class:bs-drop={dropAt?.id === n.id && dropAt.pos === 'into'}
+          class:bs-drop-before={dropAt?.id === n.id && dropAt.pos === 'before'}
+          class:bs-drop-after={dropAt?.id === n.id && dropAt.pos === 'after'}
+          class:bs-dragsrc={dragId === n.id}
+          class:bs-dropped={droppedId === n.id}
+          data-node-id={n.id}
+          data-folder={n.expanded ? 'open' : 'closed'}
+          style="padding-left:{indent(depth)}px; --d:{Math.min(depth, 4)}"
+          onpointerdown={(e) => onRowPointerDown(e, n.id)}
+          oncontextmenu={(e) => {
+            e.preventDefault();
+            openMenu('coll', e, n.id, true);
+          }}
+          onkeydown={(e) => rowKey(e, n)}
+          onclick={() => {
+            if (editingNodeId !== n.id) toggleFolder(n.id);
+          }}
+        >
+          <span class="material-symbols-outlined cv">{n.expanded ? 'keyboard_arrow_down' : 'chevron_right'}</span>
+          <span class="material-symbols-outlined fo">{n.expanded ? 'folder_open' : 'folder'}</span>
+          {#if editingNodeId === n.id}<!-- svelte-ignore a11y_autofocus --><input
+              class="bs-nm bs-nm-input"
+              bind:value={editValue}
+              autofocus
+              onpointerdown={(e) => e.stopPropagation()}
+              onclick={(e) => e.stopPropagation()}
+              onkeydown={inlineRenameKeydown}
+              onblur={commitInlineRename}
+            />{:else}<span class="bs-nm" title={n.name}>{n.name}</span>{/if}
+          {#if dropAt?.id === n.id && dropAt.pos === 'into'}
+            <span class="bs-tcount bs-tcount-drop">{n.children.length} → {n.children.length + 1}</span>
+          {:else if changed > 0}
+            <span class="bs-git-treecount">{changed}</span>
+          {:else if n.children.length > 0}
+            <span class="bs-tcount">{n.children.length}</span>
+          {/if}
+          <span
+            class="bs-act"
+            role="button"
+            tabindex="0"
+            onclick={(e) => {
+              e.stopPropagation();
+              openMenu('coll', e, n.id, true);
+            }}
+            onkeydown={() => {}}><span class="material-symbols-outlined" style="font-size:15px">more_horiz</span></span
+          >
+        </button>
+        {#if n.expanded}
+          {#if n.children.length === 0}
+            <div class="bs-empty" style="padding-left:{indent(depth + 1)}px"><p>{$t('sidebar.folderEmpty')}</p></div>
+          {:else}
+            {#each n.children as child (child.id)}
+              {@render node(child, depth + 1)}
+            {/each}
+          {/if}
+        {/if}
+      {:else}
+        {@const st = statusMap.get(gitPrefixVal + idToRel(n.id))}
+        <button
+          class="bs-trow"
+          class:sel={activeSavedPath === n.id}
+          class:bs-drop-before={dropAt?.id === n.id && dropAt.pos === 'before'}
+          class:bs-drop-after={dropAt?.id === n.id && dropAt.pos === 'after'}
+          class:bs-dragsrc={dragId === n.id}
+          class:bs-dropped={droppedId === n.id}
+          data-node-id={n.id}
+          style="padding-left:{indent(depth)}px; --d:{Math.min(depth, 4)}"
+          onpointerdown={(e) => onRowPointerDown(e, n.id)}
+          oncontextmenu={(e) => {
+            e.preventDefault();
+            openMenu('req', e, n.id, false);
+          }}
+          onkeydown={(e) => rowKey(e, n)}
+          onclick={(e) => {
+            if (editingNodeId !== n.id) openSavedRequest(n, e.metaKey || e.ctrlKey);
+          }}
+        >
+          <span class="bs-mp" style="color:{methodColor(n.protocol === 'grpc' ? 'GRPC' : n.request.method)}"
+            >{n.protocol === 'grpc' ? 'gRPC' : methodLabel(n.request.method)}</span
+          >
+          {#if editingNodeId === n.id}<!-- svelte-ignore a11y_autofocus --><input
+              class="bs-nm bs-nm-input"
+              bind:value={editValue}
+              autofocus
+              onpointerdown={(e) => e.stopPropagation()}
+              onclick={(e) => e.stopPropagation()}
+              onkeydown={inlineRenameKeydown}
+              onblur={commitInlineRename}
+            />{:else}<span
+              class="bs-nm"
+              title="{n.protocol === 'grpc' ? 'gRPC' : n.request.method.toUpperCase()} {n.name}">{n.name}</span
+            >{/if}
+          {#if st}
+            <span class="bs-git-treebadge" style="color:{statusColor(st)}">{st}</span>
+          {/if}
+          <span
+            class="bs-act"
+            role="button"
+            tabindex="0"
+            title={$t('sidebar.requestActions')}
+            onclick={(e) => {
+              e.stopPropagation();
+              openMenu('req', e, n.id, false);
+            }}
+            onkeydown={() => {}}><span class="material-symbols-outlined" style="font-size:14px">more_horiz</span></span
+          >
+        </button>
+      {/if}
+    {/snippet}
+
+    {#if panel === 'git'}
+      <GitPanel />
+    {:else}
+      <!-- svelte-ignore a11y_no_static_element_interactions -->
+      <div
+        class="bs-tree"
+        bind:this={treeEl}
+        class:bs-flows-selected={panel === 'flows'}
+        class:bs-droproot={dropAt?.id === ''}
+        class:bs-dragging={!!dragId}
+      >
+        {#if panel === 'collections'}
+          {#if visibleCollections.length === 0}
+            <div class="bs-collection-empty">
+              <span class="material-symbols-outlined bs-collection-empty-icon" aria-hidden="true">folder</span>
+              <strong>{filterActive ? $t('sidebar.notFound') : $t('sidebar.noCollections')}</strong>
+              <p>{filterActive ? $t('sidebar.tryOther') : $t('sidebar.collectionHint')}</p>
+              {#if !filterActive}<button class="bs-empty-action" onclick={() => void addFolder()}
+                  >{$t('sidebar.newCollection')}</button
+                >{/if}
+            </div>
+          {:else}
+            {#each visibleCollections as n (n.id)}
+              {@render node(n, 0)}
+            {/each}
+          {/if}
+        {:else if panel === 'history'}
+          {#if visibleHistory.length === 0}
+            <div class="bs-empty"><p>{filterActive ? $t('sidebar.notFoundDot') : $t('sidebar.historyEmpty')}</p></div>
+            <button
+              class="bs-history-options"
+              type="button"
+              title={$t('sidebar.historyOptions')}
+              onclick={(e) => openMenu('history', e)}><span class="material-symbols-outlined">more_horiz</span></button
+            >
+          {:else}
+            {#each historyGroups as group, gi (group.day)}
+              <div class="bs-history-day">
+                <span>{group.day}</span>
+                {#if gi === 0}
+                  {#if $historyPaused}<span class="bs-paused" title={$t('sidebar.recordingPaused')}
+                      >{$t('sidebar.paused')}</span
+                    >{/if}
+                  <button
+                    class="bs-history-options"
+                    type="button"
+                    title={$t('sidebar.historyOptions')}
+                    onclick={(e) => openMenu('history', e)}
+                    ><span class="material-symbols-outlined">more_horiz</span></button
+                  >
+                {/if}
+              </div>
+              {#each group.entries as h (h.id)}
+                {@const good = h.ok ?? ok(h.status)}
+                <button
+                  class="bs-history-row"
+                  class:sel={$tabs.find((tb) => tb.id === $activeTabId)?.historyId === h.id}
+                  type="button"
+                  title={h.envName ? `${$t('sidebar.openInNewTab')} · ${h.envName}` : $t('sidebar.openInNewTab')}
+                  onclick={() => openHistoryEntry(h)}
+                >
+                  <span class="m" style="color:{methodColor(h.protocol === 'grpc' ? 'GRPC' : h.request.method)}"
+                    >{h.protocol === 'grpc' ? 'gRPC' : methodLabel(h.request.method)}</span
+                  >
+                  <span class="path">{historyPath(h)}</span>
+                  <span
+                    class="st"
+                    class:warn={!good && h.status >= 400 && h.status < 500}
+                    class:err={!good && !(h.status >= 400 && h.status < 500)}
+                    >{h.protocol === 'grpc' ? (h.ok ? '0 OK' : 'ERR') : h.status || 'ERR'}</span
+                  >
+                  <span class="at">{clock(h.at)}</span>
+                  {#if h.protocol !== 'grpc'}
+                    <span
+                      class="bs-act repeat"
+                      role="button"
+                      tabindex="0"
+                      title={$t('sidebar.repeat')}
+                      aria-label={$t('sidebar.repeat')}
+                      onclick={(e) => {
+                        e.stopPropagation();
+                        void repeatEntry(h);
+                      }}
+                      onkeydown={(e) => actKey(e, () => void repeatEntry(h))}
+                      ><span class="material-symbols-outlined" style="font-size:14px">replay</span></span
+                    >
+                  {/if}
+                  <span
+                    class="bs-act"
+                    role="button"
+                    tabindex="0"
+                    title={$t('sidebar.remove')}
+                    aria-label={$t('sidebar.remove')}
+                    onclick={(e) => {
+                      e.stopPropagation();
+                      removeHistoryEntry(h.id);
+                    }}
+                    onkeydown={(e) => actKey(e, () => removeHistoryEntry(h.id))}
+                    ><span class="material-symbols-outlined" style="font-size:14px">close</span></span
+                  >
+                </button>
+              {/each}
+            {/each}
+          {/if}
         {/if}
       </div>
     {/if}
-  </section>
-</div>
 
+    <div class="bs-side-dock" class:bs-flows-selected={panel === 'flows'}>
+      <section class="bs-dock-section" class:open={dockSection === 'environments'}>
+        <div class="bs-dock-head">
+          <button
+            class="bs-dock-toggle"
+            type="button"
+            aria-expanded={dockSection === 'environments'}
+            onclick={() => toggleDock('environments')}
+          >
+            <span class="material-symbols-outlined" aria-hidden="true" style="font-size:13px"
+              >{dockSection === 'environments' ? 'expand_more' : 'chevron_right'}</span
+            >
+            <span>{$t('sidebar.environments')}</span>
+            <span class="bs-dock-summary">{activeEnvName}</span>
+          </button>
+          <button class="bs-dock-action" type="button" title={$t('sidebar.manageEnvs')} onclick={manageEnvs}
+            ><span class="material-symbols-outlined" style="font-size:14px">tune</span></button
+          >
+        </div>
+        {#if dockSection === 'environments'}
+          <div class="bs-dock-body">
+            <button
+              class="bs-dock-item"
+              class:on={$activeEnvironmentId === null}
+              type="button"
+              onclick={() => chooseEnv(null)}
+            >
+              <span class="material-symbols-outlined" aria-hidden="true" style="font-size:14px"
+                >{$activeEnvironmentId === null ? 'check' : 'block'}</span
+              >
+              <span>{$t('sidebar.noEnv')}</span>
+            </button>
+            {#each $environments as environment (environment.id)}
+              <button
+                class="bs-dock-item"
+                class:on={$activeEnvironmentId === environment.id}
+                type="button"
+                onclick={() => chooseEnv(environment.id)}
+              >
+                <span class="material-symbols-outlined" aria-hidden="true" style="font-size:14px"
+                  >{$activeEnvironmentId === environment.id ? 'check' : 'layers'}</span
+                >
+                <span>{environment.name}</span>
+              </button>
+            {/each}
+          </div>
+        {/if}
+      </section>
 
-</div>
+      <section class="bs-dock-section" class:open={dockSection === 'flows'}>
+        <div class="bs-dock-head">
+          <button
+            class="bs-dock-toggle"
+            type="button"
+            aria-expanded={dockSection === 'flows'}
+            onclick={() => toggleDock('flows')}
+          >
+            <span class="material-symbols-outlined" aria-hidden="true" style="font-size:13px"
+              >{dockSection === 'flows' ? 'expand_more' : 'chevron_right'}</span
+            ><span>{$t('sidebar.flows')}</span>
+          </button>
+          <button class="bs-dock-action" type="button" title={$t('sidebar.newFlow')} onclick={newFlow}
+            ><span class="material-symbols-outlined" style="font-size:14px">add</span></button
+          >
+        </div>
+        {#if dockSection === 'flows'}
+          <div class="bs-dock-body">
+            {#if $flows.length === 0}
+              <div class="bs-dock-empty">{$t('sidebar.noFlows')}</div>
+            {:else}
+              {#each $flows as flow (flow.id)}
+                <button class="bs-dock-item" type="button" onclick={() => chooseFlow(flow.id)}>
+                  <span class="material-symbols-outlined" aria-hidden="true" style="font-size:14px">account_tree</span
+                  ><span>{flow.name}</span>
+                </button>
+              {/each}
+            {/if}
+          </div>
+        {/if}
+      </section>
+    </div>
+  </div>
 </div>

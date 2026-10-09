@@ -17,7 +17,12 @@ import {
 import type { GrpcField, Tab } from './types';
 
 const grpcTab = (grpc: Record<string, unknown> = {}, extra: Record<string, unknown> = {}) =>
-  ({ id: 't1', title: 'old', grpc: { endpoint: 'a:1', message: '{}', metadata: { k: 'v' }, connectionId: 'c', tree: { services: [] }, ...grpc }, ...extra }) as unknown as Tab;
+  ({
+    id: 't1',
+    title: 'old',
+    grpc: { endpoint: 'a:1', message: '{}', metadata: { k: 'v' }, connectionId: 'c', tree: { services: [] }, ...grpc },
+    ...extra,
+  }) as unknown as Tab;
 
 describe('omitKey', () => {
   it('drops the key, and returns the same object when absent', () => {
@@ -29,8 +34,18 @@ describe('omitKey', () => {
 
 describe('invokeFailureResult', () => {
   it('maps a cancellation to CANCELLED and everything else to ERROR', () => {
-    expect(invokeFailureResult(new Error('request Cancelled by user'))).toMatchObject({ ok: false, status: 'CANCELLED', body: 'Request cancelled' });
-    expect(invokeFailureResult('boom')).toMatchObject({ ok: false, status: 'ERROR', body: 'boom', elapsed_ms: 0, size_bytes: 0 });
+    expect(invokeFailureResult(new Error('request Cancelled by user'))).toMatchObject({
+      ok: false,
+      status: 'CANCELLED',
+      body: 'Request cancelled',
+    });
+    expect(invokeFailureResult('boom')).toMatchObject({
+      ok: false,
+      status: 'ERROR',
+      body: 'boom',
+      elapsed_ms: 0,
+      size_bytes: 0,
+    });
   });
 });
 
@@ -48,17 +63,39 @@ describe('withGrpcEndpoint', () => {
 });
 
 describe('applyGrpcurlImport', () => {
-  const cmd = { endpoint: 'h:9', plaintext: true, method: 'p.S.M', message: '{"a":1}', metadata: { x: '1' }, insecure: true, protoPaths: ['/abs/a.proto', 'rel.proto'], importPaths: ['/inc', 'rel'] };
+  const cmd = {
+    endpoint: 'h:9',
+    plaintext: true,
+    method: 'p.S.M',
+    message: '{"a":1}',
+    metadata: { x: '1' },
+    insecure: true,
+    protoPaths: ['/abs/a.proto', 'rel.proto'],
+    importPaths: ['/inc', 'rel'],
+  };
   it('fills the request, merges metadata and keeps only absolute proto paths', () => {
     const t = applyGrpcurlImport(grpcTab(), cmd, 'h:9');
     expect(t.title).toBe('h:9');
     expect(t.grpc).toMatchObject({
-      endpoint: 'h:9', plaintext: true, method: 'p.S.M', message: '{"a":1}', metadata: { k: 'v', x: '1' },
-      tls: { insecure: true }, source: 'proto', protoPaths: ['/abs/a.proto'], importPaths: ['/inc'], connectionId: undefined, tree: undefined,
+      endpoint: 'h:9',
+      plaintext: true,
+      method: 'p.S.M',
+      message: '{"a":1}',
+      metadata: { k: 'v', x: '1' },
+      tls: { insecure: true },
+      source: 'proto',
+      protoPaths: ['/abs/a.proto'],
+      importPaths: ['/inc'],
+      connectionId: undefined,
+      tree: undefined,
     });
   });
   it('leaves method/message/source alone when the command has none', () => {
-    const t = applyGrpcurlImport(grpcTab({ method: 'keep', message: 'keep' }), { ...cmd, method: undefined, message: undefined, insecure: false, protoPaths: [], importPaths: [] }, 't');
+    const t = applyGrpcurlImport(
+      grpcTab({ method: 'keep', message: 'keep' }),
+      { ...cmd, method: undefined, message: undefined, insecure: false, protoPaths: [], importPaths: [] },
+      't',
+    );
     expect(t.grpc).toMatchObject({ method: 'keep', message: 'keep' });
     expect(t.grpc && 'source' in t.grpc && t.grpc.source).toBeFalsy();
   });
@@ -67,10 +104,22 @@ describe('applyGrpcurlImport', () => {
 describe('resolveOutgoingGrpc', () => {
   const bearer = { type: 'bearer', bearerToken: '{{tok}}', apiKeyIn: 'header' } as never;
   it('resolves vars, lets explicit metadata win over auth and defaults an empty message to {}', () => {
-    const out = resolveOutgoingGrpc(bearer, '  ', { authorization: 'Custom {{tok}}', x: '{{tok}}' }, [], undefined, { tok: 'T' }, false);
+    const out = resolveOutgoingGrpc(
+      bearer,
+      '  ',
+      { authorization: 'Custom {{tok}}', x: '{{tok}}' },
+      [],
+      undefined,
+      { tok: 'T' },
+      false,
+    );
     expect(out).toEqual({ message: '{}', metadata: { authorization: 'Custom T', x: 'T' } });
-    expect(resolveOutgoingGrpc(bearer, '{"a":"{{tok}}"}', {}, [], undefined, { tok: 'T' }, false).message).toBe('{"a":"T"}');
-    expect(resolveOutgoingGrpc(bearer, '{}', {}, [], undefined, { tok: 'T' }, false).metadata).toEqual({ authorization: 'Bearer T' });
+    expect(resolveOutgoingGrpc(bearer, '{"a":"{{tok}}"}', {}, [], undefined, { tok: 'T' }, false).message).toBe(
+      '{"a":"T"}',
+    );
+    expect(resolveOutgoingGrpc(bearer, '{}', {}, [], undefined, { tok: 'T' }, false).metadata).toEqual({
+      authorization: 'Bearer T',
+    });
   });
   it('strips authorization when asked', () => {
     const out = resolveOutgoingGrpc(bearer, '{}', { x: '1' }, [], undefined, { tok: 'T' }, true);
@@ -78,11 +127,16 @@ describe('resolveOutgoingGrpc', () => {
   });
 });
 
-const tr = (key: string, params?: Record<string, string | number>) => (params ? `${key}:${JSON.stringify(params)}` : key);
+const tr = (key: string, params?: Record<string, string | number>) =>
+  params ? `${key}:${JSON.stringify(params)}` : key;
 
 describe('presentEditorError', () => {
   it('schema guidance wins over everything', () => {
-    expect(presentEditorError('anything', true, '', tr)).toMatchObject({ kind: 'schema', message: 'anything', icon: 'description' });
+    expect(presentEditorError('anything', true, '', tr)).toMatchObject({
+      kind: 'schema',
+      message: 'anything',
+      icon: 'description',
+    });
   });
   it('falls back to the server name when the endpoint is blank', () => {
     const p = presentEditorError('connection refused', false, '  ', tr);
@@ -108,7 +162,10 @@ describe('splitMethodSymbol', () => {
 describe('sentEntries', () => {
   it('numbers one row per array element after the already-sent ones', () => {
     const rows = sentEntries('[{"a":1},{"b":2}]', 3, 99);
-    expect(rows.map((r) => [r.index, r.body, r.atMs, r.sent])).toEqual([[4, '{"a":1}', 99, true], [5, '{"b":2}', 99, true]]);
+    expect(rows.map((r) => [r.index, r.body, r.atMs, r.sent])).toEqual([
+      [4, '{"a":1}', 99, true],
+      [5, '{"b":2}', 99, true],
+    ]);
   });
   it('wraps a single object and ignores invalid JSON', () => {
     expect(sentEntries('{"a":1}', 0, 1)).toHaveLength(1);
@@ -143,7 +200,9 @@ describe('fieldCompletionOptions', () => {
   ] as GrpcField[];
 
   it('marks present fields, sinks them and ranks the rest by position', () => {
-    const [a, b] = fieldCompletionOptions(fields, new Set(['userName']), 'Req', tr) as unknown as Array<Record<string, unknown>>;
+    const [a, b] = fieldCompletionOptions(fields, new Set(['userName']), 'Req', tr) as unknown as Array<
+      Record<string, unknown>
+    >;
     expect(a).toMatchObject({ label: 'user_name', set: true, boost: -99, doc: 'grpc.msg.fieldSet' });
     expect(b).toMatchObject({ label: 'tags', set: false, boost: 49, doc: 'labels' });
     expect(a.section).toEqual({ name: 'grpc.msg.fieldsHead:{"type":"Req"}' });

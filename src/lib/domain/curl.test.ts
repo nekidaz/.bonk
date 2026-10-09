@@ -85,18 +85,14 @@ describe('toCurl', () => {
   });
 
   it("escapes a single quote in a header value with the '\\'' idiom", () => {
-    const out = toCurl(
-      tab({ method: 'GET', url: 'https://h/x', headers: { Authorization: "Bearer o'Hara" } }),
-    );
+    const out = toCurl(tab({ method: 'GET', url: 'https://h/x', headers: { Authorization: "Bearer o'Hara" } }));
     expect(out).toContain(`--header 'Authorization: Bearer o'\\''Hara'`);
     const back = parseCurl(out);
     expect(back.headers.Authorization).toBe("Bearer o'Hara");
   });
 
   it("escapes a single quote in the body with the '\\'' idiom", () => {
-    const out = toCurl(
-      tab({ method: 'POST', url: 'https://h/x', headers: {}, body: "it's fine", bodyMode: 'raw' }),
-    );
+    const out = toCurl(tab({ method: 'POST', url: 'https://h/x', headers: {}, body: "it's fine", bodyMode: 'raw' }));
     expect(out).toContain(`--data 'it'\\''s fine'`);
     const back = parseCurl(out);
     expect(back.body).toBe("it's fine");

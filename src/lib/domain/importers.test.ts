@@ -10,10 +10,20 @@ describe('Insomnia import', () => {
       { _id: 'fld_1', _type: 'request_group', name: 'Users', parentId: 'wrk_1' },
       { _id: 'fld_2', _type: 'request_group', name: 'Admin', parentId: 'fld_1' },
       {
-        _id: 'req_1', _type: 'request', parentId: 'fld_2', name: 'Create', method: 'post',
+        _id: 'req_1',
+        _type: 'request',
+        parentId: 'fld_2',
+        name: 'Create',
+        method: 'post',
         url: '{{ _.baseUrl }}/users',
-        parameters: [{ name: 'a', value: '1' }, { name: 'b', value: '2', disabled: true }],
-        headers: [{ name: 'X-T', value: '{{_.tok}}' }, { name: 'Off', value: 'x', disabled: true }],
+        parameters: [
+          { name: 'a', value: '1' },
+          { name: 'b', value: '2', disabled: true },
+        ],
+        headers: [
+          { name: 'X-T', value: '{{_.tok}}' },
+          { name: 'Off', value: 'x', disabled: true },
+        ],
         body: { mimeType: 'application/json', text: '{"n":"{{ _.name }}"}' },
         authentication: { type: 'bearer', token: '{{ _.tok }}' },
       },
@@ -59,10 +69,13 @@ describe('HAR import', () => {
       entries: [
         {
           request: {
-            method: 'POST', url: 'https://a.io/v1/x?q=1',
+            method: 'POST',
+            url: 'https://a.io/v1/x?q=1',
             headers: [
-              { name: ':authority', value: 'a.io' }, { name: 'Cookie', value: 'c' },
-              { name: 'Content-Length', value: '3' }, { name: 'Host', value: 'a.io' },
+              { name: ':authority', value: 'a.io' },
+              { name: 'Cookie', value: 'c' },
+              { name: 'Content-Length', value: '3' },
+              { name: 'Host', value: 'a.io' },
               { name: 'Accept', value: 'json' },
             ],
             postData: { mimeType: 'application/json', text: '{"a":1}' },

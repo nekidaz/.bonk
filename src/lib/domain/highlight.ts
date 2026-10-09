@@ -67,7 +67,10 @@ export function highlightJson(raw: string, pretty = true): string {
   return esc(p).replace(
     /("(?:\\.|[^"\\])*")(\s*:)?|\b(true|false|null)\b|(-?\d+\.?\d*(?:[eE][+-]?\d+)?)|([{}\[\],])/g,
     (m, str, colon, bool, num, punct) => {
-      if (str) return colon ? `<span class="k">${str}</span><span class="pu">${colon}</span>` : `<span class="s2">${str}</span>`;
+      if (str)
+        return colon
+          ? `<span class="k">${str}</span><span class="pu">${colon}</span>`
+          : `<span class="s2">${str}</span>`;
       if (bool) return `<span class="b2">${bool}</span>`;
       if (num) return `<span class="n2">${num}</span>`;
       if (punct) return `<span class="br">${punct}</span>`;
@@ -81,14 +84,15 @@ export function highlightMarkup(raw: string): string {
   if (raw.length > MAX_HIGHLIGHT_CHARS) return esc(raw);
   return memoText(markupHighlightCache, raw, () => {
     return esc(raw).replace(
-    /(&lt;\/?)([A-Za-z][\w:.-]*)([^&]*?)(&gt;)|(\b[A-Za-z_:][\w:.-]*)(=)(&quot;.*?&quot;|'.*?')/g,
-    (m, open, tag, attrs, close, attr, eq, val) => {
-      // `attrs` is sourced from already-escaped text, but re-escape it before it
-      // re-enters the {@html} output as defense-in-depth against the HTML sinks.
-      if (tag) return `<span class="br">${open}</span><span class="tag">${tag}</span><span class="attr">${esc(attrs)}</span><span class="br">${close}</span>`;
-      if (attr) return `<span class="attr">${attr}</span><span class="pu">${eq}</span><span class="s2">${val}</span>`;
-      return m;
-    },
+      /(&lt;\/?)([A-Za-z][\w:.-]*)([^&]*?)(&gt;)|(\b[A-Za-z_:][\w:.-]*)(=)(&quot;.*?&quot;|'.*?')/g,
+      (m, open, tag, attrs, close, attr, eq, val) => {
+        // `attrs` is sourced from already-escaped text, but re-escape it before it
+        // re-enters the {@html} output as defense-in-depth against the HTML sinks.
+        if (tag)
+          return `<span class="br">${open}</span><span class="tag">${tag}</span><span class="attr">${esc(attrs)}</span><span class="br">${close}</span>`;
+        if (attr) return `<span class="attr">${attr}</span><span class="pu">${eq}</span><span class="s2">${val}</span>`;
+        return m;
+      },
     );
   });
 }
@@ -154,14 +158,21 @@ export function formatMarkup(raw: string): string {
     .replace(/>\s+</g, '><')
     .replace(/(>)(<)(\/*)/g, '$1\n$2$3')
     .split('\n')
-    .reduce((lines, line) => {
-      const trimmed = line.trim();
-      if (!trimmed) return lines;
-      if (/^<\//.test(trimmed)) lines.depth = Math.max(lines.depth - 1, 0);
-      lines.out.push(`${'  '.repeat(lines.depth)}${trimmed}`);
-      if (/^<[^!?/][^>]*[^/]>\s*$/.test(trimmed) && !/^<(area|base|br|col|embed|hr|img|input|link|meta|param|source|track|wbr)\b/i.test(trimmed)) {
-        lines.depth += 1;
-      }
-      return lines;
-    }, { depth: 0, out: [] as string[] }).out.join('\n');
+    .reduce(
+      (lines, line) => {
+        const trimmed = line.trim();
+        if (!trimmed) return lines;
+        if (/^<\//.test(trimmed)) lines.depth = Math.max(lines.depth - 1, 0);
+        lines.out.push(`${'  '.repeat(lines.depth)}${trimmed}`);
+        if (
+          /^<[^!?/][^>]*[^/]>\s*$/.test(trimmed) &&
+          !/^<(area|base|br|col|embed|hr|img|input|link|meta|param|source|track|wbr)\b/i.test(trimmed)
+        ) {
+          lines.depth += 1;
+        }
+        return lines;
+      },
+      { depth: 0, out: [] as string[] },
+    )
+    .out.join('\n');
 }

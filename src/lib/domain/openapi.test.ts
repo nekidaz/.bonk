@@ -1,12 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { stringify as stringifyYaml, parse as parseYaml } from 'yaml';
-import {
-  parseOpenApi,
-  buildOpenApi,
-  serializeSpec,
-  exampleFromSchema,
-  type ExportFolder,
-} from './openapi';
+import { parseOpenApi, buildOpenApi, serializeSpec, exampleFromSchema, type ExportFolder } from './openapi';
 import type { RequestNode } from './types';
 
 // A small OAS3 spec: a GET with a query param + path param, and a POST with a
@@ -71,9 +65,7 @@ describe('parseOpenApi — OpenAPI 3', () => {
     const get = all.find((r) => r.request.method === 'GET')!;
     expect(get.name).toBe('Get user');
     expect(get.request.url).toBe('{{baseUrl}}/users/{{id}}');
-    expect(get.params).toEqual([
-      { key: 'verbose', value: 'true', description: '', enabled: true },
-    ]);
+    expect(get.params).toEqual([{ key: 'verbose', value: 'true', description: '', enabled: true }]);
   });
 
   it('generates a JSON body from a $ref schema and sets Content-Type', () => {
@@ -98,9 +90,7 @@ describe('parseOpenApi — YAML input', () => {
     const fromYaml = parseOpenApi(stringifyYaml(oas3), 'demo.yaml');
     expect(fromYaml.title).toBe(fromJson.title);
     expect(fromYaml.baseUrl).toBe(fromJson.baseUrl);
-    expect(fromYaml.folders.flatMap((f) => f.requests)).toEqual(
-      fromJson.folders.flatMap((f) => f.requests),
-    );
+    expect(fromYaml.folders.flatMap((f) => f.requests)).toEqual(fromJson.folders.flatMap((f) => f.requests));
   });
 });
 
@@ -122,9 +112,7 @@ const swagger2 = {
       post: {
         summary: 'Create widget',
         consumes: ['application/json'],
-        parameters: [
-          { name: 'body', in: 'body', schema: { $ref: '#/definitions/Widget' } },
-        ],
+        parameters: [{ name: 'body', in: 'body', schema: { $ref: '#/definitions/Widget' } }],
       },
     },
   },
@@ -172,9 +160,7 @@ describe('exampleFromSchema', () => {
   };
 
   it('builds objects, arrays, and picks enum first', () => {
-    expect(
-      exampleFromSchema({ type: 'object', properties: { n: { type: 'integer' } } }, {}),
-    ).toEqual({ n: 0 });
+    expect(exampleFromSchema({ type: 'object', properties: { n: { type: 'integer' } } }, {})).toEqual({ n: 0 });
     expect(exampleFromSchema({ type: 'array', items: { type: 'string' } }, {})).toEqual(['']);
     expect(exampleFromSchema({ enum: ['a', 'b'] }, {})).toBe('a');
   });

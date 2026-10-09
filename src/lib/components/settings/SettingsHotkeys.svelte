@@ -8,15 +8,25 @@
   let recording = $state<string | null>(null);
 
   const conflicts = $derived(findConflicts($hotkeys));
-  const label = (id: string) => { const c = HOTKEY_COMMANDS.find((c) => c.id === id); return c ? $t(c.label) : id; };
-  const groups = $derived(HOTKEY_GROUPS.map((g) => ({
-    group: g,
-    rows: HOTKEY_COMMANDS.filter((c) => c.group === g && matchesQuery($t(c.label), $hotkeys[c.id])),
-  })).filter((g) => g.rows.length));
+  const label = (id: string) => {
+    const c = HOTKEY_COMMANDS.find((c) => c.id === id);
+    return c ? $t(c.label) : id;
+  };
+  const groups = $derived(
+    HOTKEY_GROUPS.map((g) => ({
+      group: g,
+      rows: HOTKEY_COMMANDS.filter((c) => c.group === g && matchesQuery($t(c.label), $hotkeys[c.id])),
+    })).filter((g) => g.rows.length),
+  );
 
   function matchesQuery(name: string, binding: string): boolean {
     const q = query.trim().toLowerCase();
-    return !q || name.toLowerCase().includes(q) || formatBinding(binding).join('').toLowerCase().includes(q) || formatBinding(binding).join('+').toLowerCase().includes(q);
+    return (
+      !q ||
+      name.toLowerCase().includes(q) ||
+      formatBinding(binding).join('').toLowerCase().includes(q) ||
+      formatBinding(binding).join('+').toLowerCase().includes(q)
+    );
   }
 
   // While recording, capture on window (capture phase) and stop the event so neither the
@@ -28,10 +38,15 @@
       e.preventDefault();
       e.stopPropagation();
       if (e.key === 'Escape') recording = null;
-      else if (e.key === 'Backspace' && !e.metaKey && !e.ctrlKey && !e.altKey) { setBinding(id, ''); recording = null; }
-      else {
+      else if (e.key === 'Backspace' && !e.metaKey && !e.ctrlKey && !e.altKey) {
+        setBinding(id, '');
+        recording = null;
+      } else {
         const b = eventToBinding(e);
-        if (b) { setBinding(id, b); recording = null; }
+        if (b) {
+          setBinding(id, b);
+          recording = null;
+        }
       }
     };
     window.addEventListener('keydown', onKey, true);
@@ -39,7 +54,8 @@
   });
 
   async function resetAll(): Promise<void> {
-    if (await requestConfirm(get(t)('settings.hotkeys.resetAll.confirm'), get(t)('settings.hotkeys.resetAll.ok'))) resetAllBindings();
+    if (await requestConfirm(get(t)('settings.hotkeys.resetAll.confirm'), get(t)('settings.hotkeys.resetAll.ok')))
+      resetAllBindings();
   }
 </script>
 
@@ -55,17 +71,33 @@
       <div class="st-row">
         <span class="st-copy">
           <span class="st-name">{$t(c.label)}</span>
-          {#if other}<span class="st-err st-hk-hint">{$t('settings.hotkeys.conflict')}: {other.map(label).join(', ')}</span>{/if}
+          {#if other}<span class="st-err st-hk-hint"
+              >{$t('settings.hotkeys.conflict')}: {other.map(label).join(', ')}</span
+            >{/if}
         </span>
         <span class="st-hk-end">
           {#if c.id in $hotkeyOverrides}
-            <button type="button" class="st-hk-reset" title={$t('settings.hotkeys.default')} aria-label={$t('settings.hotkeys.default')} onclick={() => resetBinding(c.id)}>↺</button>
+            <button
+              type="button"
+              class="st-hk-reset"
+              title={$t('settings.hotkeys.default')}
+              aria-label={$t('settings.hotkeys.default')}
+              onclick={() => resetBinding(c.id)}>↺</button
+            >
           {/if}
-          <button type="button" class="st-keys" class:recording={recording === c.id} class:conflict={!!other} onclick={() => (recording = recording === c.id ? null : c.id)}>
+          <button
+            type="button"
+            class="st-keys"
+            class:recording={recording === c.id}
+            class:conflict={!!other}
+            onclick={() => (recording = recording === c.id ? null : c.id)}
+          >
             {#if recording === c.id}
               <span class="st-rec">{$t('settings.hotkeys.press')}</span>
             {:else}
-              {#each formatBinding($hotkeys[c.id]) as k, i (i)}<kbd>{k}</kbd>{:else}<span class="st-rec">{$t('settings.hotkeys.unset')}</span>{/each}
+              {#each formatBinding($hotkeys[c.id]) as k, i (i)}<kbd>{k}</kbd>{:else}<span class="st-rec"
+                  >{$t('settings.hotkeys.unset')}</span
+                >{/each}
             {/if}
           </button>
         </span>

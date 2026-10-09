@@ -5,7 +5,17 @@
   import { tablist } from '../../tablist';
   import { formatBytes } from '../../domain/http';
   import { currentBodyMode, currentRawFormat } from '../../domain/httpBody';
-  import { applyBodyKind, beautify, bodyKindOf, BEAUTIFY_MAX_CHARS, isLargeBody, OTHER_KINDS, RAW_KINDS, textStats, type BodyKind } from '../../domain/largeBody';
+  import {
+    applyBodyKind,
+    beautify,
+    bodyKindOf,
+    BEAUTIFY_MAX_CHARS,
+    isLargeBody,
+    OTHER_KINDS,
+    RAW_KINDS,
+    textStats,
+    type BodyKind,
+  } from '../../domain/largeBody';
   import { jsonProblem } from '../../domain/jsonLint';
   import { SCRIPTS_ENABLED } from '../../domain/scripts';
   import { countLabel } from '../../editor/largeFold';
@@ -36,10 +46,20 @@
     const id = setTimeout(() => (invalid = !!text && !!jsonProblem(text)), 400);
     return () => clearTimeout(id);
   });
-  const canBeautify = $derived(currentBodyMode(tab) === 'raw' && ['JSON', 'HTML', 'XML'].includes(currentRawFormat(tab)));
+  const canBeautify = $derived(
+    currentBodyMode(tab) === 'raw' && ['JSON', 'HTML', 'XML'].includes(currentRawFormat(tab)),
+  );
   const KIND_LABEL: Record<BodyKind, string> = {
-    json: 'JSON', text: 'http.body.text', javascript: 'JavaScript', html: 'HTML', xml: 'XML', graphql: 'GraphQL',
-    none: 'http.body.none', urlencoded: 'Form · urlencoded', multipart: 'Form · multipart', binary: 'http.body.binary',
+    json: 'JSON',
+    text: 'http.body.text',
+    javascript: 'JavaScript',
+    html: 'HTML',
+    xml: 'XML',
+    graphql: 'GraphQL',
+    none: 'http.body.none',
+    urlencoded: 'Form · urlencoded',
+    multipart: 'Form · multipart',
+    binary: 'http.body.binary',
   };
 
   function setKind(k: BodyKind): void {
@@ -56,7 +76,16 @@
 </script>
 
 {#snippet rtab(id: HttpEditorTab, label: string, count?: number)}
-  <button class="bs-rtab" class:on={uiTab === id} role="tab" id="bs-rtab-{id}" aria-selected={uiTab === id} aria-controls="bs-reqpanel" tabindex={uiTab === id ? 0 : -1} onclick={() => (uiTab = id)}>
+  <button
+    class="bs-rtab"
+    class:on={uiTab === id}
+    role="tab"
+    id="bs-rtab-{id}"
+    aria-selected={uiTab === id}
+    aria-controls="bs-reqpanel"
+    tabindex={uiTab === id ? 0 : -1}
+    onclick={() => (uiTab = id)}
+  >
     {label}{#if count !== undefined}<span class="bs-tab-count">{count}</span>{/if}
   </button>
 {/snippet}
@@ -77,15 +106,23 @@
         {#if RAW_KINDS.includes(kind)}<span class="kind" aria-hidden="true">Raw</span>{/if}
         <select aria-label={$t('lb.format')} value={kind} onchange={(e) => setKind(e.currentTarget.value as BodyKind)}>
           <optgroup label={$t('lb.fmt.text')}>
-            {#each RAW_KINDS as k (k)}<option value={k}>{KIND_LABEL[k].startsWith('http.') ? $t(KIND_LABEL[k]) : KIND_LABEL[k]}</option>{/each}
+            {#each RAW_KINDS as k (k)}<option value={k}
+                >{KIND_LABEL[k].startsWith('http.') ? $t(KIND_LABEL[k]) : KIND_LABEL[k]}</option
+              >{/each}
           </optgroup>
           <optgroup label={$t('lb.fmt.other')}>
-            {#each OTHER_KINDS as k (k)}<option value={k}>{KIND_LABEL[k].startsWith('http.') ? $t(KIND_LABEL[k]) : KIND_LABEL[k]}</option>{/each}
+            {#each OTHER_KINDS as k (k)}<option value={k}
+                >{KIND_LABEL[k].startsWith('http.') ? $t(KIND_LABEL[k]) : KIND_LABEL[k]}</option
+              >{/each}
           </optgroup>
         </select>
         <span class="material-symbols-outlined" aria-hidden="true">keyboard_arrow_down</span>
       </span>
-      <span class="lb-stats">{`${stats.approx ? '~' : ''}${formatBytes(stats.bytes)}  ·  ${countLabel(stats.lines, 'lines', $uiLanguage)}`}{#if invalid}<b class="bad">{'  ·  '}{$t('lb.json.invalid')}</b>{/if}</span>
+      <span class="lb-stats"
+        >{`${stats.approx ? '~' : ''}${formatBytes(stats.bytes)}  ·  ${countLabel(stats.lines, 'lines', $uiLanguage)}`}{#if invalid}<b
+            class="bad">{'  ·  '}{$t('lb.json.invalid')}</b
+          >{/if}</span
+      >
       <EditorTools
         scope="#bs-reqpanel"
         onBeautify={canBeautify ? doBeautify : undefined}

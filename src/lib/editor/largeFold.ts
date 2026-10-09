@@ -11,11 +11,26 @@ import { plural, t } from '../i18n';
 import { foldArraysOver, uiLanguage } from '../stores/prefs';
 
 const UNITS: Record<ItemKind | 'lines' | 'matches', [[string, string, string], [string, string]]> = {
-  objects: [['объект', 'объекта', 'объектов'], ['object', 'objects']],
-  arrays: [['массив', 'массива', 'массивов'], ['array', 'arrays']],
-  items: [['элемент', 'элемента', 'элементов'], ['item', 'items']],
-  lines: [['строка', 'строки', 'строк'], ['line', 'lines']],
-  matches: [['совпадение', 'совпадения', 'совпадений'], ['match', 'matches']],
+  objects: [
+    ['объект', 'объекта', 'объектов'],
+    ['object', 'objects'],
+  ],
+  arrays: [
+    ['массив', 'массива', 'массивов'],
+    ['array', 'arrays'],
+  ],
+  items: [
+    ['элемент', 'элемента', 'элементов'],
+    ['item', 'items'],
+  ],
+  lines: [
+    ['строка', 'строки', 'строк'],
+    ['line', 'lines'],
+  ],
+  matches: [
+    ['совпадение', 'совпадения', 'совпадений'],
+    ['match', 'matches'],
+  ],
 };
 
 /** `4 817` / `4,817`. */

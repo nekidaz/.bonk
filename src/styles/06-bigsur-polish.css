@@ -12,7 +12,7 @@
   --tb: rgba(247, 247, 250, 0.78);
   --inset: rgba(255, 255, 255, 0.82);
   --sep: rgba(60, 60, 67, 0.18);
-  --sepsoft: rgba(60, 60, 67, 0.10);
+  --sepsoft: rgba(60, 60, 67, 0.1);
   --text: #1d1d1f;
   --t2: #67676f;
   --t3: #9898a0;
@@ -26,7 +26,7 @@
   --focus-ring: 0 0 0 3px rgba(10, 132, 255, 0.22);
   font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display', 'Helvetica Neue', sans-serif;
   background:
-    radial-gradient(900px 520px at 0% -20%, rgba(123, 167, 255, 0.20), transparent 55%),
+    radial-gradient(900px 520px at 0% -20%, rgba(123, 167, 255, 0.2), transparent 55%),
     radial-gradient(900px 580px at 100% -12%, rgba(255, 143, 198, 0.12), transparent 52%),
     linear-gradient(180deg, #ffffff 0%, #f7f7fa 100%);
 }
@@ -48,10 +48,10 @@
   --hover2: rgba(255, 255, 255, 0.045);
   --shadow-sm: 0 1px 1.5px rgba(0, 0, 0, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.055);
   --shadow-panel: 0 18px 46px rgba(0, 0, 0, 0.36), 0 2px 10px rgba(0, 0, 0, 0.24);
-  --focus-ring: 0 0 0 3px rgba(10, 132, 255, 0.30);
+  --focus-ring: 0 0 0 3px rgba(10, 132, 255, 0.3);
   background:
     radial-gradient(850px 520px at -6% -18%, rgba(10, 132, 255, 0.14), transparent 55%),
-    radial-gradient(820px 540px at 106% -8%, rgba(191, 90, 242, 0.10), transparent 52%),
+    radial-gradient(820px 540px at 106% -8%, rgba(191, 90, 242, 0.1), transparent 52%),
     linear-gradient(180deg, #242428 0%, #1c1c1f 100%);
 }
 
@@ -78,10 +78,12 @@
   border-bottom-color: var(--sep);
   backdrop-filter: blur(12px) saturate(140%);
   -webkit-backdrop-filter: blur(12px) saturate(140%);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.40);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4);
 }
 
-.dark .bs-tb { box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.055); }
+.dark .bs-tb {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.055);
+}
 
 .bs-nav .b,
 .bs-ti,
@@ -91,7 +93,10 @@
 .bs-ric,
 .bs-tool-ic {
   border-radius: 8px;
-  transition: background 120ms ease, color 120ms ease, transform 90ms ease;
+  transition:
+    background 120ms ease,
+    color 120ms ease,
+    transform 90ms ease;
 }
 
 .bs-nav .b:active,
@@ -144,7 +149,9 @@
   border: 0.5px solid var(--sep);
   border-radius: 12px;
   background: color-mix(in srgb, var(--surface-solid) 94%, transparent);
-  box-shadow: var(--shadow-panel), 0 0 0 0.5px rgba(0, 0, 0, 0.05);
+  box-shadow:
+    var(--shadow-panel),
+    0 0 0 0.5px rgba(0, 0, 0, 0.05);
   backdrop-filter: blur(18px) saturate(150%);
   -webkit-backdrop-filter: blur(18px) saturate(150%);
 }
@@ -243,10 +250,14 @@
   background: var(--inset);
   border-color: var(--sep);
   color: var(--t3);
-  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.035), 0 1px 0 rgba(255, 255, 255, 0.40);
+  box-shadow:
+    inset 0 1px 2px rgba(0, 0, 0, 0.035),
+    0 1px 0 rgba(255, 255, 255, 0.4);
 }
 
-.dark .bs-search { box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.28); }
+.dark .bs-search {
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.28);
+}
 
 .bs-side {
   width: 292px;
@@ -270,7 +281,7 @@
 
 .dark .bs-side::before {
   background:
-    radial-gradient(420px 240px at 18% -8%, rgba(10, 132, 255, 0.10), transparent 70%),
+    radial-gradient(420px 240px at 18% -8%, rgba(10, 132, 255, 0.1), transparent 70%),
     linear-gradient(90deg, rgba(255, 255, 255, 0.04), transparent 44%);
 }
 
@@ -288,7 +299,9 @@
 
 .bs-ri.on {
   background: var(--surface);
-  box-shadow: var(--shadow-sm), 0 0 0 0.5px var(--sep);
+  box-shadow:
+    var(--shadow-sm),
+    0 0 0 0.5px var(--sep);
 }
 
 .bs-fbox {
@@ -330,7 +343,7 @@
 }
 
 .bs-act:hover {
-  background: rgba(0, 0, 0, 0.10);
+  background: rgba(0, 0, 0, 0.1);
 }
 
 .dark .bs-act:hover {
@@ -364,7 +377,9 @@
   border-right-color: var(--sepsoft);
   background: transparent;
   color: var(--t2);
-  transition: background 120ms ease, color 120ms ease;
+  transition:
+    background 120ms ease,
+    color 120ms ease;
 }
 
 .bs-tab:hover {
@@ -428,7 +443,10 @@
   background: var(--inset);
   border-color: var(--sep);
   box-shadow: var(--shadow-sm);
-  transition: border-color 130ms ease, box-shadow 130ms ease, background 130ms ease;
+  transition:
+    border-color 130ms ease,
+    box-shadow 130ms ease,
+    background 130ms ease;
 }
 
 .bs-urlfield:hover,
@@ -476,12 +494,18 @@
   border-radius: 13px;
   border: 0.5px solid var(--sep);
   background: var(--surface-solid);
-  box-shadow: 0 18px 46px rgba(24, 28, 42, 0.18), 0 2px 10px rgba(24, 28, 42, 0.10), 0 0 0 0.5px rgba(0, 0, 0, 0.06);
+  box-shadow:
+    0 18px 46px rgba(24, 28, 42, 0.18),
+    0 2px 10px rgba(24, 28, 42, 0.1),
+    0 0 0 0.5px rgba(0, 0, 0, 0.06);
 }
 
 .dark .bs-method-menu {
   background: #2a2a2e;
-  box-shadow: 0 20px 52px rgba(0, 0, 0, 0.42), 0 2px 10px rgba(0, 0, 0, 0.28), 0 0 0 0.5px rgba(255, 255, 255, 0.06);
+  box-shadow:
+    0 20px 52px rgba(0, 0, 0, 0.42),
+    0 2px 10px rgba(0, 0, 0, 0.28),
+    0 0 0 0.5px rgba(255, 255, 255, 0.06);
 }
 
 .bs-method-option {
@@ -519,7 +543,9 @@
   min-width: 104px;
   border-radius: 11px;
   background: linear-gradient(180deg, #2492ff 0%, #0a84ff 52%, #0072f0 100%);
-  box-shadow: 0 8px 18px rgba(10, 132, 255, 0.24), inset 0 1px 0 rgba(255, 255, 255, 0.30);
+  box-shadow:
+    0 8px 18px rgba(10, 132, 255, 0.24),
+    inset 0 1px 0 rgba(255, 255, 255, 0.3);
 }
 
 .bs button.bs-send:hover {
@@ -541,12 +567,14 @@
 .bs-send .cv {
   width: 34px;
   background: rgba(0, 0, 0, 0.08);
-  border-left-color: rgba(255, 255, 255, 0.30);
+  border-left-color: rgba(255, 255, 255, 0.3);
 }
 
 .bs button.bs-send.cancelling {
   background: linear-gradient(180deg, #ff6b61 0%, #ff453a 62%, #df332b 100%);
-  box-shadow: 0 8px 18px rgba(255, 69, 58, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.26);
+  box-shadow:
+    0 8px 18px rgba(255, 69, 58, 0.22),
+    inset 0 1px 0 rgba(255, 255, 255, 0.26);
 }
 
 .bs-send.cancelling .go,
@@ -657,7 +685,9 @@
 }
 
 .bs-json-editor:focus-within {
-  box-shadow: inset 0 0 0 1px rgba(10, 132, 255, 0.45), var(--focus-ring);
+  box-shadow:
+    inset 0 0 0 1px rgba(10, 132, 255, 0.45),
+    var(--focus-ring);
 }
 
 .bs-msg-foot {
@@ -698,7 +728,9 @@
 
 .bs-seg button.on {
   background: var(--surface-solid);
-  box-shadow: var(--shadow-sm), 0 0 0 0.5px var(--sep);
+  box-shadow:
+    var(--shadow-sm),
+    0 0 0 0.5px var(--sep);
 }
 
 .dark .bs-seg button.on {
@@ -724,15 +756,16 @@
 
 .bs-empty-resp {
   color: var(--t2);
-  background:
-    radial-gradient(360px 180px at 50% 38%, rgba(10, 132, 255, 0.07), transparent 68%);
+  background: radial-gradient(360px 180px at 50% 38%, rgba(10, 132, 255, 0.07), transparent 68%);
 }
 
 .bs-grpc-menu {
   border-radius: 14px;
   background: color-mix(in srgb, var(--surface-solid) 92%, transparent);
   border-color: var(--sep);
-  box-shadow: var(--shadow-panel), 0 0 0 0.5px rgba(0, 0, 0, 0.05);
+  box-shadow:
+    var(--shadow-panel),
+    0 0 0 0.5px rgba(0, 0, 0, 0.05);
 }
 
 .dark .bs-grpc-menu {
@@ -744,7 +777,9 @@
 .bs-modal {
   background: color-mix(in srgb, var(--surface-solid) 94%, transparent);
   border: 0.5px solid var(--sep);
-  box-shadow: var(--shadow-panel), 0 0 0 0.5px rgba(0, 0, 0, 0.05);
+  box-shadow:
+    var(--shadow-panel),
+    0 0 0 0.5px rgba(0, 0, 0, 0.05);
 }
 
 .dark .bs-menu,
@@ -786,7 +821,9 @@
 
 .bs-btn.primary {
   background: linear-gradient(180deg, #2492ff, #0a84ff);
-  box-shadow: 0 4px 12px rgba(10, 132, 255, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.28);
+  box-shadow:
+    0 4px 12px rgba(10, 132, 255, 0.22),
+    inset 0 1px 0 rgba(255, 255, 255, 0.28);
 }
 
 .bs-status {
@@ -946,4 +983,3 @@
   background: var(--accentsoft);
   box-shadow: inset 0 0 0 0.5px color-mix(in srgb, var(--accent) 26%, transparent);
 }
-

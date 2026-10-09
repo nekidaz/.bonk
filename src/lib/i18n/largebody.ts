@@ -92,7 +92,8 @@ export const en: Record<keyof typeof ru, string> = {
   'settings.appearance.afterSend.keep': 'Leave as is',
   'settings.appearance.afterSend.expand': 'Expand response',
   'settings.appearance.sideOnWide': 'Side by side on a wide window',
-  'settings.appearance.sideOnWide.desc': 'From 1440 px the request and response sit side by side; narrower windows use the layout above',
+  'settings.appearance.sideOnWide.desc':
+    'From 1440 px the request and response sit side by side; narrower windows use the layout above',
   'settings.appearance.foldArrays': 'Fold arrays longer than',
   'settings.appearance.foldArrays.desc': 'In bodies and responses the middle folds into a “N more objects” chip',
   'settings.appearance.foldArrays.unit': 'items',

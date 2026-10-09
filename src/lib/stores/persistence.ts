@@ -32,7 +32,13 @@ import {
   activeEnvironmentId,
   flows,
 } from './state';
-import { collapsedFolders, collectExpanded, normalizeWorkspaceRecents, rememberWorkspacePath, withSavedCollapse } from './workspace';
+import {
+  collapsedFolders,
+  collectExpanded,
+  normalizeWorkspaceRecents,
+  rememberWorkspacePath,
+  withSavedCollapse,
+} from './workspace';
 
 let hydrated = false;
 
@@ -156,9 +162,7 @@ async function restoreState(): Promise<void> {
   // aren't persisted, so fall back to the first tab when it doesn't).
   const savedActiveId = await loadState<string>('activeTabId', '');
   const currentTabs = get(tabs);
-  activeTabId.set(
-    currentTabs.some((t) => t.id === savedActiveId) ? savedActiveId : (currentTabs[0]?.id ?? ''),
-  );
+  activeTabId.set(currentTabs.some((t) => t.id === savedActiveId) ? savedActiveId : (currentTabs[0]?.id ?? ''));
 }
 
 /**
@@ -174,7 +178,14 @@ function wirePersistence(): () => void {
     // Special tabs (git diffs, the Environments manager, the Collection Runner) hold
     // no request state and are not persisted; restoreState's http/grpc whitelist
     // drops them on load too.
-    tabs.subscribe((t) => saveStateDebounced('tabs', t.filter((tab) => tab.protocol !== 'git' && tab.protocol !== 'runner' && tab.protocol !== 'flow').map(stripRuntimeTab))),
+    tabs.subscribe((t) =>
+      saveStateDebounced(
+        'tabs',
+        t
+          .filter((tab) => tab.protocol !== 'git' && tab.protocol !== 'runner' && tab.protocol !== 'flow')
+          .map(stripRuntimeTab),
+      ),
+    ),
     activeTabId.subscribe((id) => saveStateDebounced('activeTabId', id)),
     // Persist history immediately (not debounced): entries are low-frequency (one
     // per sent request) and the debounced write was being lost on app quit
@@ -192,7 +203,9 @@ function wirePersistence(): () => void {
       saveStateDebounced('collapsedFolders', collapsedFolders);
     }),
     recentWorkspacePaths.subscribe((paths) => saveStateDebounced('recentWorkspacePaths', paths)),
-    historyLimit.subscribe((n) => { if (n > 0) history.update((h) => h.slice(0, n)); }),
+    historyLimit.subscribe((n) => {
+      if (n > 0) history.update((h) => h.slice(0, n));
+    }),
     historyLimit.subscribe((n) => saveStateDebounced('historyLimit', n)),
     historyPaused.subscribe((p) => saveStateDebounced('historyPaused', p)),
     responseLineWrap.subscribe((v) => saveStateDebounced('responseLineWrap', v)),

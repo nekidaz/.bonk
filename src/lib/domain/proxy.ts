@@ -24,10 +24,16 @@ export function fileName(path: string): string {
 }
 
 /** Per-host mTLS identity: PEM cert + key files, or one PKCS#12 bundle (`p12Path`, password in the keychain). */
-export interface HostCert { host: string; certPath: string; keyPath: string; p12Path?: string }
+export interface HostCert {
+  host: string;
+  certPath: string;
+  keyPath: string;
+  p12Path?: string;
+}
 
 /** Has a usable identity (PEM pair or .p12). */
-export const hasIdentity = (c: Pick<HostCert, 'certPath' | 'keyPath' | 'p12Path'>): boolean => !!c.p12Path || (!!c.certPath && !!c.keyPath);
+export const hasIdentity = (c: Pick<HostCert, 'certPath' | 'keyPath' | 'p12Path'>): boolean =>
+  !!c.p12Path || (!!c.certPath && !!c.keyPath);
 
 /** First client identity whose host matches (exact, `*.wildcard`, or empty = any). Mirrors bonk-core `pick_client_cert`. */
 export function pickClientCert<T extends { host: string }>(certs: T[], host: string): T | undefined {
@@ -42,7 +48,10 @@ export function pickClientCert<T extends { host: string }>(certs: T[], host: str
 
 /** Host of a gRPC endpoint (`host:port`, optional scheme, `[v6]:port`). */
 export function endpointHost(endpoint: string): string {
-  const rest = endpoint.trim().replace(/^https?:\/\//, '').split('/')[0];
+  const rest = endpoint
+    .trim()
+    .replace(/^https?:\/\//, '')
+    .split('/')[0];
   const v6 = rest.match(/^\[([^\]]+)\]/);
   return v6 ? v6[1] : rest.split(':')[0];
 }

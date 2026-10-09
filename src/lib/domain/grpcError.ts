@@ -42,15 +42,16 @@ function inferCode(text: string, fallback: string): string {
   // A real status code from the server wins over guessing from the text.
   const known = normalizeCode(fallback);
   if (known !== 'UNKNOWN' && PRESENTATIONS[known]) return known;
-  const explicit = text.match(/grpc status\s+([A-Za-z_]+)\s*:/i)?.[1]
-    ?? text.match(/(?:code|status)\s*[=:]\s*([A-Za-z_]+)/i)?.[1];
+  const explicit =
+    text.match(/grpc status\s+([A-Za-z_]+)\s*:/i)?.[1] ?? text.match(/(?:code|status)\s*[=:]\s*([A-Za-z_]+)/i)?.[1];
   if (explicit) return normalizeCode(explicit);
 
   const lower = text.toLowerCase();
   if (/authentication|credentials|authorization token|unauthenticated/.test(lower)) return 'UNAUTHENTICATED';
   if (/permission denied|not authorized|forbidden/.test(lower)) return 'PERMISSION_DENIED';
   if (/deadline|timed? out|timeout/.test(lower)) return 'DEADLINE_EXCEEDED';
-  if (/unavailable|connection refused|transport error|failed to dial|connect failed|dns error/.test(lower)) return 'UNAVAILABLE';
+  if (/unavailable|connection refused|transport error|failed to dial|connect failed|dns error/.test(lower))
+    return 'UNAVAILABLE';
   if (/cancelled|canceled/.test(lower)) return 'CANCELLED';
 
   const normalizedFallback = normalizeCode(fallback);
@@ -85,7 +86,22 @@ export function presentGrpcError(status: string, body: string, tr: Translate = g
 }
 
 /** One-line explanation under a failed call (S24), keyed by code. Codes without a note yield ''. */
-const NOTE_CODES = new Set(['INVALID_ARGUMENT', 'OUT_OF_RANGE', 'FAILED_PRECONDITION', 'NOT_FOUND', 'ALREADY_EXISTS', 'UNAUTHENTICATED', 'PERMISSION_DENIED', 'DEADLINE_EXCEEDED', 'RESOURCE_EXHAUSTED', 'ABORTED', 'UNIMPLEMENTED', 'INTERNAL', 'DATA_LOSS', 'CANCELLED']);
+const NOTE_CODES = new Set([
+  'INVALID_ARGUMENT',
+  'OUT_OF_RANGE',
+  'FAILED_PRECONDITION',
+  'NOT_FOUND',
+  'ALREADY_EXISTS',
+  'UNAUTHENTICATED',
+  'PERMISSION_DENIED',
+  'DEADLINE_EXCEEDED',
+  'RESOURCE_EXHAUSTED',
+  'ABORTED',
+  'UNIMPLEMENTED',
+  'INTERNAL',
+  'DATA_LOSS',
+  'CANCELLED',
+]);
 
 export function grpcErrorNote(code: string, numeric: number, tr: Translate = get(t)): string {
   return NOTE_CODES.has(code) ? tr('grpc.note.line', { n: numeric, note: tr(`grpc.note.${code}`) }) : '';

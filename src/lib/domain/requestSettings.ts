@@ -6,7 +6,8 @@ export function withOverrides(base: RequestSettings, o: RequestOverrides | undef
   const t = o.timeoutMs;
   return {
     ...base,
-    timeoutMs: typeof t === 'number' && Number.isFinite(t) && t >= 0 ? Math.min(600_000, Math.round(t)) : base.timeoutMs,
+    timeoutMs:
+      typeof t === 'number' && Number.isFinite(t) && t >= 0 ? Math.min(600_000, Math.round(t)) : base.timeoutMs,
     followRedirects: o.followRedirects ?? base.followRedirects,
     validateTls: o.validateTls ?? base.validateTls,
   };

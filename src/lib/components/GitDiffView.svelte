@@ -64,7 +64,10 @@
       <span class="material-symbols-outlined" style="font-size:18px">difference</span>
       <div class="text">
         <div class="main">{path || $t('git.diff.title')}</div>
-        <div class="sub">{$t('git.diff.sub', { mode: modeLabel(mode) })}{#if $workspacePath} · {$workspacePath}{/if}</div>
+        <div class="sub">
+          {$t('git.diff.sub', { mode: modeLabel(mode) })}{#if $workspacePath}
+            · {$workspacePath}{/if}
+        </div>
       </div>
     </div>
     <div class="bs-git-diff-stats">

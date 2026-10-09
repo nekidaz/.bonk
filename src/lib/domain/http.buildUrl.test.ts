@@ -13,15 +13,11 @@ describe('buildUrl', () => {
   });
 
   it('appends params with ? when the url has no query string', () => {
-    expect(buildUrl('https://api.example.com', [p('a', '1'), p('b', '2')])).toBe(
-      'https://api.example.com?a=1&b=2',
-    );
+    expect(buildUrl('https://api.example.com', [p('a', '1'), p('b', '2')])).toBe('https://api.example.com?a=1&b=2');
   });
 
   it('lets params own an existing query string so sends do not duplicate rows', () => {
-    expect(buildUrl('https://api.example.com?a=1', [p('b', '2')])).toBe(
-      'https://api.example.com?b=2',
-    );
+    expect(buildUrl('https://api.example.com?a=1', [p('b', '2')])).toBe('https://api.example.com?b=2');
   });
 
   it('skips disabled rows and rows with an empty (or whitespace) key', () => {
@@ -34,11 +30,7 @@ describe('buildUrl', () => {
   });
 
   it('percent-encodes keys and values (spaces, &, unicode)', () => {
-    const params = [
-      p('full name', 'John Doe'),
-      p('q', 'a&b=c'),
-      p('city', 'München'),
-    ];
+    const params = [p('full name', 'John Doe'), p('q', 'a&b=c'), p('city', 'München')];
     expect(buildUrl('https://api.example.com', params)).toBe(
       'https://api.example.com?full%20name=John%20Doe&q=a%26b%3Dc&city=M%C3%BCnchen',
     );

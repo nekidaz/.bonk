@@ -128,7 +128,9 @@ export function togglePinned(list: Tab[], id: string): Tab[] {
 export function tabsToClose(list: Tab[], id: string, scope: 'others' | 'right' | 'all'): string[] {
   const at = list.findIndex((t) => t.id === id);
   if (at < 0 && scope !== 'all') return [];
-  return list.filter((t, i) => !t.pinned && (scope === 'all' || (scope === 'others' ? i !== at : i > at))).map((t) => t.id);
+  return list
+    .filter((t, i) => !t.pinned && (scope === 'all' || (scope === 'others' ? i !== at : i > at)))
+    .map((t) => t.id);
 }
 
 /** P3/P4: switching HTTP ⇄ gRPC starts an empty, unsaved request of the new type in the same tab (pin kept); undo restores the old tab. */

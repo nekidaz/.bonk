@@ -2,7 +2,11 @@ import { describe, it, expect } from 'vitest';
 import { describeSlice, scanFolds, shouldAutoFold } from './jsonFold';
 
 const bigArray = (n: number, pretty = true) =>
-  JSON.stringify({ items: Array.from({ length: n }, (_, i) => ({ id: i, s: 'a,]"b' })), tail: 1 }, null, pretty ? 2 : 0);
+  JSON.stringify(
+    { items: Array.from({ length: n }, (_, i) => ({ id: i, s: 'a,]"b' })), tail: 1 },
+    null,
+    pretty ? 2 : 0,
+  );
 
 describe('scanFolds', () => {
   it('keeps 2 head + 2 tail elements and folds the middle of big arrays', () => {

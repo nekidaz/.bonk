@@ -85,9 +85,7 @@
       nodes = nodes.map((n) => (n.id === id ? { ...n, data: { ...n.data, color } } : n));
     },
     toggleDisabled: (id) => {
-      nodes = nodes.map((n) =>
-        n.id === id ? { ...n, data: { ...n.data, disabled: !n.data.disabled } } : n,
-      );
+      nodes = nodes.map((n) => (n.id === id ? { ...n, data: { ...n.data, disabled: !n.data.disabled } } : n));
     },
     duplicate: (id) => {
       const source = nodes.find((n) => n.id === id);
@@ -226,11 +224,16 @@
     <input
       class="fv-name"
       value={flowName}
-      onchange={(e) => renameFlow(flowId, (e.currentTarget as HTMLInputElement).value.trim() || get(t)('flow.untitled'))}
+      onchange={(e) =>
+        renameFlow(flowId, (e.currentTarget as HTMLInputElement).value.trim() || get(t)('flow.untitled'))}
     />
     <div class="fv-palette">
       {#each PALETTE as p (p.type)}
-        <button class="fv-pbtn" title={$t('flow.add', { label: $t(`flow.block.${p.type}`) })} onclick={() => addBlock(p.type)}>
+        <button
+          class="fv-pbtn"
+          title={$t('flow.add', { label: $t(`flow.block.${p.type}`) })}
+          onclick={() => addBlock(p.type)}
+        >
           <span class="material-symbols-outlined" style="font-size:14px">{p.icon}</span>
           {$t(`flow.block.${p.type}`)}
         </button>
@@ -272,14 +275,12 @@
         {#if selectedConfig.type === 'request'}
           <div class="fv-tabs">
             {#each PANEL_TABS as pt (pt)}
-              <button
-                class="fv-tab"
-                class:on={panelTab === pt}
-                onclick={() => (panelTab = pt)}
-              >
+              <button class="fv-tab" class:on={panelTab === pt} onclick={() => (panelTab = pt)}>
                 {$t(`flow.tab.${pt}`)}
                 {#if pt === 'tests' && selectedRow && selectedRow.tests.length > 0}
-                  <span class="fv-tab-n" class:bad={selectedRow.tests.some((x) => !x.passed)}>{selectedRow.tests.length}</span>
+                  <span class="fv-tab-n" class:bad={selectedRow.tests.some((x) => !x.passed)}
+                    >{selectedRow.tests.length}</span
+                  >
                 {/if}
               </button>
             {/each}
@@ -293,24 +294,30 @@
             <p class="fv-hint">{$t('flow.panel.runFirstInput')}</p>
           {:else}
             <p class="fv-hint">{$t('flow.panel.payloadUpstream')}</p>
-            <textarea class="fv-in mono" rows="14" readonly value={JSON.stringify(selectedInput ?? null, null, 2)}></textarea>
+            <textarea class="fv-in mono" rows="14" readonly value={JSON.stringify(selectedInput ?? null, null, 2)}
+            ></textarea>
           {/if}
         {:else if selectedConfig.type === 'request' && panelTab !== 'config'}
           {#if !selectedRow}
             <p class="fv-hint">{$t('flow.panel.runFirstTab', { tab: $t(`flow.tab.${panelTab}`) })}</p>
           {:else if panelTab === 'output'}
-            <div class="fv-kv"><span>{$t('flow.panel.status')}</span><b class:bad={!selectedRow.ok}>{selectedRow.status}</b></div>
+            <div class="fv-kv">
+              <span>{$t('flow.panel.status')}</span><b class:bad={!selectedRow.ok}>{selectedRow.status}</b>
+            </div>
             <div class="fv-kv"><span>{$t('flow.panel.time')}</span><b>{selectedRow.elapsedMs} ms</b></div>
             <div class="fv-kv"><span>{$t('flow.panel.target')}</span><b class="wrap">{selectedRow.target}</b></div>
             {#if selectedRow.error}<div class="fv-err">{selectedRow.error}</div>{/if}
             <label class="fv-l" for="fv-body">{$t('flow.panel.responseBody')}</label>
-            <textarea id="fv-body" class="fv-in mono" rows="14" readonly value={selectedRow.responseBody ?? ''}></textarea>
+            <textarea id="fv-body" class="fv-in mono" rows="14" readonly value={selectedRow.responseBody ?? ''}
+            ></textarea>
           {:else if selectedRow.tests.length === 0}
             <p class="fv-hint">{$t('flow.panel.noTests')}</p>
           {:else}
             {#each selectedRow.tests as tr, i (i)}
               <div class="fv-test" class:bad={!tr.passed}>
-                <span class="material-symbols-outlined" style="font-size:14px">{tr.passed ? 'check_circle' : 'cancel'}</span>
+                <span class="material-symbols-outlined" style="font-size:14px"
+                  >{tr.passed ? 'check_circle' : 'cancel'}</span
+                >
                 <span class="fv-test-n">{tr.name}</span>
                 {#if tr.error}<span class="fv-test-e mono">{tr.error}</span>{/if}
               </div>
@@ -343,7 +350,10 @@
             </p>
           {/if}
           <p class="fv-hint">
-            {$t('flow.panel.leavesPre')} <b>{$t('flow.port.success')}</b> {$t('flow.panel.leavesOr')} <b>{$t('flow.port.fail')}</b>{$t('flow.panel.leavesPost', { shape: '{ status, ok, body, elapsedMs, error }' })}
+            {$t('flow.panel.leavesPre')} <b>{$t('flow.port.success')}</b>
+            {$t('flow.panel.leavesOr')} <b>{$t('flow.port.fail')}</b>{$t('flow.panel.leavesPost', {
+              shape: '{ status, ok, body, elapsedMs, error }',
+            })}
           </p>
         {:else if selectedConfig.type === 'if'}
           <label class="fv-l" for="fv-cond">{$t('flow.panel.condition')}</label>
@@ -378,7 +388,8 @@
               type="number"
               min="0"
               value={selectedConfig.count ?? 0}
-              onchange={(e) => setConfig({ type: 'loop', kind: 'count', count: Number((e.currentTarget as HTMLInputElement).value) })}
+              onchange={(e) =>
+                setConfig({ type: 'loop', kind: 'count', count: Number((e.currentTarget as HTMLInputElement).value) })}
             />
           {/if}
         {:else if selectedConfig.type === 'script'}
@@ -430,7 +441,9 @@
         <div class="fv-out-row log"><span class="k">{$t('flow.log')}</span><span class="v mono">{l}</span></div>
       {/each}
       {#if run.error}
-        <div class="fv-out-row err"><span class="k">{$t('flow.error')}</span><span class="v mono">{run.error}</span></div>
+        <div class="fv-out-row err">
+          <span class="k">{$t('flow.error')}</span><span class="v mono">{run.error}</span>
+        </div>
       {/if}
     </div>
   {/if}
@@ -452,7 +465,9 @@
     padding: 8px 10px;
     border-bottom: 0.5px solid var(--sep);
   }
-  .fv-name { flex: none; }
+  .fv-name {
+    flex: none;
+  }
   .fv-name {
     width: 180px;
     height: 26px;
@@ -464,9 +479,18 @@
     font-weight: 600;
     color: var(--text);
   }
-  .fv-name:hover { background: var(--hover); }
-  .fv-name:focus { border-color: var(--accent); background: var(--surface); outline: none; }
-  .fv-palette { display: flex; gap: 4px; }
+  .fv-name:hover {
+    background: var(--hover);
+  }
+  .fv-name:focus {
+    border-color: var(--accent);
+    background: var(--surface);
+    outline: none;
+  }
+  .fv-palette {
+    display: flex;
+    gap: 4px;
+  }
   .fv-pbtn {
     display: flex;
     align-items: center;
@@ -478,12 +502,30 @@
     font-weight: 600;
     color: var(--t2);
   }
-  .fv-pbtn:hover { background: var(--hover); color: var(--text); }
-  .fv-pbtn .material-symbols-outlined { color: var(--accent); }
-  .fv-spacer { flex: 1; }
-  .fv-status { font-size: 11px; color: var(--t2); max-width: 340px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .fv-status.error { color: #ea4335; }
-  .fv-status.done { color: #34a853; }
+  .fv-pbtn:hover {
+    background: var(--hover);
+    color: var(--text);
+  }
+  .fv-pbtn .material-symbols-outlined {
+    color: var(--accent);
+  }
+  .fv-spacer {
+    flex: 1;
+  }
+  .fv-status {
+    font-size: 11px;
+    color: var(--t2);
+    max-width: 340px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .fv-status.error {
+    color: #ea4335;
+  }
+  .fv-status.done {
+    color: #34a853;
+  }
   .fv-run {
     display: flex;
     align-items: center;
@@ -496,9 +538,18 @@
     font-size: 12px;
     font-weight: 600;
   }
-  .fv-run.stop { background: #ea4335; }
-  .fv-body { display: flex; flex: 1; min-height: 0; }
-  .fv-canvas { flex: 1; min-width: 0; }
+  .fv-run.stop {
+    background: #ea4335;
+  }
+  .fv-body {
+    display: flex;
+    flex: 1;
+    min-height: 0;
+  }
+  .fv-canvas {
+    flex: 1;
+    min-width: 0;
+  }
   .fv-canvas :global(.svelte-flow) {
     --xy-background-color: var(--surface);
     --xy-background-pattern-color: var(--sep);
@@ -522,8 +573,19 @@
     flex-direction: column;
     gap: 8px;
   }
-  .fv-panel-h { font-size: 12px; font-weight: 700; color: var(--text); text-transform: capitalize; }
-  .fv-tabs { display: flex; gap: 2px; border-bottom: 0.5px solid var(--sep); margin: -2px -12px 4px; padding: 0 10px; }
+  .fv-panel-h {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--text);
+    text-transform: capitalize;
+  }
+  .fv-tabs {
+    display: flex;
+    gap: 2px;
+    border-bottom: 0.5px solid var(--sep);
+    margin: -2px -12px 4px;
+    padding: 0 10px;
+  }
   .fv-tab {
     display: flex;
     align-items: center;
@@ -535,17 +597,52 @@
     color: var(--t3);
     border-bottom: 2px solid transparent;
   }
-  .fv-tab:hover { color: var(--text); }
-  .fv-tab.on { color: var(--text); border-bottom-color: var(--accent); }
-  .fv-tab-n { font-size: 9.5px; color: #34a853; }
-  .fv-tab-n.bad { color: #ea4335; }
-  .fv-kv { display: flex; gap: 8px; font-size: 11px; align-items: baseline; }
-  .fv-kv span { color: var(--t3); min-width: 48px; flex: none; }
-  .fv-kv b { color: var(--text); font-family: 'JetBrains Mono', monospace; font-weight: 600; }
-  .fv-kv b.bad { color: #ea4335; }
-  .fv-kv b.wrap { word-break: break-all; }
-  .fv-err { font-size: 11px; color: #ea4335; word-break: break-word; }
-  .fv-vars { display: flex; flex-wrap: wrap; gap: 4px; }
+  .fv-tab:hover {
+    color: var(--text);
+  }
+  .fv-tab.on {
+    color: var(--text);
+    border-bottom-color: var(--accent);
+  }
+  .fv-tab-n {
+    font-size: 9.5px;
+    color: #34a853;
+  }
+  .fv-tab-n.bad {
+    color: #ea4335;
+  }
+  .fv-kv {
+    display: flex;
+    gap: 8px;
+    font-size: 11px;
+    align-items: baseline;
+  }
+  .fv-kv span {
+    color: var(--t3);
+    min-width: 48px;
+    flex: none;
+  }
+  .fv-kv b {
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 600;
+  }
+  .fv-kv b.bad {
+    color: #ea4335;
+  }
+  .fv-kv b.wrap {
+    word-break: break-all;
+  }
+  .fv-err {
+    font-size: 11px;
+    color: #ea4335;
+    word-break: break-word;
+  }
+  .fv-vars {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+  }
   .fv-var {
     font-size: 10px;
     padding: 2px 6px;
@@ -553,13 +650,36 @@
     background: var(--hover);
     color: var(--t2);
   }
-  .fv-var.wired { color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
-  .fv-canvas :global(.fv-var-edge path) { stroke-dasharray: 4 3; }
-  .fv-test { display: flex; align-items: baseline; gap: 5px; font-size: 11px; color: #34a853; }
-  .fv-test.bad { color: #ea4335; }
-  .fv-test-n { color: var(--text); word-break: break-word; }
-  .fv-test-e { color: #ea4335; font-size: 10px; word-break: break-word; }
-  .fv-l { font-size: 11px; color: var(--t2); }
+  .fv-var.wired {
+    color: var(--accent);
+    box-shadow: inset 0 0 0 1px var(--accent);
+  }
+  .fv-canvas :global(.fv-var-edge path) {
+    stroke-dasharray: 4 3;
+  }
+  .fv-test {
+    display: flex;
+    align-items: baseline;
+    gap: 5px;
+    font-size: 11px;
+    color: #34a853;
+  }
+  .fv-test.bad {
+    color: #ea4335;
+  }
+  .fv-test-n {
+    color: var(--text);
+    word-break: break-word;
+  }
+  .fv-test-e {
+    color: #ea4335;
+    font-size: 10px;
+    word-break: break-word;
+  }
+  .fv-l {
+    font-size: 11px;
+    color: var(--t2);
+  }
   .fv-in {
     width: 100%;
     padding: 6px 8px;
@@ -569,9 +689,19 @@
     color: var(--text);
     font-size: 12px;
   }
-  .fv-in:focus { border-color: var(--accent); outline: none; }
-  .fv-in.mono { font-family: 'JetBrains Mono', monospace; font-size: 11px; resize: vertical; }
-  .fv-hint { font-size: 11px; color: var(--t3); }
+  .fv-in:focus {
+    border-color: var(--accent);
+    outline: none;
+  }
+  .fv-in.mono {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    resize: vertical;
+  }
+  .fv-hint {
+    font-size: 11px;
+    color: var(--t3);
+  }
   .fv-del {
     display: flex;
     align-items: center;
@@ -585,7 +715,10 @@
     font-weight: 600;
     margin-top: 4px;
   }
-  .fv-del:hover { background: rgba(234, 67, 53, 0.1); border-color: #ea4335; }
+  .fv-del:hover {
+    background: rgba(234, 67, 53, 0.1);
+    border-color: #ea4335;
+  }
   .fv-out {
     max-height: 160px;
     overflow-y: auto;
@@ -595,10 +728,29 @@
     flex-direction: column;
     gap: 3px;
   }
-  .fv-out-row { display: flex; gap: 8px; font-size: 11px; align-items: baseline; }
-  .fv-out-row .k { color: var(--accent); font-weight: 700; flex: none; min-width: 60px; }
-  .fv-out-row.log .k { color: var(--t3); }
-  .fv-out-row.err .k { color: #ea4335; }
-  .fv-out-row .v { color: var(--text); word-break: break-all; }
-  .mono { font-family: 'JetBrains Mono', monospace; }
+  .fv-out-row {
+    display: flex;
+    gap: 8px;
+    font-size: 11px;
+    align-items: baseline;
+  }
+  .fv-out-row .k {
+    color: var(--accent);
+    font-weight: 700;
+    flex: none;
+    min-width: 60px;
+  }
+  .fv-out-row.log .k {
+    color: var(--t3);
+  }
+  .fv-out-row.err .k {
+    color: #ea4335;
+  }
+  .fv-out-row .v {
+    color: var(--text);
+    word-break: break-all;
+  }
+  .mono {
+    font-family: 'JetBrains Mono', monospace;
+  }
 </style>

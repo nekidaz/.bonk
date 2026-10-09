@@ -52,8 +52,12 @@
   let activeIdx = $state(0);
   $effect(() => {
     // Reset on open / new query: start on the selected method when it is still listed.
-    void open; void search;
-    activeIdx = Math.max(0, untrack(() => flatMethods).findIndex((m) => m.symbol === untrack(() => tab.grpc?.method)));
+    void open;
+    void search;
+    activeIdx = Math.max(
+      0,
+      untrack(() => flatMethods).findIndex((m) => m.symbol === untrack(() => tab.grpc?.method)),
+    );
   });
   $effect(() => {
     void activeIdx;
@@ -115,9 +119,21 @@
 </script>
 
 <div class="bs-grpc-picker" role="presentation" onpointerdown={(e) => e.stopPropagation()}>
-  <button class="bs-grpc-trigger" class:open aria-haspopup="menu" aria-expanded={open} disabled={noAddress && !tab.grpc?.method} onclick={openDropdown} type="button">
+  <button
+    class="bs-grpc-trigger"
+    class:open
+    aria-haspopup="menu"
+    aria-expanded={open}
+    disabled={noAddress && !tab.grpc?.method}
+    onclick={openDropdown}
+    type="button"
+  >
     <span class="material-symbols-outlined lead" aria-hidden="true">schema</span>
-    {#if tab.grpc?.method}<span class="path"><span class="svc">{methodPath.service}/</span><b>{methodPath.name}</b></span>{:else if noAddress}<span class="path">{$t('grpc.enterAddressFirst')}</span>{:else}<span class="path">{grpcMethodLabel(tab, connecting, $t)}</span>{/if}
+    {#if tab.grpc?.method}<span class="path"
+        ><span class="svc">{methodPath.service}/</span><b>{methodPath.name}</b></span
+      >{:else if noAddress}<span class="path">{$t('grpc.enterAddressFirst')}</span>{:else}<span class="path"
+        >{grpcMethodLabel(tab, connecting, $t)}</span
+      >{/if}
     <span class="material-symbols-outlined" style="font-size:16px">unfold_more</span>
   </button>
   {#if open}
@@ -136,7 +152,12 @@
           />
           {#if search}
             <span class="mp-count">{filteredMethodCount}</span>
-            <button type="button" aria-label={$t('grpc.picker.clearAria')} title={$t('grpc.picker.clear')} onclick={clearSearch}>
+            <button
+              type="button"
+              aria-label={$t('grpc.picker.clearAria')}
+              title={$t('grpc.picker.clear')}
+              onclick={clearSearch}
+            >
               <span class="material-symbols-outlined" aria-hidden="true">close</span>
             </button>
           {:else}
@@ -152,7 +173,9 @@
         {#if connecting}
           <div class="mp-empty">{$t('grpc.connecting')}</div>
         {:else if !tab.grpc?.tree}
-          <div class="mp-empty">{isProtoSource && !protoFileNames.length ? $t('grpc.picker.importFirst') : $t('grpc.picker.connectFirst')}</div>
+          <div class="mp-empty">
+            {isProtoSource && !protoFileNames.length ? $t('grpc.picker.importFirst') : $t('grpc.picker.connectFirst')}
+          </div>
         {:else if filteredServices.length === 0}
           <div class="mp-empty">
             <span class="material-symbols-outlined" aria-hidden="true">search_off</span>
@@ -161,18 +184,36 @@
           </div>
         {:else}
           {#each filteredServices as service (service.name)}
-            <div class="mp-service"><span class="material-symbols-outlined" aria-hidden="true">schema</span>{service.name}</div>
+            <div class="mp-service">
+              <span class="material-symbols-outlined" aria-hidden="true">schema</span>{service.name}
+            </div>
             {#each service.methods as m (m.symbol)}
               {@const kind = grpcMethodKind(m)}
               {@const on = m.symbol === tab.grpc?.method}
-              <button class="mp-option" class:on class:active={flatMethods[activeIdx]?.symbol === m.symbol} role="menuitemradio" aria-checked={on} onpointerdown={(e) => { e.preventDefault(); select(m.symbol); }} onclick={() => select(m.symbol)} type="button" title={m.clientStreaming ? $t('grpc.picker.noClientStream') : undefined}>
+              <button
+                class="mp-option"
+                class:on
+                class:active={flatMethods[activeIdx]?.symbol === m.symbol}
+                role="menuitemradio"
+                aria-checked={on}
+                onpointerdown={(e) => {
+                  e.preventDefault();
+                  select(m.symbol);
+                }}
+                onclick={() => select(m.symbol)}
+                type="button"
+                title={m.clientStreaming ? $t('grpc.picker.noClientStream') : undefined}
+              >
                 <span class="mp-line">
                   <span class="mp-name">{m.name}</span>
                   <span class="mp-kind" class:stream={kind !== 'unary'}>{kind}</span>
                   {#if on}<span class="material-symbols-outlined mp-check" aria-hidden="true">check</span>{/if}
                 </span>
                 {#if on && m.inputType}
-                  <span class="mp-types">{m.inputType.split('.').pop()}{#if m.outputType}<span class="arrow" aria-hidden="true">→</span>{m.outputType.split('.').pop()}{/if}</span>
+                  <span class="mp-types"
+                    >{m.inputType.split('.').pop()}{#if m.outputType}<span class="arrow" aria-hidden="true">→</span
+                      >{m.outputType.split('.').pop()}{/if}</span
+                  >
                 {/if}
               </button>
             {/each}
@@ -181,7 +222,9 @@
       </div>
       <div class="mp-foot">
         <button type="button" onclick={onRefresh}>
-          <span class="material-symbols-outlined" aria-hidden="true">refresh</span>{isProtoSource ? $t('grpc.picker.rereadProto') : $t('grpc.picker.refreshReflection')}
+          <span class="material-symbols-outlined" aria-hidden="true">refresh</span>{isProtoSource
+            ? $t('grpc.picker.rereadProto')
+            : $t('grpc.picker.refreshReflection')}
         </button>
         <button type="button" onclick={onImportProto}>
           <span class="material-symbols-outlined" aria-hidden="true">upload_file</span>{$t('grpc.picker.importProto')}

@@ -34,9 +34,7 @@ describe('parseCsv', () => {
 describe('parseJson', () => {
   it('coerces every value to a string', () => {
     const json = JSON.stringify([{ id: 1, active: true, ratio: 1.5, missing: null }]);
-    expect(parseJson(json)).toEqual([
-      { id: '1', active: 'true', ratio: '1.5', missing: 'null' },
-    ]);
+    expect(parseJson(json)).toEqual([{ id: '1', active: 'true', ratio: '1.5', missing: 'null' }]);
   });
 
   it('stringifies nested objects and arrays', () => {

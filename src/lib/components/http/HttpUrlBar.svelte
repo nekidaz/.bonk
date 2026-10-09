@@ -31,7 +31,10 @@
   const cancelledMsg = $derived($t('http.url.cancelled'));
   const activeBusy = $derived($busyMap[tab.id]);
   // S38: everyday methods first, service ones (muted) below a divider.
-  const methodGroups = [['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'QUERY'], ['HEAD', 'OPTIONS']];
+  const methodGroups = [
+    ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'QUERY'],
+    ['HEAD', 'OPTIONS'],
+  ];
 
   function setMethod(method: string): void {
     updateActiveTab((t) => ({ ...t, request: { ...t.request, method } }));
@@ -82,9 +85,7 @@
   // `{{var}}` inline highlight + hover quick-set. Re-derived whenever the
   // variable stores change so the URL bar's decorations stay in sync (e.g.
   // adding a value from the popover flips missing → resolved immediately).
-  const varHighlight = $derived(
-    requestVariableHighlight($globals, $environments, $activeEnvironmentId),
-  );
+  const varHighlight = $derived(requestVariableHighlight($globals, $environments, $activeEnvironmentId));
 
   // S13: at rest the URL is one line with a fading tail and a "+N params" hint; focus opens it into
   // a card that wraps between parameters. `long` / `hidden` are measured on the one-line layout.
@@ -105,7 +106,11 @@
     // A parameter counts as hidden once its end is past the fade.
     let end = url.indexOf('?');
     hidden = 0;
-    if (long && end !== -1) for (const part of url.slice(end + 1).split('&')) { end += part.length + 1; if (end > fit - 4) hidden += 1; }
+    if (long && end !== -1)
+      for (const part of url.slice(end + 1).split('&')) {
+        end += part.length + 1;
+        if (end > fit - 4) hidden += 1;
+      }
   }
   $effect(() => {
     void tab.request.url;
@@ -136,7 +141,11 @@
     if (env && envName && needsProductionGuard(t.request.method, env)) {
       const url = resolveVars(finalUrl, currentVarScope());
       let host = '';
-      try { host = new URL(url).host; } catch { /* relative or unresolved URL: no host to show */ }
+      try {
+        host = new URL(url).host;
+      } catch {
+        /* relative or unresolved URL: no host to show */
+      }
       if (!(await requestProductionSend({ method: t.request.method.toUpperCase(), url, envName, host }))) return;
     }
 
@@ -168,7 +177,19 @@
   }
 </script>
 
-<svelte:window onkeydown={(e) => { if (e.key === 'Escape' && activeBusy?.kind === 'http' && activeBusy.requestId && !document.querySelector('.bs-overlay, .bs-menu, .bs-palette, [aria-expanded="true"]')) { e.preventDefault(); void cancelRequest(activeBusy.requestId); } }} />
+<svelte:window
+  onkeydown={(e) => {
+    if (
+      e.key === 'Escape' &&
+      activeBusy?.kind === 'http' &&
+      activeBusy.requestId &&
+      !document.querySelector('.bs-overlay, .bs-menu, .bs-palette, [aria-expanded="true"]')
+    ) {
+      e.preventDefault();
+      void cancelRequest(activeBusy.requestId);
+    }
+  }}
+/>
 
 <div class="bs-urlbar">
   <div
@@ -178,8 +199,15 @@
     role="presentation"
     bind:this={fieldEl}
     onfocusin={() => (focused = true)}
-    onfocusout={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node | null)) focused = false; }}
-    onkeydown={(e) => { if (e.key === 'Escape' && focused && !activeBusy) { e.preventDefault(); (document.activeElement as HTMLElement | null)?.blur(); } }}
+    onfocusout={(e) => {
+      if (!e.currentTarget.contains(e.relatedTarget as Node | null)) focused = false;
+    }}
+    onkeydown={(e) => {
+      if (e.key === 'Escape' && focused && !activeBusy) {
+        e.preventDefault();
+        (document.activeElement as HTMLElement | null)?.blur();
+      }
+    }}
   >
     <div class="bs-method-wrap" role="presentation" onpointerdown={(e) => e.stopPropagation()}>
       <button
@@ -195,7 +223,14 @@
         <span class="material-symbols-outlined" style="font-size:15px">expand_more</span>
       </button>
       {#if methodOpen}
-        <div class="bs-method-menu" role="menu" tabindex="-1" aria-label={$t('http.url.method_aria')} bind:this={methodMenu} onkeydown={methodMenuKeydown}>
+        <div
+          class="bs-method-menu"
+          role="menu"
+          tabindex="-1"
+          aria-label={$t('http.url.method_aria')}
+          bind:this={methodMenu}
+          onkeydown={methodMenuKeydown}
+        >
           {#each methodGroups as group, gi (gi)}
             {#if gi > 0}<div class="dv" role="separator"></div>{/if}
             {#each group as m (m)}
@@ -211,7 +246,9 @@
                 onclick={() => chooseHttpMethod(m)}
               >
                 <span>{m}</span>
-                {#if m === tab.request.method}<span class="material-symbols-outlined check" aria-hidden="true">check</span>{/if}
+                {#if m === tab.request.method}<span class="material-symbols-outlined check" aria-hidden="true"
+                    >check</span
+                  >{/if}
               </button>
             {/each}
           {/each}
@@ -231,14 +268,30 @@
         ariaLabel={$t('http.url.aria')}
       />
       {#if focused && long}
-        <div class="bs-url-meta"><span>{`${paramCount} ${$tp(paramCount, ['параметр', 'параметра', 'параметров'], ['param', 'params'])}\u00a0\u00a0·\u00a0\u00a0${$t('http.url.chars', { n: tab.request.url.length })}`}</span><span class="hint">{$t('http.url.collapse')}</span></div>
+        <div class="bs-url-meta">
+          <span
+            >{`${paramCount} ${$tp(paramCount, ['параметр', 'параметра', 'параметров'], ['param', 'params'])}\u00a0\u00a0·\u00a0\u00a0${$t('http.url.chars', { n: tab.request.url.length })}`}</span
+          ><span class="hint">{$t('http.url.collapse')}</span>
+        </div>
       {/if}
     </div>
-    {#if !focused && hidden > 0}<span class="bs-url-more" aria-hidden="true"><span class="material-symbols-outlined">unfold_more</span>{`+${hidden} ${$tp(hidden, ['параметр', 'параметра', 'параметров'], ['param', 'params'])}`}</span>{/if}
+    {#if !focused && hidden > 0}<span class="bs-url-more" aria-hidden="true"
+        ><span class="material-symbols-outlined">unfold_more</span
+        >{`+${hidden} ${$tp(hidden, ['параметр', 'параметра', 'параметров'], ['param', 'params'])}`}</span
+      >{/if}
   </div>
-  <button class="bs-send" class:cancelling={activeBusy?.kind === 'http'} aria-busy={activeBusy?.kind === 'http'} disabled={activeBusy?.kind !== 'http' && !tab.request.url.trim()} title={activeBusy?.kind === 'http' ? $t('http.url.cancel_title') : undefined} onclick={send}>
+  <button
+    class="bs-send"
+    class:cancelling={activeBusy?.kind === 'http'}
+    aria-busy={activeBusy?.kind === 'http'}
+    disabled={activeBusy?.kind !== 'http' && !tab.request.url.trim()}
+    title={activeBusy?.kind === 'http' ? $t('http.url.cancel_title') : undefined}
+    onclick={send}
+  >
     <span class="go">
-      {#if activeBusy?.kind === 'http'}<span>{$t('http.url.cancel')}</span><kbd>Esc</kbd>{:else}<span>{$t('http.url.send')}</span>{/if}
+      {#if activeBusy?.kind === 'http'}<span>{$t('http.url.cancel')}</span><kbd>Esc</kbd>{:else}<span
+          >{$t('http.url.send')}</span
+        >{/if}
     </span>
   </button>
 </div>

@@ -1,7 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import { consoleStatus, formatElapsed, matchesConsoleFilter, shortCwd } from './utilPanel';
 
-const e = (p: Partial<Parameters<typeof matchesConsoleFilter>[0]>) => ({ protocol: 'http' as const, method: 'GET', url: 'https://api.x/v1/payments', status: '200', ok: true, ...p });
+const e = (p: Partial<Parameters<typeof matchesConsoleFilter>[0]>) => ({
+  protocol: 'http' as const,
+  method: 'GET',
+  url: 'https://api.x/v1/payments',
+  status: '200',
+  ok: true,
+  ...p,
+});
 
 describe('consoleStatus', () => {
   it('colours HTTP by class', () => {
@@ -13,7 +20,10 @@ describe('consoleStatus', () => {
   });
   it('numbers gRPC codes', () => {
     expect(consoleStatus(e({ protocol: 'grpc', status: 'OK' }))).toEqual({ label: '0 OK', tone: 'ok' });
-    expect(consoleStatus(e({ protocol: 'grpc', status: 'UNAVAILABLE' }))).toEqual({ label: '14 UNAVAILABLE', tone: 'err' });
+    expect(consoleStatus(e({ protocol: 'grpc', status: 'UNAVAILABLE' }))).toEqual({
+      label: '14 UNAVAILABLE',
+      tone: 'err',
+    });
     expect(consoleStatus(e({ protocol: 'grpc', status: 'ERROR' })).tone).toBe('err');
   });
 });

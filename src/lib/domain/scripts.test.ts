@@ -3,9 +3,7 @@ import { parseScriptResult } from './scripts';
 
 describe('parseScriptResult returnValue', () => {
   it('passes through the script return value untouched', () => {
-    const out = parseScriptResult(
-      JSON.stringify({ logs: [], tests: [], returnValue: { token: 'abc', n: 2 } }),
-    );
+    const out = parseScriptResult(JSON.stringify({ logs: [], tests: [], returnValue: { token: 'abc', n: 2 } }));
     expect(out.returnValue).toEqual({ token: 'abc', n: 2 });
   });
 

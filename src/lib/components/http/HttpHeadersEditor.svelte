@@ -29,7 +29,10 @@
       const notes = { ...req.headerNotes };
       let disabled = req.disabledHeaders ?? [];
       if (field === 'key' && oldKey !== newKey) {
-        if (notes[oldKey] !== undefined) { if (newKey) notes[newKey] = notes[oldKey]; delete notes[oldKey]; }
+        if (notes[oldKey] !== undefined) {
+          if (newKey) notes[newKey] = notes[oldKey];
+          delete notes[oldKey];
+        }
         disabled = disabled.map((k) => (k === oldKey ? newKey : k)).filter(Boolean);
       }
       return { ...req, headers, headerNotes: notes, disabledHeaders: disabled };
@@ -52,7 +55,11 @@
 
 <div class="bs-pwrap bs-hwrap">
   <div class="bs-qp bs-headers-head">
-    <span class="t">{$t('http.headers.title')}&nbsp;&nbsp;·&nbsp;&nbsp;{manualCount}{#if auto.length}&nbsp;&nbsp;+&nbsp;&nbsp;{auto.length} auto{/if}</span>
+    <span class="t"
+      >{$t(
+        'http.headers.title',
+      )}&nbsp;&nbsp;·&nbsp;&nbsp;{manualCount}{#if auto.length}&nbsp;&nbsp;+&nbsp;&nbsp;{auto.length} auto{/if}</span
+    >
     <label class="bs-switch">
       <input type="checkbox" role="switch" bind:checked={showAuto} />
       <span class="track" aria-hidden="true"></span>
@@ -60,21 +67,57 @@
     </label>
   </div>
   <div class="bs-pt bs-headers">
-    <div class="bs-pr h"><div class="bs-pc c"></div><div class="bs-pc k">{$t('http.col.key')}</div><div class="bs-pc v">{$t('http.col.value')}</div><div class="bs-pc d">{$t('http.col.description')}</div><div class="bs-pc m"></div></div>
+    <div class="bs-pr h">
+      <div class="bs-pc c"></div>
+      <div class="bs-pc k">{$t('http.col.key')}</div>
+      <div class="bs-pc v">{$t('http.col.value')}</div>
+      <div class="bs-pc d">{$t('http.col.description')}</div>
+      <div class="bs-pc m"></div>
+    </div>
     {#each headerRows(tab) as h, i (i)}
       {@const enabled = !(tab.request.disabledHeaders ?? []).includes(h.key)}
       <div class="bs-pr" class:disabled={!enabled} class:ph={!h.key && !h.value}>
-        <div class="bs-pc c"><input type="checkbox" checked={enabled && !!h.key} disabled={!h.key} onchange={() => toggle(h.key)} aria-label={$t('http.headers.send')} /></div>
-        <div class="bs-pc k"><input placeholder={$t('http.col.key')} value={h.key} oninput={(e) => setHeaderRow(i, 'key', e.currentTarget.value)} /></div>
-        <div class="bs-pc v"><input class:var={isVar(h.value)} placeholder={$t('http.col.value')} value={h.value} oninput={(e) => setHeaderRow(i, 'value', e.currentTarget.value)} /></div>
-        <div class="bs-pc d"><input placeholder={$t('http.col.description')} value={tab.request.headerNotes?.[h.key] ?? ''} disabled={!h.key} oninput={(e) => setNote(h.key, e.currentTarget.value)} /></div>
+        <div class="bs-pc c">
+          <input
+            type="checkbox"
+            checked={enabled && !!h.key}
+            disabled={!h.key}
+            onchange={() => toggle(h.key)}
+            aria-label={$t('http.headers.send')}
+          />
+        </div>
+        <div class="bs-pc k">
+          <input
+            placeholder={$t('http.col.key')}
+            value={h.key}
+            oninput={(e) => setHeaderRow(i, 'key', e.currentTarget.value)}
+          />
+        </div>
+        <div class="bs-pc v">
+          <input
+            class:var={isVar(h.value)}
+            placeholder={$t('http.col.value')}
+            value={h.value}
+            oninput={(e) => setHeaderRow(i, 'value', e.currentTarget.value)}
+          />
+        </div>
+        <div class="bs-pc d">
+          <input
+            placeholder={$t('http.col.description')}
+            value={tab.request.headerNotes?.[h.key] ?? ''}
+            disabled={!h.key}
+            oninput={(e) => setNote(h.key, e.currentTarget.value)}
+          />
+        </div>
         <div class="bs-pc m"></div>
       </div>
     {/each}
     {#if showAuto}
       {#each auto as h (h.key)}
         <div class="bs-pr auto" title={$t('http.headers.auto_added')}>
-          <div class="bs-pc c"><input type="checkbox" checked disabled aria-label={$t('http.headers.auto_added')} /></div>
+          <div class="bs-pc c">
+            <input type="checkbox" checked disabled aria-label={$t('http.headers.auto_added')} />
+          </div>
           <div class="bs-pc k">{h.key}</div>
           <div class="bs-pc v">{h.value}</div>
           <div class="bs-pc d">{h.source === 'Auth' ? $t('http.headers.auto_auth') : 'auto'}</div>

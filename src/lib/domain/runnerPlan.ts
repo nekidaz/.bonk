@@ -84,9 +84,15 @@ export const DEFAULT_RUN: RunnerRun = {
 };
 
 export const isRecord = (v: unknown): v is RunRecord =>
-  typeof v === 'object' && v !== null && typeof (v as RunRecord).n === 'number' && Array.isArray((v as RunRecord).results);
+  typeof v === 'object' &&
+  v !== null &&
+  typeof (v as RunRecord).n === 'number' &&
+  Array.isArray((v as RunRecord).results);
 export const isSummary = (v: unknown): v is RunSummary =>
-  typeof v === 'object' && v !== null && typeof (v as RunSummary).n === 'number' && typeof (v as RunSummary).durationMs === 'number';
+  typeof v === 'object' &&
+  v !== null &&
+  typeof (v as RunSummary).n === 'number' &&
+  typeof (v as RunSummary).durationMs === 'number';
 
 /** Overlay the persisted config (untrusted shape) on the current one. */
 export function mergeSavedConfig(cur: RunnerConfig, saved: unknown): RunnerConfig {
@@ -153,7 +159,10 @@ export function orderedRequests(config: RunnerConfig, tree: TreeNode[]): Request
     const i = config.orderIds.indexOf(n.id);
     return i < 0 ? Infinity : i;
   };
-  return all.map((n, i) => ({ n, i })).sort((a, b) => rank(a.n) - rank(b.n) || a.i - b.i).map((x) => x.n);
+  return all
+    .map((n, i) => ({ n, i }))
+    .sort((a, b) => rank(a.n) - rank(b.n) || a.i - b.i)
+    .map((x) => x.n);
 }
 
 /** What a run will actually send: the ordered scope minus unchecked requests. */
@@ -169,16 +178,28 @@ export function allTestsPassed(tests: ScriptTestResult[]): boolean {
 /** Snapshot the setup as a preset. */
 export function presetFrom(c: RunnerConfig, name: string, envId: string | null): RunnerPreset {
   return {
-    name, folderIds: c.folderIds, excludedIds: c.excludedIds, orderIds: c.orderIds, iterations: c.iterations,
-    delayMs: c.delayMs, stopOnFailure: c.stopOnFailure, saveResponses: c.saveResponses, envId,
+    name,
+    folderIds: c.folderIds,
+    excludedIds: c.excludedIds,
+    orderIds: c.orderIds,
+    iterations: c.iterations,
+    delayMs: c.delayMs,
+    stopOnFailure: c.stopOnFailure,
+    saveResponses: c.saveResponses,
+    envId,
   };
 }
 
 /** Overlay a preset's run settings (not its scope or env) on the config. */
 export function applyPresetSettings(c: RunnerConfig, p: RunnerPreset): RunnerConfig {
   return {
-    ...c, excludedIds: p.excludedIds, orderIds: p.orderIds, iterations: p.iterations, delayMs: p.delayMs,
-    stopOnFailure: p.stopOnFailure, saveResponses: p.saveResponses,
+    ...c,
+    excludedIds: p.excludedIds,
+    orderIds: p.orderIds,
+    iterations: p.iterations,
+    delayMs: p.delayMs,
+    stopOnFailure: p.stopOnFailure,
+    saveResponses: p.saveResponses,
   };
 }
 
@@ -214,7 +235,9 @@ export function bindIdNodes(src: RequestNode, dst: RequestNode, b: IdBinding, ha
   const line = `pm.${scope}.set('${b.varName}', pm.response.json().id);`;
   const script = src.request.testScript?.trimEnd() ?? '';
   return [
-    script.includes(line) ? src : { ...src, request: { ...src.request, testScript: script ? `${script}\n${line}` : line } },
+    script.includes(line)
+      ? src
+      : { ...src, request: { ...src.request, testScript: script ? `${script}\n${line}` : line } },
     { ...dst, request: { ...dst.request, url: dst.request.url.split(b.literal).join(`{{${b.varName}}}`) } },
   ];
 }

@@ -25,13 +25,11 @@
   function persist(next: GrpcMetadataRow[]): void {
     rows = withTrailingGrpcMetadataRow(next);
     const metadata = grpcMetadataRecord(rows);
-    updateTabById(tab.id, (current) =>
-      current.grpc ? { ...current, grpc: { ...current.grpc, metadata } } : current,
-    );
+    updateTabById(tab.id, (current) => (current.grpc ? { ...current, grpc: { ...current.grpc, metadata } } : current));
   }
 
   function setRow(index: number, field: keyof GrpcMetadataRow, value: string): void {
-    const next = rows.map((row, rowIndex) => rowIndex === index ? { ...row, [field]: value } : row);
+    const next = rows.map((row, rowIndex) => (rowIndex === index ? { ...row, [field]: value } : row));
     persist(next);
   }
 
@@ -106,7 +104,12 @@
         </div>
         <div class="bs-pc grpc-metadata-action">
           {#if row.key !== '' || row.value !== ''}
-            <button type="button" aria-label={$t('grpc.meta.removeAria', { n: index + 1 })} title={$t('common.delete')} onclick={() => removeRow(index)}>
+            <button
+              type="button"
+              aria-label={$t('grpc.meta.removeAria', { n: index + 1 })}
+              title={$t('common.delete')}
+              onclick={() => removeRow(index)}
+            >
               <span class="material-symbols-outlined" style="font-size:16px">close</span>
             </button>
           {/if}
@@ -122,8 +125,13 @@
 </div>
 
 <style>
-  .grpc-metadata-editor { display: flex; flex-direction: column; }
-  .grpc-metadata-table { flex: 0 0 auto; }
+  .grpc-metadata-editor {
+    display: flex;
+    flex-direction: column;
+  }
+  .grpc-metadata-table {
+    flex: 0 0 auto;
+  }
   .grpc-metadata-action {
     width: 38px;
     flex: 0 0 38px;
@@ -140,9 +148,14 @@
     border-radius: 6px;
     color: var(--t3);
   }
-  .grpc-metadata-action button:hover { background: var(--hover); color: var(--text); }
+  .grpc-metadata-action button:hover {
+    background: var(--hover);
+    color: var(--text);
+  }
   .bs-pr.invalid .bs-pc.k,
-  .bs-pr.duplicate .bs-pc.k { color: var(--red); }
+  .bs-pr.duplicate .bs-pc.k {
+    color: var(--red);
+  }
   .grpc-metadata-help {
     display: flex;
     flex-wrap: wrap;
@@ -151,6 +164,10 @@
     color: var(--t3);
     font-size: 11.5px;
   }
-  .grpc-metadata-help code { font-family: var(--mono); }
-  .grpc-metadata-help .warn { color: var(--red); }
+  .grpc-metadata-help code {
+    font-family: var(--mono);
+  }
+  .grpc-metadata-help .warn {
+    color: var(--red);
+  }
 </style>

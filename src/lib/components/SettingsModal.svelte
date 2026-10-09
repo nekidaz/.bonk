@@ -32,13 +32,31 @@
   type Page = { id: string; label: string; icon: string; sub: string; view?: Component };
   const PAGES: Page[] = [
     { id: 'general', label: 'settings.page.general', icon: 'tune', sub: 'settings.page.general.sub' },
-    { id: 'requests', label: 'settings.page.requests', icon: 'send', sub: 'settings.page.requests.sub', view: SettingsRequests },
+    {
+      id: 'requests',
+      label: 'settings.page.requests',
+      icon: 'send',
+      sub: 'settings.page.requests.sub',
+      view: SettingsRequests,
+    },
     { id: 'proxy', label: 'settings.page.proxy', icon: 'lan', sub: 'settings.page.proxy.sub', view: SettingsProxy },
     { id: 'certs', label: 'settings.page.certs', icon: 'shield', sub: 'settings.page.certs.sub', view: SettingsCerts },
     { id: 'grpc', label: 'settings.page.grpc', icon: 'hub', sub: 'settings.page.grpc.sub', view: SettingsGrpc },
     { id: 'mcp', label: 'settings.page.mcp', icon: 'smart_toy', sub: 'settings.page.mcp.sub', view: SettingsMcp },
-    { id: 'appearance', label: 'settings.page.appearance', icon: 'contrast', sub: 'settings.page.appearance.sub', view: SettingsAppearance },
-    { id: 'hotkeys', label: 'settings.page.hotkeys', icon: 'keyboard', sub: 'settings.page.hotkeys.sub', view: SettingsHotkeys },
+    {
+      id: 'appearance',
+      label: 'settings.page.appearance',
+      icon: 'contrast',
+      sub: 'settings.page.appearance.sub',
+      view: SettingsAppearance,
+    },
+    {
+      id: 'hotkeys',
+      label: 'settings.page.hotkeys',
+      icon: 'keyboard',
+      sub: 'settings.page.hotkeys.sub',
+      view: SettingsHotkeys,
+    },
     { id: 'data', label: 'settings.page.data', icon: 'database', sub: 'settings.page.data.sub', view: SettingsData },
   ];
   let pageId = $state('general');
@@ -75,11 +93,19 @@
     <div class="st-sheet">
       <nav class="st-nav" aria-label={$t('settings.sections')}>
         <div class="st-kicker">{$t('settings.kicker')}</div>
-        <div class="st-ws" title={$workspacePath}>{$workspacePath.split('/').filter(Boolean).at(-1) ?? 'Local Workspace'}</div>
+        <div class="st-ws" title={$workspacePath}>
+          {$workspacePath.split('/').filter(Boolean).at(-1) ?? 'Local Workspace'}
+        </div>
         <ul>
           {#each PAGES as p (p.id)}
             <li>
-              <button type="button" class="st-item" class:on={pageId === p.id} aria-current={pageId === p.id ? 'page' : undefined} onclick={() => (pageId = p.id)}>
+              <button
+                type="button"
+                class="st-item"
+                class:on={pageId === p.id}
+                aria-current={pageId === p.id ? 'page' : undefined}
+                onclick={() => (pageId = p.id)}
+              >
                 <span class="material-symbols-outlined" style="font-size:16px" aria-hidden="true">{p.icon}</span>
                 <span>{$t(p.label)}</span>
               </button>
@@ -87,7 +113,11 @@
           {/each}
         </ul>
         <div class="st-ver">
-          Bonk {appVersion}{#if $updateStatus === 'uptodate'} · {$t('settings.update.uptodate')}{:else if $updateStatus === 'ready'} · {$t('settings.update.available')}{:else if $updateStatus === 'checking'} · {$t('settings.update.checking')}{:else if $updateStatus === 'error'} · {$t('settings.update.error')}{/if}
+          Bonk {appVersion}{#if $updateStatus === 'uptodate'}
+            · {$t('settings.update.uptodate')}{:else if $updateStatus === 'ready'}
+            · {$t('settings.update.available')}{:else if $updateStatus === 'checking'}
+            · {$t('settings.update.checking')}{:else if $updateStatus === 'error'}
+            · {$t('settings.update.error')}{/if}
         </div>
       </nav>
 

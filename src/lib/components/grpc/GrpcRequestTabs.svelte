@@ -35,7 +35,17 @@
 </script>
 
 {#snippet gtab(id: GrpcEditorSection, label: string, count = 0)}
-  <button class="bs-rtab" class:on={section === id} role="tab" id="bs-gtab-{id}" aria-selected={section === id} aria-controls="bs-grpcpanel" tabindex={section === id ? 0 : -1} onclick={() => openGrpcEditorSection(tab.id, id)}>{label}{#if count}<span class="bs-tab-count">{count}</span>{/if}</button>
+  <button
+    class="bs-rtab"
+    class:on={section === id}
+    role="tab"
+    id="bs-gtab-{id}"
+    aria-selected={section === id}
+    aria-controls="bs-grpcpanel"
+    tabindex={section === id ? 0 : -1}
+    onclick={() => openGrpcEditorSection(tab.id, id)}
+    >{label}{#if count}<span class="bs-tab-count">{count}</span>{/if}</button
+  >
 {/snippet}
 <div class="lb-tabrow">
   <div class="bs-rtabs" role="tablist" aria-label={$t('grpc.tab.request')} use:tablist>
@@ -44,17 +54,37 @@
     {@render gtab('auth', $t('grpc.tab.auth'))}
     {@render gtab('proto', $t('grpc.tab.proto'))}
     <!-- Not in the S19 mock: kept only for requests that already carry scripts. -->
-    {#if SCRIPTS_ENABLED && (tab.grpc?.preRequestScript || tab.grpc?.testScript || section === 'scripts')}{@render gtab('scripts', $t('grpc.tab.scripts'))}{/if}
+    {#if SCRIPTS_ENABLED && (tab.grpc?.preRequestScript || tab.grpc?.testScript || section === 'scripts')}{@render gtab(
+        'scripts',
+        $t('grpc.tab.scripts'),
+      )}{/if}
   </div>
   {#if messageStats}
     <div class="lb-tabrow-tools">
       {#if selectedMethod?.inputType}
-        <span class="lb-msgtype" title={selectedMethod.inputType}><span class="material-symbols-outlined" aria-hidden="true">description</span>{selectedMethod.inputType.split('.').pop()}</span>
+        <span class="lb-msgtype" title={selectedMethod.inputType}
+          ><span class="material-symbols-outlined" aria-hidden="true">description</span>{selectedMethod.inputType
+            .split('.')
+            .pop()}</span
+        >
       {/if}
-      <span class="lb-stats">{`${messageStats.approx ? '~' : ''}${formatBytes(messageStats.bytes)}  ·  ${countLabel(messageStats.lines, 'lines', $uiLanguage)}`}</span>
-      <EditorTools scope="#bs-grpcpanel" onExpand={() => focusMode.update((m) => toggleFocus(m, 'request'))} expanded={$focusMode === 'request'}>
+      <span class="lb-stats"
+        >{`${messageStats.approx ? '~' : ''}${formatBytes(messageStats.bytes)}  ·  ${countLabel(messageStats.lines, 'lines', $uiLanguage)}`}</span
+      >
+      <EditorTools
+        scope="#bs-grpcpanel"
+        onExpand={() => focusMode.update((m) => toggleFocus(m, 'request'))}
+        expanded={$focusMode === 'request'}
+      >
         {#snippet extra()}
-          <button type="button" class="bs-ric bs-grpc-example" aria-label={$t('grpc.msg.example')} title={$t('grpc.msg.example')} onclick={onLoadExample}><span class="material-symbols-outlined" aria-hidden="true">description</span></button>
+          <button
+            type="button"
+            class="bs-ric bs-grpc-example"
+            aria-label={$t('grpc.msg.example')}
+            title={$t('grpc.msg.example')}
+            onclick={onLoadExample}
+            ><span class="material-symbols-outlined" aria-hidden="true">description</span></button
+          >
         {/snippet}
       </EditorTools>
     </div>

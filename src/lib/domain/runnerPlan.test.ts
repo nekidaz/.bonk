@@ -1,14 +1,31 @@
 import { describe, expect, it } from 'vitest';
 import type { RequestNode, RunResultRow, TreeNode } from './types';
 import {
-  DEFAULT_CONFIG, DEFAULT_RUN, RUNNER_ROOT, allTestsPassed, bindIdNodes, buildReport, clampDelay, clampIterations,
-  collectRequests, iterationCount, mergeSavedConfig, orderedRequests, plannedRequests, runnerScopeTitle,
+  DEFAULT_CONFIG,
+  DEFAULT_RUN,
+  RUNNER_ROOT,
+  allTestsPassed,
+  bindIdNodes,
+  buildReport,
+  clampDelay,
+  clampIterations,
+  collectRequests,
+  iterationCount,
+  mergeSavedConfig,
+  orderedRequests,
+  plannedRequests,
+  runnerScopeTitle,
 } from './runnerPlan';
 
-const req = (id: string, extra: Partial<RequestNode['request']> = {}): RequestNode => ({
-  kind: 'request', id, name: id, protocol: 'http', request: { method: 'GET', url: `https://x/${id}`, headers: {}, ...extra },
-} as RequestNode);
-const folder = (id: string, children: TreeNode[]): TreeNode => ({ kind: 'folder', id, name: id, children } as TreeNode);
+const req = (id: string, extra: Partial<RequestNode['request']> = {}): RequestNode =>
+  ({
+    kind: 'request',
+    id,
+    name: id,
+    protocol: 'http',
+    request: { method: 'GET', url: `https://x/${id}`, headers: {}, ...extra },
+  }) as RequestNode;
+const folder = (id: string, children: TreeNode[]): TreeNode => ({ kind: 'folder', id, name: id, children }) as TreeNode;
 const tree: TreeNode[] = [req('a'), folder('f', [req('f/b'), folder('f/g', [req('f/g/c')])]), req('d')];
 const cfg = (p: Partial<typeof DEFAULT_CONFIG> = {}) => ({ ...DEFAULT_CONFIG, ...p });
 const ids = (l: RequestNode[]) => l.map((n) => n.id);
@@ -46,16 +63,39 @@ describe('runner settings', () => {
     expect(iterationCount({ dataRows: [{}, {}], iterations: 4 })).toBe(2);
   });
   it('merges only well-typed saved fields', () => {
-    const m = mergeSavedConfig(cfg({ iterations: 3 }), { iterations: 'x', delayMs: 50, folderIds: ['a', 1], excludedIds: 'no', stopOnFailure: true });
-    expect(m).toMatchObject({ iterations: 3, delayMs: 50, folderIds: ['a'], excludedIds: [], stopOnFailure: true, saveResponses: true });
+    const m = mergeSavedConfig(cfg({ iterations: 3 }), {
+      iterations: 'x',
+      delayMs: 50,
+      folderIds: ['a', 1],
+      excludedIds: 'no',
+      stopOnFailure: true,
+    });
+    expect(m).toMatchObject({
+      iterations: 3,
+      delayMs: 50,
+      folderIds: ['a'],
+      excludedIds: [],
+      stopOnFailure: true,
+      saveResponses: true,
+    });
     expect(mergeSavedConfig(cfg(), null)).toEqual(cfg());
   });
 });
 
 describe('runner report', () => {
   const row = (ok: boolean): RunResultRow => ({
-    id: String(ok), iteration: 1, requestName: 'r', protocol: 'http', method: 'GET', target: 't', status: ok ? 200 : 500,
-    ok, elapsedMs: 1, tests: [], logs: [], responseBody: 'body',
+    id: String(ok),
+    iteration: 1,
+    requestName: 'r',
+    protocol: 'http',
+    method: 'GET',
+    target: 't',
+    status: ok ? 200 : 500,
+    ok,
+    elapsedMs: 1,
+    tests: [],
+    logs: [],
+    responseBody: 'body',
   });
   const run = { ...DEFAULT_RUN, results: [row(true), row(false)], total: 2, completed: 2 };
   it('counts pass/fail and strips bodies unless saveResponses', () => {
@@ -74,7 +114,9 @@ describe('bindIdNodes', () => {
     expect(s1.request.testScript).toBe("x();\npm.environment.set('uid', pm.response.json().id);");
     expect(d1.request.url).toBe('https://x/users/{{uid}}/{{uid}}');
     expect(bindIdNodes(s1, dst, b, true)[0]).toBe(s1);
-    expect(bindIdNodes(req('s'), dst, b, false)[0].request.testScript).toBe("pm.globals.set('uid', pm.response.json().id);");
+    expect(bindIdNodes(req('s'), dst, b, false)[0].request.testScript).toBe(
+      "pm.globals.set('uid', pm.response.json().id);",
+    );
   });
 });
 

@@ -7,7 +7,8 @@ import { pickClientCert, endpointHost, hasIdentity, type HostCert } from '../dom
 import type { GrpcPrefs, GrpcTls, RequestSettings } from '../domain/types';
 
 const isCerts = (v: unknown): v is HostCert[] =>
-  Array.isArray(v) && v.every((c) => c && typeof c.host === 'string' && typeof c.certPath === 'string' && typeof c.keyPath === 'string');
+  Array.isArray(v) &&
+  v.every((c) => c && typeof c.host === 'string' && typeof c.certPath === 'string' && typeof c.keyPath === 'string');
 
 // --- Proxy ---
 export const proxyAuth = persisted('proxyAuth', false);
@@ -22,7 +23,13 @@ async function loadProxyPassword(): Promise<void> {
     proxyPassword.set((await secretGet(PROXY_PW)) ?? '');
     proxyPassword.subscribe((pw) => {
       clearTimeout(pwTimer);
-      pwTimer = setTimeout(() => void (pw ? secretSet(PROXY_PW, pw) : secretDelete(PROXY_PW)).catch((e) => console.warn('keychain: proxy password not stored', e)), 500);
+      pwTimer = setTimeout(
+        () =>
+          void (pw ? secretSet(PROXY_PW, pw) : secretDelete(PROXY_PW)).catch((e) =>
+            console.warn('keychain: proxy password not stored', e),
+          ),
+        500,
+      );
     });
   } catch (e) {
     console.warn('keychain: proxy password not read', e);
@@ -69,7 +76,9 @@ void clientCerts.ready.then(async () => {
 /** Client identities as sent to the backend (passwords attached for .p12 entries). */
 export function activeClientCerts(): RequestSettings['clientCerts'] {
   const pw = get(p12Passwords);
-  return get(clientCerts).filter(hasIdentity).map((c) => (c.p12Path ? { ...c, p12Password: pw[c.p12Path] ?? '' } : c));
+  return get(clientCerts)
+    .filter(hasIdentity)
+    .map((c) => (c.p12Path ? { ...c, p12Password: pw[c.p12Path] ?? '' } : c));
 }
 
 // One-time move of the old single global client cert/key into the per-host list (host '' = any).
@@ -103,7 +112,9 @@ export function grpcTlsFor(endpoint: string, tls?: GrpcTls): GrpcTls | undefined
   if ((tls?.clientCert && tls.clientKey) || tls?.clientP12) return tls;
   const c = pickClientCert(activeClientCerts(), endpointHost(endpoint));
   if (!c) return tls;
-  return c.p12Path ? { ...tls, clientP12: c.p12Path, clientP12Password: c.p12Password } : { ...tls, clientCert: c.certPath, clientKey: c.keyPath };
+  return c.p12Path
+    ? { ...tls, clientP12: c.p12Path, clientP12Password: c.p12Password }
+    : { ...tls, clientCert: c.certPath, clientKey: c.keyPath };
 }
 
 /** Tab proto import paths plus the global `-I` list, de-duplicated. */

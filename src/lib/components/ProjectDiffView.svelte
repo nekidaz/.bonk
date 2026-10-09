@@ -73,8 +73,14 @@
 
 <div class="bs-projdiff">
   <div class="bs-projdiff-commit">
-    <textarea class="bs-git-msg" placeholder={$t('git.commit.placeholder')} rows="2" bind:value={commitMessage}></textarea>
-    <button class="bs-btn primary" type="button" disabled={!commitMessage.trim() || stagedCount === 0 || $gitBusy} onclick={commit}>
+    <textarea class="bs-git-msg" placeholder={$t('git.commit.placeholder')} rows="2" bind:value={commitMessage}
+    ></textarea>
+    <button
+      class="bs-btn primary"
+      type="button"
+      disabled={!commitMessage.trim() || stagedCount === 0 || $gitBusy}
+      onclick={commit}
+    >
       <span class="material-symbols-outlined" style="font-size:15px;vertical-align:-3px">check</span>
       {$t('git.commit')}{stagedCount ? ` (${stagedCount})` : ''}
     </button>
@@ -83,7 +89,10 @@
   {#if error}
     <div class="bs-git-diff-error">{error}</div>
   {:else if loading && files.length === 0}
-    <div class="bs-git-diff-empty"><span class="send-spinner" aria-hidden="true"></span> {$t('git.changes.loading')}</div>
+    <div class="bs-git-diff-empty">
+      <span class="send-spinner" aria-hidden="true"></span>
+      {$t('git.changes.loading')}
+    </div>
   {:else if files.length === 0}
     <div class="bs-git-diff-empty">{$t('git.changes.none')}</div>
   {:else}

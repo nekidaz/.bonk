@@ -30,7 +30,9 @@ export const defaultMcpPrefs: McpPrefs = {
 };
 
 const isPrefs = (v: unknown): v is McpPrefs =>
-  typeof v === 'object' && v !== null && typeof (v as McpPrefs).allowWrites === 'boolean'
-  && Array.isArray((v as McpPrefs).targetHosts);
+  typeof v === 'object' &&
+  v !== null &&
+  typeof (v as McpPrefs).allowWrites === 'boolean' &&
+  Array.isArray((v as McpPrefs).targetHosts);
 
 export const mcpPrefs = persisted<McpPrefs>('mcp.prefs', defaultMcpPrefs, isPrefs);

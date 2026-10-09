@@ -15,7 +15,10 @@ export interface McpEnvPrefs {
   autoAllowNew?: boolean;
 }
 
-interface EnvLike { name: string; protected?: boolean }
+interface EnvLike {
+  name: string;
+  protected?: boolean;
+}
 type Scoped = { envScope: McpEnvScope; environments: string[] };
 
 /** Production-like: protected (explicit flag or name) or named like live. */

@@ -1,7 +1,21 @@
 import { describe, expect, it } from 'vitest';
-import { allowedEnvNames, autoAllowNewEnv, isProdLike, renameEnvAllowance, scopeOf, setAllEnvs, toggleEnv } from './mcpEnvs';
+import {
+  allowedEnvNames,
+  autoAllowNewEnv,
+  isProdLike,
+  renameEnvAllowance,
+  scopeOf,
+  setAllEnvs,
+  toggleEnv,
+} from './mcpEnvs';
 
-const envs = [{ name: 'Dev' }, { name: 'Staging' }, { name: 'Production' }, { name: 'Live EU' }, { name: 'Safe', protected: true }];
+const envs = [
+  { name: 'Dev' },
+  { name: 'Staging' },
+  { name: 'Production' },
+  { name: 'Live EU' },
+  { name: 'Safe', protected: true },
+];
 const base = { environments: null as string[] | null };
 
 describe('mcpEnvs', () => {

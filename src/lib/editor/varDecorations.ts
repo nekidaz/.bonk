@@ -81,11 +81,7 @@ function highlightPlugin(opts: VariableHighlightOptions): Extension {
   );
 }
 
-function el<K extends keyof HTMLElementTagNameMap>(
-  tag: K,
-  className: string,
-  text?: string,
-): HTMLElementTagNameMap[K] {
+function el<K extends keyof HTMLElementTagNameMap>(tag: K, className: string, text?: string): HTMLElementTagNameMap[K] {
   const node = document.createElement(tag);
   node.className = className;
   if (text !== undefined) node.textContent = text;
@@ -123,7 +119,13 @@ const tr = (key: string, vars?: Record<string, string>) => get(t)(key, vars);
 const mask = (v: string) => '•'.repeat(Math.min(Math.max(v.length, 8), 16));
 
 /** Glyph + name row + source line + «open environments». */
-function headDom(name: string, glyph: string, nameExtra: HTMLElement[], source: HTMLElement[], opts: VariableHighlightOptions) {
+function headDom(
+  name: string,
+  glyph: string,
+  nameExtra: HTMLElement[],
+  source: HTMLElement[],
+  opts: VariableHighlightOptions,
+) {
   const head = el('div', 'cm-var-tip-head');
   const g = el('span', 'cm-var-tip-glyph');
   g.appendChild(icon(glyph));
@@ -181,7 +183,11 @@ function resolvedDom(view: EditorView, name: string, info: VarScopeInfo, opts: V
     }
     const source = info.global
       ? [el('span', 'cm-var-tip-env', info.source.name)]
-      : [dot(info.source.color), el('span', 'cm-var-tip-env', info.source.name), el('span', '', tr('code.tip.scope_env'))];
+      : [
+          dot(info.source.color),
+          el('span', 'cm-var-tip-env', info.source.name),
+          el('span', '', tr('code.tip.scope_env')),
+        ];
     root.appendChild(headDom(name, info.secret ? 'key' : 'data_object', extra, source, opts));
 
     const box = el('div', 'cm-var-tip-value');
@@ -273,11 +279,25 @@ function unresolvedDom(view: EditorView, name: string, opts: VariableHighlightOp
   };
 
   root.appendChild(
-    headDom(name, 'help', [], [el('span', 'cm-var-tip-lead', tr('code.tip.missing_in')), ...(target.color ? [dot(target.color)] : []), el('span', 'cm-var-tip-env', target.name)], opts),
+    headDom(
+      name,
+      'help',
+      [],
+      [
+        el('span', 'cm-var-tip-lead', tr('code.tip.missing_in')),
+        ...(target.color ? [dot(target.color)] : []),
+        el('span', 'cm-var-tip-env', target.name),
+      ],
+      opts,
+    ),
   );
 
   const box = el('div', 'cm-var-tip-value');
-  const input = valueInput(name, '', target.color ? tr('code.tip.value_for', { name: target.name }) : tr('code.tip.value'));
+  const input = valueInput(
+    name,
+    '',
+    target.color ? tr('code.tip.value_for', { name: target.name }) : tr('code.tip.value'),
+  );
   input.addEventListener('keydown', (e) => {
     e.stopPropagation();
     if (e.key === 'Enter') {
@@ -459,7 +479,11 @@ const varTheme = EditorView.baseTheme({
   '.cm-var-tip-input::placeholder': { color: muted },
   '.cm-var-tip-note': { flexWrap: 'wrap', gap: '5px' },
   '.cm-var-tip-note[hidden]': { display: 'none' },
-  '.cm-var-tip-note code': { fontFamily: 'var(--font-code)', fontSize: 'var(--font-size-caption)', wordBreak: 'break-all' },
+  '.cm-var-tip-note code': {
+    fontFamily: 'var(--font-code)',
+    fontSize: 'var(--font-size-caption)',
+    wordBreak: 'break-all',
+  },
   '.cm-var-tip-note.wrap': { display: 'block', lineHeight: '1.45' },
   '.cm-var-tip-actions': {
     display: 'flex',

@@ -5,7 +5,11 @@
   import { t } from '../i18n';
 
   // S01 (empty workspace) and S02 (no open tabs) share the main panel when nothing is open.
-  let { onNewRequest, onImport, onPasteCurl }: {
+  let {
+    onNewRequest,
+    onImport,
+    onPasteCurl,
+  }: {
     onNewRequest: () => void;
     onImport: (source?: 'openapi' | 'postman' | 'insomnia' | 'har') => void;
     onPasteCurl: (text: string) => void;
@@ -18,17 +22,27 @@
 
   function curlKeydown(e: KeyboardEvent): void {
     const value = (e.currentTarget as HTMLInputElement).value;
-    if (e.key === 'Enter' && value.trim()) { e.preventDefault(); onPasteCurl(value); }
+    if (e.key === 'Enter' && value.trim()) {
+      e.preventDefault();
+      onPasteCurl(value);
+    }
   }
 </script>
 
 {#if $collections.length === 0 || recent.length === 0}
   <section class="bs-welcome" aria-labelledby="bs-welcome-title">
-    <div class="eyebrow">{workspaceName}&nbsp;&nbsp;·&nbsp;&nbsp;{$collections.length === 0 ? $t('nav.welcome.newWorkspace') : $t('nav.welcome.noTabs')}</div>
+    <div class="eyebrow">
+      {workspaceName}&nbsp;&nbsp;·&nbsp;&nbsp;{$collections.length === 0
+        ? $t('nav.welcome.newWorkspace')
+        : $t('nav.welcome.noTabs')}
+    </div>
     <h1 id="bs-welcome-title">{$t('nav.welcome.firstTitle')}</h1>
     <p>{$t('nav.welcome.firstText')}</p>
     <div class="actions">
-      <button class="primary" type="button" onclick={onNewRequest}><span class="material-symbols-outlined" aria-hidden="true">add</span>{$t('nav.welcome.newRequest')}<kbd>⌘N</kbd></button>
+      <button class="primary" type="button" onclick={onNewRequest}
+        ><span class="material-symbols-outlined" aria-hidden="true">add</span>{$t('nav.welcome.newRequest')}<kbd>⌘N</kbd
+        ></button
+      >
       <button class="secondary" type="button" onclick={() => onImport()}>{$t('nav.welcome.import')}</button>
     </div>
     <label class="paste">
@@ -38,7 +52,13 @@
         placeholder={$t('nav.welcome.pasteCurl')}
         aria-label={$t('nav.welcome.pasteCurlAria')}
         spellcheck="false"
-        onpaste={(e) => { const text = e.clipboardData?.getData('text') ?? ''; if (/^\s*curl\s/i.test(text)) { e.preventDefault(); onPasteCurl(text); } }}
+        onpaste={(e) => {
+          const text = e.clipboardData?.getData('text') ?? '';
+          if (/^\s*curl\s/i.test(text)) {
+            e.preventDefault();
+            onPasteCurl(text);
+          }
+        }}
         onkeydown={curlKeydown}
       />
       <kbd>⌘V</kbd>
@@ -46,7 +66,10 @@
     <div class="sources">
       <span class="lbl">{$t('nav.welcome.importFrom')}</span>
       <button type="button" onclick={() => curlInput?.focus()}>cURL</button>
-      {#each [['OpenAPI 3', 'openapi'], ['Postman', 'postman'], ['Insomnia', 'insomnia'], ['HAR', 'har']] as const as [label, src] (src)}<button type="button" onclick={() => onImport(src)}>{label}</button>{/each}
+      {#each [['OpenAPI 3', 'openapi'], ['Postman', 'postman'], ['Insomnia', 'insomnia'], ['HAR', 'har']] as const as [label, src] (src)}<button
+          type="button"
+          onclick={() => onImport(src)}>{label}</button
+        >{/each}
     </div>
   </section>
 {:else}

@@ -46,7 +46,10 @@ const kindOf = (c: string): ItemKind => (c === '{' ? 'objects' : c === '[' ? 'ar
  * and ends right after the comma following the last hidden element, so the tail element stays on its own line.
  * `containers` (only when asked): every multi-line object/array except the root, for "Fold all".
  */
-export function scanFolds(text: string, opts: { containers?: boolean; min?: number } = {}): { large: LargeFold[]; containers: FoldRange[] } {
+export function scanFolds(
+  text: string,
+  opts: { containers?: boolean; min?: number } = {},
+): { large: LargeFold[]; containers: FoldRange[] } {
   const min = Math.max(FOLD_HEAD + FOLD_TAIL, opts.min ?? LARGE_ARRAY_MIN);
   const large: LargeFold[] = [];
   const containers: FoldRange[] = [];
@@ -67,9 +70,11 @@ export function scanFolds(text: string, opts: { containers?: boolean; min?: numb
       continue;
     }
     const top = stack[stack.length - 1];
-    if (top && top.arr && top.kind === undefined && c !== ' ' && c !== '\t' && c !== '\r' && c !== ']') top.kind = kindOf(c);
+    if (top && top.arr && top.kind === undefined && c !== ' ' && c !== '\t' && c !== '\r' && c !== ']')
+      top.kind = kindOf(c);
     if (c === '"') inStr = true;
-    else if (c === '{' || c === '[') stack.push({ open: i, arr: c === '[', nl, depth: stack.length, commas: 0, head: [], ring: [] });
+    else if (c === '{' || c === '[')
+      stack.push({ open: i, arr: c === '[', nl, depth: stack.length, commas: 0, head: [], ring: [] });
     else if (c === ',' && top?.arr) {
       top.commas += 1;
       if (top.head.length < FOLD_HEAD) top.head.push(i);
@@ -81,7 +86,12 @@ export function scanFolds(text: string, opts: { containers?: boolean; min?: numb
       if (top.arr) {
         const n = top.kind === undefined ? 0 : top.commas + 1;
         if (n > min) {
-          large.push({ from: top.head[FOLD_HEAD - 1] + 1, to: top.ring[0] + 1, hidden: n - FOLD_HEAD - FOLD_TAIL, kind: top.kind ?? 'items' });
+          large.push({
+            from: top.head[FOLD_HEAD - 1] + 1,
+            to: top.ring[0] + 1,
+            hidden: n - FOLD_HEAD - FOLD_TAIL,
+            kind: top.kind ?? 'items',
+          });
         }
       }
     }

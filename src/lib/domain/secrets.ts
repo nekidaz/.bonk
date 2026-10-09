@@ -14,7 +14,11 @@ function secretRows(globals: VarRow[], envs: Environment[]): Array<[string, VarR
 
 /** account -> value for secrets that have a value (empty ones need no keychain entry). */
 export function collectSecrets(globals: VarRow[], envs: Environment[]): Map<string, string> {
-  return new Map(secretRows(globals, envs).filter(([, r]) => r.value !== '').map(([a, r]) => [a, r.value]));
+  return new Map(
+    secretRows(globals, envs)
+      .filter(([, r]) => r.value !== '')
+      .map(([a, r]) => [a, r.value]),
+  );
 }
 
 /**

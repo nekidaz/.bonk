@@ -43,10 +43,17 @@ export function beautify(body: string, format: RawBodyFormat): string {
 }
 
 /** The body format dropdown in the request tabs row (E1): raw formats plus the other body modes. */
-export type BodyKind = 'json' | 'text' | 'javascript' | 'html' | 'xml' | 'graphql' | 'none' | 'urlencoded' | 'multipart' | 'binary';
+export type BodyKind =
+  'json' | 'text' | 'javascript' | 'html' | 'xml' | 'graphql' | 'none' | 'urlencoded' | 'multipart' | 'binary';
 export const RAW_KINDS: readonly BodyKind[] = ['json', 'text', 'javascript', 'html', 'xml', 'graphql'];
 export const OTHER_KINDS: readonly BodyKind[] = ['none', 'urlencoded', 'multipart', 'binary'];
-const KIND_FORMAT: Partial<Record<BodyKind, RawBodyFormat>> = { json: 'JSON', text: 'Text', javascript: 'JavaScript', html: 'HTML', xml: 'XML' };
+const KIND_FORMAT: Partial<Record<BodyKind, RawBodyFormat>> = {
+  json: 'JSON',
+  text: 'Text',
+  javascript: 'JavaScript',
+  html: 'HTML',
+  xml: 'XML',
+};
 
 export function bodyKindOf(t: Pick<Tab, 'request'>): BodyKind {
   const mode = currentBodyMode(t);

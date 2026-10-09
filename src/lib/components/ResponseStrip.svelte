@@ -21,13 +21,31 @@
       if (!r) return undefined;
       const code = r.ok ? 'OK' : presentGrpcError(r.status, r.body).code;
       const tone = r.ok ? 'success' : grpcCodeTone(code);
-      return { tone, glyph: r.ok ? '✓' : tone === 'warning' ? '!' : '×', status: grpcStatusLabel(code), ms: r.elapsed_ms, size: r.ok || r.size_bytes ? formatBytes(r.size_bytes) : '—', body: r.body };
+      return {
+        tone,
+        glyph: r.ok ? '✓' : tone === 'warning' ? '!' : '×',
+        status: grpcStatusLabel(code),
+        ms: r.elapsed_ms,
+        size: r.ok || r.size_bytes ? formatBytes(r.size_bytes) : '—',
+        body: r.body,
+      };
     }
     const r = tab.response;
     if (!r) return undefined;
     const tone = responseTone(r);
-    const status = r.status ? `${r.status} ${HTTP_STATUS_TEXT[r.status] ?? ''}`.trim() : isCancelled(r) ? $t('response.status.cancelled') : $t('response.status.none');
-    return { tone, glyph: tone === 'success' ? '✓' : r.status ? '!' : '×', status, ms: r.elapsed_ms, size: r.status ? formatBytes(r.size_bytes) : '—', body: r.body };
+    const status = r.status
+      ? `${r.status} ${HTTP_STATUS_TEXT[r.status] ?? ''}`.trim()
+      : isCancelled(r)
+        ? $t('response.status.cancelled')
+        : $t('response.status.none');
+    return {
+      tone,
+      glyph: tone === 'success' ? '✓' : r.status ? '!' : '×',
+      status,
+      ms: r.elapsed_ms,
+      size: r.status ? formatBytes(r.size_bytes) : '—',
+      body: r.body,
+    };
   });
   const preview = $derived(info ? oneLinePreview(info.body) : '');
 </script>
@@ -44,6 +62,8 @@
     <span class="preview">{$t('lb.strip.noResponse')}</span>
   {/if}
   <button type="button" class="act" onclick={onShow}>
-    <span class="material-symbols-outlined" aria-hidden="true">expand_less</span>{$t('lb.strip.showResponse')}<kbd>{formatBinding($hotkeys.toggleResponse ?? '').join('')}</kbd>
+    <span class="material-symbols-outlined" aria-hidden="true">expand_less</span>{$t('lb.strip.showResponse')}<kbd
+      >{formatBinding($hotkeys.toggleResponse ?? '').join('')}</kbd
+    >
   </button>
 </div>

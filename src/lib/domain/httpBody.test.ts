@@ -82,13 +82,7 @@ describe('setHeaderIfMissing', () => {
 describe('enabledBodyParams', () => {
   it('keeps only enabled rows with a non-empty (trimmed) key', () => {
     const t = tab({
-      bodyParams: [
-        bp('a', '1'),
-        bp('b', '2', false),
-        bp('', 'no-key'),
-        bp('   ', 'blank-key'),
-        bp('c', ''),
-      ],
+      bodyParams: [bp('a', '1'), bp('b', '2', false), bp('', 'no-key'), bp('   ', 'blank-key'), bp('c', '')],
     });
     expect(enabledBodyParams(t)).toEqual([bp('a', '1'), bp('c', '')]);
   });
@@ -256,7 +250,11 @@ describe('buildRequestForSend', () => {
     expect(req.headers.Authorization).toBe('Bearer token-1');
 
     const overridden = buildRequestForSend(
-      tab({ bodyMode: 'none', headers: { authorization: 'Custom x' }, auth: { type: 'bearer', bearerToken: 'token-1' } }),
+      tab({
+        bodyMode: 'none',
+        headers: { authorization: 'Custom x' },
+        auth: { type: 'bearer', bearerToken: 'token-1' },
+      }),
       'https://api.example.com',
     );
     expect(overridden.headers).toEqual({ authorization: 'Custom x' });
@@ -272,7 +270,10 @@ describe('buildRequestForSend', () => {
 
   it('adds API key auth to either headers or query params', () => {
     const headerReq = buildRequestForSend(
-      tab({ bodyMode: 'none', auth: { type: 'apiKey', apiKeyName: 'x-api-key', apiKeyValue: 'secret', apiKeyIn: 'header' } }),
+      tab({
+        bodyMode: 'none',
+        auth: { type: 'apiKey', apiKeyName: 'x-api-key', apiKeyValue: 'secret', apiKeyIn: 'header' },
+      }),
       'https://api.example.com',
     );
     expect(headerReq.headers['x-api-key']).toBe('secret');

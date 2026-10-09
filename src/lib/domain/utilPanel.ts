@@ -5,13 +5,30 @@ import type { AppConsoleEntry } from '../stores/console';
 export type StatusTone = 'ok' | 'info' | 'warn' | 'err' | 'muted';
 
 const GRPC_CODES: Record<string, number> = {
-  OK: 0, CANCELLED: 1, UNKNOWN: 2, INVALID_ARGUMENT: 3, DEADLINE_EXCEEDED: 4, NOT_FOUND: 5, ALREADY_EXISTS: 6,
-  PERMISSION_DENIED: 7, RESOURCE_EXHAUSTED: 8, FAILED_PRECONDITION: 9, ABORTED: 10, OUT_OF_RANGE: 11,
-  UNIMPLEMENTED: 12, INTERNAL: 13, UNAVAILABLE: 14, DATA_LOSS: 15, UNAUTHENTICATED: 16,
+  OK: 0,
+  CANCELLED: 1,
+  UNKNOWN: 2,
+  INVALID_ARGUMENT: 3,
+  DEADLINE_EXCEEDED: 4,
+  NOT_FOUND: 5,
+  ALREADY_EXISTS: 6,
+  PERMISSION_DENIED: 7,
+  RESOURCE_EXHAUSTED: 8,
+  FAILED_PRECONDITION: 9,
+  ABORTED: 10,
+  OUT_OF_RANGE: 11,
+  UNIMPLEMENTED: 12,
+  INTERNAL: 13,
+  UNAVAILABLE: 14,
+  DATA_LOSS: 15,
+  UNAUTHENTICATED: 16,
 };
 
 /** Label + colour of a console row's status: `200`, `404`, `0 OK`, `14 UNAVAILABLE`, or the raw text. */
-export function consoleStatus(e: Pick<AppConsoleEntry, 'protocol' | 'status' | 'ok'>): { label: string; tone: StatusTone } {
+export function consoleStatus(e: Pick<AppConsoleEntry, 'protocol' | 'status' | 'ok'>): {
+  label: string;
+  tone: StatusTone;
+} {
   const raw = e.status.trim();
   if (e.protocol === 'grpc') {
     const name = raw.toUpperCase().replace(/[ -]/g, '_');
@@ -24,10 +41,14 @@ export function consoleStatus(e: Pick<AppConsoleEntry, 'protocol' | 'status' | '
 }
 
 /** Console filter: every whitespace-separated term must appear in the url, method or status (case-insensitive). */
-export function matchesConsoleFilter(e: Pick<AppConsoleEntry, 'protocol' | 'method' | 'url' | 'status' | 'ok'>, query: string): boolean {
+export function matchesConsoleFilter(
+  e: Pick<AppConsoleEntry, 'protocol' | 'method' | 'url' | 'status' | 'ok'>,
+  query: string,
+): boolean {
   const terms = query.toLowerCase().split(/\s+/).filter(Boolean);
   if (terms.length === 0) return true;
-  const hay = `${e.url} ${e.method} ${e.status} ${consoleStatus(e).label} ${e.protocol === 'grpc' ? 'grpc' : 'http'}`.toLowerCase();
+  const hay =
+    `${e.url} ${e.method} ${e.status} ${consoleStatus(e).label} ${e.protocol === 'grpc' ? 'grpc' : 'http'}`.toLowerCase();
   return terms.every((t) => hay.includes(t));
 }
 

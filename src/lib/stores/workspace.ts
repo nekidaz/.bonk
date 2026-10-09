@@ -35,14 +35,20 @@ export function rememberWorkspacePath(path: string): void {
 
 /** Collect the expanded state of every folder, keyed by id, into `acc`. @internal */
 export function collectExpanded(nodes: TreeNode[], acc: Map<string, boolean>): void {
-  for (const n of nodes) if (n.kind === 'folder') { acc.set(n.id, n.expanded); collectExpanded(n.children, acc); }
+  for (const n of nodes)
+    if (n.kind === 'folder') {
+      acc.set(n.id, n.expanded);
+      collectExpanded(n.children, acc);
+    }
 }
 
 /** Re-apply a saved expanded-by-id map to a freshly loaded tree; unknown folders keep the loaded default. @internal */
 export function applyExpanded(nodes: TreeNode[], map: Map<string, boolean>): TreeNode[] {
-  return nodes.map((n) => n.kind === 'folder'
-    ? { ...n, expanded: map.has(n.id) ? map.get(n.id)! : n.expanded, children: applyExpanded(n.children, map) }
-    : n);
+  return nodes.map((n) =>
+    n.kind === 'folder'
+      ? { ...n, expanded: map.has(n.id) ? map.get(n.id)! : n.expanded, children: applyExpanded(n.children, map) }
+      : n,
+  );
 }
 
 /** Collapsed folder ids per workspace root, persisted so the tree reopens as left. @internal */
@@ -68,7 +74,9 @@ export async function reloadWorkspace(): Promise<void> {
   // remaps run before this, so validly-relinked tabs keep their path; clear only
   // genuinely-orphaned links so the next save prompts/creates rather than duplicates.
   const loaded = get(collections);
-  tabs.update((list) => list.map((t) => (t.savedPath && !findNode(loaded, t.savedPath) ? { ...t, savedPath: undefined } : t)));
+  tabs.update((list) =>
+    list.map((t) => (t.savedPath && !findNode(loaded, t.savedPath) ? { ...t, savedPath: undefined } : t)),
+  );
 }
 
 /**
@@ -222,7 +230,12 @@ const baseName = (id: string) => idToRel(id).split('/').pop()!;
  * (undefined = root), optionally right before/after its child `at.id`.
  * Returns the resulting node id.
  */
-export async function dropNode(id: string, dest: string | undefined, at?: { id: string; after: boolean }, copy = false): Promise<string | undefined> {
+export async function dropNode(
+  id: string,
+  dest: string | undefined,
+  at?: { id: string; after: boolean },
+  copy = false,
+): Promise<string | undefined> {
   const root = get(workspacePath);
   if (!root || id === at?.id) return undefined;
   const name = findNode(get(collections), id)?.name;
@@ -236,7 +249,9 @@ export async function dropNode(id: string, dest: string | undefined, at?: { id: 
     }
     if (at) {
       const folder = dest ? findNode(get(collections), dest) : undefined;
-      const ids = (folder?.kind === 'folder' ? folder.children : get(collections)).map((n) => n.id).filter((x) => copy || x !== id);
+      const ids = (folder?.kind === 'folder' ? folder.children : get(collections))
+        .map((n) => n.id)
+        .filter((x) => copy || x !== id);
       ids.splice(ids.indexOf(at.id) + (at.after ? 1 : 0), 0, newId);
       await workspaceReorder(root, dest ? idToRel(dest) : ROOT, ids.map(baseName));
     }
@@ -254,7 +269,8 @@ export async function undoDrop(newId: string, copy: boolean, parent: string | un
       await workspaceDelete(root, newId);
       tabs.update((list) => relinkTabPaths(list, newId, undefined));
     } else {
-      const back = parentId(newId) === parent ? newId : await workspaceMove(root, newId, parent ? idToRel(parent) : ROOT);
+      const back =
+        parentId(newId) === parent ? newId : await workspaceMove(root, newId, parent ? idToRel(parent) : ROOT);
       tabs.update((list) => relinkTabPaths(list, newId, back));
       await workspaceReorder(root, parent ? idToRel(parent) : ROOT, ids.map(baseName));
     }
@@ -264,8 +280,10 @@ export async function undoDrop(newId: string, copy: boolean, parent: string | un
 
 /** Expand every folder on the path to node `id`, so the tree can show it. */
 export function revealNode(id: string): void {
-  const expandTo = (nodes: TreeNode[]): TreeNode[] => nodes.map((n) =>
-    n.kind === 'folder' && id.startsWith(n.id + '/') ? { ...n, expanded: true, children: expandTo(n.children) } : n);
+  const expandTo = (nodes: TreeNode[]): TreeNode[] =>
+    nodes.map((n) =>
+      n.kind === 'folder' && id.startsWith(n.id + '/') ? { ...n, expanded: true, children: expandTo(n.children) } : n,
+    );
   collections.update(expandTo);
 }
 

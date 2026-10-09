@@ -3,8 +3,14 @@
   import EnvironmentSelector from './EnvironmentSelector.svelte';
   import UpdatePill from './UpdatePill.svelte';
   import { t } from '../i18n';
-  let { workspaceMenuOpen = $bindable(), onSearch, onSettings }: {
-    workspaceMenuOpen: boolean; onSearch: () => void; onSettings: () => void;
+  let {
+    workspaceMenuOpen = $bindable(),
+    onSearch,
+    onSettings,
+  }: {
+    workspaceMenuOpen: boolean;
+    onSearch: () => void;
+    onSettings: () => void;
   } = $props();
 </script>
 
@@ -20,6 +26,11 @@
   <div class="bs-tb-right">
     <EnvironmentSelector />
     <UpdatePill />
-    <button class="bs-ti" title={$t('nav.toolbar.settings')} aria-label={$t('nav.toolbar.settings')} onclick={onSettings}><span class="material-symbols-outlined">settings</span></button>
+    <button
+      class="bs-ti"
+      title={$t('nav.toolbar.settings')}
+      aria-label={$t('nav.toolbar.settings')}
+      onclick={onSettings}><span class="material-symbols-outlined">settings</span></button
+    >
   </div>
 </div>

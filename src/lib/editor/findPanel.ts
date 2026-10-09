@@ -24,7 +24,10 @@ const COUNT_CAP = 10_000;
 let replaceOpen = false;
 
 /** «current/total» for the query, current = the match the main selection sits on (0 if none). */
-export function matchCount(state: EditorState, query: SearchQuery): { current: number; total: number; capped: boolean } {
+export function matchCount(
+  state: EditorState,
+  query: SearchQuery,
+): { current: number; total: number; capped: boolean } {
   const { from, to } = state.selection.main;
   const cursor = query.getCursor(state);
   let total = 0;
@@ -37,7 +40,11 @@ export function matchCount(state: EditorState, query: SearchQuery): { current: n
   return { current, total, capped: false };
 }
 
-function el<K extends keyof HTMLElementTagNameMap>(tag: K, attrs: Record<string, string>, ...kids: Node[]): HTMLElementTagNameMap[K] {
+function el<K extends keyof HTMLElementTagNameMap>(
+  tag: K,
+  attrs: Record<string, string>,
+  ...kids: Node[]
+): HTMLElementTagNameMap[K] {
   const node = document.createElement(tag);
   for (const [k, v] of Object.entries(attrs)) node.setAttribute(k, v);
   node.append(...kids);
@@ -45,8 +52,11 @@ function el<K extends keyof HTMLElementTagNameMap>(tag: K, attrs: Record<string,
 }
 
 function iconButton(cls: string, icon: string, label: string, onClick: () => void): HTMLButtonElement {
-  const b = el('button', { type: 'button', class: `bs-find-btn ${cls}`, 'aria-label': label, title: label },
-    el('span', { class: 'material-symbols-outlined', 'aria-hidden': 'true' }, document.createTextNode(icon)));
+  const b = el(
+    'button',
+    { type: 'button', class: `bs-find-btn ${cls}`, 'aria-label': label, title: label },
+    el('span', { class: 'material-symbols-outlined', 'aria-hidden': 'true' }, document.createTextNode(icon)),
+  );
   b.addEventListener('mousedown', (e) => e.preventDefault()); // keep focus in the field
   b.addEventListener('click', onClick);
   return b;
@@ -57,8 +67,19 @@ export function createFindPanel(view: EditorView): Panel {
   const editable = !view.state.readOnly;
   let query = getSearchQuery(view.state);
 
-  const find = el('input', { class: 'bs-find-input', 'main-field': 'true', placeholder: p('Find'), 'aria-label': p('Find'), spellcheck: 'false' });
-  const repl = el('input', { class: 'bs-find-input', placeholder: p('Replace'), 'aria-label': p('Replace'), spellcheck: 'false' });
+  const find = el('input', {
+    class: 'bs-find-input',
+    'main-field': 'true',
+    placeholder: p('Find'),
+    'aria-label': p('Find'),
+    spellcheck: 'false',
+  });
+  const repl = el('input', {
+    class: 'bs-find-input',
+    placeholder: p('Replace'),
+    'aria-label': p('Replace'),
+    spellcheck: 'false',
+  });
   const count = el('span', { class: 'bs-find-count', 'aria-live': 'polite' });
 
   const flag = (icon: string, label: string, key: 'caseSensitive' | 'wholeWord' | 'regexp') => {
@@ -66,28 +87,41 @@ export function createFindPanel(view: EditorView): Panel {
     b.dataset.flag = key;
     return b;
   };
-  const flags = [flag('match_case', p('match case'), 'caseSensitive'), flag('match_word', p('by word'), 'wholeWord'), flag('regular_expression', p('regexp'), 'regexp')];
+  const flags = [
+    flag('match_case', p('match case'), 'caseSensitive'),
+    flag('match_word', p('by word'), 'wholeWord'),
+    flag('regular_expression', p('regexp'), 'regexp'),
+  ];
 
   const toggle = iconButton('bs-find-toggle', 'keyboard_arrow_down', p('Toggle Replace'), () => {
     replaceOpen = !replaceOpen;
     render();
     (replaceOpen ? repl : find).focus();
   });
-  const replaceRow = el('div', { class: 'bs-find-row bs-find-replace' },
+  const replaceRow = el(
+    'div',
+    { class: 'bs-find-row bs-find-replace' },
     el('span', { class: 'bs-find-indent' }),
     el('label', { class: 'bs-find-field' }, repl),
     iconButton('', 'find_replace', p('replace'), () => replaceNext(view)),
-    iconButton('', 'done_all', p('replace all'), () => replaceAll(view)));
+    iconButton('', 'done_all', p('replace all'), () => replaceAll(view)),
+  );
 
-  const dom = el('div', { class: 'cm-search bs-find' },
-    el('div', { class: 'bs-find-row' },
+  const dom = el(
+    'div',
+    { class: 'cm-search bs-find' },
+    el(
+      'div',
+      { class: 'bs-find-row' },
       editable ? toggle : el('span', { class: 'bs-find-indent' }),
       el('label', { class: 'bs-find-field' }, find, ...flags),
       count,
       iconButton('', 'arrow_upward', p('previous'), () => findPrevious(view)),
       iconButton('', 'arrow_downward', p('next'), () => findNext(view)),
-      iconButton('', 'close', p('close'), () => closeSearchPanel(view))),
-    ...(editable ? [replaceRow] : []));
+      iconButton('', 'close', p('close'), () => closeSearchPanel(view)),
+    ),
+    ...(editable ? [replaceRow] : []),
+  );
 
   function commit(patch: Partial<ConstructorParameters<typeof SearchQuery>[0]> = {}): void {
     const next = new SearchQuery({
@@ -146,7 +180,8 @@ export function createFindPanel(view: EditorView): Panel {
             find.value = query.search;
             repl.value = query.replace;
           }
-      if (u.docChanged || u.selectionSet || u.transactions.some((tr) => tr.effects.some((e) => e.is(setSearchQuery)))) render();
+      if (u.docChanged || u.selectionSet || u.transactions.some((tr) => tr.effects.some((e) => e.is(setSearchQuery))))
+        render();
     },
   };
 }

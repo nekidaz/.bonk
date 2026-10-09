@@ -9,12 +9,16 @@ export function buildWorkspaceExport(
   includeSecrets: boolean,
 ): string {
   const scrub = (r: VarRow): VarRow => (r.secret && !includeSecrets ? { ...r, value: '' } : r);
-  return JSON.stringify({
-    format: 'bonk-workspace',
-    version: 1,
-    name,
-    collections,
-    globals: globals.map(scrub),
-    environments: envs.map((e) => ({ ...e, vars: e.vars.map(scrub) })),
-  }, null, 2);
+  return JSON.stringify(
+    {
+      format: 'bonk-workspace',
+      version: 1,
+      name,
+      collections,
+      globals: globals.map(scrub),
+      environments: envs.map((e) => ({ ...e, vars: e.vars.map(scrub) })),
+    },
+    null,
+    2,
+  );
 }

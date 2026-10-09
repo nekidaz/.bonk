@@ -3,7 +3,14 @@
   import { authFolderFor } from '../../domain/authInherit';
   import { resolveVars } from '../../domain/vars';
   import { envToneOf } from '../../domain/palette';
-  import { activeEnvironmentId, currentVarScope, collections, environments, globals, updateActiveTab } from '../../stores';
+  import {
+    activeEnvironmentId,
+    currentVarScope,
+    collections,
+    environments,
+    globals,
+    updateActiveTab,
+  } from '../../stores';
   import type { ApiKeyLocation, AuthConfig, AuthType, Tab } from '../../domain/types';
 
   // Edits the request's auth (`tab`; gRPC tabs keep it on `tab.grpc`) or, in the folder dialog, a draft `value` (`onChange`).
@@ -29,12 +36,25 @@
   const selectValue = $derived(ownType === 'inherit' && !inheriting && tab ? 'none' : inheriting ? auth.type : ownType);
   const inheritLabel = $derived(tab ? $t('http.auth.inherit') : $t('http.auth.unset'));
   const current = $derived(authTypes.find((a) => a.key === auth.type) ?? authTypes[3]);
-  const secretField = $derived<AuthStringField | null>(auth.type === 'bearer' ? 'bearerToken' : auth.type === 'basic' ? 'basicPassword' : auth.type === 'apiKey' ? 'apiKeyValue' : null);
-  const secret = $derived(secretField ? auth[secretField] ?? '' : '');
+  const secretField = $derived<AuthStringField | null>(
+    auth.type === 'bearer'
+      ? 'bearerToken'
+      : auth.type === 'basic'
+        ? 'basicPassword'
+        : auth.type === 'apiKey'
+          ? 'apiKeyValue'
+          : null,
+  );
+  const secret = $derived(secretField ? (auth[secretField] ?? '') : '');
   const activeEnv = $derived($environments.find((e) => e.id === $activeEnvironmentId));
   const envName = $derived(activeEnv?.name);
   // Re-read the scope whenever variables change.
-  const resolved = $derived.by(() => { void $globals; void $environments; void $activeEnvironmentId; return /\{\{/.test(secret) ? resolveVars(secret, currentVarScope()) : ''; });
+  const resolved = $derived.by(() => {
+    void $globals;
+    void $environments;
+    void $activeEnvironmentId;
+    return /\{\{/.test(secret) ? resolveVars(secret, currentVarScope()) : '';
+  });
   let reveal = $state<boolean | null>(null);
   const shown = $derived(reveal ?? /^\s*\{\{[^{}]+\}\}\s*$/.test(secret));
 
@@ -64,10 +84,24 @@
     <span class="lbl">{label}</span>
     <label class="bs-auth-input" class:var={isVar(auth[key])}>
       {#if isVar(auth[key])}<span class="material-symbols-outlined" aria-hidden="true">key</span>{/if}
-      <input type={secretInput && !shown ? 'password' : 'text'} readonly={inheriting} autocomplete="off" spellcheck="false" aria-label={label} value={auth[key] ?? ''} oninput={(e) => setAuthField(key, e.currentTarget.value)} />
+      <input
+        type={secretInput && !shown ? 'password' : 'text'}
+        readonly={inheriting}
+        autocomplete="off"
+        spellcheck="false"
+        aria-label={label}
+        value={auth[key] ?? ''}
+        oninput={(e) => setAuthField(key, e.currentTarget.value)}
+      />
     </label>
     {#if secretInput}
-      <button class="eye" type="button" aria-label={shown ? $t('http.auth.hide') : $t('http.auth.show')} aria-pressed={shown} onclick={() => (reveal = !shown)}>
+      <button
+        class="eye"
+        type="button"
+        aria-label={shown ? $t('http.auth.hide') : $t('http.auth.show')}
+        aria-pressed={shown}
+        onclick={() => (reveal = !shown)}
+      >
         <span class="material-symbols-outlined">{shown ? 'visibility' : 'visibility_off'}</span>
       </button>
     {/if}
@@ -86,7 +120,11 @@
     <div class="row">
       <span class="lbl">{$t('http.auth.type')}</span>
       <span class="bs-auth-select">
-        <select aria-label={$t('http.auth.type_aria')} value={selectValue} onchange={(e) => setAuthType(e.currentTarget.value as AuthType)}>
+        <select
+          aria-label={$t('http.auth.type_aria')}
+          value={selectValue}
+          onchange={(e) => setAuthType(e.currentTarget.value as AuthType)}
+        >
           {#if !tab || (parent && !inheriting)}<option value="inherit">{inheritLabel}</option>{/if}
           {#each authTypes as item (item.key)}<option value={item.key}>{$t(item.label)}</option>{/each}
         </select>
@@ -104,7 +142,14 @@
         <span class="lbl">{$t('http.auth.add_to')}</span>
         <span class="bs-auth-seg" role="radiogroup" aria-label={$t('http.auth.loc_aria')}>
           {#each [['header', 'http.auth.loc.header'], ['query', 'http.auth.loc.query']] as [key, label] (key)}
-            <button type="button" role="radio" class:on={(auth.apiKeyIn ?? 'header') === key} aria-checked={(auth.apiKeyIn ?? 'header') === key} disabled={inheriting} onclick={() => setApiKeyLocation(key as ApiKeyLocation)}>{$t(label)}</button>
+            <button
+              type="button"
+              role="radio"
+              class:on={(auth.apiKeyIn ?? 'header') === key}
+              aria-checked={(auth.apiKeyIn ?? 'header') === key}
+              disabled={inheriting}
+              onclick={() => setApiKeyLocation(key as ApiKeyLocation)}>{$t(label)}</button
+            >
           {/each}
         </span>
       </div>
@@ -116,7 +161,11 @@
         <span class="lbl">{$t('http.auth.resolves')}</span>
         <span class="secret">{reveal ? resolved : mask(resolved)}</span>
         {#if envName}
-          <span class="env tone-{envToneOf(activeEnv)}">{#if envToneOf(activeEnv) === 'production'}<span class="material-symbols-outlined" aria-hidden="true">lock</span>{/if}{envName}</span>
+          <span class="env tone-{envToneOf(activeEnv)}"
+            >{#if envToneOf(activeEnv) === 'production'}<span class="material-symbols-outlined" aria-hidden="true"
+                >lock</span
+              >{/if}{envName}</span
+          >
         {/if}
       </div>
     {/if}

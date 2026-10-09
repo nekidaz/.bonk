@@ -30,8 +30,16 @@
   $effect(() => {
     if (!open) return;
     let live = true;
-    mcpIntegrationStatus().then((s) => { if (live) mcpOn = mcpConnected(s.clients, $workspacePath); }).catch(() => { if (live) mcpOn = false; });
-    return () => { live = false; };
+    mcpIntegrationStatus()
+      .then((s) => {
+        if (live) mcpOn = mcpConnected(s.clients, $workspacePath);
+      })
+      .catch(() => {
+        if (live) mcpOn = false;
+      });
+    return () => {
+      live = false;
+    };
   });
 
   const nameOf = (path: string) => workspaceName(path) || $t('workspace.local');
@@ -90,7 +98,14 @@
     <span class="material-symbols-outlined" style="font-size:14px">keyboard_arrow_down</span>
   </button>
   {#if open}
-    <div class="bs-work-menu" role="menu" tabindex="-1" aria-label={$t('workspace.title')} bind:this={menuEl} onkeydown={menuKeydown}>
+    <div
+      class="bs-work-menu"
+      role="menu"
+      tabindex="-1"
+      aria-label={$t('workspace.title')}
+      bind:this={menuEl}
+      onkeydown={menuKeydown}
+    >
       <label class="bs-work-search">
         <span class="material-symbols-outlined" aria-hidden="true">search</span>
         <input bind:this={searchEl} bind:value={query} placeholder={$t('workspace.search')} onkeydown={searchKeydown} />
@@ -99,14 +114,23 @@
 
       {#if showCurrent}
         <div class="bs-work-menu-label">{$t('workspace.current')}</div>
-        <button class="bs-work-item on" type="button" role="menuitem" title={$workspacePath} onclick={() => (open = false)}>
+        <button
+          class="bs-work-item on"
+          type="button"
+          role="menuitem"
+          title={$workspacePath}
+          onclick={() => (open = false)}
+        >
           <span class="bs-work-avatar" aria-hidden="true">{workspaceInitials(nameOf($workspacePath))}</span>
           <span class="text">
             <span class="main">{nameOf($workspacePath)}</span>
             <span class="sub">{$workspacePath}</span>
             <span class="meta">
-              <span>{requestCount} {$tp(requestCount, ['запрос', 'запроса', 'запросов'], ['request', 'requests'])}</span>
-              <span>{`${$environments.length} ${$tp($environments.length, ['окружение', 'окружения', 'окружений'], ['environment', 'environments'])}`}</span>
+              <span>{requestCount} {$tp(requestCount, ['запрос', 'запроса', 'запросов'], ['request', 'requests'])}</span
+              >
+              <span
+                >{`${$environments.length} ${$tp($environments.length, ['окружение', 'окружения', 'окружений'], ['environment', 'environments'])}`}</span
+              >
               {#if mcpOn}<span class="mcp">{$t('workspace.mcp')}</span>{/if}
             </span>
           </span>
@@ -145,7 +169,12 @@
         {#if $hotkeys.openFolder}<kbd>{formatBinding($hotkeys.openFolder).join('')}</kbd>{/if}
       </button>
       {#if $workspacePath}
-        <button class="bs-work-item action" type="button" role="menuitem" onclick={() => run(() => revealPath($workspacePath))}>
+        <button
+          class="bs-work-item action"
+          type="button"
+          role="menuitem"
+          onclick={() => run(() => revealPath($workspacePath))}
+        >
           <span class="material-symbols-outlined" aria-hidden="true">open_in_new</span>
           <span class="text"><span class="main">{$t('workspace.reveal')}</span></span>
         </button>

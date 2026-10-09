@@ -143,9 +143,10 @@ function fileName(path: string): string {
 }
 
 function inferRawFormat(headers: Record<string, string>, body: string): HttpRequest['rawBodyFormat'] {
-  const contentType = Object.entries(headers)
-    .find(([key]) => key.toLowerCase() === 'content-type')?.[1]
-    ?.toLowerCase() ?? '';
+  const contentType =
+    Object.entries(headers)
+      .find(([key]) => key.toLowerCase() === 'content-type')?.[1]
+      ?.toLowerCase() ?? '';
   if (contentType.includes('json') || /^[\[{]/.test(body.trim())) return 'JSON';
   if (contentType.includes('html')) return 'HTML';
   if (contentType.includes('xml')) return 'XML';

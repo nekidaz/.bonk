@@ -5,4 +5,4 @@ export default {
     // that renders it in your editor. ⌘⇧ is taken by app hotkeys.
     inspector: { toggleKeyCombo: 'control-alt', holdMode: true, showToggleButton: 'never' },
   },
-}
+};

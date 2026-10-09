@@ -17,8 +17,15 @@ export const PRESET_LIMIT = 20;
 
 export const isPreset = (v: unknown): v is RunnerPreset => {
   const p = v as RunnerPreset;
-  return typeof p === 'object' && p !== null && typeof p.name === 'string' && Array.isArray(p.folderIds)
-    && Array.isArray(p.excludedIds) && Array.isArray(p.orderIds) && typeof p.iterations === 'number';
+  return (
+    typeof p === 'object' &&
+    p !== null &&
+    typeof p.name === 'string' &&
+    Array.isArray(p.folderIds) &&
+    Array.isArray(p.excludedIds) &&
+    Array.isArray(p.orderIds) &&
+    typeof p.iterations === 'number'
+  );
 };
 
 /** Insert or replace by name (newest last), keeping at most `limit`. */

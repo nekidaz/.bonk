@@ -4,7 +4,11 @@ import { computeDoc, computeView, displayText, responseFormat, DISPLAY_CHARS, PA
 
 describe('computeDoc (CodeMirror viewer)', () => {
   it('pretty-prints JSON for the viewer and keeps raw as is', () => {
-    expect(computeDoc('{"a":1}', 'application/json', 'pretty')).toEqual({ text: '{\n  "a": 1\n}', truncated: false, format: 'JSON' });
+    expect(computeDoc('{"a":1}', 'application/json', 'pretty')).toEqual({
+      text: '{\n  "a": 1\n}',
+      truncated: false,
+      format: 'JSON',
+    });
     expect(computeDoc('{"a":1}', 'application/json', 'raw')?.text).toBe('{"a":1}');
   });
   it('leaves huge minified single-line bodies to the chunked renderer', () => {

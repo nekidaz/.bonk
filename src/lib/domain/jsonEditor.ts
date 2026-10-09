@@ -17,7 +17,8 @@ export function jsonLineCol(raw: string, position: number, tr: Translate = get(t
 export function jsonErrorMessage(raw: string, error: unknown, tr: Translate = get(t)): string {
   const message = error instanceof Error ? error.message : String(error);
   const lineColumn = message.match(/line\s+(\d+)\s+column\s+(\d+)/i);
-  if (lineColumn) return tr('http.json.invalid_at', { where: tr('http.json.line_col', { line: lineColumn[1], col: lineColumn[2] }) });
+  if (lineColumn)
+    return tr('http.json.invalid_at', { where: tr('http.json.line_col', { line: lineColumn[1], col: lineColumn[2] }) });
   const position = message.match(/position\s+(\d+)/i);
   if (position) return tr('http.json.invalid_at', { where: jsonLineCol(raw, Number(position[1]), tr) });
   return tr('http.json.invalid', { message });

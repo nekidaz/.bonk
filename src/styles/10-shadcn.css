@@ -103,17 +103,30 @@
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
 }
-.bs-tb { box-shadow: none; background: var(--tb); }
-.bs-side { background: var(--side); }
+.bs-tb {
+  box-shadow: none;
+  background: var(--tb);
+}
+.bs-side {
+  background: var(--side);
+}
 .bs-tabbar,
-.bs-status { background: var(--tb); }
-.bs-main { background: var(--bg); }
+.bs-status {
+  background: var(--tb);
+}
+.bs-main {
+  background: var(--bg);
+}
 .bs-reqpane,
 .bs-postman-message,
-.bs-json-editor { background: var(--canvas); }
+.bs-json-editor {
+  background: var(--canvas);
+}
 .bs-resp,
 .bs-rbody,
-.bs-empty-resp { background: var(--response); }
+.bs-empty-resp {
+  background: var(--response);
+}
 .bs-side::before,
 .bs-tb::before {
   display: none;
@@ -149,7 +162,9 @@
   background: var(--surface);
 }
 
-.bs-grpc-endpoint-field { position: relative; }
+.bs-grpc-endpoint-field {
+  position: relative;
+}
 .bs-grpc-security-wrap {
   position: relative;
   align-self: stretch;
@@ -170,11 +185,15 @@
 .bs button.bs-grpc-security:focus-visible {
   background: var(--hover);
 }
-.bs button.bs-grpc-security.secure { color: var(--green); }
+.bs button.bs-grpc-security.secure {
+  color: var(--green);
+}
 
 .bs-urlfield:hover,
 .bs-grpc-endpoint-field:hover,
-.bs-grpc-picker:hover { border-color: var(--sep); }
+.bs-grpc-picker:hover {
+  border-color: var(--sep);
+}
 
 .bs-urlfield:focus-within,
 .bs-grpc-endpoint-field:focus-within,
@@ -201,7 +220,9 @@
 }
 .bs-trow.sel .fo,
 .bs-trow.sel .cv,
-.bs-trow.sel .bs-mp { color: inherit; }
+.bs-trow.sel .bs-mp {
+  color: inherit;
+}
 
 .bs-ri.on,
 .bs-lt.on {
@@ -220,16 +241,25 @@
 }
 
 .bs button.bs-send:hover,
-.bs-btn.primary:hover { background: var(--primary-hover); }
-.bs button.bs-send:active { background: var(--primary-press); }
+.bs-btn.primary:hover {
+  background: var(--primary-hover);
+}
+.bs button.bs-send:active {
+  background: var(--primary-press);
+}
 
 .bs-send .go,
 .bs-send .cv {
   background: transparent;
   color: var(--primary-text);
 }
-.bs-send .cv { border-left-color: color-mix(in srgb, var(--primary-text) 20%, transparent); }
-.send-spinner { border-color: color-mix(in srgb, var(--primary-text) 42%, transparent); border-top-color: var(--primary-text); }
+.bs-send .cv {
+  border-left-color: color-mix(in srgb, var(--primary-text) 20%, transparent);
+}
+.send-spinner {
+  border-color: color-mix(in srgb, var(--primary-text) 42%, transparent);
+  border-top-color: var(--primary-text);
+}
 
 .bs button.bs-send.cancelling,
 .bs button.bs-send.cancelling:hover,
@@ -239,7 +269,9 @@
   box-shadow: none;
 }
 .bs-send.cancelling .go,
-.bs-send.cancelling .cv { color: #fff; }
+.bs-send.cancelling .cv {
+  color: #fff;
+}
 
 /* Menus and dialogs stay visually close to their source control. */
 .bs-menu,
@@ -257,7 +289,9 @@
   background: var(--hover);
   color: var(--text);
 }
-.bs-menu .mi:hover .ic { color: currentColor !important; }
+.bs-menu .mi:hover .ic {
+  color: currentColor !important;
+}
 .bs-menu .mi.danger:hover {
   background: color-mix(in srgb, var(--red) 12%, transparent);
   color: var(--red);
@@ -294,9 +328,16 @@
   box-shadow: none;
 }
 
-.bs-seg { border-radius: 6px; }
-.bs-seg button { border-radius: 4px; }
-.bs-format-pill { background: var(--accentsoft); color: var(--t2); }
+.bs-seg {
+  border-radius: 6px;
+}
+.bs-seg button {
+  border-radius: 4px;
+}
+.bs-format-pill {
+  background: var(--accentsoft);
+  color: var(--t2);
+}
 
 .bs .bs-codepanel {
   background: var(--surface);
@@ -311,5 +352,7 @@
 }
 
 @media (max-width: 760px) {
-  .bs-toolbar-title { display: none; }
+  .bs-toolbar-title {
+    display: none;
+  }
 }

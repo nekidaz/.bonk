@@ -3,13 +3,26 @@ import { effectiveAuth, folderAuthFor } from './authInherit';
 import type { TreeNode } from './types';
 
 const bearer = { type: 'bearer', bearerToken: '{{token}}' } as const;
-const req = (id: string): TreeNode => ({ kind: 'request', id, name: 'r', protocol: 'http', request: { method: 'GET', url: '', headers: {} } });
+const req = (id: string): TreeNode => ({
+  kind: 'request',
+  id,
+  name: 'r',
+  protocol: 'http',
+  request: { method: 'GET', url: '', headers: {} },
+});
 const tree: TreeNode[] = [
-  { kind: 'folder', id: 'fs:a', name: 'a', expanded: true, auth: bearer, children: [
-    req('fs:a/r'),
-    { kind: 'folder', id: 'fs:a/b', name: 'b', expanded: true, children: [req('fs:a/b/r')] },
-    { kind: 'folder', id: 'fs:a/c', name: 'c', expanded: true, auth: { type: 'none' }, children: [req('fs:a/c/r')] },
-  ] },
+  {
+    kind: 'folder',
+    id: 'fs:a',
+    name: 'a',
+    expanded: true,
+    auth: bearer,
+    children: [
+      req('fs:a/r'),
+      { kind: 'folder', id: 'fs:a/b', name: 'b', expanded: true, children: [req('fs:a/b/r')] },
+      { kind: 'folder', id: 'fs:a/c', name: 'c', expanded: true, auth: { type: 'none' }, children: [req('fs:a/c/r')] },
+    ],
+  },
   req('fs:root'),
 ];
 
