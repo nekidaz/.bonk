@@ -1,6 +1,9 @@
 // Visual regression suite: `make visual-baseline` (before a change), `make visual` (after).
 import { defineConfig } from '@playwright/test';
 
+// BONK_VISUAL_PORT lets two worktrees run the suite at once.
+const PORT = process.env.BONK_VISUAL_PORT || '1430';
+
 export default defineConfig({
   testDir: 'visual',
   snapshotPathTemplate: 'visual/__screenshots__/{arg}{ext}',
@@ -19,7 +22,7 @@ export default defineConfig({
     },
   },
   use: {
-    baseURL: 'http://127.0.0.1:1430',
+    baseURL: `http://127.0.0.1:${PORT}`,
     viewport: { width: 1440, height: 900 },
     deviceScaleFactor: 1,
     reducedMotion: 'reduce',
@@ -30,8 +33,8 @@ export default defineConfig({
   },
   projects: [{ name: 'chromium', use: { browserName: 'chromium' } }],
   webServer: {
-    command: 'node design/tools/snap-server.mjs dist 1430',
-    url: 'http://127.0.0.1:1430',
+    command: `node design/tools/snap-server.mjs dist ${PORT}`,
+    url: `http://127.0.0.1:${PORT}`,
     reuseExistingServer: false,
   },
 });
