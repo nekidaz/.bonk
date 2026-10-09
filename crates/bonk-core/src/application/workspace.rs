@@ -1,4 +1,5 @@
-use crate::domain::workspace::{FolderNode, RequestFile, RequestNode, TreeNode};
+use crate::domain::http::AuthConfig;
+use crate::domain::workspace::{FolderFile, FolderNode, RequestFile, RequestNode, TreeNode};
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -83,6 +84,7 @@ fn load_dir(root: &Path, dir: &Path) -> Result<Vec<TreeNode>, String> {
                 id: rel_id(root, &path)?,
                 name: file_name(&path),
                 expanded: true,
+                auth: read_folder_file(&path).auth.map(Box::new),
                 children,
             }));
 
@@ -114,6 +116,39 @@ fn load_dir(root: &Path, dir: &Path) -> Result<Vec<TreeNode>, String> {
     folders.extend(requests);
 
     Ok(folders)
+}
+
+const FOLDER_FILE: &str = ".folder.bonk.json";
+
+/// Folder settings; a missing or corrupt file means "no settings".
+fn read_folder_file(dir: &Path) -> FolderFile {
+    fs::read_to_string(dir.join(FOLDER_FILE))
+        .ok()
+        .and_then(|raw| serde_json::from_str(&raw).ok())
+        .unwrap_or_default()
+}
+
+/// Set (or clear, with `None`) the collection-level auth of folder `dir_rel`.
+pub fn save_folder_auth(root: &str, dir_rel: &str, auth: Option<AuthConfig>) -> Result<(), String> {
+    let directory = resolve(root, dir_rel)?;
+
+    ensure_directory(&directory)?;
+
+    let path = directory.join(FOLDER_FILE);
+
+    if auth.is_none() {
+        return match fs::remove_file(&path) {
+            Err(e) if e.kind() != std::io::ErrorKind::NotFound => {
+                Err(format!("failed to remove {}: {e}", path.display()))
+            }
+            _ => Ok(()),
+        };
+    }
+
+    let json = serde_json::to_string_pretty(&FolderFile { auth })
+        .map_err(|e| format!("failed to serialize folder settings: {e}"))?;
+
+    fs::write(&path, json).map_err(|e| format!("failed to write {}: {e}", path.display()))
 }
 
 fn node_name(node: &TreeNode) -> &str {
@@ -233,6 +268,47 @@ fn unique_path(parent: &Path, stem: &str, suffix: &str) -> Result<PathBuf, Strin
     ))
 }
 
+/// Whether `path` already is `<parent>/<stem><suffix>` or a [`unique_path`]
+/// variant of it (`<stem> N<suffix>`), ignoring letter case. Re-saving or
+/// renaming a request to the name it already has must keep its file; otherwise
+/// the id hops to the next free suffix on every save, or — on a case-insensitive
+/// filesystem — to `<stem> 2`, because the target "exists" as the file itself.
+fn is_path_for(path: &Path, parent: &Path, stem: &str, suffix: &str) -> bool {
+    let Some(name) = path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .and_then(|name| name.strip_suffix(suffix))
+    else {
+        return false;
+    };
+    let (Some(head), Some(rest)) = (name.get(..stem.len()), name.get(stem.len()..)) else {
+        return false;
+    };
+
+    path.parent() == Some(parent)
+        && head.to_lowercase() == stem.to_lowercase()
+        && (rest.is_empty()
+            || rest
+                .strip_prefix(' ')
+                .is_some_and(|n| !n.is_empty() && n.bytes().all(|b| b.is_ascii_digit())))
+}
+
+/// `desired` differs from `path` only by letter case and no entry has exactly
+/// that name, so on a case-insensitive filesystem (macOS, Windows) it "exists"
+/// only because it IS `path` and a plain rename is safe.
+fn is_case_only_change(path: &Path, desired: &Path) -> bool {
+    let (Some(parent), Some(from), Some(to)) =
+        (path.parent(), path.file_name(), desired.file_name())
+    else {
+        return false;
+    };
+
+    desired.parent() == Some(parent)
+        && from.to_string_lossy().to_lowercase() == to.to_string_lossy().to_lowercase()
+        && fs::read_dir(parent)
+            .is_ok_and(|entries| entries.flatten().all(|entry| entry.file_name() != to))
+}
+
 fn ensure_directory(path: &Path) -> Result<(), String> {
     if !path.exists() {
         fs::create_dir_all(path)
@@ -290,8 +366,8 @@ pub fn save_request(
             let old = resolve(root, relative)?;
             let desired = directory.join(format!("{stem}{suffix}"));
 
-            if old == desired {
-                desired
+            if is_path_for(&old, &directory, &stem, &suffix) {
+                old
             } else if desired.exists() {
                 // The desired filename belongs to another request.
                 // Use a unique name instead of overwriting it.
@@ -387,7 +463,7 @@ pub fn rename(root: &str, rel: &str, new_name: &str) -> Result<String, String> {
             return rel_id(Path::new(root), &path);
         }
 
-        let destination = if desired.exists() {
+        let destination = if desired.exists() && !is_case_only_change(&path, &desired) {
             unique_path(&parent, &sanitized_name, "")?
         } else {
             desired
@@ -419,9 +495,9 @@ pub fn rename(root: &str, rel: &str, new_name: &str) -> Result<String, String> {
     let suffix = format!(".{EXT}");
     let desired = parent.join(format!("{sanitized_name}{suffix}"));
 
-    // Renaming a request to its current filename must reuse the same path.
-    let destination = if desired == path {
-        desired
+    // Renaming a request to its current name must reuse the same path.
+    let destination = if is_path_for(&path, &parent, &sanitized_name, &suffix) {
+        path.clone()
     } else if desired.exists() {
         unique_path(&parent, &sanitized_name, &suffix)?
     } else {
@@ -632,12 +708,16 @@ mod tests {
                 url: "https://x".into(),
                 headers: Default::default(),
                 body: None,
+                graphql_variables: None,
+                binary_file_path: None,
                 body_mode: None,
                 raw_body_format: None,
                 body_params: None,
                 auth: None,
                 pre_request_script: None,
                 test_script: None,
+                header_notes: None,
+                disabled_headers: None,
             },
             params: None,
             grpc: None,
@@ -1066,5 +1146,80 @@ mod tests {
         assert_eq!(fs::read_dir(root.join("API")).unwrap().count(), 1);
 
         let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn resaving_a_suffixed_request_keeps_its_path() {
+        let root = temp_root();
+        fs::create_dir_all(&root).unwrap();
+        let workspace = root.to_str().unwrap();
+
+        save_request(workspace, "", None, request_node("Get user")).unwrap();
+        let id = save_request(workspace, "", None, request_node("Get user")).unwrap();
+        assert_eq!(id, "fs:Get user 2.bonk.json");
+
+        // Cmd+S or an unchanged rename used to hop to `Get user 3`, `2`, `3`…
+        assert_eq!(
+            save_request(workspace, "", Some(&id), request_node("Get user")).unwrap(),
+            id
+        );
+        assert_eq!(rename(workspace, &id, "Get user").unwrap(), id);
+        assert_eq!(fs::read_dir(&root).unwrap().count(), 2);
+
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn case_only_rename_does_not_add_a_suffix() {
+        let root = temp_root();
+        write_request(&root.join("users"), "список");
+        let workspace = root.to_str().unwrap();
+
+        // On a case-insensitive filesystem the new name "exists" — it is the node itself.
+        assert_eq!(rename(workspace, "fs:users", "Users").unwrap(), "fs:Users");
+        let names: Vec<_> = fs::read_dir(&root)
+            .unwrap()
+            .map(|entry| entry.unwrap().file_name())
+            .collect();
+        assert_eq!(names, ["Users"]);
+
+        let id = rename(workspace, "fs:Users/список.bonk.json", "Список").unwrap();
+        assert_eq!(id, "fs:Users/список.bonk.json");
+        let raw = fs::read_to_string(root.join("Users").join("список.bonk.json")).unwrap();
+        let file: RequestFile = serde_json::from_str(&raw).unwrap();
+        assert_eq!(file.name, "Список");
+        assert_eq!(fs::read_dir(root.join("Users")).unwrap().count(), 1);
+
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn folder_auth_round_trips_and_is_not_a_request() {
+        let root = temp_root();
+        write_request(&root.join("api"), "List");
+        let auth = AuthConfig {
+            auth_type: "bearer".into(),
+            bearer_token: Some("{{token}}".into()),
+            basic_username: None,
+            basic_password: None,
+            api_key_name: None,
+            api_key_value: None,
+            api_key_in: None,
+        };
+        let root_s = root.to_str().unwrap();
+
+        save_folder_auth(root_s, "fs:api", Some(auth.clone())).unwrap();
+        let TreeNode::Folder(folder) = &load(root_s).unwrap()[0] else {
+            panic!("expected folder");
+        };
+        assert_eq!(folder.auth.as_deref(), Some(&auth));
+        assert_eq!(folder.children.len(), 1);
+
+        save_folder_auth(root_s, "fs:api", None).unwrap();
+        let TreeNode::Folder(folder) = &load(root_s).unwrap()[0] else {
+            panic!("expected folder");
+        };
+        assert_eq!(folder.auth, None);
+        fs::remove_dir_all(root).ok();
     }
 }

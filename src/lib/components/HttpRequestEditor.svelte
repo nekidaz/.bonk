@@ -6,6 +6,7 @@
    * URL/send, tabs, params, headers, auth, and body each own their focused UI
    * and store writes. This component keeps only cross-pane UI state.
    */
+  import { t } from '../i18n';
   import HttpAuthEditor from './http/HttpAuthEditor.svelte';
   import HttpBodyEditor from './http/HttpBodyEditor.svelte';
   import HttpHeadersEditor from './http/HttpHeadersEditor.svelte';
@@ -30,7 +31,7 @@
 <HttpUrlBar {tab} bind:methodOpen />
 <HttpRequestTabs {tab} bind:uiTab />
 
-<div class="bs-reqpane">
+<div class="bs-reqpane" role="tabpanel" id="bs-reqpanel" aria-labelledby="bs-rtab-{uiTab}">
   {#if uiTab === 'body'}
     <HttpBodyEditor {tab} />
   {:else if uiTab === 'auth'}
@@ -48,6 +49,6 @@
       docId={tab.id}
     />
   {:else}
-    <div class="bs-pwrap"><div class="bs-empty"><b style="margin-bottom:4px">No {uiTab}</b><p>This request has no {uiTab} configured.</p></div></div>
+    <div class="bs-pwrap"><div class="bs-empty"><b style="margin-bottom:4px">{$t('http.empty.title', { tab: $t('http.tabs.' + uiTab) })}</b><p>{$t('http.empty.body', { tab: $t('http.tabs.' + uiTab) })}</p></div></div>
   {/if}
 </div>

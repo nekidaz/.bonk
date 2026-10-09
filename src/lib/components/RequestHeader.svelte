@@ -1,6 +1,9 @@
 <script lang="ts">
-  import { renameActiveTab, resetActiveTabTitle } from '../stores';
+  import { collections, dirtyTabIds, history, renameActiveTab, resetActiveTabTitle } from '../stores';
+  import CodeSnippetPopover from './CodeSnippetPopover.svelte';
+  import { findNode, parentId } from '../domain/tree';
   import type { Tab } from '../domain/types';
+  import { t } from '../i18n';
 
   let {
     tab,
@@ -8,13 +11,31 @@
     onSwitch,
     onSmartSave,
     onOpenSave,
+    codeOpen,
+    onCode,
   }: {
     tab: Tab;
     savedFlash: boolean;
     onSwitch: (e: MouseEvent) => void;
     onSmartSave: () => void | Promise<void>;
     onOpenSave: () => void;
+    codeOpen: boolean;
+    onCode: () => void;
   } = $props();
+
+  // gRPC call shape for the eyebrow: unary / server stream / client stream / bidi stream.
+  const callType = $derived.by(() => {
+    const m = tab.grpc?.tree?.services.flatMap((s) => s.methods).find((x) => x.symbol === tab.grpc?.method);
+    if (!m) return 'gRPC';
+    if (m.clientStreaming && m.serverStreaming) return $t('nav.header.bidi');
+    return m.serverStreaming ? $t('nav.header.server') : m.clientStreaming ? $t('nav.header.client') : $t('nav.header.unary');
+  });
+
+  // Breadcrumb: the folder the saved request lives in.
+  // A history snapshot (S21) shows where its original lives.
+  const origin = $derived(tab.savedPath ?? (tab.historyId ? $history.find((h) => h.id === tab.historyId)?.savedPath : undefined));
+  const folderId = $derived(origin ? parentId(origin) : undefined);
+  const folderName = $derived(folderId ? findNode($collections, folderId)?.name : undefined);
 
   let editing = $state(false);
   let draft = $state('');
@@ -64,27 +85,31 @@
 </script>
 
 <div class="bs-reqhead">
-  <button class="bs-hb" onclick={onSwitch}>
-    <span class="material-symbols-outlined ti2" style="font-size:18px;color:{tab.protocol === 'grpc' ? 'var(--method-grpc)' : 'var(--method-get)'}">{tab.protocol === 'grpc' ? 'lan' : 'language'}</span>
-    <span class="material-symbols-outlined cv2" style="font-size:12px;color:var(--t3)">expand_more</span>
-  </button>
+  <div class="bs-reqtitle">
+  <span class="bs-crumb">{origin ? `${folderName ?? $t('workspace.title')}  /  ${tab.protocol === 'grpc' ? callType : tab.request.method}` : `${$t('nav.welcome.newRequest')}  /  ${$t('nav.header.unsaved')}`}</span>
   {#if editing}
     <input
       class="nm title-input"
-      aria-label="Request name"
+      aria-label={$t('nav.header.renameAria')}
       bind:this={input}
       bind:value={draft}
       onblur={commitRename}
       onkeydown={titleKeydown}
     />
   {:else}
-    <button class="nm rename" title="Rename request" onclick={startRename}>{tab.title}</button>
+    <span class="bs-title-row">
+      <button class="nm rename" class:draft={!origin} title={$t('nav.header.rename')} onclick={startRename}>{tab.title}</button>
+      {#if $dirtyTabIds.has(tab.id)}<span class="bs-modified"><span class="dot" aria-hidden="true"></span>{$t('nav.header.modified')}</span>{/if}
+    </span>
   {/if}
+  </div>
   <div class="bs-spacer"></div>
   <div class="bs-savegrp">
-    <button class="bs-save bs-save-main" class:saved={savedFlash} title={tab.savedPath ? 'Save (⌘S)' : 'Save to…  (⌘S)'} onclick={onSmartSave}>
-      <span class="material-symbols-outlined" style="font-size:14px">{savedFlash ? 'check' : 'save'}</span>{savedFlash ? 'Saved' : 'Save'}
+    <button class="bs-save bs-save-main" class:saved={savedFlash} class:primary={$dirtyTabIds.has(tab.id)} title={tab.savedPath ? $t('nav.header.saveTip') : $t('nav.header.saveToTip')} onclick={onSmartSave}>
+      <span class="material-symbols-outlined" aria-hidden="true">save</span>{$t('nav.header.save')}<kbd>⌘S</kbd>
     </button>
-    <button class="bs-save bs-save-more" title="Save to folder…" onclick={onOpenSave}><span class="material-symbols-outlined" style="font-size:14px">expand_more</span></button>
+    <button class="bs-hb" class:on={codeOpen} title={$t('nav.header.codeTip')} aria-label={$t('nav.header.code')} aria-pressed={codeOpen} onpointerdown={(e) => e.stopPropagation()} onclick={onCode}><span class="material-symbols-outlined">code</span></button>
+    <button class="bs-hb" title={$t('nav.header.more')} aria-label={$t('nav.header.moreAria')} aria-haspopup="menu" onclick={onSwitch}><span class="material-symbols-outlined">more_horiz</span></button>
+    {#if codeOpen}<CodeSnippetPopover {tab} onClose={onCode} />{/if}
   </div>
 </div>

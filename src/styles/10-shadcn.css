@@ -172,50 +172,6 @@
 }
 .bs button.bs-grpc-security.secure { color: var(--green); }
 
-.bs-tls-popover {
-  display: none;
-  position: absolute;
-  z-index: 90;
-  top: calc(100% + 7px);
-  left: 0;
-  width: min(330px, calc(100vw - 32px));
-  padding: 14px 14px 13px;
-  color: var(--text);
-  background: var(--surface-solid);
-  border: 1px solid var(--sep);
-  border-radius: 8px;
-  box-shadow: var(--shadow-panel);
-}
-.bs-grpc-security-wrap:hover .bs-tls-popover,
-.bs-grpc-security-wrap:focus-within .bs-tls-popover { display: block; }
-.bs-tls-title {
-  margin-bottom: 6px;
-  font-size: 14px;
-  font-weight: 700;
-}
-.bs-tls-title.secure {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  color: var(--green);
-}
-.bs-tls-popover p {
-  margin: 0 0 11px;
-  color: var(--t2);
-  font-size: 12.5px;
-  line-height: 1.55;
-}
-.bs button.bs-tls-link {
-  display: block;
-  padding: 3px 0;
-  color: var(--t2);
-  font-size: 12px;
-  text-align: left;
-  text-decoration: underline;
-  text-underline-offset: 2px;
-}
-.bs button.bs-tls-link:hover { color: var(--text); }
-
 .bs-urlfield:hover,
 .bs-grpc-endpoint-field:hover,
 .bs-grpc-picker:hover { border-color: var(--sep); }
@@ -237,7 +193,6 @@
   color: var(--text);
   border-bottom-color: var(--accent);
 }
-.bs-grpc-option .flow { color: var(--method-grpc); }
 
 .bs-trow.sel {
   background: var(--accentsoft);
@@ -347,7 +302,6 @@
   background: var(--surface);
   box-shadow: none;
 }
-.bs .bs-codepanel-resize:hover { background: var(--accent); }
 
 .bs-settings-glyph,
 .bs-settings-icon {

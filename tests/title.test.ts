@@ -3,7 +3,7 @@ import { HTTP_DEFAULT_TITLE, titleFromUrl } from '../src/lib/stores';
 
 describe('titleFromUrl', () => {
   it('uses fallback for an empty URL', () => {
-    expect(titleFromUrl('', HTTP_DEFAULT_TITLE)).toBe('Untitled Request');
+    expect(titleFromUrl('', HTTP_DEFAULT_TITLE)).toBe('Untitled request');
   });
 
   it('uses a scheme-less host as the title', () => {

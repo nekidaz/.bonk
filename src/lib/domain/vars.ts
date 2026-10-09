@@ -3,7 +3,9 @@
  * module is a leaf: it imports only types, never stores, so the stores import
  * graph stays acyclic (state imports it; requests imports it).
  */
-import type { Environment, HttpRequest, VarRow } from './types';
+import { get } from 'svelte/store';
+import { t as tr } from '../i18n';
+import type { Environment, HttpRequest, TreeNode, VarRow } from './types';
 
 /** Matches a `{{ name }}` placeholder, capturing the (possibly padded) name. */
 const VAR_RE = /\{\{\s*([^{}]*?)\s*\}\}/g;
@@ -16,17 +18,21 @@ function usableRows(rows: VarRow[]): VarRow[] {
 /**
  * Flatten globals + the active environment into a single `name → value` map.
  * Only enabled rows with a non-empty key participate; the active environment
- * overrides globals on key collisions (env wins, matching Postman).
+ * overrides globals on key collisions (env wins, matching Postman). With
+ * `redactSecrets`, secret rows keep their literal `{{key}}` (for cURL / snippets).
  */
 export function mergeScope(
   globals: VarRow[],
   activeEnv: Environment | undefined,
+  redactSecrets = false,
 ): Record<string, string> {
   const scope: Record<string, string> = {};
-  for (const row of usableRows(globals)) scope[row.key.trim()] = row.value;
-  if (activeEnv) {
-    for (const row of usableRows(activeEnv.vars)) scope[row.key.trim()] = row.value;
-  }
+  const put = (row: VarRow): void => {
+    const key = row.key.trim();
+    scope[key] = redactSecrets && row.secret ? `{{${key}}}` : row.value;
+  };
+  for (const row of usableRows(globals)) put(row);
+  if (activeEnv) for (const row of usableRows(activeEnv.vars)) put(row);
   return scope;
 }
 
@@ -110,10 +116,57 @@ export function resolveRequestVars(req: HttpRequest, scope: Record<string, strin
   for (const [key, value] of Object.entries(req.headers ?? {})) {
     headers[resolveVars(key, scope)] = resolveVars(value, scope);
   }
+  let body = req.body === undefined ? req.body : resolveVars(req.body, scope);
+  if (req.bodyMode === 'graphql' && body !== undefined) {
+    const source = req.graphqlVariables?.trim();
+    let variables: unknown = {};
+    if (source) {
+      try {
+        variables = JSON.parse(source);
+      } catch {
+        throw new Error(get(tr)('http.gql.vars_invalid'));
+      }
+      if (variables === null || typeof variables !== 'object' || Array.isArray(variables)) {
+        throw new Error(get(tr)('http.gql.vars_object'));
+      }
+    }
+    const resolveValue = (value: unknown): unknown => {
+      if (typeof value === 'string') return resolveVars(value, scope);
+      if (Array.isArray(value)) return value.map(resolveValue);
+      if (value !== null && typeof value === 'object') {
+        return Object.fromEntries(Object.entries(value).map(([key, nested]) => [key, resolveValue(nested)]));
+      }
+      return value;
+    };
+    body = JSON.stringify({ query: body, variables: resolveValue(variables) });
+  }
   return {
     ...req,
     url: resolveVars(req.url, scope),
     headers,
-    body: req.body === undefined ? req.body : resolveVars(req.body, scope),
+    body,
+    ...(req.binaryFilePath === undefined
+      ? {}
+      : { binaryFilePath: resolveVars(req.binaryFilePath, scope) }),
   };
+}
+
+/** Saved requests (any depth) that reference at least one of `keys` as `{{key}}` anywhere in their definition. */
+export function countRequestsUsingVars(nodes: TreeNode[], keys: string[]): number {
+  const wanted = new Set(keys.map((k) => k.trim()).filter(Boolean));
+  if (wanted.size === 0) return 0;
+  let n = 0;
+  for (const node of nodes) {
+    if (node.kind === 'folder') n += countRequestsUsingVars(node.children, keys);
+    else if (findVariables(JSON.stringify([node.request, node.params, node.grpc])).some((m) => wanted.has(m.name))) n++;
+  }
+  return n;
+}
+
+/** Display mask for a secret value: short prefix, dots, last 4 chars (`sk_live_••••••••••••4f2a`). */
+export function maskSecret(value: string): string {
+  if (value.length <= 8) return '•'.repeat(value.length);
+  const prefix = Math.min(8, value.length - 8);
+  // Fixed-width mask (S31): the length of a secret is itself a hint.
+  return value.slice(0, prefix) + '•'.repeat(12) + value.slice(-4);
 }

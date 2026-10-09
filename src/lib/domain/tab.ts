@@ -5,9 +5,9 @@ import type { Tab, GrpcTabState } from './types';
  * store feature-modules can share them without forming an import cycle.
  */
 
-export const HTTP_DEFAULT_TITLE = 'Untitled Request';
-export const GRPC_DEFAULT_TITLE = 'New gRPC';
-export const LEGACY_DEFAULT_TITLES = new Set(['New Request', HTTP_DEFAULT_TITLE, GRPC_DEFAULT_TITLE]);
+export const HTTP_DEFAULT_TITLE = 'Untitled request';
+export const GRPC_DEFAULT_TITLE = 'Untitled gRPC request';
+export const LEGACY_DEFAULT_TITLES = new Set(['New Request', 'New gRPC', HTTP_DEFAULT_TITLE, GRPC_DEFAULT_TITLE]);
 
 export function newHttpTab(): Tab {
   return {
@@ -68,7 +68,7 @@ export function stripRuntimeTab(tab: Tab): Tab {
   // `testResults` is ephemeral script output, not part of the saved request;
   // drop it so it doesn't bloat persisted state (matches how live gRPC fields
   // are stripped below).
-  const { testResults: _testResults, ...rest } = tab;
+  const { testResults: _testResults, grpcStream: _grpcStream, ...rest } = tab;
   return stripLiveGrpc(rest);
 }
 
@@ -107,4 +107,13 @@ export function relinkTabPaths(list: Tab[], fromId: string, toId: string | undef
     }
     return t;
   });
+}
+
+/** Move the tab `id` to position `to` (drag-reorder in the tab strip). Unknown id or same slot → same list. */
+export function moveTabTo(list: Tab[], id: string, to: number): Tab[] {
+  const from = list.findIndex((t) => t.id === id);
+  if (from < 0 || from === to) return list;
+  const next = [...list];
+  next.splice(to, 0, ...next.splice(from, 1));
+  return next;
 }

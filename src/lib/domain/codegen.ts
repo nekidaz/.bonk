@@ -6,6 +6,8 @@
  */
 import { HTTPSnippet } from 'httpsnippet-lite';
 import type { HarRequest, TargetId } from 'httpsnippet-lite';
+import { get } from 'svelte/store';
+import { t as tr } from '../i18n';
 import type { Tab } from './types';
 import { buildUrl } from './http';
 import { buildRequestForSend, currentBodyMode, enabledBodyParams } from './httpBody';
@@ -16,6 +18,7 @@ export type Language = { id: string; label: string; target: string; client: stri
 /** The languages offered in the snippet dropdown (label → httpsnippet target/client). */
 export const LANGUAGES: Language[] = [
   { id: 'curl', label: 'cURL', target: 'shell', client: 'curl' },
+  { id: 'httpie', label: 'HTTPie', target: 'shell', client: 'httpie' },
   { id: 'http', label: 'HTTP', target: 'http', client: 'http1.1' },
   { id: 'c', label: 'C - libcurl', target: 'c', client: 'libcurl' },
   { id: 'csharp-httpclient', label: 'C# - HttpClient', target: 'csharp', client: 'httpclient' },
@@ -77,6 +80,28 @@ export function generateGrpcurl(tab: Tab, scope: Record<string, string> = {}): s
  * would. When `scope` is non-empty, `{{var}}` placeholders are interpolated so
  * the generated code shows real values; otherwise they survive verbatim.
  */
+/**
+ * httpsnippet needs a parseable URL, so `{{vars}}` left unresolved (Resolve variables off) are swapped
+ * for inert tokens before conversion and put back into the generated code afterwards.
+ */
+function protectVars(har: HarRequest): { har: HarRequest; restore: (code: string) => string } {
+  const tokens: [string, string][] = [];
+  const swap = (text: string, urlStart = false): string =>
+    text.replace(/\{\{[^{}]+\}\}/g, (match, offset: number) => {
+      const token = urlStart && offset === 0 ? `https://bonkvar${tokens.length}.invalid` : `bonkvar${tokens.length}x`;
+      tokens.push([token, match]);
+      return token;
+    });
+  const out: HarRequest = {
+    ...har,
+    url: swap(har.url, true),
+    headers: har.headers.map((h) => ({ name: swap(h.name), value: swap(h.value) })),
+    ...(har.postData ? { postData: { ...har.postData, ...(har.postData.text !== undefined ? { text: swap(har.postData.text) } : {}), ...(har.postData.params ? { params: har.postData.params.map((p) => ({ ...p, name: swap(p.name), ...(p.value !== undefined ? { value: swap(p.value) } : {}) })) } : {}) } } : {}),
+  };
+  const restore = (code: string): string => tokens.reduceRight((acc, [token, original]) => acc.split(token).join(original), code);
+  return { har: out, restore };
+}
+
 function toHar(tab: Tab, scope: Record<string, string>): HarRequest {
   const finalUrl = buildUrl(tab.request.url, tab.params);
   const built = buildRequestForSend(tab, finalUrl);
@@ -123,14 +148,15 @@ export async function generateSnippet(
   if (tab.protocol === 'grpc') return generateGrpcurl(tab, scope);
   const lang = LANGUAGES.find((l) => l.id === langId) ?? LANGUAGES[0];
   try {
-    const snippet = new HTTPSnippet(toHar(tab, scope));
+    const { har, restore } = protectVars(toHar(tab, scope));
+    const snippet = new HTTPSnippet(har);
     // `target` is validated against httpsnippet's set via LANGUAGES; the single
     // cast narrows our string to the library's TargetId union. `client` is a
     // plain string in the library's types (ClientId), so it needs no cast.
     const out = await snippet.convert(lang.target as TargetId, lang.client);
-    if (Array.isArray(out)) return out.join('\n');
-    return typeof out === 'string' ? out : `// No ${lang.label} output.`;
+    if (Array.isArray(out)) return restore(out.join('\n'));
+    return typeof out === 'string' ? restore(out) : `// No ${lang.label} output.`;
   } catch (e) {
-    return `// Could not generate ${lang.label}: ${e instanceof Error ? e.message : String(e)}`;
+    return get(tr)('code.codegen_failed', { lang: lang.label, error: e instanceof Error ? e.message : String(e) });
   }
 }

@@ -31,6 +31,7 @@
   import { gitBranches, gitGraph, gitLog } from '../api';
   import { statusColor } from '../domain/gitStatus';
   import type { GitFile, GitCommit } from '../domain/types';
+  import { t } from '../i18n';
 
   let commitMessage = $state('');
   let statusLine = $state('');
@@ -123,11 +124,11 @@
   }
 
   async function doPull(): Promise<void> {
-    statusLine = 'Pulling…';
+    statusLine = $t('git.pulling');
     statusLine = await pull();
   }
   async function doPush(): Promise<void> {
-    statusLine = 'Pushing…';
+    statusLine = $t('git.pushing');
     statusLine = await push();
   }
 
@@ -171,7 +172,7 @@
   }
 
   async function onDiscard(path: string): Promise<void> {
-    if (await requestConfirm(`Discard changes to ${basename(path)}? This can't be undone.`, 'Discard')) {
+    if (await requestConfirm($t('git.discard.confirm', { name: basename(path) }), $t('git.discard'))) {
       await discardPaths([path]);
     }
   }
@@ -191,51 +192,51 @@
 
 <div class="bs-tree bs-git">
   {#if !$workspacePath}
-    <div class="bs-sech"><span class="material-symbols-outlined cv" style="font-size:12px">expand_more</span>Source Control</div>
+    <div class="bs-sech"><span class="material-symbols-outlined cv" style="font-size:12px">expand_more</span>{$t('git.title')}</div>
     <div class="bs-empty" style="padding-left:22px">
-      <b>No workspace</b>
-      <p>Open a workspace folder to use Git.</p>
+      <b>{$t('git.noWorkspace')}</b>
+      <p>{$t('git.noWorkspace.hint')}</p>
     </div>
   {:else if status && status.isRepo === false}
-    <div class="bs-sech"><span class="material-symbols-outlined cv" style="font-size:12px">expand_more</span>Source Control</div>
+    <div class="bs-sech"><span class="material-symbols-outlined cv" style="font-size:12px">expand_more</span>{$t('git.title')}</div>
     <div class="bs-empty" style="padding-left:22px">
-      <b>Not a Git repository</b>
-      <p>This workspace isn't tracked by Git yet.</p>
+      <b>{$t('git.notRepo')}</b>
+      <p>{$t('git.notRepo.hint')}</p>
     </div>
     <div class="bs-git-initwrap">
       <button class="bs-btn primary" type="button" onclick={onInit}>
         <span class="material-symbols-outlined" style="font-size:15px;vertical-align:-3px">account_tree</span>
-        Initialize Git repository
+        {$t('git.init')}
       </button>
     </div>
   {:else if status}
     <!-- Branch / sync header -->
     <div class="bs-git-head">
       <div class="bs-git-branch" role="presentation" onpointerdown={(e) => e.stopPropagation()}>
-        <button class="bs-git-branchbtn" type="button" title="Switch branch" onclick={openBranchMenu}>
+        <button class="bs-git-branchbtn" type="button" title={$t('git.branch.switch')} onclick={openBranchMenu}>
           <span class="material-symbols-outlined" style="font-size:15px">account_tree</span>
-          <span class="bs-git-branchname">{status.branch || '(no branch)'}</span>
+          <span class="bs-git-branchname">{status.branch || $t('git.noBranch')}</span>
           <span class="material-symbols-outlined" style="font-size:14px">expand_more</span>
         </button>
         {#if status.ahead > 0 || status.behind > 0}
-          <span class="bs-git-track" title="Ahead / behind upstream">
+          <span class="bs-git-track" title={$t('git.branch.aheadBehind')}>
             {#if status.ahead > 0}<span>↑{status.ahead}</span>{/if}
             {#if status.behind > 0}<span>↓{status.behind}</span>{/if}
           </span>
         {/if}
-        <button class="bs-fi" type="button" title="Create branch" onclick={startCreateBranch}>
+        <button class="bs-fi" type="button" title={$t('git.branch.create')} onclick={startCreateBranch}>
           <span class="material-symbols-outlined" style="font-size:15px">add</span>
         </button>
       </div>
       <div class="bs-git-sync">
-        <button class="bs-btn ghost" type="button" title="Pull" disabled={$gitBusy} onclick={doPull}>
+        <button class="bs-btn ghost" type="button" title={$t('git.pull')} disabled={$gitBusy} onclick={doPull}>
           <span class="material-symbols-outlined" style="font-size:14px;vertical-align:-3px">download</span>Pull
         </button>
-        <button class="bs-btn ghost" type="button" title="Push" disabled={$gitBusy} onclick={doPush}>
+        <button class="bs-btn ghost" type="button" title={$t('git.push')} disabled={$gitBusy} onclick={doPush}>
           <span class="material-symbols-outlined" style="font-size:14px;vertical-align:-3px">upload</span>Push
         </button>
-        <button class="bs-btn ghost" type="button" title="Open all changes in a tab" onclick={openProjectDiffTab}>
-          <span class="material-symbols-outlined" style="font-size:14px;vertical-align:-3px">difference</span>Changes
+        <button class="bs-btn ghost" type="button" title={$t('git.changes.openAll')} onclick={openProjectDiffTab}>
+          <span class="material-symbols-outlined" style="font-size:14px;vertical-align:-3px">difference</span>{$t('git.changes')}
         </button>
       </div>
     </div>
@@ -249,7 +250,7 @@
           </button>
         {/each}
         {#if branches.length === 0}
-          <div class="bs-empty" style="padding:6px 10px"><p>No branches.</p></div>
+          <div class="bs-empty" style="padding:6px 10px"><p>{$t('git.branch.none')}</p></div>
         {/if}
       </div>
     {/if}
@@ -259,7 +260,7 @@
         <!-- svelte-ignore a11y_autofocus -->
         <input
           class="bs-input bs-git-input"
-          placeholder="New branch name…"
+          placeholder={$t('git.branch.newPlaceholder')}
           bind:value={newBranchName}
           autofocus
           onkeydown={branchInputKeydown}
@@ -274,24 +275,24 @@
 
     <!-- Staged -->
     <div class="bs-sech bs-sech-act">
-      <span class="material-symbols-outlined cv" style="font-size:12px">expand_more</span>Staged Changes
+      <span class="material-symbols-outlined cv" style="font-size:12px">expand_more</span>{$t('git.staged')}
       {#if staged.length}<span style="color:var(--t3);font-weight:600">{staged.length}</span>{/if}
       {#if staged.length}
-        <span class="bs-act" role="button" tabindex="0" title="Unstage all" onclick={unstageAll} onkeydown={() => {}}>
+        <span class="bs-act" role="button" tabindex="0" title={$t('git.unstageAll')} onclick={unstageAll} onkeydown={() => {}}>
           <span class="material-symbols-outlined" style="font-size:15px">remove</span>
         </span>
       {/if}
     </div>
     {#if staged.length === 0}
-      <div class="bs-empty" style="padding-left:22px"><p>Nothing staged.</p></div>
+      <div class="bs-empty" style="padding-left:22px"><p>{$t('git.staged.none')}</p></div>
     {:else}
       {#each staged as f (f.path)}
         <div class="bs-trow bs-git-row">
-          <button class="bs-git-rowmain" type="button" title="View staged diff" onclick={() => openGitDiffTab(f.path, 'staged')}>
+          <button class="bs-git-rowmain" type="button" title={$t('git.staged.view')} onclick={() => openGitDiffTab(f.path, 'staged')}>
             <span class="bs-git-badge" style="color:{statusColor(badge(f, true))}">{badge(f, true)}</span>
             <span class="bs-nm"><b>{basename(f.path)}</b>{#if dirname(f.path)}<span class="bs-git-dir">{dirname(f.path)}</span>{/if}</span>
           </button>
-          <span class="bs-act" role="button" tabindex="0" title="Unstage" onclick={() => unstagePaths([f.path])} onkeydown={() => {}}>
+          <span class="bs-act" role="button" tabindex="0" title={$t('git.unstage')} onclick={() => unstagePaths([f.path])} onkeydown={() => {}}>
             <span class="material-symbols-outlined" style="font-size:15px">remove</span>
           </span>
         </div>
@@ -300,27 +301,27 @@
 
     <!-- Changes -->
     <div class="bs-sech bs-sech-act">
-      <span class="material-symbols-outlined cv" style="font-size:12px">expand_more</span>Changes
+      <span class="material-symbols-outlined cv" style="font-size:12px">expand_more</span>{$t('git.changes')}
       {#if unstaged.length}<span style="color:var(--t3);font-weight:600">{unstaged.length}</span>{/if}
       {#if unstaged.length}
-        <span class="bs-act" role="button" tabindex="0" title="Stage all" onclick={stageAll} onkeydown={() => {}}>
+        <span class="bs-act" role="button" tabindex="0" title={$t('git.stageAll')} onclick={stageAll} onkeydown={() => {}}>
           <span class="material-symbols-outlined" style="font-size:15px">add</span>
         </span>
       {/if}
     </div>
     {#if unstaged.length === 0}
-      <div class="bs-empty" style="padding-left:22px"><p>No changes.</p></div>
+      <div class="bs-empty" style="padding-left:22px"><p>{$t('git.changes.none')}</p></div>
     {:else}
       {#each unstaged as f (f.path)}
         <div class="bs-trow bs-git-row">
-          <button class="bs-git-rowmain" type="button" title="View working tree diff" onclick={() => openGitDiffTab(f.path, 'working')}>
+          <button class="bs-git-rowmain" type="button" title={$t('git.working.view')} onclick={() => openGitDiffTab(f.path, 'working')}>
             <span class="bs-git-badge" style="color:{statusColor(badge(f, false))}">{badge(f, false)}</span>
             <span class="bs-nm"><b>{basename(f.path)}</b>{#if dirname(f.path)}<span class="bs-git-dir">{dirname(f.path)}</span>{/if}</span>
           </button>
-          <span class="bs-act" role="button" tabindex="0" title="Discard changes" onclick={() => onDiscard(f.path)} onkeydown={() => {}}>
+          <span class="bs-act" role="button" tabindex="0" title={$t('git.discardChanges')} onclick={() => onDiscard(f.path)} onkeydown={() => {}}>
             <span class="material-symbols-outlined" style="font-size:15px">undo</span>
           </span>
-          <span class="bs-act" role="button" tabindex="0" title="Stage" onclick={() => stagePaths([f.path])} onkeydown={() => {}}>
+          <span class="bs-act" role="button" tabindex="0" title={$t('git.stage')} onclick={() => stagePaths([f.path])} onkeydown={() => {}}>
             <span class="material-symbols-outlined" style="font-size:15px">add</span>
           </span>
         </div>
@@ -331,24 +332,24 @@
     <div class="bs-git-commit">
       <textarea
         class="bs-git-msg"
-        placeholder="Commit message"
+        placeholder={$t('git.commit.placeholder')}
         rows="2"
         bind:value={commitMessage}
       ></textarea>
       <button class="bs-btn primary bs-git-commitbtn" type="button" disabled={!canCommit} onclick={onCommit}>
         <span class="material-symbols-outlined" style="font-size:15px;vertical-align:-3px">check</span>
-        Commit{staged.length ? ` (${staged.length})` : ''}
+        {$t('git.commit')}{staged.length ? ` (${staged.length})` : ''}
       </button>
     </div>
 
     <!-- Commit graph -->
     <button class="bs-sech bs-sech-act bs-git-loghead" type="button" onclick={toggleGraph}>
       <span class="material-symbols-outlined cv" style="font-size:12px">{graphOpen ? 'expand_more' : 'chevron_right'}</span>
-      Commit Graph
+      {$t('git.graph')}
     </button>
     {#if graphOpen}
       {#if graph.length === 0}
-        <div class="bs-empty" style="padding-left:22px"><p>No graph yet.</p></div>
+        <div class="bs-empty" style="padding-left:22px"><p>{$t('git.graph.none')}</p></div>
       {:else}
         <div class="bs-git-graph">
           {#each graph as line, i (i)}
@@ -363,11 +364,11 @@
     <!-- Recent commits -->
     <button class="bs-sech bs-sech-act bs-git-loghead" type="button" onclick={toggleLog}>
       <span class="material-symbols-outlined cv" style="font-size:12px">{logOpen ? 'expand_more' : 'chevron_right'}</span>
-      Recent Commits
+      {$t('git.log')}
     </button>
     {#if logOpen}
       {#if log.length === 0}
-        <div class="bs-empty" style="padding-left:22px"><p>No commits yet.</p></div>
+        <div class="bs-empty" style="padding-left:22px"><p>{$t('git.log.none')}</p></div>
       {:else}
         {#each log as c (c.hash)}
           <div class="bs-trow bs-git-logrow" title={`${c.subject}\n${c.author} · ${c.date}`}>

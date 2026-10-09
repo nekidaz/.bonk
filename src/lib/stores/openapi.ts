@@ -8,6 +8,8 @@ import {
   serializeSpec,
   type ExportFolder,
 } from '../domain/openapi';
+import { isCurlText, isHar, isInsomniaExport, parseCurlFile, parseHar, parseInsomniaExport } from '../domain/importers';
+import { isPostmanCollection, parsePostmanCollection, type ImportedPostmanItem, type ParsedPostmanCollection } from '../domain/postman';
 import {
   collections,
   workspacePath,
@@ -16,7 +18,7 @@ import {
   ROOT,
 } from './state';
 import { addEnvironment, setEnvVars } from './environments';
-import { openWorkspaceFolder, reloadWorkspace, runWorkspaceOp } from './workspace';
+import { openWorkspaceFolder, reloadWorkspace } from './workspace';
 
 /**
  * OpenAPI / Swagger import + export orchestration. The pure parse/build logic
@@ -35,6 +37,15 @@ async function ensureWorkspaceRoot(): Promise<string | null> {
   return root || null;
 }
 
+async function runImportOp(name: string, fn: () => Promise<void>): Promise<void> {
+  try {
+    await fn();
+  } catch (error) {
+    console.error(`workspace: ${name} failed`, error);
+    throw error;
+  }
+}
+
 /**
  * Save a parsed spec into the workspace: a collection folder named after the
  * spec title, a subfolder per tag, one saved request per operation, and a
@@ -44,7 +55,7 @@ async function saveSpecToWorkspace(
   root: string,
   spec: ReturnType<typeof parseOpenApi>,
 ): Promise<void> {
-  await runWorkspaceOp('importOpenApi', async () => {
+  await runImportOp('importOpenApi', async () => {
     const collectionId = await workspaceCreateFolder(root, ROOT, spec.title);
     for (const folder of spec.folders) {
       if (folder.name) {
@@ -70,6 +81,53 @@ async function saveSpecToWorkspace(
     }
     await reloadWorkspace();
   });
+}
+
+async function savePostmanToWorkspace(root: string, collection: ParsedPostmanCollection): Promise<void> {
+  await runImportOp('importPostmanCollection', async () => {
+    const collectionId = await workspaceCreateFolder(root, ROOT, collection.title);
+    const saveItems = async (parentId: string, items: ImportedPostmanItem[]): Promise<void> => {
+      for (const item of items) {
+        if (item.kind === 'folder') {
+          const id = await workspaceCreateFolder(root, idToRel(parentId), item.name);
+          await saveItems(id, item.items);
+        } else {
+          await workspaceSaveRequest(root, idToRel(parentId), null, item.node);
+        }
+      }
+    };
+    await saveItems(collectionId, collection.items);
+    if (collection.variables.length > 0) {
+      const previous = get(activeEnvironmentId);
+      const id = addEnvironment(collection.title);
+      setEnvVars(id, collection.variables);
+      if (previous) activeEnvironmentId.set(previous);
+    }
+    await reloadWorkspace();
+  });
+}
+
+/** Import either a Postman Collection v2.x JSON export or an OpenAPI/Swagger spec. */
+export async function importApiText(text: string, name = 'pasted'): Promise<void> {
+  const parsed = isCurlText(text)
+    ? { kind: 'postman' as const, collection: parseCurlFile(text) }
+    : isPostmanCollection(text)
+    ? { kind: 'postman' as const, collection: parsePostmanCollection(text) }
+    : isInsomniaExport(text)
+      ? { kind: 'postman' as const, collection: parseInsomniaExport(text) }
+      : isHar(text)
+        ? { kind: 'postman' as const, collection: parseHar(text) }
+        : { kind: 'openapi' as const, spec: parseOpenApi(text, name) };
+  const root = await ensureWorkspaceRoot();
+  if (!root) return;
+  if (parsed.kind === 'postman') await savePostmanToWorkspace(root, parsed.collection);
+  else await saveSpecToWorkspace(root, parsed.spec);
+}
+
+export async function importApiFile(): Promise<void> {
+  const file = await openapiImportPick();
+  if (!file) return;
+  await importApiText(file.text, file.name);
 }
 
 /**

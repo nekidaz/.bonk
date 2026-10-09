@@ -1,17 +1,20 @@
 import { get } from 'svelte/store';
-import type { TreeNode } from '../domain/types';
+import type { AuthConfig, TreeNode } from '../domain/types';
 import {
   workspaceLoad,
   workspacePickFolder,
   workspaceCreateFolder,
+  workspaceSaveFolderAuth,
   workspaceDelete,
   workspaceRename,
   workspaceDuplicate,
   workspaceMove,
+  workspaceRenameRoot,
+  workspaceTrash,
 } from '../api';
 import { idToRel, findNode } from '../domain/tree';
 import { relinkTabPaths } from '../domain/tab';
-import { tabs, collections, workspacePath, recentWorkspacePaths, ROOT } from './state';
+import { tabs, activeTabId, collections, workspacePath, recentWorkspacePaths, ROOT } from './state';
 
 // ---------- Recent-workspace bookkeeping ----------
 
@@ -39,6 +42,14 @@ export function applyExpanded(nodes: TreeNode[], map: Map<string, boolean>): Tre
   return nodes.map((n) => n.kind === 'folder'
     ? { ...n, expanded: map.has(n.id) ? map.get(n.id)! : n.expanded, children: applyExpanded(n.children, map) }
     : n);
+}
+
+/** Collapsed folder ids per workspace root, persisted so the tree reopens as left. @internal */
+export const collapsedFolders: Record<string, string[]> = {};
+
+/** Re-apply workspace `root`'s remembered collapsed folders to a freshly loaded tree. @internal */
+export function withSavedCollapse(root: string, tree: TreeNode[]): TreeNode[] {
+  return applyExpanded(tree, new Map((collapsedFolders[root] ?? []).map((id) => [id, false])));
 }
 
 /** @internal — used within stores/; not re-exported by the barrel. */
@@ -92,7 +103,7 @@ export async function switchWorkspace(path: string): Promise<void> {
     const previous = get(workspacePath);
     const tree = await workspaceLoad(clean);
     workspacePath.set(clean);
-    collections.set(tree);
+    collections.set(withSavedCollapse(clean, tree));
     rememberWorkspacePath(clean);
     if (previous && previous !== clean) {
       // savedPath is relative to the old workspace root. Keeping it after a root
@@ -104,6 +115,28 @@ export async function switchWorkspace(path: string): Promise<void> {
   if (!switched) {
     recentWorkspacePaths.update((paths) => paths.filter((p) => p !== clean));
   }
+}
+
+/** Rename the workspace folder on disk, then switch to the new path (recents follow). */
+export async function renameWorkspaceFolder(name: string): Promise<void> {
+  const root = get(workspacePath);
+  if (!root || !name.trim()) return;
+  const next = await workspaceRenameRoot(root, name);
+  recentWorkspacePaths.update((paths) => paths.filter((p) => p !== root));
+  await switchWorkspace(next);
+}
+
+/** Move the workspace folder to the OS trash and close the tabs linked to it. */
+export async function deleteWorkspace(): Promise<void> {
+  const root = get(workspacePath);
+  if (!root) return;
+  await workspaceTrash(root);
+  tabs.update((list) => list.filter((t) => !t.savedPath));
+  const open = get(tabs);
+  if (!open.some((t) => t.id === get(activeTabId))) activeTabId.set(open[0]?.id ?? '');
+  recentWorkspacePaths.update((paths) => paths.filter((p) => p !== root));
+  workspacePath.set('');
+  collections.set([]);
 }
 
 // ---------- Tree mutations ----------
@@ -120,6 +153,16 @@ export async function addFolder(parentFolderId?: string, name = 'New Folder'): P
     const newId = await workspaceCreateFolder(root, parentFolderId ? idToRel(parentFolderId) : ROOT, name);
     await reloadWorkspace();
     return newId;
+  });
+}
+
+/** Persist a folder's collection-level auth (null clears it); requests set to inherit pick it up. */
+export async function saveFolderAuth(folderId: string, auth: AuthConfig | null): Promise<void> {
+  const root = get(workspacePath);
+  if (!root) return;
+  await runWorkspaceOp('saveFolderAuth', async () => {
+    await workspaceSaveFolderAuth(root, idToRel(folderId), auth);
+    await reloadWorkspace();
   });
 }
 
@@ -169,6 +212,13 @@ export async function moveNode(id: string, destFolderId?: string): Promise<void>
     tabs.update((list) => relinkTabPaths(list, id, newId));
     await reloadWorkspace();
   });
+}
+
+/** Expand every folder on the path to node `id`, so the tree can show it. */
+export function revealNode(id: string): void {
+  const expandTo = (nodes: TreeNode[]): TreeNode[] => nodes.map((n) =>
+    n.kind === 'folder' && id.startsWith(n.id + '/') ? { ...n, expanded: true, children: expandTo(n.children) } : n);
+  collections.update(expandTo);
 }
 
 export function toggleFolder(id: string): void {

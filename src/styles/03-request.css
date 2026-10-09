@@ -64,7 +64,7 @@
 .bs-save svg, .bs-share svg { width: 14px; height: 14px; color: var(--t2); }
 
 .bs-urlbar { display: flex; align-items: center; gap: 10px; padding: 13px 16px; }
-.bs-urlfield { flex: 1; height: 40px; display: flex; align-items: center; border-radius: 10px; background: var(--inset); border: 0.5px solid var(--sep); overflow: visible; }
+.bs-urlfield { flex: 1; min-width: 0; height: 40px; display: flex; align-items: center; border-radius: 10px; background: var(--inset); border: 0.5px solid var(--sep); overflow: visible; }
 .bs-urlfield:focus-within { border-color: var(--accent); }
 .bs-method-wrap { position: relative; height: 100%; flex-shrink: 0; border-right: 0.5px solid var(--sep); }
 .bs-method { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 0 14px; min-width: 104px; height: 100%; font-family: var(--mono); font-weight: 800; font-size: 13px; color: var(--green); position: relative; }
@@ -99,81 +99,15 @@
   border: 0.5px solid var(--sep);
   box-shadow: 0 20px 56px rgba(0, 0, 0, 0.22), 0 0 0 0.5px rgba(0, 0, 0, 0.04);
 }
-.bs-grpc-search { flex: 0 0 auto; padding: 9px 10px; border-bottom: 0.5px solid var(--sepsoft); }
-.bs-grpc-search-box { height: 31px; display: flex; align-items: center; gap: 8px; padding: 0 9px; color: var(--t3); background: var(--inset); border: 0.5px solid var(--sep); border-radius: 8px; }
-.bs-grpc-search-box:focus-within { color: var(--t2); border-color: var(--accent); box-shadow: var(--focus-ring); }
-.bs-grpc-search-box input { flex: 1; min-width: 0; height: 100%; padding: 0; color: var(--text); background: transparent; border: 0; outline: 0; font: inherit; font-size: 12.5px; }
-.bs-grpc-search-box input::placeholder { color: var(--t3); }
-.bs-grpc-search-box button { width: 20px; height: 20px; display: grid; place-items: center; flex: 0 0 auto; color: var(--t3); border-radius: 5px; }
-.bs-grpc-search-box button:hover { color: var(--text); background: var(--hover); }
-.bs-grpc-search-count { min-width: 20px; padding: 1px 5px; flex: 0 0 auto; color: var(--t3); background: var(--hover); border-radius: 5px; font-family: var(--mono); font-size: 10px; text-align: center; }
-.bs-grpc-search-empty { min-height: 150px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; padding: 24px; color: var(--t3); text-align: center; }
-.bs-grpc-search-empty strong { color: var(--t2); font-size: 12.5px; font-weight: 650; }
-.bs-grpc-search-empty span:last-child { font-size: 11.5px; }
-.bs-grpc-list { flex: 1 1 auto; min-height: 0; overflow: auto; padding: 10px; }
-.bs-grpc-list::-webkit-scrollbar { width: 10px; }
-.bs-grpc-list::-webkit-scrollbar-track { background: transparent; }
-.bs-grpc-list::-webkit-scrollbar-thumb { border-radius: 999px; background: color-mix(in srgb, var(--t3) 46%, transparent); border: 3px solid transparent; background-clip: content-box; }
-.bs-grpc-empty { padding: 16px 18px; color: var(--t2); font-size: 14px; }
-.bs-grpc-service {
-  padding: 12px 12px 7px;
-  color: var(--t2);
-  font-size: 13.5px;
-  font-weight: 700;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.bs-grpc-service:not(:first-child) { margin-top: 12px; }
-.bs-grpc-option {
-  width: 100%;
-  height: 36px;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 0 12px 0 32px;
-  border-radius: 8px;
-  color: var(--text);
-  text-align: left;
-  font-size: 13.5px;
-  font-weight: 500;
-}
-.bs-grpc-option:hover, .bs-grpc-option.on { background: color-mix(in srgb, var(--text) 8%, transparent); }
-.bs-grpc-option .flow { color: #8bbcff; flex-shrink: 0; width: 18px; }
-/* Streaming RPCs aren't supported (unary only) — dim them and tag them so the
-   user knows the backend will reject the call. */
-.bs-grpc-option.streaming { color: var(--t2); }
-.bs-grpc-stream-tag {
-  margin-left: auto;
-  flex-shrink: 0;
-  padding: 1px 6px;
-  border-radius: 6px;
-  font-size: 10.5px;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-  text-transform: uppercase;
-  color: var(--t2);
-  background: color-mix(in srgb, var(--text) 10%, transparent);
-}
-.bs-grpc-foot {
-  min-height: 42px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 0 14px;
-  border-top: 0.5px solid var(--sepsoft);
-  color: var(--t2);
-  font-size: 13px;
-}
-.bs-grpc-foot button { display: inline-flex; align-items: center; gap: 8px; color: var(--t2); }
-.bs-grpc-foot button:hover { color: var(--text); }
+
 .dark .bs-grpc-menu { background: #202020; border-color: #434343; }
-.dark .bs-grpc-option:hover, .dark .bs-grpc-option.on { background: #303030; }
+
 .bs-send {
+  flex: 0 0 auto;
   display: flex;
   align-items: center;
   height: 40px;
-  min-width: 96px;
+  min-width: 88px;
   border-radius: 10px;
   overflow: hidden;
   background: var(--accent);
@@ -192,19 +126,8 @@
   font-weight: 650;
   font-size: 14px;
 }
-.bs-send .cv {
-  width: 32px;
-  height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: color-mix(in srgb, var(--accent) 88%, #000);
-  color: #fff;
-  border-left: 0.5px solid rgba(255, 255, 255, 0.28);
-}
 .bs-send.cancelling { background: #d74b43; }
 .bs-send.cancelling .go { background: #d74b43; }
-.bs-send.cancelling .cv { background: #c94039; }
 .send-spinner {
   width: 12px;
   height: 12px;
@@ -214,8 +137,8 @@
   animation: send-spin 850ms linear infinite;
 }
 @keyframes send-spin { to { transform: rotate(360deg); } }
-.bs-send .cv svg { width: 14px; height: 14px; }
 
+.bs-rtabs-list { display: contents; }
 .bs-rtabs { display: flex; align-items: center; gap: 20px; padding: 0 16px; height: 40px; border-bottom: 0.5px solid var(--sepsoft); }
 .bs-rtab { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--t2); height: 100%; border-bottom: 2px solid transparent; margin-bottom: -0.5px; }
 .bs-rtab:hover { color: var(--text); }

@@ -171,7 +171,7 @@ describe('executeFlow', () => {
     const summary = await executeFlow(f, fx);
 
     expect(summary.status).toBe('error');
-    expect(summary.error).toMatch(/array/i);
+    expect(summary.error).toMatch(/массив/i);
   });
 
   it('count loop runs the body count times with the index as payload', async () => {
@@ -203,7 +203,7 @@ describe('executeFlow', () => {
     const summary = await executeFlow(f, fx, 10);
 
     expect(summary.status).toBe('error');
-    expect(summary.error).toMatch(/step limit/i);
+    expect(summary.error).toMatch(/лимита шагов/i);
   });
 
   it('cancellation stops the run between blocks', async () => {
@@ -423,6 +423,6 @@ describe('executeFlow', () => {
     const summary = await executeFlow(f, fx);
 
     expect(summary.status).toBe('error');
-    expect(summary.error).toMatch(/start/i);
+    expect(summary.error).toMatch(/Старт/i);
   });
 });

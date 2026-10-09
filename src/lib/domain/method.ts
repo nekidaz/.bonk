@@ -26,10 +26,12 @@ export function methodLabel(method: string): string {
 export function methodColor(method: string): string {
   switch (method.toUpperCase()) {
     case 'GET':
+    case 'HEAD':
       return 'var(--method-get)';
     case 'POST':
       return 'var(--method-post)';
     case 'PUT':
+    case 'OPTIONS':
       return 'var(--method-put)';
     case 'PATCH':
       return 'var(--method-patch)';

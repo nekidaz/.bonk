@@ -305,6 +305,11 @@ Important options:
 | `--allow-all-targets` | Explicitly permit any outbound target |
 | `--variable-prefix PREFIX` | Process-secret prefix; default `BONK_VAR_` |
 | `--max-response-body-bytes N` | Response ceiling, 1 MiB to 250 MiB |
+| `--app-state FILE` | Bonk app `state.json`; its globals and environments resolve `{{NAME}}` (secret values come from the OS keychain) |
+| `--environment NAME` | App environment the model may pass as `environment`; repeatable; others are denied |
+| `--mutating-methods allow\|ask\|deny` | HTTP POST/PUT/PATCH/DELETE policy; `ask` (default) asks the user via MCP elicitation; clients without elicitation are refused |
+| `--client ID` | Client id recorded in the journal |
+| `--journal FILE` | Append one JSON line per tool call (rotates to `FILE.1` past 1 MiB) |
 | `http --bind ADDRESS` | Enable Streamable HTTP instead of STDIO |
 | `http --mcp-host HOST` | Accepted inbound Host header |
 | `http --origin URL` | Accepted browser Origin |

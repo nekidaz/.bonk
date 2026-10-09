@@ -62,7 +62,7 @@ body {
 /* Material Symbols inherit the surrounding text colour. */
 .material-symbols-outlined {
   font-family: 'Material Symbols Outlined';
-  font-weight: normal;
+  font-weight: 300;
   font-style: normal;
   line-height: 1;
   letter-spacing: normal;

@@ -18,6 +18,7 @@
   import { findNode, idToRel } from '../domain/tree';
   import { requestVariableNames, type FlowNodeActions } from '../domain/flowNode';
   import type { RunResultRow } from '../domain/types';
+  import { t } from '../i18n';
 
   let { id, data, selected }: NodeProps = $props();
 
@@ -68,13 +69,10 @@
   const variables = $derived(requestNode ? requestVariableNames(requestNode.request) : []);
 
   const PORT_LABELS: Record<string, string> = {
-    success: 'Success',
-    fail: 'Fail',
-    true: 'true',
-    false: 'false',
-    each: 'each',
-    done: 'done',
+    success: 'flow.port.success',
+    fail: 'flow.port.fail',
   };
+  const portLabel = (p: string, tr: (k: string) => string) => (PORT_LABELS[p] ? tr(PORT_LABELS[p]) : p);
 </script>
 
 <div
@@ -89,16 +87,16 @@
 >
   {#if actions && config.type !== 'start'}
     <div class="tools">
-      <button class="tool" title="Colour" onclick={() => (showColors = !showColors)}>
+      <button class="tool" title={$t('flow.node.colour')} onclick={() => (showColors = !showColors)}>
         <span class="material-symbols-outlined">palette</span>
       </button>
-      <button class="tool" title="Duplicate" onclick={() => actions.duplicate(id)}>
+      <button class="tool" title={$t('flow.node.duplicate')} onclick={() => actions.duplicate(id)}>
         <span class="material-symbols-outlined">content_copy</span>
       </button>
-      <button class="tool" title={disabled ? 'Enable' : 'Mute (skip at run time)'} onclick={() => actions.toggleDisabled(id)}>
+      <button class="tool" title={disabled ? $t('flow.node.enable') : $t('flow.node.mute')} onclick={() => actions.toggleDisabled(id)}>
         <span class="material-symbols-outlined">{disabled ? 'toggle_off' : 'toggle_on'}</span>
       </button>
-      <button class="tool del" title="Delete" onclick={() => actions.remove(id)}>
+      <button class="tool del" title={$t('flow.node.delete')} onclick={() => actions.remove(id)}>
         <span class="material-symbols-outlined">delete</span>
       </button>
     </div>
@@ -112,7 +110,7 @@
             onclick={() => { actions.setColor(id, c); showColors = false; }}
           ></button>
         {/each}
-        <button class="sw none" title="Reset" onclick={() => { actions.setColor(id, undefined); showColors = false; }}>
+        <button class="sw none" title={$t('flow.node.reset')} onclick={() => { actions.setColor(id, undefined); showColors = false; }}>
           <span class="material-symbols-outlined">format_color_reset</span>
         </button>
       </div>
@@ -128,19 +126,19 @@
     <div class="txt">
       {#if path}<div class="path">{path}</div>{/if}
       <div class="title">
-        {#if config.type === 'start'}Start
-        {:else if config.type === 'request'}{requestNode?.name ?? 'Pick a request…'}
-        {:else if config.type === 'if'}If
-        {:else if config.type === 'loop'}{config.kind === 'forEach' ? 'For each' : `Repeat ×${config.count ?? 0}`}
-        {:else if config.type === 'script'}Script
-        {:else if config.type === 'delay'}Delay {config.ms} ms
-        {:else if config.type === 'output'}{config.label || 'Output'}
+        {#if config.type === 'start'}{$t('flow.block.start')}
+        {:else if config.type === 'request'}{requestNode?.name ?? $t('flow.panel.pickRequest')}
+        {:else if config.type === 'if'}{$t('flow.block.if')}
+        {:else if config.type === 'loop'}{config.kind === 'forEach' ? $t('flow.node.forEach') : $t('flow.node.repeat', { n: config.count ?? 0 })}
+        {:else if config.type === 'script'}{$t('flow.block.script')}
+        {:else if config.type === 'delay'}{$t('flow.node.delayMs', { ms: config.ms })}
+        {:else if config.type === 'output'}{config.label || $t('flow.block.output')}
         {/if}
       </div>
       {#if config.type === 'if'}<div class="sub">{config.condition}</div>{/if}
       {#if config.type === 'script'}<div class="sub">{config.code.split('\n')[0]}</div>{/if}
     </div>
-    {#if disabled}<span class="material-symbols-outlined mute-icon" title="Muted">toggle_off</span>{/if}
+    {#if disabled}<span class="material-symbols-outlined mute-icon" title={$t('flow.node.muted')}>toggle_off</span>{/if}
     {#if runState}<span class="dot"></span>{/if}
   </div>
 
@@ -153,7 +151,7 @@
       {#if variables.length > 0}
         <button class="vars" onclick={() => (showVars = !showVars)}>
           <span class="material-symbols-outlined" style="font-size:12px">{showVars ? 'expand_more' : 'chevron_right'}</span>
-          Variables ({variables.length})
+          {$t('flow.panel.variables', { n: variables.length })}
         </button>
       {/if}
     </div>
@@ -176,8 +174,8 @@
   {:else if ports.length === 2}
     <Handle id={ports[0]} type="source" position={Position.Right} style="top:26px" />
     <Handle id={ports[1]} type="source" position={Position.Right} style="top:46px" />
-    <span class="port-label a">{PORT_LABELS[ports[0]] ?? ports[0]}</span>
-    <span class="port-label b">{PORT_LABELS[ports[1]] ?? ports[1]}</span>
+    <span class="port-label a">{portLabel(ports[0], $t)}</span>
+    <span class="port-label b">{portLabel(ports[1], $t)}</span>
   {/if}
 </div>
 
@@ -227,10 +225,9 @@
   }
   .mute-icon { font-size: 14px; color: var(--t3); flex: none; margin-left: auto; }
   .dot { width: 7px; height: 7px; border-radius: 50%; flex: none; margin-left: auto; }
-  .running .dot { background: var(--fn-accent); animation: fn-pulse 0.9s ease-in-out infinite; }
+  .running .dot { background: var(--fn-accent); }
   .ok .dot { background: #34a853; }
   .err .dot { background: #ea4335; }
-  @keyframes fn-pulse { 50% { opacity: 0.3; } }
   .meta {
     display: flex;
     align-items: center;

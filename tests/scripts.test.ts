@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import { uiLanguage } from '../src/lib/stores/prefs';
 import {
   applyEnvPatch,
   applyGrpcRequestPatch,
@@ -8,6 +9,8 @@ import {
   parseScriptResult,
 } from '../src/lib/domain/scripts';
 import type { GrpcResult, HttpRequest, HttpResponse, VarRow } from '../src/lib/domain/types';
+
+uiLanguage.set('en'); // these assertions check the English strings
 
 function v(key: string, value: string, enabled = true): VarRow {
   return { key, value, enabled };

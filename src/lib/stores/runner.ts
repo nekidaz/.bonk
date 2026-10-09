@@ -1,4 +1,5 @@
 import { get, writable } from 'svelte/store';
+import { t, type Translate } from '../i18n';
 import type {
   Tab,
   TreeNode,
@@ -8,12 +9,18 @@ import type {
   RunStatus,
   ScriptTestResult,
 } from '../domain/types';
-import { httpSend, runScript, grpcConnect, grpcReflect, grpcCall, grpcLoadProto } from '../api';
-import { findNode } from '../domain/tree';
+import { grpcTlsFor, currentGrpcPrefs, withGlobalImports } from './netPrefs';
+import { httpSend, runScript, grpcConnect, grpcReflect, grpcCall, grpcLoadProto, workspaceSaveRequest } from '../api';
+import { findNode, idToRel, parentId } from '../domain/tree';
+import { pushHistory, summarizeRun, type IdBinding, type RunSummary } from '../domain/runnerStats';
+import { isArrayOf, loadState, saveState, saveStateDebounced } from '../persist';
 import { grpcPathsToAbs } from '../domain/protoPaths';
 import { mergeScope, resolveRequestVars, resolveVars } from '../domain/vars';
 import { applyRequestPatch, buildScriptContext, applyGrpcRequestPatch, buildGrpcScriptContext } from '../domain/scripts';
-import { inferGrpcPlaintext, grpcConnectFailureMessage, methodShort } from '../domain/grpc';
+import { inferGrpcPlaintext, grpcConnectFailureMessage, methodShort, outgoingGrpcMetadata, stripsAuthorization, grpcAuthMetadata } from '../domain/grpc';
+import { effectiveAuth } from '../domain/authInherit';
+import { buildUrl } from '../domain/http';
+import { buildRequestForSend } from '../domain/httpBody';
 import {
   tabs,
   activeTabId,
@@ -22,8 +29,12 @@ import {
   globals,
   environments,
   activeEnvironmentId,
+  withInheritedAuth,
+  ROOT,
 } from './state';
 import { currentRequestSettings, applyScriptVars } from './requests';
+import { reloadWorkspace } from './workspace';
+import { setActiveEnvironment } from './environments';
 
 /**
  * The Collection Runner: runs a whole folder of saved requests (HTTP + gRPC) in
@@ -47,8 +58,8 @@ export const RUNNER_ROOT = '__root__';
 
 /** Runner configuration: what to run and how. */
 export interface RunnerConfig {
-  /** Folder id to run, `null`/RUNNER_ROOT for the whole tree. */
-  folderId: string | null;
+  /** Folder ids to run, in order; empty = the whole tree. */
+  folderIds: string[];
   /** Iteration count when NOT data-driven; ignored once a data file is loaded. */
   iterations: number;
   /** Delay between requests, milliseconds. */
@@ -59,7 +70,14 @@ export interface RunnerConfig {
   dataFileName: string | null;
   /** Parsed data rows; when non-empty the run is data-driven (one row/iteration). */
   dataRows: Record<string, string>[];
+  /** Requests unchecked in the setup list (R2). */
+  excludedIds: string[];
+  /** Custom run order (request ids); requests missing from it keep tree order, after it. */
+  orderIds: string[];
 }
+
+/** Which Runner screen the tab shows: R1 pick a collection, R2 set the run up, R3/R4 the run. */
+export type RunnerStage = 'pick' | 'setup' | 'run';
 
 /** Live run state, streamed to the RunnerView as it executes. */
 export interface RunnerRun {
@@ -69,15 +87,26 @@ export interface RunnerRun {
   completed: number;
   startedAt: number | null;
   finishedAt: number | null;
+  /** Run number (#42), 0 before the first run. */
+  n: number;
+  /** Iterations planned for this run (matrix columns). */
+  iterations: number;
+  paused: boolean;
+  /** The call in flight (R3 log head). */
+  current: { nodeId: string; name: string; method: string; startedAt: number } | null;
+  /** Start of each iteration, ms since the run started (R3 log). */
+  iterStarts: number[];
 }
 
 const DEFAULT_CONFIG: RunnerConfig = {
-  folderId: null,
+  folderIds: [],
   iterations: 1,
   delayMs: 0,
   stopOnFailure: false,
   dataFileName: null,
   dataRows: [],
+  excludedIds: [],
+  orderIds: [],
 };
 
 const DEFAULT_RUN: RunnerRun = {
@@ -87,10 +116,70 @@ const DEFAULT_RUN: RunnerRun = {
   completed: 0,
   startedAt: null,
   finishedAt: null,
+  n: 0,
+  iterations: 0,
+  paused: false,
+  current: null,
+  iterStarts: [],
 };
 
 export const runnerConfig = writable<RunnerConfig>({ ...DEFAULT_CONFIG });
 export const runnerRun = writable<RunnerRun>({ ...DEFAULT_RUN, results: [] });
+/** Last HISTORY_LIMIT finished runs (app state, not the workspace). */
+export const runnerHistory = writable<RunSummary[]>([]);
+export const runnerStage = writable<RunnerStage>('pick');
+
+const CONFIG_KEY = 'runnerConfig';
+const HISTORY_KEY = 'runnerHistory';
+const isSummary = (v: unknown): v is RunSummary =>
+  typeof v === 'object' && v !== null && typeof (v as RunSummary).n === 'number' && typeof (v as RunSummary).durationMs === 'number';
+
+let loaded: Promise<void> | undefined;
+/** Load the persisted runner settings + run history once (idempotent). */
+export function loadRunnerState(): Promise<void> {
+  loaded ??= (async () => {
+    const [saved, hist] = await Promise.all([
+      loadState<Record<string, unknown>>(CONFIG_KEY, {}),
+      loadState(HISTORY_KEY, [] as RunSummary[], isArrayOf(isSummary)),
+    ]);
+    const c = typeof saved === 'object' && saved ? saved : {};
+    const ids = (v: unknown) => (Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : []);
+    runnerConfig.update((cur) => ({
+      ...cur,
+      folderIds: Array.isArray(c.folderIds) ? ids(c.folderIds) : cur.folderIds,
+      excludedIds: ids(c.excludedIds),
+      orderIds: ids(c.orderIds),
+      iterations: typeof c.iterations === 'number' ? c.iterations : cur.iterations,
+      delayMs: typeof c.delayMs === 'number' ? c.delayMs : cur.delayMs,
+      stopOnFailure: typeof c.stopOnFailure === 'boolean' ? c.stopOnFailure : cur.stopOnFailure,
+    }));
+    runnerHistory.set(hist);
+    syncRunnerTabTitle();
+  })();
+  return loaded;
+}
+
+function persistConfig(): void {
+  const { folderIds, iterations, delayMs, stopOnFailure, excludedIds, orderIds } = get(runnerConfig);
+  saveStateDebounced(CONFIG_KEY, { folderIds, iterations, delayMs, stopOnFailure, excludedIds, orderIds });
+}
+
+/** Header title of the run scope: the first chosen folder, else "Все запросы". */
+export function runnerScopeTitle(folderIds: string[], tree: TreeNode[], tr: Translate = get(t)): string {
+  for (const id of folderIds) {
+    const node = findNode(tree, id);
+    if (node) return node.name;
+  }
+  return tr('runner.allRequests');
+}
+
+/** Keep the runner tab named "Runner · <scope>". */
+function syncRunnerTabTitle(): void {
+  const title = get(runnerStage) === 'pick' ? get(t)('runner.tab.new') : `Runner · ${runnerScopeTitle(get(runnerConfig).folderIds, get(collections))}`;
+  if (get(tabs).some((t) => t.protocol === 'runner' && t.title !== title)) {
+    tabs.update((list) => list.map((t) => (t.protocol === 'runner' ? { ...t, title } : t)));
+  }
+}
 
 /**
  * Open (or focus) the single Collection Runner tab. Mirrors openEnvironmentsTab:
@@ -98,11 +187,14 @@ export const runnerRun = writable<RunnerRun>({ ...DEFAULT_RUN, results: [] });
  * most one exists at a time.
  */
 export function openRunnerTab(): void {
+  void loadRunnerState();
   const existing = get(tabs).find((t) => t.protocol === 'runner');
   if (existing) {
     activeTabId.set(existing.id);
+    syncRunnerTabTitle();
     return;
   }
+  if (get(runnerRun).n === 0) runnerStage.set('pick');
   const tab: Tab = {
     id: crypto.randomUUID(),
     protocol: 'runner',
@@ -112,23 +204,63 @@ export function openRunnerTab(): void {
   };
   tabs.update((list) => [...list, tab]);
   activeTabId.set(tab.id);
+  syncRunnerTabTitle();
+}
+
+/** Switch the Runner screen (R1 pick / R2 setup / R3-R4 run). */
+export function setRunnerStage(stage: RunnerStage): void {
+  runnerStage.set(stage);
+  syncRunnerTabTitle();
+}
+
+/** Tree context menu "Запустить в Runner": scope to the folder and open its setup (R2). */
+export function runInRunner(folderId: string): void {
+  setRunnerFolders([folderId]);
+  runnerStage.set('setup');
+  openRunnerTab();
+}
+
+/** R1 "repeat a recent run": restore its scope, iterations and environment, then run. */
+export function repeatRun(s: RunSummary): void {
+  if (s.folderIds) setRunnerFolders(s.folderIds);
+  if (s.iterations && get(runnerConfig).dataRows.length === 0) setIterations(s.iterations);
+  if (s.envId !== undefined && (s.envId === null || get(environments).some((e) => e.id === s.envId))) setActiveEnvironment(s.envId);
+  void runCollection();
 }
 
 // ---- Config setters ----
 
-export function setRunnerFolder(folderId: string | null): void {
-  runnerConfig.update((c) => ({ ...c, folderId }));
+/** Run scope: folder ids in order (empty = whole tree). A new scope resets the setup's checks and order. */
+export function setRunnerFolders(folderIds: string[]): void {
+  runnerConfig.update((c) =>
+    c.folderIds.join() === folderIds.join() ? c : { ...c, folderIds, excludedIds: [], orderIds: [] },
+  );
+  persistConfig();
+  syncRunnerTabTitle();
+}
+/** Requests unchecked in the setup list. */
+export function setExcluded(excludedIds: string[]): void {
+  runnerConfig.update((c) => ({ ...c, excludedIds }));
+  persistConfig();
+}
+/** Custom run order (request ids). */
+export function setRunOrder(orderIds: string[]): void {
+  runnerConfig.update((c) => ({ ...c, orderIds }));
+  persistConfig();
 }
 export function setIterations(iterations: number): void {
   const n = Number.isFinite(iterations) ? Math.max(1, Math.round(iterations)) : 1;
   runnerConfig.update((c) => ({ ...c, iterations: n }));
+  persistConfig();
 }
 export function setDelay(delayMs: number): void {
   const n = Number.isFinite(delayMs) ? Math.max(0, Math.round(delayMs)) : 0;
   runnerConfig.update((c) => ({ ...c, delayMs: n }));
+  persistConfig();
 }
 export function setStopOnFailure(stopOnFailure: boolean): void {
   runnerConfig.update((c) => ({ ...c, stopOnFailure }));
+  persistConfig();
 }
 /** Load a parsed data file: makes the run data-driven (rows.length iterations). */
 export function loadDataRows(name: string, rows: Record<string, string>[]): void {
@@ -178,14 +310,27 @@ function flattenRequests(nodes: TreeNode[]): RequestNode[] {
   return out;
 }
 
-/** Resolve the configured folder to the request list to run (root = whole tree). */
-function collectRequests(config: RunnerConfig): RequestNode[] {
-  const tree = get(collections);
-  if (!config.folderId || config.folderId === RUNNER_ROOT) return flattenRequests(tree);
-  const node = findNode(tree, config.folderId);
-  if (!node) return [];
-  if (node.kind === 'request') return [node];
-  return flattenRequests(node.children);
+/** Resolve the configured folders to the request list to run (none = whole tree). */
+export function collectRequests(folderIds: string[], tree: TreeNode[]): RequestNode[] {
+  const ids = folderIds.filter((id) => id !== RUNNER_ROOT && findNode(tree, id));
+  if (ids.length === 0) return flattenRequests(tree);
+  const out = ids.flatMap((id) => flattenRequests([findNode(tree, id)!]));
+  return out.filter((n, i) => out.indexOf(n) === i); // a nested pick must not run twice
+}
+
+/** Every request in scope, in run order (the setup list, unchecked ones included). */
+export function orderedRequests(config: RunnerConfig, tree: TreeNode[]): RequestNode[] {
+  const all = collectRequests(config.folderIds, tree);
+  const rank = (n: RequestNode) => {
+    const i = config.orderIds.indexOf(n.id);
+    return i < 0 ? Infinity : i;
+  };
+  return all.map((n, i) => ({ n, i })).sort((a, b) => rank(a.n) - rank(b.n) || a.i - b.i).map((x) => x.n);
+}
+
+/** What a run will actually send: the ordered scope minus unchecked requests. */
+export function plannedRequests(config: RunnerConfig, tree: TreeNode[]): RequestNode[] {
+  return orderedRequests(config, tree).filter((n) => !config.excludedIds.includes(n.id));
 }
 
 /** Result of the headless HTTP pipeline (returned, not written to a tab). */
@@ -197,6 +342,7 @@ interface HttpRunOutcome {
   error?: string;
   /** Response body (absent when the pre-request script aborted the send). */
   body?: string;
+  size?: number;
 }
 
 /**
@@ -243,7 +389,7 @@ async function runHttp(
     error = post.error ?? undefined;
   }
 
-  return { status: res.status, elapsedMs: res.elapsed_ms, tests, logs, error, body: res.body };
+  return { status: res.status, elapsedMs: res.elapsed_ms, tests, logs, error, body: res.body, size: res.size_bytes };
 }
 
 /** True when every recorded test passed (vacuously true with no tests). */
@@ -258,7 +404,7 @@ function sleep(ms: number): Promise<void> {
 
 /** Append a streamed result row (new array so Svelte reactivity fires). */
 function pushRow(row: RunResultRow): void {
-  runnerRun.update((r) => ({ ...r, results: [...r.results, row], completed: r.completed + 1 }));
+  runnerRun.update((r) => ({ ...r, results: [...r.results, row], completed: r.completed + 1, current: null }));
 }
 
 /**
@@ -272,9 +418,11 @@ export async function runHttpNode(
   iterationData: Record<string, string>,
 ): Promise<RunResultRow> {
   const scope = runScopeFor(iterationData);
-  const target = resolveVars(node.request.url, scope);
+  const finalUrl = buildUrl(node.request.url, node.params);
+  const target = resolveVars(finalUrl, scope);
   try {
-    const out = await runHttp(node.request, iterationData);
+    const outgoing = buildRequestForSend(withInheritedAuth(node, node.id), finalUrl);
+    const out = await runHttp(outgoing, iterationData);
     const ok =
       out.error === undefined &&
       out.status >= 200 &&
@@ -294,6 +442,8 @@ export async function runHttpNode(
       logs: out.logs,
       error: out.error,
       responseBody: out.body,
+      nodeId: node.id,
+      sizeBytes: out.size,
     };
   } catch (e) {
     return {
@@ -303,6 +453,7 @@ export async function runHttpNode(
       protocol: 'http',
       method: node.request.method,
       target,
+      nodeId: node.id,
       status: 'ERR',
       ok: false,
       elapsedMs: 0,
@@ -343,20 +494,21 @@ export async function runGrpcNode(
     target,
     tests,
     logs,
+    nodeId: node.id,
   };
   if (!g || !g.endpoint.trim() || !g.method) {
-    return { ...base, status: 'ERR', ok: false, elapsedMs: 0, error: 'Missing endpoint or method.' };
+    return { ...base, status: 'ERR', ok: false, elapsedMs: 0, error: get(t)('runner.err.missingEndpoint') };
   }
   try {
     // Plaintext: honour the saved flag, else infer from the RESOLVED endpoint
     // (the :443 may live inside a {{var}} value).
     const plaintext = g.plaintext !== undefined ? g.plaintext : inferGrpcPlaintext(endpoint);
-    const connId = await grpcConnect(endpoint, plaintext);
+    const connId = await grpcConnect(endpoint, plaintext, grpcTlsFor(endpoint, g.tls), undefined, currentGrpcPrefs());
     // Load the schema so the call can be encoded: proto source compiles files,
     // otherwise reflection lists the services.
     if (g.source === 'proto') {
       const abs = grpcPathsToAbs(g, get(workspacePath));
-      await grpcLoadProto(connId, abs?.protoPaths ?? [], abs?.importPaths ?? []);
+      await grpcLoadProto(connId, abs?.protoPaths ?? [], withGlobalImports(abs?.importPaths ?? []));
     } else {
       await grpcReflect(connId);
     }
@@ -382,8 +534,9 @@ export async function runGrpcNode(
     }
 
     const resolvedMessage = resolveVars(message, scope);
-    const resolvedMetadata: Record<string, string> = {};
-    for (const [k, v] of Object.entries(metadata)) resolvedMetadata[k] = resolveVars(v, scope);
+    const merged = grpcAuthMetadata(effectiveAuth(get(collections), node.id, g.auth), (v) => resolveVars(v, scope));
+    for (const [k, v] of Object.entries(metadata)) merged[k] = resolveVars(v, scope);
+    const resolvedMetadata = outgoingGrpcMetadata(merged, stripsAuthorization(g, plaintext));
     const result = await grpcCall(connId, g.method, resolvedMessage, resolvedMetadata);
 
     let error: string | undefined;
@@ -409,6 +562,7 @@ export async function runGrpcNode(
       elapsedMs: result.elapsed_ms,
       error,
       responseBody: result.body,
+      sizeBytes: result.size_bytes,
     };
   } catch (e) {
     return {
@@ -421,15 +575,62 @@ export async function runGrpcNode(
   }
 }
 
+const runNode = (node: RequestNode, iteration: number, data: Record<string, string>) =>
+  node.protocol === 'grpc' ? runGrpcNode(node, iteration, data) : runHttpNode(node, iteration, data);
+
+/** Close the run and record it in the persisted history. */
+function finishRun(status: RunStatus): void {
+  runnerRun.update((r) => ({ ...r, status, finishedAt: Date.now(), paused: false, current: null }));
+  const r = get(runnerRun);
+  if (r.results.length === 0 || r.startedAt === null) return;
+  const { folderIds } = get(runnerConfig);
+  const envId = get(activeEnvironmentId);
+  const summary = {
+    ...summarizeRun(r.n, r.startedAt, r.finishedAt ?? Date.now(), r.results),
+    title: runnerScopeTitle(folderIds, get(collections)),
+    folderIds,
+    envId,
+    envName: get(environments).find((e) => e.id === envId)?.name,
+    iterations: r.iterations,
+  };
+  const history = pushHistory(get(runnerHistory), summary);
+  runnerHistory.set(history);
+  void saveState(HISTORY_KEY, history);
+}
+
 /**
- * Run the configured folder. Determines the iteration count (data rows when a
+ * Run the configured folders. Determines the iteration count (data rows when a
  * file is loaded, else the numeric setting), streams a row per executed request,
  * and honours stop-on-failure + the inter-request delay. Never throws: a bad
- * request becomes an `ok:false` row.
+ * request becomes an `ok:false` row. Each row's `startOffsetMs` is measured
+ * from its iteration start minus the configured delays (the waterfall).
  */
+let stopRequested = false;
+
+/** R3 "Пауза" / "Продолжить": the run halts before its next call. */
+export function togglePause(): void {
+  runnerRun.update((r) => (r.status === 'running' ? { ...r, paused: !r.paused } : r));
+}
+
+/** R3 "Остановить": the call in flight finishes, nothing after it is sent. */
+export function stopRun(): void {
+  if (get(runnerRun).status === 'running') stopRequested = true;
+}
+
+/** Wait out a pause; true when the run should stop instead. */
+async function holdOrStop(): Promise<boolean> {
+  while (get(runnerRun).paused && !stopRequested) await sleep(100);
+  return stopRequested;
+}
+
 export async function runCollection(): Promise<void> {
+  if (get(runnerRun).status === 'running') return;
+  await loadRunnerState();
+  setRunnerStage('run');
+  stopRequested = false;
   const config = get(runnerConfig);
-  const requests = collectRequests(config);
+  const requests = plannedRequests(config, get(collections));
+  const n = (get(runnerHistory).at(-1)?.n ?? 0) + 1;
   if (requests.length === 0) {
     // Nothing to run — surface an empty "done" so the summary/empty state shows.
     runnerRun.set({ ...DEFAULT_RUN, status: 'done', results: [], startedAt: Date.now(), finishedAt: Date.now() });
@@ -439,37 +640,105 @@ export async function runCollection(): Promise<void> {
   const dataDriven = config.dataRows.length > 0;
   const iterations = dataDriven ? config.dataRows.length : Math.max(1, config.iterations);
 
+  const startedAt = Date.now();
   runnerRun.set({
+    ...DEFAULT_RUN,
     status: 'running',
     results: [],
     total: requests.length * iterations,
-    completed: 0,
-    startedAt: Date.now(),
-    finishedAt: null,
+    startedAt,
+    n,
+    iterations,
   });
 
   for (let i = 1; i <= iterations; i++) {
     const iterationData = dataDriven ? (config.dataRows[i - 1] ?? {}) : {};
+    const iterStart = performance.now();
+    runnerRun.update((r) => ({ ...r, iterStarts: [...r.iterStarts, Date.now() - startedAt] }));
+    let paused = 0;
     for (let j = 0; j < requests.length; j++) {
+      const t0 = performance.now();
+      if (await holdOrStop()) return finishRun('stopped');
+      paused += performance.now() - t0;
       const node = requests[j];
-      const row =
-        node.protocol === 'grpc'
-          ? await runGrpcNode(node, i, iterationData)
-          : await runHttpNode(node, i, iterationData);
+      const method = node.protocol === 'grpc' ? 'gRPC' : node.request.method;
+      runnerRun.update((r) => ({ ...r, current: { nodeId: node.id, name: node.name, method, startedAt: Date.now() } }));
+      const startOffsetMs = Math.round(performance.now() - iterStart - paused);
+      const row = { ...(await runNode(node, i, iterationData)), startOffsetMs, endMs: Date.now() - startedAt };
       pushRow(row);
 
-      if (config.stopOnFailure && !row.ok) {
-        runnerRun.update((r) => ({ ...r, status: 'stopped', finishedAt: Date.now() }));
-        return;
-      }
+      if (stopRequested || (config.stopOnFailure && !row.ok)) return finishRun('stopped');
 
       // Delay before the next request; skip after the very last one of the run.
       const isLast = i === iterations && j === requests.length - 1;
-      if (config.delayMs > 0 && !isLast) await sleep(config.delayMs);
+      if (config.delayMs > 0 && !isLast) {
+        const t = performance.now();
+        await sleep(config.delayMs);
+        paused += performance.now() - t;
+      }
     }
   }
 
-  runnerRun.update((r) => ({ ...r, status: 'done', finishedAt: Date.now() }));
+  finishRun('done');
+}
+
+/** Re-run `rows` in place (same iteration data, same waterfall slot). */
+async function rerunRows(rows: RunResultRow[]): Promise<void> {
+  const prevStatus = get(runnerRun).status;
+  if (prevStatus === 'running' || rows.length === 0) return;
+  const config = get(runnerConfig);
+  runnerRun.update((r) => ({ ...r, status: 'running' }));
+  for (const [k, old] of rows.entries()) {
+    const node = old.nodeId ? findNode(get(collections), old.nodeId) : undefined;
+    if (node?.kind !== 'request') continue;
+    const fresh = await runNode(node, old.iteration, config.dataRows[old.iteration - 1] ?? {});
+    const row = { ...fresh, id: old.id, startOffsetMs: old.startOffsetMs };
+    runnerRun.update((r) => ({ ...r, results: r.results.map((x) => (x.id === old.id ? row : x)) }));
+    if (config.delayMs > 0 && k < rows.length - 1) await sleep(config.delayMs);
+  }
+  runnerRun.update((r) => ({ ...r, status: prevStatus }));
+}
+
+/** "Перезапустить упавшие": re-run only the failed calls of the current run. */
+export function rerunFailed(): Promise<void> {
+  return rerunRows(get(runnerRun).results.filter((r) => !r.ok));
+}
+
+/** "Повторить": re-run one call. */
+export function rerunCall(rowId: string): Promise<void> {
+  return rerunRows(get(runnerRun).results.filter((r) => r.id === rowId));
+}
+
+/**
+ * "Брать id из …": the source request's test script stores its response `id`
+ * in `{{varName}}` (active environment, else globals), and the failing
+ * request's URL uses that variable instead of the hard-coded literal.
+ */
+export async function bindIdFrom(targetNodeId: string, b: IdBinding): Promise<boolean> {
+  const root = get(workspacePath);
+  const tree = get(collections);
+  const src = b.sourceNodeId ? findNode(tree, b.sourceNodeId) : undefined;
+  const dst = findNode(tree, targetNodeId);
+  if (!root || src?.kind !== 'request' || dst?.kind !== 'request') return false;
+  const scope = get(activeEnvironmentId) ? 'environment' : 'globals';
+  const line = `pm.${scope}.set('${b.varName}', pm.response.json().id);`;
+  const script = src.request.testScript?.trimEnd() ?? '';
+  const nodes: RequestNode[] = [
+    script.includes(line) ? src : { ...src, request: { ...src.request, testScript: script ? `${script}\n${line}` : line } },
+    { ...dst, request: { ...dst.request, url: dst.request.url.split(b.literal).join(`{{${b.varName}}}`) } },
+  ];
+  try {
+    for (const node of nodes) {
+      const folder = parentId(node.id);
+      await workspaceSaveRequest(root, folder ? idToRel(folder) : ROOT, node.id, node);
+    }
+    return true;
+  } catch (e) {
+    console.error('runner: bindIdFrom failed', e);
+    return false;
+  } finally {
+    await reloadWorkspace();
+  }
 }
 
 /**
@@ -485,7 +754,7 @@ export async function exportReport(): Promise<boolean> {
     finishedAt: run.finishedAt,
     status: run.status,
     config: {
-      folderId: config.folderId,
+      folderIds: config.folderIds,
       iterations: config.dataRows.length > 0 ? config.dataRows.length : Math.max(1, config.iterations),
       delayMs: config.delayMs,
       stopOnFailure: config.stopOnFailure,

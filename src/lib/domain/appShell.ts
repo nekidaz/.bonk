@@ -9,14 +9,34 @@ export type AppMenuState = {
   kind: AppMenuKind;
   x: number;
   y: number;
+  /** Bottom edge to open upward from when the menu doesn't fit below `y`. */
+  flipY?: number;
   nodeId?: string;
   isFolder?: boolean;
 };
 
 export function appMenuWidth(kind: Exclude<AppMenuKind, null>): number {
-  if (kind === 'create') return 274;
+  if (kind === 'create') return 272;
+  if (kind === 'history') return 220;
   if (kind === 'switch') return 242;
-  return 194;
+  return 260;
+}
+
+/** Folder name of a workspace path ('' for an empty path). */
+export function workspaceName(path: string): string {
+  return path.split('/').filter(Boolean).at(-1) ?? '';
+}
+
+/** Two-letter avatar: 'acme-business' → 'fb', 'Sandbox' → 'sa'. */
+export function workspaceInitials(name: string): string {
+  const words = name.split(/[\s_.-]+/).filter(Boolean);
+  const letters = words.length > 1 ? words.map((w) => w[0]).join('') : (words[0] ?? '');
+  return letters.slice(0, 2).toLowerCase();
+}
+
+/** Recent workspaces offered in the switcher: current one excluded, max 8 (⌥⌘2…⌥⌘9). */
+export function recentWorkspaceChoices(paths: string[], current: string): string[] {
+  return paths.filter((p) => p && p !== current).slice(0, 8);
 }
 
 export type PanelSnap = {

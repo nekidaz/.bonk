@@ -1,0 +1,137 @@
+/* Settings sheet (S32–S32.7). Global so every section component shares the primitives. */
+/* Sizes follow the S32 mock (Pencil node «Settings sheet»). */
+.st-sheet { transform: translateY(10px); width: min(1040px, 100%); height: min(660px, 100%); display: flex; overflow: hidden; background: var(--color-raised); border: 1px solid var(--color-border-subtle); border-radius: var(--radius-dialog); box-shadow: var(--shadow-lg, 0 30px 80px rgba(0, 0, 0, 0.4)); color: var(--color-text); }
+.st-nav { width: 240px; flex: 0 0 auto; display: flex; flex-direction: column; gap: 2px; padding: 18px 10px 14px; background: var(--color-panel); border-right: 1px solid var(--color-border-subtle); min-height: 0; }
+.st-kicker { padding: 0 10px; font: 500 var(--font-size-micro)/13px var(--font-code); letter-spacing: var(--tracking-eyebrow); color: var(--color-text-muted); }
+.st-ws { padding: 4px 10px 12px; font: 600 var(--font-size-ui)/16px var(--font-ui); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.st-nav ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; flex: 1; overflow-y: auto; min-height: 0; }
+.st-item { width: 100%; height: 34px; display: flex; align-items: center; gap: 8px; padding: 0 12px; border: 0; border-radius: var(--radius-control); background: transparent; color: var(--color-text); font: var(--font-size-body) var(--font-ui); text-align: left; cursor: pointer; transition: background var(--duration-hover) var(--ease-soft); }
+.st-item .material-symbols-outlined { width: 16px; font-size: 16px; color: var(--color-text-secondary); }
+.st-item:hover { background: var(--color-hover); }
+.st-item.on { background: var(--color-selected); font-weight: 600; }
+.st-item:focus-visible, .st-x:focus-visible { outline: 2px solid var(--color-text); outline-offset: 2px; }
+.st-ver { padding: 0 10px; font: var(--font-size-micro)/13px var(--font-code); color: var(--color-text-muted); }
+.st-main { flex: 1; min-width: 0; display: flex; flex-direction: column; padding: 18px 24px 20px 28px; gap: 16px; }
+.st-head { flex: none; display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+.st-head h2 { margin: 0; font: 600 var(--font-size-heading)/24px var(--font-ui); }
+.st-head p { margin: 4px 0 0; font: var(--font-size-body)/15px var(--font-ui); color: var(--color-text-muted); }
+.st-x { width: 32px; height: 32px; margin-top: 6px; display: grid; place-items: center; border: 0; border-radius: var(--radius-control); background: transparent; color: var(--color-text-secondary); cursor: pointer; }
+.st-x:hover { background: var(--color-hover); color: var(--color-text); }
+.st-body { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 16px; }
+.st-group { margin: 0 0 -8px; font: 500 var(--font-size-micro)/13px var(--font-code); letter-spacing: var(--tracking-eyebrow); color: var(--color-text-muted); }
+.st-card { flex: none; padding: 0 16px; background: var(--color-field); border: 1px solid var(--color-border-subtle); border-radius: var(--radius-card); overflow: hidden; }
+.st-pad { padding: 16px; }
+.st-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 11px 0; min-height: 53px; }
+.st-row + .st-row { border-top: 1px solid var(--color-border-subtle); }
+.st-copy { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.st-name { font: 500 var(--font-size-ui)/16px var(--font-ui); }
+.st-desc { font: var(--font-size-caption)/13px var(--font-ui); color: var(--color-text-muted); overflow-wrap: anywhere; }
+.st-num { flex: 0 0 auto; width: 120px; height: 32px; display: inline-flex; align-items: center; padding: 0 12px; border: 1px solid var(--color-border-subtle); border-radius: var(--radius-control); background: var(--color-panel); font: var(--font-size-body) var(--font-code); }
+.st-num:focus-within { border-color: var(--color-text-muted); }
+.st-num input { flex: 1; min-width: 0; height: auto; padding: 0; border: 0; outline: 0; box-shadow: none; background: transparent; color: inherit; font: inherit; }
+.st-num span { color: var(--color-text-muted); font: var(--font-size-caption) var(--font-ui); }
+.st-key kbd { font: var(--font-size-body) var(--font-code); color: var(--color-text-secondary); white-space: nowrap; }
+.st-col { align-items: flex-start; flex-direction: column; gap: 8px; }
+.st-text { width: 100%; height: 32px; padding: 0 12px; border: 1px solid var(--color-border-subtle); border-radius: var(--radius-control); background: var(--color-panel); color: inherit; font: var(--font-size-body) var(--font-code); box-sizing: border-box; }
+.st-text:focus { outline: 0; border-color: var(--color-text-muted); }
+.st-text[aria-invalid='true'] { border-color: var(--red); }
+.st-err { padding: 8px 0 11px; font: var(--font-size-caption)/13px var(--font-ui); color: var(--red); }
+.st-note { margin: 0; font: var(--font-size-caption)/15px var(--font-ui); color: var(--color-text-muted); }
+.st-file { display: flex; gap: 8px; flex: 0 0 auto; }
+.st-themes { width: 100%; margin: 0; }
+@media (prefers-reduced-motion: reduce) { .st-item { transition: none; } }
+.st-select { flex: 0 0 auto; min-width: 160px; height: 32px; padding: 0 28px 0 12px; appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%23888' stroke-width='1.5'/%3E%3C/svg%3E") !important; background-repeat: no-repeat !important; background-position: right 11px center !important; border: 1px solid var(--color-border-subtle); border-radius: var(--radius-control); background: var(--color-panel); color: inherit; font: var(--font-size-body) var(--font-ui); }
+.st-select:focus { outline: 0; border-color: var(--color-text-muted); }
+.st-danger .st-name { color: var(--red); }
+/* Editable token list (proxy exclusions, .proto import paths). */
+.st-chips { width: 100%; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; min-height: 32px; padding: 4px 6px; border: 1px solid var(--color-border-subtle); border-radius: var(--radius-control); background: var(--color-panel); box-sizing: border-box; }
+.st-chips:focus-within { border-color: var(--color-text-muted); }
+.st-chip { display: inline-flex; align-items: center; gap: 4px; height: 22px; padding: 0 4px 0 8px; border-radius: var(--radius-sm); background: var(--color-hover); font: var(--font-size-caption) var(--font-code); }
+.st-chip button { display: grid; place-items: center; width: 16px; height: 16px; border: 0; border-radius: 3px; background: none; color: var(--color-text-muted); cursor: pointer; }
+.st-chip button:hover { color: var(--color-text); }
+.st-chips input { flex: 1; min-width: 80px; height: 22px; border: 0; outline: 0; background: transparent; color: inherit; font: var(--font-size-caption) var(--font-code); }
+
+/* Settings → Внешний вид → Плотность: tree and table rows, 28 px compact / 32 px normal. */
+:root[data-density='compact'] .bs .bs-trow { height: 28px; min-height: 28px; }
+:root[data-density='compact'] .bs .bs-pr { min-height: 28px; }
+:root[data-density='normal'] .bs .bs-trow { height: 32px; min-height: 32px; }
+:root[data-density='normal'] .bs .bs-pr { min-height: 32px; }
+
+/* Хоткеи (S32.6): search + reset-all bar, clickable key-cap buttons, conflict highlight */
+.st-hk-bar { flex: none; display: flex; gap: 8px; }
+.st-hk-bar .st-text { flex: 1; }
+.st-hk-end { display: flex; align-items: center; gap: 8px; flex: 0 0 auto; }
+.st-hk-hint { padding: 0; }
+.st-hk-reset { border: 0; background: none; padding: 2px 4px; border-radius: 4px; color: var(--color-text-muted); cursor: pointer; font-size: var(--font-size-ui); }
+.st-hk-reset:hover { color: var(--color-text); background: var(--color-hover); }
+.st-keys { display: inline-flex; align-items: center; gap: 4px; min-height: 26px; padding: 2px 4px; border: 1px solid transparent; border-radius: var(--radius-control); background: transparent; cursor: pointer; }
+.st-keys:hover { background: var(--color-hover); }
+:root .st-sheet .st-keys kbd { min-width: 22px; padding: 2px 6px; text-align: center; box-sizing: border-box; border: 1px solid var(--color-border-subtle); border-radius: 5px; background: var(--color-panel); font: var(--font-size-body)/16px var(--font-code); color: var(--color-text-secondary); }
+:root .st-sheet .st-keys.conflict kbd { border-color: var(--red); color: var(--red); }
+.st-keys.recording { border-color: var(--color-text-muted); background: var(--color-panel); }
+.st-rec { padding: 0 6px; font: var(--font-size-caption) var(--font-ui); color: var(--color-text-muted); }
+
+/* Settings → Сертификаты: per-host mTLS table (host | certificate | key | actions). */
+.st-certs { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 8px 0; }
+.st-certs + .st-certs, .st-card > .st-certs-head + .st-certs { border-top: 1px solid var(--color-border-subtle); }
+.st-certs span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.st-certs-head { padding-top: 11px; font: var(--font-size-caption) var(--font-ui); color: var(--color-text-muted); letter-spacing: 0.04em; }
+
+/* Settings → AI / MCP (S32.8): 462 + 270 columns. */
+.st-mcp-hint { padding: 0; margin: -8px 0 0; }
+.st-mcp-cols { display: flex; gap: 16px; align-items: flex-start; }
+.st-mcp-col { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.st-mcp-left { flex: 1 1 462px; } /* flexible so the scrollbar gutter can't push the right column out */
+.st-mcp-right { flex: 0 0 270px; }
+.st-mcp-cap { display: flex; align-items: center; justify-content: space-between; margin-bottom: -4px; }
+.st-mcp-cap .st-group { margin: 0; }
+.st-mcp-col > .st-group { margin-bottom: -4px; }
+.st-mcp-link { display: inline-flex; align-items: center; gap: 4px; border: 0; background: none; padding: 0; color: var(--color-text-secondary); font: var(--font-size-caption) var(--font-ui); cursor: pointer; }
+.st-mcp-link:hover:not(:disabled) { color: var(--color-text); }
+.st-mcp-link:disabled { opacity: 0.45; cursor: default; }
+.st-mcp-link .material-symbols-outlined { font-size: 14px; }
+.st-mcp-card .material-symbols-outlined, .st-mcp-btn .material-symbols-outlined, .st-mcp-ic .material-symbols-outlined { font-size: 14px; }
+.st-mcp-client { display: flex; align-items: center; gap: 12px; padding: 9px 0; }
+.st-mcp-client + .st-mcp-client { border-top: 1px solid var(--color-border-subtle); }
+.st-mcp-client .st-copy { flex: 1; }
+.st-mcp-av { flex: none; width: 32px; height: 32px; display: grid; place-items: center; border-radius: 10px; background: var(--color-hover); font: 600 11px var(--font-code); color: var(--color-text-secondary); }
+.st-mcp-av.sm { width: 22px; height: 22px; border-radius: 7px; font-size: 9px; }
+.st-mcp-ellip { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.st-mcp-pill { display: inline-flex; align-items: center; gap: 5px; height: 20px; margin-left: 6px; padding: 0 8px; border-radius: 999px; background: var(--color-hover); color: var(--color-text-muted); font: 500 11px var(--font-ui); vertical-align: 1px; }
+.st-mcp-pill i, .st-mcp-run i { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.st-mcp-pill.on { color: var(--green); background: color-mix(in srgb, var(--green) 14%, transparent); }
+.st-mcp-pill.update { color: var(--orange); background: color-mix(in srgb, var(--orange) 14%, transparent); }
+.st-mcp-btn { flex: none; display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 30px; padding: 0 14px; border: 1px solid transparent; border-radius: 999px; background: var(--color-text); color: var(--color-raised); font: 600 var(--font-size-body) var(--font-ui); cursor: pointer; }
+.st-mcp-btn.ghost { background: transparent; border-color: var(--color-border-subtle); color: var(--color-text); }
+.st-mcp-btn.ghost:hover:not(:disabled) { background: var(--color-hover); }
+.st-mcp-btn.danger { color: var(--red); }
+.st-mcp-btn.wide { width: 100%; }
+.st-mcp-btn:disabled { opacity: 0.45; cursor: default; }
+.st-mcp-always { display: inline-flex; align-items: center; gap: 4px; color: var(--color-text-muted); font: var(--font-size-caption) var(--font-ui); }
+.st-mcp-envs { gap: 12px; }
+.st-mcp-envs > .st-name { flex: none; white-space: nowrap; }
+.st-mcp-chips { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 4px; }
+/* S32.8 rows are 46–51 px, a bit denser than the other settings pages. */
+.st-mcp-card .st-row { min-height: 48px; padding: 8px 0; }
+.st-mcp-env { display: inline-flex; align-items: center; gap: 3px; height: 24px; padding: 0 8px 0 6px; border-radius: 999px; border: 1px solid var(--color-border-subtle); background: transparent; color: var(--red); font: var(--font-size-caption) var(--font-ui); cursor: pointer; }
+.st-mcp-env.on { background: var(--color-text); border-color: var(--color-text); color: var(--color-raised); }
+.st-mcp-env:disabled { cursor: default; }
+.st-mcp-dim { opacity: 0.45; }
+.st-mcp-off { pointer-events: none; }
+.st-mcp-srv { display: flex; flex-direction: column; gap: 10px; }
+.st-mcp-run { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.st-mcp-run i { width: 8px; height: 8px; color: var(--green); }
+.st-mcp-run i.bad { color: var(--red); }
+.st-mcp-capt { font: 500 var(--font-size-micro)/13px var(--font-code); letter-spacing: var(--tracking-eyebrow); color: var(--color-text-muted); }
+.st-mcp-wsrow { display: flex; align-items: center; gap: 6px; }
+.st-mcp-ws { flex: 1; min-width: 0; height: 30px; display: flex; align-items: center; padding: 0 12px; border: 1px solid var(--color-border-subtle); border-radius: 999px; background: var(--color-panel); font: var(--font-size-caption) var(--font-code); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.st-mcp-ic { flex: none; width: 30px; height: 30px; display: grid; place-items: center; border: 1px solid var(--color-border-subtle); border-radius: 50%; background: transparent; color: var(--color-text-secondary); cursor: pointer; }
+.st-mcp-ic:hover:not(:disabled) { background: var(--color-hover); color: var(--color-text); }
+.st-mcp-ic:disabled { opacity: 0.45; cursor: default; }
+.st-mcp-log.full { max-height: 260px; overflow-y: auto; }
+.st-mcp-ev { display: flex; align-items: center; gap: 8px; padding: 7px 0; }
+.st-mcp-ev + .st-mcp-ev { border-top: 1px solid var(--color-border-subtle); }
+.st-mcp-ev .st-copy { flex: 1; }
+.st-mcp-ev .st-name { font-size: var(--font-size-caption); font-family: var(--font-code); }
+.st-mcp-ev .ok { color: var(--green); }
+.st-mcp-ev .bad { color: var(--red); }

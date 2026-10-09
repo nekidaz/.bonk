@@ -1,15 +1,19 @@
 <script lang="ts">
   import {
     activeTabId,
-    closeTab,
+    requestCloseTab,
     newTab,
     duplicateTab,
     closeOtherTabs,
     closeAllTabs,
+    moveTab,
     tabs,
+    dirtyTabIds,
   } from '../stores';
   import { methodColor } from '../domain/method';
+  import { HTTP_DEFAULT_TITLE } from '../domain/tab';
   import type { Tab } from '../domain/types';
+  import { t } from '../i18n';
 
   let {
     onNew,
@@ -19,10 +23,11 @@
 
   // The tab strip scrolls horizontally so many open tabs can never push the
   // Runner / environment / sidebar controls out of the window. Keep the active
-  // tab visible when it changes (new tab, tab switch).
+  // tab visible when it or the strip changes (new tab, switch, close, reorder).
   let tabsScrollEl = $state<HTMLDivElement | null>(null);
   $effect(() => {
     const id = $activeTabId;
+    void $tabs.length;
     tabsScrollEl
       ?.querySelector(`[data-tab-id="${CSS.escape(id)}"]`)
       ?.scrollIntoView({ inline: 'nearest', block: 'nearest' });
@@ -68,17 +73,26 @@
     fn(id);
   }
 
+  // Mono: a method is text; protocols without one get an icon instead of a caps badge.
+  const TAB_ICON: Partial<Record<Tab['protocol'], string>> = { git: 'difference', env: 'layers', runner: 'play_arrow', flow: 'account_tree' };
+
   function tabMethodLabel(t: Tab): string {
-    if (t.protocol === 'grpc') return 'gRPC';
-    if (t.protocol === 'git') return 'DIFF';
-    if (t.protocol === 'env') return 'ENV';
-    if (t.protocol === 'runner') return 'RUN';
-    if (t.protocol === 'flow') return 'FLOW';
-    return t.request.method;
+    return t.protocol === 'grpc' ? 'gRPC' : t.request.method;
+  }
+
+  // Full name (+ URL) on hover, since long titles are ellipsized.
+  function tabTooltip(t: Tab): string {
+    const url = t.protocol === 'http' ? t.request.url : t.protocol === 'grpc' ? t.grpc?.endpoint : '';
+    return url ? `${t.title}\n${url}` : t.title;
+  }
+
+  // Drag-reorder: tabs move live under the pointer, like browser tabs.
+  let dragTabId = $state<string | null>(null);
+  function onTabDragEnter(index: number): void {
+    if (dragTabId) moveTab(dragTabId, index);
   }
 
   function tabMethodColor(t: Tab): string {
-    if (t.protocol !== 'http' && t.protocol !== 'grpc') return 'var(--accent)';
     return methodColor(t.protocol === 'grpc' ? 'GRPC' : t.request.method);
   }
 </script>
@@ -89,42 +103,68 @@
 />
 
 <div class="bs-tabbar">
-  <div class="bs-tabs-scroll" bind:this={tabsScrollEl} role="presentation" oncontextmenu={(e) => openTabContext(e, $activeTabId)}>
-    {#each $tabs as t (t.id)}
-      <div class="bs-tab" class:on={t.id === $activeTabId} role="presentation" data-tab-id={t.id} oncontextmenu={(e) => openTabContext(e, t.id)}>
-        <button class="bs-tab-hit" role="tab" aria-selected={t.id === $activeTabId} type="button" onclick={() => activeTabId.set(t.id)}>
-          <span class="m" style="color:{tabMethodColor(t)}">{tabMethodLabel(t)}</span>
-          <span class="bs-nm">{t.title}</span>
+  <div
+    class="bs-tabs-scroll"
+    bind:this={tabsScrollEl}
+    role="presentation"
+    oncontextmenu={(e) => openTabContext(e, $activeTabId)}
+    ondblclick={(e) => { if (e.target === e.currentTarget) newTab(); }}
+  >
+    {#each $tabs as tb, i (tb.id)}
+      <div
+        class="bs-tab"
+        class:on={tb.id === $activeTabId}
+        class:wide={tb.protocol === 'runner'}
+        class:dragging={dragTabId === tb.id}
+        role="presentation"
+        data-tab-id={tb.id}
+        draggable="true"
+        oncontextmenu={(e) => openTabContext(e, tb.id)}
+        onauxclick={(e) => { if (e.button === 1) { e.preventDefault(); void requestCloseTab(tb.id); } }}
+        ondragstart={(e) => { dragTabId = tb.id; if (e.dataTransfer) e.dataTransfer.effectAllowed = 'move'; }}
+        ondragenter={() => onTabDragEnter(i)}
+        ondragover={(e) => { if (dragTabId) e.preventDefault(); }}
+        ondragend={() => (dragTabId = null)}
+      >
+        <button class="bs-tab-hit" role="tab" aria-selected={tb.id === $activeTabId} type="button" title={tabTooltip(tb)} onclick={() => activeTabId.set(tb.id)}>
+          {#if TAB_ICON[tb.protocol]}
+            <span class="mi material-symbols-outlined" aria-hidden="true">{TAB_ICON[tb.protocol]}</span>
+          {:else}
+            <span class="m" style="color:{tabMethodColor(tb)}">{tabMethodLabel(tb)}</span>
+          {/if}
+          <span class="bs-nm">{tb.title === HTTP_DEFAULT_TITLE ? $t('tabs.untitled') : tb.title}</span>
         </button>
-        <button class="x" aria-label="Close" onclick={(e) => { e.stopPropagation(); closeTab(t.id); }}><span class="material-symbols-outlined" style="font-size:13px">close</span></button>
+        <button class="x" class:dirty={$dirtyTabIds.has(tb.id)} aria-label={$dirtyTabIds.has(tb.id) ? $t('tabs.closeTabUnsaved') : $t('tabs.closeTab')} title={$t('tabs.close')} onclick={(e) => { e.stopPropagation(); void requestCloseTab(tb.id); }}><span class="material-symbols-outlined close" style="font-size:13px">close</span><span class="material-symbols-outlined dot" aria-hidden="true">fiber_manual_record</span></button>
       </div>
     {/each}
-    <button class="bs-addt" title="New" onclick={onNew}><span class="material-symbols-outlined" style="font-size:18px">add</span></button>
+    <button class="bs-addt" title={$t('tabs.newRequestHint')} aria-label={$t('tabs.newRequest')} onclick={onNew}><span class="material-symbols-outlined" style="font-size:18px">add</span></button>
   </div>
 </div>
 
 {#if ctxMenu}
   <div class="bs-tab-ctx" style="left:{ctxMenu.x}px;top:{ctxMenu.y}px" role="presentation" onpointerdown={(e) => e.stopPropagation()}>
     <button class="bs-tab-ctx-item" type="button" onclick={() => ctxAction(() => newTab())}>
-      <span class="text">New Request</span><span class="sc">⌘T</span>
+      <span class="text">{$t('tabs.ctxNew')}</span><span class="sc">⌘T</span>
     </button>
     <button class="bs-tab-ctx-item" type="button" onclick={() => ctxAction((id) => duplicateTab(id))}>
-      <span class="text">Duplicate Tab</span>
+      <span class="text">{$t('tabs.ctxDuplicate')}</span>
     </button>
     <div class="bs-tab-ctx-sep"></div>
-    <button class="bs-tab-ctx-item" type="button" onclick={() => ctxAction((id) => closeTab(id))}>
-      <span class="text">Close Tab</span><span class="sc">⌘W</span>
+    <button class="bs-tab-ctx-item" type="button" onclick={() => ctxAction((id) => void requestCloseTab(id))}>
+      <span class="text">{$t('tabs.ctxClose')}</span><span class="sc">⌘W</span>
     </button>
     <button class="bs-tab-ctx-item" type="button" onclick={() => ctxAction((id) => closeOtherTabs(id))}>
-      <span class="text">Close Other Tabs</span>
+      <span class="text">{$t('tabs.ctxCloseOthers')}</span>
     </button>
     <button class="bs-tab-ctx-item" type="button" onclick={() => ctxAction(() => closeAllTabs())}>
-      <span class="text">Close All Tabs</span>
+      <span class="text">{$t('tabs.ctxCloseAll')}</span>
     </button>
   </div>
 {/if}
 
 <style>
+  /* S36: "Runner · <scope>" gets a wider tab. */
+  .bs-tab.wide { flex-basis: 200px; width: 200px; max-width: 200px; }
   .bs-tab-ctx {
     position: fixed;
     min-width: 240px;

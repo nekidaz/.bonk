@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { TreeNode } from '../domain/types';
+  import { t } from '../i18n';
 
   // Shared recursive folder list used by the Save and Move dialogs. Renders the
   // "Workspace root" row plus every folder in `nodes`, recursing into children.
@@ -26,6 +27,6 @@
 {/snippet}
 
 <button class="bs-collrow" class:sel={selected === undefined} onclick={() => (selected = undefined)}>
-  <span class="material-symbols-outlined" style="font-size:15px">home_storage</span>Workspace root
+  <span class="material-symbols-outlined" style="font-size:15px">home_storage</span>{$t('dialog.move.root')}
 </button>
 {#each nodes as n (n.id)}{@render folderRow(n, 0)}{/each}

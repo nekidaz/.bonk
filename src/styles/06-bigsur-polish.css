@@ -740,32 +740,6 @@
   border-color: var(--sep);
 }
 
-.bs-grpc-list {
-  padding: 11px;
-}
-
-.bs-grpc-service {
-  font-size: 13px;
-  font-weight: 720;
-  color: var(--t2);
-}
-
-.bs-grpc-option {
-  height: 38px;
-  border-radius: 9px;
-  padding-left: 34px;
-}
-
-.bs-grpc-option:hover,
-.bs-grpc-option.on {
-  background: var(--hover);
-}
-
-.bs-grpc-foot {
-  background: color-mix(in srgb, var(--surface) 74%, transparent);
-  border-top-color: var(--sepsoft);
-}
-
 .bs-menu,
 .bs-modal {
   background: color-mix(in srgb, var(--surface-solid) 94%, transparent);

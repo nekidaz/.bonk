@@ -5,6 +5,7 @@ import {
   titleFromUrl,
   relinkTabPaths,
   normalizeTabTitleState,
+  moveTabTo,
 } from '../src/lib/domain/tab';
 import type { Tab } from '../src/lib/domain/types';
 
@@ -12,7 +13,7 @@ function httpTab(over: Partial<Tab> = {}): Tab {
   return {
     id: over.id ?? crypto.randomUUID(),
     protocol: 'http',
-    title: 'Untitled Request',
+    title: 'Untitled request',
     request: { method: 'GET', url: '', headers: {} },
     ...over,
   };
@@ -20,8 +21,8 @@ function httpTab(over: Partial<Tab> = {}): Tab {
 
 describe('titleFromUrl', () => {
   it('uses the fallback for an empty/whitespace URL', () => {
-    expect(titleFromUrl('', HTTP_DEFAULT_TITLE)).toBe('Untitled Request');
-    expect(titleFromUrl('   ', GRPC_DEFAULT_TITLE)).toBe('New gRPC');
+    expect(titleFromUrl('', HTTP_DEFAULT_TITLE)).toBe('Untitled request');
+    expect(titleFromUrl('   ', GRPC_DEFAULT_TITLE)).toBe('Untitled gRPC request');
   });
 
   it('derives the title from the last path segment', () => {
@@ -115,5 +116,18 @@ describe('normalizeTabTitleState', () => {
     const out = normalizeTabTitleState(rest as Tab);
     expect(out.manualTitle).toBe(true);
     expect(out.title).toBe('My Custom Name');
+  });
+});
+
+describe('moveTabTo', () => {
+  const ids = (list: Tab[]) => list.map((t) => t.id);
+  const list = ['a', 'b', 'c'].map((id) => httpTab({ id }));
+  it('moves a tab forward and backward', () => {
+    expect(ids(moveTabTo(list, 'a', 2))).toEqual(['b', 'c', 'a']);
+    expect(ids(moveTabTo(list, 'c', 0))).toEqual(['c', 'a', 'b']);
+  });
+  it('returns the same list for an unknown id or the same slot', () => {
+    expect(moveTabTo(list, 'x', 1)).toBe(list);
+    expect(moveTabTo(list, 'b', 1)).toBe(list);
   });
 });

@@ -12,6 +12,20 @@ use toml_edit::{value, Array, DocumentMut, Item, Table};
 
 const SERVER_NAME: &str = "bonk";
 const CLIENT_TIMEOUT: Duration = Duration::from_secs(15);
+const JOURNAL_FILE: &str = "mcp-journal.jsonl";
+/// Options of the last successful install; `needsUpdate` compares against them.
+const OPTIONS_FILE: &str = "mcp-install.json";
+const MUTATING_POLICIES: [&str; 3] = ["allow", "ask", "deny"];
+
+// Client ids, stable across the UI, `clients` filters and the server's `--client` flag:
+//   claude-desktop  Claude Desktop (claude_desktop_config.json)
+//   openai          ChatGPT desktop / Codex (shared ~/.codex/config.toml)
+//   claude-code     Claude Code, user scope (~/.claude.json, written via `claude mcp add`)
+//   other           manual setup through `mcp_client_config`
+const CLAUDE_DESKTOP: &str = "claude-desktop";
+const OPENAI: &str = "openai";
+const CLAUDE_CODE: &str = "claude-code";
+const OTHER_CLIENT: &str = "other";
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -24,6 +38,8 @@ pub struct McpClientStatus {
     workspace: Option<String>,
     detail: String,
     error: Option<String>,
+    config_path: Option<String>,
+    last_call_at: Option<u64>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -31,6 +47,7 @@ pub struct McpClientStatus {
 pub struct McpIntegrationStatus {
     binary_available: bool,
     installed_binary: String,
+    version: String,
     clients: Vec<McpClientStatus>,
 }
 
@@ -41,7 +58,7 @@ pub struct McpOperationResult {
     messages: Vec<String>,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct McpInstallOptions {
     workspace: String,
@@ -51,12 +68,28 @@ pub struct McpInstallOptions {
     no_network: bool,
     #[serde(default)]
     target_hosts: Vec<String>,
+    #[serde(default)]
+    expose_secrets: bool,
+    /// App environment names the AI may use.
+    #[serde(default)]
+    environments: Vec<String>,
+    /// allow | ask | deny for HTTP POST/PUT/PATCH/DELETE.
+    #[serde(default = "default_mutating_methods")]
+    mutating_methods: String,
+    /// Client ids to install for; None = every available client.
+    #[serde(default, skip_serializing)]
+    clients: Option<Vec<String>>,
+}
+
+fn default_mutating_methods() -> String {
+    "ask".into()
 }
 
 #[derive(Debug, Clone)]
 struct ClientPaths {
     claude_desktop_config: PathBuf,
     codex_config: PathBuf,
+    claude_code_config: PathBuf,
     claude_code: Option<PathBuf>,
     claude_desktop_available: bool,
     openai_available: bool,
@@ -76,6 +109,7 @@ impl ClientPaths {
                 || chatgpt_app_exists(home),
             claude_desktop_config,
             codex_config,
+            claude_code_config: home.join(".claude.json"),
             claude_code,
         }
     }
@@ -89,63 +123,59 @@ pub async fn mcp_integration_status(app: AppHandle) -> Result<McpIntegrationStat
 #[tauri::command]
 pub async fn mcp_install(
     app: AppHandle,
-    options: McpInstallOptions,
+    mut options: McpInstallOptions,
 ) -> Result<McpOperationResult, String> {
     let workspace = canonical_workspace(&options.workspace)?;
-    validate_target_hosts(&options.target_hosts)?;
+    validate_options(&options)?;
     let binary = install_mcp_binary(&app)?;
-    let args = mcp_args(&workspace, &options);
-    let home = app
-        .path()
-        .home_dir()
-        .map_err(|error| format!("failed to find the home directory: {error}"))?;
-    let clients = ClientPaths::discover(&home);
+    let data = data_dir(&app)?;
+    let clients = ClientPaths::discover(&home_dir(&app)?);
     let mut messages = Vec::new();
     let mut attempted = 0usize;
     let mut succeeded = 0usize;
 
-    if clients.claude_desktop_available {
-        attempted += 1;
-        match install_claude_desktop(&clients.claude_desktop_config, &binary, &args) {
-            Ok(()) => {
-                succeeded += 1;
-                messages.push("Claude Desktop configured".into());
-            }
-            Err(error) => messages.push(format!("Claude Desktop: {error}")),
+    for (id, name, available) in clients.list() {
+        if !wanted(options.clients.as_deref(), id) {
+            continue;
         }
-    }
-
-    if clients.openai_available {
-        attempted += 1;
-        match install_codex(&clients.codex_config, &binary, &args) {
-            Ok(()) => {
-                succeeded += 1;
-                messages.push("ChatGPT / Codex configured".into());
+        if !available {
+            if options.clients.is_some() {
+                messages.push(format!("{name}: not detected"));
             }
-            Err(error) => messages.push(format!("ChatGPT / Codex: {error}")),
+            continue;
         }
-    }
-
-    if let Some(claude) = &clients.claude_code {
         attempted += 1;
-        match install_claude_code(claude, &binary, &args).await {
+        let args = mcp_args(&workspace, &options, id, &data);
+        let result = match (id, clients.claude_code.as_deref()) {
+            (CLAUDE_DESKTOP, _) => {
+                install_claude_desktop(&clients.claude_desktop_config, &binary, &args)
+            }
+            (OPENAI, _) => install_codex(&clients.codex_config, &binary, &args),
+            (_, Some(claude)) => install_claude_code(claude, &binary, &args).await,
+            _ => Err("not detected".into()),
+        };
+        match result {
             Ok(()) => {
                 succeeded += 1;
-                messages.push("Claude Code configured".into());
+                messages.push(format!("{name} configured"));
             }
-            Err(error) => messages.push(format!("Claude Code: {error}")),
+            Err(error) => messages.push(format!("{name}: {error}")),
         }
     }
 
     if attempted == 0 {
-        return Err(
-            "No supported local AI client was detected. Install Claude Desktop, ChatGPT/Codex, or Claude Code first."
-                .into(),
-        );
+        return Err(if messages.is_empty() {
+            "No supported local AI client was detected. Install Claude Desktop, ChatGPT/Codex, or Claude Code first.".into()
+        } else {
+            messages.join(" · ")
+        });
     }
     if succeeded == 0 {
         return Err(messages.join(" · "));
     }
+    options.workspace = workspace.to_string_lossy().into_owned();
+    let saved = serde_json::to_vec_pretty(&options).map_err(|error| error.to_string())?;
+    atomic_config_write(&data.join(OPTIONS_FILE), &saved)?;
 
     Ok(McpOperationResult {
         status: collect_status(&app).await?,
@@ -154,29 +184,29 @@ pub async fn mcp_install(
 }
 
 #[tauri::command]
-pub async fn mcp_uninstall(app: AppHandle) -> Result<McpOperationResult, String> {
-    let home = app
-        .path()
-        .home_dir()
-        .map_err(|error| format!("failed to find the home directory: {error}"))?;
-    let clients = ClientPaths::discover(&home);
+pub async fn mcp_uninstall(
+    app: AppHandle,
+    clients: Option<Vec<String>>,
+) -> Result<McpOperationResult, String> {
+    let paths = ClientPaths::discover(&home_dir(&app)?);
+    let wanted = |id| wanted(clients.as_deref(), id);
     let mut messages = Vec::new();
 
-    if clients.claude_desktop_config.exists() {
-        match uninstall_claude_desktop(&clients.claude_desktop_config) {
+    if wanted(CLAUDE_DESKTOP) && paths.claude_desktop_config.exists() {
+        match uninstall_claude_desktop(&paths.claude_desktop_config) {
             Ok(true) => messages.push("Claude Desktop integration removed".into()),
             Ok(false) => {}
             Err(error) => messages.push(format!("Claude Desktop: {error}")),
         }
     }
-    if clients.codex_config.exists() {
-        match uninstall_codex(&clients.codex_config) {
+    if wanted(OPENAI) && paths.codex_config.exists() {
+        match uninstall_codex(&paths.codex_config) {
             Ok(true) => messages.push("ChatGPT / Codex integration removed".into()),
             Ok(false) => {}
             Err(error) => messages.push(format!("ChatGPT / Codex: {error}")),
         }
     }
-    if let Some(claude) = &clients.claude_code {
+    if let Some(claude) = paths.claude_code.as_deref().filter(|_| wanted(CLAUDE_CODE)) {
         match remove_claude_code(claude).await {
             Ok(true) => messages.push("Claude Code integration removed".into()),
             Ok(false) => {}
@@ -193,26 +223,118 @@ pub async fn mcp_uninstall(app: AppHandle) -> Result<McpOperationResult, String>
     })
 }
 
+/// `{"mcpServers":{"bonk":{…}}}` for configuring any other MCP client by hand.
+#[tauri::command]
+pub fn mcp_client_config(app: AppHandle, options: McpInstallOptions) -> Result<String, String> {
+    let workspace = canonical_workspace(&options.workspace)?;
+    validate_options(&options)?;
+    let binary = install_mcp_binary(&app)?;
+    let args = mcp_args(&workspace, &options, OTHER_CLIENT, &data_dir(&app)?);
+    serde_json::to_string_pretty(&json!({
+        "mcpServers": { SERVER_NAME: { "command": binary, "args": args } }
+    }))
+    .map_err(|error| error.to_string())
+}
+
+/// Newest-first tool calls recorded by every installed server.
+#[tauri::command]
+pub fn mcp_journal(app: AppHandle, limit: Option<usize>) -> Result<Vec<Value>, String> {
+    let mut entries = read_journal(&data_dir(&app)?.join(JOURNAL_FILE));
+    entries.reverse();
+    entries.truncate(limit.unwrap_or(200));
+    Ok(entries)
+}
+
 async fn collect_status(app: &AppHandle) -> Result<McpIntegrationStatus, String> {
-    let home = app
-        .path()
-        .home_dir()
-        .map_err(|error| format!("failed to find the home directory: {error}"))?;
-    let paths = ClientPaths::discover(&home);
+    let paths = ClientPaths::discover(&home_dir(app)?);
     let installed_binary = installed_mcp_path(app)?;
     let binary_available = installed_binary.is_file() || bundled_mcp_path().is_some();
+    let data = data_dir(app)?;
+    let saved = fs::read(data.join(OPTIONS_FILE))
+        .ok()
+        .and_then(|raw| serde_json::from_slice::<McpInstallOptions>(&raw).ok());
+    let expected = |id| {
+        saved
+            .as_ref()
+            .map(|options| mcp_args(Path::new(&options.workspace), options, id, &data))
+    };
 
     let mut clients = vec![
-        claude_desktop_status(&paths, &installed_binary),
-        codex_status(&paths, &installed_binary),
+        claude_desktop_status(&paths, &installed_binary, expected(CLAUDE_DESKTOP)),
+        codex_status(&paths, &installed_binary, expected(OPENAI)),
+        claude_code_status(&paths, &installed_binary, expected(CLAUDE_CODE)).await,
     ];
-    clients.push(claude_code_status(paths.claude_code.as_deref()).await);
+    let journal = read_journal(&data.join(JOURNAL_FILE));
+    for client in &mut clients {
+        client.last_call_at = journal
+            .iter()
+            .filter(|entry| entry["client"].as_str() == Some(client.id.as_str()))
+            .filter_map(|entry| entry["at"].as_u64())
+            .max();
+    }
 
     Ok(McpIntegrationStatus {
         binary_available,
         installed_binary: installed_binary.to_string_lossy().into_owned(),
+        version: env!("CARGO_PKG_VERSION").into(),
         clients,
     })
+}
+
+impl ClientPaths {
+    /// (id, display name, detected) for every supported client.
+    fn list(&self) -> [(&'static str, &'static str, bool); 3] {
+        [
+            (
+                CLAUDE_DESKTOP,
+                "Claude Desktop",
+                self.claude_desktop_available,
+            ),
+            (OPENAI, "ChatGPT / Codex", self.openai_available),
+            (CLAUDE_CODE, "Claude Code", self.claude_code.is_some()),
+        ]
+    }
+}
+
+fn wanted(clients: Option<&[String]>, id: &str) -> bool {
+    clients.is_none_or(|clients| clients.iter().any(|client| client == id))
+}
+
+fn home_dir(app: &AppHandle) -> Result<PathBuf, String> {
+    app.path()
+        .home_dir()
+        .map_err(|error| format!("failed to find the home directory: {error}"))
+}
+
+/// Where state.json lives (see `state_path` in commands).
+fn data_dir(app: &AppHandle) -> Result<PathBuf, String> {
+    app.path()
+        .app_data_dir()
+        .map_err(|error| format!("failed to resolve the Bonk data directory: {error}"))
+}
+
+/// Journal lines from the rotated file then the live one (oldest first).
+fn read_journal(path: &Path) -> Vec<Value> {
+    [path.with_extension("jsonl.1"), path.to_path_buf()]
+        .iter()
+        .filter_map(|file| fs::read_to_string(file).ok())
+        .flat_map(|raw| {
+            raw.lines()
+                .filter_map(|line| serde_json::from_str::<Value>(line).ok())
+                .collect::<Vec<_>>()
+        })
+        .collect()
+}
+
+fn validate_options(options: &McpInstallOptions) -> Result<(), String> {
+    validate_target_hosts(&options.target_hosts)?;
+    if !MUTATING_POLICIES.contains(&options.mutating_methods.as_str()) {
+        return Err(format!(
+            "Invalid mutating methods policy: {}",
+            options.mutating_methods
+        ));
+    }
+    Ok(())
 }
 
 fn canonical_workspace(workspace: &str) -> Result<PathBuf, String> {
@@ -242,7 +364,12 @@ fn validate_target_hosts(hosts: &[String]) -> Result<(), String> {
     Ok(())
 }
 
-fn mcp_args(workspace: &Path, options: &McpInstallOptions) -> Vec<String> {
+fn mcp_args(
+    workspace: &Path,
+    options: &McpInstallOptions,
+    client: &str,
+    data: &Path,
+) -> Vec<String> {
     let mut args = vec![
         "--workspace".into(),
         workspace.to_string_lossy().into_owned(),
@@ -253,11 +380,48 @@ fn mcp_args(workspace: &Path, options: &McpInstallOptions) -> Vec<String> {
     if options.no_network {
         args.push("--no-network".into());
     }
+    if options.expose_secrets {
+        args.push("--expose-secrets".into());
+    }
     for host in &options.target_hosts {
         args.push("--target-host".into());
         args.push(host.clone());
     }
+    for environment in options.environments.iter().filter(|name| !name.is_empty()) {
+        args.push("--environment".into());
+        args.push(environment.clone());
+    }
+    for (flag, value) in [
+        ("--mutating-methods", options.mutating_methods.clone()),
+        ("--client", client.into()),
+        (
+            "--app-state",
+            data.join("state.json").to_string_lossy().into_owned(),
+        ),
+        (
+            "--journal",
+            data.join(JOURNAL_FILE).to_string_lossy().into_owned(),
+        ),
+    ] {
+        args.push(flag.into());
+        args.push(value);
+    }
     args
+}
+
+/// Installed entries are stale when the binary moved (app update) or the args
+/// differ from what the last-saved options would write. Without saved options
+/// (installed by an older Bonk) any entry lacking `--journal` is stale.
+fn needs_update(
+    command: Option<&str>,
+    args: &[String],
+    binary: &Path,
+    expected: Option<&[String]>,
+) -> bool {
+    command != Some(binary.to_string_lossy().as_ref())
+        || expected.map_or(!args.iter().any(|arg| arg == "--journal"), |expected| {
+            args != expected
+        })
 }
 
 fn installed_mcp_path(app: &AppHandle) -> Result<PathBuf, String> {
@@ -508,43 +672,39 @@ async fn run_client_owned(executable: &Path, args: &[String]) -> Result<Vec<u8>,
     }
 }
 
-fn claude_desktop_status(paths: &ClientPaths, expected_binary: &Path) -> McpClientStatus {
+fn claude_desktop_status(
+    paths: &ClientPaths,
+    binary: &Path,
+    expected: Option<Vec<String>>,
+) -> McpClientStatus {
     let mut status = base_status(
-        "claude-desktop",
+        CLAUDE_DESKTOP,
         "Claude Desktop",
         paths.claude_desktop_available,
         "Local desktop configuration",
+        &paths.claude_desktop_config,
     );
     if !paths.claude_desktop_config.exists() {
         return status;
     }
     match read_json_object(&paths.claude_desktop_config) {
-        Ok(root) => {
-            if let Some(entry) = root
-                .get("mcpServers")
-                .and_then(Value::as_object)
-                .and_then(|servers| servers.get(SERVER_NAME))
-            {
-                status.installed = true;
-                status.workspace = entry
-                    .get("args")
-                    .and_then(Value::as_array)
-                    .and_then(|args| workspace_arg(args));
-                let command = entry.get("command").and_then(Value::as_str);
-                status.needs_update = command != Some(expected_binary.to_string_lossy().as_ref());
-            }
-        }
+        Ok(root) => apply_json_entry(&mut status, &root, binary, expected.as_deref()),
         Err(error) => status.error = Some(error),
     }
     status
 }
 
-fn codex_status(paths: &ClientPaths, expected_binary: &Path) -> McpClientStatus {
+fn codex_status(
+    paths: &ClientPaths,
+    binary: &Path,
+    expected: Option<Vec<String>>,
+) -> McpClientStatus {
     let mut status = base_status(
-        "openai",
+        OPENAI,
         "ChatGPT / Codex",
         paths.openai_available,
         "Shared local OpenAI MCP configuration",
+        &paths.codex_config,
     );
     if !paths.codex_config.exists() {
         return status;
@@ -557,17 +717,24 @@ fn codex_status(paths: &ClientPaths, expected_binary: &Path) -> McpClientStatus 
                 .and_then(|servers| servers.get(SERVER_NAME))
                 .and_then(Item::as_table_like)
             {
-                status.installed = true;
                 let args = server
                     .get("args")
                     .and_then(Item::as_value)
-                    .and_then(|value| value.as_array());
-                status.workspace = args.and_then(workspace_toml_arg);
+                    .and_then(|value| value.as_array())
+                    .map(|values| {
+                        values
+                            .iter()
+                            .filter_map(|value| value.as_str().map(str::to_owned))
+                            .collect::<Vec<_>>()
+                    })
+                    .unwrap_or_default();
                 let command = server
                     .get("command")
                     .and_then(Item::as_value)
                     .and_then(|value| value.as_str());
-                status.needs_update = command != Some(expected_binary.to_string_lossy().as_ref());
+                status.installed = true;
+                status.workspace = workspace_arg(&args);
+                status.needs_update = needs_update(command, &args, binary, expected.as_deref());
             }
         }
         Err(error) => status.error = Some(error),
@@ -575,14 +742,24 @@ fn codex_status(paths: &ClientPaths, expected_binary: &Path) -> McpClientStatus 
     status
 }
 
-async fn claude_code_status(executable: Option<&Path>) -> McpClientStatus {
+/// Reads ~/.claude.json directly; falls back to `claude mcp get` (which also
+/// health-checks the server) when the entry isn't there.
+async fn claude_code_status(
+    paths: &ClientPaths,
+    binary: &Path,
+    expected: Option<Vec<String>>,
+) -> McpClientStatus {
     let mut status = base_status(
-        "claude-code",
+        CLAUDE_CODE,
         "Claude Code",
-        executable.is_some(),
+        paths.claude_code.is_some(),
         "User-scoped Claude Code configuration",
+        &paths.claude_code_config,
     );
-    if let Some(executable) = executable {
+    if let Ok(root) = read_json_object(&paths.claude_code_config) {
+        apply_json_entry(&mut status, &root, binary, expected.as_deref());
+    }
+    if let Some(executable) = paths.claude_code.as_deref().filter(|_| !status.installed) {
         status.installed = run_client(executable, &["mcp", "get", SERVER_NAME])
             .await
             .is_ok();
@@ -590,7 +767,43 @@ async fn claude_code_status(executable: Option<&Path>) -> McpClientStatus {
     status
 }
 
-fn base_status(id: &str, name: &str, available: bool, detail: &str) -> McpClientStatus {
+/// Fill status from a JSON config's `mcpServers.bonk` entry (Claude Desktop / Code).
+fn apply_json_entry(
+    status: &mut McpClientStatus,
+    root: &serde_json::Map<String, Value>,
+    binary: &Path,
+    expected: Option<&[String]>,
+) {
+    let Some(entry) = root
+        .get("mcpServers")
+        .and_then(Value::as_object)
+        .and_then(|servers| servers.get(SERVER_NAME))
+    else {
+        return;
+    };
+    let args = entry
+        .get("args")
+        .and_then(Value::as_array)
+        .map(|values| {
+            values
+                .iter()
+                .filter_map(|value| value.as_str().map(str::to_owned))
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default();
+    let command = entry.get("command").and_then(Value::as_str);
+    status.installed = true;
+    status.workspace = workspace_arg(&args);
+    status.needs_update = needs_update(command, &args, binary, expected);
+}
+
+fn base_status(
+    id: &str,
+    name: &str,
+    available: bool,
+    detail: &str,
+    config: &Path,
+) -> McpClientStatus {
     McpClientStatus {
         id: id.into(),
         name: name.into(),
@@ -600,24 +813,14 @@ fn base_status(id: &str, name: &str, available: bool, detail: &str) -> McpClient
         workspace: None,
         detail: detail.into(),
         error: None,
+        config_path: Some(config.to_string_lossy().into_owned()),
+        last_call_at: None,
     }
 }
 
-fn workspace_arg(values: &[Value]) -> Option<String> {
-    values.windows(2).find_map(|pair| {
-        (pair[0].as_str() == Some("--workspace"))
-            .then(|| pair[1].as_str().map(str::to_owned))
-            .flatten()
-    })
-}
-
-fn workspace_toml_arg(values: &toml_edit::Array) -> Option<String> {
-    let values = values.iter().collect::<Vec<_>>();
-    values.windows(2).find_map(|pair| {
-        (pair[0].as_str() == Some("--workspace"))
-            .then(|| pair[1].as_str().map(str::to_owned))
-            .flatten()
-    })
+fn workspace_arg(args: &[String]) -> Option<String> {
+    args.windows(2)
+        .find_map(|pair| (pair[0] == "--workspace").then(|| pair[1].clone()))
 }
 
 fn atomic_config_write(path: &Path, contents: &[u8]) -> Result<(), String> {
@@ -765,24 +968,87 @@ mod tests {
         }
     }
 
-    #[test]
-    fn builds_restricted_server_args() {
-        let options = McpInstallOptions {
+    fn restricted_options() -> McpInstallOptions {
+        McpInstallOptions {
             workspace: "/tmp/workspace".into(),
             read_only: true,
             no_network: true,
             target_hosts: vec!["api.example.com".into()],
-        };
+            expose_secrets: true,
+            environments: vec!["Staging".into()],
+            mutating_methods: "deny".into(),
+            clients: None,
+        }
+    }
+
+    #[test]
+    fn builds_restricted_server_args() {
         assert_eq!(
-            mcp_args(Path::new("/tmp/workspace"), &options),
+            mcp_args(
+                Path::new("/tmp/workspace"),
+                &restricted_options(),
+                CLAUDE_CODE,
+                Path::new("/data")
+            ),
             vec![
                 "--workspace",
                 "/tmp/workspace",
                 "--read-only",
                 "--no-network",
+                "--expose-secrets",
                 "--target-host",
-                "api.example.com"
+                "api.example.com",
+                "--environment",
+                "Staging",
+                "--mutating-methods",
+                "deny",
+                "--client",
+                "claude-code",
+                "--app-state",
+                "/data/state.json",
+                "--journal",
+                "/data/mcp-journal.jsonl"
             ]
+        );
+    }
+
+    #[test]
+    fn needs_update_compares_binary_and_args() {
+        let binary = Path::new("/opt/bonk-mcp");
+        let options = restricted_options();
+        let expected = mcp_args(Path::new("/w"), &options, OPENAI, Path::new("/d"));
+        assert!(!needs_update(
+            Some("/opt/bonk-mcp"),
+            &expected,
+            binary,
+            Some(&expected)
+        ));
+        assert!(needs_update(
+            Some("/old/bonk-mcp"),
+            &expected,
+            binary,
+            Some(&expected)
+        ));
+        let other_client = mcp_args(Path::new("/w"), &options, CLAUDE_CODE, Path::new("/d"));
+        assert!(needs_update(
+            Some("/opt/bonk-mcp"),
+            &other_client,
+            binary,
+            Some(&expected)
+        ));
+        let legacy = vec!["--workspace".to_string(), "/w".into()];
+        assert!(needs_update(Some("/opt/bonk-mcp"), &legacy, binary, None));
+        assert!(!needs_update(
+            Some("/opt/bonk-mcp"),
+            &expected,
+            binary,
+            None
+        ));
+        let saved = serde_json::to_string(&options).unwrap();
+        let restored: McpInstallOptions = serde_json::from_str(&saved).unwrap();
+        assert_eq!(
+            mcp_args(Path::new("/w"), &restored, OPENAI, Path::new("/d")),
+            expected
         );
     }
 

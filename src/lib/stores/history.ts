@@ -2,12 +2,13 @@ import { get } from 'svelte/store';
 import type { HistoryEntry, Tab, GrpcTabState } from '../domain/types';
 import { pushCapped } from '../domain/history';
 import { GRPC_DEFAULT_TITLE, HTTP_DEFAULT_TITLE, grpcSnapshot, titleFromUrl } from '../domain/tab';
-import { tabs, activeTabId, history, historyLimit, historyPaused } from './state';
+import { tabs, activeTabId, history, historyLimit, historyPaused, environments, activeEnvironmentId } from './state';
 
 export function addHistory(entry: HistoryEntry): void {
   if (get(historyPaused)) return;
   const limit = get(historyLimit);
-  history.update((h) => pushCapped(h, entry, limit > 0 ? limit : Infinity));
+  const envName = entry.envName ?? get(environments).find((e) => e.id === get(activeEnvironmentId))?.name;
+  history.update((h) => pushCapped(h, { ...entry, envName }, limit > 0 ? limit : Infinity));
 }
 
 /** Open a history entry in a new tab so it can be edited and re-sent. */
@@ -26,8 +27,8 @@ export function openHistoryEntry(entry: HistoryEntry): void {
     tab = {
       id: crypto.randomUUID(),
       protocol: 'grpc',
-      title: titleFromUrl(grpc.endpoint, GRPC_DEFAULT_TITLE),
-      manualTitle: false,
+      title: entry.title ?? titleFromUrl(grpc.endpoint, GRPC_DEFAULT_TITLE),
+      manualTitle: !!entry.title,
       request: { method: 'GRPC', url: '', headers: {} },
       grpc,
       historyId: entry.id,
@@ -36,9 +37,11 @@ export function openHistoryEntry(entry: HistoryEntry): void {
     tab = {
       id: crypto.randomUUID(),
       protocol: 'http',
-      title: titleFromUrl(entry.request.url, HTTP_DEFAULT_TITLE),
-      manualTitle: false,
-      request: { ...entry.request, headers: { ...entry.request.headers } },
+      title: entry.title ?? titleFromUrl(entry.request.url, HTTP_DEFAULT_TITLE),
+      manualTitle: !!entry.title,
+      // The draft as typed (with {{vars}}); the resolved copy is the fallback for old entries.
+      request: structuredClone(entry.raw ?? entry.request),
+      params: entry.params?.map((p) => ({ ...p })),
       historyId: entry.id,
     };
   }

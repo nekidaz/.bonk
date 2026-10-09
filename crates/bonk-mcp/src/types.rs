@@ -81,6 +81,10 @@ pub struct HttpRequestSpec {
     #[serde(default)]
     pub body: Option<String>,
     #[serde(default)]
+    pub graphql_variables: Option<String>,
+    #[serde(default)]
+    pub binary_file_path: Option<String>,
+    #[serde(default)]
     pub body_mode: Option<String>,
     #[serde(default)]
     pub raw_body_format: Option<String>,
@@ -101,6 +105,8 @@ impl From<HttpRequestSpec> for HttpRequest {
             url: value.url,
             headers: value.headers,
             body: value.body,
+            graphql_variables: value.graphql_variables,
+            binary_file_path: value.binary_file_path,
             body_mode: value.body_mode,
             raw_body_format: value.raw_body_format,
             body_params: value
@@ -109,6 +115,8 @@ impl From<HttpRequestSpec> for HttpRequest {
             auth: value.auth.map(Into::into),
             pre_request_script: value.pre_request_script,
             test_script: value.test_script,
+            header_notes: None,
+            disabled_headers: None,
         }
     }
 }
@@ -119,12 +127,16 @@ fn empty_http_request() -> HttpRequest {
         url: String::new(),
         headers: BTreeMap::new(),
         body: None,
+        graphql_variables: None,
+        binary_file_path: None,
         body_mode: None,
         raw_body_format: None,
         body_params: None,
         auth: None,
         pre_request_script: None,
         test_script: None,
+        header_notes: None,
+        disabled_headers: None,
     }
 }
 
@@ -189,6 +201,9 @@ impl From<GrpcRequestSpec> for GrpcTabState {
             import_paths: value.import_paths,
             pre_request_script: value.pre_request_script,
             test_script: value.test_script,
+            tls: None,
+            auth: None,
+            keep_auth_on_plaintext: None,
         }
     }
 }
@@ -318,6 +333,7 @@ impl RequestSettingsSpec {
                 .max_response_body_bytes
                 .unwrap_or(defaults.max_response_body_bytes)
                 .min(server_max),
+            ..defaults
         }
         .normalized()
     }
@@ -330,6 +346,9 @@ pub struct RunSavedRequestArgs {
     /// Values used for `{{name}}` placeholders. Process variables named with the configured prefix are also available.
     #[serde(default)]
     pub variables: BTreeMap<String, String>,
+    /// Bonk app environment whose variables resolve `{{name}}` placeholders. Must be one of `environments` from workspace_info; omit to use globals only.
+    #[serde(default)]
+    pub environment: Option<String>,
     #[serde(default)]
     pub settings: RequestSettingsSpec,
 }
@@ -342,6 +361,9 @@ pub struct SendHttpArgs {
     pub params: Option<Vec<ParamSpec>>,
     #[serde(default)]
     pub variables: BTreeMap<String, String>,
+    /// Bonk app environment whose variables resolve `{{name}}` placeholders. Must be one of `environments` from workspace_info; omit to use globals only.
+    #[serde(default)]
+    pub environment: Option<String>,
     #[serde(default)]
     pub settings: RequestSettingsSpec,
 }
@@ -354,6 +376,9 @@ pub struct ValidateHttpArgs {
     pub params: Option<Vec<ParamSpec>>,
     #[serde(default)]
     pub variables: BTreeMap<String, String>,
+    /// Bonk app environment whose variables resolve `{{name}}` placeholders. Must be one of `environments` from workspace_info; omit to use globals only.
+    #[serde(default)]
+    pub environment: Option<String>,
 }
 
 #[derive(Debug, Clone, Deserialize, JsonSchema)]
@@ -369,6 +394,9 @@ pub struct GrpcSchemaArgs {
     pub import_paths: Vec<String>,
     #[serde(default)]
     pub variables: BTreeMap<String, String>,
+    /// Bonk app environment whose variables resolve `{{name}}` placeholders. Must be one of `environments` from workspace_info; omit to use globals only.
+    #[serde(default)]
+    pub environment: Option<String>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
@@ -404,6 +432,27 @@ pub struct WorkspaceInfo {
     pub network_enabled: bool,
     pub target_hosts: Vec<String>,
     pub variable_names: Vec<String>,
+    /// Bonk app environments the `environment` argument may name.
+    pub environments: Vec<String>,
+    /// allow | ask | deny for HTTP POST/PUT/PATCH/DELETE.
+    pub mutating_methods: String,
+}
+
+/// One line of the --journal file (read by the Bonk app's Settings → AI / MCP).
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct JournalEntry {
+    /// Milliseconds since the Unix epoch.
+    pub at: u64,
+    pub client: Option<String>,
+    pub tool: String,
+    pub method: Option<String>,
+    pub target: Option<String>,
+    pub env: Option<String>,
+    pub status: Option<u64>,
+    /// ok | error | denied
+    pub outcome: &'static str,
+    pub summary: Option<String>,
 }
 
 /// MCP requires every tool outputSchema to be `type: "object"`, so tools whose

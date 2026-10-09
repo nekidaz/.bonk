@@ -21,6 +21,8 @@
  */
 import { isControlEdge, varPortName, type Flow, type FlowBlock } from './flow';
 import type { RunResultRow } from './types';
+import { get } from 'svelte/store';
+import { t } from '../i18n';
 
 export interface FlowRequestOutcome {
   /** The runner row (status/ok/tests/logs) for progress display. */
@@ -92,7 +94,7 @@ export async function executeFlow(
   let steps = 0;
 
   if (starts.length !== 1) {
-    return { status: 'error', steps, error: 'Flow needs exactly one Start block.' };
+    return { status: 'error', steps, error: get(t)('flow.run.needStart') };
   }
 
   /** Last payload each block emitted this run — what variable edges read. */
@@ -104,7 +106,7 @@ export async function executeFlow(
     for (const e of flow.edges) {
       if (e.from !== block.id || e.fromPort !== port || !isControlEdge(e)) continue;
       const target = byId.get(e.to);
-      if (!target) throw new FlowAbort('error', `Edge ${e.id} points to a missing block.`);
+      if (!target) throw new FlowAbort('error', get(t)('flow.run.badEdge', { id: e.id }));
       await exec(target, payload);
     }
   }
@@ -132,8 +134,8 @@ export async function executeFlow(
   }
 
   async function exec(block: FlowBlock, payload: unknown): Promise<void> {
-    if (fx.isCancelled()) throw new FlowAbort('cancelled', 'Run cancelled.');
-    if (++steps > maxSteps) throw new FlowAbort('error', `Flow hit the step limit (${maxSteps}).`);
+    if (fx.isCancelled()) throw new FlowAbort('cancelled', get(t)('flow.run.cancelled'));
+    if (++steps > maxSteps) throw new FlowAbort('error', get(t)('flow.run.stepLimit', { max: maxSteps }));
     const c = block.config;
     fx.onBlock(block.id, 'running', payload);
 
@@ -192,7 +194,7 @@ export async function executeFlow(
       case 'loop': {
         if (c.kind === 'forEach') {
           if (!Array.isArray(payload)) {
-            const msg = 'Loop (forEach) needs an array payload.';
+            const msg = get(t)('flow.run.loopNeedsArray');
             fx.onBlock(block.id, 'error', msg);
             throw new FlowAbort('error', msg);
           }

@@ -1,4 +1,5 @@
 import { get } from 'svelte/store';
+import { t } from '../i18n';
 import type { GrpcTabState, Tab } from '../domain/types';
 import { cancelRequest } from '../api';
 import { busyMap, grpcErrorMap } from '../requestRuntime';
@@ -8,17 +9,24 @@ import {
   GRPC_DEFAULT_TITLE,
   HTTP_DEFAULT_TITLE,
   grpcSnapshot,
+  moveTabTo,
   newGrpcTab,
   newHttpTab,
   titleFromUrl,
 } from '../domain/tab';
-import { tabs, activeTabId, updateActiveTab } from './state';
+import { tabs, activeTabId, updateActiveTab, requestConfirm } from './state';
+import { confirmCloseUnsaved } from './prefs';
+import { dirtyTabIds } from './dirty';
 import { saveActiveRequest } from './requests';
 
 export function newTab(protocol: 'http' | 'grpc' = 'http'): void {
   const t = protocol === 'grpc' ? newGrpcTab() : newHttpTab();
   tabs.update((list) => [...list, t]);
   activeTabId.set(t.id);
+}
+
+export function moveTab(id: string, to: number): void {
+  tabs.update((list) => moveTabTo(list, id, to));
 }
 
 export function renameActiveTab(name: string): void {
@@ -79,6 +87,19 @@ export function setActiveProtocol(protocol: 'http' | 'grpc'): void {
   });
 }
 
+// Most-recently-closed request tabs, for ⇧⌘T. Session-only.
+let closedTabs: Tab[] = [];
+
+/** Reopen the last closed request tab (⇧⌘T). Returns false when there is nothing to reopen. */
+export function reopenClosedTab(): boolean {
+  const [tab, ...rest] = closedTabs;
+  if (!tab) return false;
+  closedTabs = rest;
+  tabs.update((list) => [...list, tab]);
+  activeTabId.set(tab.id);
+  return true;
+}
+
 export function closeTab(id: string): void {
   const list = get(tabs);
   const idx = list.findIndex((t) => t.id === id);
@@ -99,20 +120,27 @@ export function closeTab(id: string): void {
   });
   clearGrpcEditorSection(id);
   const next = list.filter((t) => t.id !== id);
-  // Never leave the workspace tab-less: spawn a fresh HTTP tab if the last
-  // tab was closed.
+  const closing = list[idx];
+  if (closing.protocol === 'http' || closing.protocol === 'grpc') closedTabs = [closing, ...closedTabs].slice(0, 20);
+  tabs.set(next);
   if (next.length === 0) {
-    const fresh = newHttpTab();
-    tabs.set([fresh]);
-    activeTabId.set(fresh.id);
+    activeTabId.set('');
     return;
   }
-  tabs.set(next);
   // If the closed tab was active, activate its neighbour (prefer the previous).
   if (get(activeTabId) === id) {
     const neighbour = next[Math.max(0, idx - 1)];
     activeTabId.set(neighbour.id);
   }
+}
+
+/** Close a tab from the UI: asks first when it has unsaved changes (Settings → Общие). */
+export async function requestCloseTab(id: string): Promise<void> {
+  if (get(confirmCloseUnsaved) && get(dirtyTabIds).has(id)) {
+    const title = get(tabs).find((t) => t.id === id)?.title ?? '';
+    if (!(await requestConfirm(get(t)('tabs.confirmClose', { title }), get(t)('common.close')))) return;
+  }
+  closeTab(id);
 }
 
 /**
@@ -153,7 +181,7 @@ export function closeOtherTabs(id: string): void {
   }
 }
 
-/** Close every tab. closeTab's last-tab guard leaves one fresh HTTP tab behind. */
+/** Close every tab; the main panel then shows the "no open tabs" screen. */
 export function closeAllTabs(): void {
   for (const t of get(tabs)) closeTab(t.id);
 }

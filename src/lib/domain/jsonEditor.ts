@@ -1,24 +1,26 @@
+import { get } from 'svelte/store';
+import { t, type Translate } from '../i18n';
 import type { Tab } from './types';
 import { currentBodyMode, currentRawFormat } from './httpBody';
 
 /** Map a 0-based character `position` in `raw` to a "line N, column M" string. */
-export function jsonLineCol(raw: string, position: number): string {
+export function jsonLineCol(raw: string, position: number, tr: Translate = get(t)): string {
   const before = raw.slice(0, Math.max(0, position));
   const lines = before.split('\n');
-  return `line ${lines.length}, column ${lines[lines.length - 1].length + 1}`;
+  return tr('http.json.line_col', { line: lines.length, col: lines[lines.length - 1].length + 1 });
 }
 
 /**
  * Turn a thrown JSON parse error into a human-readable message, resolving any
  * "line/column" or "position" the engine reports back to a line/column in `raw`.
  */
-export function jsonErrorMessage(raw: string, error: unknown): string {
+export function jsonErrorMessage(raw: string, error: unknown, tr: Translate = get(t)): string {
   const message = error instanceof Error ? error.message : String(error);
   const lineColumn = message.match(/line\s+(\d+)\s+column\s+(\d+)/i);
-  if (lineColumn) return `Invalid JSON at line ${lineColumn[1]}, column ${lineColumn[2]}.`;
+  if (lineColumn) return tr('http.json.invalid_at', { where: tr('http.json.line_col', { line: lineColumn[1], col: lineColumn[2] }) });
   const position = message.match(/position\s+(\d+)/i);
-  if (position) return `Invalid JSON at ${jsonLineCol(raw, Number(position[1]))}.`;
-  return `Invalid JSON: ${message}`;
+  if (position) return tr('http.json.invalid_at', { where: jsonLineCol(raw, Number(position[1]), tr) });
+  return tr('http.json.invalid', { message });
 }
 
 /**
@@ -80,10 +82,10 @@ export function maybeInsertCommaBeforeJsonValue(value: string, cursor: number): 
 }
 
 /** Placeholder text for the body editor based on the tab's body mode / raw format. */
-export function bodyPlaceholder(t: Tab | undefined): string {
-  const mode = currentBodyMode(t);
+export function bodyPlaceholder(tab: Tab | undefined, tr: Translate = get(t)): string {
+  const mode = currentBodyMode(tab);
   if (mode === 'graphql') return 'query GetUser {\n  user(id: "1") {\n    id\n  }\n}';
-  if (mode === 'binary') return 'Paste binary-safe text payload';
-  if (currentRawFormat(t) === 'JSON') return '{\n  "hello": "world"\n}';
-  return 'Request body';
+  if (mode === 'binary') return tr('http.body.ph_binary');
+  if (currentRawFormat(tab) === 'JSON') return '{\n  "hello": "world"\n}';
+  return tr('http.body.ph_raw');
 }

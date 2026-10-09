@@ -19,16 +19,27 @@ export {
   requestFollowRedirects,
   requestValidateTls,
   responseBodyLimitMb,
+  responsePrettyDefault,
+  proxyMode,
+  proxyUrl,
+  proxyBypass,
+  trustedCaPaths,
+  grpcDeadlineMs,
+  grpcAutoReflect,
   collections,
   workspacePath,
   recentWorkspacePaths,
   globals,
   environments,
   activeEnvironmentId,
+  environmentsSheetOpen,
   flows,
   currentVarScope,
+  withInheritedAuth,
   confirmState,
   requestConfirm,
+  productionGuard,
+  requestProductionSend,
   updateActiveTab,
   updateTabById,
 } from './state';
@@ -42,6 +53,7 @@ export {
   setEnvVars,
   setGlobalVars,
   openEnvironmentsTab,
+  openEnvironmentsSheet,
 } from './environments';
 
 // Persistence / hydration.
@@ -64,10 +76,14 @@ export {
 export {
   openWorkspaceFolder,
   switchWorkspace,
+  renameWorkspaceFolder,
+  deleteWorkspace,
   addFolder,
+  saveFolderAuth,
   removeNode,
   renameNode,
   toggleFolder,
+  revealNode,
   duplicateNode,
   moveNode,
 } from './workspace';
@@ -76,6 +92,7 @@ export {
 export {
   currentRequestSettings,
   saveActiveRequest,
+  restoreSavedRequest,
   addRequestToFolder,
   openSavedRequest,
   applyCurlToActiveTab,
@@ -84,7 +101,7 @@ export {
 } from './requests';
 
 // Tab lifecycle.
-export { renameActiveTab, resetActiveTabTitle, newTab, setActiveProtocol, closeTab, duplicateTab, closeOtherTabs, closeAllTabs } from './tabs';
+export { renameActiveTab, resetActiveTabTitle, newTab, moveTab, setActiveProtocol, closeTab, requestCloseTab, duplicateTab, closeOtherTabs, closeAllTabs, reopenClosedTab } from './tabs';
 
 // Git diff tabs.
 export { openGitDiffTab, openProjectDiffTab } from './git';
@@ -95,7 +112,24 @@ export {
   runnerRun,
   RUNNER_ROOT,
   openRunnerTab,
-  setRunnerFolder,
+  setRunnerFolders,
+  runnerStage,
+  setRunnerStage,
+  runInRunner,
+  repeatRun,
+  setExcluded,
+  setRunOrder,
+  orderedRequests,
+  plannedRequests,
+  togglePause,
+  stopRun,
+  runnerHistory,
+  loadRunnerState,
+  runnerScopeTitle,
+  collectRequests,
+  rerunFailed,
+  rerunCall,
+  bindIdFrom,
   setIterations,
   setDelay,
   setStopOnFailure,
@@ -117,4 +151,12 @@ export {
 } from './console';
 
 // OpenAPI / Swagger import & export.
-export { importOpenApiFile, importOpenApiText, exportOpenApiFolder } from './openapi';
+export { importOpenApiFile, importOpenApiText, importApiFile, importApiText, exportOpenApiFolder } from './openapi';
+
+// Saved tabs whose content differs from their file (S09).
+export { dirtyTabIds } from './dirty';
+export * from './prefs';
+export * from './hotkeys';
+
+// Data & import settings (self-persisting).
+export { exportIncludeSecrets, historyDays } from './dataPrefs';

@@ -1,61 +1,35 @@
 <script lang="ts">
-  import { openEnvironmentsTab } from '../stores';
   import type { UtilityMode } from '../domain/appShell';
+  import { tabs, activeTabId, runnerRun } from '../stores';
+  import { t } from '../i18n';
 
   let {
-    leftOpen,
-    bottomOpen,
-    rightOpen,
-    rightEnabled,
-    onToggleLeft,
-    onToggleBottom,
-    onToggleRight,
-    onSettings,
+    onRunner,
     utilityMode,
     onTerminal,
     onConsole,
   }: {
-    leftOpen: boolean;
-    bottomOpen: boolean;
-    rightOpen: boolean;
-    rightEnabled: boolean;
-    onToggleLeft: () => void;
-    onToggleBottom: () => void;
-    onToggleRight: () => void;
-    onSettings: () => void;
+    onRunner: () => void;
     utilityMode: UtilityMode | null;
     onTerminal: () => void;
     onConsole: () => void;
   } = $props();
+
+  const runnerOn = $derived($tabs.find((tb) => tb.id === $activeTabId)?.protocol === 'runner');
 </script>
 
 <div class="bs-status">
-  <div class="bs-status-leading">
-    <span class="bs-status-mark" title="Workspace tools">
-      <span class="material-symbols-outlined" style="font-size:13px">terminal</span>
-    </span>
-    <button class="bs-status-link" class:on={utilityMode === 'terminal'} type="button" aria-pressed={utilityMode === 'terminal'} onclick={onTerminal}>Terminal</button>
-    <button class="bs-status-link" class:on={utilityMode === 'console' || utilityMode === 'issues'} type="button" aria-pressed={utilityMode === 'console' || utilityMode === 'issues'} onclick={onConsole}>Console</button>
-  </div>
+  <button class="bs-status-link" class:on={utilityMode === 'console' || utilityMode === 'issues'} type="button" aria-pressed={utilityMode === 'console' || utilityMode === 'issues'} onclick={onConsole}><span class="material-symbols-outlined" aria-hidden="true">data_object</span>{$t('nav.status.console')}</button>
+  <button class="bs-status-link" class:on={utilityMode === 'terminal'} type="button" aria-pressed={utilityMode === 'terminal'} onclick={onTerminal}><span class="material-symbols-outlined" aria-hidden="true">terminal</span>{$t('nav.status.terminal')}</button>
   <div class="bs-spacer"></div>
-  <div class="bs-status-actions">
-    <button class="bs-status-link" type="button" title="Manage globals and environments" onclick={openEnvironmentsTab}>Globals</button>
-    <button class="bs-status-link" type="button" title="Open settings" onclick={onSettings}>Tools</button>
-    <button class="bs-status-icon" type="button" title="Open settings" aria-label="Open settings" onclick={onSettings}>
-      <span class="material-symbols-outlined" style="font-size:13px">tune</span>
-    </button>
-    <div class="bs-layout bs-layout-sb">
-      <button class="bs-lt" class:on={leftOpen} title="Toggle sidebar" aria-label="Toggle sidebar" aria-pressed={leftOpen} onclick={onToggleLeft}><span class="material-symbols-outlined" style="font-size:14px">left_panel_open</span></button>
-      <button class="bs-lt" class:on={bottomOpen} title="Toggle response panel" aria-label="Toggle response panel" aria-pressed={bottomOpen} onclick={onToggleBottom}><span class="material-symbols-outlined" style="font-size:14px">bottom_panel_open</span></button>
-      <button
-        class="bs-lt"
-        class:on={rightOpen}
-        title={rightEnabled ? 'Toggle code panel' : 'Code snippets are available for request tabs'}
-        aria-label="Toggle code panel"
-        aria-pressed={rightOpen}
-        disabled={!rightEnabled}
-        onclick={onToggleRight}
-      ><span class="material-symbols-outlined" style="font-size:14px">right_panel_open</span></button>
-    </div>
-  </div>
+  <button class="bs-status-link runner" class:on={runnerOn} type="button" aria-pressed={runnerOn} onclick={onRunner}><span class="material-symbols-outlined" class:spin={$runnerRun.status === 'running'} aria-hidden="true">{$runnerRun.status === 'running' ? 'progress_activity' : 'play_arrow'}</span>{$t('nav.status.runner')}</button>
 </div>
+
+
+<style>
+  /* S36: the active Runner reads as a selected pill. */
+  .spin { animation: bs-spin 1s linear infinite; }
+  @keyframes bs-spin { to { transform: rotate(360deg); } }
+  @media (prefers-reduced-motion: reduce) { .spin { animation: none; } }
+  .runner.on { height: 21px; padding: 0 10px; border-radius: var(--radius-control); background: var(--color-selected); }
+</style>

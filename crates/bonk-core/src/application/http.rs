@@ -91,12 +91,16 @@ mod tests {
                 url: "https://google.com".into(),
                 headers: BTreeMap::new(),
                 body: None,
+                graphql_variables: None,
+                binary_file_path: None,
                 body_mode: None,
                 raw_body_format: None,
                 body_params: None,
                 auth: None,
                 pre_request_script: None,
                 test_script: None,
+                header_notes: None,
+                disabled_headers: None,
             };
             let first = http_send(client.clone(), req.clone(), RequestSettings::default())
                 .await

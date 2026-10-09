@@ -15,7 +15,7 @@ use bonk_core::{
     },
 };
 use regex::Regex;
-use serde::Deserialize;
+use serde::{de::DeserializeOwned, Deserialize};
 use serde_json::{json, Value};
 
 use crate::types::{
@@ -24,7 +24,63 @@ use crate::types::{
 };
 
 type VariableMap = BTreeMap<String, String>;
-type ResolvedGrpcScopes = (String, VariableMap, VariableMap);
+/// (endpoint, merged scope, secret values to redact)
+type ResolvedGrpcScopes = (String, VariableMap, Vec<String>);
+/// (environment, globals, secret values to redact)
+type Scopes = (VariableMap, VariableMap, Vec<String>);
+
+/// Prefix of every policy refusal; the journal records these as `denied`.
+pub const DENIED: &str = "Denied by Bonk settings: ";
+/// Keychain service the Bonk app stores secret variables under (see src/lib/domain/secrets.ts).
+const KEYCHAIN_SERVICE: &str = "io.github.nekidaz.bonk";
+
+/// What to do with mutating HTTP methods (POST, PUT, PATCH, DELETE).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, clap::ValueEnum)]
+pub enum MethodPolicy {
+    Allow,
+    Ask,
+    Deny,
+}
+
+impl MethodPolicy {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Allow => "allow",
+            Self::Ask => "ask",
+            Self::Deny => "deny",
+        }
+    }
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub enum MethodGate {
+    Proceed,
+    /// Ask the user through MCP elicitation.
+    Elicit,
+    Refuse(String),
+}
+
+/// Decide whether an HTTP send may go ahead. With `ask`, only the user can
+/// approve, through MCP elicitation in the client. A client without elicitation
+/// is refused: any approval flag would be set by the model itself, so a prompt
+/// injection could set it too.
+pub fn method_gate(policy: MethodPolicy, method: &str, can_elicit: bool) -> MethodGate {
+    let method = method.trim().to_ascii_uppercase();
+    if policy == MethodPolicy::Allow
+        || !matches!(method.as_str(), "POST" | "PUT" | "PATCH" | "DELETE")
+    {
+        return MethodGate::Proceed;
+    }
+    match policy {
+        MethodPolicy::Deny => MethodGate::Refuse(format!(
+            "{DENIED}{method} requests are disabled for AI clients. Do not retry; the user can change this in Bonk → Settings → AI / MCP."
+        )),
+        _ if can_elicit => MethodGate::Elicit,
+        _ => MethodGate::Refuse(format!(
+            "{DENIED}{method} requests need the user's approval, and this client can't ask for it. Do not retry; the user can allow these methods in Bonk → Settings → AI / MCP."
+        )),
+    }
+}
 
 #[derive(Debug, Clone)]
 pub struct RuntimeConfig {
@@ -35,6 +91,15 @@ pub struct RuntimeConfig {
     pub target_hosts: Vec<String>,
     pub variable_prefix: String,
     pub max_response_body_bytes: usize,
+    /// Bonk app state.json with Postman-style globals and environments.
+    pub app_state: Option<PathBuf>,
+    /// App environment names the model may select; every other name is denied.
+    pub environments: Vec<String>,
+    pub mutating_methods: MethodPolicy,
+    /// Id of the AI client that launched this server (journal only).
+    pub client: Option<String>,
+    /// JSON-lines file receiving one entry per tool call.
+    pub journal: Option<PathBuf>,
 }
 
 #[derive(Clone)]
@@ -75,6 +140,8 @@ impl BonkRuntime {
             network_enabled: self.config.network_enabled,
             target_hosts: self.config.target_hosts.clone(),
             variable_names: self.process_variable_names(),
+            environments: self.config.environments.clone(),
+            mutating_methods: self.config.mutating_methods.as_str().into(),
         })
     }
 
@@ -141,8 +208,7 @@ impl BonkRuntime {
         let node = self.find_request(id)?;
         if include_secrets && !self.config.expose_secrets {
             return Err(
-                "literal stored credentials are disabled; restart bonk-mcp with --expose-secrets only if the user explicitly accepts that risk"
-                    .into(),
+                format!("{DENIED}literal stored credentials are disabled; restart bonk-mcp with --expose-secrets only if the user explicitly accepts that risk"),
             );
         }
         Ok(if include_secrets && self.config.expose_secrets {
@@ -163,7 +229,9 @@ impl BonkRuntime {
 
     fn require_write(&self) -> Result<(), String> {
         if self.config.read_only {
-            Err("workspace writes are disabled by --read-only".into())
+            Err(format!(
+                "{DENIED}workspace writes are disabled by --read-only"
+            ))
         } else {
             Ok(())
         }
@@ -250,23 +318,63 @@ impl BonkRuntime {
             })
             .filter(|name| !name.is_empty())
             .collect::<Vec<_>>();
+        let app = load_app_vars(self.config.app_state.as_deref());
+        names.extend(
+            app.globals
+                .iter()
+                .filter(|row| row.active())
+                .map(|row| row.key.trim().to_string()),
+        );
         names.sort();
         names.dedup();
         names
     }
 
-    fn scopes(
-        &self,
-        variables: BTreeMap<String, String>,
-    ) -> (BTreeMap<String, String>, BTreeMap<String, String>) {
-        let globals = std::env::vars()
+    /// Refuse an app environment the operator did not allow.
+    pub fn check_environment(&self, name: Option<&str>) -> Result<(), String> {
+        match name {
+            Some(name)
+                if !self
+                    .config
+                    .environments
+                    .iter()
+                    .any(|allowed| allowed == name) =>
+            {
+                let allowed = if self.config.environments.is_empty() {
+                    "none".to_string()
+                } else {
+                    self.config.environments.join(", ")
+                };
+                Err(format!(
+                    "{DENIED}environment `{name}` is not allowed for AI clients (allowed: {allowed})"
+                ))
+            }
+            _ => Ok(()),
+        }
+    }
+
+    /// Explicit `variables` override the selected app environment; process
+    /// variables override app globals. Process values are always redacted, app
+    /// secrets unless --expose-secrets.
+    fn scopes(&self, variables: VariableMap, environment: Option<&str>) -> Result<Scopes, String> {
+        self.check_environment(environment)?;
+        let process = std::env::vars()
             .filter_map(|(name, value)| {
                 name.strip_prefix(&self.config.variable_prefix)
                     .filter(|key| !key.is_empty())
                     .map(|key| (key.to_string(), value))
             })
-            .collect();
-        (variables, globals)
+            .collect::<VariableMap>();
+        let app = load_app_vars(self.config.app_state.as_deref());
+        // ponytail: keychain reads are blocking and may show an OS prompt; fine on the multi-thread runtime.
+        let (mut env, mut globals, app_secrets) = app_scopes(&app, environment, &keychain_secret)?;
+        let mut secrets = process.values().cloned().collect::<Vec<_>>();
+        if !self.config.expose_secrets {
+            secrets.extend(app_secrets);
+        }
+        globals.extend(process);
+        env.extend(variables);
+        Ok((env, globals, secrets))
     }
 
     pub async fn validate_http(
@@ -274,10 +382,10 @@ impl BonkRuntime {
         mut request: HttpRequest,
         params: Option<Vec<Param>>,
         variables: BTreeMap<String, String>,
+        environment: Option<&str>,
     ) -> Result<ValidationResult, String> {
         materialize_body_and_params(&mut request, params.as_deref());
-        let (environment, globals) = self.scopes(variables);
-        let secrets = globals.values().cloned().collect::<Vec<_>>();
+        let (environment, globals, secrets) = self.scopes(variables, environment)?;
         let scope = merged_scope(&globals, &environment);
         resolve_http_request(&mut request, &scope);
         apply_auth(&mut request)?;
@@ -333,12 +441,12 @@ impl BonkRuntime {
         mut request: HttpRequest,
         params: Option<Vec<Param>>,
         variables: BTreeMap<String, String>,
+        environment: Option<&str>,
         settings: RequestSettings,
     ) -> Result<HttpRunOutput, String> {
         self.require_network()?;
         materialize_body_and_params(&mut request, params.as_deref());
-        let (mut environment, mut globals) = self.scopes(variables);
-        let secrets = globals.values().cloned().collect::<Vec<_>>();
+        let (mut environment, mut globals, secrets) = self.scopes(variables, environment)?;
         let mut state = ScriptState::default();
 
         if let Some(code) = request
@@ -411,6 +519,7 @@ impl BonkRuntime {
         &self,
         id: &str,
         variables: BTreeMap<String, String>,
+        environment: Option<&str>,
         settings: RequestSettings,
     ) -> Result<Value, String> {
         let node = self.find_request(id)?;
@@ -418,11 +527,14 @@ impl BonkRuntime {
             let grpc = node
                 .grpc
                 .ok_or_else(|| "saved gRPC request has no grpc configuration".to_string())?;
-            serde_json::to_value(self.execute_saved_grpc(grpc, variables).await?)
-                .map_err(|error| error.to_string())
+            serde_json::to_value(
+                self.execute_saved_grpc(grpc, variables, environment)
+                    .await?,
+            )
+            .map_err(|error| error.to_string())
         } else {
             serde_json::to_value(
-                self.execute_http(node.request, node.params, variables, settings)
+                self.execute_http(node.request, node.params, variables, environment, settings)
                     .await?,
             )
             .map_err(|error| error.to_string())
@@ -433,8 +545,7 @@ impl BonkRuntime {
         &self,
         schema: GrpcSchemaArgs,
     ) -> Result<bonk_core::domain::grpc::ServiceTree, String> {
-        let (endpoint, _, globals) = self.resolve_grpc_endpoint(&schema)?;
-        let secrets = globals.values().cloned().collect::<Vec<_>>();
+        let (endpoint, _, secrets) = self.resolve_grpc_endpoint(&schema)?;
         if schema.proto_paths.is_empty() {
             self.check_grpc_target(&endpoint)
                 .map_err(|error| sanitize_error(&error, &secrets))?;
@@ -455,8 +566,7 @@ impl BonkRuntime {
         schema: GrpcSchemaArgs,
         method: &str,
     ) -> Result<String, String> {
-        let (endpoint, _, globals) = self.resolve_grpc_endpoint(&schema)?;
-        let secrets = globals.values().cloned().collect::<Vec<_>>();
+        let (endpoint, _, secrets) = self.resolve_grpc_endpoint(&schema)?;
         if schema.proto_paths.is_empty() {
             self.check_grpc_target(&endpoint)
                 .map_err(|error| sanitize_error(&error, &secrets))?;
@@ -477,8 +587,7 @@ impl BonkRuntime {
         timeout_ms: Option<u64>,
     ) -> Result<GrpcCallOutput, String> {
         self.require_network()?;
-        let (endpoint, scope, globals) = self.resolve_grpc_endpoint(&schema)?;
-        let secrets = globals.values().cloned().collect::<Vec<_>>();
+        let (endpoint, scope, secrets) = self.resolve_grpc_endpoint(&schema)?;
         self.check_grpc_target(&endpoint)
             .map_err(|error| sanitize_error(&error, &secrets))?;
         let cache = self
@@ -523,10 +632,10 @@ impl BonkRuntime {
         &self,
         grpc: GrpcTabState,
         variables: BTreeMap<String, String>,
+        environment: Option<&str>,
     ) -> Result<GrpcCallOutput, String> {
         self.require_network()?;
-        let (mut environment, mut globals) = self.scopes(variables);
-        let secrets = globals.values().cloned().collect::<Vec<_>>();
+        let (mut environment, mut globals, secrets) = self.scopes(variables, environment)?;
         let mut state = ScriptState::default();
         let mut endpoint = grpc.endpoint.clone();
         let mut message = grpc.message.clone();
@@ -588,6 +697,7 @@ impl BonkRuntime {
             proto_paths: grpc.proto_paths.clone().unwrap_or_default(),
             import_paths: grpc.import_paths.clone().unwrap_or_default(),
             variables: BTreeMap::new(),
+            environment: None,
         };
         let cache = self
             .load_grpc_schema(&schema, &endpoint)
@@ -647,11 +757,12 @@ impl BonkRuntime {
     }
 
     fn resolve_grpc_endpoint(&self, schema: &GrpcSchemaArgs) -> Result<ResolvedGrpcScopes, String> {
-        let (environment, globals) = self.scopes(schema.variables.clone());
+        let (environment, globals, secrets) =
+            self.scopes(schema.variables.clone(), schema.environment.as_deref())?;
         let scope = merged_scope(&globals, &environment);
         let endpoint = resolve_text(&schema.endpoint, &scope);
         reject_unresolved(&[&endpoint])?;
-        Ok((endpoint, scope, globals))
+        Ok((endpoint, scope, secrets))
     }
 
     async fn load_grpc_schema(
@@ -696,6 +807,15 @@ impl BonkRuntime {
     }
 
     fn normalize_file_paths(&self, request: &mut HttpRequest) -> Result<(), String> {
+        if request.body_mode.as_deref() == Some("binary") {
+            if let Some(raw) = request
+                .binary_file_path
+                .clone()
+                .filter(|value| !value.trim().is_empty())
+            {
+                request.binary_file_path = Some(self.confine_upload_path(&raw)?);
+            }
+        }
         let Some(rows) = request.body_params.as_mut() else {
             return Ok(());
         };
@@ -711,34 +831,42 @@ impl BonkRuntime {
             if raw.trim().is_empty() {
                 continue;
             }
-            let path = Path::new(raw);
-            let joined = if path.is_absolute() {
-                path.to_path_buf()
-            } else {
-                self.config.root.join(path)
-            };
-            let canonical = joined.canonicalize().map_err(|error| {
-                format!(
-                    "failed to resolve upload file {}: {error}",
-                    joined.display()
-                )
-            })?;
-            if !canonical.starts_with(&self.config.root) {
-                return Err(format!(
-                    "upload file is outside the workspace: {}",
-                    canonical.display()
-                ));
-            }
-            row.file_path = Some(canonical.to_string_lossy().into_owned());
+            row.file_path = Some(self.confine_upload_path(raw)?);
         }
         Ok(())
+    }
+
+    /// Resolve an upload path against the workspace root and refuse anything
+    /// that lands outside it once symlinks are followed.
+    fn confine_upload_path(&self, raw: &str) -> Result<String, String> {
+        let path = Path::new(raw);
+        let joined = if path.is_absolute() {
+            path.to_path_buf()
+        } else {
+            self.config.root.join(path)
+        };
+        let canonical = joined.canonicalize().map_err(|error| {
+            format!(
+                "failed to resolve upload file {}: {error}",
+                joined.display()
+            )
+        })?;
+        if !canonical.starts_with(&self.config.root) {
+            return Err(format!(
+                "upload file is outside the workspace: {}",
+                canonical.display()
+            ));
+        }
+        Ok(canonical.to_string_lossy().into_owned())
     }
 
     fn require_network(&self) -> Result<(), String> {
         if self.config.network_enabled {
             Ok(())
         } else {
-            Err("network calls are disabled by --no-network".into())
+            Err(format!(
+                "{DENIED}network calls are disabled by --no-network"
+            ))
         }
     }
 
@@ -845,10 +973,127 @@ impl BonkRuntime {
         } else {
             let host = host.to_ascii_lowercase();
             Err(format!(
-                "target host `{host}` is not allowed; add --target-host {host}"
+                "{DENIED}target host `{host}` is not allowed; add --target-host {host}"
             ))
         }
     }
+}
+
+#[derive(Debug, Default, Deserialize)]
+struct VarRow {
+    #[serde(default)]
+    key: String,
+    #[serde(default)]
+    value: String,
+    #[serde(default)]
+    enabled: Option<bool>,
+    #[serde(default)]
+    secret: bool,
+}
+
+impl VarRow {
+    fn active(&self) -> bool {
+        self.enabled.unwrap_or(true) && !self.key.trim().is_empty()
+    }
+}
+
+#[derive(Debug, Default, Deserialize)]
+struct AppEnvironment {
+    #[serde(default)]
+    id: String,
+    #[serde(default)]
+    name: String,
+    #[serde(default)]
+    vars: Vec<VarRow>,
+}
+
+/// Postman-style globals and environments saved by the Bonk app.
+#[derive(Debug, Default)]
+struct AppVars {
+    globals: Vec<VarRow>,
+    environments: Vec<AppEnvironment>,
+}
+
+fn load_app_vars(path: Option<&Path>) -> AppVars {
+    let Some(state) = path.and_then(|path| bonk_core::application::app_state::load_map(path).ok())
+    else {
+        return AppVars::default();
+    };
+    AppVars {
+        globals: state_field(&state, "globals"),
+        environments: state_field(&state, "environments"),
+    }
+}
+
+fn state_field<T: DeserializeOwned + Default>(state: &Value, name: &str) -> T {
+    state
+        .get(name)
+        .cloned()
+        .and_then(|value| serde_json::from_value(value).ok())
+        .unwrap_or_default()
+}
+
+fn keychain_secret(account: &str) -> Option<String> {
+    keyring::Entry::new(KEYCHAIN_SERVICE, account)
+        .ok()?
+        .get_password()
+        .ok()
+}
+
+/// (environment, globals, secret values) from the app state. Secret rows saved
+/// with an empty value live in the keychain under `globals:<key>` /
+/// `env:<envId>:<key>`; only the selected environment is looked up.
+fn app_scopes(
+    app: &AppVars,
+    environment: Option<&str>,
+    keychain: &dyn Fn(&str) -> Option<String>,
+) -> Result<Scopes, String> {
+    let mut secrets = Vec::new();
+    let globals = rows_scope(
+        &app.globals,
+        &|key| format!("globals:{key}"),
+        keychain,
+        &mut secrets,
+    );
+    let env = match environment {
+        Some(name) => {
+            let env = app
+                .environments
+                .iter()
+                .find(|env| env.name == name)
+                .ok_or_else(|| format!("environment `{name}` was not found in the Bonk app"))?;
+            rows_scope(
+                &env.vars,
+                &|key| format!("env:{}:{key}", env.id),
+                keychain,
+                &mut secrets,
+            )
+        }
+        None => VariableMap::new(),
+    };
+    Ok((env, globals, secrets))
+}
+
+/// Enabled rows with a non-empty key; on duplicates the last row wins (mirrors vars.ts).
+fn rows_scope(
+    rows: &[VarRow],
+    account: &dyn Fn(&str) -> String,
+    keychain: &dyn Fn(&str) -> Option<String>,
+    secrets: &mut Vec<String>,
+) -> VariableMap {
+    let mut scope = VariableMap::new();
+    for row in rows.iter().filter(|row| row.active()) {
+        let value = if row.secret && row.value.is_empty() {
+            keychain(&account(&row.key)).unwrap_or_default()
+        } else {
+            row.value.clone()
+        };
+        if row.secret {
+            secrets.push(value.clone());
+        }
+        scope.insert(row.key.trim().to_string(), value);
+    }
+    scope
 }
 
 fn count_tree(nodes: &[TreeNode], requests: &mut usize, folders: &mut usize) {
@@ -966,8 +1211,9 @@ fn materialize_body_and_params(request: &mut HttpRequest, params: Option<&[Param
                 set_header_if_missing(&mut request.headers, "Content-Type", "application/json");
             }
         }
-        "raw" if request.raw_body_format.as_deref() == Some("JSON")
-            && request.body.as_deref().is_some_and(|body| !body.is_empty()) =>
+        "raw"
+            if request.raw_body_format.as_deref() == Some("JSON")
+                && request.body.as_deref().is_some_and(|body| !body.is_empty()) =>
         {
             set_header_if_missing(&mut request.headers, "Content-Type", "application/json");
         }
@@ -996,7 +1242,7 @@ fn apply_auth(request: &mut HttpRequest) -> Result<(), String> {
         return Ok(());
     };
     match auth.auth_type.as_str() {
-        "none" | "" => {}
+        "none" | "" | "inherit" => {}
         "bearer" => {
             if let Some(token) = auth.bearer_token.filter(|value| !value.trim().is_empty()) {
                 set_header_if_missing(
@@ -1121,6 +1367,10 @@ fn resolve_http_request(request: &mut HttpRequest, scope: &BTreeMap<String, Stri
         .body
         .as_ref()
         .map(|value| resolve_text(value, scope));
+    request.binary_file_path = request
+        .binary_file_path
+        .as_ref()
+        .map(|value| resolve_text(value, scope));
     request.headers = std::mem::take(&mut request.headers)
         .into_iter()
         .map(|(key, value)| (resolve_text(&key, scope), resolve_text(&value, scope)))
@@ -1184,6 +1434,9 @@ fn unresolved_in_request(request: &HttpRequest) -> Vec<String> {
     collect_unresolved(&request.url, &mut names);
     if let Some(body) = &request.body {
         collect_unresolved(body, &mut names);
+    }
+    if let Some(path) = &request.binary_file_path {
+        collect_unresolved(path, &mut names);
     }
     for (key, value) in &request.headers {
         collect_unresolved(key, &mut names);
@@ -1515,7 +1768,7 @@ fn redact_url(value: &str, secrets: &[String]) -> String {
     sanitize_text(&redact_sensitive_url(value), secrets)
 }
 
-fn redact_sensitive_url(value: &str) -> String {
+pub(crate) fn redact_sensitive_url(value: &str) -> String {
     let Ok(mut parsed) = url::Url::parse(value) else {
         return value.to_string();
     };
@@ -1551,8 +1804,12 @@ mod tests {
                 .duration_since(std::time::UNIX_EPOCH)
                 .expect("clock after epoch")
                 .as_nanos();
-            let path =
-                std::env::temp_dir().join(format!("bonk-mcp-test-{}-{nonce}", std::process::id()));
+            static SEQ: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+            let seq = SEQ.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+            let path = std::env::temp_dir().join(format!(
+                "bonk-mcp-test-{}-{nonce}-{seq}",
+                std::process::id()
+            ));
             std::fs::create_dir(&path).expect("create test workspace");
             Self(path)
         }
@@ -1566,6 +1823,11 @@ mod tests {
                 target_hosts: Vec::new(),
                 variable_prefix: "BONK_MCP_TEST_VAR_".into(),
                 max_response_body_bytes: 1024 * 1024,
+                app_state: None,
+                environments: Vec::new(),
+                mutating_methods: MethodPolicy::Ask,
+                client: None,
+                journal: None,
             })
         }
     }
@@ -1582,12 +1844,16 @@ mod tests {
             url: url.into(),
             headers: BTreeMap::new(),
             body: None,
+            graphql_variables: None,
+            binary_file_path: None,
             body_mode: None,
             raw_body_format: None,
             body_params: None,
             auth: None,
             pre_request_script: None,
             test_script: None,
+            header_notes: None,
+            disabled_headers: None,
         }
     }
 
@@ -1626,6 +1892,11 @@ mod tests {
             target_hosts: vec!["api.example.com:8443".into(), "*.internal.test".into()],
             variable_prefix: "BONK_VAR_".into(),
             max_response_body_bytes: 1024 * 1024,
+            app_state: None,
+            environments: Vec::new(),
+            mutating_methods: MethodPolicy::Ask,
+            client: None,
+            journal: None,
         });
         assert!(runtime
             .check_target_host("api.example.com", Some(8443))
@@ -1733,6 +2004,96 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn binary_upload_must_stay_inside_the_workspace() {
+        let workspace = TestWorkspace::new();
+        let outside = TestWorkspace::new();
+        let secret = outside.0.join("id_rsa");
+        std::fs::write(&secret, "secret").expect("write outside file");
+        let mut upload = request("https://example.com/upload");
+        upload.method = "POST".into();
+        upload.body_mode = Some("binary".into());
+        upload.binary_file_path = Some(secret.to_string_lossy().into_owned());
+
+        let error = workspace
+            .runtime(false, false)
+            .validate_http(upload, None, BTreeMap::new(), None)
+            .await
+            .expect_err("a binary body outside the workspace must be rejected");
+        assert!(error.contains("outside the workspace"), "{error}");
+    }
+
+    #[test]
+    fn method_policy_gates_only_mutating_methods() {
+        use MethodGate::*;
+        assert_eq!(method_gate(MethodPolicy::Deny, "get", false), Proceed);
+        assert_eq!(method_gate(MethodPolicy::Allow, "DELETE", false), Proceed);
+        assert!(matches!(
+            method_gate(MethodPolicy::Deny, "post", true),
+            Refuse(message) if message.starts_with(DENIED) && message.contains("POST")
+        ));
+        assert_eq!(method_gate(MethodPolicy::Ask, "PATCH", true), Elicit);
+        // No elicitation = no way for the user to approve: refuse, never trust the model.
+        assert!(matches!(
+            method_gate(MethodPolicy::Ask, "PUT", false),
+            Refuse(message) if message.starts_with(DENIED)
+        ));
+    }
+
+    #[tokio::test]
+    async fn app_environments_resolve_and_respect_the_allow_list() {
+        let workspace = TestWorkspace::new();
+        let state = workspace.0.join("state.json");
+        std::fs::write(
+            &state,
+            r#"{
+              "globals": [
+                {"key": "base", "value": "https://global.test", "enabled": true},
+                {"key": "off", "value": "x", "enabled": false}
+              ],
+              "environments": [
+                {"id": "e1", "name": "Staging", "vars": [
+                  {"key": "base", "value": "https://staging.test", "enabled": true},
+                  {"key": "token", "value": "", "enabled": true, "secret": true}
+                ]},
+                {"id": "e2", "name": "Prod", "vars": []}
+              ]
+            }"#,
+        )
+        .expect("write state");
+        let app = load_app_vars(Some(&state));
+        let keychain = |account: &str| (account == "env:e1:token").then(|| "s3cret".to_string());
+        let (env, globals, secrets) =
+            app_scopes(&app, Some("Staging"), &keychain).expect("staging scopes");
+        let scope = merged_scope(&globals, &env);
+        assert_eq!(
+            resolve_text("{{base}}/{{token}}", &scope),
+            "https://staging.test/s3cret"
+        );
+        assert!(!scope.contains_key("off"));
+        assert_eq!(secrets, vec!["s3cret".to_string()]);
+        assert!(app_scopes(&app, Some("Missing"), &keychain).is_err());
+
+        let mut runtime = workspace.runtime(false, true);
+        let config = Arc::make_mut(&mut runtime.config);
+        config.app_state = Some(state);
+        config.environments = vec!["Staging".into()];
+        let denied = runtime
+            .validate_http(request("{{base}}/x"), None, BTreeMap::new(), Some("Prod"))
+            .await
+            .expect_err("Prod is not allowed");
+        assert!(denied.starts_with(DENIED), "{denied}");
+        let validated = runtime
+            .validate_http(request("{{base}}/x"), None, BTreeMap::new(), None)
+            .await
+            .expect("globals only");
+        assert_eq!(validated.url, "https://global.test/x");
+        assert_eq!(
+            runtime.workspace_info().unwrap().environments,
+            vec!["Staging"]
+        );
+    }
+
+    #[tokio::test]
     async fn local_proto_schema_works_with_network_disabled() {
         let workspace = TestWorkspace::new();
         std::fs::write(
@@ -1753,6 +2114,7 @@ message SayReply { string text = 1; }
                 proto_paths: vec!["echo.proto".into()],
                 import_paths: Vec::new(),
                 variables: BTreeMap::new(),
+                environment: None,
             })
             .await
             .expect("compile local proto");

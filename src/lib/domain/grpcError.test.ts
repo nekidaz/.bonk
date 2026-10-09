@@ -1,4 +1,6 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+
+vi.mock('@tauri-apps/api/core', () => ({ invoke: vi.fn(async () => ({})) }));
 import { presentGrpcError } from './grpcError';
 
 describe('presentGrpcError', () => {
@@ -8,7 +10,7 @@ describe('presentGrpcError', () => {
       'grpc status Unauthenticated: The request does not have valid authentication credentials: authorization token is not provided',
     );
     expect(view.code).toBe('UNAUTHENTICATED');
-    expect(view.title).toBe('Authentication required');
+    expect(view.title).toBe('Требуется аутентификация');
     expect(view.message).toBe(
       'The request does not have valid authentication credentials: authorization token is not provided',
     );
@@ -25,7 +27,7 @@ describe('presentGrpcError', () => {
   it('uses the result status for cancellations', () => {
     const view = presentGrpcError('CANCELLED', 'Request cancelled');
     expect(view.code).toBe('CANCELLED');
-    expect(view.title).toBe('Request cancelled');
+    expect(view.title).toBe('Запрос отменён');
   });
 
   it('falls back cleanly for an unknown failure', () => {

@@ -1,13 +1,21 @@
 import { writable } from 'svelte/store';
 import type { GrpcService } from './domain/types';
 
-export type GrpcEditorSection = 'message' | 'metadata' | 'proto' | 'scripts';
+export type GrpcEditorSection = 'message' | 'metadata' | 'auth' | 'proto' | 'scripts';
 
 /** Per-request UI state so the response pane can navigate the sibling editor. */
 export const grpcEditorSections = writable<Record<string, GrpcEditorSection>>({});
 
 export function openGrpcEditorSection(tabId: string, section: GrpcEditorSection): void {
   grpcEditorSections.update((current) => ({ ...current, [tabId]: section }));
+}
+
+/** One-shot command from the response pane to the request's editor (S25 «Повторить» / TLS). */
+export type GrpcEditorAction = { tabId: string; kind: 'reconnect' | 'tls' };
+export const grpcEditorAction = writable<GrpcEditorAction | null>(null);
+
+export function requestGrpcEditorAction(tabId: string, kind: GrpcEditorAction['kind']): void {
+  grpcEditorAction.set({ tabId, kind });
 }
 
 export function clearGrpcEditorSection(tabId: string): void {

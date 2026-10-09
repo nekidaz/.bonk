@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { snapPanelSize } from './appShell';
+import { recentWorkspaceChoices, snapPanelSize, workspaceInitials, workspaceName } from './appShell';
 
 describe('snapPanelSize', () => {
   it('collapses after the snap threshold', () => {
@@ -13,5 +13,23 @@ describe('snapPanelSize', () => {
   it('passes through and caps regular sizes', () => {
     expect(snapPanelSize(360, 200, 600, 120)).toEqual({ collapsed: false, size: 360 });
     expect(snapPanelSize(900, 200, 600, 120)).toEqual({ collapsed: false, size: 600 });
+  });
+});
+
+describe('workspace switcher helpers', () => {
+  it('names a workspace by its folder', () => {
+    expect(workspaceName('/Users/me/Documents/bonk/acme-business/')).toBe('acme-business');
+    expect(workspaceName('')).toBe('');
+  });
+
+  it('builds two-letter initials', () => {
+    expect(workspaceInitials('acme-business')).toBe('fb');
+    expect(workspaceInitials('Bank Core gRPC')).toBe('bc');
+    expect(workspaceInitials('Sandbox')).toBe('sa');
+  });
+
+  it('offers recents without the current one, capped at 8', () => {
+    const paths = ['/a', '/b', '/c', '/d', '/e', '/f', '/g', '/h', '/i', '/j'];
+    expect(recentWorkspaceChoices(paths, '/b')).toEqual(['/a', '/c', '/d', '/e', '/f', '/g', '/h', '/i']);
   });
 });

@@ -36,6 +36,7 @@
     highlightActiveLine,
     highlightActiveLineGutter,
     placeholder as cmPlaceholder,
+    tooltips,
   } from '@codemirror/view';
   import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands';
   import {
@@ -52,6 +53,7 @@
     completionKeymap,
     type Completion,
     type CompletionContext,
+    type CompletionSource,
     type CompletionResult,
   } from '@codemirror/autocomplete';
   import { javascript } from '@codemirror/lang-javascript';
@@ -64,6 +66,8 @@
     lang = 'text',
     placeholder = '',
     completions,
+    completionSource,
+    completionFooter,
     minHeight = '96px',
     maxHeight,
     fill = false,
@@ -80,6 +84,14 @@
     lang?: CodeEditorLang;
     placeholder?: string;
     completions?: Completion[];
+    /**
+     * Context-aware completions (e.g. gRPC message fields). Read on every
+     * query, so it may close over reactive state. Options may carry a `doc`
+     * line shown under the label; `set: true` dims an option.
+     */
+    completionSource?: CompletionSource;
+    /** Hint line under the `completionSource` list (keys legend). */
+    completionFooter?: string;
     minHeight?: string;
     /** Cap growth; the editor scrolls internally past this. Ignored with `fill`. */
     maxHeight?: string;
@@ -189,6 +201,8 @@
       color: 'var(--sb)',
     },
     { tag: [tags.comment, tags.lineComment, tags.blockComment], color: 'var(--sp)', fontStyle: 'italic' },
+    // Bonk Mono dims JSON punctuation; palettes without --syntax-punct keep the text colour.
+    { tag: [tags.punctuation, tags.bracket, tags.separator, tags.brace, tags.squareBracket], color: 'var(--syntax-punct, inherit)' },
   ]);
 
   function themeExtension(): Extension {
@@ -225,7 +239,7 @@
         }
       : {
           '&': {
-            fontSize: '12px',
+            fontSize: 'var(--code-font-size, 12px)',
             backgroundColor: 'var(--inset)',
             color: 'var(--text)',
             border: '0.5px solid var(--sep)',
@@ -307,7 +321,61 @@
         maxWidth: '260px',
       },
       '.cm-panels': { backgroundColor: 'var(--surface)', color: 'var(--text)' },
+      // G4: field list with the type on the right and the .proto comment below.
+      '.cm-tooltip.bs-ac-rich': { minWidth: '340px', padding: '4px 6px', borderRadius: '12px' },
+      '.cm-tooltip.bs-ac-rich > ul': { fontSize: '12px', maxHeight: '260px' },
+      '.cm-tooltip.bs-ac-rich > ul > completion-section': {
+        display: 'block',
+        padding: '8px 10px 5px',
+        border: 'none',
+        color: 'var(--t3)',
+        fontSize: '9.5px',
+        letterSpacing: '0.14em',
+        textTransform: 'uppercase',
+        opacity: '1',
+      },
+      '.cm-tooltip.bs-ac-rich > ul > li': {
+        display: 'grid',
+        gridTemplateColumns: 'minmax(0, 1fr) auto',
+        columnGap: '14px',
+        alignItems: 'baseline',
+        padding: '6px 10px',
+        borderRadius: '7px',
+        lineHeight: '1.35',
+        color: 'var(--sb)',
+      },
+      '.cm-tooltip.bs-ac-rich > ul > li[aria-selected]': { background: 'var(--hover2)', color: 'var(--sb)' },
+      '.cm-tooltip.bs-ac-rich > ul > li[aria-selected] .cm-completionDetail': { color: 'var(--t2)' },
+      '.cm-tooltip.bs-ac-rich .cm-completionDetail': { gridColumn: '2', gridRow: '1', margin: '0', fontSize: '10.5px', color: 'var(--t2)' },
+      '.cm-tooltip.bs-ac-rich .bs-ac-doc': {
+        gridColumn: '1 / -1',
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+        color: 'var(--t3)',
+        fontFamily: 'var(--font-ui, inherit)',
+        fontSize: '10.5px',
+      },
+      '.cm-tooltip.bs-ac-rich > ul > li.bs-ac-set': { opacity: '0.45' },
+      '.cm-tooltip.bs-ac-rich > ul > li.bs-ac-set .cm-completionDetail::after': { content: '"  ✓"' },
+      '.cm-tooltip.bs-ac-rich::after': {
+        content: completionFooter ? JSON.stringify(completionFooter) : 'none',
+        display: 'block',
+        padding: '7px 10px 5px',
+        borderTop: '0.5px solid var(--sepsoft)',
+        color: 'var(--t3)',
+        fontSize: '10.5px',
+        whiteSpace: 'pre',
+      },
     });
+  }
+
+  function renderDoc(c: Completion): Node | null {
+    const doc = (c as Completion & { doc?: string }).doc;
+    if (!doc) return null;
+    const el = document.createElement('div');
+    el.className = 'bs-ac-doc';
+    el.textContent = doc;
+    return el;
   }
 
   function buildExtensions(): Extension[] {
@@ -331,10 +399,20 @@
           closeBrackets(),
           highlightActiveLine(),
           highlightActiveLineGutter(),
+          // Rich completions outgrow the editor; the request pane clips (contain: paint).
+          completionSource ? tooltips({ parent: document.body }) : [],
           autocompletion(
-            completions && completions.length > 0
-              ? { override: [dictionaryCompletions(completions)] }
-              : {},
+            completionSource
+              ? {
+                  override: [(ctx) => completionSource?.(ctx) ?? null],
+                  icons: false,
+                  tooltipClass: () => 'bs-ac-rich',
+                  optionClass: (c) => ((c as Completion & { set?: boolean }).set ? 'bs-ac-set' : ''),
+                  addToOptions: [{ position: 90, render: renderDoc }],
+                }
+              : completions && completions.length > 0
+                ? { override: [dictionaryCompletions(completions)] }
+                : {},
           ),
         ];
     return [

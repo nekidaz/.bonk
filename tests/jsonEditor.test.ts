@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import { uiLanguage } from '../src/lib/stores/prefs';
 import {
   jsonLineCol,
   jsonErrorMessage,
@@ -8,6 +9,8 @@ import {
   bodyPlaceholder,
 } from '../src/lib/domain/jsonEditor';
 import type { Tab } from '../src/lib/domain/types';
+
+uiLanguage.set('en'); // these assertions check the English strings
 
 function tab(overrides: Partial<Tab['request']> = {}): Tab {
   return {

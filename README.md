@@ -60,14 +60,17 @@ do-one-thing-well API client that idles at basically zero.
 - 💾 **Smart Save** (⌘S) — updates the backing file in place, or asks where to
   put a new request.
 - 🕘 **Request history** — configurable limit, pause, and one-click reopen.
-- 📥 **cURL import** — paste a `curl` command, get a request.
+- 📥 **Import** — paste a `curl` command or import a Postman Collection v2.x or OpenAPI/Swagger file into the local workspace.
 - 🤖 **MCP server** — let Claude, ChatGPT, Codex, and other MCP clients inspect,
   build, save, validate, and run Bonk HTTP/gRPC requests through a separate
   headless binary. Supports local STDIO and remote Streamable HTTP transports.
 - 🔄 **Auto-updates** — the app checks for a newer signed release and installs it
   in place.
-- 🌑 **Offline & themed** — fonts vendored (no CDN), Big Sur-inspired UI with
-  light and dark themes.
+- 🌑 **Offline & themed** — fonts vendored (no CDN), a Postman-style workspace
+  with light and dark themes, plus optional editor palettes.
+
+See [Postman parity audit](docs/POSTMAN_PARITY.md) for the current feature gaps
+and the checks required before claiming 1:1 compatibility.
 
 ## 📦 Install
 

@@ -14,8 +14,9 @@ pub fn build_request_to(
 ) -> Result<reqwest::Request, String> {
     let is_multipart = req.body_mode.as_deref() == Some("form-data");
     let mut rb = client.request(method, url);
+    let disabled = req.disabled_headers.as_deref().unwrap_or_default();
     for (k, v) in &req.headers {
-        if is_multipart && k.eq_ignore_ascii_case("content-type") {
+        if (is_multipart && k.eq_ignore_ascii_case("content-type")) || disabled.contains(k) {
             continue;
         }
         rb = rb.header(k, v);
@@ -24,6 +25,16 @@ pub fn build_request_to(
         if let Some(form) = build_multipart_form(req)? {
             rb = rb.multipart(form);
         }
+    } else if req.body_mode.as_deref() == Some("binary") {
+        if let Some(path) = req
+            .binary_file_path
+            .as_deref()
+            .filter(|path| !path.trim().is_empty())
+        {
+            rb = rb.body(read_upload(path, "binary file")?);
+        } else if let Some(body) = &req.body {
+            rb = rb.body(body.clone());
+        }
     } else if let Some(body) = &req.body {
         rb = rb.body(body.clone());
     }
@@ -31,6 +42,26 @@ pub fn build_request_to(
         Some(src) => format!("request error: {e}: {src}"),
         None => format!("request error: {e}"),
     })
+}
+
+/// Read a request-body file into memory, rejecting oversized files by metadata
+/// first so a huge attachment can't OOM the process. Regular files only:
+/// `/dev/zero` or a FIFO reports size 0, passes the cap and reads (or blocks) forever.
+// ponytail: trusts metadata().len(); a Linux /proc file that under-reports its
+// size can still read past the cap — switch to File::take if that ever matters.
+fn read_upload(path: &str, what: &str) -> Result<Vec<u8>, String> {
+    let failed = |e: std::io::Error| format!("failed to read {what} '{path}': {e}");
+    let meta = std::fs::metadata(path).map_err(failed)?;
+    if !meta.is_file() {
+        return Err(format!("{what} '{path}' is not a regular file"));
+    }
+    if meta.len() > MAX_FORM_FILE_BYTES {
+        return Err(format!(
+            "{what} '{path}' is {} bytes, larger than the {MAX_FORM_FILE_BYTES}-byte limit",
+            meta.len()
+        ));
+    }
+    std::fs::read(path).map_err(failed)
 }
 
 fn enabled_body_params(req: &HttpRequest) -> impl Iterator<Item = &BodyParam> {
@@ -60,18 +91,7 @@ fn build_multipart_form(req: &HttpRequest) -> Result<Option<reqwest::multipart::
             let path = form_file_path(row)
                 .filter(|path| !path.is_empty())
                 .ok_or_else(|| format!("form-data file '{}' has no file selected", row.key))?;
-            // Reject oversized files by metadata before reading them into memory,
-            // so a huge attachment can't OOM the process while building the body.
-            let size = std::fs::metadata(path)
-                .map_err(|e| format!("failed to read form-data file '{path}': {e}"))?
-                .len();
-            if size > MAX_FORM_FILE_BYTES {
-                return Err(format!(
-                    "form-data file '{path}' is {size} bytes, larger than the {MAX_FORM_FILE_BYTES}-byte limit"
-                ));
-            }
-            let bytes = std::fs::read(path)
-                .map_err(|e| format!("failed to read form-data file '{path}': {e}"))?;
+            let bytes = read_upload(path, "form-data file")?;
             let filename = Path::new(path)
                 .file_name()
                 .and_then(|name| name.to_str())
@@ -101,17 +121,93 @@ mod tests {
             url: "https://example.com/api".into(),
             headers,
             body: Some("{}".into()),
+            graphql_variables: None,
+            binary_file_path: None,
             body_mode: None,
             raw_body_format: None,
             body_params: None,
             auth: None,
             pre_request_script: None,
             test_script: None,
+            header_notes: None,
+            disabled_headers: None,
         };
         let built = build_request_to(&client, &req, reqwest::Method::POST, &req.url).unwrap();
         assert_eq!(built.method().as_str(), "POST");
         assert_eq!(built.url().as_str(), "https://example.com/api");
         assert_eq!(built.headers().get("x-test").unwrap(), "1");
+    }
+
+    #[test]
+    fn build_request_reads_binary_file_bytes() {
+        let path = std::env::temp_dir().join(format!(
+            "bonk-binary-body-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        let bytes = [0, 255, 10, 42];
+        std::fs::write(&path, bytes).unwrap();
+        let req = HttpRequest {
+            method: "POST".into(),
+            url: "https://example.com/upload".into(),
+            headers: BTreeMap::new(),
+            body: None,
+            graphql_variables: None,
+            binary_file_path: Some(path.to_string_lossy().into_owned()),
+            body_mode: Some("binary".into()),
+            raw_body_format: None,
+            body_params: None,
+            auth: None,
+            pre_request_script: None,
+            test_script: None,
+            header_notes: None,
+            disabled_headers: None,
+        };
+        let built = build_request_to(
+            &reqwest::Client::new(),
+            &req,
+            reqwest::Method::POST,
+            &req.url,
+        )
+        .unwrap();
+        std::fs::remove_file(path).unwrap();
+        assert_eq!(
+            built.body().and_then(reqwest::Body::as_bytes),
+            Some(bytes.as_slice())
+        );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn build_request_rejects_non_regular_upload_files() {
+        // `/dev/zero` reports size 0, so the size cap alone let the read run forever.
+        let req = HttpRequest {
+            method: "POST".into(),
+            url: "https://example.com/upload".into(),
+            headers: BTreeMap::new(),
+            body: None,
+            graphql_variables: None,
+            binary_file_path: Some("/dev/zero".into()),
+            body_mode: Some("binary".into()),
+            raw_body_format: None,
+            body_params: None,
+            auth: None,
+            pre_request_script: None,
+            test_script: None,
+            header_notes: None,
+            disabled_headers: None,
+        };
+        let error = build_request_to(
+            &reqwest::Client::new(),
+            &req,
+            reqwest::Method::POST,
+            &req.url,
+        )
+        .unwrap_err();
+        assert!(error.contains("not a regular file"), "{error}");
     }
 
     #[test]
@@ -128,6 +224,8 @@ mod tests {
                 ("x-test".into(), "1".into()),
             ]),
             body: Some("ignored".into()),
+            graphql_variables: None,
+            binary_file_path: None,
             body_mode: Some("form-data".into()),
             raw_body_format: None,
             body_params: Some(vec![BodyParam {
@@ -141,6 +239,8 @@ mod tests {
             auth: None,
             pre_request_script: None,
             test_script: None,
+            header_notes: None,
+            disabled_headers: None,
         };
         let built = build_request_to(&client, &req, reqwest::Method::POST, &req.url).unwrap();
         assert_eq!(built.headers().get("x-test").unwrap(), "1");

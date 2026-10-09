@@ -1,5 +1,6 @@
 <script lang="ts">
   import { tick } from 'svelte';
+  import { t } from '../i18n';
   import { terminalDefaultCwd, terminalRun } from '../api';
   import { snapPanelSize, type UtilityMode } from '../domain/appShell';
   import { appConsoleEntries, clearAppConsole, workspacePath } from '../stores';
@@ -38,7 +39,7 @@
   let homeDirectory = $state('');
   let directoryInitialized = $state(false);
   let lines = $state<TerminalLine[]>([
-    { id: crypto.randomUUID(), kind: 'meta', text: 'Bonk Terminal · system shell.' },
+    { id: crypto.randomUUID(), kind: 'meta', text: $t('util.terminal.welcome') },
   ]);
 
   const directoryLabel = $derived(
@@ -79,13 +80,13 @@
       currentDirectory = result.cwd;
       addLine('stdout', result.stdout.replace(/\s+$/, ''));
       addLine('stderr', result.stderr.replace(/\s+$/, ''));
-      if (result.status !== 0) addLine('meta', `Process exited with code ${result.status} · ${result.elapsedMs} ms`);
+      if (result.status !== 0) addLine('meta', $t('util.terminal.exited', { code: result.status, ms: result.elapsedMs }));
     } catch (error) {
       const text = String(error);
       addLine(
         'stderr',
         text.includes('__TAURI_INTERNALS__')
-          ? 'Terminal commands are available in the Bonk desktop app.'
+          ? $t('util.terminal.desktop_only')
           : text,
       );
     } finally {
@@ -163,29 +164,29 @@
   });
 </script>
 
-<section class="bs-utility-panel" class:collapsing={collapsePreview} style="height:{height}px" aria-label="Developer tools">
-  <div class="bs-utility-resize" role="separator" aria-label="Resize developer tools" onpointerdown={startResize}></div>
+<section class="bs-utility-panel" class:collapsing={collapsePreview} style="height:{height}px" aria-label={$t('util.aria')}>
+  <div class="bs-utility-resize" role="separator" aria-label={$t('util.resize_aria')} onpointerdown={startResize} ondblclick={() => { height = 220; onResizeEnd(); }}></div>
   <header class="bs-utility-head">
-    <div class="bs-utility-tabs" role="tablist" aria-label="Developer tools">
+    <div class="bs-utility-tabs" role="tablist" aria-label={$t('util.aria')}>
       <button type="button" role="tab" class:on={mode === 'console'} aria-selected={mode === 'console'} onclick={() => onSelect('console')}>
-        Console
+        {$t('util.tab.console')}
         {#if $appConsoleEntries.length}<span class="bs-utility-count">{$appConsoleEntries.length}</span>{/if}
       </button>
       <button type="button" role="tab" class:on={mode === 'terminal'} aria-selected={mode === 'terminal'} onclick={() => onSelect('terminal')}>
-        Terminal
+        {$t('util.tab.terminal')}
       </button>
       <button type="button" role="tab" class:on={mode === 'issues'} aria-selected={mode === 'issues'} onclick={() => onSelect('issues')}>
-        Issues
+        {$t('util.tab.issues')}
         {#if issueCount}<span class="bs-utility-count error">{issueCount}</span>{/if}
       </button>
     </div>
     <div class="bs-spacer"></div>
     {#if mode === 'terminal'}<span class="bs-utility-context" title={currentDirectory}>{directoryLabel}</span>{/if}
-    <button class="bs-utility-action" type="button" onclick={clearCurrent}>Clear</button>
-    <button class="bs-utility-icon" type="button" aria-label="Clear developer tools" title="Clear" onclick={clearCurrent}>
+    <button class="bs-utility-action" type="button" onclick={clearCurrent}>{$t('util.clear')}</button>
+    <button class="bs-utility-icon" type="button" aria-label={$t('util.clear_aria')} title={$t('util.clear')} onclick={clearCurrent}>
       <span class="material-symbols-outlined">delete_outline</span>
     </button>
-    <button class="bs-utility-icon" type="button" aria-label="Close developer tools" title="Close" onclick={onClose}>
+    <button class="bs-utility-icon" type="button" aria-label={$t('util.close_aria')} title={$t('common.close')} onclick={onClose}>
       <span class="material-symbols-outlined">close</span>
     </button>
   </header>
@@ -204,11 +205,11 @@
         <input
           bind:this={inputEl}
           bind:value={command}
-          aria-label="Terminal command"
+          aria-label={$t('util.terminal.command_aria')}
           autocomplete="off"
           spellcheck="false"
           disabled={running}
-          placeholder={running ? 'Running…' : 'Type a command and press Enter'}
+          placeholder={running ? $t('util.terminal.running') : $t('util.terminal.placeholder')}
           onkeydown={terminalKeydown}
         />
         {#if running}<span class="bs-terminal-running material-symbols-outlined">progress_activity</span>{/if}
@@ -219,7 +220,7 @@
       {#if visibleConsoleEntries.length === 0}
         <div class="bs-utility-empty">
           <span class="material-symbols-outlined">data_object</span>
-          <div>{mode === 'issues' ? 'No issues detected.' : 'Request events will appear here.'}</div>
+          <div>{mode === 'issues' ? $t('util.empty.issues') : $t('util.empty.console')}</div>
         </div>
       {:else}
         {#each visibleConsoleEntries as entry (entry.id)}
@@ -254,8 +255,8 @@
     border-top: 1px solid var(--sep);
   }
   .bs-utility-panel.collapsing { height: 0 !important; min-height: 0; border-top-color: var(--accent); }
-  .bs-utility-resize { position: absolute; z-index: 4; top: -3px; left: 0; right: 0; height: 6px; cursor: row-resize; }
-  .bs-utility-resize:hover { background: var(--accent); opacity: .4; }
+  .bs-utility-resize { position: absolute; z-index: 4; top: -4px; left: 0; right: 0; height: 8px; cursor: row-resize; }
+  .bs-utility-resize:hover { background: linear-gradient(to bottom, transparent calc(50% - 1px), var(--accent) calc(50% - 1px) calc(50% + 1px), transparent calc(50% + 1px)); }
   .bs-utility-head { flex: 0 0 34px; display: flex; align-items: center; gap: 5px; padding: 0 7px 0 10px; background: var(--tb); border-bottom: 1px solid var(--sepsoft); }
   .bs-utility-tabs { align-self: stretch; display: flex; align-items: stretch; gap: 14px; }
   .bs-utility-tabs button { position: relative; display: flex; align-items: center; gap: 6px; padding: 0 2px; color: var(--t2); font-size: 11.5px; }

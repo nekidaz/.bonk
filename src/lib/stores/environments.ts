@@ -1,18 +1,15 @@
 import { get } from 'svelte/store';
+import { t } from '../i18n';
 import type { Environment, Tab, VarRow } from '../domain/types';
-import { environments, activeEnvironmentId, globals, tabs, activeTabId } from './state';
+import { environments, activeEnvironmentId, globals, environmentsSheetOpen, tabs, activeTabId } from './state';
 
 /**
  * Environment + variable CRUD. Depends only on `state` (never on other feature
- * modules), keeping the stores import graph acyclic. The EnvironmentsView tab
- * and the AppTabBar selector drive everything through these helpers.
+ * modules), keeping the stores import graph acyclic. The EnvironmentsSheet
+ * and the toolbar selector drive everything through these helpers.
  */
 
-/**
- * Open (or focus) the single Environments manager tab. Mirrors
- * openProjectDiffTab: 'env' tabs hold no request state, are excluded from
- * persistence, and at most one exists at a time.
- */
+/** Open (or focus) the single Environments tab; it hosts the same editor as the sheet. */
 export function openEnvironmentsTab(): void {
   const existing = get(tabs).find((t) => t.protocol === 'env');
   if (existing) {
@@ -30,10 +27,15 @@ export function openEnvironmentsTab(): void {
   activeTabId.set(tab.id);
 }
 
+/** S31: «Manage environments» in the environment dropdown opens the sheet. */
+export function openEnvironmentsSheet(): void {
+  environmentsSheetOpen.set(true);
+}
+
 /** Create a new environment, append it, make it active, and return its id. */
-export function addEnvironment(name = 'New Environment'): string {
+export function addEnvironment(name = get(t)('env.new')): string {
   const id = crypto.randomUUID();
-  const env: Environment = { id, name: name.trim() || 'New Environment', vars: [] };
+  const env: Environment = { id, name: name.trim() || get(t)('env.new'), vars: [] };
   environments.update((list) => [...list, env]);
   activeEnvironmentId.set(id);
   return id;

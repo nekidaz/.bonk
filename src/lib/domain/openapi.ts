@@ -1,3 +1,5 @@
+import { get } from 'svelte/store';
+import { t } from '../i18n';
 /**
  * Pure OpenAPI / Swagger import + export. This module is a leaf: it imports only
  * `types` and the `yaml` codec, never stores/api/tauri, so it stays fully
@@ -55,10 +57,10 @@ function parseDocument(text: string): Doc {
     try {
       doc = parseYaml(text);
     } catch {
-      throw new Error('Not a valid JSON or YAML document.');
+      throw new Error(get(t)('import.err.notDoc'));
     }
   }
-  if (!isObject(doc)) throw new Error('Spec must be a JSON/YAML object.');
+  if (!isObject(doc)) throw new Error(get(t)('import.err.notObject'));
   return doc;
 }
 
@@ -66,7 +68,7 @@ function parseDocument(text: string): Doc {
 function detectVersion(doc: Doc): 'oas3' | 'swagger2' {
   if (typeof doc.openapi === 'string' && doc.openapi.startsWith('3.')) return 'oas3';
   if (doc.swagger === '2.0') return 'swagger2';
-  throw new Error('Unsupported spec: expected OpenAPI 3.x or Swagger 2.0.');
+  throw new Error(get(t)('import.err.unsupported'));
 }
 
 /** Substitute `{var}` templating in an OAS3 server URL using its `variables` defaults. */

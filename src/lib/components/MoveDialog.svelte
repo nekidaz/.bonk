@@ -2,6 +2,7 @@
   import { collections, moveNode } from '../stores';
   import { findNode } from '../domain/tree';
   import FolderPicker from './FolderPicker.svelte';
+  import { t } from '../i18n';
 
   // `open` is the trigger held by the parent (App.svelte); `sourceId` is the node
   // being moved. The chosen destination lives here (undefined = workspace root).
@@ -25,11 +26,11 @@
   <div class="bs-overlay" role="dialog" aria-modal="true">
     <div class="bs-modal">
       <div class="bs-modal-h">
-        <span class="t">Move to folder</span>
-        <button class="x" aria-label="Close" onclick={() => (open = false)}><span class="material-symbols-outlined" style="font-size:18px">close</span></button>
+        <span class="t">{$t('dialog.move.title')}</span>
+        <button class="x" aria-label={$t('common.close')} onclick={() => (open = false)}><span class="material-symbols-outlined" style="font-size:18px">close</span></button>
       </div>
       <div class="bs-modal-b">
-        <div class="bs-saveto">Move to <span>{moveTarget ? (findNode($collections, moveTarget)?.name ?? '—') : 'Workspace root'}</span></div>
+        <div class="bs-saveto">{$t('dialog.move.to')} <span>{moveTarget ? (findNode($collections, moveTarget)?.name ?? '—') : $t('dialog.move.root')}</span></div>
         <div class="bs-collbox">
           <div class="bs-colllist">
             <FolderPicker nodes={$collections} bind:selected={moveTarget} excludeId={sourceId} />
@@ -38,8 +39,8 @@
       </div>
       <div class="bs-modal-f">
         <div class="grow"></div>
-        <button class="bs-btn primary" onclick={confirmMove}>Move</button>
-        <button class="bs-btn ghost" onclick={() => (open = false)}>Cancel</button>
+        <button class="bs-btn primary" onclick={confirmMove}>{$t('dialog.move.confirm')}</button>
+        <button class="bs-btn ghost" onclick={() => (open = false)}>{$t('common.cancel')}</button>
       </div>
     </div>
   </div>

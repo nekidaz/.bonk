@@ -4,6 +4,7 @@
   import type { GitDiffMode, Tab } from '../domain/types';
   import { diffStats } from '../domain/diff';
   import DiffBlock from './DiffBlock.svelte';
+  import { t } from '../i18n';
 
   let { tab }: { tab: Tab } = $props();
 
@@ -35,7 +36,7 @@
     try {
       const text = await gitDiff(root, filePath, diffMode === 'staged');
       if (seq !== loadSeq) return;
-      diffText = text.trim() ? text : 'No textual diff (binary file or no changes).';
+      diffText = text.trim() ? text : $t('git.diff.noText');
     } catch (err) {
       if (seq !== loadSeq) return;
       error = String(err);
@@ -53,7 +54,7 @@
   }
 
   function modeLabel(value: GitDiffMode): string {
-    return value === 'staged' ? 'Staged' : 'Working Tree';
+    return value === 'staged' ? $t('git.diff.staged') : $t('git.diff.working');
   }
 </script>
 
@@ -62,8 +63,8 @@
     <div class="bs-git-diff-title">
       <span class="material-symbols-outlined" style="font-size:18px">difference</span>
       <div class="text">
-        <div class="main">{path || 'Diff'}</div>
-        <div class="sub">{modeLabel(mode)} diff{#if $workspacePath} · {$workspacePath}{/if}</div>
+        <div class="main">{path || $t('git.diff.title')}</div>
+        <div class="sub">{$t('git.diff.sub', { mode: modeLabel(mode) })}{#if $workspacePath} · {$workspacePath}{/if}</div>
       </div>
     </div>
     <div class="bs-git-diff-stats">
@@ -72,7 +73,7 @@
     </div>
     <button class="bs-btn ghost bs-git-refresh" type="button" onclick={reload} disabled={loading}>
       <span class="material-symbols-outlined" style="font-size:15px">refresh</span>
-      Refresh
+      {$t('git.refresh')}
     </button>
   </div>
 
@@ -81,7 +82,7 @@
   {:else if loading}
     <div class="bs-git-diff-empty">
       <span class="send-spinner" aria-hidden="true"></span>
-      Loading diff...
+      {$t('git.diff.loading')}
     </div>
   {:else}
     <DiffBlock text={diffText} />

@@ -5,6 +5,10 @@ use tonic::transport::Channel;
 pub struct GrpcConn {
     pub channel: Option<Channel>,
     pub cache: Option<GrpcDescriptorCache>,
+    pub endpoint: String,
+    pub plaintext: bool,
+    pub tls: crate::domain::grpc::GrpcTls,
+    pub prefs: crate::domain::grpc::GrpcPrefs,
 }
 
 #[derive(Clone, Debug)]

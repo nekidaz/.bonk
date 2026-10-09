@@ -6,6 +6,7 @@
  * its var compartment and the decorations flip without a remount.
  */
 import { get } from 'svelte/store';
+import { t } from '../i18n';
 import type { Extension } from '@codemirror/state';
 import type { Environment, VarRow } from '../domain/types';
 import { lookupVar } from '../domain/vars';
@@ -31,7 +32,7 @@ export function requestVariableHighlight(
       if (!hit) return null;
       return {
         value: hit.value,
-        scopeLabel: hit.source === 'env' && active ? `Environment '${active.name}'` : 'Globals',
+        scopeLabel: hit.source === 'env' && active ? get(t)('env.scope', { name: active.name }) : get(t)('env.scope_globals'),
       };
     },
     activeEnvName: () => active?.name ?? null,

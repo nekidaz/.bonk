@@ -1,4 +1,4 @@
-use crate::domain::http::HttpRequest;
+use crate::domain::http::{AuthConfig, HttpRequest};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
@@ -34,6 +34,15 @@ pub struct GrpcTabState {
     /// Postman-style test script (JS), run against the gRPC result.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub test_script: Option<String>,
+    /// TLS options (S29): skip verification, extra CA, mTLS identity.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tls: Option<crate::domain::grpc::GrpcTls>,
+    /// Auth tab (S19); unset / `inherit` takes the collection's.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub auth: Option<AuthConfig>,
+    /// Plaintext only: send `authorization` anyway (S30).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub keep_auth_on_plaintext: Option<bool>,
 }
 
 /// On-disk shape of a request file (no id, no kind — path is the identity).
@@ -68,7 +77,17 @@ pub struct FolderNode {
     pub id: String,
     pub name: String,
     pub expanded: bool,
+    /// Collection-level auth from `.folder.bonk.json`; requests set to `inherit` use it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub auth: Option<Box<AuthConfig>>,
     pub children: Vec<TreeNode>,
+}
+
+/// On-disk shape of a folder's settings file.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct FolderFile {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub auth: Option<AuthConfig>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

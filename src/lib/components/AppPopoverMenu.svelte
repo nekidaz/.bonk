@@ -5,18 +5,19 @@
     collections,
     historyLimit,
     historyPaused,
-    openEnvironmentsTab,
     openSavedRequest,
+    runInRunner,
   } from '../stores';
   import { findNode } from '../domain/tree';
   import { appMenuWidth, type AppMenuState, type RequestProtocol } from '../domain/appShell';
-
-  type TypeRow = { label: string; icon: string; color: string; go?: () => void };
+  import { t } from '../i18n';
 
   let {
     menu,
     closeMenu,
-    onPick,
+    folderName,
+    onNewHere,
+    onNewFolderHere,
     onSwitch,
     onAddRequest,
     onAddFolder,
@@ -24,13 +25,20 @@
     onRename,
     onDuplicate,
     onMove,
+    onAuth,
     onDelete,
-    onImportOpenApi,
+    onCopyCurl,
+    onImportCurl,
+    onImport,
     onExportOpenApi,
+    onSaveAs,
   }: {
     menu: AppMenuState;
     closeMenu: () => void;
-    onPick: (kind: RequestProtocol) => void;
+    /** Folder of the active saved request: the create menu adds next to it. */
+    folderName: string | undefined;
+    onNewHere: (kind: RequestProtocol) => void;
+    onNewFolderHere: () => void;
     onSwitch: (kind: RequestProtocol) => void;
     onAddRequest: (kind: RequestProtocol) => void;
     onAddFolder: () => void;
@@ -38,21 +46,22 @@
     onRename: () => void;
     onDuplicate: () => void;
     onMove: () => void;
+    onAuth: () => void;
     onDelete: () => void;
-    onImportOpenApi: () => void;
+    onCopyCurl: () => void;
+    onImportCurl: () => void;
+    onImport: () => void;
     onExportOpenApi: (format: 'json' | 'yaml') => void;
+    onSaveAs: () => void;
   } = $props();
 
-  const reqTypes: TypeRow[] = [
-    { label: 'HTTP', icon: 'language', color: 'var(--method-get)', go: () => onPick('http') },
-    { label: 'gRPC', icon: 'lan', color: 'var(--method-grpc)', go: () => onPick('grpc') },
+  // Import sources (S22): every file format goes through the same import dialog, which sniffs the format.
+  const importSources = [
+    { label: 'OpenAPI 3', icon: 'description', hint: 'nav.menu.hintFileUrl' },
+    { label: 'Postman', icon: 'inventory_2', hint: 'nav.menu.hintPostman' },
+    { label: 'Insomnia', icon: 'inventory_2', hint: 'nav.menu.hintInsomnia' },
+    { label: 'HAR', icon: 'data_object', hint: 'nav.menu.hintHar' },
   ];
-
-  const switchTypes: TypeRow[] = reqTypes
-    .map((r) => ({
-      ...r,
-      go: r.label === 'HTTP' ? () => onSwitch('http') : r.label === 'gRPC' ? () => onSwitch('grpc') : undefined,
-    }));
 
   const historyLimits: { label: string; value: number }[] = [
     { label: '50', value: 50 },
@@ -60,8 +69,29 @@
     { label: '200', value: 200 },
     { label: '500', value: 500 },
     { label: '1000', value: 1000 },
-    { label: 'All', value: 0 },
+    { label: 'nav.menu.all', value: 0 },
   ];
+
+  let importOpen = $state(false);
+  let importTop = $state(0);
+  $effect(() => { if (!menu.kind) importOpen = false; });
+
+  const node = $derived(menu.nodeId ? findNode($collections, menu.nodeId) : undefined);
+
+  // Open upward when the menu would run past the bottom of the window.
+  let menuEl = $state<HTMLDivElement>();
+  let top = $state(0);
+  $effect(() => {
+    if (!menu.kind || !menuEl) return;
+    const h = menuEl.offsetHeight;
+    const maxTop = window.innerHeight - h - 8;
+    top = menu.y <= maxTop ? menu.y : Math.max(8, Math.min(maxTop, (menu.flipY ?? menu.y) - h));
+  });
+
+  function showImport(e: Event): void {
+    importTop = (e.currentTarget as HTMLElement).offsetTop - 33;
+    importOpen = true;
+  }
 
   function addRootFolder(): void {
     void addFolder();
@@ -69,79 +99,87 @@
   }
 
   function openRequest(): void {
-    const n = menu.nodeId ? findNode($collections, menu.nodeId) : undefined;
-    if (n && n.kind === 'request') openSavedRequest(n);
-    closeMenu();
-  }
-
-  function openEnv(): void {
-    openEnvironmentsTab();
+    if (node?.kind === 'request') openSavedRequest(node);
     closeMenu();
   }
 </script>
 
+{#snippet item(icon: string, label: string, run: () => void, shortcut = '', cls = '')}
+  <button class="mi {cls}" role="menuitem" onclick={run} onpointerenter={() => { if (!cls.includes('sub')) importOpen = false; }}>
+    <span class="material-symbols-outlined ic" aria-hidden="true">{icon}</span>
+    <span class="lb">{label}</span>
+    {#if shortcut}<span class="sc">{shortcut}</span>{/if}
+  </button>
+{/snippet}
+
 {#if menu.kind}
-  <button class="bs-backdrop" aria-label="Close menu" onclick={closeMenu}></button>
-  <div class="bs-menu" style="left:{menu.x}px; top:{menu.y}px; width:{appMenuWidth(menu.kind)}px">
+  <button class="bs-backdrop" aria-label={$t('nav.menu.closeMenu')} onclick={closeMenu}></button>
+  <div class="bs-menu" role="menu" bind:this={menuEl} style="left:{menu.x}px; top:{top}px; width:{appMenuWidth(menu.kind)}px">
     {#if menu.kind === 'create'}
-      {#each reqTypes as r (r.label)}
-        <button class="mi" class:soon={!r.go} onclick={() => r.go && r.go()}>
-          <span class="ic" style="color:{r.color}"><span class="material-symbols-outlined" style="font-size:17px">{r.icon}</span></span>{r.label}
-          {#if !r.go}<span class="soonpill">SOON</span>{/if}
-        </button>
-      {/each}
+      <div class="lbl">{folderName ? $t('nav.menu.inFolder', { name: folderName }) : $t('nav.menu.newRequest')}</div>
+      {@render item('add', $t('nav.menu.http'), () => { closeMenu(); onNewHere('http'); }, '⌘N')}
+      {@render item('hub', $t('nav.menu.grpc'), () => { closeMenu(); onNewHere('grpc'); }, '⌥⌘N')}
+      {#if folderName}{@render item('create_new_folder', $t('nav.menu.folder'), () => { closeMenu(); onNewFolderHere(); }, '⇧⌘F')}{/if}
       <div class="dv"></div>
-      <button class="mi" onclick={addRootFolder}><span class="ic"><span class="material-symbols-outlined" style="font-size:17px">folder</span></span>Collection</button>
-      <button class="mi" onclick={openEnv}><span class="ic"><span class="material-symbols-outlined" style="font-size:17px">layers</span></span>Environment</button>
-      <div class="dv"></div>
-      <button class="mi" onclick={onImportOpenApi}><span class="ic"><span class="material-symbols-outlined" style="font-size:17px">upload_file</span></span>Import OpenAPI / Swagger</button>
+      <div class="lbl">{$t('nav.menu.inWorkspace')}</div>
+      {@render item('library_add', $t('nav.menu.collection'), addRootFolder, '⇧⌘N')}
+      <button class="mi" class:open={importOpen} role="menuitem" aria-haspopup="menu" aria-expanded={importOpen} onpointerenter={showImport} onclick={showImport}>
+        <span class="material-symbols-outlined ic" aria-hidden="true">download</span>
+        <span class="lb">{$t('nav.menu.import')}</span>
+        <span class="sc">›</span>
+      </button>
+      {#if importOpen}
+        <div class="bs-menu bs-submenu" role="menu" style="top:{importTop}px">
+          <div class="lbl">{$t('nav.menu.importFrom')}</div>
+          {@render item('terminal', 'cURL', () => { closeMenu(); onImportCurl(); }, $t('nav.menu.pasteClip'), 'sub hint')}
+          {#each importSources as src (src.label)}
+            {@render item(src.icon, src.label, () => { closeMenu(); onImport(); }, $t(src.hint), 'sub hint')}
+          {/each}
+        </div>
+      {/if}
     {:else if menu.kind === 'switch'}
-      <div class="lbl">Switch request type</div>
-      <div class="dv" style="margin-top:0"></div>
-      {#each switchTypes as r (r.label)}
-        <button class="mi" class:soon={!r.go} onclick={() => r.go && r.go()}>
-          <span class="ic" style="color:{r.color}"><span class="material-symbols-outlined" style="font-size:17px">{r.icon}</span></span>{r.label}
-          {#if !r.go}<span class="soonpill">SOON</span>{/if}
-        </button>
-      {/each}
-    {:else if menu.kind === 'coll'}
-      <button class="mi" onclick={() => onAddRequest('http')}><span class="ic"><span class="material-symbols-outlined" style="font-size:16px">language</span></span>Add HTTP request</button>
-      <button class="mi" onclick={() => onAddRequest('grpc')}><span class="ic"><span class="material-symbols-outlined" style="font-size:16px">lan</span></span>Add gRPC request</button>
+      {@render item('drive_file_move', $t('nav.menu.saveToFolder'), () => { closeMenu(); onSaveAs(); })}
       <div class="dv"></div>
-      <button class="mi" onclick={onAddFolder}><span class="ic"><span class="material-symbols-outlined" style="font-size:16px">create_new_folder</span></span>New Folder</button>
+      <div class="lbl">{$t('nav.menu.requestType')}</div>
+      {@render item('language', 'HTTP', () => onSwitch('http'))}
+      {@render item('hub', 'gRPC', () => onSwitch('grpc'))}
+    {:else if menu.kind === 'coll'}
+      <div class="lbl">{$t('nav.menu.inFolderDefault', { name: node?.name ?? $t('nav.menu.folderDefault') })}</div>
+      {@render item('add', $t('nav.menu.http'), () => onAddRequest('http'))}
+      {@render item('hub', $t('nav.menu.grpc'), () => onAddRequest('grpc'))}
+      {@render item('create_new_folder', $t('nav.menu.folder'), onAddFolder)}
       {#if menu.nodeId}
-        <button class="mi" onclick={onSaveHere}><span class="ic"><span class="material-symbols-outlined" style="font-size:16px">note_add</span></span>Save Request Here<span class="sc">⌘S</span></button>
+        {@render item('note_add', $t('nav.menu.saveHere'), onSaveHere, '⌘S')}
         {#if menu.isFolder}
           <div class="dv"></div>
-          <button class="mi" onclick={() => onExportOpenApi('json')}><span class="ic"><span class="material-symbols-outlined" style="font-size:16px">download</span></span>Export as OpenAPI (JSON)</button>
-          <button class="mi" onclick={() => onExportOpenApi('yaml')}><span class="ic"><span class="material-symbols-outlined" style="font-size:16px">download</span></span>Export as OpenAPI (YAML)</button>
+          {@render item('play_arrow', $t('nav.menu.runInRunner'), () => { const id = menu.nodeId!; closeMenu(); runInRunner(id); })}
+          {@render item('lock', $t('nav.menu.collAuth'), onAuth)}
+          {@render item('upload', $t('nav.menu.exportJson'), () => onExportOpenApi('json'))}
+          {@render item('upload', $t('nav.menu.exportYaml'), () => onExportOpenApi('yaml'))}
         {/if}
         <div class="dv"></div>
-        <button class="mi" onclick={onRename}><span class="ic"><span class="material-symbols-outlined" style="font-size:16px">edit</span></span>Rename</button>
-        <button class="mi" onclick={onDuplicate}><span class="ic"><span class="material-symbols-outlined" style="font-size:16px">content_copy</span></span>Duplicate</button>
-        <button class="mi" onclick={onMove}><span class="ic"><span class="material-symbols-outlined" style="font-size:16px">drive_file_move</span></span>Move…</button>
+        {@render item('edit', $t('nav.menu.rename'), onRename, 'F2')}
+        {@render item('content_copy', $t('nav.menu.duplicate'), onDuplicate, '⌘D')}
+        {@render item('drive_file_move', $t('nav.menu.moveTo'), onMove, '›')}
         <div class="dv"></div>
-        <button class="mi danger" onclick={onDelete}><span class="ic"><span class="material-symbols-outlined" style="font-size:16px">delete</span></span>Delete</button>
+        {@render item('delete', $t('nav.menu.delete'), onDelete, '⌫', 'danger')}
       {/if}
     {:else if menu.kind === 'req'}
-      <button class="mi" onclick={onRename}><span class="ic"><span class="material-symbols-outlined" style="font-size:16px">edit</span></span>Rename Request</button>
-      <button class="mi" onclick={openRequest}><span class="ic"><span class="material-symbols-outlined" style="font-size:16px">open_in_new</span></span>Open</button>
-      <button class="mi" onclick={onDuplicate}><span class="ic"><span class="material-symbols-outlined" style="font-size:16px">content_copy</span></span>Duplicate</button>
-      <button class="mi" onclick={onMove}><span class="ic"><span class="material-symbols-outlined" style="font-size:16px">drive_file_move</span></span>Move…</button>
+      {@render item('open_in_new', $t('nav.menu.openNewTab'), openRequest, '⌘↵', 'hint')}
+      {@render item('edit', $t('nav.menu.rename'), onRename, 'F2')}
+      {@render item('content_copy', $t('nav.menu.duplicate'), onDuplicate, '⌘D')}
       <div class="dv"></div>
-      <button class="mi danger" onclick={onDelete}><span class="ic"><span class="material-symbols-outlined" style="font-size:16px">delete</span></span>Delete</button>
+      {#if node?.kind === 'request' && node.protocol === 'http'}{@render item('code', $t('nav.menu.copyCurl'), onCopyCurl, '⌥⌘C')}{/if}
+      {@render item('drive_file_move', $t('nav.menu.moveTo'), onMove, '›')}
+      <div class="dv"></div>
+      {@render item('delete', $t('nav.menu.delete'), onDelete, '⌫', 'danger')}
     {:else if menu.kind === 'history'}
-      <button class="mi" onclick={() => { historyPaused.set(!$historyPaused); closeMenu(); }}>
-        <span class="ic"><span class="material-symbols-outlined" style="font-size:16px">{$historyPaused ? 'play_arrow' : 'pause'}</span></span>{$historyPaused ? 'Resume recording' : 'Pause recording'}
-      </button>
-      <button class="mi danger" onclick={() => { clearHistory(); closeMenu(); }}><span class="ic"><span class="material-symbols-outlined" style="font-size:16px">delete_sweep</span></span>Clear history</button>
+      {@render item($historyPaused ? 'play_arrow' : 'pause', $historyPaused ? $t('nav.menu.resume') : $t('nav.menu.pause'), () => { historyPaused.set(!$historyPaused); closeMenu(); })}
+      {@render item('delete_sweep', $t('nav.menu.clearHistory'), () => { clearHistory(); closeMenu(); }, '', 'danger')}
       <div class="dv"></div>
-      <div class="lbl">Keep last</div>
+      <div class="lbl">{$t('nav.menu.keepLast')}</div>
       {#each historyLimits as opt (opt.value)}
-        <button class="mi" onclick={() => { historyLimit.set(opt.value); closeMenu(); }}>
-          <span class="ic"></span>{opt.label}
-          {#if $historyLimit === opt.value}<span class="material-symbols-outlined" style="font-size:16px;margin-left:auto">check</span>{/if}
-        </button>
+        {@render item($historyLimit === opt.value ? 'check' : '', opt.value === 0 ? $t('nav.menu.all') : opt.label, () => { historyLimit.set(opt.value); closeMenu(); })}
       {/each}
     {/if}
   </div>

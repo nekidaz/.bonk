@@ -1,724 +1,709 @@
 <script lang="ts">
   /**
-   * Collection Runner, shown as a full-pane 'runner' tab (see openRunnerTab) —
-   * the sibling of EnvironmentsView. Runs a whole folder of saved requests
-   * (HTTP + gRPC) in sequence, with iterations, per-request delay,
-   * stop-on-failure, an optional CSV/JSON data file, live-streaming results, a
-   * summary, "Run again", and "Export report". All run logic lives in the runner
-   * store; this view is presentation + config editing only, mirroring how
-   * EnvironmentsView drives everything through the environments store helpers.
+   * Collection Runner (S36), shown as a full-pane 'runner' tab (see openRunnerTab).
+   * Stages: R1 pick a collection (RunnerPick), R2 set the run up (RunnerSetup),
+   * then the run itself — R3 while it goes (progress strip + live log, pause /
+   * stop) and R4 once it is done (summary with deltas to the previous run, the
+   * requests × iterations matrix with a waterfall, the selected call's details).
+   * Run logic lives in the runner store; the math in domain/runnerStats.
    */
+  import { onMount } from 'svelte';
   import {
     collections,
+    environments,
+    activeEnvironmentId,
     runnerConfig,
     runnerRun,
-    RUNNER_ROOT,
-    setRunnerFolder,
-    setIterations,
-    setDelay,
-    setStopOnFailure,
-    loadDataRows,
-    clearData,
+    runnerHistory,
+    runnerStage,
+    loadRunnerState,
+    runnerScopeTitle,
+    plannedRequests,
+    setRunnerStage,
     runCollection,
+    rerunFailed,
+    rerunCall,
+    togglePause,
+    stopRun,
+    bindIdFrom,
     exportReport,
+    openSavedRequest,
   } from '../stores';
-  import { idToRel } from '../domain/tree';
-  import { parseDataFile } from '../domain/runnerData';
+  import RunnerPick from './RunnerPick.svelte';
+  import RunnerSetup from './RunnerSetup.svelte';
+  import { findNode } from '../domain/tree';
   import { methodColor } from '../domain/method';
-  import type { TreeNode, RunResultRow } from '../domain/types';
+  import { formatBytes } from '../domain/http';
+  import { highlightJson } from '../domain/highlight';
+  import { ENV_COLOR_VAR, envColor } from '../domain/palette';
+  import {
+    buildMatrix, callTone, compactJson, durationDelta, insightFor, p95Delta, passedDelta, runBars,
+    runTimeLabel, statusLabel, summarizeRun, testDetail, waterfall, type MatrixRow,
+  } from '../domain/runnerStats';
+  import type { RequestNode } from '../domain/types';
+  import { t, tp } from '../i18n';
 
-  /** Flatten the tree into the pickable folder list: root + every folder, in tree order. */
-  interface FolderOption {
-    id: string;
-    label: string;
-  }
-  function folderOptions(nodes: TreeNode[]): FolderOption[] {
-    const out: FolderOption[] = [{ id: RUNNER_ROOT, label: 'All requests' }];
-    const walk = (list: TreeNode[], depth: number): void => {
-      for (const node of list) {
-        if (node.kind !== 'folder') continue;
-        out.push({ id: node.id, label: `${'  '.repeat(depth)}${node.name}` });
-        walk(node.children, depth + 1);
-      }
-    };
-    walk(nodes, 1);
-    return out;
-  }
-  const folders = $derived(folderOptions($collections));
+  onMount(() => void loadRunnerState());
 
-  // Count how many requests the chosen folder holds, for the empty state + hint.
-  function countRequests(nodes: TreeNode[]): number {
-    let n = 0;
-    for (const node of nodes) {
-      if (node.kind === 'request') n++;
-      else n += countRequests(node.children);
-    }
-    return n;
-  }
-  function findFolder(nodes: TreeNode[], id: string): TreeNode | undefined {
-    for (const node of nodes) {
-      if (node.id === id) return node;
-      if (node.kind === 'folder') {
-        const hit = findFolder(node.children, id);
-        if (hit) return hit;
-      }
-    }
-    return undefined;
-  }
-  const selectedRequestCount = $derived.by(() => {
-    const fid = $runnerConfig.folderId;
-    if (!fid || fid === RUNNER_ROOT) return countRequests($collections);
-    const node = findFolder($collections, fid);
-    if (!node) return 0;
-    if (node.kind === 'request') return 1;
-    return countRequests(node.children);
+  // ---- Scope ----
+  const scopeIds = $derived($runnerConfig.folderIds.filter((id) => findNode($collections, id)));
+  const title = $derived(runnerScopeTitle(scopeIds, $collections, $t));
+  const planned = $derived(plannedRequests($runnerConfig, $collections));
+  const scopeText = $derived.by(() => {
+    const extra = scopeIds.slice(1).map((id) => findNode($collections, id)?.name).filter(Boolean);
+    const count = `${planned.length} ${$tp(planned.length, ['запрос', 'запроса', 'запросов'], ['request', 'requests'])}`;
+    return extra.length ? `+ ${extra.join(', ')} · ${count}` : count;
   });
 
+  const env = $derived($environments.find((e) => e.id === $activeEnvironmentId));
   const dataDriven = $derived($runnerConfig.dataRows.length > 0);
   const iterationCount = $derived(dataDriven ? $runnerConfig.dataRows.length : $runnerConfig.iterations);
-  const plannedExecutions = $derived(selectedRequestCount * iterationCount);
-  const selectedFolderLabel = $derived(
-    (folders.find((folder) => folder.id === ($runnerConfig.folderId ?? RUNNER_ROOT))?.label ?? 'All requests')
-      .replace(/ /g, ' ')
-      .trim(),
-  );
-  const running = $derived($runnerRun.status === 'running');
-  const finished = $derived($runnerRun.status === 'done' || $runnerRun.status === 'stopped');
-  const passed = $derived($runnerRun.results.filter((r) => r.ok).length);
-  const failed = $derived($runnerRun.results.filter((r) => !r.ok).length);
-  const progressPct = $derived(
-    $runnerRun.total > 0 ? Math.round(($runnerRun.completed / $runnerRun.total) * 100) : 0,
-  );
-  const wallClockMs = $derived(
-    $runnerRun.startedAt && $runnerRun.finishedAt ? $runnerRun.finishedAt - $runnerRun.startedAt : 0,
-  );
 
-  // Hidden file input drives the data-file picker. This is a Tauri webview, so a
-  // browser <input type=file> + FileReader reads the text directly (no fs round
-  // trip); the picked file's extension selects the parser.
-  let fileInput: HTMLInputElement | undefined = $state();
-  let dataError = $state('');
+  // ---- Run + summary ----
+  const run = $derived($runnerRun);
+  const running = $derived(run.status === 'running');
+  const hasRun = $derived(run.n > 0 && run.startedAt !== null);
+  const failedRows = $derived(run.results.filter((r) => !r.ok));
+  const current = $derived(
+    hasRun ? summarizeRun(run.n, run.startedAt ?? 0, run.finishedAt ?? Date.now(), run.results) : undefined,
+  );
+  const prev = $derived(current ? $runnerHistory.filter((h) => h.n < current.n).at(-1) : undefined);
+  const bars = $derived(runBars($runnerHistory));
+  const currentN = $derived(run.n || $runnerHistory.at(-1)?.n);
 
-  async function onFilePicked(e: Event): Promise<void> {
-    const input = e.currentTarget as HTMLInputElement;
-    const file = input.files?.[0];
-    input.value = ''; // allow re-picking the same file
-    if (!file) return;
-    dataError = '';
-    try {
-      const text = await file.text();
-      const rows = parseDataFile(file.name, text);
-      if (rows.length === 0) {
-        dataError = 'That data file has no rows.';
-        return;
-      }
-      loadDataRows(file.name, rows);
-    } catch (err) {
-      dataError = err instanceof Error ? err.message : String(err);
+  // A live clock while running (elapsed, ETA, the call in flight).
+  let now = $state(Date.now());
+  $effect(() => {
+    if (!running) return;
+    const id = setInterval(() => (now = Date.now()), 100);
+    return () => clearInterval(id);
+  });
+
+  // ---- R3: progress + log ----
+  const curIter = $derived(run.iterStarts.length);
+  const okCount = $derived(run.results.filter((r) => r.ok).length);
+  const elapsedS = $derived(run.startedAt ? (now - run.startedAt) / 1000 : 0);
+  const leftS = $derived(run.completed > 0 ? (elapsedS / run.completed) * (run.total - run.completed) : 0);
+  const fmtLogTime = (ms: number) => (ms / 1000).toFixed(3).padStart(6, '0');
+  const log = $derived.by(() => {
+    const items = run.results.map((r) => ({ at: r.endMs ?? 0, kind: 'call' as const, r }));
+    const iters = run.iterations > 1 ? run.iterStarts.map((at, i) => ({ at, kind: 'iter' as const, n: i + 1 })) : [];
+    return [...items, ...iters].sort((a, b) => b.at - a.at || (a.kind === 'iter' ? 1 : -1));
+  });
+
+  // ---- Matrix ----
+  const iterations = $derived(hasRun ? run.iterations : iterationCount);
+  const emptyRow = (n: RequestNode): MatrixRow => ({
+    key: n.id, name: n.name, method: n.protocol === 'grpc' ? 'gRPC' : n.request.method, protocol: n.protocol, nodeId: n.id,
+    cells: Array(iterations).fill(undefined),
+  });
+  const rows: MatrixRow[] = $derived.by(() => {
+    const base = buildMatrix(run.results, iterations);
+    // While running, requests not reached yet still get their (pending) row.
+    if (running) return [...base, ...planned.filter((n) => !base.some((r) => r.nodeId === n.id)).map(emptyRow)];
+    return base.length > 0 ? base : planned.map(emptyRow);
+  });
+
+  let sel = $state<{ key: string; iter: number } | null>(null);
+  const selIdx = $derived(sel ? rows.findIndex((r) => r.key === sel!.key) : -1);
+  const selCall = $derived(sel && selIdx >= 0 ? rows[selIdx].cells[sel.iter - 1] : undefined);
+  const wfIter = $derived(running ? Math.max(1, curIter) : (sel?.iter ?? iterations));
+  const bars2 = $derived(waterfall(rows.map((r) => r.cells[wfIter - 1])));
+
+  // A fresh run clears the selection; a finished one selects its first failure.
+  let lastStatus = '';
+  $effect(() => {
+    const st = run.status;
+    if (st === lastStatus) return;
+    if (st === 'running' && run.completed === 0) sel = null;
+    if ((st === 'done' || st === 'stopped') && !sel && failedRows[0]) sel = { key: keyOf(failedRows[0]), iter: failedRows[0].iteration };
+    lastStatus = st;
+  });
+  function keyOf(r: { nodeId?: string; method: string; requestName: string }): string {
+    return r.nodeId ?? `${r.method} ${r.requestName}`;
+  }
+
+  function move(dRow: number, dIter: number): void {
+    if (rows.length === 0) return;
+    const i = Math.min(rows.length - 1, Math.max(0, (selIdx < 0 ? 0 : selIdx + dRow)));
+    const it = Math.min(iterations, Math.max(1, (sel?.iter ?? iterations) + dIter));
+    sel = { key: rows[i].key, iter: it };
+  }
+
+  function onKey(e: KeyboardEvent): void {
+    const stage = $runnerStage;
+    if ((e.metaKey || e.ctrlKey) && (e.key === 'r' || e.key === 'R')) {
+      e.preventDefault();
+      if (!running && stage !== 'pick' && planned.length > 0) void runCollection();
+      return;
     }
+    const tgt = e.target as HTMLElement | null;
+    if (stage !== 'run' || e.metaKey || e.ctrlKey || e.altKey) return;
+    if (tgt?.closest('input, textarea, select, [contenteditable], [role=tablist], [role=menu], [role=listbox], [role=dialog]')) return;
+    if (e.key === 'Escape' && running) {
+      e.preventDefault();
+      stopRun();
+      return;
+    }
+    const d = { ArrowUp: [-1, 0], ArrowDown: [1, 0], ArrowLeft: [0, -1], ArrowRight: [0, 1] }[e.key];
+    if (!d || running) return;
+    e.preventDefault();
+    move(d[0], d[1]);
   }
 
-  // Expandable result rows.
-  let expanded = $state<Record<string, boolean>>({});
-  function toggle(id: string): void {
-    expanded = { ...expanded, [id]: !expanded[id] };
+  // ---- Detail ----
+  const insight = $derived(selCall ? insightFor(selCall, run.results, $t) : null);
+  const testsPassed = $derived(selCall ? selCall.tests.filter((x) => x.passed).length : 0);
+  let bound = $state<string | null>(null);
+  async function bind(): Promise<void> {
+    if (!selCall?.nodeId || !insight?.bind) return;
+    if (await bindIdFrom(selCall.nodeId, insight.bind)) bound = selCall.id;
   }
+  function openRequest(): void {
+    const node = selCall?.nodeId ? findNode($collections, selCall.nodeId) : undefined;
+    if (node?.kind === 'request') openSavedRequest(node);
+  }
+  const pad2 = (n: number) => String(n).padStart(2, '0');
 
-  // Transient "Copied" confirmation after Export report.
   let copied = $state(false);
-  let copiedTimer: ReturnType<typeof setTimeout> | undefined;
   async function doExport(): Promise<void> {
-    const ok = await exportReport();
-    if (!ok) return;
+    if (!(await exportReport())) return;
     copied = true;
-    if (copiedTimer) clearTimeout(copiedTimer);
-    copiedTimer = setTimeout(() => (copied = false), 1400);
+    setTimeout(() => (copied = false), 1400);
   }
-
-  function statusOk(row: RunResultRow): boolean {
-    return row.ok;
-  }
-  function statusText(row: RunResultRow): string {
-    return String(row.status);
-  }
+  const setup = () => setRunnerStage('setup');
 </script>
 
-<div class="bs-run">
-  <div class="bs-run-shell">
-    <header class="bs-run-hero">
-      <div>
-        <h2>Collection Runner</h2>
-        <p>{selectedFolderLabel} · {selectedRequestCount} request{selectedRequestCount === 1 ? '' : 's'} · {plannedExecutions} execution{plannedExecutions === 1 ? '' : 's'}</p>
-      </div>
-      <button
-        class="bs-run-go"
-        type="button"
-        onclick={() => void runCollection()}
-        disabled={selectedRequestCount === 0 || running}
-      >
-        <span class="material-symbols-outlined">{running ? 'progress_activity' : finished ? 'replay' : 'play_arrow'}</span>
-        {running ? 'Running…' : finished ? 'Run again' : 'Run'}
-        {#if !running && plannedExecutions > 0}<small>{plannedExecutions}</small>{/if}
-      </button>
-    </header>
+<svelte:window onkeydown={onKey} />
 
-    <section class="bs-run-config">
-      <div class="bs-run-config-grid">
-        <label class="bs-run-field scope">
-          <span class="bs-run-label">Request scope</span>
-          <span class="bs-run-control">
-            <span class="material-symbols-outlined">folder_open</span>
-            <select
-              value={$runnerConfig.folderId ?? RUNNER_ROOT}
-              onchange={(e) => setRunnerFolder(e.currentTarget.value === RUNNER_ROOT ? null : e.currentTarget.value)}
-              disabled={running}
-            >
-              {#each folders as f (f.id)}
-                <option value={f.id}>{f.label}</option>
-              {/each}
-            </select>
-            <span class="material-symbols-outlined chevron">expand_more</span>
-          </span>
-        </label>
+{#snippet eyebrow(text: string)}<div class="rn-eyebrow">{text}</div>{/snippet}
+{#snippet delta(d: { text: string; tone: string } | null)}{#if d}<span class="rn-delta {d.tone}">{d.text}</span>{/if}{/snippet}
 
-        <label class="bs-run-field sm">
-          <span class="bs-run-label">Iterations</span>
-          {#if dataDriven}
-            <span class="bs-run-control">
-              <span class="material-symbols-outlined">table_rows</span>
-              <input type="text" value={`${$runnerConfig.dataRows.length} rows`} disabled title="Iteration count comes from the loaded data file" />
-            </span>
-          {:else}
-            <span class="bs-run-control">
-              <span class="material-symbols-outlined">repeat</span>
-              <input
-                type="number"
-                min="1"
-                value={$runnerConfig.iterations}
-                oninput={(e) => setIterations(Number(e.currentTarget.value))}
-                disabled={running}
-              />
-            </span>
-          {/if}
-        </label>
-
-        <label class="bs-run-field sm">
-          <span class="bs-run-label">Delay</span>
-          <span class="bs-run-control suffix">
-            <span class="material-symbols-outlined">timer</span>
-            <input
-              type="number"
-              min="0"
-              value={$runnerConfig.delayMs}
-              oninput={(e) => setDelay(Number(e.currentTarget.value))}
-              disabled={running}
-            />
-            <i>ms</i>
-          </span>
-        </label>
-
-        <label class="bs-run-stop">
-          <input
-            type="checkbox"
-            checked={$runnerConfig.stopOnFailure}
-            onchange={(e) => setStopOnFailure(e.currentTarget.checked)}
-            disabled={running}
-          />
-          <span class="bs-run-switch"><i></i></span>
-          <span><b>Stop on failure</b><small>End the run after the first failed request</small></span>
-        </label>
-      </div>
-
-      <div class="bs-run-data-row">
-        <div class="bs-run-data-copy">
-          <span class="material-symbols-outlined">database</span>
-          <div><b>Iteration data</b><small>Optional CSV or JSON variables for data-driven runs</small></div>
-        </div>
-        {#if $runnerConfig.dataFileName}
-          <div class="bs-run-datafile">
-            <span class="material-symbols-outlined">description</span>
-            <span class="bs-run-dataname" title={$runnerConfig.dataFileName}>{$runnerConfig.dataFileName}</span>
-            <span class="bs-run-datacount">{$runnerConfig.dataRows.length} rows</span>
-            <button class="bs-run-icon" type="button" title="Remove data file" aria-label="Remove data file" onclick={clearData} disabled={running}>
-              <span class="material-symbols-outlined">close</span>
-            </button>
-          </div>
-        {:else}
-          <button class="bs-run-file" type="button" onclick={() => fileInput?.click()} disabled={running}>
-            <span class="material-symbols-outlined">upload_file</span>
-            Choose CSV or JSON
+<div class="rn">
+  {#if $runnerStage === 'pick'}
+    <RunnerPick />
+  {:else if $runnerStage === 'setup'}
+    <RunnerSetup />
+  {:else}
+  <header class="rn-head">
+    <div class="rn-crumb">
+      {@render eyebrow(hasRun
+        ? `RUNNER  /  ${$t('runner.runN', { n: run.n })}  ·  ${running ? $t(run.paused ? 'runner.crumb.paused' : 'runner.crumb.live') : runTimeLabel(run.startedAt ?? 0, Date.now(), $t)}`
+        : 'RUNNER')}
+      <div class="rn-titlerow">
+        <h2 class="rn-title" title={title}>{title}</h2>
+        <button class="rn-chip" type="button" onclick={setup} disabled={running}>
+          <span class="material-symbols-outlined" aria-hidden="true">folder</span>{scopeText}
+        </button>
+        <button class="rn-chip" type="button" onclick={setup} disabled={running}>
+          <i class="rn-dot" style="background:{env ? ENV_COLOR_VAR[envColor(env)] : 'var(--color-text-muted)'}"></i>{env?.name ?? $t('runner.noEnv')}
+        </button>
+        <button class="rn-chip" type="button" onclick={setup} disabled={running}>
+          <span class="material-symbols-outlined" aria-hidden="true">repeat</span>{iterations} {$tp(iterations, ['итерация', 'итерации', 'итераций'], ['iteration', 'iterations'])}
+        </button>
+        <button class="rn-chip" type="button" onclick={setup} disabled={running}>
+          <span class="material-symbols-outlined" aria-hidden="true">timer</span>{$runnerConfig.delayMs} ms
+        </button>
+        <button class="rn-icon" type="button" title={$t('runner.settings')} aria-label={$t('runner.settings')} onclick={setup} disabled={running}>
+          <span class="material-symbols-outlined" aria-hidden="true">tune</span>
+        </button>
+        {#if !running && run.results.length > 0}
+          <button class="rn-icon" type="button" title={copied ? $t('runner.copied') : $t('runner.exportReport')} aria-label={$t('runner.exportReport')} onclick={doExport}>
+            <span class="material-symbols-outlined" aria-hidden="true">{copied ? 'check' : 'ios_share'}</span>
           </button>
         {/if}
-        <input bind:this={fileInput} type="file" accept=".csv,.json" onchange={onFilePicked} style="display:none" />
       </div>
-
-      {#if dataError}
-        <div class="bs-run-err"><span class="material-symbols-outlined">error</span>{dataError}</div>
-      {/if}
-
-      {#if running}
-        <div class="bs-run-running">
-          <div class="bs-run-running-copy"><span>Running collection</span><b>{$runnerRun.completed} / {$runnerRun.total}</b></div>
-          <div class="bs-run-progress" role="progressbar" aria-valuemin={0} aria-valuemax={$runnerRun.total} aria-valuenow={$runnerRun.completed}>
-            <div class="bs-run-bar" style="width:{progressPct}%"></div>
-          </div>
-        </div>
-      {/if}
-    </section>
-
-  <!-- Summary (when done/stopped) -->
-  {#if finished && $runnerRun.results.length > 0}
-    <div class="bs-run-summary">
-      <div class="bs-run-summary-title"><span class="material-symbols-outlined">analytics</span><div><b>Run complete</b><small>{$runnerRun.status === 'stopped' ? 'Stopped before every request completed' : 'All scheduled requests completed'}</small></div></div>
-      <div class="bs-run-stat pass"><b>{passed}</b><span>Passed</span></div>
-      <div class="bs-run-stat fail"><b>{failed}</b><span>Failed</span></div>
-      <div class="bs-run-stat"><b>{$runnerRun.completed}</b><span>Requests</span></div>
-      <div class="bs-run-stat"><b>{wallClockMs}</b><span>Milliseconds</span></div>
-      {#if $runnerRun.status === 'stopped'}<div class="bs-run-stat stopped">stopped early</div>{/if}
-      <span class="bs-spacer"></span>
-      <button class="bs-run-btn" type="button" onclick={doExport}>
-        <span class="material-symbols-outlined">{copied ? 'check' : 'content_copy'}</span>
-        {copied ? 'Copied' : 'Export report'}
-      </button>
     </div>
+    {#if running}
+      <button class="rn-btn" type="button" onclick={togglePause}>{run.paused ? $t('runner.resume') : $t('runner.pause')}</button>
+      <button class="rn-btn stop" type="button" onclick={stopRun}>
+        <i class="rn-stopicon" aria-hidden="true"></i><b>{$t('runner.stop')}</b><kbd>Esc</kbd>
+      </button>
+    {:else}
+      {#if failedRows.length > 0}
+        <button class="rn-btn" type="button" onclick={() => void rerunFailed()}>
+          <span class="material-symbols-outlined danger" aria-hidden="true">replay</span>{$t('runner.rerunFailed', { n: failedRows.length })}
+        </button>
+      {/if}
+      <button class="rn-btn primary" type="button" onclick={() => void runCollection()} disabled={planned.length === 0}>
+        <span class="material-symbols-outlined" aria-hidden="true">play_arrow</span><b>{$t('runner.runAll')}</b><kbd>⌘R</kbd>
+      </button>
+    {/if}
+  </header>
+
+  {#if running}
+    <section class="rn-progress" aria-live="polite">
+      <div class="rn-prow">
+        <b class="rn-pnum">{run.completed}</b><span class="rn-pof">{$t('runner.progress.of', { n: run.total })}</span>
+        {#if run.iterations > 1}<span class="rn-ppill">{$t('runner.progress.iter', { i: curIter, n: run.iterations })}</span>{/if}
+        <span class="sp"></span>
+        <span class="rn-pok">{okCount} ✓</span>
+        {#if run.completed - okCount > 0}<span class="rn-pbad">{run.completed - okCount} ✗</span>{/if}
+        <span class="rn-ptime">{$t('runner.progress.time', { el: elapsedS.toFixed(1), left: leftS.toFixed(1) })}</span>
+      </div>
+      <div class="rn-segs" class:dense={run.total > 60}>
+        {#each { length: run.total } as _, i (i)}
+          <i class:ok={run.results[i]?.ok} class:bad={run.results[i] && !run.results[i].ok} class:cur={i === run.completed}></i>
+        {/each}
+      </div>
+    </section>
+  {:else}
+  <section class="rn-stats">
+    <div class="rn-stat">
+      {@render eyebrow($t('runner.stat.passed'))}
+      <div class="rn-stat-row">
+        <b class="ok">{current ? current.passed : '—'}</b>{#if current}<span>/ {current.total}</span>{/if}
+        {@render delta(current ? passedDelta(current, prev, $t) : null)}
+      </div>
+    </div>
+    <div class="rn-stat">
+      {@render eyebrow($t('runner.stat.total'))}
+      <div class="rn-stat-row">
+        <b>{current ? (current.durationMs / 1000).toFixed(1) : '—'}</b>{#if current}<span>s</span>{/if}
+        {@render delta(current ? durationDelta(current, prev) : null)}
+      </div>
+    </div>
+    <div class="rn-stat">
+      {@render eyebrow($t('runner.stat.p95'))}
+      <div class="rn-stat-row">
+        <b>{current ? current.p95Ms : '—'}</b>{#if current}<span>ms</span>{/if}
+        {@render delta(current ? p95Delta(current, prev) : null)}
+      </div>
+    </div>
+    <div class="rn-stat">
+      {@render eyebrow($t('runner.stat.last', { n: Math.max(bars.length, 1), runs: $tp(Math.max(bars.length, 1), ['ПРОГОН', 'ПРОГОНА', 'ПРОГОНОВ'], ['RUN', 'RUNS']) }))}
+      <div class="rn-bars" aria-label={$t('runner.stat.durations')}>
+        {#each bars as b, i (i)}
+          <i class:failed={b.failed} class:current={b.n === currentN} style="height:{b.h}px" title="#{b.n}"></i>
+        {/each}
+      </div>
+    </div>
+  </section>
   {/if}
 
-  <!-- Results list -->
-  <div class="bs-run-results">
-    {#if $runnerRun.results.length > 0 || running}
-      <div class="bs-run-results-head">
-        <div><b>Run results</b><span>Requests appear here as they complete.</span></div>
-        {#if running}<span class="bs-run-live"><i></i>Live</span>{/if}
-      </div>
-    {/if}
-    {#if $runnerRun.results.length === 0 && !running}
-      <div class="bs-run-empty">
-        {#if selectedRequestCount === 0}
-          <span class="material-symbols-outlined bs-run-empty-symbol">folder_off</span>
-          <h3>No requests in this scope</h3>
-          <p>Choose a folder with saved requests, or select “All requests”.</p>
-        {:else}
-          <span class="material-symbols-outlined bs-run-empty-symbol">playlist_play</span>
-          <h3>Ready to run</h3>
-          <p>{selectedRequestCount} request{selectedRequestCount === 1 ? '' : 's'}, {iterationCount} iteration{iterationCount === 1 ? '' : 's'}, {plannedExecutions} total execution{plannedExecutions === 1 ? '' : 's'}.</p>
+  <div class="rn-split">
+    <section class="rn-matrix" style="--iters:{iterations}">
+      <div class="rn-scroll">
+        <div class="rn-grid rn-ghead">
+          <span></span>
+          <span>{$t('runner.col.request')}</span>
+          {#each { length: iterations } as _, i (i)}<span class="c">{$t('runner.col.iter', { n: i + 1 })}</span>{/each}
+          <span>{$t('runner.col.waterfall', { n: wfIter })}</span>
+          <span class="r">{$t('runner.col.time')}</span>
+        </div>
+        {#each rows as row, ri (row.key)}
+          {@const call = row.cells[wfIter - 1]}
+          {@const bar = bars2[ri]}
+          {@const live = running && run.current?.nodeId === row.nodeId}
+          <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
+          <div class="rn-grid rn-row" class:sel={running ? live : ri === selIdx} class:live
+            onclick={() => !running && (sel = { key: row.key, iter: sel?.iter ?? iterations })}>
+            <span class="rn-no">{pad2(ri + 1)}</span>
+            <span class="rn-req">
+              <b style="color:{methodColor(row.protocol === 'grpc' ? 'GRPC' : row.method)}">{row.method}</b>
+              <span class="rn-name" title={row.name}>{row.name}</span>
+            </span>
+            {#each row.cells as c, ci (ci)}
+              {@const cur = live && ci + 1 === curIter}
+              <span class="c">
+                <button type="button" class="rn-cell" class:ok={c?.ok} class:bad={c && !c.ok} class:pending={running && !c} class:cur
+                  class:on={!running && ri === selIdx && sel?.iter === ci + 1} disabled={running}
+                  aria-label={$t('runner.cell.aria', { name: row.name, n: ci + 1, status: c ? statusLabel(c.status) : $t('runner.cell.noData') })}
+                  onclick={(e) => { e.stopPropagation(); sel = { key: row.key, iter: ci + 1 }; }}>{c ? c.status : cur ? '···' : '—'}</button>
+              </span>
+            {/each}
+            <span class="rn-wf">{#if bar}<i class={bar.tone} style="left:{bar.left}%;width:{bar.width}%"></i>{/if}</span>
+            <span class="rn-time r" class:slow={call && callTone(call) === 'slow'}>
+              {call ? `${call.elapsedMs} ms` : live && run.current ? `${((now - run.current.startedAt) / 1000).toFixed(1)} s` : running ? '—' : ''}
+            </span>
+          </div>
+        {/each}
+        <div class="rn-legend">
+          <span><i></i>{$t('runner.legend.normal')}</span>
+          <span><i class="slow"></i>{$t('runner.legend.slow')}</span>
+          <span><i class="error"></i>{$t('runner.legend.error')}</span>
+          <span class="sp"></span>
+          <span>{$t('runner.legend.keys')}</span>
+        </div>
+        {#if rows.length === 0}
+          <p class="rn-empty">{$t('runner.empty')}</p>
         {/if}
       </div>
-    {:else}
-      {#each $runnerRun.results as row (row.id)}
-        {@const hasDetail = row.tests.length > 0 || row.logs.length > 0 || !!row.error}
-        <div class="bs-run-row" class:fail={!statusOk(row)}>
-          <button class="bs-run-rowhead" type="button" onclick={() => hasDetail && toggle(row.id)} disabled={!hasDetail}>
-            <span class="bs-run-chev">
-              {#if hasDetail}<span class="material-symbols-outlined" style="font-size:16px">{expanded[row.id] ? 'expand_more' : 'chevron_right'}</span>{/if}
-            </span>
-            <span class="bs-run-iter">#{row.iteration}</span>
-            <span class="bs-run-method" style="color:{methodColor(row.protocol === 'grpc' ? 'GRPC' : row.method)}">{row.protocol === 'grpc' ? 'gRPC' : row.method}</span>
-            <span class="bs-run-name" title={row.target}>{row.requestName}</span>
-            <span class="bs-run-target" title={row.target}>{row.target}</span>
-            <span class="bs-spacer"></span>
-            {#if row.tests.length > 0}
-              <span class="bs-run-tests">{row.tests.filter((t) => t.passed).length}/{row.tests.length} tests</span>
-            {/if}
-            <span class="bs-run-status" class:ok={statusOk(row)}>{statusText(row)}</span>
-            <span class="bs-run-ms">{row.elapsedMs} ms</span>
-          </button>
-          {#if hasDetail && expanded[row.id]}
-            <div class="bs-run-detail">
-              {#if row.error}
-                <div class="bs-run-fatal">{row.error}</div>
-              {/if}
-              {#each row.tests as t, i (i)}
-                <div class="bs-run-test" class:fail={!t.passed}>
-                  <span class="material-symbols-outlined" style="font-size:15px">{t.passed ? 'check_circle' : 'cancel'}</span>
-                  <span class="bs-run-test-name">{t.name}</span>
-                  {#if !t.passed && t.error}<span class="bs-run-test-err">{t.error}</span>{/if}
-                </div>
-              {/each}
-              {#if row.logs.length > 0}
-                <div class="bs-run-logs">
-                  {#each row.logs as line, i (i)}
-                    <div class="bs-run-logline">{line}</div>
-                  {/each}
-                </div>
+    </section>
+
+    {#if running}
+      <aside class="rn-detail rn-log" aria-label={$t('runner.log')}>
+        {@render eyebrow($t('runner.log'))}
+        <div class="rn-logcur">
+          <span class="rn-logstate"><i class:paused={run.paused}></i>{run.paused ? $t('runner.log.paused') : $t('runner.log.running')}</span>
+          {#if run.current}<span class="rn-logcall">{run.current.method} {run.current.name} · {((now - run.current.startedAt) / 1000).toFixed(1)} s</span>{/if}
+        </div>
+        <div class="rn-logs">
+          {#each log as e (e.kind === 'call' ? e.r.id : `i${e.n}`)}
+            <div class="rn-logrow">
+              <span class="rn-logt">{fmtLogTime(e.at)}</span>
+              {#if e.kind === 'call'}
+                <span class="rn-logbody">
+                  <b>{e.r.method} {e.r.requestName}</b>
+                  <small class:bad={!e.r.ok}>{e.r.status} · {e.r.ok ? `${e.r.elapsedMs} ms` : (e.r.error ?? $t('runner.log.testFailed'))}</small>
+                </span>
+              {:else}
+                <span class="rn-logbody">
+                  <b>{$t('runner.log.iter', { n: e.n })}</b>
+                  {#if $runnerConfig.dataFileName}<small class="mute">{$t('runner.log.row', { file: $runnerConfig.dataFileName, n: e.n })}</small>{/if}
+                </span>
               {/if}
             </div>
-          {/if}
+          {/each}
         </div>
-      {/each}
+      </aside>
+    {:else if selCall}
+      <aside class="rn-detail" aria-label={$t('runner.detail')}>
+        <div class="rn-dhead">
+          <div class="rn-drow">
+            {@render eyebrow($t('runner.detail.iteration', { n: selCall.iteration, pos: pad2(selIdx + 1), total: pad2(rows.length) }))}
+            <button class="rn-icon" type="button" aria-label={$t('common.close')} onclick={() => (sel = null)}>
+              <span class="material-symbols-outlined" aria-hidden="true">close</span>
+            </button>
+          </div>
+          <div class="rn-dtitle">
+            <b style="color:{methodColor(selCall.protocol === 'grpc' ? 'GRPC' : selCall.method)}">{selCall.method}</b>
+            <span>{selCall.requestName}</span>
+          </div>
+          <div class="rn-dstatus">
+            <span class="rn-pill" class:ok={selCall.ok}>{statusLabel(selCall.status)}</span>
+            <span>{[`${selCall.elapsedMs} ms`, selCall.sizeBytes !== undefined ? formatBytes(selCall.sizeBytes) : ''].filter(Boolean).join(' · ')}</span>
+          </div>
+          {#if selCall.error}<div class="rn-err">{selCall.error}</div>{/if}
+        </div>
+
+        {#if insight}
+          <div class="rn-insight">
+            <div class="rn-insight-head"><span class="material-symbols-outlined" aria-hidden="true">lightbulb</span>{$t('runner.detail.cause')}</div>
+            <p>{insight.text}</p>
+            {#if insight.bind && selCall.nodeId}
+              <button class="rn-link" type="button" onclick={bind} disabled={bound === selCall.id}>
+                <span class="material-symbols-outlined" aria-hidden="true">{bound === selCall.id ? 'check' : 'link'}</span>
+                {bound === selCall.id ? $t('runner.detail.bound', { name: insight.bind.varName }) : $t('runner.detail.bindFrom', { name: insight.bind.sourceName })}
+              </button>
+            {/if}
+          </div>
+        {/if}
+
+        {#if selCall.tests.length > 0}
+          <div class="rn-tests">
+            {@render eyebrow($t('runner.detail.tests', { passed: testsPassed, total: selCall.tests.length }))}
+            {#each selCall.tests as tr, i (i)}
+              <div class="rn-test" class:fail={!tr.passed}>
+                <b>{tr.passed ? '✓' : '✗'}</b><span>{tr.name}</span><small>{testDetail(tr, selCall)}</small>
+              </div>
+            {/each}
+          </div>
+        {/if}
+
+        {#if selCall.responseBody}
+          <div class="rn-resp">
+            {@render eyebrow($t('runner.detail.response'))}
+            <div class="rn-code">{@html highlightJson(compactJson(selCall.responseBody), false)}</div>
+          </div>
+        {/if}
+
+        <div class="rn-actions">
+          <button class="rn-btn grow" type="button" onclick={openRequest} disabled={!selCall.nodeId}>{$t('runner.detail.open')}</button>
+          <button class="rn-btn" type="button" onclick={() => selCall && void rerunCall(selCall.id)} disabled={running}>{$t('runner.detail.retry')}</button>
+        </div>
+      </aside>
     {/if}
   </div>
-  </div>
+  {/if}
 </div>
 
 <style>
-  .bs-run {
+  .rn {
     flex: 1;
     min-height: 0;
     display: flex;
     flex-direction: column;
-    overflow: hidden;
-    background: var(--canvas);
-  }
-  .bs-run-shell {
-    width: 100%;
-    flex: 1;
-    min-height: 0;
-    display: flex;
-    flex-direction: column;
-  }
-  .bs-run-hero {
-    min-height: 58px;
-    display: flex;
-    align-items: center;
     gap: 16px;
-    flex: none;
-    padding: 9px 14px;
-    background: var(--surface);
-    border-bottom: 1px solid var(--sepsoft);
-  }
-  .bs-run-hero > div { min-width: 0; }
-  .bs-run-hero h2 { margin: 0; color: var(--text); font-size: 14px; line-height: 1.25; }
-  .bs-run-hero p { margin: 2px 0 0; overflow: hidden; color: var(--t3); font-size: 10.5px; text-overflow: ellipsis; white-space: nowrap; }
-  .bs-run-config {
-    flex: none;
+    padding: 6px 20px 20px;
     overflow: hidden;
-    margin: 12px 14px 0;
-    background: var(--surface);
-    border: 1px solid var(--sepsoft);
-    border-radius: 7px;
+    line-height: normal;
+    color: var(--color-text);
   }
-  .bs-run-config-grid {
-    display: grid;
-    grid-template-columns: minmax(230px, 1.4fr) 130px 130px minmax(230px, 1fr);
-    gap: 10px;
-    padding: 10px 12px;
+  .rn :global(.material-symbols-outlined) { font-variation-settings: 'wght' 300; }
+  .rn :global(.rn-eyebrow) {
+    color: var(--color-text-muted);
+    font: 500 var(--font-size-micro) / 13px var(--font-code);
+    letter-spacing: var(--tracking-eyebrow);
+    white-space: pre;
   }
-  .bs-run-field { min-width: 0; display: flex; flex-direction: column; gap: 5px; }
-  .bs-run-label {
-    font-size: 9.5px;
-    font-weight: 700;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    color: var(--t3);
-  }
-  .bs-run-control {
-    height: 34px;
-    min-width: 0;
-    display: flex;
-    align-items: center;
-    position: relative;
-    color: var(--t3);
-    background: var(--inset);
-    border: 1px solid var(--sep);
-    border-radius: 6px;
-  }
-  .bs-run-control:focus-within { border-color: color-mix(in srgb, var(--accent) 60%, var(--sep)); }
-  .bs-run-control > .material-symbols-outlined { flex: none; margin-left: 9px; font-size: 15px; }
-  .bs-run-control > .chevron { margin: 0 8px 0 2px; pointer-events: none; }
-  .bs-run-field select,
-  .bs-run-field input {
-    width: 100%;
-    height: 100%;
-    min-width: 0;
-    border: 0;
-    background: transparent;
-    padding: 0 8px;
-    font-size: 11.5px;
-    color: var(--text);
-    outline: none;
-  }
-  .bs-run-field select { appearance: none; padding-right: 0; }
-  .bs-run-field input:disabled { color: var(--t3); }
-  .bs-run-control.suffix i { flex: none; margin-right: 9px; color: var(--t3); font-size: 9.5px; font-style: normal; }
-  .bs-run-stop {
-    min-width: 0;
-    display: flex;
-    align-items: center;
-    gap: 9px;
-    align-self: end;
-    height: 34px;
-    padding: 0 9px;
-    color: var(--t2);
-    background: var(--inset);
-    border: 1px solid var(--sep);
-    border-radius: 6px;
-    cursor: pointer;
-  }
-  .bs-run-stop > input { position: absolute; opacity: 0; pointer-events: none; }
-  .bs-run-switch {
-    width: 28px;
-    height: 16px;
-    display: flex;
-    align-items: center;
+  .rn :global(.rn-muted) { color: var(--color-text-muted); font-size: 12px; }
+
+  /* Header */
+  .rn-head { display: flex; align-items: flex-end; gap: 10px; flex: none; }
+  .rn-crumb { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+  .rn-titlerow { position: relative; display: flex; align-items: center; gap: 10px; min-width: 0; }
+  .rn-title { margin: 0; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 600 22px/27px var(--font-ui); letter-spacing: -0.5px; }
+  .rn-chip {
     flex: none;
-    padding: 2px;
-    background: color-mix(in srgb, var(--t3) 32%, transparent);
-    border-radius: 99px;
-    transition: background 120ms ease;
-  }
-  .bs-run-switch i { width: 12px; height: 12px; background: var(--surface-solid); border-radius: 50%; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.22); transition: transform 120ms ease; }
-  .bs-run-stop > input:checked + .bs-run-switch { background: var(--accent); }
-  .bs-run-stop > input:checked + .bs-run-switch i { transform: translateX(12px); }
-  .bs-run-stop > input:focus-visible + .bs-run-switch { outline: 2px solid color-mix(in srgb, var(--accent) 40%, transparent); outline-offset: 2px; }
-  .bs-run-stop b, .bs-run-stop small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .bs-run-stop b { color: var(--text); font-size: 10.5px; font-weight: 600; }
-  .bs-run-stop small { margin-top: 1px; color: var(--t3); font-size: 8.5px; }
-  .bs-run-data-row {
-    min-height: 48px;
-    display: flex;
-    align-items: center;
-    gap: 14px;
-    padding: 7px 12px;
-    background: var(--surface);
-    border-top: 1px solid var(--sepsoft);
-  }
-  .bs-run-data-copy { min-width: 0; display: flex; align-items: center; gap: 9px; }
-  .bs-run-data-copy > .material-symbols-outlined { color: var(--t3); font-size: 17px; }
-  .bs-run-data-copy b, .bs-run-data-copy small { display: block; }
-  .bs-run-data-copy b { color: var(--text); font-size: 10.5px; font-weight: 600; }
-  .bs-run-data-copy small { margin-top: 1px; color: var(--t3); font-size: 9px; }
-  .bs-run-file,
-  .bs-run-datafile {
-    display: flex;
-    align-items: center;
-    gap: 7px;
-    height: 32px;
-    margin-left: auto;
-    padding: 0 9px;
-    border-radius: 7px;
-    border: 1px solid var(--sep);
-    background: var(--surface);
-    font-size: 10.5px;
-    color: var(--t2);
-  }
-  .bs-run-file:hover { color: var(--text); border-color: color-mix(in srgb, var(--accent) 35%, var(--sep)); }
-  .bs-run-file .material-symbols-outlined,
-  .bs-run-datafile .material-symbols-outlined { color: var(--t3); flex: none; font-size: 15px; }
-  .bs-run-dataname { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 220px; }
-  .bs-run-datacount { color: var(--t3); font-size: 9.5px; }
-  .bs-run-icon {
-    width: 20px;
-    height: 20px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 5px;
-    color: var(--t3);
-    flex: none;
-  }
-  .bs-run-icon:hover { background: var(--hover); color: var(--red); }
-  .bs-run-err {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    padding: 8px 15px;
-    color: var(--red);
-    background: color-mix(in srgb, var(--red) 6%, transparent);
-    border-top: 1px solid color-mix(in srgb, var(--red) 16%, var(--sepsoft));
-    font-size: 10.5px;
-  }
-  .bs-run-err .material-symbols-outlined { font-size: 14px; }
-  .bs-run-go {
-    height: 32px;
+    height: 26px;
     display: inline-flex;
     align-items: center;
-    gap: 7px;
+    gap: 6px;
+    padding: 0 9px 0 7px;
+    border: 1px solid var(--color-border-subtle);
+    border-radius: var(--radius-control);
+    background: var(--color-panel);
+    color: var(--color-text-secondary);
+    font: 500 12px var(--font-ui);
+    white-space: nowrap;
+  }
+  button.rn-chip:hover:not(:disabled) { color: var(--color-text); border-color: var(--color-border); }
+  .rn-chip .material-symbols-outlined { font-size: 13px; color: var(--color-text-muted); }
+  .rn :global(.rn-dot) { width: 7px; height: 7px; border-radius: 50%; }
+  .rn-icon {
     flex: none;
-    margin-left: auto;
-    padding: 0 9px 0 11px;
-    border-radius: 6px;
-    background: var(--accent);
-    color: #fff;
-    font-size: 11.5px;
-    font-weight: 650;
-  }
-  .bs-run-go:hover { filter: brightness(1.05); }
-  .bs-run-go:disabled { opacity: 0.5; cursor: default; }
-  .bs-run-go .material-symbols-outlined { color: #fff; font-size: 16px; }
-  .bs-run-go small {
-    min-width: 22px;
-    padding: 2px 5px;
-    color: rgba(255, 255, 255, 0.88);
-    background: rgba(0, 0, 0, 0.14);
-    border-radius: 5px;
-    font-family: var(--mono);
-    font-size: 9px;
-    text-align: center;
-  }
-  .bs-run-running { padding: 9px 15px 12px; border-top: 1px solid var(--sepsoft); }
-  .bs-run-running-copy { display: flex; justify-content: space-between; margin-bottom: 7px; color: var(--t3); font-size: 9.5px; }
-  .bs-run-running-copy b { color: var(--t2); font-family: var(--mono); }
-  .bs-run-progress {
-    width: 100%;
-    height: 6px;
-    border-radius: 5px;
-    background: var(--inset);
-    overflow: hidden;
-  }
-  .bs-run-bar {
-    height: 100%;
-    background: var(--accent);
-    border-radius: 5px;
-    transition: width 0.2s ease;
-  }
-  .bs-run-summary {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    flex: none;
-    margin: 10px 14px 0;
-    padding: 9px;
-    background: var(--surface);
-    border: 1px solid var(--sepsoft);
-    border-radius: 7px;
-    flex-wrap: wrap;
-  }
-  .bs-run-summary-title { min-width: 190px; display: flex; align-items: center; gap: 8px; padding: 0 5px; }
-  .bs-run-summary-title > .material-symbols-outlined { color: var(--accent); font-size: 17px; }
-  .bs-run-summary-title b, .bs-run-summary-title small { display: block; }
-  .bs-run-summary-title b { color: var(--text); font-size: 10.5px; }
-  .bs-run-summary-title small { color: var(--t3); font-size: 8.5px; }
-  .bs-run-stat { min-width: 62px; padding: 5px 8px; background: var(--inset); border-radius: 5px; color: var(--t3); }
-  .bs-run-stat b, .bs-run-stat span { display: block; }
-  .bs-run-stat b { color: var(--text); font-family: var(--mono); font-size: 11px; font-weight: 700; }
-  .bs-run-stat span { margin-top: 1px; font-size: 8.5px; }
-  .bs-run-stat.pass b { color: var(--green, #10b981); }
-  .bs-run-stat.fail b { color: var(--red); }
-  .bs-run-stat.stopped { color: var(--red); font-weight: 600; }
-  .bs-run-btn {
-    display: flex;
-    align-items: center;
-    gap: 5px;
-    height: 30px;
-    padding: 0 9px;
-    border-radius: 7px;
-    border: 1px solid var(--sep);
-    background: var(--inset);
-    font-size: 10.5px;
-    font-weight: 600;
-    color: var(--text);
-  }
-  .bs-run-btn:hover { background: var(--hover); }
-  .bs-run-btn .material-symbols-outlined { color: var(--t2); font-size: 14px; }
-
-  .bs-run-results { flex: 1; min-height: 0; overflow: auto; padding: 12px 14px 14px; }
-  .bs-run-results-head {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 8px;
-    padding: 0 2px;
-  }
-  .bs-run-results-head b, .bs-run-results-head div > span { display: block; }
-  .bs-run-results-head b { color: var(--text); font-size: 11.5px; }
-  .bs-run-results-head div > span { margin-top: 1px; color: var(--t3); font-size: 9.5px; }
-  .bs-run-live { display: inline-flex; align-items: center; gap: 5px; color: var(--t2); font-size: 9.5px; }
-  .bs-run-live i { width: 6px; height: 6px; background: var(--green); border-radius: 50%; animation: run-pulse 1.5s ease-in-out infinite; }
-  @keyframes run-pulse { 50% { opacity: 0.35; } }
-  .bs-run-empty {
-    width: 100%;
-    min-height: 180px;
-    height: 100%;
-    display: flex;
-    flex-direction: column;
+    width: 26px;
+    height: 26px;
+    display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 7px;
-    margin: 0;
-    padding: 20px;
-    color: var(--t3);
-    text-align: center;
+    border-radius: var(--radius-control);
+    color: var(--color-text-secondary);
   }
-  .bs-run-empty-symbol { margin-bottom: 3px; color: var(--t3); font-size: 26px; }
-  .bs-run-empty h3 { margin: 0; color: var(--text); font-size: 13px; }
-  .bs-run-empty p { margin: 0; font-size: 10.5px; max-width: 340px; }
-  .bs-run-row {
-    background: var(--surface);
-    border: 1px solid var(--sepsoft);
-    border-radius: 6px;
-    margin-bottom: 6px;
+  .rn-icon:disabled { opacity: 0.5; }
+  .rn-icon:hover:not(:disabled) { background: var(--color-hover); color: var(--color-text); }
+  .rn-icon .material-symbols-outlined { font-size: 15px; }
+
+  .rn :global(.rn-btn) {
+    flex: none;
+    height: 36px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 0 13px 0 11px;
+    border: 1px solid var(--color-border-subtle);
+    border-radius: var(--radius-control);
+    background: var(--color-panel);
+    color: var(--color-text);
+    font: 500 12px var(--font-ui);
+    white-space: nowrap;
+    transition: background-color var(--duration-hover);
+  }
+  .rn :global(.rn-btn:hover:not(:disabled)) { background: var(--color-hover); }
+  .rn :global(.rn-btn:disabled) { opacity: 0.5; cursor: default; }
+  .rn :global(.rn-btn .material-symbols-outlined) { font-size: 16px; }
+  .rn-btn .danger { color: var(--color-danger); }
+  .rn :global(.rn-btn.primary) { padding: 0 16px 0 12px; border: 0; background: var(--color-action); color: var(--color-on-action); }
+  .rn :global(.rn-btn.primary:hover:not(:disabled)) { background: var(--primary-hover, var(--color-action)); }
+  .rn :global(.rn-btn.primary b) { font-weight: 600; }
+  .rn :global(.rn-btn.primary kbd) { font: 10px var(--font-code); opacity: 0.7; }
+  .rn :global(.rn-btn.sm) { height: 30px; padding: 0 12px; font-size: 11px; }
+  .rn-btn.grow { flex: 1; height: 34px; }
+  .rn-actions .rn-btn { height: 34px; padding: 0 15px; }
+
+  .rn :global(.rn-err) { color: var(--color-danger); font: 11px var(--font-code); white-space: pre-wrap; }
+
+  .rn-btn.stop { padding: 0 14px 0 12px; border: 0; background: var(--color-danger-soft); color: var(--color-danger); }
+  .rn-btn.stop b { font-weight: 600; }
+  .rn-btn.stop kbd { font: 10px var(--font-code); opacity: 0.7; }
+  .rn-stopicon { width: 10px; height: 10px; border-radius: 2px; background: currentColor; }
+
+  /* R3: progress */
+  .rn-progress {
+    flex: none;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 14px 18px 16px;
+    border: 1px solid var(--color-border-subtle);
+    border-radius: var(--radius-card);
+    background: var(--color-field);
+  }
+  .rn-prow { display: flex; align-items: center; gap: 8px; white-space: nowrap; }
+  .rn-prow .sp { flex: 1; }
+  .rn-pnum { font: 600 22px/27px var(--font-code); }
+  .rn-pof { color: var(--color-text-muted); font: 12px var(--font-ui); }
+  .rn-ppill { height: 22px; display: inline-flex; align-items: center; margin-left: 6px; padding: 0 9px; border-radius: 999px; background: var(--color-panel); color: var(--color-text); font: 500 11px var(--font-ui); }
+  .rn-pok { color: var(--color-success); font: 600 12px var(--font-code); }
+  .rn-pbad { color: var(--color-danger); font: 600 12px var(--font-code); }
+  .rn-ptime { margin-left: 6px; color: var(--color-text-muted); font: 11px var(--font-code); }
+  .rn-segs { display: flex; gap: 3px; }
+  .rn-segs.dense { gap: 0; }
+  .rn-segs i { flex: 1 1 0; min-width: 0; height: 5px; border-radius: 999px; background: var(--color-border-subtle); }
+  .rn-segs.dense i { border-radius: 0; }
+  .rn-segs i.ok { background: var(--color-success); }
+  .rn-segs i.bad { background: var(--color-danger); }
+  .rn-segs i.cur { background: var(--color-text); }
+
+  /* R3: log */
+  .rn-log { gap: 10px; }
+  .rn-logcur { display: flex; flex-direction: column; gap: 4px; padding: 10px 12px; border: 1.5px solid var(--color-text); border-radius: 14px; }
+  .rn-logstate { display: flex; align-items: center; gap: 6px; font: 600 11px var(--font-ui); }
+  .rn-logstate i { width: 7px; height: 7px; border-radius: 50%; background: var(--color-text); }
+  .rn-logstate i.paused { background: var(--color-warning); }
+  .rn-logcall { font: 12px/16px var(--font-code); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .rn-logs { flex: 1; min-height: 0; overflow: auto; display: flex; flex-direction: column; gap: 12px; padding: 4px 2px; }
+  .rn-logrow { display: flex; gap: 14px; }
+  .rn-logt { flex: none; width: 46px; color: var(--color-text-muted); font: 10px/15px var(--font-code); }
+  .rn-logbody { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+  .rn-logbody b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 500 11px/15px var(--font-code); }
+  .rn-logbody small { color: var(--color-success); font: 10px/13px var(--font-code); overflow-wrap: anywhere; }
+  .rn-logbody small.bad { color: var(--color-danger); }
+  .rn-logbody small.mute { color: var(--color-text-muted); }
+
+  /* Summary */
+  .rn-stats {
+    flex: none;
+    display: flex;
+    padding: 13px 5px;
+    border: 1px solid var(--color-border-subtle);
+    border-radius: var(--radius-card);
+    background: var(--color-field);
+  }
+  .rn-stat { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; gap: 6px; padding: 0 16px; }
+  .rn-stat:not(:last-child) { border-right: 1px solid var(--color-border-subtle); }
+  .rn-stat-row { height: 29px; display: flex; align-items: flex-end; gap: 6px; white-space: nowrap; }
+  .rn-stat-row b { font: 600 22px/29px var(--font-code); color: var(--color-text); }
+  .rn-stat-row b.ok { color: var(--color-success); }
+  .rn-stat-row > span { font: 12px/15px var(--font-ui); color: var(--color-text-muted); }
+  .rn-delta { height: 18px; display: inline-flex; align-items: center; padding: 0 6px; border-radius: var(--radius-control); font: 600 10px var(--font-code); }
+  .rn-delta.success { background: var(--color-success-soft); color: var(--color-success); }
+  .rn-delta.warning { background: var(--color-warning-soft); color: var(--color-warning); }
+  .rn-delta.danger { background: var(--color-danger-soft); color: var(--color-danger); }
+  .rn-bars { height: 28px; display: flex; align-items: flex-end; gap: 4px; }
+  .rn-bars i { width: 14px; border-radius: 4px; background: var(--color-success); opacity: 0.55; }
+  .rn-bars i.failed { background: var(--color-danger); }
+  .rn-bars i.current { opacity: 1; }
+
+  /* Matrix */
+  .rn-split { flex: 1; min-height: 0; display: flex; gap: 12px; }
+  .rn-matrix {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    padding: 5px;
+    border: 1px solid var(--color-border-subtle);
+    border-radius: var(--radius-card);
+    background: var(--color-field);
     overflow: hidden;
   }
-  .bs-run-row.fail { border-color: color-mix(in srgb, var(--red) 45%, var(--sepsoft)); }
-  .bs-run-rowhead {
-    display: flex;
+  .rn-scroll { flex: 1; min-height: 0; overflow: auto; display: flex; flex-direction: column; gap: 2px; }
+  .rn-grid {
+    display: grid;
+    grid-template-columns: 22px minmax(140px, 1fr) repeat(var(--iters), 58px) minmax(120px, 300px) 56px;
+    column-gap: 10px;
     align-items: center;
-    gap: 10px;
-    width: 100%;
-    padding: 8px 10px;
-    text-align: left;
-    font-size: 12.5px;
-    color: var(--text);
-  }
-  .bs-run-rowhead:not(:disabled):hover { background: var(--hover); }
-  .bs-run-chev { width: 16px; flex: none; display: flex; color: var(--t3); }
-  .bs-run-iter { color: var(--t3); font-variant-numeric: tabular-nums; flex: none; width: 30px; }
-  .bs-run-method { font-weight: 700; flex: none; width: 46px; }
-  .bs-run-name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: none; max-width: 220px; }
-  .bs-run-target { color: var(--t3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--mono); font-size: 11.5px; }
-  .bs-run-tests { color: var(--t3); font-size: 11.5px; flex: none; }
-  .bs-run-status {
+    padding: 0 12px;
     flex: none;
-    font-weight: 700;
-    font-variant-numeric: tabular-nums;
-    color: var(--red);
-    min-width: 40px;
-    text-align: right;
   }
-  .bs-run-status.ok { color: var(--green, #10b981); }
-  .bs-run-ms { flex: none; color: var(--t3); font-variant-numeric: tabular-nums; min-width: 52px; text-align: right; }
+  .rn-ghead { height: 30px; color: var(--color-text-muted); font: 500 var(--font-size-micro) / 13px var(--font-code); letter-spacing: 1px; white-space: nowrap; }
+  .c { display: flex; justify-content: center; }
+  .r { text-align: right; justify-self: end; }
+  .rn-row { height: 38px; border-radius: var(--radius-control); cursor: default; }
+  .rn-row:hover { background: var(--color-hover); }
+  .rn-row.sel { background: var(--color-selected); }
+  .rn-no { color: var(--color-text-muted); font: 10px/13px var(--font-code); }
+  .rn-req { min-width: 0; display: flex; align-items: center; gap: 10px; }
+  .rn-req b { flex: none; width: 50px; font: 600 10px/13px var(--font-code); letter-spacing: 0.4px; }
+  .rn-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--color-text-secondary); font: 13px/16px var(--font-ui); }
+  .rn-row.live .rn-name, .rn-row.sel .rn-name { color: var(--color-text); font-weight: 600; }
+  .rn-cell {
+    width: 46px;
+    height: 24px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--radius-control);
+    color: var(--color-text-muted);
+    font: 600 10px var(--font-code);
+  }
+  .rn-cell.ok { background: var(--color-success-soft); color: var(--color-success); }
+  .rn-cell.bad { background: var(--color-danger-soft); color: var(--color-danger); }
+  .rn-cell.pending { box-shadow: inset 0 0 0 1px var(--color-border-subtle); }
+  .rn-cell.cur { box-shadow: inset 0 0 0 1.5px var(--color-text); color: var(--color-text); }
+  .rn-cell:disabled { cursor: default; }
+  .rn-cell.on { box-shadow: inset 0 0 0 1.5px currentColor; }
+  .rn-wf { position: relative; height: 24px; }
+  .rn-wf i { position: absolute; top: 8px; height: 8px; min-width: 4px; border-radius: 999px; background: var(--color-text-muted); }
+  .rn-wf i.slow { background: var(--color-warning); }
+  .rn-wf i.error { background: var(--color-danger); }
+  .rn-time { color: var(--color-text-muted); font: 10px/13px var(--font-code); white-space: nowrap; }
+  .rn-time.slow { color: var(--color-warning); }
+  .rn-legend { display: flex; align-items: center; gap: 14px; padding: 10px 12px 4px; color: var(--color-text-muted); font: 11px/13px var(--font-ui); white-space: nowrap; flex: none; }
+  .rn-legend > span { display: inline-flex; align-items: center; gap: 6px; }
+  .rn-legend i { width: 14px; height: 6px; border-radius: 999px; background: var(--color-text-muted); }
+  .rn-legend i.slow { background: var(--color-warning); }
+  .rn-legend i.error { background: var(--color-danger); }
+  .rn-legend .sp { flex: 1; }
+  .rn-empty { margin: 24px 12px; color: var(--color-text-muted); font-size: 12px; }
 
-  .bs-run-detail {
-    padding: 8px 12px 10px 36px;
-    border-top: 0.5px solid var(--sepsoft);
+  /* Detail */
+  .rn-detail {
+    flex: none;
+    width: 340px;
     display: flex;
     flex-direction: column;
-    gap: 5px;
+    gap: 12px;
+    padding: 13px;
+    border: 1px solid var(--color-border-subtle);
+    border-radius: var(--radius-card);
+    background: var(--color-field);
+    overflow: auto;
   }
-  .bs-run-fatal {
-    font-family: var(--mono);
-    font-size: 11.5px;
-    color: var(--red);
+  .rn-dhead { display: flex; flex-direction: column; gap: 6px; }
+  .rn-drow { height: 26px; display: flex; align-items: center; justify-content: space-between; }
+  .rn-dtitle { display: flex; align-items: center; gap: 8px; min-width: 0; }
+  .rn-dtitle b { flex: none; font: 700 11px/15px var(--font-code); }
+  .rn-dtitle span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 600 16px/19px var(--font-ui); }
+  .rn-dstatus { display: flex; align-items: center; gap: 8px; color: var(--color-text-muted); font: 10px/13px var(--font-code); }
+  .rn-pill { height: 22px; display: inline-flex; align-items: center; padding: 0 9px; border-radius: var(--radius-control); background: var(--color-danger-soft); color: var(--color-danger); font-weight: 600; }
+  .rn-pill.ok { background: var(--color-success-soft); color: var(--color-success); }
+  .rn-insight { display: flex; flex-direction: column; gap: 6px; padding: 12px 14px; border-radius: 16px; background: var(--color-var-soft); }
+  .rn-insight-head { display: flex; align-items: center; gap: 6px; color: var(--color-var); font: 600 12px/15px var(--font-ui); }
+  .rn-insight-head .material-symbols-outlined { font-size: 14px; }
+  .rn-insight p { margin: 0; color: var(--color-text); font: 12px/17px var(--font-ui); }
+  .rn-link {
+    align-self: flex-start;
+    height: 28px;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 0 10px;
+    border-radius: var(--radius-control);
+    color: var(--color-var);
+    font: 600 12px var(--font-ui);
+  }
+  .rn-link:hover:not(:disabled) { background: var(--color-var-soft); }
+  .rn-link .material-symbols-outlined { font-size: 16px; }
+  .rn-tests, .rn-resp { display: flex; flex-direction: column; gap: 6px; }
+  .rn-test { display: flex; align-items: center; gap: 8px; min-height: 16px; font: 11px/15px var(--font-code); }
+  .rn-test.fail { min-height: 19px; }
+  .rn-test b { flex: none; width: 8px; color: var(--color-success); font: 700 13px/15px var(--font-code); }
+  .rn-test span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .rn-test small { flex: none; color: var(--color-success); font-size: 10px; }
+  .rn-test.fail b, .rn-test.fail small { color: var(--color-danger); }
+  .rn-code {
+    padding: 10px 12px;
+    border: 1px solid var(--color-border-subtle);
+    border-radius: var(--radius-md);
+    background: var(--color-panel);
+    color: var(--color-text);
+    font: 11px/15px var(--font-code);
     white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    max-height: 120px;
+    overflow: hidden;
   }
-  .bs-run-test { display: flex; align-items: center; gap: 7px; font-size: 12px; color: var(--t2); }
-  .bs-run-test .material-symbols-outlined { color: var(--green, #10b981); flex: none; }
-  .bs-run-test.fail { color: var(--text); }
-  .bs-run-test.fail .material-symbols-outlined { color: var(--red); }
-  .bs-run-test-name { flex: none; }
-  .bs-run-test-err { color: var(--red); font-family: var(--mono); font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .bs-run-logs {
-    margin-top: 4px;
-    border-radius: 6px;
-    background: var(--inset);
-    padding: 6px 8px;
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-  }
-  .bs-run-logline { font-family: var(--mono); font-size: 11px; color: var(--t2); white-space: pre-wrap; }
-
-  .bs-spacer { flex: 1; }
-
-  @media (max-width: 920px) {
-    .bs-run-config-grid { grid-template-columns: minmax(220px, 1fr) 120px 120px; }
-    .bs-run-stop { grid-column: 1 / -1; }
-  }
-  @media (max-width: 680px) {
-    .bs-run-hero { min-height: 56px; padding: 8px 10px; }
-    .bs-run-config { margin: 10px 10px 0; }
-    .bs-run-config-grid { grid-template-columns: 1fr 1fr; }
-    .bs-run-field.scope, .bs-run-stop { grid-column: 1 / -1; }
-    .bs-run-data-row { align-items: flex-start; flex-wrap: wrap; }
-    .bs-run-file, .bs-run-datafile { width: 100%; margin-left: 0; }
-    .bs-run-summary { margin: 10px 10px 0; }
-    .bs-run-summary-title { width: 100%; }
-    .bs-run-results { padding: 10px; }
-    .bs-run-target { display: none; }
-  }
+  .rn-code :global(.k) { color: var(--sk); }
+  .rn-code :global(.s2) { color: var(--ss); }
+  .rn-code :global(.n2), .rn-code :global(.b2) { color: var(--sn); }
+  .rn-code :global(.pu), .rn-code :global(.br) { color: var(--syntax-punct, var(--sp)); }
+  .rn-actions { margin-top: auto; display: flex; gap: 6px; }
 
   @media (prefers-reduced-motion: reduce) {
-    .bs-run-bar, .bs-run-switch, .bs-run-switch i { transition: none; }
-    .bs-run-live i { animation: none; }
+    .rn-btn { transition: none; }
   }
 </style>

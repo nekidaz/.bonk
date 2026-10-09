@@ -1,7 +1,9 @@
 import { get } from 'svelte/store';
+import { openInNewTab } from './prefs';
+import { dirtyTabIds } from './dirty';
 import type { Tab, RequestNode, HttpRequest, RequestSettings, HttpResponse } from '../domain/types';
 import { httpSend, workspaceSaveRequest, runScript } from '../api';
-import { idToRel, findNode } from '../domain/tree';
+import { idToRel, findNode, parentId } from '../domain/tree';
 import { grpcPathsToRel, grpcPathsToAbs } from '../domain/protoPaths';
 import { parseCurl } from '../domain/curl';
 import { paramsFromUrl } from '../domain/http';
@@ -22,6 +24,10 @@ import {
   requestFollowRedirects,
   requestValidateTls,
   responseBodyLimitMb,
+  proxyMode,
+  proxyUrl,
+  proxyBypass,
+  trustedCaPaths,
   globals,
   environments,
   activeEnvironmentId,
@@ -30,6 +36,7 @@ import {
   updateTabById,
   currentVarScope,
 } from './state';
+import { proxyAuth, proxyUser, proxyPassword, trustSystemCas, clientCerts } from './netPrefs';
 import { setEnvVars, setGlobalVars } from './environments';
 import { openWorkspaceFolder, reloadWorkspace, runWorkspaceOp } from './workspace';
 import { addHistory } from './history';
@@ -43,11 +50,16 @@ function clampInt(value: number, min: number, max: number, fallback: number): nu
 export function currentRequestSettings(): RequestSettings {
   const timeoutMs = clampInt(get(requestTimeoutMs), 0, 600_000, 30_000);
   const maxResponseBodyMb = clampInt(get(responseBodyLimitMb), 1, 250, 25);
+  const auth = get(proxyMode) === 'manual' && get(proxyAuth);
   return {
     timeoutMs,
     followRedirects: get(requestFollowRedirects),
     validateTls: get(requestValidateTls),
     maxResponseBodyBytes: maxResponseBodyMb * 1024 * 1024,
+    proxy: { mode: get(proxyMode), url: get(proxyUrl).trim(), bypass: get(proxyBypass).trim(), username: auth ? get(proxyUser).trim() : '', password: auth ? get(proxyPassword) : '' },
+    caPaths: get(trustedCaPaths),
+    trustSystemCas: get(trustSystemCas),
+    clientCerts: get(clientCerts).filter((c) => c.certPath && c.keyPath),
   };
 }
 
@@ -92,6 +104,21 @@ export async function saveActiveRequest(folderId?: string, name?: string): Promi
   }
 }
 
+/**
+ * Undo a save (S09b toast): write the previous version of a saved request back to its file and put
+ * open tabs for it back to that version.
+ */
+export async function restoreSavedRequest(prev: RequestNode): Promise<void> {
+  const root = get(workspacePath);
+  if (!root) return;
+  const folder = parentId(prev.id);
+  await workspaceSaveRequest(root, folder ? idToRel(folder) : ROOT, prev.id, prev);
+  tabs.update((list) => list.map((t) => (t.savedPath === prev.id
+    ? { ...t, title: prev.name, request: { ...prev.request, headers: { ...prev.request.headers } }, params: prev.params?.map((p) => ({ ...p })) }
+    : t)));
+  await reloadWorkspace();
+}
+
 /** Create a new empty request of `protocol` inside `folderId` (root if undefined) and open it. */
 export async function addRequestToFolder(folderId: string | undefined, protocol: 'http' | 'grpc'): Promise<void> {
   let root = get(workspacePath);
@@ -108,14 +135,19 @@ export async function addRequestToFolder(folderId: string | undefined, protocol:
   });
 }
 
-export function openSavedRequest(req: RequestNode): void {
-  const existing = get(tabs).find((t) => t.savedPath === req.id);
+/** Focus the request's open tab, or open it; `inNewTab` (⌘-click) always opens another tab. */
+export function openSavedRequest(req: RequestNode, inNewTab = false): void {
+  const existing = !inNewTab && get(tabs).find((t) => t.savedPath === req.id);
   if (existing) {
     activeTabId.set(existing.id);
     return;
   }
+  // Settings → «Открывать запрос в новой вкладке» off: reuse the active saved
+  // request's tab when it has no unsaved changes (scratch tabs are never replaced).
+  const current = get(tabs).find((t) => t.id === get(activeTabId));
+  const reuse = !inNewTab && !get(openInNewTab) && current?.savedPath && (current.protocol === 'http' || current.protocol === 'grpc') && !get(dirtyTabIds).has(current.id);
   const tab: Tab = {
-    id: crypto.randomUUID(),
+    id: reuse ? current.id : crypto.randomUUID(),
     protocol: req.protocol,
     title: req.name,
     manualTitle: true,
@@ -126,7 +158,7 @@ export function openSavedRequest(req: RequestNode): void {
     grpc: grpcPathsToAbs(grpcSnapshot(req.grpc), get(workspacePath)),
     savedPath: req.id,
   };
-  tabs.update((list) => [...list, tab]);
+  tabs.update((list) => (reuse ? list.map((t) => (t.id === tab.id ? tab : t)) : [...list, tab]));
   activeTabId.set(tab.id);
 }
 
@@ -307,5 +339,6 @@ export async function sendHttpRequest(
     message: testError,
     logs,
   });
-  addHistory({ id: crypto.randomUUID(), protocol: 'http', request: resolved, status: res.status, at: Date.now() });
+  const src = get(tabs).find((t) => t.id === tabId);
+  addHistory({ id: crypto.randomUUID(), protocol: 'http', request: resolved, status: res.status, at: Date.now(), savedPath: src?.savedPath, title: src?.title, raw: src?.request, params: src?.params });
 }

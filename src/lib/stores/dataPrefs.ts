@@ -1,0 +1,21 @@
+import { get } from 'svelte/store';
+import { persisted } from '../persist';
+import { pruneByAge } from '../domain/history';
+import { history } from './state';
+
+/** Export: include keychain secret values. Off by default. */
+export const exportIncludeSecrets = persisted<boolean>('exportIncludeSecrets', false);
+/** History retention in days; 0 = forever. */
+export const historyDays = persisted<number>('historyDays', 30);
+
+// Prune on every history change and when the setting changes, but only once the
+// saved setting has loaded (else the 30-day default would eat a "forever" history).
+void historyDays.ready.then(() => {
+  const prune = () => {
+    const h = get(history);
+    const kept = pruneByAge(h, get(historyDays));
+    if (kept !== h) history.set(kept);
+  };
+  history.subscribe(prune);
+  historyDays.subscribe(prune);
+});

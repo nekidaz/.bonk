@@ -6,6 +6,8 @@
  * flow using `buildScriptContext` + `applyEnvPatch`; `api.ts` uses
  * `parseScriptResult` to turn the raw QuickJS output string into a typed value.
  */
+import { get } from 'svelte/store';
+import { t as tr } from '../i18n';
 import type { GrpcResult, HttpRequest, HttpResponse, ScriptTestResult, VarRow } from './types';
 
 export type ScriptPhase = 'pre-request' | 'test' | 'flow';
@@ -228,7 +230,7 @@ export function parseScriptResult(raw: string): ScriptResult {
     const parsed = JSON.parse(raw);
     if (parsed && typeof parsed === 'object') data = parsed as Record<string, unknown>;
   } catch {
-    return emptyResult(`script returned invalid output: ${raw.slice(0, 200)}`);
+    return emptyResult(get(tr)('script.bad_output', { output: raw.slice(0, 200) }));
   }
   const tests = Array.isArray(data.tests)
     ? (data.tests as unknown[]).flatMap((t) => {
@@ -236,7 +238,7 @@ export function parseScriptResult(raw: string): ScriptResult {
         const row = t as Record<string, unknown>;
         return [
           {
-            name: typeof row.name === 'string' ? row.name : '(unnamed)',
+            name: typeof row.name === 'string' ? row.name : get(tr)('script.unnamed'),
             passed: row.passed === true,
             error: typeof row.error === 'string' ? row.error : undefined,
           },

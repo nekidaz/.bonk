@@ -2,12 +2,13 @@
   import { tabs, activeTabId, collections, saveActiveRequest, addFolder } from '../stores';
   import { findNode, parentId } from '../domain/tree';
   import FolderPicker from './FolderPicker.svelte';
+  import { t } from '../i18n';
 
   // `open` is the trigger held by the parent (App.svelte). The name/target state
   // lives here; the dialog seeds itself from the active tab each time it opens.
   let { open = $bindable(), onSaved }: { open: boolean; onSaved?: () => void } = $props();
 
-  const active = $derived($tabs.find((t) => t.id === $activeTabId));
+  const active = $derived($tabs.find((tb) => tb.id === $activeTabId));
 
   let name = $state('');
   let targetId = $state<string | undefined>(undefined); // folder id; undefined = root
@@ -47,26 +48,26 @@
   <div class="bs-overlay" role="dialog" aria-modal="true">
     <div class="bs-modal">
       <div class="bs-modal-h">
-        <span class="t">Save Request</span>
-        <button class="x" aria-label="Close" onclick={() => (open = false)}><span class="material-symbols-outlined" style="font-size:18px">close</span></button>
+        <span class="t">{$t('dialog.save.title')}</span>
+        <button class="x" aria-label={$t('common.close')} onclick={() => (open = false)}><span class="material-symbols-outlined" style="font-size:18px">close</span></button>
       </div>
       <div class="bs-modal-b">
-        <div class="bs-flabel">Request name</div>
+        <label class="bs-flabel" for="bs-save-name">{$t('dialog.save.name')}</label>
         <!-- svelte-ignore a11y_autofocus -->
-        <input class="bs-input" bind:value={name} autofocus />
-        <div class="bs-saveto">Save to <span>{targetId ? (findNode($collections, targetId)?.name ?? '—') : 'Workspace root'}</span></div>
+        <input class="bs-input" id="bs-save-name" bind:value={name} autofocus aria-invalid={!!saveError} aria-describedby={saveError ? 'bs-save-error' : undefined} />
+        <div class="bs-saveto">{$t('dialog.save.to')} <span>{targetId ? (findNode($collections, targetId)?.name ?? '—') : $t('dialog.move.root')}</span></div>
         <div class="bs-collbox">
           <div class="bs-colllist">
             <FolderPicker nodes={$collections} bind:selected={targetId} />
           </div>
         </div>
-        {#if saveError}<div class="bs-form-error">{saveError}</div>{/if}
+        {#if saveError}<div class="bs-form-error" id="bs-save-error" role="alert">{saveError}</div>{/if}
       </div>
       <div class="bs-modal-f">
-        <button class="bs-btn link" onclick={newFolderInDialog}><span class="material-symbols-outlined" style="font-size:15px;vertical-align:-3px">add</span> New Folder</button>
+        <button class="bs-btn link" onclick={newFolderInDialog}><span class="material-symbols-outlined" style="font-size:15px;vertical-align:-3px">add</span> {$t('dialog.save.newFolder')}</button>
         <div class="grow"></div>
-        <button class="bs-btn primary" onclick={confirmSave}>Save</button>
-        <button class="bs-btn ghost" onclick={() => (open = false)}>Cancel</button>
+        <button class="bs-btn primary" onclick={confirmSave}>{$t('common.save')}</button>
+        <button class="bs-btn ghost" onclick={() => (open = false)}>{$t('common.cancel')}</button>
       </div>
     </div>
   </div>

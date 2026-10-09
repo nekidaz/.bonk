@@ -2,7 +2,7 @@ import type { BodyMode, BodyParam, HttpRequest, RawBodyFormat, Tab } from './typ
 import { encodeQueryPart } from './http';
 
 /** The active body mode for a tab, defaulting to 'raw' when unset. */
-export function currentBodyMode(t: Tab | undefined): BodyMode {
+export function currentBodyMode(t: Pick<Tab, 'request'> | undefined): BodyMode {
   return t?.request.bodyMode ?? 'raw';
 }
 
@@ -10,7 +10,7 @@ export function currentBodyMode(t: Tab | undefined): BodyMode {
  * The raw body format for a tab. Uses the explicit `rawBodyFormat` when set,
  * otherwise sniffs the body text (JSON/HTML/XML) and falls back to 'Text'.
  */
-export function currentRawFormat(t: Tab | undefined): RawBodyFormat {
+export function currentRawFormat(t: Pick<Tab, 'request'> | undefined): RawBodyFormat {
   if (t?.request.rawBodyFormat) return t.request.rawBodyFormat;
   const body = t?.request.body?.trim() ?? '';
   if (!body) return 'JSON';
@@ -31,7 +31,7 @@ export function setHeaderIfMissing(
 }
 
 /** Enabled body-param rows with a non-empty key. */
-export function enabledBodyParams(t: Tab): BodyParam[] {
+export function enabledBodyParams(t: Pick<Tab, 'request'>): BodyParam[] {
   return (t.request.bodyParams ?? []).filter((row) => row.enabled && row.key.trim() !== '');
 }
 
@@ -98,9 +98,10 @@ function basicAuthToken(username: string, password: string): string {
  * on the tab and url. Multipart file bodies are assembled by the Rust backend
  * so files can be streamed from disk and reqwest can own the boundary header.
  */
-export function buildRequestForSend(t: Tab, finalUrl: string): HttpRequest {
+export function buildRequestForSend(t: Pick<Tab, 'request'>, finalUrl: string): HttpRequest {
   const mode = currentBodyMode(t);
-  let headers = { ...t.request.headers };
+  const off = new Set(t.request.disabledHeaders ?? []);
+  let headers = Object.fromEntries(Object.entries(t.request.headers ?? {}).filter(([k]) => !off.has(k)));
   let url = finalUrl;
   let body: string | undefined;
 
@@ -117,10 +118,14 @@ export function buildRequestForSend(t: Tab, finalUrl: string): HttpRequest {
     }
   } else if (mode === 'graphql') {
     const rawBody = t.request.body ?? '';
-    if (rawBody.length > 0) {
+    if (rawBody.length > 0 || t.request.graphqlVariables?.trim()) {
       body = rawBody;
       headers = setHeaderIfMissing(headers, 'Content-Type', 'application/json');
     }
+  } else if (mode === 'binary' && t.request.binaryFilePath) {
+    // The native HTTP layer reads this local file as bytes. Do not send its
+    // path string as the request body.
+    body = undefined;
   } else if (mode !== 'none') {
     const rawBody = t.request.body ?? '';
     if (rawBody.length > 0) {

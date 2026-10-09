@@ -1,3 +1,5 @@
+import { get } from 'svelte/store';
+import { t } from '../i18n';
 import type { BodyParam, HttpRequest, Tab } from './types';
 import { buildUrl } from './http';
 import { buildRequestForSend, currentBodyMode, enabledBodyParams } from './httpBody';
@@ -27,6 +29,8 @@ export function toCurl(tab: Tab, scope: Record<string, string> = {}): string {
       const value = row.kind === 'file' && row.filePath ? `@${row.filePath}` : resolveVars(row.value, scope);
       lines.push(`--form ${shellQuote(`${resolveVars(row.key, scope)}=${value}`)}`);
     }
+  } else if (currentBodyMode(tab) === 'binary' && req.binaryFilePath) {
+    lines.push(`--data-binary ${shellQuote('@' + req.binaryFilePath)}`);
   } else if (req.body) {
     lines.push(`--data ${shellQuote(req.body)}`);
   }
@@ -66,7 +70,7 @@ export function parseCurl(input: string): HttpRequest {
     else if (!arg.startsWith('-') && !url) url = arg;
   }
 
-  if (!url) throw new Error('Could not find URL in cURL command.');
+  if (!url) throw new Error(get(t)('import.err.curlUrl'));
   // -G/--get sends the collected -d/--data as the GET query string, not a body.
   if (getMode && bodies.length > 0) {
     url += (url.includes('?') ? '&' : '?') + bodies.join('&');
@@ -157,7 +161,7 @@ function addHeader(headers: Record<string, string>, raw: string): void {
   if (key) headers[key] = value;
 }
 
-function tokenize(input: string): string[] {
+export function tokenize(input: string): string[] {
   const out: string[] = [];
   let cur = '';
   let quote: '"' | "'" | '' = '';

@@ -1,6 +1,7 @@
 <script lang="ts">
   /** Floating in-app update notice. Hidden unless the updater has something to
    * show (available / downloading / ready / up-to-date / error). */
+  import { t } from '../i18n';
   import {
     updateStatus,
     updateVersion,
@@ -17,23 +18,23 @@
   <div class="upd" role="status" aria-live="polite">
     {#if $updateStatus === 'available'}
       <span class="material-symbols-outlined ic">download</span>
-      <span class="txt">Update {$updateVersion} available</span>
-      <button class="btn primary" onclick={installUpdate}>Install &amp; Restart</button>
-      <button class="btn ghost" aria-label="Dismiss" onclick={dismissUpdate}>Later</button>
+      <span class="txt">{$t('update.available', { v: $updateVersion })}</span>
+      <button class="btn primary" onclick={installUpdate}>{$t('update.install')}</button>
+      <button class="btn ghost" aria-label={$t('update.dismiss')} onclick={dismissUpdate}>{$t('update.later')}</button>
     {:else if $updateStatus === 'downloading'}
       <span class="material-symbols-outlined ic spin">progress_activity</span>
-      <span class="txt">Downloading update… {pct}%</span>
+      <span class="txt">{$t('update.downloading', { pct })}</span>
     {:else if $updateStatus === 'ready'}
       <span class="material-symbols-outlined ic">restart_alt</span>
-      <span class="txt">Restarting…</span>
+      <span class="txt">{$t('update.restarting')}</span>
     {:else if $updateStatus === 'uptodate'}
       <span class="material-symbols-outlined ic">check_circle</span>
-      <span class="txt">You're on the latest version</span>
+      <span class="txt">{$t('update.latest')}</span>
       <button class="btn ghost" onclick={dismissUpdate}>OK</button>
     {:else if $updateStatus === 'error'}
       <span class="material-symbols-outlined ic err">error</span>
-      <span class="txt">Update failed — try again later</span>
-      <button class="btn ghost" onclick={dismissUpdate}>Dismiss</button>
+      <span class="txt">{$t('update.failed')}</span>
+      <button class="btn ghost" onclick={dismissUpdate}>{$t('update.dismiss')}</button>
     {/if}
   </div>
 {/if}

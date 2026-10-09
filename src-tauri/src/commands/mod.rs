@@ -336,7 +336,7 @@ pub async fn http_send(
 ) -> Result<HttpResponse, String> {
     let cancel = register_cancel(&state, &request_id)?;
     let settings = settings.unwrap_or_default().normalized();
-    let client = state.http_client(&settings)?;
+    let client = state.http_client(&settings, &req.url)?;
     let result = if let Some(cancel) = cancel {
         tokio::select! {
             res = bonk_core::application::http::http_send(client, req, settings) => res,
@@ -364,7 +364,16 @@ pub async fn run_script(phase: String, code: String, context: String) -> Result<
 }
 
 use bonk_core::conn::GrpcConn;
-use bonk_core::domain::grpc::{GrpcResult, ServiceTree};
+use bonk_core::domain::grpc::{GrpcCertInfo, GrpcPrefs, GrpcResult, GrpcTls, ServiceTree};
+
+/// S29: what certificate the server presents and whether it verifies.
+#[tauri::command]
+pub async fn grpc_tls_inspect(
+    endpoint: String,
+    tls: Option<GrpcTls>,
+) -> Result<GrpcCertInfo, String> {
+    bonk_core::application::grpc_tls::inspect(&endpoint, &tls.unwrap_or_default()).await
+}
 use std::collections::HashMap;
 
 #[tauri::command]
@@ -392,13 +401,16 @@ pub struct ImportedFile {
     text: String,
 }
 
-/// Prompt for an OpenAPI 3.x / Swagger 2.0 file (JSON or YAML) and return its
+/// Prompt for a Postman Collection or OpenAPI / Swagger file and return its
 /// name + contents. `Ok(None)` when the user cancels the dialog.
 #[tauri::command]
 pub fn openapi_import_pick() -> Result<Option<ImportedFile>, String> {
     let Some(path) = rfd::FileDialog::new()
-        .add_filter("OpenAPI / Swagger", &["json", "yaml", "yml"])
-        .set_title("Import OpenAPI / Swagger")
+        .add_filter(
+            "API Collection / Spec",
+            &["json", "yaml", "yml", "har", "txt", "sh", "curl"],
+        )
+        .set_title("Import Collection / OpenAPI")
         .pick_file()
     else {
         return Ok(None);
@@ -417,16 +429,67 @@ pub fn openapi_import_pick() -> Result<Option<ImportedFile>, String> {
 pub fn openapi_export_save(
     default_name: String,
     contents: String,
+    title: Option<String>,
 ) -> Result<Option<String>, String> {
     let Some(path) = rfd::FileDialog::new()
         .set_file_name(&default_name)
-        .set_title("Export OpenAPI")
+        .set_title(title.as_deref().unwrap_or("Export OpenAPI"))
         .save_file()
     else {
         return Ok(None);
     };
     std::fs::write(&path, contents).map_err(|e| e.to_string())?;
     Ok(Some(path.to_string_lossy().into_owned()))
+}
+
+/// App data directory (where state.json lives), for the Data settings section.
+#[tauri::command]
+pub fn app_data_dir(app: tauri::AppHandle) -> Result<String, String> {
+    let dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    Ok(dir.to_string_lossy().into_owned())
+}
+
+/// Reveal `path` in the OS file manager.
+#[tauri::command]
+pub fn reveal_path(path: String) -> Result<(), String> {
+    let p = std::path::Path::new(&path);
+    let status = if cfg!(target_os = "macos") {
+        std::process::Command::new("open").arg("-R").arg(p).status()
+    } else if cfg!(target_os = "windows") {
+        std::process::Command::new("explorer")
+            .arg(format!("/select,{path}"))
+            .status()
+    } else {
+        std::process::Command::new("xdg-open")
+            .arg(p.parent().unwrap_or(p))
+            .status()
+    };
+    // explorer exits non-zero even on success, so only a spawn failure is an error.
+    status.map(|_| ()).map_err(|e| e.to_string())
+}
+
+/// Rename the workspace folder `root` to `name` (same parent); returns the new path.
+#[tauri::command]
+pub fn workspace_rename_root(root: String, name: String) -> Result<String, String> {
+    require_absolute_root(&root)?;
+    let name = name.trim();
+    if name.is_empty() || name.contains(['/', '\\']) || name == "." || name == ".." {
+        return Err("Invalid folder name".into());
+    }
+    let from = std::path::Path::new(&root);
+    let to = from.parent().ok_or("No parent folder")?.join(name);
+    if to.exists() {
+        return Err("A folder with that name already exists".into());
+    }
+    std::fs::rename(from, &to).map_err(|e| e.to_string())?;
+    Ok(to.to_string_lossy().into_owned())
+}
+
+/// Move the workspace folder to the OS trash (never a hard delete).
+#[tauri::command]
+pub fn workspace_trash(root: String) -> Result<(), String> {
+    require_absolute_root(&root)?;
+    trash::delete(&root).map_err(|e| e.to_string())
 }
 
 /// Reject a workspace root that isn't an absolute path.
@@ -458,6 +521,16 @@ pub fn workspace_create_folder(
 ) -> Result<String, String> {
     require_absolute_root(&root)?;
     bonk_core::application::workspace::create_folder(&root, &parent, &name)
+}
+
+#[tauri::command]
+pub fn workspace_save_folder_auth(
+    root: String,
+    dir: String,
+    auth: Option<bonk_core::domain::http::AuthConfig>,
+) -> Result<(), String> {
+    require_absolute_root(&root)?;
+    bonk_core::application::workspace::save_folder_auth(&root, &dir, auth)
 }
 
 #[tauri::command]
@@ -595,17 +668,32 @@ pub fn app_state_set(
     bonk_core::application::app_state::set_key(&state_path(&app)?, &key, value)
 }
 
+/// (subject CN, expiry unix seconds) of a CA/cert file, for the Settings list.
+#[tauri::command]
+pub fn cert_file_info(path: String) -> Result<(String, i64), String> {
+    bonk_core::application::grpc_tls::cert_file_info(&path)
+}
+
 #[tauri::command]
 pub async fn grpc_connect(
     endpoint: String,
     plaintext: bool,
+    tls: Option<GrpcTls>,
+    prefs: Option<GrpcPrefs>,
     timeout_ms: Option<u64>,
     state: State<'_, AppState>,
 ) -> Result<String, String> {
-    let id = format!("{endpoint}|{plaintext}");
+    let tls = tls.unwrap_or_default();
+    let prefs = prefs.unwrap_or_default();
+    // Distinct TLS options / limits get distinct connections.
+    let id = format!(
+        "{endpoint}|{plaintext}|{}|{}",
+        serde_json::to_string(&tls).map_err(|e| e.to_string())?,
+        serde_json::to_string(&prefs).map_err(|e| e.to_string())?
+    );
     let channel = timeout_result(
         timeout_ms,
-        bonk_core::application::grpc_native::connect(&endpoint, plaintext),
+        bonk_core::application::grpc_native::connect_with(&endpoint, plaintext, &tls, &prefs),
     )
     .await?;
     state
@@ -617,6 +705,10 @@ pub async fn grpc_connect(
             GrpcConn {
                 channel: Some(channel),
                 cache: None,
+                endpoint,
+                plaintext,
+                tls,
+                prefs,
             },
         );
     Ok(id)
@@ -642,15 +734,16 @@ pub async fn grpc_reflect(
     if let Some(cache) = conn.cache {
         return Ok(cache.tree);
     }
-    // The connection id is "{endpoint}|{plaintext}" (see grpc_connect). Reflect
-    // on fresh connections (not the stored call channel) so a v1 reset can't
-    // poison the v1alpha fallback.
-    let (endpoint, plaintext) = connection_id
-        .rsplit_once('|')
-        .ok_or_else(|| "invalid connection id".to_string())?;
+    // Reflect on fresh connections (not the stored call channel) so a v1 reset
+    // can't poison the v1alpha fallback.
     let cache = timeout_result(
         timeout_ms,
-        bonk_core::application::grpc_native::reflect(endpoint, plaintext == "true"),
+        bonk_core::application::grpc_native::reflect_with(
+            &conn.endpoint,
+            conn.plaintext,
+            &conn.tls,
+            &conn.prefs,
+        ),
     )
     .await?;
     let tree = cache.tree.clone();
@@ -700,6 +793,23 @@ pub async fn grpc_load_proto(
 }
 
 #[tauri::command]
+pub async fn grpc_proto_inspect(
+    paths: Vec<String>,
+    import_paths: Vec<String>,
+) -> Result<bonk_core::application::proto_inspect::ProtoInspection, String> {
+    tokio::task::spawn_blocking(move || {
+        bonk_core::application::proto_inspect::inspect_protos(&paths, &import_paths)
+    })
+    .await
+    .map_err(|e| format!("proto inspect task failed: {e}"))
+}
+
+#[tauri::command]
+pub fn proto_read(path: String) -> Result<String, String> {
+    bonk_core::application::proto_inspect::proto_read(&path)
+}
+
+#[tauri::command]
 pub fn proto_pick() -> Option<Vec<String>> {
     rfd::FileDialog::new()
         .add_filter("Protocol Buffers", &["proto"])
@@ -737,6 +847,94 @@ pub async fn grpc_template(
     bonk_core::application::grpc_native::template(&mut cache, &method)
 }
 
+/// Streaming gRPC call (S20): server, client or bidi. Messages reach the webview through `on_message` as they
+/// arrive; the returned result summarises the whole stream. Always uses the native tonic client.
+#[tauri::command]
+pub async fn grpc_stream(
+    connection_id: String,
+    method: String,
+    json_body: String,
+    metadata: HashMap<String, String>,
+    request_id: Option<String>,
+    on_message: tauri::ipc::Channel<bonk_core::application::grpc_native::GrpcStreamMessage>,
+    state: State<'_, AppState>,
+) -> Result<GrpcResult, String> {
+    let conn = conn(&state, &connection_id)?;
+    let channel = conn
+        .channel
+        .ok_or_else(|| "connection has no channel".to_string())?;
+    let cache = conn
+        .cache
+        .ok_or_else(|| "reflection cache is not loaded".to_string())?;
+    let cancel = register_cancel(&state, &request_id)?;
+    // Client/bidi: keep the request side open for `grpc_stream_send` until `grpc_stream_end`.
+    let stream_id = request_id.clone().filter(|id| !id.is_empty());
+    let more = match &stream_id {
+        Some(id) if cache.methods.get(&method).is_some_and(|m| m.is_client_streaming()) => {
+            let (sender, rx) = bonk_core::application::grpc_native::stream_sender(&cache, &method)?;
+            state
+                .grpc_streams
+                .lock()
+                .map_err(|_| "stream registry lock poisoned".to_string())?
+                .insert(id.clone(), sender);
+            Some(rx)
+        }
+        _ => None,
+    };
+    let call = bonk_core::application::grpc_native::call_stream(
+        channel,
+        cache,
+        &method,
+        &json_body,
+        &metadata,
+        &conn.prefs,
+        more,
+        |message| {
+            let _ = on_message.send(message);
+        },
+    );
+    let result = if let Some(cancel) = cancel {
+        tokio::select! {
+            res = call => res,
+            _ = cancel => Err("request cancelled".to_string()),
+        }
+    } else {
+        call.await
+    };
+    finish_cancel(&state, &request_id);
+    if let (Some(id), Ok(mut streams)) = (stream_id, state.grpc_streams.lock()) {
+        streams.remove(&id);
+    }
+    result
+}
+
+/// Sends more messages into an open client/bidi stream; returns how many went out.
+#[tauri::command]
+pub fn grpc_stream_send(
+    request_id: String,
+    json_body: String,
+    state: State<'_, AppState>,
+) -> Result<usize, String> {
+    state
+        .grpc_streams
+        .lock()
+        .map_err(|_| "stream registry lock poisoned".to_string())?
+        .get(&request_id)
+        .ok_or_else(|| "the stream is not open for sending".to_string())?
+        .send(&json_body)
+}
+
+/// Half-closes an open client/bidi stream: the server sees end-of-stream, replies keep coming.
+#[tauri::command]
+pub fn grpc_stream_end(request_id: String, state: State<'_, AppState>) -> Result<(), String> {
+    state
+        .grpc_streams
+        .lock()
+        .map_err(|_| "stream registry lock poisoned".to_string())?
+        .remove(&request_id);
+    Ok(())
+}
+
 #[tauri::command]
 pub async fn grpc_call(
     connection_id: String,
@@ -755,20 +953,75 @@ pub async fn grpc_call(
         .cache
         .ok_or_else(|| "reflection cache is not loaded".to_string())?;
     let cancel = register_cancel(&state, &request_id)?;
+    // Prefer grpcurl (fresh connection per call); the long-lived tonic channel
+    // is only the fallback when grpcurl isn't installed.
+    let call = async {
+        match bonk_core::application::grpcurl::find_grpcurl() {
+            Some(bin) => {
+                bonk_core::application::grpcurl::call(
+                    &bin,
+                    &conn.endpoint,
+                    conn.plaintext,
+                    &conn.tls,
+                    cache,
+                    &method,
+                    &json_body,
+                    &metadata,
+                    &conn.prefs,
+                )
+                .await
+            }
+            None => {
+                bonk_core::application::grpc_native::call_with(
+                    channel,
+                    cache,
+                    &method,
+                    &json_body,
+                    &metadata,
+                    &conn.prefs,
+                )
+                .await
+            }
+        }
+    };
     let result = if let Some(cancel) = cancel {
         tokio::select! {
-            res = timeout_result(timeout_ms, bonk_core::application::grpc_native::call(channel, cache, &method, &json_body, &metadata)) => res,
+            res = timeout_result(timeout_ms, call) => res,
             _ = cancel => Err("request cancelled".to_string()),
         }
     } else {
-        timeout_result(
-            timeout_ms,
-            bonk_core::application::grpc_native::call(
-                channel, cache, &method, &json_body, &metadata,
-            ),
-        )
-        .await
+        timeout_result(timeout_ms, call).await
     };
     finish_cancel(&state, &request_id);
     result
+}
+
+// --- OS keychain for secret env vars ---
+
+fn secret_entry(key: &str) -> Result<keyring::Entry, String> {
+    keyring::Entry::new("io.github.nekidaz.bonk", key).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn secret_get(key: String) -> Result<Option<String>, String> {
+    match secret_entry(&key)?.get_password() {
+        Ok(v) => Ok(Some(v)),
+        Err(keyring::Error::NoEntry) => Ok(None),
+        Err(e) => Err(e.to_string()),
+    }
+}
+
+#[tauri::command]
+pub fn secret_set(key: String, value: String) -> Result<(), String> {
+    secret_entry(&key)?
+        .set_password(&value)
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn secret_delete(key: String) -> Result<(), String> {
+    match secret_entry(&key)?.delete_credential() {
+        Ok(()) | Err(keyring::Error::NoEntry) => Ok(()),
+        Err(e) => Err(e.to_string()),
+    }
 }

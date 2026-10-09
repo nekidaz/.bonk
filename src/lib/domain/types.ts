@@ -9,7 +9,7 @@ export type Protocol = RequestProtocol | 'git' | 'env' | 'runner' | 'flow';
 export type BodyMode = 'none' | 'form-data' | 'urlencoded' | 'raw' | 'binary' | 'graphql';
 export type RawBodyFormat = 'JSON' | 'Text' | 'JavaScript' | 'HTML' | 'XML';
 export type BodyParamKind = 'text' | 'file';
-export type AuthType = 'none' | 'bearer' | 'basic' | 'apiKey';
+export type AuthType = 'inherit' | 'none' | 'bearer' | 'basic' | 'apiKey';
 export type ApiKeyLocation = 'header' | 'query';
 
 export interface HttpRequest {
@@ -17,6 +17,10 @@ export interface HttpRequest {
   url: string;
   headers: Record<string, string>;
   body?: string;
+  /** JSON object text from the GraphQL Variables editor. */
+  graphqlVariables?: string;
+  /** Local file to stream as a binary request body when bodyMode is 'binary'. */
+  binaryFilePath?: string;
   bodyMode?: BodyMode;
   rawBodyFormat?: RawBodyFormat;
   bodyParams?: BodyParam[];
@@ -25,6 +29,10 @@ export interface HttpRequest {
   preRequestScript?: string;
   /** Postman-style test script (JS); runs against the response. */
   testScript?: string;
+  /** Free-text description per header key (Headers table). */
+  headerNotes?: Record<string, string>;
+  /** Header keys kept in the request but switched off: never sent. */
+  disabledHeaders?: string[];
 }
 
 export interface BodyParam {
@@ -56,12 +64,22 @@ export interface HttpResponse {
   body_truncated?: boolean;
 }
 
+export type ProxyMode = 'system' | 'none' | 'manual';
+
 export interface RequestSettings {
   timeoutMs: number;
   followRedirects: boolean;
   validateTls: boolean;
   maxResponseBodyBytes: number;
+  proxy: { mode: ProxyMode; url: string; bypass: string; username: string; password: string };
+  caPaths: string[];
+  trustSystemCas: boolean;
+  /** Per-host mTLS identities; the backend picks the one matching the request host. */
+  clientCerts: { host: string; certPath: string; keyPath: string }[];
 }
+
+/** Global gRPC limits / rendering options (bonk-core `GrpcPrefs`). */
+export interface GrpcPrefs { maxMessageMb: number; keepaliveSecs: number; emitDefaults: boolean; int64AsNumber: boolean; }
 
 /** A single query-parameter row in the HTTP Params table (frontend-only). */
 export interface Param {
@@ -76,6 +94,8 @@ export interface VarRow {
   key: string;
   value: string;
   enabled: boolean;
+  /** Masked in the UI and kept out of cURL / code snippets. */
+  secret?: boolean;
 }
 
 /** A named set of variables. `{{key}}` placeholders resolve against the active one. */
@@ -83,6 +103,10 @@ export interface Environment {
   id: string;
   name: string;
   vars: VarRow[];
+  /** Label colour key (see ENV_COLORS in palette.ts); absent = derived from the name. */
+  color?: string;
+  /** Confirm mutating requests; absent = derived from the name (production). */
+  protected?: boolean;
 }
 
 export interface Tab {
@@ -99,6 +123,8 @@ export interface Tab {
   response?: HttpResponse;
   grpc?: GrpcTabState;
   grpcResult?: GrpcResult;
+  /** Live / last server stream for this tab (runtime-only). */
+  grpcStream?: { messages: GrpcStreamMessage[]; done: boolean; startedAt: number; headers?: Record<string, string> };
   git?: GitTabState;
   /** Query-parameter rows for the Params table; appended to the URL on send. */
   params?: Param[];
@@ -138,6 +164,8 @@ export interface FolderNode {
   id: string;            // fs:<relpath>
   name: string;
   expanded: boolean;
+  /** Collection-level auth (`.folder.bonk.json`); requests set to 'inherit' use it. */
+  auth?: AuthConfig;
   children: TreeNode[];
 }
 
@@ -151,6 +179,12 @@ export interface HistoryEntry {
   ok?: boolean;            // explicit success flag (esp. for grpc)
   grpc?: GrpcTabState;     // snapshot for replay of grpc requests
   at: number;
+  envName?: string;        // environment active when it was sent
+  /** S21: the saved request it came from, and the editable draft as typed (with {{vars}}). */
+  savedPath?: string;
+  title?: string;
+  raw?: HttpRequest;
+  params?: Param[];
 }
 
 // ---------- Git source control (camelCase, mirrors the Rust core types) ----------
@@ -210,10 +244,37 @@ export interface GrpcMethod {
   clientStreaming?: boolean;
   /** True for server/bidi-streaming RPCs (server side is a stream). */
   serverStreaming?: boolean;
+  /** Full name of the request message type, e.g. `helloworld.HelloRequest`. */
+  inputType?: string;
+  /** Number of fields in the request message. */
+  inputFields?: number;
+  /** Full name of the response message type, e.g. `helloworld.HelloReply`. */
+  outputType?: string;
+  /** G4: top-level request fields for completions and pre-send checks. */
+  inputSchema?: GrpcField[];
+}
+export interface GrpcField {
+  /** JSON name; `protoName` is accepted in messages too. */
+  name: string;
+  protoName: string;
+  /** `string`, `enum Greeting`, `repeated string`, `map<string, int32>`. */
+  typeLabel: string;
+  json: 'string' | 'number' | 'boolean' | 'object' | 'array' | 'enum' | 'any';
+  /** First line of the .proto comment, '' without source info. */
+  doc?: string;
+  enumValues?: string[];
 }
 export interface GrpcService { name: string; methods: GrpcMethod[]; }
 export interface ServiceTree { services: GrpcService[]; }
-export interface GrpcResult { ok: boolean; status: string; body: string; elapsed_ms: number; size_bytes: number; }
+/** One message of a server stream (S20). */
+export interface GrpcStreamMessage { index: number; atMs: number; body: string; sizeBytes: number; /** First event only: response headers, before any message. */ headers?: Record<string, string>; /** Frontend only: a message we sent on a client/bidi stream. */ sent?: boolean; }
+export interface GrpcResult { ok: boolean; status: string; body: string; elapsed_ms: number; size_bytes: number; metadata?: Record<string, string>; trailers?: Record<string, string>; details?: GrpcErrorDetail[]; /** S25: dial attempts and the waits between them (frontend only). */ attempts?: number; backoffMs?: number[]; }
+/** A decoded `google.rpc.Status` detail; BadRequest carries field violations (S24). */
+export interface GrpcErrorDetail { typeName: string; fieldViolations: { field: string; description: string }[]; }
+/** Per-request TLS options (S29). Unset = system roots, verified. */
+export interface GrpcTls { insecure?: boolean; caCert?: string; clientCert?: string; clientKey?: string; }
+/** The server's leaf certificate as seen in a TLS handshake. */
+export interface GrpcCertInfo { verified: boolean; error?: string | null; subject: string; issuer: string; notAfter: number; }
 
 // ---------- Collection Runner ----------
 /**
@@ -237,6 +298,14 @@ export interface RunResultRow {
   error?: string;          // transport/connect/fatal error message
   /** Response body (HTTP) / result body (gRPC); Flows pass it downstream. */
   responseBody?: string;
+  /** Saved request node id (Runner re-runs, "Открыть запрос"). */
+  nodeId?: string;
+  /** Start time within its iteration, excluding the configured delay (waterfall). */
+  startOffsetMs?: number;
+  /** Response size, bytes. */
+  sizeBytes?: number;
+  /** Runner: when the call finished, ms since the run started (R3 log). */
+  endMs?: number;
 }
 
 /** Lifecycle of a Collection Runner run. */
@@ -255,6 +324,12 @@ export interface GrpcTabState {
   protoPaths?: string[];
   /** Extra compiler import roots for resolving `import` statements. */
   importPaths?: string[];
+  /** TLS options (ignored for plaintext). */
+  tls?: GrpcTls;
+  /** Auth sent as metadata; unset / 'inherit' takes the collection's (S19 «Auth»). */
+  auth?: AuthConfig;
+  /** Plaintext only: drop `authorization` metadata so tokens never go out unencrypted (default on). */
+  keepAuthOnPlaintext?: boolean;
   /** Postman-style pre-request script (JS); runs before {{var}} resolution and the call. */
   preRequestScript?: string;
   /** Postman-style test script (JS); runs against the gRPC result. */

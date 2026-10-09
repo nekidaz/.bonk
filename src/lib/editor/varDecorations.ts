@@ -19,6 +19,8 @@ import {
   type Tooltip,
   type ViewUpdate,
 } from '@codemirror/view';
+import { get } from 'svelte/store';
+import { t } from '../i18n';
 import { findVariables } from '../domain/vars';
 
 /** How a resolved variable presents in the hover tooltip. */
@@ -99,8 +101,8 @@ function resolvedDom(name: string, info: VarScopeInfo, opts: VariableHighlightOp
   const input = el('input', 'cm-var-tip-input');
   input.type = 'text';
   input.value = info.value;
-  input.placeholder = 'Value';
-  input.setAttribute('aria-label', `Value for ${name}`);
+  input.placeholder = get(t)('code.tip.value');
+  input.setAttribute('aria-label', get(t)('code.tip.value_for', { name }));
   // Keep keystrokes (and Escape/Enter) inside the popover, away from the editor.
   input.addEventListener('keydown', (e) => {
     e.stopPropagation();
@@ -113,7 +115,7 @@ function resolvedDom(name: string, info: VarScopeInfo, opts: VariableHighlightOp
 
   const actions = el('div', 'cm-var-tip-actions');
   actions.appendChild(
-    button('Save', 'cm-var-tip-btn primary', () => opts.onUpdate(name, input.value)),
+    button(get(t)('code.tip.save'), 'cm-var-tip-btn primary', () => opts.onUpdate(name, input.value)),
   );
   root.appendChild(actions);
   return root;
@@ -124,13 +126,13 @@ function unresolvedDom(name: string, opts: VariableHighlightOptions): HTMLElemen
   const root = el('div', 'cm-var-tip');
   const head = el('div', 'cm-var-tip-head');
   head.appendChild(el('span', 'cm-var-tip-name', name));
-  head.appendChild(el('span', 'cm-var-tip-missing', 'Unresolved variable'));
+  head.appendChild(el('span', 'cm-var-tip-missing', get(t)('code.tip.unresolved')));
   root.appendChild(head);
 
   const input = el('input', 'cm-var-tip-input');
   input.type = 'text';
-  input.placeholder = 'Value';
-  input.setAttribute('aria-label', `Value for ${name}`);
+  input.placeholder = get(t)('code.tip.value');
+  input.setAttribute('aria-label', get(t)('code.tip.value_for', { name }));
   // Keep keystrokes (and Escape/Enter) inside the popover, away from the editor.
   input.addEventListener('keydown', (e) => {
     e.stopPropagation();
@@ -145,11 +147,11 @@ function unresolvedDom(name: string, opts: VariableHighlightOptions): HTMLElemen
   const envName = opts.activeEnvName();
   if (envName !== null) {
     actions.appendChild(
-      button(`Add to ${envName}`, 'cm-var-tip-btn primary', () => opts.onAdd(name, input.value, 'env')),
+      button(get(t)('code.tip.add_to_env', { name: envName }), 'cm-var-tip-btn primary', () => opts.onAdd(name, input.value, 'env')),
     );
   }
   actions.appendChild(
-    button('Add to Globals', envName !== null ? 'cm-var-tip-btn' : 'cm-var-tip-btn primary', () =>
+    button(get(t)('code.tip.add_to_globals'), envName !== null ? 'cm-var-tip-btn' : 'cm-var-tip-btn primary', () =>
       opts.onAdd(name, input.value, 'globals'),
     ),
   );

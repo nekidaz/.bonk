@@ -27,7 +27,7 @@ use rmcp::{
 use subtle::ConstantTimeEq;
 
 use crate::{
-    runtime::{BonkRuntime, RuntimeConfig},
+    runtime::{BonkRuntime, MethodPolicy, RuntimeConfig},
     server::BonkMcpServer,
 };
 
@@ -76,6 +76,26 @@ struct Cli {
         global = true
     )]
     max_response_body_bytes: usize,
+
+    /// Bonk app state.json whose globals and environments resolve {{NAME}} values.
+    #[arg(long, value_name = "FILE", global = true)]
+    app_state: Option<PathBuf>,
+
+    /// App environment name the model may select. Repeatable; others are denied.
+    #[arg(long = "environment", value_name = "NAME", global = true)]
+    environments: Vec<String>,
+
+    /// Policy for HTTP POST, PUT, PATCH and DELETE.
+    #[arg(long, value_enum, default_value = "ask", global = true)]
+    mutating_methods: MethodPolicy,
+
+    /// Id of the AI client launching this server, recorded in the journal.
+    #[arg(long, value_name = "ID", global = true)]
+    client: Option<String>,
+
+    /// Append one JSON line per tool call to this file.
+    #[arg(long, value_name = "FILE", global = true)]
+    journal: Option<PathBuf>,
 
     #[command(subcommand)]
     transport: Option<Transport>,
@@ -137,6 +157,11 @@ async fn main() -> Result<()> {
         target_hosts: cli.target_hosts,
         variable_prefix: cli.variable_prefix,
         max_response_body_bytes: cli.max_response_body_bytes,
+        app_state: cli.app_state,
+        environments: cli.environments,
+        mutating_methods: cli.mutating_methods,
+        client: cli.client,
+        journal: cli.journal,
     });
     let server = BonkMcpServer::new(runtime);
 

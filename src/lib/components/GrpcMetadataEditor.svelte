@@ -11,6 +11,7 @@
     type GrpcMetadataRow,
   } from '../domain/grpcMetadata';
   import type { Tab } from '../domain/types';
+  import { t } from '../i18n';
 
   let { tab }: { tab: Tab } = $props();
 
@@ -63,13 +64,13 @@
 
 <div class="bs-pwrap grpc-metadata-editor">
   <div class="bs-qp">
-    <span class="t">Request metadata</span>
-    <span class="be">{Object.keys(tab.grpc?.metadata ?? {}).length} active</span>
+    <span class="t">{$t('grpc.meta.title')}</span>
+    <span class="be">{$t('grpc.meta.active', { n: Object.keys(tab.grpc?.metadata ?? {}).length })}</span>
   </div>
   <div class="bs-pt grpc-metadata-table" bind:this={table}>
     <div class="bs-pr h">
-      <div class="bs-pc k">Key</div>
-      <div class="bs-pc v">Value</div>
+      <div class="bs-pc k">{$t('grpc.meta.key')}</div>
+      <div class="bs-pc v">{$t('grpc.meta.value')}</div>
       <div class="bs-pc grpc-metadata-action" aria-hidden="true"></div>
     </div>
     {#each rows as row, index (index)}
@@ -81,9 +82,9 @@
           <input
             data-row={index}
             data-field="key"
-            aria-label={`Metadata key ${index + 1}`}
+            aria-label={$t('grpc.meta.keyAria', { n: index + 1 })}
             aria-invalid={invalid || duplicate}
-            placeholder="Key"
+            placeholder={$t('grpc.meta.key')}
             value={row.key}
             oninput={(event) => setRow(index, 'key', event.currentTarget.value)}
             onkeydown={(event) => rowKeydown(event, index, 'key')}
@@ -95,8 +96,8 @@
           <input
             data-row={index}
             data-field="value"
-            aria-label={`Metadata value ${index + 1}`}
-            placeholder="Value"
+            aria-label={$t('grpc.meta.valueAria', { n: index + 1 })}
+            placeholder={$t('grpc.meta.value')}
             value={row.value}
             oninput={(event) => setRow(index, 'value', event.currentTarget.value)}
             onkeydown={(event) => rowKeydown(event, index, 'value')}
@@ -105,7 +106,7 @@
         </div>
         <div class="bs-pc grpc-metadata-action">
           {#if row.key !== '' || row.value !== ''}
-            <button type="button" aria-label={`Remove metadata row ${index + 1}`} title="Remove" onclick={() => removeRow(index)}>
+            <button type="button" aria-label={$t('grpc.meta.removeAria', { n: index + 1 })} title={$t('common.delete')} onclick={() => removeRow(index)}>
               <span class="material-symbols-outlined" style="font-size:16px">close</span>
             </button>
           {/if}
@@ -114,9 +115,9 @@
     {/each}
   </div>
   <div class="grpc-metadata-help">
-    <span>Keys are sent lowercase.</span>
-    <span><code>-bin</code> values must be base64.</span>
-    {#if duplicateKeys.size > 0}<span class="warn">Duplicate keys use the last value.</span>{/if}
+    <span>{$t('grpc.meta.lowercase')}</span>
+    <span>{$t('grpc.meta.binPre')}<code>-bin</code>{$t('grpc.meta.binPost')}</span>
+    {#if duplicateKeys.size > 0}<span class="warn">{$t('grpc.meta.duplicate')}</span>{/if}
   </div>
 </div>
 

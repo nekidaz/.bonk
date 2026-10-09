@@ -1,5 +1,8 @@
 use crate::conn::GrpcDescriptorCache;
-use crate::domain::grpc::{GrpcMethod, GrpcResult, GrpcService, ServiceTree};
+use crate::domain::grpc::{
+    GrpcErrorDetail, GrpcField, GrpcFieldViolation, GrpcMethod, GrpcPrefs, GrpcResult, GrpcService, GrpcTls,
+    ServiceTree,
+};
 use base64::engine::general_purpose::STANDARD as BASE64;
 use base64::Engine;
 use bytes::Buf;
@@ -19,7 +22,7 @@ use tonic::codec::{Codec, DecodeBuf, Decoder, EncodeBuf, Encoder};
 use tonic::metadata::{
     AsciiMetadataKey, AsciiMetadataValue, BinaryMetadataKey, BinaryMetadataValue, MetadataMap,
 };
-use tonic::transport::{Channel, ClientTlsConfig, Endpoint};
+use tonic::transport::{Certificate, Channel, ClientTlsConfig, Endpoint, Identity};
 use tonic::{Code, Request, Status};
 
 /// Extract the TLS SNI host from an endpoint: drop any scheme and `:port`, and
@@ -36,6 +39,26 @@ fn tls_domain(endpoint: &str) -> &str {
 }
 
 pub async fn connect(endpoint: &str, plaintext: bool) -> Result<Channel, String> {
+    connect_with(
+        endpoint,
+        plaintext,
+        &GrpcTls::default(),
+        &GrpcPrefs::default(),
+    )
+    .await
+}
+
+/// Like [`connect`], with custom TLS (extra CA, mTLS identity, or no verification).
+pub async fn connect_with(
+    endpoint: &str,
+    plaintext: bool,
+    tls: &GrpcTls,
+    prefs: &GrpcPrefs,
+) -> Result<Channel, String> {
+    let secure = !plaintext && !endpoint.starts_with("http://");
+    if secure && tls.insecure {
+        return super::grpc_tls::connect_insecure(endpoint, tls, prefs).await;
+    }
     let uri = if endpoint.starts_with("http://") || endpoint.starts_with("https://") {
         endpoint.to_string()
     } else if plaintext {
@@ -48,13 +71,27 @@ pub async fn connect(endpoint: &str, plaintext: bool) -> Result<Channel, String>
         // Bound the TCP/TLS handshake so an unreachable endpoint fails fast
         // instead of leaving the UI stuck "connecting" forever.
         .connect_timeout(std::time::Duration::from_secs(8));
-    if !plaintext {
+    if prefs.keepalive_secs > 0 {
         builder = builder
-            .tls_config(
-                ClientTlsConfig::new()
-                    .domain_name(tls_domain(endpoint))
-                    .with_enabled_roots(),
-            )
+            .http2_keep_alive_interval(std::time::Duration::from_secs(prefs.keepalive_secs.into()))
+            .keep_alive_while_idle(true);
+    }
+    if !plaintext {
+        let mut config = ClientTlsConfig::new()
+            .domain_name(tls_domain(endpoint))
+            .with_enabled_roots();
+        if let Some(ca) = &tls.ca_cert {
+            let pem = std::fs::read(ca).map_err(|e| format!("CA {ca}: {e}"))?;
+            config = config.ca_certificate(Certificate::from_pem(pem));
+        }
+        if let (Some(cert), Some(key)) = (&tls.client_cert, &tls.client_key) {
+            let cert =
+                std::fs::read(cert).map_err(|e| format!("client certificate {cert}: {e}"))?;
+            let key = std::fs::read(key).map_err(|e| format!("client key {key}: {e}"))?;
+            config = config.identity(Identity::from_pem(cert, key));
+        }
+        builder = builder
+            .tls_config(config)
             .map_err(|e| format!("tls config failed: {e}"))?;
     }
     builder
@@ -64,6 +101,21 @@ pub async fn connect(endpoint: &str, plaintext: bool) -> Result<Channel, String>
 }
 
 pub async fn reflect(endpoint: &str, plaintext: bool) -> Result<GrpcDescriptorCache, String> {
+    reflect_with(
+        endpoint,
+        plaintext,
+        &GrpcTls::default(),
+        &GrpcPrefs::default(),
+    )
+    .await
+}
+
+pub async fn reflect_with(
+    endpoint: &str,
+    plaintext: bool,
+    tls: &GrpcTls,
+    prefs: &GrpcPrefs,
+) -> Result<GrpcDescriptorCache, String> {
     // Use a FRESH connection per reflection attempt. A server that only speaks
     // v1alpha resets the connection when asked for the unknown v1 reflection
     // service; reusing one channel would carry that reset into the v1alpha
@@ -71,12 +123,12 @@ pub async fn reflect(endpoint: &str, plaintext: bool) -> Result<GrpcDescriptorCa
     // single version per connection. Each attempt is also time-bounded so a
     // server that accepts the connection but never answers can't hang us.
     let dur = std::time::Duration::from_secs(10);
-    if let Ok(channel) = connect(endpoint, plaintext).await {
+    if let Ok(channel) = connect_with(endpoint, plaintext, tls, prefs).await {
         if let Ok(Ok(cache)) = tokio::time::timeout(dur, reflect_v1(channel)).await {
             return Ok(cache);
         }
     }
-    let channel = connect(endpoint, plaintext).await?;
+    let channel = connect_with(endpoint, plaintext, tls, prefs).await?;
     match tokio::time::timeout(dur, reflect_v1alpha(channel)).await {
         Ok(result) => result,
         Err(_) => Err("reflection timed out".to_string()),
@@ -264,33 +316,11 @@ fn random_string(field_name: &str) -> Value {
     Value::String(s)
 }
 
-/// Upper bound on a decoded inbound gRPC message. tonic defaults to 4MB, but
-/// bonk renders whole responses, so allow up to the same ceiling the HTTP body
-/// path permits (250MB) — bounding memory while not rejecting large-but-legit
-/// responses. A peer that exceeds this fails with a clear decode error rather
-/// than letting the client buffer an unbounded message.
-const MAX_GRPC_MESSAGE_BYTES: usize = 250 * 1024 * 1024;
-
-pub async fn call(
-    channel: Channel,
-    cache: GrpcDescriptorCache,
-    method_symbol: &str,
+/// Decode one JSON request message for `method`.
+fn parse_message(
+    method: &prost_reflect::MethodDescriptor,
     json_body: &str,
-    metadata: &HashMap<String, String>,
-) -> Result<GrpcResult, String> {
-    let method = cache
-        .methods
-        .get(method_symbol)
-        .ok_or_else(|| format!("unknown method: {method_symbol}"))?
-        .clone();
-    // bonk only speaks unary today. Invoking a streaming RPC as unary returns a
-    // wrong/partial result or hangs until timeout, so refuse it up front with a
-    // clear message rather than silently misbehaving.
-    if method.is_client_streaming() || method.is_server_streaming() {
-        return Err(format!(
-            "{method_symbol} is a streaming RPC; bonk currently supports unary calls only."
-        ));
-    }
+) -> Result<DynamicMessage, String> {
     let mut de = serde_json::Deserializer::from_str(json_body);
     let req_msg = method.input().deserialize(&mut de).map_err(|e| {
         format!(
@@ -300,7 +330,42 @@ pub async fn call(
     })?;
     de.end()
         .map_err(|e| format!("invalid trailing json: {e}"))?;
+    Ok(req_msg)
+}
 
+/// Request messages for a streaming call: a client stream takes a JSON array
+/// (one element per message) or a single object; anything else sends one message.
+fn parse_messages(
+    method: &prost_reflect::MethodDescriptor,
+    json_body: &str,
+) -> Result<Vec<DynamicMessage>, String> {
+    if !method.is_client_streaming() {
+        return Ok(vec![parse_message(method, json_body)?]);
+    }
+    match serde_json::from_str::<serde_json::Value>(json_body) {
+        Ok(serde_json::Value::Array(items)) => items
+            .iter()
+            .enumerate()
+            .map(|(i, item)| {
+                method.input().deserialize(item).map_err(|e| {
+                    format!(
+                        "request message #{} does not match {}: {e}",
+                        i + 1,
+                        method.input().full_name()
+                    )
+                })
+            })
+            .collect(),
+        _ => Ok(vec![parse_message(method, json_body)?]),
+    }
+}
+
+/// Build the outgoing request (body + metadata) and its path.
+fn prepare_request<T>(
+    method: &prost_reflect::MethodDescriptor,
+    body: T,
+    metadata: &HashMap<String, String>,
+) -> Result<(Request<T>, PathAndQuery), String> {
     let path = PathAndQuery::from_maybe_shared(format!(
         "/{}/{}",
         method.parent_service().full_name(),
@@ -308,10 +373,62 @@ pub async fn call(
     ))
     .map_err(|e| format!("invalid grpc path: {e}"))?;
 
-    let mut req = Request::new(req_msg);
+    let mut req = Request::new(body);
     for (key, value) in metadata {
         insert_metadata(req.metadata_mut(), key, value)?;
     }
+    Ok((req, path))
+}
+
+/// Response metadata as plain strings (binary values shown as their debug form).
+fn metadata_strings(map: &MetadataMap) -> std::collections::BTreeMap<String, String> {
+    map.iter()
+        .map(|kv| match kv {
+            tonic::metadata::KeyAndValueRef::Ascii(k, v) => {
+                (k.to_string(), v.to_str().unwrap_or_default().to_string())
+            }
+            tonic::metadata::KeyAndValueRef::Binary(k, v) => (k.to_string(), format!("{v:?}")),
+        })
+        .collect()
+}
+
+pub async fn call(
+    channel: Channel,
+    cache: GrpcDescriptorCache,
+    method_symbol: &str,
+    json_body: &str,
+    metadata: &HashMap<String, String>,
+) -> Result<GrpcResult, String> {
+    call_with(
+        channel,
+        cache,
+        method_symbol,
+        json_body,
+        metadata,
+        &GrpcPrefs::default(),
+    )
+    .await
+}
+
+pub async fn call_with(
+    channel: Channel,
+    cache: GrpcDescriptorCache,
+    method_symbol: &str,
+    json_body: &str,
+    metadata: &HashMap<String, String>,
+    prefs: &GrpcPrefs,
+) -> Result<GrpcResult, String> {
+    let method = cache
+        .methods
+        .get(method_symbol)
+        .ok_or_else(|| format!("unknown method: {method_symbol}"))?
+        .clone();
+    // Unary only here; streams go through `call_stream`. Invoking a
+    // streaming RPC as unary returns a wrong/partial result or hangs until timeout.
+    if method.is_client_streaming() || method.is_server_streaming() {
+        return Err(format!("{method_symbol} is a streaming RPC; use a stream call."));
+    }
+    let (req, path) = prepare_request(&method, parse_message(&method, json_body)?, metadata)?;
 
     let start = Instant::now();
     // Shared counter the decoder writes the raw protobuf byte count into, so we
@@ -325,19 +442,39 @@ pub async fn call(
     // response. tonic's default ceiling is only 4MB, which bonk routinely needs
     // to exceed, so raise it to the HTTP body cap rather than removing it.
     let mut grpc = tonic::client::Grpc::new(channel)
-        .max_decoding_message_size(MAX_GRPC_MESSAGE_BYTES)
-        .max_encoding_message_size(MAX_GRPC_MESSAGE_BYTES);
+        .max_decoding_message_size(prefs.max_message_bytes())
+        .max_encoding_message_size(prefs.max_message_bytes());
     grpc.ready()
         .await
         .map_err(|e| format!("grpc client not ready: {e}"))?;
-    let response = grpc
-        .unary(req, path, codec)
-        .await
-        .map_err(|e| format!("grpc status {}: {}", e.code(), e.message()))?;
+    // A unary RPC is one message each way on the wire, so drive it as a
+    // server stream: unlike `unary`, that keeps headers and trailers apart.
+    let response = match grpc.server_streaming(req, path, codec).await {
+        Ok(response) => response,
+        Err(status) => {
+            let elapsed = start.elapsed().as_millis() as u64;
+            return Ok(status_result(&status, elapsed, 0, Default::default()));
+        }
+    };
+    let metadata = metadata_strings(response.metadata());
+    let mut stream = response.into_inner();
+    let response_msg = match stream.message().await {
+        Ok(Some(msg)) => msg,
+        Ok(None) => return Err("server closed the call without a response message".into()),
+        Err(status) => {
+            let elapsed = start.elapsed().as_millis() as u64;
+            return Ok(status_result(&status, elapsed, 0, metadata));
+        }
+    };
+    let trailers = match stream.trailers().await {
+        Ok(t) => t.map(|t| metadata_strings(&t)).unwrap_or_default(),
+        Err(status) => {
+            let elapsed = start.elapsed().as_millis() as u64;
+            return Ok(status_result(&status, elapsed, 0, metadata));
+        }
+    };
     let elapsed_ms = start.elapsed().as_millis() as u64;
-    let response_msg = response.into_inner();
-    let body = serde_json::to_string_pretty(&response_msg)
-        .map_err(|e| format!("response json failed: {e}"))?;
+    let body = prefs.render(&response_msg, true)?;
 
     Ok(GrpcResult {
         ok: true,
@@ -346,6 +483,261 @@ pub async fn call(
         size_bytes: wire_size.load(Ordering::Relaxed),
         body,
         elapsed_ms,
+        metadata,
+        trailers,
+        details: Vec::new(),
+    })
+}
+
+/// `InvalidArgument` → `INVALID_ARGUMENT`, the canonical gRPC code name.
+pub(crate) fn code_name(code: Code) -> String {
+    let mut out = String::new();
+    for (i, c) in format!("{code:?}").chars().enumerate() {
+        if i > 0 && c.is_ascii_uppercase() {
+            out.push('_');
+        }
+        out.push(c.to_ascii_uppercase());
+    }
+    out
+}
+
+/// A non-OK status as a failed result (not `Err`), so the UI keeps the real
+/// code, message, trailers and decoded details.
+fn status_result(
+    status: &Status,
+    elapsed_ms: u64,
+    size_bytes: usize,
+    metadata: std::collections::BTreeMap<String, String>,
+) -> GrpcResult {
+    // A failed call's status metadata is what the server sent as trailers.
+    let mut trailers = metadata_strings(status.metadata());
+    trailers.remove("grpc-status-details-bin");
+    GrpcResult {
+        ok: false,
+        status: code_name(status.code()),
+        body: status.message().to_string(),
+        elapsed_ms,
+        size_bytes,
+        metadata,
+        trailers,
+        details: decode_details(status.details()),
+    }
+}
+
+/// `google.rpc.Status` as carried in `grpc-status-details-bin`.
+#[derive(Clone, PartialEq, prost::Message)]
+struct RpcStatus {
+    #[prost(int32, tag = "1")]
+    code: i32,
+    #[prost(string, tag = "2")]
+    message: String,
+    #[prost(message, repeated, tag = "3")]
+    details: Vec<prost_types::Any>,
+}
+
+#[derive(Clone, PartialEq, prost::Message)]
+struct BadRequest {
+    #[prost(message, repeated, tag = "1")]
+    field_violations: Vec<FieldViolation>,
+}
+
+#[derive(Clone, PartialEq, prost::Message)]
+struct FieldViolation {
+    #[prost(string, tag = "1")]
+    field: String,
+    #[prost(string, tag = "2")]
+    description: String,
+}
+
+fn decode_details(bytes: &[u8]) -> Vec<GrpcErrorDetail> {
+    let Ok(status) = RpcStatus::decode(bytes) else {
+        return Vec::new();
+    };
+    status
+        .details
+        .into_iter()
+        .map(|any| {
+            let type_name = any
+                .type_url
+                .rsplit('/')
+                .next()
+                .unwrap_or_default()
+                .to_string();
+            let field_violations = if type_name == "google.rpc.BadRequest" {
+                BadRequest::decode(any.value.as_slice())
+                    .map(|b| {
+                        b.field_violations
+                            .into_iter()
+                            .map(|v| GrpcFieldViolation {
+                                field: v.field,
+                                description: v.description,
+                            })
+                            .collect()
+                    })
+                    .unwrap_or_default()
+            } else {
+                Vec::new()
+            };
+            GrpcErrorDetail {
+                type_name,
+                field_violations,
+            }
+        })
+        .collect()
+}
+
+/// One message of a server stream, as it arrives.
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GrpcStreamMessage {
+    pub index: usize,
+    /// Unix time in milliseconds when the message was received.
+    pub at_ms: u64,
+    /// The message as compact JSON.
+    pub body: String,
+    pub size_bytes: usize,
+    /// Set only on the first event (index 0): the response headers, which
+    /// arrive before any message (S20 «Metadata» while streaming).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub headers: Option<std::collections::BTreeMap<String, String>>,
+}
+
+/// Feeds more request messages into an open client/bidi stream. Dropping it half-closes
+/// the client side (the server then sees end-of-stream).
+pub struct StreamSender {
+    method: prost_reflect::MethodDescriptor,
+    tx: tokio::sync::mpsc::UnboundedSender<DynamicMessage>,
+}
+
+impl StreamSender {
+    /// Sends `json_body` (an object, or an array of objects) and returns how many went out.
+    pub fn send(&self, json_body: &str) -> Result<usize, String> {
+        let messages = parse_messages(&self.method, json_body)?;
+        let n = messages.len();
+        for msg in messages {
+            self.tx
+                .send(msg)
+                .map_err(|_| "the stream is already closed".to_string())?;
+        }
+        Ok(n)
+    }
+}
+
+/// A sender for `method_symbol` plus the receiver to hand to `call_stream`.
+pub fn stream_sender(
+    cache: &GrpcDescriptorCache,
+    method_symbol: &str,
+) -> Result<(StreamSender, StreamReceiver), String> {
+    let method = cache
+        .methods
+        .get(method_symbol)
+        .ok_or_else(|| format!("unknown method: {method_symbol}"))?
+        .clone();
+    let (tx, rx) = tokio::sync::mpsc::unbounded_channel();
+    Ok((StreamSender { method, tx }, rx))
+}
+
+pub type StreamReceiver = tokio::sync::mpsc::UnboundedReceiver<DynamicMessage>;
+
+/// Streaming call (server, client or bidi): the messages in `json_body` go out first, then
+/// whatever arrives on `more` until its sender drops (`None` half-closes right away).
+/// `on_message` sees every response as it arrives; the returned result summarises the
+/// stream (all messages as a JSON array, total size, headers + trailers).
+#[allow(clippy::too_many_arguments)]
+pub async fn call_stream<F: FnMut(GrpcStreamMessage) + Send>(
+    channel: Channel,
+    cache: GrpcDescriptorCache,
+    method_symbol: &str,
+    json_body: &str,
+    metadata: &HashMap<String, String>,
+    prefs: &GrpcPrefs,
+    more: Option<StreamReceiver>,
+    mut on_message: F,
+) -> Result<GrpcResult, String> {
+    let method = cache
+        .methods
+        .get(method_symbol)
+        .ok_or_else(|| format!("unknown method: {method_symbol}"))?
+        .clone();
+    if !method.is_client_streaming() && !method.is_server_streaming() {
+        return Err(format!("{method_symbol} is not a streaming RPC."));
+    }
+    let messages = parse_messages(&method, json_body)?;
+    // A closed channel yields nothing, so `None` ends the request stream after `messages`.
+    let more = more.unwrap_or_else(|| tokio::sync::mpsc::unbounded_channel().1);
+    let outgoing = tokio_stream::iter(messages)
+        .chain(tokio_stream::wrappers::UnboundedReceiverStream::new(more));
+    let (req, path) = prepare_request(&method, outgoing, metadata)?;
+    let start = Instant::now();
+    let wire_size = Arc::new(AtomicUsize::new(0));
+    let codec = DynamicCodec {
+        output: method.output(),
+        wire_size: wire_size.clone(),
+    };
+    let mut grpc = tonic::client::Grpc::new(channel)
+        .max_decoding_message_size(prefs.max_message_bytes())
+        .max_encoding_message_size(prefs.max_message_bytes());
+    grpc.ready()
+        .await
+        .map_err(|e| format!("grpc client not ready: {e}"))?;
+    let response = match grpc.streaming(req, path, codec).await {
+        Ok(response) => response,
+        Err(status) => {
+            let elapsed = start.elapsed().as_millis() as u64;
+            return Ok(status_result(&status, elapsed, 0, Default::default()));
+        }
+    };
+    let metadata = metadata_strings(response.metadata());
+    on_message(GrpcStreamMessage {
+        index: 0,
+        at_ms: 0,
+        body: String::new(),
+        size_bytes: 0,
+        headers: Some(metadata.clone()),
+    });
+    let mut stream = response.into_inner();
+    let mut bodies = Vec::new();
+    // The decoder stores each message's own wire size; the stream total is their sum.
+    let mut total = 0usize;
+    loop {
+        let msg = match stream.message().await {
+            Ok(Some(msg)) => msg,
+            Ok(None) => break,
+            // S26: a mid-stream error keeps what already arrived (the UI has it).
+            Err(status) => {
+                let elapsed = start.elapsed().as_millis() as u64;
+                return Ok(status_result(&status, elapsed, total, metadata));
+            }
+        };
+        let size = wire_size.load(Ordering::Relaxed);
+        total += size;
+        let body = prefs.render(&msg, false)?;
+        on_message(GrpcStreamMessage {
+            index: bodies.len() + 1,
+            at_ms: std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|d| d.as_millis() as u64)
+                .unwrap_or_default(),
+            body,
+            size_bytes: size,
+            headers: None,
+        });
+        bodies.push(msg);
+    }
+    let trailers = match stream.trailers().await {
+        Ok(t) => t.map(|t| metadata_strings(&t)).unwrap_or_default(),
+        Err(_) => Default::default(),
+    };
+    let body = prefs.render_all(&bodies)?;
+    Ok(GrpcResult {
+        ok: true,
+        status: "OK".into(),
+        size_bytes: total,
+        body,
+        elapsed_ms: start.elapsed().as_millis() as u64,
+        metadata,
+        trailers,
+        details: Vec::new(),
     })
 }
 
@@ -417,7 +809,7 @@ macro_rules! reflect_impl {
                         .into_iter()
                         .map(|s| s.name)
                         .filter(|s| {
-                            !s.starts_with("grpc.reflection.") && !s.starts_with("grpc.health.")
+                            !s.starts_with("grpc.reflection.")
                         })
                         .collect::<Vec<_>>()
                 }
@@ -517,6 +909,75 @@ macro_rules! reflect_impl {
 reflect_impl!(reflect_v1, v1, "v1");
 reflect_impl!(reflect_v1alpha, v1alpha, "v1alpha");
 
+/// A field's scalar/enum/message type as (display label, expected JSON shape).
+fn kind_info(kind: &Kind) -> (String, &'static str) {
+    match kind {
+        Kind::Bool => ("bool".into(), "boolean"),
+        Kind::String | Kind::Bytes => (if matches!(kind, Kind::Bytes) { "bytes" } else { "string" }.into(), "string"),
+        Kind::Float | Kind::Double | Kind::Int32 | Kind::Sint32 | Kind::Sfixed32 | Kind::Uint32 | Kind::Fixed32
+        | Kind::Int64 | Kind::Sint64 | Kind::Sfixed64 | Kind::Uint64 | Kind::Fixed64 => {
+            (format!("{kind:?}").to_lowercase(), "number")
+        }
+        Kind::Enum(e) => (format!("enum {}", e.name()), "enum"),
+        // Well-known types have their own JSON forms (RFC 3339 strings, bare values…).
+        Kind::Message(m) => {
+            let json = match m.full_name() {
+                "google.protobuf.Timestamp" | "google.protobuf.Duration" | "google.protobuf.FieldMask" => "string",
+                "google.protobuf.StringValue" | "google.protobuf.BytesValue" => "string",
+                "google.protobuf.BoolValue" => "boolean",
+                "google.protobuf.Value" => "any",
+                "google.protobuf.ListValue" => "array",
+                n if n.starts_with("google.protobuf.") && n.ends_with("Value") => "number",
+                _ => "object",
+            };
+            (m.name().to_string(), json)
+        }
+    }
+}
+
+/// First line of the field's leading (or trailing) .proto comment, when the
+/// descriptor carries source info (compiled .proto; reflection usually doesn't).
+fn field_doc(field: &FieldDescriptor) -> String {
+    let file = field.parent_file();
+    let Some(info) = &file.file_descriptor_proto().source_code_info else {
+        return String::new();
+    };
+    info.location
+        .iter()
+        .find(|l| l.path == field.path())
+        .and_then(|l| l.leading_comments.as_deref().or(l.trailing_comments.as_deref()))
+        .and_then(|c| c.lines().map(str::trim).find(|l| !l.is_empty()))
+        .unwrap_or_default()
+        .to_string()
+}
+
+fn field_info(field: &FieldDescriptor) -> GrpcField {
+    let kind = field.kind();
+    let (label, json) = kind_info(&kind);
+    let (type_label, json) = if field.is_map() {
+        let entry = kind.as_message().expect("map entry is a message");
+        let (k, _) = kind_info(&entry.map_entry_key_field().kind());
+        let (v, _) = kind_info(&entry.map_entry_value_field().kind());
+        (format!("map<{k}, {}>", v.trim_start_matches("enum ")), "object")
+    } else if field.is_list() {
+        (format!("repeated {}", label.trim_start_matches("enum ")), "array")
+    } else {
+        (label, json)
+    };
+    GrpcField {
+        name: field.json_name().to_string(),
+        proto_name: field.name().to_string(),
+        type_label,
+        json: json.to_string(),
+        doc: field_doc(field),
+        enum_values: kind
+            .as_enum()
+            .filter(|_| !field.is_map())
+            .map(|e| e.values().map(|v| v.name().to_string()).collect())
+            .unwrap_or_default(),
+    }
+}
+
 fn cache_from_files(
     services: Vec<String>,
     files: Vec<prost_types::FileDescriptorProto>,
@@ -543,6 +1004,10 @@ fn cache_from_files(
                     symbol,
                     client_streaming,
                     server_streaming,
+                    input_type: method.input().full_name().to_string(),
+                    input_fields: method.input().fields().len(),
+                    output_type: method.output().full_name().to_string(),
+                    input_schema: method.input().fields().map(|f| field_info(&f)).collect(),
                 }
             })
             .collect::<Vec<_>>();
@@ -576,7 +1041,15 @@ pub fn compile_protos(
     // pass absolute paths and may give an empty `includes` (e.g. the user picks
     // a .proto file without choosing an explicit import root), so we
     // automatically add each file's parent directory to the include set.
-    let mut all_includes: Vec<String> = includes.to_vec();
+    // Settings → gRPC import paths may be written as `~/…`.
+    let home = std::env::var("HOME").unwrap_or_default();
+    let mut all_includes: Vec<String> = includes
+        .iter()
+        .map(|p| match p.strip_prefix("~/") {
+            Some(rest) if !home.is_empty() => format!("{home}/{rest}"),
+            _ => p.clone(),
+        })
+        .collect();
     for f in files {
         if let Some(parent) = std::path::Path::new(f).parent() {
             let p = parent.to_string_lossy().into_owned();
@@ -588,7 +1061,7 @@ pub fn compile_protos(
     let mut compiler =
         Compiler::new(&all_includes).map_err(|e| format!("proto compile failed: {e}"))?;
     compiler
-        .include_source_info(false)
+        .include_source_info(true)
         .open_files(files)
         .map_err(|e| format!("proto compile failed: {e}"))?;
 
@@ -867,6 +1340,50 @@ service Greeter { rpc SayHello (HelloRequest) returns (HelloReply); }
     }
 
     #[test]
+    fn compile_protos_describes_request_fields() {
+        let dir = proto_temp_dir();
+        let proto = dir.join("hello.proto");
+        std::fs::write(
+            &proto,
+            r#"
+syntax = "proto3";
+package hello;
+enum Greeting { FORMAL = 0; CASUAL = 1; }
+message HelloRequest {
+  string name = 1;
+  // Язык ответа, напр. "ru"
+  string locale = 2;
+  Greeting greeting_type = 3;
+  repeated string tags = 4;
+  map<string, int32> counts = 5;
+}
+message HelloReply { string message = 1; }
+service Greeter { rpc SayHello (HelloRequest) returns (HelloReply); }
+"#,
+        )
+        .unwrap();
+
+        let cache = compile_protos(&[proto.to_string_lossy().into_owned()], &[]).expect("compile");
+        let fields = &cache.tree.services[0].methods[0].input_schema;
+        assert_eq!(
+            fields
+                .iter()
+                .map(|f| (f.name.as_str(), f.type_label.as_str(), f.json.as_str()))
+                .collect::<Vec<_>>(),
+            vec![
+                ("name", "string", "string"),
+                ("locale", "string", "string"),
+                ("greetingType", "enum Greeting", "enum"),
+                ("tags", "repeated string", "array"),
+                ("counts", "map<string, int32>", "object"),
+            ]
+        );
+        assert_eq!(fields[1].doc, "Язык ответа, напр. \"ru\"");
+        assert_eq!(fields[2].proto_name, "greeting_type");
+        assert_eq!(fields[2].enum_values, vec!["FORMAL", "CASUAL"]);
+    }
+
+    #[test]
     fn compile_protos_resolves_imports_via_include_root() {
         let dir = proto_temp_dir();
         std::fs::create_dir_all(dir.join("sub")).unwrap();
@@ -1028,6 +1545,15 @@ service RootService { rpc RootCall (dep.Ping) returns (dep.Ping); }
         assert!(cs.client_streaming && !cs.server_streaming);
         let bidi = by_name("Bidi");
         assert!(bidi.client_streaming && bidi.server_streaming);
+
+        // A client stream takes a JSON array (one message per element) or a single object.
+        let cs = &cache.methods["strm.Streamer.ClientStream"];
+        assert_eq!(parse_messages(cs, r#"[{"v":"a"},{"v":"b"}]"#).unwrap().len(), 2);
+        assert_eq!(parse_messages(cs, r#"{"v":"a"}"#).unwrap().len(), 1);
+        assert!(parse_messages(cs, r#"[{"v":"a"},{"nope":1}]"#).unwrap_err().contains("#2"));
+        // A server stream sends exactly the one message it was given.
+        let ss = &cache.methods["strm.Streamer.ServerStream"];
+        assert!(parse_messages(ss, r#"[{"v":"a"}]"#).is_err());
     }
 
     /// Offline: a `-bin` metadata key must base64-decode into a binary value and

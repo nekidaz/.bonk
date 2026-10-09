@@ -13,7 +13,13 @@ import { writable } from 'svelte/store';
  * One in-flight request for a tab. `requestId` lets Cancel target the right
  * backend request (absent for `connect`, which can't be cancelled).
  */
-export type BusyEntry = { kind: 'http' | 'invoke' | 'connect'; requestId?: string };
+export type BusyEntry = {
+  kind: 'http' | 'invoke' | 'connect';
+  requestId?: string;
+  startedAt?: number;
+  /** Client/bidi stream still accepting messages (until End). */
+  writable?: boolean;
+};
 
 /** Per-tab in-flight map. Absent key = that tab is idle. */
 export const busyMap = writable<Record<string, BusyEntry>>({});

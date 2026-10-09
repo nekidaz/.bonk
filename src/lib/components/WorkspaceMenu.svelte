@@ -4,28 +4,56 @@
     recentWorkspacePaths,
     openWorkspaceFolder,
     switchWorkspace,
+    collections,
+    environments,
+    hotkeys,
   } from '../stores';
+  import { revealPath } from '../api';
+  import { recentWorkspaceChoices, workspaceInitials, workspaceName } from '../domain/appShell';
+  import { formatBinding } from '../domain/hotkeys';
+  import type { TreeNode } from '../domain/types';
+  import { t, tp } from '../i18n';
 
   // Two-way bound from the parent so close-on-outside-click (handled by App's
   // window pointerdown listener) keeps working without new logic here.
-  let { open = $bindable() }: { open: boolean } = $props();
+  let { open = $bindable(), onSettings }: { open: boolean; onSettings: () => void } = $props();
 
-  function workspaceDisplayName(path: string): string {
-    return path.split('/').filter(Boolean).at(-1) ?? 'Local Workspace';
+  let query = $state('');
+  let searchEl = $state<HTMLInputElement>();
+  $effect(() => {
+    if (!open) query = '';
+    else searchEl?.focus();
+  });
+
+  const nameOf = (path: string) => workspaceName(path) || $t('workspace.local');
+  const title = $derived($workspacePath ? nameOf($workspacePath) : $t('workspace.local'));
+  const recents = $derived(recentWorkspaceChoices($recentWorkspacePaths, $workspacePath));
+  const q = $derived(query.trim().toLowerCase());
+  const hit = (path: string) => !q || path.toLowerCase().includes(q);
+  const shownRecents = $derived(recents.filter(hit));
+  const showCurrent = $derived(!!$workspacePath && hit($workspacePath));
+
+  function countRequests(nodes: TreeNode[]): number {
+    return nodes.reduce((n, node) => n + (node.kind === 'folder' ? countRequests(node.children) : 1), 0);
   }
+  const requestCount = $derived(countRequests($collections));
 
-  function recentWorkspaceChoices(paths: string[], current: string): string[] {
-    return paths.filter((p) => p && p !== current).slice(0, 8);
-  }
-
-  async function chooseWorkspace(path: string): Promise<void> {
+  async function choose(path: string): Promise<void> {
     open = false;
     await switchWorkspace(path);
   }
 
-  async function chooseWorkspaceFolder(): Promise<void> {
+  function run(fn: () => unknown): void {
     open = false;
-    await openWorkspaceFolder();
+    void fn();
+  }
+
+  // ↵ in the search opens the first recent match.
+  function searchKeydown(e: KeyboardEvent): void {
+    if (e.key === 'Enter' && shownRecents[0]) {
+      e.preventDefault();
+      void choose(shownRecents[0]);
+    }
   }
 </script>
 
@@ -33,48 +61,73 @@
   <button
     class="bs-work"
     class:open
-    title={$workspacePath || 'Local Workspace'}
+    aria-haspopup="menu"
+    aria-expanded={open}
+    title={$workspacePath || $t('workspace.local')}
     onclick={() => (open = !open)}
   >
-    <span class="material-symbols-outlined" style="font-size:13px">lock</span>
-    <span class="bs-work-title">{$workspacePath ? workspaceDisplayName($workspacePath) : 'Local Workspace'}</span>
-    <span class="material-symbols-outlined" style="font-size:13px">expand_more</span>
+    <span class="bs-work-avatar" aria-hidden="true">{workspaceInitials(title)}</span>
+    <span class="bs-work-title">{title}</span>
+    <span class="material-symbols-outlined" style="font-size:14px">keyboard_arrow_down</span>
   </button>
   {#if open}
-    <div class="bs-work-menu">
-      <div class="bs-work-menu-title">Workspace</div>
-      {#if $workspacePath}
-        <button class="bs-work-item on" type="button" title={$workspacePath} onclick={() => (open = false)}>
-          <span class="material-symbols-outlined" style="font-size:16px">check</span>
+    <div class="bs-work-menu" role="menu" aria-label={$t('workspace.title')}>
+      <label class="bs-work-search">
+        <span class="material-symbols-outlined" aria-hidden="true">search</span>
+        <input bind:this={searchEl} bind:value={query} placeholder={$t('workspace.search')} onkeydown={searchKeydown} />
+        {#if $hotkeys.workspaceMenu}<kbd>{formatBinding($hotkeys.workspaceMenu).join('')}</kbd>{/if}
+      </label>
+
+      {#if showCurrent}
+        <div class="bs-work-menu-label">{$t('workspace.current')}</div>
+        <button class="bs-work-item on" type="button" role="menuitem" title={$workspacePath} onclick={() => (open = false)}>
+          <span class="bs-work-avatar" aria-hidden="true">{workspaceInitials(nameOf($workspacePath))}</span>
           <span class="text">
-            <span class="main">{workspaceDisplayName($workspacePath)}</span>
+            <span class="main">{nameOf($workspacePath)}</span>
             <span class="sub">{$workspacePath}</span>
+            <span class="meta">
+              <span>{requestCount} {$tp(requestCount, ['запрос', 'запроса', 'запросов'], ['request', 'requests'])}</span>
+              <span>{$environments.length} {$tp($environments.length, ['окружение', 'окружения', 'окружений'], ['environment', 'environments'])}</span>
+            </span>
           </span>
+          <span class="material-symbols-outlined ok" aria-hidden="true">check</span>
         </button>
-      {:else}
-        <div class="bs-work-empty">No workspace folder selected.</div>
+      {:else if !$workspacePath}
+        <div class="bs-work-empty">{$t('workspace.none')}</div>
       {/if}
 
-      {#if recentWorkspaceChoices($recentWorkspacePaths, $workspacePath).length > 0}
-        <div class="bs-work-menu-label">Recent</div>
-        {#each recentWorkspaceChoices($recentWorkspacePaths, $workspacePath) as path (path)}
-          <button class="bs-work-item" type="button" title={path} onclick={() => chooseWorkspace(path)}>
-            <span class="material-symbols-outlined" style="font-size:16px">folder_open</span>
+      {#if shownRecents.length > 0}
+        <div class="bs-work-menu-label">{$t('workspace.recent')}</div>
+        {#each shownRecents as path (path)}
+          <button class="bs-work-item" type="button" role="menuitem" title={path} onclick={() => choose(path)}>
+            <span class="bs-work-avatar muted" aria-hidden="true">{workspaceInitials(nameOf(path))}</span>
             <span class="text">
-              <span class="main">{workspaceDisplayName(path)}</span>
+              <span class="main">{nameOf(path)}</span>
               <span class="sub">{path}</span>
             </span>
+            <kbd>{formatBinding(`Mod+Alt+${recents.indexOf(path) + 2}`).join('')}</kbd>
           </button>
         {/each}
+      {:else if q && !showCurrent}
+        <div class="bs-work-empty">{$t('workspace.noMatch')}</div>
       {/if}
 
-      <div class="bs-work-menu-sep"></div>
-      <button class="bs-work-item action" type="button" onclick={chooseWorkspaceFolder}>
-        <span class="material-symbols-outlined" style="font-size:16px">add</span>
-        <span class="text">
-          <span class="main">Open Workspace Folder...</span>
-        </span>
+      <div class="bs-work-menu-sep" role="separator"></div>
+      <button class="bs-work-item action" type="button" role="menuitem" onclick={() => run(openWorkspaceFolder)}>
+        <span class="material-symbols-outlined" aria-hidden="true">folder_open</span>
+        <span class="text"><span class="main">{$t('workspace.openFolder')}</span></span>
       </button>
+      {#if $workspacePath}
+        <button class="bs-work-item action" type="button" role="menuitem" onclick={() => run(() => revealPath($workspacePath))}>
+          <span class="material-symbols-outlined" aria-hidden="true">open_in_new</span>
+          <span class="text"><span class="main">{$t('workspace.reveal')}</span></span>
+        </button>
+        <div class="bs-work-menu-sep" role="separator"></div>
+        <button class="bs-work-item action" type="button" role="menuitem" onclick={() => run(onSettings)}>
+          <span class="material-symbols-outlined" aria-hidden="true">tune</span>
+          <span class="text"><span class="main">{$t('workspace.settings')}</span></span>
+        </button>
+      {/if}
     </div>
   {/if}
 </div>
