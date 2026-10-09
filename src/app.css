@@ -7,41 +7,9 @@
  * config maps every Material token name onto these variables, so toggling the
  * `.dark` class on <html> reskins the whole app.
  */
-:root {
-  --bg: #ffffff;
-  --surface: #ffffff;
-  --s1: #fafbfd;
-  --s2: #f4f5f8;
-  --s3: #eaeaee;
-  --s4: #e3e3e8;
-  --sdim: #d4d4d9;
-  --text: #1d1d1f;
-  --text2: #6e6e73;
-  --accent: #ff6c37;
-  --on-accent: #ffffff;
-  --border: #dcdce1;
-  --border2: #ebebf0;
-  --error: #d13c3c;
-  --error-c: #fde8e8;
-  --success: #168a45;
-  --warning: #d97706;
-  color-scheme: light;
-}
 
 .dark {
-  --bg: #1c1c1e;
-  --surface: #1c1c1e;
-  --s1: #1f1f21;
-  --s2: #202022;
-  --s3: #2a2a2c;
-  --s4: #2e2e30;
-  --sdim: #151517;
-  --text: #f2f2f7;
-  --text2: #98989d;
-  --accent: #ff7a4a;
   --on-accent: #ffffff;
-  --border: #38383a;
-  --border2: #2c2c2e;
   --error: #ef6a6a;
   --error-c: #4a2929;
   --success: #4db875;
@@ -50,9 +18,7 @@
 }
 
 body {
-  background-color: var(--bg);
   color: var(--text);
-  margin: 0;
   padding: 0;
   overflow: hidden;
   -webkit-font-smoothing: antialiased;

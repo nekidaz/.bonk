@@ -1,71 +1,26 @@
 /* Sidebar */
 .bs-side {
-  width: 284px;
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
-  border-right: 0.5px solid var(--sep);
-  background: var(--side);
 }
 .bs-railrow {
-  height: 40px;
   display: flex;
-  align-items: center;
-  gap: 2px;
-  padding: 0 9px;
-  border-bottom: 0.5px solid var(--sepsoft);
 }
 .bs-ri {
-  width: 30px;
-  height: 28px;
-  border-radius: 7px;
-  display: flex;
   align-items: center;
-  justify-content: center;
-  color: var(--t2);
-}
-.bs-ri:hover {
-  background: var(--hover);
 }
 .bs-ri svg {
   width: 17px;
   height: 17px;
 }
-.bs-ri.on {
-  background: var(--surface);
-  color: var(--accent);
-  box-shadow:
-    0 0 0 0.5px var(--sep),
-    0 1px 1.5px rgba(0, 0, 0, 0.05);
-}
-.bs-rdiv {
-  width: 0.5px;
-  height: 18px;
-  background: var(--sep);
-  margin: 0 5px;
-}
 .bs-filterrow {
-  height: 38px;
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 0 9px;
-  border-bottom: 0.5px solid var(--sepsoft);
 }
 .bs-fbox {
-  flex: 1;
-  height: 26px;
-  border-radius: 7px;
-  background: var(--inset);
-  border: 0.5px solid var(--sep);
   display: flex;
   align-items: center;
-  gap: 7px;
-  padding: 0 8px;
-  color: var(--t3);
-}
-.bs-fbox:focus-within {
-  border-color: color-mix(in srgb, var(--accent) 56%, var(--sep));
 }
 .bs-fbox svg {
   width: 13px;
@@ -78,11 +33,7 @@
   border: none;
   outline: none;
   font: inherit;
-  font-size: 12px;
   color: var(--text);
-}
-.bs-fbox-input::placeholder {
-  color: var(--t3);
 }
 .bs-fbox-clear {
   display: flex;
@@ -99,16 +50,9 @@
   color: var(--text);
 }
 .bs-fi {
-  width: 26px;
-  height: 26px;
-  border-radius: 7px;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--t2);
-}
-.bs-fi:hover {
-  background: var(--hover);
 }
 .bs-fi svg {
   width: 15px;
@@ -117,15 +61,8 @@
 .bs-tree {
   flex: 1;
   overflow-y: auto;
-  padding: 6px;
 }
 .bs-sech {
-  padding: 7px 6px;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.03em;
-  text-transform: uppercase;
-  color: var(--t2);
   display: flex;
   align-items: center;
   gap: 6px;
@@ -138,15 +75,8 @@
 .bs-trow {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 5px 7px;
-  border-radius: 7px;
-  font-size: 13px;
   width: 100%;
   text-align: left;
-}
-.bs-trow:hover {
-  background: var(--hover);
 }
 .bs-trow.bs-drop {
   background: var(--accentsoft);
@@ -156,38 +86,8 @@
   box-shadow: inset 0 0 0 1px var(--accent);
   border-radius: 8px;
 }
-.bs-trow .cv {
-  width: 13px;
-  height: 13px;
-  color: var(--t3);
-  flex-shrink: 0;
-}
-.bs-trow .fo {
-  width: 15px;
-  height: 15px;
-  color: var(--t2);
-  flex-shrink: 0;
-}
-.bs-trow.l2 {
-  padding-left: 22px;
-}
-.bs-trow.sel {
-  background: var(--accent);
-  color: #fff;
-}
-.bs-trow.sel .fo,
-.bs-trow.sel .cv {
-  color: rgba(255, 255, 255, 0.9);
-}
 .bs-mp {
-  font-family: var(--mono);
-  font-size: 9px;
-  font-weight: 800;
-  flex-shrink: 0;
   width: 24px;
-}
-.bs-trow.sel .bs-mp {
-  color: #fff;
 }
 .bs-nm {
   flex: 1;
@@ -195,70 +95,14 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.bs-tm {
-  font-size: 11px;
-  color: var(--t3);
-}
-.bs-empty {
-  padding: 6px 10px 4px 22px;
-  color: var(--t2);
-}
 .bs-empty b {
   display: block;
-  color: var(--text);
-  font-size: 12.5px;
-  margin-bottom: 3px;
-  font-weight: 600;
-}
-.bs-empty p {
-  font-size: 11.5px;
-  line-height: 1.5;
-  max-width: 200px;
-}
-.bs-sfoot {
-  border-top: 0.5px solid var(--sepsoft);
-}
-.bs-ffold {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 9px 12px;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.03em;
-  text-transform: uppercase;
-  color: var(--t2);
-  border-bottom: 0.5px solid var(--sepsoft);
-  width: 100%;
-}
-.bs-ffold svg {
-  width: 12px;
-  height: 12px;
-  color: var(--t3);
-}
-.bs-ffold.workspace {
-  min-width: 0;
-  color: var(--accent);
-  text-transform: none;
-  letter-spacing: 0;
-  font-size: 12px;
-  font-weight: 700;
-}
-.bs-ffold.workspace span:last-child,
-.bs-ffold.workspace {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.bs-ffold.workspace.muted {
-  color: var(--t2);
   font-weight: 600;
 }
 .bs-act {
   margin-left: auto;
   width: 22px;
   height: 22px;
-  border-radius: 5px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -269,9 +113,6 @@
 .bs-trow:hover .bs-act {
   opacity: 1;
   pointer-events: auto;
-}
-.bs-act:hover {
-  background: rgba(0, 0, 0, 0.12);
 }
 .bs-act svg {
   width: 15px;
@@ -298,33 +139,20 @@
 
 /* Postman-style docked secondary navigation. */
 .bs-railrow {
-  position: relative;
   justify-content: center;
-}
-.bs-railnav {
-  display: flex;
-  align-items: center;
-  gap: 2px;
 }
 .bs-side-dock {
   flex: 0 0 auto;
-  border-top: 0.5px solid var(--sepsoft);
-  background: var(--side);
-}
-.bs-dock-section {
-  border-top: 0.5px solid var(--sepsoft);
 }
 .bs-dock-section:first-child {
   border-top: 0;
 }
 .bs-dock-head {
-  min-height: 30px;
   display: flex;
   align-items: center;
 }
 .bs-dock-toggle {
   min-width: 0;
-  min-height: 30px;
   flex: 1;
   display: flex;
   align-items: center;
@@ -332,7 +160,6 @@
   padding: 0 8px;
   color: var(--t2);
   text-align: left;
-  font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.055em;
   text-transform: uppercase;
@@ -361,7 +188,6 @@
   place-items: center;
   flex: 0 0 auto;
   color: var(--t3);
-  border-radius: 5px;
 }
 .bs-dock-action:hover {
   color: var(--text);
@@ -374,16 +200,13 @@
 }
 .bs-dock-item {
   width: 100%;
-  min-height: 25px;
   display: flex;
   align-items: center;
   gap: 7px;
   padding: 3px 7px;
   overflow: hidden;
   color: var(--t2);
-  border-radius: 5px;
   text-align: left;
-  font-size: 11.5px;
 }
 .bs-dock-item:hover {
   color: var(--text);
@@ -404,37 +227,6 @@
   color: var(--t3);
   font-size: 10.5px;
   line-height: 1.4;
-}
-.bs-workspace-strip {
-  min-height: 28px;
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  padding: 0 7px;
-  border-top: 0.5px solid var(--sepsoft);
-  color: var(--t3);
-}
-.bs-workspace-strip button {
-  min-width: 0;
-  height: 24px;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex: 1;
-  overflow: hidden;
-  color: var(--t2);
-  font-size: 10.5px;
-  text-align: left;
-}
-.bs-workspace-strip button span:last-child {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.bs-workspace-strip > div {
-  display: grid;
-  place-items: center;
-  color: var(--green);
 }
 
 /* Drag & drop — Pencil «Flow · Drag & drop запросов» (D1–D5). */

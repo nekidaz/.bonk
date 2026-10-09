@@ -47,7 +47,6 @@
     position: absolute;
     left: 12px;
     top: 0;
-    line-height: 30px;
     color: var(--color-text-muted);
     font: 500 var(--font-size-caption)/30px var(--font-code);
     pointer-events: none;

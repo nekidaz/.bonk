@@ -524,7 +524,6 @@
     min-height: 30px;
     margin: 0;
     padding-right: 8px;
-    gap: 8px;
     border-radius: var(--radius-control);
     color: var(--color-text-secondary);
     font-size: var(--font-size-body);
@@ -873,7 +872,6 @@
     background: var(--color-raised);
     color: var(--color-text);
   }
-  .bs .bs-savegrp button.bs-save-more,
   .bs .bs-savegrp button.bs-hb {
     width: 30px;
     padding: 0;
@@ -903,7 +901,6 @@
     padding: 0 20px;
   }
   .bs-urlfield,
-  .bs-grpc-endpoint-field,
   .bs-grpc-picker {
     height: 48px;
     border: 1px solid var(--color-border-subtle);
@@ -912,7 +909,6 @@
     box-shadow: none;
   }
   .bs-urlfield:focus-within,
-  .bs-grpc-endpoint-field:focus-within,
   .bs-grpc-picker:focus-within {
     border-color: var(--color-text-muted);
     box-shadow: none;
@@ -1035,9 +1031,6 @@
   .bs-send .cv {
     display: none;
   }
-  .bs-grpc-endpoint-field {
-    min-width: 190px;
-  }
   .bs-grpc-picker {
     min-width: 180px;
   }
@@ -1125,8 +1118,7 @@
   }
 
   /* Params / key-value tables: a field-coloured card */
-  .bs-pwrap,
-  .bs-bodyarea {
+  .bs-pwrap {
     padding: 14px 20px 16px;
   }
   .bs-qp {
@@ -1250,29 +1242,6 @@
   .bs-timeline .k {
     flex: 0 0 110px;
     color: var(--color-text-muted);
-  }
-  .bs-bodytype-bar {
-    background: transparent;
-  }
-  .bs-postman-message {
-    margin: 14px 20px 16px;
-    border: 1px solid var(--color-border-subtle);
-    border-radius: var(--radius-card);
-    background: var(--color-field);
-    overflow: hidden;
-  }
-  .bs-postman-message .bs-json-editor {
-    min-height: 0;
-    overflow: hidden;
-  }
-  .bs-msg-foot {
-    height: 32px;
-    padding: 0 12px;
-    background: transparent;
-    border-top: 1px solid var(--color-border-subtle);
-  }
-  .bs-msg-foot button {
-    font-size: var(--font-size-micro);
   }
   .bs-grpc-connect-alert {
     margin: 5px 20px 12px;
@@ -1661,51 +1630,8 @@
   .bs-status-link .material-symbols-outlined {
     font-size: 13px;
   }
-  .bs-status-divider {
-    width: 1px;
-    height: 12px;
-    background: var(--color-border);
-  }
-  .bs-layout-sb {
-    gap: 2px;
-    padding: 0;
-    border: 0;
-    border-radius: 0;
-    background: none;
-  }
-  .bs .bs-layout-sb .bs-lt {
-    width: 22px;
-    height: 20px;
-    border-radius: var(--radius-control);
-    color: var(--color-text-secondary);
-    background: none;
-  }
-  .bs .bs-layout-sb .bs-lt.on {
-    background: var(--color-selected);
-    color: var(--color-text);
-  }
-  .bs .bs-layout-sb .bs-lt .material-symbols-outlined {
-    font-size: 15px;
-  }
-  .bs .bs-layout-sb .bs-lt:disabled {
-    opacity: 0.4;
-  }
 
   /* Side panels are cards too */
-  .bs-code-host {
-    margin: 0 0 0 10px;
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-panel);
-    overflow: hidden;
-  }
-  .bs-codepanel {
-    background: var(--color-panel);
-  }
-  .bs-codepanel-title {
-    font-size: var(--font-size-ui);
-    font-weight: 600;
-    color: var(--color-text);
-  }
   .bs-util-host {
     margin: 10px 0 0;
     border: 1px solid var(--color-border);
@@ -1721,7 +1647,6 @@
   .bs .bs-menu,
   .bs .bs-method-menu,
   .bs .bs-work-menu,
-  .bs .bs-tab-ctx,
   .bs-grpc-menu {
     border: 1px solid var(--color-border);
     border-radius: var(--radius-card);
@@ -1737,11 +1662,6 @@
     border-radius: var(--radius-dialog);
     background: var(--color-panel);
     box-shadow: var(--shadow-panel);
-  }
-  .bs-settings-section {
-    border-radius: var(--radius-card);
-    background: var(--side);
-    border-color: var(--color-border-subtle);
   }
   .bs .bs-btn {
     border-radius: var(--radius-control);
@@ -1863,7 +1783,6 @@
   .bs .bs-savegrp button.bs-hb {
     height: 26px;
   }
-  .bs .bs-savegrp button.bs-save-more,
   .bs .bs-savegrp button.bs-hb {
     width: 26px;
   }
@@ -1872,7 +1791,6 @@
     padding: 0 14px;
   }
   .bs-urlfield,
-  .bs-grpc-endpoint-field,
   .bs-grpc-picker {
     height: 34px;
   }
@@ -1903,12 +1821,8 @@
   .bs button.bs-rtab {
     height: 26px;
   }
-  .bs-pwrap,
-  .bs-bodyarea {
+  .bs-pwrap {
     padding: 10px 14px;
-  }
-  .bs-postman-message {
-    margin: 10px 14px;
   }
   .bs-grpc-connect-alert {
     margin-left: 14px;
@@ -1945,9 +1859,6 @@
     grid-template-columns: minmax(120px, 1fr) minmax(180px, 320px) minmax(80px, 1fr);
     gap: 12px;
   }
-  :root .bs-grpc-endpoint-field {
-    min-width: 145px;
-  }
   :root .bs-grpc-picker {
     min-width: 150px;
   }
@@ -1965,16 +1876,11 @@
   }
   :root .bs-reqhead,
   :root .bs-urlbar,
-  :root .bs-pwrap,
-  :root .bs-bodyarea {
+  :root .bs-pwrap {
     padding-left: 12px;
     padding-right: 12px;
   }
   :root .bs-rtabs {
-    margin-left: 12px;
-    margin-right: 12px;
-  }
-  :root .bs-postman-message {
     margin-left: 12px;
     margin-right: 12px;
   }
@@ -1986,9 +1892,6 @@
   }
   :root .bs-urlbar:has(.bs-grpc-picker) {
     flex-wrap: wrap;
-  }
-  :root .bs-grpc-endpoint-field {
-    flex-basis: 100%;
   }
 }
 @media (prefers-reduced-motion: reduce) {
@@ -2087,19 +1990,15 @@ html[data-native-macos='true'] .bs-tb-left {
 /* Neutral interactive states, including legacy editor surfaces. */
 :is([data-theme='smooth-light'], [data-theme='smooth-dark']) .bs {
   /* Mono 3.0: booleans/null share the number colour (design syntax-number); --sb is the key colour. */
-  .bs-code .b2,
-  .bs-json-highlight .b2 {
+  .bs-code .b2 {
     color: var(--sn);
   }
   .bs-body-empty {
     background: var(--canvas);
   }
-  .bs-body-actions select:focus,
-  .bs-body-kv-row select:focus,
-  .bs-auth-form input:focus {
+  .bs-body-kv-row select:focus {
     border-color: var(--accent);
   }
-  .bs-grpc-error-hint > button,
   .bs-grpc-connect-actions button.primary,
   .cm-tooltip.cm-tooltip-autocomplete > ul > li[aria-selected] {
     color: var(--on-accent);
@@ -2907,7 +2806,6 @@ html[data-native-macos='true'] .bs-tb-left {
     width: 28px;
     height: 16px;
     border-radius: var(--radius-control);
-    background: var(--color-selected);
     transition: background-color var(--duration-hover);
   }
   .bs-switch .track::after {
@@ -3676,7 +3574,6 @@ html[data-native-macos='true'] .bs-tb-left {
     font-size: 11px;
   }
   .bs-grpc-field .bs-grpc-security:not(.secure) {
-    background: var(--color-warning-soft);
     color: var(--color-warning);
   }
   .bs-grpc-field .bs-grpc-security:hover,

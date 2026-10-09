@@ -3,168 +3,17 @@
  * while request methods, primary actions, active tabs, and panel boundaries
  * remain immediately distinguishable.
  */
-.bs {
-  --bg: #ffffff;
-  --surface: #ffffff;
-  --surface-solid: #ffffff;
-  --canvas: #fbfbfb;
-  --response: #f8f8f9;
-  --side: #f5f5f6;
-  --tb: #f1f1f2;
-  --inset: #f3f3f4;
-  --sep: #d3d3d7;
-  --sepsoft: #e5e5e8;
-  --text: #202124;
-  --t2: #5f6067;
-  --t3: #86878e;
-  --accent: #ff6c37;
-  --accent-press: #e95824;
-  --accentsoft: #fff0ea;
-  --primary: #097bed;
-  --primary-hover: #006fd9;
-  --primary-press: #0062c4;
-  --primary-text: #ffffff;
-  --green: #168a45;
-  --orange: #d97706;
-  --red: #d13c3c;
-  --purple: #7c4dcc;
-  --method-get: #168a45;
-  --method-post: #d97706;
-  --method-put: #2563c9;
-  --method-patch: #7c4dcc;
-  --method-delete: #d13c3c;
-  --method-query: #087f8c;
-  --method-grpc: #7651c9;
-  --sk: #b42318;
-  --ss: #168a45;
-  --sn: #2563c9;
-  --sb: #7c4dcc;
-  --sp: #8b8c93;
-  --hover: rgba(32, 32, 35, 0.055);
-  --hover2: rgba(32, 32, 35, 0.03);
-  --shadow-sm: none;
-  --shadow-panel: 0 8px 24px rgba(20, 20, 24, 0.12);
-  --focus-ring: 0 0 0 2px rgba(255, 108, 55, 0.2);
-  background: var(--bg);
-}
-
-.dark .bs {
-  --bg: #19191b;
-  --surface: #202023;
-  --surface-solid: #202023;
-  --canvas: #1b1b1d;
-  --response: #18181a;
-  --side: #1d1d20;
-  --tb: #252528;
-  --inset: #29292d;
-  --sep: #414146;
-  --sepsoft: #323237;
-  --text: #eeeeef;
-  --t2: #b2b2b7;
-  --t3: #808087;
-  --accent: #ff7a4a;
-  --accent-press: #ff6c37;
-  --accentsoft: rgba(255, 108, 55, 0.14);
-  --primary: #1683e8;
-  --primary-hover: #2b91ee;
-  --primary-press: #0873d3;
-  --primary-text: #ffffff;
-  --green: #4db875;
-  --orange: #e6a34a;
-  --red: #ef6a6a;
-  --purple: #a47ae5;
-  --method-get: #4db875;
-  --method-post: #e6a34a;
-  --method-put: #69a2ef;
-  --method-patch: #a47ae5;
-  --method-delete: #ef6a6a;
-  --method-query: #52b9c1;
-  --method-grpc: #a47ae5;
-  --sk: #ff8f82;
-  --ss: #6fca8e;
-  --sn: #79aeef;
-  --sb: #b58bea;
-  --sp: #77777e;
-  --hover: rgba(255, 255, 255, 0.06);
-  --hover2: rgba(255, 255, 255, 0.035);
-  --shadow-panel: 0 10px 28px rgba(0, 0, 0, 0.3);
-  --focus-ring: 0 0 0 2px rgba(255, 122, 74, 0.24);
-  background: var(--bg);
-}
 
 /* Flat application chrome. */
-.bs-tb,
-.bs-side,
-.bs-tabbar,
-.bs-status,
-.bs-search,
-.bs-work-menu,
-.bs-modal {
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none;
-}
-.bs-tb {
-  box-shadow: none;
-  background: var(--tb);
-}
-.bs-side {
-  background: var(--side);
-}
-.bs-tabbar,
-.bs-status {
-  background: var(--tb);
-}
-.bs-main {
-  background: var(--bg);
-}
-.bs-reqpane,
-.bs-postman-message,
-.bs-json-editor {
+.bs-reqpane {
   background: var(--canvas);
-}
-.bs-resp,
-.bs-rbody,
-.bs-empty-resp {
-  background: var(--response);
 }
 .bs-side::before,
 .bs-tb::before {
   display: none;
 }
 
-.bs-toolbar-title {
-  justify-self: center;
-  color: var(--t3);
-  font-size: 12px;
-  font-weight: 650;
-}
-
 /* Clear states without decorative gradients or floating shadows. */
-.bs button.bs-hb,
-.bs button.bs-save,
-.bs button.bs-share,
-.bs-btn.ghost,
-.bs-urlfield,
-.bs-grpc-endpoint-field,
-.bs-grpc-picker,
-.bs-search,
-.bs-fbox,
-.bs-pt,
-.bs-settings-section,
-.bs-settings-number {
-  box-shadow: none;
-}
-
-.bs-urlfield,
-.bs-grpc-endpoint-field,
-.bs-grpc-picker {
-  border-radius: 8px;
-  background: var(--surface);
-}
-
-.bs-grpc-endpoint-field {
-  position: relative;
-}
 .bs-grpc-security-wrap {
   position: relative;
   align-self: stretch;
@@ -189,34 +38,9 @@
   color: var(--green);
 }
 
-.bs-urlfield:hover,
-.bs-grpc-endpoint-field:hover,
-.bs-grpc-picker:hover {
-  border-color: var(--sep);
-}
-
-.bs-urlfield:focus-within,
-.bs-grpc-endpoint-field:focus-within,
-.bs-grpc-picker:focus-within,
-.bs-fbox:focus-within {
-  border-color: var(--accent);
-  box-shadow: var(--focus-ring);
-}
-
-.bs-tab.on::before {
-  height: 2px;
-  background: var(--accent);
-}
-
 .bs-rtab.on {
   color: var(--text);
   border-bottom-color: var(--accent);
-}
-
-.bs-trow.sel {
-  background: var(--accentsoft);
-  color: var(--text);
-  box-shadow: inset 3px 0 var(--accent);
 }
 .bs-trow.sel .fo,
 .bs-trow.sel .cv,
@@ -224,20 +48,11 @@
   color: inherit;
 }
 
-.bs-ri.on,
-.bs-lt.on {
-  background: var(--accentsoft);
-  color: var(--accent);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 20%, transparent);
-}
-
 /* Primary actions use a quiet monochrome fill. */
 .bs button.bs-send,
 .bs-btn.primary {
-  background: var(--primary);
   color: var(--primary-text);
   border-radius: 8px;
-  box-shadow: none;
 }
 
 .bs button.bs-send:hover,
@@ -250,11 +65,7 @@
 
 .bs-send .go,
 .bs-send .cv {
-  background: transparent;
   color: var(--primary-text);
-}
-.bs-send .cv {
-  border-left-color: color-mix(in srgb, var(--primary-text) 20%, transparent);
 }
 .send-spinner {
   border-color: color-mix(in srgb, var(--primary-text) 42%, transparent);
@@ -264,9 +75,7 @@
 .bs button.bs-send.cancelling,
 .bs button.bs-send.cancelling:hover,
 .bs button.bs-send.cancelling:active {
-  background: var(--red);
   color: #fff;
-  box-shadow: none;
 }
 .bs-send.cancelling .go,
 .bs-send.cancelling .cv {
@@ -274,21 +83,6 @@
 }
 
 /* Menus and dialogs stay visually close to their source control. */
-.bs-menu,
-.bs-work-menu,
-.bs-grpc-menu,
-.bs-modal,
-.bs .bs-env-menu,
-.bs .bs-tab-ctx {
-  border: 0.5px solid var(--sep);
-  border-radius: 8px;
-  box-shadow: var(--shadow-panel);
-}
-
-.bs-menu .mi:hover {
-  background: var(--hover);
-  color: var(--text);
-}
 .bs-menu .mi:hover .ic {
   color: currentColor !important;
 }
@@ -297,62 +91,19 @@
   color: var(--red);
 }
 
-.bs-input,
-.bs-textarea,
-.bs-env-rename {
-  border-width: 1px;
-  border-color: var(--sep);
+.bs-input {
   box-shadow: none;
 }
-.bs-input:focus,
-.bs-textarea:focus,
-.bs-env-rename:focus {
+.bs-input:focus {
   border-color: var(--accent);
   box-shadow: var(--focus-ring);
 }
 
 .bs-empty {
-  background: transparent;
-  border: 0.5px dashed var(--sep);
-  border-radius: 6px;
   box-shadow: none;
-}
-.bs-empty-resp {
-  background: var(--response);
 }
 .bs-empty-resp .material-symbols-outlined {
   color: var(--t3);
-  background: transparent;
-  border: 0;
   border-radius: 0;
   box-shadow: none;
-}
-
-.bs-seg {
-  border-radius: 6px;
-}
-.bs-seg button {
-  border-radius: 4px;
-}
-.bs-format-pill {
-  background: var(--accentsoft);
-  color: var(--t2);
-}
-
-.bs .bs-codepanel {
-  background: var(--surface);
-  box-shadow: none;
-}
-
-.bs-settings-glyph,
-.bs-settings-icon {
-  color: var(--t2);
-  background: var(--inset);
-  box-shadow: inset 0 0 0 0.5px var(--sep);
-}
-
-@media (max-width: 760px) {
-  .bs-toolbar-title {
-    display: none;
-  }
 }

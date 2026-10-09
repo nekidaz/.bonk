@@ -219,72 +219,6 @@ html[data-theme='smooth-dark'],
 }
 
 /* Small reusable primitives; state must also be conveyed by text or an icon. */
-.mono-button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-2);
-  min-height: var(--control-default);
-  padding: 0 var(--space-3);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  background: var(--color-panel);
-  color: var(--color-text);
-  font: var(--weight-medium) var(--font-size-body)/var(--line-height-ui) var(--font-ui);
-  cursor: pointer;
-  transition:
-    background-color var(--duration-hover),
-    transform var(--duration-press) var(--ease-soft);
-}
-.mono-button:hover {
-  background: var(--hover);
-}
-.mono-button[data-variant='primary'] {
-  background: var(--color-action);
-  color: var(--color-on-action);
-  border-color: transparent;
-}
-.mono-button[data-variant='primary']:hover {
-  background: var(--primary-hover);
-}
-.mono-button[data-variant='quiet'] {
-  background: transparent;
-  border-color: transparent;
-  color: var(--color-text-secondary);
-}
-.mono-button[aria-pressed='true'] {
-  background: var(--color-selected);
-  border-color: var(--color-border);
-  color: var(--color-text);
-}
-.mono-button:not(:disabled):active {
-  transform: translateY(1px);
-}
-.mono-button:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-.mono-button[aria-busy='true'] {
-  cursor: progress;
-}
-.mono-input {
-  min-width: 0;
-  width: 100%;
-  min-height: var(--control-default);
-  padding: 0 var(--space-3);
-  color: var(--color-text);
-  background: var(--color-field);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-control);
-  font: var(--font-size-body)/var(--line-height-ui) var(--font-ui);
-}
-.mono-input::placeholder {
-  color: var(--color-text-muted);
-}
-.mono-input[aria-invalid='true'] {
-  border-style: dashed;
-  border-color: var(--color-text);
-}
 :is(.mono-button, .mono-input):focus-visible {
   outline: 2px solid var(--color-text);
   outline-offset: 3px;
@@ -319,7 +253,6 @@ html[data-theme='smooth-dark'],
 :root .mono-tip b {
   font: 600 var(--font-size-caption) var(--font-code);
 }
-:root .mono-tip.shown,
 :root :hover > .mono-tip,
 :root :focus-visible > .mono-tip {
   display: inline-flex;
@@ -361,23 +294,6 @@ html[data-theme='smooth-dark'],
 @media (prefers-reduced-motion: reduce) {
   :root .mono-switch,
   :root .mono-switch::after {
-    transition: none;
-  }
-}
-.mono-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-1);
-  padding: 3px 7px;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  background: var(--color-field);
-  color: var(--color-text-secondary);
-  font: var(--weight-medium) var(--font-size-micro)/var(--line-height-ui) var(--font-code);
-}
-@media (prefers-reduced-motion: reduce) {
-  .mono-button,
-  .mono-input {
     transition: none;
   }
 }

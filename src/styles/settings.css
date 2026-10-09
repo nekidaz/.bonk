@@ -243,11 +243,6 @@
   color: var(--color-text-muted);
   font: var(--font-size-caption) var(--font-ui);
 }
-.st-key kbd {
-  font: var(--font-size-body) var(--font-code);
-  color: var(--color-text-secondary);
-  white-space: nowrap;
-}
 .st-col {
   align-items: flex-start;
   flex-direction: column;
@@ -765,37 +760,10 @@
   flex: none;
   white-space: nowrap;
 }
-.st-mcp-chips {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: 4px;
-}
 /* S32.8 rows are 46–51 px, a bit denser than the other settings pages. */
 .st-mcp-card .st-row {
   min-height: 48px;
   padding: 8px 0;
-}
-.st-mcp-env {
-  display: inline-flex;
-  align-items: center;
-  gap: 3px;
-  height: 24px;
-  padding: 0 8px 0 6px;
-  border-radius: 999px;
-  border: 1px solid var(--color-border-subtle);
-  background: transparent;
-  color: var(--red);
-  font: var(--font-size-caption) var(--font-ui);
-  cursor: pointer;
-}
-.st-mcp-env.on {
-  background: var(--color-text);
-  border-color: var(--color-text);
-  color: var(--color-raised);
-}
-.st-mcp-env:disabled {
-  cursor: default;
 }
 .st-mcp-dim {
   opacity: 0.45;
