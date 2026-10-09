@@ -54,7 +54,8 @@ describe('envTone / pushRecent', () => {
 
 describe('timeAgo / recentRequests', () => {
   it('formats short relative times', () => {
-    const now = 10 * 86_400_000;
+    // Local afternoon: timeAgo counts calendar days, so a UTC-midnight anchor flips «1 ч» to «вчера» in UTC.
+    const now = new Date(1970, 0, 11, 14, 0).getTime();
     expect([now, now - 120_000, now - 3_600_000, now - 30 * 3_600_000, now - 3 * 86_400_000].map((t) => timeAgo(t, now))).toEqual(['сейчас', '2 мин', '1 ч', 'вчера', '3 дн']);
   });
   it('names history entries after saved requests and drops repeats', () => {

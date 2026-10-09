@@ -110,10 +110,13 @@ pub struct GrpcTls {
     pub client_p12_password: Option<String>,
 }
 
+/// An mTLS identity: `(certificate chain PEM, private key PEM)`.
+pub type PemIdentity = (Vec<u8>, Vec<u8>);
+
 impl GrpcTls {
     /// The mTLS identity as `(certificate chain PEM, private key PEM)`, from the
     /// PKCS#12 bundle or the PEM file pair; `None` when no client identity is set.
-    pub fn client_identity_pem(&self) -> Result<Option<(Vec<u8>, Vec<u8>)>, String> {
+    pub fn client_identity_pem(&self) -> Result<Option<PemIdentity>, String> {
         if let Some(p12) = self.client_p12.as_deref().filter(|p| !p.is_empty()) {
             let password = self.client_p12_password.as_deref().unwrap_or_default();
             return crate::infra::pkcs12::p12_to_pem(p12, password).map(Some);

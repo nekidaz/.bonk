@@ -292,7 +292,7 @@
     if (!newId) return;
     revealNode(newId);
     if (!copy && from === dest) return; // a plain reorder needs no toast
-    const folder = dest ? (findNode($collections, dest)?.name ?? '') : ($workspacePath ?? '').split('/').pop();
+    const folder = dest ? (findNode($collections, dest)?.name ?? '') : (($workspacePath ?? '').split('/').pop() ?? '');
     droppedId = newId;
     clearTimeout(toastTimer);
     toast = { text: $t(copy ? 'sidebar.copiedTo' : 'sidebar.movedTo', { folder }), undo: () => void undoDrop(newId, copy, from, oldIds) };
