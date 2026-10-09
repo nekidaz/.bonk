@@ -789,9 +789,6 @@
       <!-- svelte-ignore a11y_no_static_element_interactions -->
       <div class="bs-resizer-col" class:dragging={sidebarDragWidth !== null} role="separator" aria-orientation="vertical" aria-label={$t('app.sidebar.resize')} aria-valuenow={sidebarWidth} aria-valuemin={SIDEBAR_MIN} aria-valuemax={SIDEBAR_MAX} onpointerdown={startSidebarDrag} ondblclick={resetSidebarWidth}>
         <span class="grip" aria-hidden="true"></span>
-        {#if sidebarDragWidth !== null}
-          <span class="mono-tip shown"><b>{sidebarDragWidth} px</b><span>{SIDEBAR_MIN}–{SIDEBAR_MAX} · {$t('app.sidebar.dbl')} {SIDEBAR_DEFAULT}</span></span>
-        {/if}
       </div>
     {:else}
       <!-- S34: no toggle button — the hidden sidebar leaves a grip to pull it back open. -->
