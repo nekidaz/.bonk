@@ -159,4 +159,4 @@ export * from './prefs';
 export * from './hotkeys';
 
 // Data & import settings (self-persisting).
-export { exportIncludeSecrets, historyDays } from './dataPrefs';
+export { exportIncludeSecrets, exportFormat, historyDays } from './dataPrefs';

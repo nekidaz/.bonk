@@ -1,6 +1,8 @@
 import { get } from 'svelte/store';
 import { t } from '../i18n';
 import type { Environment, Tab, VarRow } from '../domain/types';
+import { mcpPrefs } from './mcpPrefs';
+import { autoAllowNewEnv, renameEnvAllowance } from '../domain/mcpEnvs';
 import { environments, activeEnvironmentId, globals, environmentsSheetOpen, tabs, activeTabId } from './state';
 
 /**
@@ -37,15 +39,19 @@ export function addEnvironment(name = get(t)('env.new')): string {
   const id = crypto.randomUUID();
   const env: Environment = { id, name: name.trim() || get(t)('env.new'), vars: [] };
   environments.update((list) => [...list, env]);
+  mcpPrefs.update((p) => autoAllowNewEnv(p, env)); // "allow new environments right away" (S32.8)
   activeEnvironmentId.set(id);
   return id;
 }
 
 /** Rename an environment in place (no-op if the id is unknown). */
 export function renameEnvironment(id: string, name: string): void {
+  const old = get(environments).find((e) => e.id === id);
   environments.update((list) =>
     list.map((e) => (e.id === id ? { ...e, name: name.trim() || e.name } : e)),
   );
+  const next = get(environments).find((e) => e.id === id);
+  if (old && next) mcpPrefs.update((p) => renameEnvAllowance(p, old.name, next)); // keep the AI allow-list by name in sync
 }
 
 /** Delete an environment; clears the active selection if it was the active one. */

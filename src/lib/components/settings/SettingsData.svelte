@@ -4,10 +4,11 @@
   import { onMount } from 'svelte';
   import {
     historyPaused, history, clearHistory, requestConfirm, importApiFile, workspacePath, collections,
-    globals, environments, exportIncludeSecrets, historyDays,
+    globals, environments, exportIncludeSecrets, exportFormat, historyDays,
   } from '../../stores';
   import { appDataDir, openapiExportSave, revealPath } from '../../api';
   import { buildWorkspaceExport } from '../../domain/workspaceExport';
+  import { buildPostmanCollection } from '../../domain/postman';
   import { row, sw, select } from './ui.svelte';
 
   const days = $derived([{ label: $t('settings.data.days', { n: 7 }), value: '7' }, { label: $t('settings.data.days', { n: 30 }), value: '30' }, { label: $t('settings.data.days', { n: 90 }), value: '90' }, { label: $t('settings.data.always'), value: '0' }]);
@@ -27,8 +28,11 @@
   const doImport = () => run(async () => { await importApiFile(); });
   const doExport = () => run(async () => {
     const name = get(workspacePath).split(/[\\/]/).filter(Boolean).at(-1) ?? 'workspace';
-    const text = buildWorkspaceExport(name, get(collections), get(globals), get(environments), $exportIncludeSecrets);
-    return (await openapiExportSave(`${name}.bonk.json`, text, get(t)('settings.data.export.title'))) ? get(t)('settings.data.exported') : '';
+    const postman = get(exportFormat) === 'postman';
+    const text = postman
+      ? buildPostmanCollection(name, get(collections), get(globals), $exportIncludeSecrets)
+      : buildWorkspaceExport(name, get(collections), get(globals), get(environments), $exportIncludeSecrets);
+    return (await openapiExportSave(postman ? `${name}.postman_collection.json` : `${name}.bonk.json`, text, get(t)('settings.data.export.title'))) ? get(t)('settings.data.exported') : '';
   });
   async function clear(): Promise<void> {
     if (await requestConfirm(get(t)('settings.data.clear.confirm'), get(t)('settings.data.clear.ok'))) clearHistory();
@@ -43,7 +47,7 @@
 
 <div class="st-group">{$t('settings.data.export')}</div>
 <div class="st-card">
-  {#snippet fmt()}{@render select($t('settings.data.format'), 'bonk', [{ label: 'Bonk JSON', value: 'bonk' }], () => {})}{/snippet}
+  {#snippet fmt()}{@render select($t('settings.data.format'), $exportFormat, [{ label: 'Bonk JSON', value: 'bonk' }, { label: 'Postman Collection v2.1', value: 'postman' }], (v) => exportFormat.set(v === 'postman' ? 'postman' : 'bonk'))}{/snippet}
   {@render row($t('settings.data.format'), '', fmt)}
   {#snippet sec()}{@render sw($t('settings.data.secrets'), $exportIncludeSecrets, (v) => exportIncludeSecrets.set(v))}{/snippet}
   {@render row($t('settings.data.secrets'), $t('settings.data.secrets.desc'), sec)}

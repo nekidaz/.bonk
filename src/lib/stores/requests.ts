@@ -36,7 +36,7 @@ import {
   updateTabById,
   currentVarScope,
 } from './state';
-import { proxyAuth, proxyUser, proxyPassword, trustSystemCas, clientCerts } from './netPrefs';
+import { proxyAuth, proxyUser, proxyPassword, trustSystemCas, activeClientCerts } from './netPrefs';
 import { setEnvVars, setGlobalVars } from './environments';
 import { openWorkspaceFolder, reloadWorkspace, runWorkspaceOp } from './workspace';
 import { addHistory } from './history';
@@ -59,7 +59,7 @@ export function currentRequestSettings(): RequestSettings {
     proxy: { mode: get(proxyMode), url: get(proxyUrl).trim(), bypass: get(proxyBypass).trim(), username: auth ? get(proxyUser).trim() : '', password: auth ? get(proxyPassword) : '' },
     caPaths: get(trustedCaPaths),
     trustSystemCas: get(trustSystemCas),
-    clientCerts: get(clientCerts).filter((c) => c.certPath && c.keyPath),
+    clientCerts: activeClientCerts(),
   };
 }
 

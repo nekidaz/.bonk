@@ -1,5 +1,47 @@
 import { describe, expect, it } from 'vitest';
-import { isPostmanCollection, parsePostmanCollection } from './postman';
+import { buildPostmanCollection, isPostmanCollection, parsePostmanCollection } from './postman';
+import type { TreeNode } from './types';
+
+describe('Postman Collection export', () => {
+  const tree: TreeNode[] = [{
+    kind: 'folder', id: 'fs:a', name: 'Users', expanded: true, auth: { type: 'bearer', bearerToken: 'tok' },
+    children: [
+      {
+        kind: 'request', id: 'fs:a/c', name: 'Create', protocol: 'http',
+        request: {
+          method: 'POST', url: 'https://x.test/u?v=1', headers: { 'X-A': '1', 'X-Off': '2' }, disabledHeaders: ['X-Off'],
+          bodyMode: 'raw', body: '{"a":1}', rawBodyFormat: 'JSON', auth: { type: 'inherit' }, testScript: 'pm.test("ok", () => {});',
+        },
+        params: [{ key: 'v', value: '1', description: '', enabled: true }],
+      },
+      { kind: 'request', id: 'fs:a/g', name: 'Rpc', protocol: 'grpc', request: { method: 'POST', url: '', headers: {} } },
+    ],
+  }];
+
+  it('produces a v2.1 collection that the importer reads back', () => {
+    const text = buildPostmanCollection('Ws', tree, [{ key: 'baseUrl', value: 'u', enabled: true }, { key: 's', value: 'sec', enabled: true, secret: true }], false);
+    const doc = JSON.parse(text);
+    expect(doc.info.schema).toContain('v2.1.0');
+    expect(doc.variable.map((v: { value: string }) => v.value)).toEqual(['u', '']);
+    expect(isPostmanCollection(text)).toBe(true);
+    const back = parsePostmanCollection(text);
+    expect(back.title).toBe('Ws');
+    const folder = back.items[0];
+    if (folder.kind !== 'folder') throw new Error('folder expected');
+    expect(folder.items).toHaveLength(1); // the RPC request is skipped
+    const req = folder.items[0];
+    if (req.kind !== 'request') throw new Error('request expected');
+    expect(req.node.request).toMatchObject({ method: 'POST', body: '{"a":1}', rawBodyFormat: 'JSON', headers: { 'X-A': '1' }, auth: { type: 'bearer', bearerToken: 'tok' } });
+    expect(req.node.request.headers['X-Off']).toBeUndefined();
+    expect(req.node.request.testScript).toContain('pm.test');
+    expect(req.node.params).toHaveLength(1);
+  });
+
+  it('keeps secret globals only on request', () => {
+    const v = JSON.parse(buildPostmanCollection('W', [], [{ key: 's', value: 'sec', enabled: true, secret: true }], true)).variable;
+    expect(v[0].value).toBe('sec');
+  });
+});
 
 describe('Postman Collection import', () => {
   it('keeps nested folders, variables, query state, auth, body and scripts', () => {

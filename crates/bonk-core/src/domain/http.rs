@@ -108,15 +108,22 @@ pub struct ProxySettings {
     pub password: String,
 }
 
-/// mTLS identity: PEM certificate chain + PEM private key, by file path,
-/// used for requests to `host` (exact or `*.wildcard`; empty = any host).
+/// mTLS identity, used for requests to `host` (exact or `*.wildcard`; empty =
+/// any host): PEM certificate chain + PEM private key by file path, or one
+/// PKCS#12 bundle (`p12_path`) opened with `p12_password`.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ClientCert {
     #[serde(default)]
     pub host: String,
+    #[serde(default)]
     pub cert_path: String,
+    #[serde(default)]
     pub key_path: String,
+    #[serde(default)]
+    pub p12_path: Option<String>,
+    #[serde(default)]
+    pub p12_password: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -213,6 +220,8 @@ mod tests {
             host: host.into(),
             cert_path: host.into(),
             key_path: String::new(),
+            p12_path: None,
+            p12_password: None,
         };
         let certs = [c("api.a.kz"), c("*.b.kz"), c("")];
         let pick = |h: &str| pick_client_cert(&certs, h).map(|c| c.host.as_str());

@@ -164,6 +164,7 @@ pub async fn call(
 
     let (host, plaintext) = target(endpoint, plaintext);
     let mut cmd = tokio::process::Command::new(bin);
+    let mut temp_pems: Vec<std::path::PathBuf> = Vec::new();
     if plaintext {
         cmd.arg("-plaintext");
     } else {
@@ -173,7 +174,17 @@ pub async fn call(
         if let Some(ca) = &tls.ca_cert {
             cmd.arg("-cacert").arg(ca);
         }
-        if let (Some(cert), Some(key)) = (&tls.client_cert, &tls.client_key) {
+        if tls.client_p12.as_deref().is_some_and(|p| !p.is_empty()) {
+            // grpcurl takes PEM files: unpack the bundle to temp files (removed after the call).
+            let (cert, key) = tls.client_identity_pem()?.ok_or("client identity missing")?;
+            let id = fastrand::u64(..);
+            for (ext, data, flag) in [("cert", cert, "-cert"), ("key", key, "-key")] {
+                let path = std::env::temp_dir().join(format!("bonk-{id}.{ext}.pem"));
+                std::fs::write(&path, data).map_err(|e| format!("write client {ext} failed: {e}"))?;
+                cmd.arg(flag).arg(&path);
+                temp_pems.push(path);
+            }
+        } else if let (Some(cert), Some(key)) = (&tls.client_cert, &tls.client_key) {
             cmd.arg("-cert").arg(cert).arg("-key").arg(key);
         }
     }
@@ -218,6 +229,9 @@ pub async fn call(
     };
     let output = run.await;
     let _ = std::fs::remove_file(&protoset);
+    for path in &temp_pems {
+        let _ = std::fs::remove_file(path);
+    }
     let output = output?;
     let elapsed_ms = start.elapsed().as_millis() as u64;
 

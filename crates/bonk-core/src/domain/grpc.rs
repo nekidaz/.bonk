@@ -103,6 +103,31 @@ pub struct GrpcTls {
     pub client_cert: Option<String>,
     #[serde(default)]
     pub client_key: Option<String>,
+    /// PKCS#12 client identity (replaces `client_cert` + `client_key`).
+    #[serde(default)]
+    pub client_p12: Option<String>,
+    #[serde(default)]
+    pub client_p12_password: Option<String>,
+}
+
+impl GrpcTls {
+    /// The mTLS identity as `(certificate chain PEM, private key PEM)`, from the
+    /// PKCS#12 bundle or the PEM file pair; `None` when no client identity is set.
+    pub fn client_identity_pem(&self) -> Result<Option<(Vec<u8>, Vec<u8>)>, String> {
+        if let Some(p12) = self.client_p12.as_deref().filter(|p| !p.is_empty()) {
+            let password = self.client_p12_password.as_deref().unwrap_or_default();
+            return crate::infra::pkcs12::p12_to_pem(p12, password).map(Some);
+        }
+        match (&self.client_cert, &self.client_key) {
+            (Some(cert), Some(key)) => {
+                let cert = std::fs::read(cert)
+                    .map_err(|e| format!("client certificate {cert}: {e}"))?;
+                let key = std::fs::read(key).map_err(|e| format!("client key {key}: {e}"))?;
+                Ok(Some((cert, key)))
+            }
+            _ => Ok(None),
+        }
+    }
 }
 
 /// Global gRPC limits and rendering options from Settings → gRPC.

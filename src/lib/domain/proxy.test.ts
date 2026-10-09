@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { endpointHost, fileName, pickClientCert, proxyUrlError } from './proxy';
+import { endpointHost, fileName, hasIdentity, pickClientCert, proxyUrlError } from './proxy';
 
 describe('proxyUrlError', () => {
   it('accepts http and socks5 urls', () => {
@@ -38,5 +38,13 @@ describe('endpointHost', () => {
     expect(endpointHost('grpc.a.kz:443')).toBe('grpc.a.kz');
     expect(endpointHost('https://h:1/')).toBe('h');
     expect(endpointHost('[::1]:50051')).toBe('::1');
+  });
+});
+
+describe('hasIdentity', () => {
+  it('accepts a PEM pair or a .p12', () => {
+    expect(hasIdentity({ certPath: 'c', keyPath: 'k' })).toBe(true);
+    expect(hasIdentity({ certPath: '', keyPath: '', p12Path: '/a/client.p12' })).toBe(true);
+    expect(hasIdentity({ certPath: 'c', keyPath: '' })).toBe(false);
   });
 });
