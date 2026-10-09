@@ -9,6 +9,9 @@ dist/
 !/README.md
 !/ARCHITECTURE.md
 !/docs/MCP.md
+!/docs/GUIDE.md
+!/CLAUDE.md
+!/AGENTS.md
 .local
 .local/
 .env

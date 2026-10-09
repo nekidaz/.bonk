@@ -4,26 +4,28 @@ Thanks for helping improve Bonk.
 
 ## Local Setup
 
+Needs Node 24 and stable Rust (`rustup`).
+
 ```sh
-npm ci
-npm run tauri dev
+make setup   # npm ci + cargo fetch
+make dev     # desktop app with hot reload
 ```
 
-Use `npm run dev` only for frontend-only UI work. Native Tauri commands are not
-available in a plain browser tab.
+`make ui` runs only the frontend in a browser. Native Tauri commands aren't
+available there, so anything that talks to Rust will fail. `make` with no
+arguments lists every target.
+
+New to Rust or Svelte? Start with [docs/GUIDE.md](docs/GUIDE.md), then read
+[ARCHITECTURE.md](ARCHITECTURE.md).
 
 ## Before a Pull Request
 
-Run the project checks:
-
 ```sh
-npm run check
-npm test
-npm run build
-cargo test --manifest-path src-tauri/Cargo.toml
+make check   # svelte-check, clippy -D warnings, vitest, cargo test, vite build
 ```
 
-If a check cannot be run locally, mention it in the pull request.
+It runs the same steps as CI. If a check can't run locally, say so in the pull
+request.
 
 ## Code Style
 
@@ -35,5 +37,7 @@ If a check cannot be run locally, mention it in the pull request.
 
 ## Request Storage
 
-Workspace files are written under `.bonk/` in the selected workspace folder.
-Changes to that format should stay backward-compatible or include a migration.
+A workspace is a plain folder: each subfolder is a collection folder and each
+request is a `<name>.bonk.json` file. Folder-level auth lives in
+`.folder.bonk.json`. Changes to that format should stay backward-compatible or
+include a migration.
