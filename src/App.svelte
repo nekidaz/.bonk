@@ -806,7 +806,7 @@
     onDelete={nodeDelete}
     onCopyCurl={nodeCopyCurl}
     onImportCurl={() => void importCurlFromClipboard()}
-    onImport={importOpenApi}
+    onImport={importFrom}
     onExportOpenApi={exportOpenApi}
     onSaveAs={openSaveDialog}
     onRenameTab={tabRename}

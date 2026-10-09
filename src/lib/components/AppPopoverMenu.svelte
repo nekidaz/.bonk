@@ -59,7 +59,7 @@
     onDelete: () => void;
     onCopyCurl: () => void;
     onImportCurl: () => void;
-    onImport: () => void;
+    onImport: (source?: string) => void;
     onExportOpenApi: (format: 'json' | 'yaml') => void;
     onSaveAs: () => void;
     onRenameTab: () => void;
@@ -70,10 +70,10 @@
 
   // Import sources (S22): every file format goes through the same import dialog, which sniffs the format.
   const importSources = [
-    { label: 'OpenAPI 3', icon: 'description', hint: 'nav.menu.hintFileUrl' },
-    { label: 'Postman', icon: 'inventory_2', hint: 'nav.menu.hintPostman' },
-    { label: 'Insomnia', icon: 'inventory_2', hint: 'nav.menu.hintInsomnia' },
-    { label: 'HAR', icon: 'data_object', hint: 'nav.menu.hintHar' },
+    { src: 'openapi', label: 'OpenAPI 3', icon: 'description', hint: 'nav.menu.hintFileUrl' },
+    { src: 'postman', label: 'Postman', icon: 'inventory_2', hint: 'nav.menu.hintPostman' },
+    { src: 'insomnia', label: 'Insomnia', icon: 'inventory_2', hint: 'nav.menu.hintInsomnia' },
+    { src: 'har', label: 'HAR', icon: 'data_object', hint: 'nav.menu.hintHar' },
   ];
 
   const historyLimits: { label: string; value: number }[] = [
@@ -159,7 +159,7 @@
           <div class="lbl">{$t('nav.menu.importFrom')}</div>
           {@render item('terminal', 'cURL', () => { closeMenu(); onImportCurl(); }, $t('nav.menu.pasteClip'), 'sub hint')}
           {#each importSources as src (src.label)}
-            {@render item(src.icon, src.label, () => { closeMenu(); onImport(); }, $t(src.hint), 'sub hint')}
+            {@render item(src.icon, src.label, () => { closeMenu(); onImport(src.src); }, $t(src.hint), 'sub hint')}
           {/each}
         </div>
       {/if}
