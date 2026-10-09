@@ -214,7 +214,7 @@
           <i class="rn-dot" style="background:{env ? ENV_COLOR_VAR[envColor(env)] : 'var(--color-text-muted)'}"></i>{envLabel}
         </button>
         <button class="rn-chip" type="button" onclick={setup} disabled={running}>
-          <span class="material-symbols-outlined" aria-hidden="true">repeat</span>{iterations} {$tp(iterations, ['итерация', 'итерации', 'итераций'], ['iteration', 'iterations'])}
+          <span class="material-symbols-outlined" aria-hidden="true">repeat</span>{`${iterations} ${$tp(iterations, ['итерация', 'итерации', 'итераций'], ['iteration', 'iterations'])}`}
         </button>
         <button class="rn-chip" type="button" onclick={setup} disabled={running}>
           <span class="material-symbols-outlined" aria-hidden="true">timer</span>{$runnerConfig.delayMs} ms

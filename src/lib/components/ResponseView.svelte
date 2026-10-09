@@ -208,7 +208,7 @@
 
 
 {#snippet unreachableFacts()}
-  {#if tab?.grpcResult}grpc-status 14{#if tab.grpcResult.attempts}&nbsp;&nbsp;·&nbsp;&nbsp;{tab.grpcResult.attempts} {$tp(tab.grpcResult.attempts, ['попытка', 'попытки', 'попыток'], ['attempt', 'attempts'])}{/if}{#if tab.grpcResult.backoffMs?.length}&nbsp;&nbsp;·&nbsp;&nbsp;backoff {tab.grpcResult.backoffMs.map((ms) => ms / 1000).join(' → ')} s{/if}{/if}
+  {#if tab?.grpcResult}grpc-status 14{#if tab.grpcResult.attempts}{`\u00a0\u00a0·\u00a0\u00a0${tab.grpcResult.attempts} ${$tp(tab.grpcResult.attempts, ['попытка', 'попытки', 'попыток'], ['attempt', 'attempts'])}`}{/if}{#if tab.grpcResult.backoffMs?.length}{`\u00a0\u00a0·\u00a0\u00a0backoff ${tab.grpcResult.backoffMs.map((ms) => ms / 1000).join(' → ')} s`}{/if}{/if}
 {/snippet}
 
 {#snippet unreachable(error: string, onRetry: () => void, onTls: () => void, facts?: Snippet)}
@@ -295,7 +295,7 @@
             <code>{grpcStatusLabel(grpcCode)} · {tab.grpcResult.body}</code>
           </div>
         {/if}
-        <div class="waiting ended"><span class="dot" aria-hidden="true"></span>{$t(grpcCode === 'CANCELLED' ? 'response.stream.stopped' : 'response.stream.closed')} {saved}</div>
+        <div class="waiting ended"><span class="dot" aria-hidden="true"></span>{`${$t(grpcCode === 'CANCELLED' ? 'response.stream.stopped' : 'response.stream.closed')} ${saved}`}</div>
       {/if}
     </div>
   {:else if !tab.grpcResult}

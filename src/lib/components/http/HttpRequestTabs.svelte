@@ -85,7 +85,7 @@
         </select>
         <span class="material-symbols-outlined" aria-hidden="true">keyboard_arrow_down</span>
       </span>
-      <span class="lb-stats">{stats.approx ? '~' : ''}{formatBytes(stats.bytes)}  ·  {countLabel(stats.lines, 'lines', $uiLanguage)}{#if invalid}<b class="bad">{'  ·  '}{$t('lb.json.invalid')}</b>{/if}</span>
+      <span class="lb-stats">{`${stats.approx ? '~' : ''}${formatBytes(stats.bytes)}  ·  ${countLabel(stats.lines, 'lines', $uiLanguage)}`}{#if invalid}<b class="bad">{'  ·  '}{$t('lb.json.invalid')}</b>{/if}</span>
       <EditorTools
         scope="#bs-reqpanel"
         onBeautify={canBeautify ? doBeautify : undefined}

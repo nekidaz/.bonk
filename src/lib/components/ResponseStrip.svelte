@@ -38,7 +38,7 @@
     <span class="bs-stpill sending"><span class="g" aria-hidden="true">◌</span>{$t('response.sending')}</span>
   {:else if info}
     <span class="bs-stpill {info.tone}"><span class="g" aria-hidden="true">{info.glyph}</span>{info.status}</span>
-    <span class="meta">{elapsedLabel(info.ms)}  ·  {info.size}</span>
+    <span class="meta">{`${elapsedLabel(info.ms)}  ·  ${info.size}`}</span>
     <span class="preview" title={preview}>{preview}</span>
   {:else}
     <span class="preview">{$t('lb.strip.noResponse')}</span>

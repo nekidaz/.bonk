@@ -145,8 +145,7 @@
     <div class="gpp-grow"></div>
     {#if source === 'proto' && okFiles.length > 0}
       <span class="gpp-counts">
-        {okFiles.length} {$tp(okFiles.length, ['ФАЙЛ', 'ФАЙЛА', 'ФАЙЛОВ'], ['FILE', 'FILES'])}
-        · {svc(serviceCount).toUpperCase()} · {mth(methodCount).toUpperCase()}
+        {`${okFiles.length} ${$tp(okFiles.length, ['ФАЙЛ', 'ФАЙЛА', 'ФАЙЛОВ'], ['FILE', 'FILES'])} · ${svc(serviceCount).toUpperCase()} · ${mth(methodCount).toUpperCase()}`}
       </span>
     {/if}
     <button type="button" class="gpp-add" onclick={onAddProto}>

@@ -45,7 +45,7 @@
   <span class="method" style:color={grpc ? 'var(--method-grpc)' : methodColor(tab.request.method)}>{grpc ? 'gRPC' : tab.request.method}</span>
   <span class="url" title={address}>{address}</span>
   <span class="section">{section}</span>
-  {#if stats}<span class="stats">{stats.approx ? '~' : ''}{formatBytes(stats.bytes)}  ·  {countLabel(stats.lines, 'lines', $uiLanguage)}</span>{/if}
+  {#if stats}<span class="stats">{`${stats.approx ? '~' : ''}${formatBytes(stats.bytes)}  ·  ${countLabel(stats.lines, 'lines', $uiLanguage)}`}</span>{/if}
   <span class="spacer"></span>
   {#if mode === 'request'}
     <EditorTools scope=".bs-reqpane" onBeautify={canBeautify ? doBeautify : undefined} beautifyTitle={body.length > BEAUTIFY_MAX_CHARS ? $t('lb.beautifyTooLarge') : ''}>

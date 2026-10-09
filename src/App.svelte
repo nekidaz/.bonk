@@ -858,7 +858,7 @@
             {#if historySnapshot}
               <div class="bs-history-banner" role="status">
                 <span class="material-symbols-outlined" aria-hidden="true">history</span>
-                <span class="text">{$t('app.snapshot')} · {historyDay(historySnapshot.entry.at, Date.now(), $t).toLowerCase()} {clock(historySnapshot.entry.at)}{historySnapshot.entry.envName ? ` · ${historySnapshot.entry.envName}` : ''}. {$t('app.snapshot.note')}</span>
+                <span class="text">{`${$t('app.snapshot')} · ${historyDay(historySnapshot.entry.at, Date.now(), $t).toLowerCase()} ${clock(historySnapshot.entry.at)}${historySnapshot.entry.envName ? ` · ${historySnapshot.entry.envName}` : ''}. ${$t('app.snapshot.note')}`}</span>
                 {#if historySnapshot.original}<button type="button" onclick={() => openSavedRequest(historySnapshot!.original!.node)}>{$t('app.snapshot.original')}</button>{/if}
               </div>
             {/if}

@@ -51,7 +51,7 @@
       {#if selectedMethod?.inputType}
         <span class="lb-msgtype" title={selectedMethod.inputType}><span class="material-symbols-outlined" aria-hidden="true">description</span>{selectedMethod.inputType.split('.').pop()}</span>
       {/if}
-      <span class="lb-stats">{messageStats.approx ? '~' : ''}{formatBytes(messageStats.bytes)}  ·  {countLabel(messageStats.lines, 'lines', $uiLanguage)}</span>
+      <span class="lb-stats">{`${messageStats.approx ? '~' : ''}${formatBytes(messageStats.bytes)}  ·  ${countLabel(messageStats.lines, 'lines', $uiLanguage)}`}</span>
       <EditorTools scope="#bs-grpcpanel" onExpand={() => focusMode.update((m) => toggleFocus(m, 'request'))} expanded={$focusMode === 'request'}>
         {#snippet extra()}
           <button type="button" class="bs-ric bs-grpc-example" aria-label={$t('grpc.msg.example')} title={$t('grpc.msg.example')} onclick={onLoadExample}><span class="material-symbols-outlined" aria-hidden="true">description</span></button>

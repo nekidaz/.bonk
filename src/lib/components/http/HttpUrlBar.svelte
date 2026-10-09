@@ -231,10 +231,10 @@
         ariaLabel={$t('http.url.aria')}
       />
       {#if focused && long}
-        <div class="bs-url-meta"><span>{paramCount} {$tp(paramCount, ['параметр', 'параметра', 'параметров'], ['param', 'params'])}&nbsp;&nbsp;·&nbsp;&nbsp;{$t('http.url.chars', { n: tab.request.url.length })}</span><span class="hint">{$t('http.url.collapse')}</span></div>
+        <div class="bs-url-meta"><span>{`${paramCount} ${$tp(paramCount, ['параметр', 'параметра', 'параметров'], ['param', 'params'])}\u00a0\u00a0·\u00a0\u00a0${$t('http.url.chars', { n: tab.request.url.length })}`}</span><span class="hint">{$t('http.url.collapse')}</span></div>
       {/if}
     </div>
-    {#if !focused && hidden > 0}<span class="bs-url-more" aria-hidden="true"><span class="material-symbols-outlined">unfold_more</span>+{hidden} {$tp(hidden, ['параметр', 'параметра', 'параметров'], ['param', 'params'])}</span>{/if}
+    {#if !focused && hidden > 0}<span class="bs-url-more" aria-hidden="true"><span class="material-symbols-outlined">unfold_more</span>{`+${hidden} ${$tp(hidden, ['параметр', 'параметра', 'параметров'], ['param', 'params'])}`}</span>{/if}
   </div>
   <button class="bs-send" class:cancelling={activeBusy?.kind === 'http'} aria-busy={activeBusy?.kind === 'http'} disabled={activeBusy?.kind !== 'http' && !tab.request.url.trim()} title={activeBusy?.kind === 'http' ? $t('http.url.cancel_title') : undefined} onclick={send}>
     <span class="go">
