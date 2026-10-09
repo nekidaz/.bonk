@@ -349,7 +349,7 @@ function varHover(opts: VariableHighlightOptions): Extension {
 }
 
 /**
- * Colors ride on the design-system tokens (design-system.css) so palettes and
+ * Colors ride on the design-system tokens (src/styles/tokens.css) so palettes and
  * `.dark` re-theme without touching the editor. Geometry follows the Pencil
  * design «V1 · Поповер переменной {{var}}»: card 20 → value box 14 → pills.
  */
