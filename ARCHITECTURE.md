@@ -4,18 +4,22 @@ Bonk is a local-first desktop API client (HTTP + gRPC). It is split into three
 layers with a deliberately thin boundary between them:
 
 - **`src/`** — Svelte 5 UI (view + thin view-state).
-- **`src-tauri/`** — Tauri shell: `#[tauri::command]` wrappers, app state, the
-  native folder dialog. Owns no business logic.
+- **`src-tauri/`** — Tauri shell: `#[tauri::command]` wrappers grouped per area in
+  `commands/` (`http`, `grpc`, `workspace`, `git`, `terminal`, `secrets`, `app`),
+  app state, native dialogs. Owns no business logic.
 - **`crates/bonk-core/`** — Tauri-independent Rust core: all HTTP/gRPC/workspace/
   state logic. Buildable and testable without a webview (`cargo test -p bonk-core`).
 - **`crates/bonk-mcp/`** — headless Model Context Protocol server. Reuses
   `bonk-core` and exposes workspace resources/tools over STDIO or Streamable HTTP.
+  `server.rs` holds the MCP surface, `runtime.rs` the `BonkRuntime` operations, and
+  helpers live in `vars.rs` (env/variable resolution), `request_prep.rs`
+  (auth/body/URL), `scripts.rs`, and `redact.rs` (secret scrubbing).
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │  src/  — Svelte 5 (WKWebView)                                     │
 │                                                                   │
-│  App.svelte ── stores.ts (tabs, collections, history, settings)  │
+│  App.svelte ── stores/ (tabs, workspace, requests, history, …)   │
 │       │            │                                              │
 │       │            ├── api.ts        (invoke wrappers)            │
 │       │            └── persist.ts    (invoke wrappers)            │
@@ -25,7 +29,7 @@ layers with a deliberately thin boundary between them:
 ┌───────▼───────────────────────────────────────────────────────────┐
 │  src-tauri/  — Tauri shell (thin)                                  │
 │                                                                    │
-│  commands/mod.rs   #[tauri::command] fns → call bonk_core          │
+│  commands/<area>.rs  #[tauri::command] fns → call bonk_core        │
 │  state.rs          AppState { http_client, conns, cancels }        │
 │  lib.rs            Builder + generate_handler!  ·  pick_folder(rfd) │
 └───────┬───────────────────────────────────────────────────────────┘
@@ -66,14 +70,28 @@ over `bonk-core`; folder/file dialogs and MCP client setup are shell-owned:
 | MCP integration | `mcp_integration_status`, `mcp_install`, `mcp_uninstall` |
 
 Frontend bindings live in `src/lib/api.ts` (workspace/http/gRPC) and
-`src/lib/persist.ts` (app state).
+`src/lib/persist.ts` (app state). The table lists the core commands; the full set
+(git, terminal, secrets, OpenAPI, proto, etc.) is the `generate_handler!` list in
+`src-tauri/src/lib.rs`.
+
+## Frontend layout (`src/lib/`)
+
+| Dir | Holds | Rule |
+| --- | --- | --- |
+| `domain/` | pure TS logic (URL building, curl, tree ops, runner planning, …) | no imports from `stores/` or `components/`; unit-tested |
+| `stores/` | app state split by responsibility, re-exported by `index.ts` | acyclic: `domain` → `state` → feature stores |
+| `components/` | Svelte views; sub-areas in `http/`, `grpc/`, `settings/` | no business logic beyond view-state |
+| `editor/` | CodeMirror extensions | — |
+| `i18n/` | UI strings per area, `ru` + `en` | a missing `en` key is a type error |
+
+Tests sit next to the module they cover (`foo.ts` → `foo.test.ts`).
 
 ## HTTP request flow
 
 ```mermaid
 sequenceDiagram
     participant UI as App.svelte
-    participant S as stores.ts
+    participant S as stores/requests.ts
     participant API as api.ts
     participant CMD as commands::http_send
     participant CORE as bonk_core::application::http
