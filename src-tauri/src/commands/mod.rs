@@ -150,7 +150,12 @@ fn terminal_cwd_from_output(stdout: &mut String, fallback: &std::path::Path) -> 
 /// `cd ..`, and compound commands such as `cd src && ls` to carry their
 /// directory into the next invocation.
 #[tauri::command]
-pub async fn terminal_run(cwd: Option<String>, command: String) -> Result<TerminalOutput, String> {
+pub async fn terminal_run(
+    cwd: Option<String>,
+    command: String,
+    run_id: Option<String>,
+    state: State<'_, AppState>,
+) -> Result<TerminalOutput, String> {
     let cwd_path = match cwd.filter(|value| !value.is_empty()) {
         Some(value) => {
             let path = std::path::PathBuf::from(value);
@@ -238,8 +243,22 @@ pub async fn terminal_run(cwd: Option<String>, command: String) -> Result<Termin
 
     child.current_dir(&cwd_path).kill_on_drop(true);
     let started = std::time::Instant::now();
-    let output = tokio::time::timeout(TERMINAL_TIMEOUT, child.output())
-        .await
+    // ⌃C: `cancel_request(run_id)` fires the receiver; dropping the future kills the
+    // child (kill_on_drop). ponytail: on macOS that is the `script` PTY wrapper, whose
+    // shell gets SIGHUP when the PTY closes; process-group kill if grandchildren linger.
+    let cancel = register_cancel(&state, &run_id)?;
+    let run = tokio::time::timeout(TERMINAL_TIMEOUT, child.output());
+    let output = if let Some(cancel) = cancel {
+        tokio::select! {
+            res = run => Some(res),
+            _ = cancel => None,
+        }
+    } else {
+        Some(run.await)
+    };
+    finish_cancel(&state, &run_id);
+    let output = output
+        .ok_or_else(|| "interrupted".to_string())?
         .map_err(|_| "command timed out after 120 seconds".to_string())?
         .map_err(|error| format!("failed to run command: {error}"))?;
 

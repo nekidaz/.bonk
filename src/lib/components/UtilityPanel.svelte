@@ -1,14 +1,17 @@
 <script lang="ts">
   import { tick } from 'svelte';
   import { t } from '../i18n';
-  import { terminalDefaultCwd, terminalRun } from '../api';
+  import { cancelRequest, terminalDefaultCwd, terminalRun } from '../api';
   import { snapPanelSize, type UtilityMode } from '../domain/appShell';
+  import { consoleStatus, formatElapsed, matchesConsoleFilter, shortCwd } from '../domain/utilPanel';
   import { appConsoleEntries, clearAppConsole, workspacePath } from '../stores';
 
   type TerminalLine = {
     id: string;
     kind: 'command' | 'stdout' | 'stderr' | 'meta';
     text: string;
+    /** Directory the command was run in (shown before ❯). */
+    cwd?: string;
   };
 
   let {
@@ -30,6 +33,8 @@
   let collapsePreview = $state(false);
   let command = $state('');
   let running = $state(false);
+  let runId: string | null = null;
+  let filter = $state('');
   let inputEl = $state<HTMLInputElement | null>(null);
   let terminalOutputEl = $state<HTMLDivElement | null>(null);
   let consoleOutputEl = $state<HTMLDivElement | null>(null);
@@ -49,12 +54,13 @@
   );
   const issueCount = $derived($appConsoleEntries.filter((entry) => !entry.ok).length);
   const visibleConsoleEntries = $derived(
-    mode === 'issues' ? $appConsoleEntries.filter((entry) => !entry.ok) : $appConsoleEntries,
+    (mode === 'issues' ? $appConsoleEntries.filter((entry) => !entry.ok) : $appConsoleEntries).filter((entry) => matchesConsoleFilter(entry, filter)),
   );
+  const promptDir = $derived(shortCwd(currentDirectory || $workspacePath, homeDirectory));
 
-  function addLine(kind: TerminalLine['kind'], text: string): void {
+  function addLine(kind: TerminalLine['kind'], text: string, cwd?: string): void {
     if (!text) return;
-    lines = [...lines, { id: crypto.randomUUID(), kind, text }];
+    lines = [...lines, { id: crypto.randomUUID(), kind, text, cwd }];
   }
 
   function clearCurrent(): void {
@@ -73,26 +79,45 @@
       lines = [];
       return;
     }
-    addLine('command', next);
+    addLine('command', next, promptDir);
     running = true;
+    runId = crypto.randomUUID();
     try {
-      const result = await terminalRun(currentDirectory || ($workspacePath || null), next);
+      const result = await terminalRun(currentDirectory || ($workspacePath || null), next, runId ?? undefined);
       currentDirectory = result.cwd;
       addLine('stdout', result.stdout.replace(/\s+$/, ''));
       addLine('stderr', result.stderr.replace(/\s+$/, ''));
       if (result.status !== 0) addLine('meta', $t('util.terminal.exited', { code: result.status, ms: result.elapsedMs }));
     } catch (error) {
       const text = String(error);
-      addLine(
-        'stderr',
-        text.includes('__TAURI_INTERNALS__')
-          ? $t('util.terminal.desktop_only')
-          : text,
-      );
+      if (text === 'interrupted') addLine('meta', '^C');
+      else addLine('stderr', text.includes('__TAURI_INTERNALS__') ? $t('util.terminal.desktop_only') : text);
     } finally {
       running = false;
+      runId = null;
       await tick();
       inputEl?.focus();
+    }
+  }
+
+  /** ⌘K clears (and must not open the global command palette); ⌃C interrupts the running command. */
+  function terminalShortcuts(event: KeyboardEvent): void {
+    const key = event.key.toLowerCase();
+    if (key === 'k' && (event.metaKey || event.ctrlKey) && !event.altKey) {
+      event.preventDefault();
+      event.stopPropagation();
+      lines = [];
+    } else if (key === 'c' && event.ctrlKey && !event.metaKey) {
+      if (running && runId) {
+        event.preventDefault();
+        event.stopPropagation();
+        void cancelRequest(runId).catch(() => {});
+      } else if (!window.getSelection()?.toString()) {
+        // Like a shell: abandon the line being typed (keeps Ctrl+C = copy when text is selected).
+        event.preventDefault();
+        if (command) addLine('command', `${command}^C`, promptDir);
+        command = '';
+      }
     }
   }
 
@@ -181,6 +206,12 @@
       </button>
     </div>
     <div class="bs-spacer"></div>
+    {#if mode !== 'terminal'}
+      <label class="bs-utility-filter">
+        <span class="material-symbols-outlined" aria-hidden="true">search</span>
+        <input type="search" bind:value={filter} placeholder={$t('util.filter.placeholder')} aria-label={$t('util.filter.placeholder')} autocomplete="off" spellcheck="false" />
+      </label>
+    {/if}
     {#if mode === 'terminal'}<span class="bs-utility-context" title={currentDirectory}>{directoryLabel}</span>{/if}
     <button class="bs-utility-action" type="button" onclick={clearCurrent}>{$t('util.clear')}</button>
     <button class="bs-utility-icon" type="button" aria-label={$t('util.clear_aria')} title={$t('util.clear')} onclick={clearCurrent}>
@@ -192,28 +223,30 @@
   </header>
 
   {#if mode === 'terminal'}
-    <div class="bs-terminal-body">
+    <!-- svelte-ignore a11y_no_static_element_interactions -->
+    <div class="bs-terminal-body" onkeydown={terminalShortcuts}>
       <div class="bs-terminal-output" bind:this={terminalOutputEl} role="log" aria-live="polite">
         {#each lines as line (line.id)}
           <div class="bs-terminal-line" class:command={line.kind === 'command'} class:stderr={line.kind === 'stderr'} class:meta={line.kind === 'meta'}>
-            {#if line.kind === 'command'}<span class="prompt">❯</span>{/if}<pre>{line.text}</pre>
+            {#if line.kind === 'command'}{#if line.cwd}<span class="cwd">{line.cwd}</span>{/if}<span class="prompt">❯</span>{/if}<pre>{line.text}</pre>
           </div>
         {/each}
       </div>
       <form class="bs-terminal-prompt" onsubmit={runCommand}>
-        <span class="workspace" title={currentDirectory}>{directoryLabel}</span><span class="prompt">❯</span>
+        <span class="workspace" title={currentDirectory}>{promptDir}</span><span class="prompt">❯</span>
         <input
           bind:this={inputEl}
           bind:value={command}
           aria-label={$t('util.terminal.command_aria')}
           autocomplete="off"
           spellcheck="false"
-          disabled={running}
+          readonly={running}
           placeholder={running ? $t('util.terminal.running') : $t('util.terminal.placeholder')}
           onkeydown={terminalKeydown}
         />
         {#if running}<span class="bs-terminal-running material-symbols-outlined">progress_activity</span>{/if}
       </form>
+      <div class="bs-terminal-hint">{$t('util.terminal.hint')}</div>
     </div>
   {:else}
     <div class="bs-console-output" bind:this={consoleOutputEl} role="log" aria-live="polite">
@@ -224,14 +257,15 @@
         </div>
       {:else}
         {#each visibleConsoleEntries as entry (entry.id)}
+          {@const st = consoleStatus(entry)}
           <article class="bs-console-entry" class:error={!entry.ok}>
             <div class="bs-console-row">
               <time>{timeLabel(entry.at)}</time>
-              <span class="protocol">{entry.protocol === 'grpc' ? 'RPC' : 'HTTP'}</span>
+              <span class="protocol">{entry.protocol === 'grpc' ? 'gRPC' : 'HTTP'}</span>
               <span class="method">{entry.method}</span>
               <span class="url" title={entry.url}>{entry.url || '—'}</span>
-              <span class="status">{entry.status}</span>
-              <span class="elapsed">{entry.elapsedMs} ms</span>
+              <span class="status {st.tone}">{st.label}</span>
+              <span class="elapsed">{formatElapsed(entry.elapsedMs)}</span>
             </div>
             {#if entry.message}<pre class="bs-console-detail error">{entry.message}</pre>{/if}
             {#each entry.logs ?? [] as log}<pre class="bs-console-detail">{log}</pre>{/each}
@@ -291,8 +325,17 @@
   .bs-console-row .protocol { color: var(--purple); font-weight: 700; }
   .bs-console-row .method { color: var(--green); font-weight: 700; }
   .bs-console-row .url { overflow: hidden; color: var(--t2); text-overflow: ellipsis; white-space: nowrap; }
-  .bs-console-row .status { color: var(--green); font-weight: 700; }
-  .bs-console-entry.error .status { color: var(--red); }
+  .bs-console-row .status { justify-self: end; height: 17px; padding: 0 7px; border-radius: 999px; color: var(--green); background: color-mix(in srgb, var(--green) 14%, transparent); font-weight: 700; line-height: 17px; white-space: nowrap; }
+  .bs-console-row .status.info, .bs-console-row .status.muted { color: var(--t2); background: var(--hover); }
+  .bs-console-row .status.warn { color: var(--orange, var(--yellow, #d9a441)); background: color-mix(in srgb, var(--orange, var(--yellow, #d9a441)) 14%, transparent); }
+  .bs-console-row .status.err { color: var(--red); background: color-mix(in srgb, var(--red) 14%, transparent); }
+  .bs-utility-filter { display: flex; align-items: center; gap: 5px; width: 220px; height: 22px; padding: 0 8px; border: 1px solid var(--sepsoft); border-radius: 999px; color: var(--t3); }
+  .bs-utility-filter:focus-within { border-color: var(--t3); }
+  .bs-utility-filter .material-symbols-outlined { font-size: 13px; }
+  .bs-utility-filter input { min-width: 0; flex: 1; height: 100%; padding: 0; color: var(--text); background: transparent; border: 0; outline: 0; box-shadow: none; font: 10.5px var(--mono); }
+  .bs-utility-filter input::-webkit-search-cancel-button { display: none; }
+  .bs-terminal-line .cwd { flex: none; color: var(--accent); }
+  .bs-terminal-hint { flex: none; padding: 3px 12px 6px; color: var(--t3); font-size: 10px; }
   .bs-console-detail { margin: 4px 0 0 117px; color: var(--t2); font-size: 10.5px; line-height: 1.5; }
   .bs-console-detail.error { color: var(--red); }
   .bs-utility-empty { height: 100%; display: grid; place-content: center; justify-items: center; gap: 7px; color: var(--t3); font-family: -apple-system, BlinkMacSystemFont, sans-serif; font-size: 11.5px; }

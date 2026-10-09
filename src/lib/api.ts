@@ -79,8 +79,9 @@ export interface McpJournalEntry {
 export const terminalDefaultCwd = (): Promise<string> =>
   invoke<string>('terminal_default_cwd');
 
-export const terminalRun = (cwd: string | null, command: string): Promise<TerminalOutput> =>
-  invoke<TerminalOutput>('terminal_run', { cwd, command });
+/** `runId` lets `cancelRequest(runId)` interrupt the command (⌃C). */
+export const terminalRun = (cwd: string | null, command: string, runId?: string): Promise<TerminalOutput> =>
+  invoke<TerminalOutput>('terminal_run', { cwd, command, runId: runId ?? null });
 
 export const mcpIntegrationStatus = (): Promise<McpIntegrationStatus> =>
   invoke<McpIntegrationStatus>('mcp_integration_status');
