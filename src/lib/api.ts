@@ -209,6 +209,8 @@ export const workspaceDuplicate = (root: string, path: string) =>
   invoke<string>('workspace_duplicate', { root, path });
 export const workspaceMove = (root: string, path: string, dest: string) =>
   invoke<string>('workspace_move', { root, path, dest });
+export const workspaceReorder = (root: string, dir: string, names: string[]) =>
+  invoke<void>('workspace_reorder', { root, dir, names });
 
 // ---------- OpenAPI / Swagger import & export ----------
 /** Prompt for a spec file (JSON/YAML) and return its base name + text, or null if cancelled. */

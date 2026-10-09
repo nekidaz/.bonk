@@ -9,10 +9,11 @@ import {
   workspaceRename,
   workspaceDuplicate,
   workspaceMove,
+  workspaceReorder,
   workspaceRenameRoot,
   workspaceTrash,
 } from '../api';
-import { idToRel, findNode } from '../domain/tree';
+import { idToRel, findNode, parentId } from '../domain/tree';
 import { relinkTabPaths } from '../domain/tab';
 import { tabs, activeTabId, collections, workspacePath, recentWorkspacePaths, ROOT } from './state';
 
@@ -210,6 +211,25 @@ export async function moveNode(id: string, destFolderId?: string): Promise<void>
   await runWorkspaceOp('moveNode', async () => {
     const newId = await workspaceMove(root, id, destFolderId ? idToRel(destFolderId) : ROOT);
     tabs.update((list) => relinkTabPaths(list, id, newId));
+    await reloadWorkspace();
+  });
+}
+
+/** Drag & drop: put node `id` right before/after sibling `targetId`, moving it into that folder if needed. */
+export async function placeNode(id: string, targetId: string, after: boolean): Promise<void> {
+  const root = get(workspacePath);
+  if (!root || id === targetId) return;
+  const dest = parentId(targetId);
+  await runWorkspaceOp('placeNode', async () => {
+    let newId = id;
+    if (parentId(id) !== dest) {
+      newId = await workspaceMove(root, id, dest ? idToRel(dest) : ROOT);
+      tabs.update((list) => relinkTabPaths(list, id, newId));
+    }
+    const folder = dest ? findNode(get(collections), dest) : undefined;
+    const ids = (folder?.kind === 'folder' ? folder.children : get(collections)).map((n) => n.id).filter((x) => x !== id);
+    ids.splice(ids.indexOf(targetId) + (after ? 1 : 0), 0, newId);
+    await workspaceReorder(root, dest ? idToRel(dest) : ROOT, ids.map((x) => idToRel(x).split('/').pop()!));
     await reloadWorkspace();
   });
 }

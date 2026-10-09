@@ -70,6 +70,7 @@ pub fn run() {
             commands::workspace_rename,
             commands::workspace_duplicate,
             commands::workspace_move,
+            commands::workspace_reorder,
             commands::app_state_load,
             commands::app_state_set,
             commands::secret_get,

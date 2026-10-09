@@ -601,6 +601,12 @@ pub fn workspace_move(root: String, path: String, dest: String) -> Result<String
     bonk_core::application::workspace::move_node(&root, &path, &dest)
 }
 
+#[tauri::command]
+pub fn workspace_reorder(root: String, dir: String, names: Vec<String>) -> Result<(), String> {
+    require_absolute_root(&root)?;
+    bonk_core::application::workspace::reorder(&root, &dir, names)
+}
+
 use bonk_core::application::git;
 
 #[tauri::command]

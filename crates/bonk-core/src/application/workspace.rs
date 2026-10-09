@@ -115,6 +115,20 @@ fn load_dir(root: &Path, dir: &Path) -> Result<Vec<TreeNode>, String> {
 
     folders.extend(requests);
 
+    // Manual order (drag & drop) wins; unlisted entries keep the alphabetical order after it.
+    let order = read_folder_file(dir).order;
+    if !order.is_empty() {
+        let rank = |node: &TreeNode| {
+            let id = match node {
+                TreeNode::Folder(folder) => &folder.id,
+                TreeNode::Request(request) => &request.id,
+            };
+            let base = id.rsplit(['/', ':']).next().unwrap_or(id);
+            order.iter().position(|name| name == base).unwrap_or(usize::MAX)
+        };
+        folders.sort_by_key(rank);
+    }
+
     Ok(folders)
 }
 
@@ -134,9 +148,29 @@ pub fn save_folder_auth(root: &str, dir_rel: &str, auth: Option<AuthConfig>) -> 
 
     ensure_directory(&directory)?;
 
+    let mut file = read_folder_file(&directory);
+    file.auth = auth;
+    write_folder_file(&directory, &file)
+}
+
+/// Persist the manual order of folder `dir_rel`'s entries (file/dir names, top to bottom).
+pub fn reorder(root: &str, dir_rel: &str, names: Vec<String>) -> Result<(), String> {
+    let directory = resolve(root, dir_rel)?;
+
+    if !directory.is_dir() {
+        return Err("folder not found".into());
+    }
+
+    let mut file = read_folder_file(&directory);
+    file.order = names;
+    write_folder_file(&directory, &file)
+}
+
+/// Write folder settings; an empty file is removed instead of left behind.
+fn write_folder_file(directory: &Path, file: &FolderFile) -> Result<(), String> {
     let path = directory.join(FOLDER_FILE);
 
-    if auth.is_none() {
+    if file.auth.is_none() && file.order.is_empty() {
         return match fs::remove_file(&path) {
             Err(e) if e.kind() != std::io::ErrorKind::NotFound => {
                 Err(format!("failed to remove {}: {e}", path.display()))
@@ -145,10 +179,22 @@ pub fn save_folder_auth(root: &str, dir_rel: &str, auth: Option<AuthConfig>) -> 
         };
     }
 
-    let json = serde_json::to_string_pretty(&FolderFile { auth })
+    let json = serde_json::to_string_pretty(file)
         .map_err(|e| format!("failed to serialize folder settings: {e}"))?;
 
-    fs::write(&path, json).map_err(|e| format!("failed to write {}: {e}", path.display()))
+    atomic_write(&path, &json)
+}
+
+/// Keep a renamed entry at its manual position in the parent's order.
+fn rename_in_order(old: &Path, new: &Path) {
+    let Some(parent) = old.parent() else { return };
+    let mut file = read_folder_file(parent);
+    let old_name = file_name(old);
+
+    if let Some(slot) = file.order.iter_mut().find(|name| **name == old_name) {
+        *slot = file_name(new);
+        let _ = write_folder_file(parent, &file);
+    }
 }
 
 fn node_name(node: &TreeNode) -> &str {
@@ -477,6 +523,8 @@ pub fn rename(root: &str, rel: &str, new_name: &str) -> Result<String, String> {
             )
         })?;
 
+        rename_in_order(&path, &destination);
+
         return rel_id(Path::new(root), &destination);
     }
 
@@ -514,6 +562,7 @@ pub fn rename(root: &str, rel: &str, new_name: &str) -> Result<String, String> {
     if destination != path {
         fs::remove_file(&path)
             .map_err(|e| format!("failed to remove old request {}: {e}", path.display()))?;
+        rename_in_order(&path, &destination);
     }
 
     rel_id(Path::new(root), &destination)
@@ -1220,6 +1269,25 @@ mod tests {
             panic!("expected folder");
         };
         assert_eq!(folder.auth, None);
+        fs::remove_dir_all(root).ok();
+    }
+
+    #[test]
+    fn reorder_overrides_alphabetical_and_survives_rename() {
+        let root = temp_root();
+        for name in ["A", "B", "C"] {
+            write_request(&root, name);
+        }
+        let root_s = root.to_str().unwrap();
+        let names = |root_s: &str| -> Vec<String> {
+            load(root_s).unwrap().iter().map(|n| node_name(n).to_string()).collect()
+        };
+
+        reorder(root_s, "", vec!["C.bonk.json".into(), "A.bonk.json".into()]).unwrap();
+        assert_eq!(names(root_s), ["C", "A", "B"]);
+
+        rename(root_s, "fs:C.bonk.json", "Z").unwrap();
+        assert_eq!(names(root_s), ["Z", "A", "B"]);
         fs::remove_dir_all(root).ok();
     }
 }

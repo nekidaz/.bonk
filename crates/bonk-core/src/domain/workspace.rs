@@ -88,6 +88,9 @@ pub struct FolderNode {
 pub struct FolderFile {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub auth: Option<AuthConfig>,
+    /// Manual sort order of this folder's entries (file/dir names); unlisted ones follow alphabetically.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub order: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

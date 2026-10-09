@@ -86,6 +86,7 @@ export {
   revealNode,
   duplicateNode,
   moveNode,
+  placeNode,
 } from './workspace';
 
 // Request save/open/send.
