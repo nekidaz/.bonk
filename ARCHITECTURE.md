@@ -81,20 +81,26 @@ are enforced by `src/architecture.test.ts`. Path aliases: `$shared`, `$entities`
 
 | Layer | Holds | Rule |
 | --- | --- | --- |
-| `app/` | the shell: `App.svelte`, toolbar, tab bar, status bar, `persistence.ts` (hydrate), `secrets.ts` | may import everything; only `main.ts` imports it |
+| `app/` | the shell: `App.svelte` (composition root) + `AppSidebar` / `AppMain` / `AppOverlays`, toolbar, tab bar, status bar; `shell.svelte.ts` (menus, dialogs, toast), `layout.svelte.ts` (panes), `actions.ts`, `hotkeys.ts`, `lifecycle.svelte.ts` (`startApp()`: hydrate, watchers, appearance), `persistence.svelte.ts` (restore + save `state.json`), `secrets.ts` | may import everything; only `main.ts` imports it |
 | `features/` | user capabilities: `http`, `grpc`, `response`, `codegen`, `sidebar`, `environments`, `runner`, `flow`, `git`, `settings`, `command-palette`, `utility-panel`, `workspace-menu`, `updater`, `import`, `tabs` | never import each other |
-| `entities/` | core models and their state (`store.ts` + pure logic): `tab`, `environment`, `workspace`, `history`, `request`, `flow`, `git` | may import each other, never in a cycle |
+| `entities/` | core models and their state (`store.svelte.ts` + pure logic): `tab`, `environment`, `workspace`, `history`, `request`, `flow`, `git` | may import each other, never in a cycle |
 | `shared/` | foundation: `persist`, `i18n`, `model` (types + pure request model: http, vars, curl, scripts), `ipc` (`api.ts`), `settings`, `ui`, `editor`, `updater` | no tab/workspace/request state |
 
 A slice's public API is its `index.ts` (code) and `components.ts` (Svelte components); other
 slices import only those, never deep paths. Tests sit next to the module they cover
 (`foo.ts` → `foo.test.ts`). Global CSS stays in `src/app.css`, `src/bigsur.css`, `src/styles/`.
 
+State is Svelte 5 runes in `*.svelte.ts` modules: each is a class (fields `$state` /
+`$state.raw` / `$derived`, plus methods) exported as one instance, e.g. `tabs.list`,
+`workspace.tree`, `environments.active`. `app/persistence.svelte.ts` restores it at startup and
+then saves each `state.json` key from one `$effect.root`; docs/GUIDE.md «Состояние (руны)» has
+the conventions.
+
 ## HTTP request flow
 
 ```mermaid
 sequenceDiagram
-    participant UI as app/App.svelte
+    participant UI as features/http (HttpUrlBar)
     participant S as entities/request/store.ts
     participant API as shared/ipc/api.ts
     participant CMD as commands::http_send
@@ -110,10 +116,10 @@ sequenceDiagram
     NET-->>CORE: status, headers, body, timing, size
     CORE-->>CMD: HttpResponse
     CMD-->>S: HttpResponse
-    S->>UI: updateTabById(tabId, response) + addHistory
+    S->>UI: tabs.updateById(tabId, response) + addHistory
 ```
 
-- In-flight state is **per tab** (`busy[tabId]`); the response is written back to
+- In-flight state is **per tab** (`requestRuntime.busy[tabId]`); the response is written back to
   the tab it was sent from, even if the user switched tabs.
 - Cancel: `cancel_request` resolves a `oneshot` in `AppState.cancels`, aborting
   the in-flight reqwest.
