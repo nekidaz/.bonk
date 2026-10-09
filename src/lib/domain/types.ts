@@ -78,6 +78,13 @@ export interface RequestSettings {
   clientCerts: { host: string; certPath: string; keyPath: string }[];
 }
 
+/** Per-request overrides of the global request settings (RequestSettings popover); unset = use the global value. */
+export interface RequestOverrides {
+  timeoutMs?: number;
+  followRedirects?: boolean;
+  validateTls?: boolean;
+}
+
 /** Global gRPC limits / rendering options (bonk-core `GrpcPrefs`). */
 export interface GrpcPrefs { maxMessageMb: number; keepaliveSecs: number; emitDefaults: boolean; int64AsNumber: boolean; }
 
@@ -132,6 +139,8 @@ export interface Tab {
   testResults?: TabTestResults;
   /** id of the Flow this tab shows (protocol 'flow' only). */
   flowId?: string;
+  /** Per-request overrides of timeout / redirects / TLS verification (session-only, not saved to the file). */
+  settings?: RequestOverrides;
 }
 
 /** Aggregated script output attached to a tab after a send (not persisted). */

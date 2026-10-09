@@ -2,7 +2,7 @@ import type { RequestProtocol } from './types';
 
 export type { RequestProtocol };
 
-export type AppMenuKind = 'create' | 'switch' | 'coll' | 'req' | 'history' | null;
+export type AppMenuKind = 'create' | 'switch' | 'reqmore' | 'coll' | 'req' | 'history' | null;
 export type UtilityMode = 'terminal' | 'console' | 'issues';
 
 export type AppMenuState = {
@@ -18,7 +18,8 @@ export type AppMenuState = {
 export function appMenuWidth(kind: Exclude<AppMenuKind, null>): number {
   if (kind === 'create') return 272;
   if (kind === 'history') return 220;
-  if (kind === 'switch') return 242;
+  if (kind === 'switch') return 160;
+  if (kind === 'reqmore') return 260;
   return 260;
 }
 
@@ -32,6 +33,11 @@ export function workspaceInitials(name: string): string {
   const words = name.split(/[\s_.-]+/).filter(Boolean);
   const letters = words.length > 1 ? words.map((w) => w[0]).join('') : (words[0] ?? '');
   return letters.slice(0, 2).toLowerCase();
+}
+
+/** Some installed MCP client is configured for this workspace (the «● MCP подключён» chip). */
+export function mcpConnected(clients: { installed: boolean; workspace?: string | null }[], workspace: string): boolean {
+  return !!workspace && clients.some((c) => c.installed && c.workspace === workspace);
 }
 
 /** Recent workspaces offered in the switcher: current one excluded, max 8 (⌥⌘2…⌥⌘9). */

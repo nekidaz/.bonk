@@ -47,7 +47,7 @@
   import { clock, historyDay, historyPath } from '../domain/palette';
   import { idToRel, parentId, filterTree } from '../domain/tree';
 
-  type MenuKind = 'create' | 'switch' | 'coll' | 'req' | 'history';
+  type MenuKind = 'create' | 'switch' | 'reqmore' | 'coll' | 'req' | 'history';
 
   let {
     openMenu,
@@ -70,6 +70,20 @@
   } = $props();
 
   const ok = (s: number) => s >= 200 && s < 300;
+
+  // History «repeat»: open the entry's snapshot and send it, like ⌘↵ on a palette hit.
+  async function repeatEntry(h: (typeof $history)[number]): Promise<void> {
+    openHistoryEntry(h);
+    await tick();
+    document.querySelector<HTMLButtonElement>('.bs-send')?.click();
+  }
+  /** Row actions are spans inside the row button: Enter / Space run them instead of the row. */
+  function actKey(e: KeyboardEvent, run: () => void): void {
+    if (e.key !== 'Enter' && e.key !== ' ') return;
+    e.preventDefault();
+    e.stopPropagation();
+    run();
+  }
 
   // Selection follows the active tab: open the folders above it and scroll it into view.
   // Derived to a string so editing the request doesn't re-run this (and re-open folders).
@@ -317,7 +331,10 @@
               <span class="st" class:warn={!good && h.status >= 400 && h.status < 500} class:err={!good && !(h.status >= 400 && h.status < 500)}>{h.protocol === 'grpc' ? (h.ok ? '0 OK' : 'ERR') : h.status || 'ERR'}</span>
               <span>&nbsp;·&nbsp;&nbsp;{clock(h.at)}{#if h.envName}&nbsp;&nbsp;·&nbsp;&nbsp;{h.envName}{/if}</span>
             </span>
-            <span class="bs-act" role="button" tabindex="0" title={$t('sidebar.remove')} onclick={(e) => { e.stopPropagation(); removeHistoryEntry(h.id); }} onkeydown={() => {}}><span class="material-symbols-outlined" style="font-size:14px">close</span></span>
+            {#if h.protocol !== 'grpc'}
+              <span class="bs-act repeat" role="button" tabindex="0" title={$t('sidebar.repeat')} aria-label={$t('sidebar.repeat')} onclick={(e) => { e.stopPropagation(); void repeatEntry(h); }} onkeydown={(e) => actKey(e, () => void repeatEntry(h))}><span class="material-symbols-outlined" style="font-size:14px">replay</span></span>
+            {/if}
+            <span class="bs-act" role="button" tabindex="0" title={$t('sidebar.remove')} aria-label={$t('sidebar.remove')} onclick={(e) => { e.stopPropagation(); removeHistoryEntry(h.id); }} onkeydown={(e) => actKey(e, () => removeHistoryEntry(h.id))}><span class="material-symbols-outlined" style="font-size:14px">close</span></span>
           </button>
         {/each}
       {/each}

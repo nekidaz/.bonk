@@ -23,6 +23,27 @@ export function searchRequests(nodes: TreeNode[], query: string, limit = 8): Pal
   return out;
 }
 
+/** Environments whose name contains `query`; none for a blank query (the group would only add noise). */
+export function searchEnvironments<T extends { name: string }>(envs: T[], query: string, limit = 5): T[] {
+  const q = query.trim().toLowerCase();
+  return q ? envs.filter((e) => e.name.toLowerCase().includes(q)).slice(0, limit) : [];
+}
+
+/** Environments the open picker numbers ⌘1…⌘9: the recents first, then the rest of the list without repeats. */
+export function envShortcutTargets<T extends { id: string }>(recent: T[], all: T[], max = 9): T[] {
+  return [...recent, ...all.filter((e) => !recent.some((r) => r.id === e.id))].slice(0, max);
+}
+
+export type PaletteSlot = { group: 'request' | 'env' | 'command'; index: number };
+
+/** Which group (and position inside it) the flat row `i` of the palette list is: requests, then environments, then commands. */
+export function paletteSlot(i: number, n: { requests: number; envs: number; commands: number }): PaletteSlot | undefined {
+  if (i < 0) return undefined;
+  if (i < n.requests) return { group: 'request', index: i };
+  if (i < n.requests + n.envs) return { group: 'env', index: i - n.requests };
+  return i < n.requests + n.envs + n.commands ? { group: 'command', index: i - n.requests - n.envs } : undefined;
+}
+
 // Name heuristic: the fallback when an environment has no explicit `protected` flag.
 export function isProductionEnv(name: string | undefined): boolean {
   return /prod/i.test(name ?? '');

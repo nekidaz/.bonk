@@ -1,7 +1,9 @@
 import { get } from 'svelte/store';
 import { openInNewTab } from './prefs';
 import { dirtyTabIds } from './dirty';
-import type { Tab, RequestNode, HttpRequest, RequestSettings, HttpResponse } from '../domain/types';
+import type { Tab, RequestNode, HttpRequest, RequestSettings, RequestOverrides, HttpResponse } from '../domain/types';
+import { revertedTab } from '../domain/dirty';
+import { compactOverrides, withOverrides } from '../domain/requestSettings';
 import { httpSend, workspaceSaveRequest, runScript } from '../api';
 import { idToRel, findNode, parentId } from '../domain/tree';
 import { grpcPathsToRel, grpcPathsToAbs } from '../domain/protoPaths';
@@ -61,6 +63,25 @@ export function currentRequestSettings(): RequestSettings {
     trustSystemCas: get(trustSystemCas),
     clientCerts: get(clientCerts).filter((c) => c.certPath && c.keyPath),
   };
+}
+
+/** «Сбросить изменения»: put the active saved request's tab back to what is on disk. */
+export function revertActiveTab(): void {
+  const tab = get(tabs).find((t) => t.id === get(activeTabId));
+  const node = tab?.savedPath ? findNode(get(collections), tab.savedPath) : undefined;
+  if (!tab || node?.kind !== 'request') return;
+  const next = revertedTab(tab, node, get(workspacePath));
+  tabs.update((list) => list.map((t) => (t.id === tab.id ? next : t)));
+}
+
+/** Set (or clear, with `undefined` fields) the active tab's per-request settings. */
+export function setActiveRequestOverrides(patch: RequestOverrides): void {
+  updateActiveTab((t) => ({ ...t, settings: compactOverrides({ ...t.settings, ...patch }) }));
+}
+
+/** Drop every per-request override of the active tab. */
+export function resetActiveRequestOverrides(): void {
+  updateActiveTab((t) => ({ ...t, settings: undefined }));
 }
 
 /** Save the active tab into folder `folderId` (root if undefined). */
@@ -282,7 +303,7 @@ export async function sendHttpRequest(
   //    values actually sent, not the templates.
   let res: HttpResponse;
   try {
-    res = await httpSend(resolved, requestId, currentRequestSettings());
+    res = await httpSend(resolved, requestId, withOverrides(currentRequestSettings(), get(tabs).find((t) => t.id === tabId)?.settings));
   } catch (error) {
     addAppConsoleEntry({
       protocol: 'http',

@@ -8,8 +8,8 @@
     environments,
     hotkeys,
   } from '../stores';
-  import { revealPath } from '../api';
-  import { recentWorkspaceChoices, workspaceInitials, workspaceName } from '../domain/appShell';
+  import { mcpIntegrationStatus, revealPath } from '../api';
+  import { mcpConnected, recentWorkspaceChoices, workspaceInitials, workspaceName } from '../domain/appShell';
   import { formatBinding } from '../domain/hotkeys';
   import type { TreeNode } from '../domain/types';
   import { t, tp } from '../i18n';
@@ -23,6 +23,15 @@
   $effect(() => {
     if (!open) query = '';
     else searchEl?.focus();
+  });
+
+  // «● MCP подключён»: some installed AI client points at this workspace. Re-checked each time the menu opens.
+  let mcpOn = $state(false);
+  $effect(() => {
+    if (!open) return;
+    let live = true;
+    mcpIntegrationStatus().then((s) => { if (live) mcpOn = mcpConnected(s.clients, $workspacePath); }).catch(() => { if (live) mcpOn = false; });
+    return () => { live = false; };
   });
 
   const nameOf = (path: string) => workspaceName(path) || $t('workspace.local');
@@ -48,6 +57,16 @@
     void fn();
   }
 
+  // ↑↓ walk the search field and every row; focus returns to the trigger on Esc (handled in App).
+  let menuEl = $state<HTMLDivElement>();
+  function menuKeydown(e: KeyboardEvent): void {
+    if (!menuEl || (e.key !== 'ArrowDown' && e.key !== 'ArrowUp')) return;
+    const stops = [...menuEl.querySelectorAll<HTMLElement>('input, button.bs-work-item')];
+    const i = stops.indexOf(document.activeElement as HTMLElement);
+    e.preventDefault();
+    stops[(i + (e.key === 'ArrowDown' ? 1 : -1) + stops.length) % stops.length]?.focus();
+  }
+
   // ↵ in the search opens the first recent match.
   function searchKeydown(e: KeyboardEvent): void {
     if (e.key === 'Enter' && shownRecents[0]) {
@@ -71,7 +90,7 @@
     <span class="material-symbols-outlined" style="font-size:14px">keyboard_arrow_down</span>
   </button>
   {#if open}
-    <div class="bs-work-menu" role="menu" aria-label={$t('workspace.title')}>
+    <div class="bs-work-menu" role="menu" tabindex="-1" aria-label={$t('workspace.title')} bind:this={menuEl} onkeydown={menuKeydown}>
       <label class="bs-work-search">
         <span class="material-symbols-outlined" aria-hidden="true">search</span>
         <input bind:this={searchEl} bind:value={query} placeholder={$t('workspace.search')} onkeydown={searchKeydown} />
@@ -88,6 +107,7 @@
             <span class="meta">
               <span>{requestCount} {$tp(requestCount, ['запрос', 'запроса', 'запросов'], ['request', 'requests'])}</span>
               <span>{$environments.length} {$tp($environments.length, ['окружение', 'окружения', 'окружений'], ['environment', 'environments'])}</span>
+              {#if mcpOn}<span class="mcp">{$t('workspace.mcp')}</span>{/if}
             </span>
           </span>
           <span class="material-symbols-outlined ok" aria-hidden="true">check</span>
@@ -113,9 +133,16 @@
       {/if}
 
       <div class="bs-work-menu-sep" role="separator"></div>
+      <!-- A workspace is just a folder: the native picker offers «New Folder», so "new" and "open" share one flow.
+           No hotkey hint on «new»: the design's ⌘⇧N is already «new collection». -->
+      <button class="bs-work-item action" type="button" role="menuitem" onclick={() => run(openWorkspaceFolder)}>
+        <span class="material-symbols-outlined" aria-hidden="true">create_new_folder</span>
+        <span class="text"><span class="main">{$t('workspace.new')}</span></span>
+      </button>
       <button class="bs-work-item action" type="button" role="menuitem" onclick={() => run(openWorkspaceFolder)}>
         <span class="material-symbols-outlined" aria-hidden="true">folder_open</span>
         <span class="text"><span class="main">{$t('workspace.openFolder')}</span></span>
+        {#if $hotkeys.openFolder}<kbd>{formatBinding($hotkeys.openFolder).join('')}</kbd>{/if}
       </button>
       {#if $workspacePath}
         <button class="bs-work-item action" type="button" role="menuitem" onclick={() => run(() => revealPath($workspacePath))}>
@@ -126,6 +153,7 @@
         <button class="bs-work-item action" type="button" role="menuitem" onclick={() => run(onSettings)}>
           <span class="material-symbols-outlined" aria-hidden="true">tune</span>
           <span class="text"><span class="main">{$t('workspace.settings')}</span></span>
+          {#if $hotkeys.settings}<kbd>{formatBinding($hotkeys.settings).join('')}</kbd>{/if}
         </button>
       {/if}
     </div>

@@ -27,6 +27,8 @@ export const HOTKEY_COMMANDS: HotkeyCommand[] = [
   { id: 'showHistory', label: 'hotkeys.cmd.showHistory', group: 'hotkeys.group.nav', def: 'Mod+2' },
   { id: 'terminal', label: 'hotkeys.cmd.terminal', group: 'hotkeys.group.nav', def: 'Mod+J' },
   { id: 'workspaceMenu', label: 'hotkeys.cmd.workspaceMenu', group: 'hotkeys.group.nav', def: 'Mod+Shift+O' },
+  { id: 'openFolder', label: 'hotkeys.cmd.openFolder', group: 'hotkeys.group.nav', def: 'Mod+O' },
+  { id: 'settings', label: 'hotkeys.cmd.settings', group: 'hotkeys.group.nav', def: 'Mod+Comma' },
   { id: 'closeTab', label: 'hotkeys.cmd.closeTab', group: 'hotkeys.group.tabs', def: 'Mod+W' },
   { id: 'newTab', label: 'hotkeys.cmd.newTab', group: 'hotkeys.group.tabs', def: 'Mod+T' },
   { id: 'reopenTab', label: 'hotkeys.cmd.reopenTab', group: 'hotkeys.group.tabs', def: 'Mod+Shift+T' },
@@ -58,7 +60,7 @@ export function matches(e: Parameters<typeof eventToBinding>[0], binding: Bindin
 }
 
 const MAC_MOD: Record<string, string> = { Mod: '⌘', Ctrl: '⌃', Alt: '⌥', Shift: '⇧' };
-const KEY_LABEL: Record<string, string> = { Enter: '↵', Backspace: '⌫', Delete: '⌦', ArrowUp: '↑', ArrowDown: '↓', ArrowLeft: '←', ArrowRight: '→', Space: '␣' };
+const KEY_LABEL: Record<string, string> = { Enter: '↵', Backspace: '⌫', Delete: '⌦', ArrowUp: '↑', ArrowDown: '↓', ArrowLeft: '←', ArrowRight: '→', Space: '␣', Comma: ',' };
 
 /** Key caps, e.g. 'Mod+Shift+T' → ['⇧','⌘','T'] on mac, ['Ctrl','Shift','T'] elsewhere. */
 export function formatBinding(binding: Binding, mac = IS_MAC): string[] {
