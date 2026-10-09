@@ -13,7 +13,7 @@
    * everything else from `tab`.
    */
   import { t, tp } from '../i18n';
-  import { buildUrl, formatBytes } from '../domain/http';
+  import { formatBytes } from '../domain/http';
   import { presentGrpcError } from '../domain/grpcError';
   import { grpcErrorNote } from '../domain/grpcError';
   import { methodShort, grpcCodeTone, dialFailureReason, isGrpcConnectionError } from '../domain/grpc';
@@ -453,7 +453,7 @@
   {:else}
     <div class="bs-response-view">
       <!-- Mono 3.0: JSON renders straight into the card; other formats keep the view switch. -->
-      {#if tab.response.body_truncated || (httpBodyShown && bodyInfo?.capped) || (tab.response.final_url && tab.response.final_url !== buildUrl(tab.request.url, tab.params))}
+      {#if tab.response.body_truncated || (httpBodyShown && bodyInfo?.capped)}
       <div class="bs-response-tools">
         <span class="bs-format-pill">{responseFmt}</span>
         {#if tab.response.body_truncated}
@@ -464,9 +464,6 @@
         {/if}
         {#if responseContentType}
           <span class="bs-content-type">{responseContentType}</span>
-        {/if}
-        {#if tab.response.final_url && tab.response.final_url !== buildUrl(tab.request.url, tab.params)}
-          <span class="bs-final-url" title={tab.response.final_url}>{$t('response.final_url', { url: tab.response.final_url })}</span>
         {/if}
       </div>
       {/if}

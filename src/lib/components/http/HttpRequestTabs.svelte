@@ -7,6 +7,7 @@
   import { currentBodyMode, currentRawFormat } from '../../domain/httpBody';
   import { applyBodyKind, beautify, bodyKindOf, BEAUTIFY_MAX_CHARS, isLargeBody, OTHER_KINDS, RAW_KINDS, textStats, type BodyKind } from '../../domain/largeBody';
   import { jsonProblem } from '../../domain/jsonLint';
+  import { SCRIPTS_ENABLED } from '../../domain/scripts';
   import { countLabel } from '../../editor/largeFold';
   import { updateTabById, uiLanguage } from '../../stores';
   import { focusMode } from '../../stores/ui';
@@ -67,7 +68,7 @@
       {@render rtab('auth', $t('http.tabs.auth'))}
       {@render rtab('headers', $t('http.tabs.headers'), headerCount || undefined)}
       {@render rtab('body', $t('http.tabs.body'))}
-      {@render rtab('scripts', $t('http.tabs.scripts'), scriptCount || undefined)}
+      {#if SCRIPTS_ENABLED}{@render rtab('scripts', $t('http.tabs.scripts'), scriptCount || undefined)}{/if}
     </div>
   </div>
   {#if large && stats}

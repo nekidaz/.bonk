@@ -17,10 +17,11 @@ import {
   switchedProtocol,
   togglePinned,
 } from '../domain/tab';
-import { tabs, activeTabId, updateActiveTab, requestConfirm } from './state';
+import { tabs, activeTabId, updateActiveTab, requestConfirm, requestChoice, requestSaveDialog } from './state';
 import { confirmCloseUnsaved } from './prefs';
 import { dirtyTabIds } from './dirty';
 import { saveActiveRequest } from './requests';
+import { renameNode } from './workspace';
 
 export function newTab(protocol: 'http' | 'grpc' = 'http'): void {
   const t = protocol === 'grpc' ? newGrpcTab() : newHttpTab();
@@ -38,11 +39,9 @@ export function renameActiveTab(name: string): void {
   const tab = get(tabs).find((t) => t.id === get(activeTabId));
   if (!tab) return;
   tabs.update((list) => list.map((t) => (t.id === tab.id ? { ...t, title: clean, manualTitle: true } : t)));
-  // If this request is already saved to disk, persist the rename immediately
-  // (name + current edits) into its existing folder — no separate Save needed.
-  if (tab.savedPath) {
-    void saveActiveRequest(parentId(tab.savedPath), clean);
-  }
+  // A saved request is renamed on disk right away (like the sidebar's Rename);
+  // other unsaved edits stay unsaved until ⌘S.
+  if (tab.savedPath) void renameNode(tab.savedPath, clean);
 }
 
 export function resetActiveTabTitle(): void {
@@ -112,13 +111,35 @@ export function closeTab(id: string): void {
   }
 }
 
-/** Close a tab from the UI: asks first when it has unsaved changes (Settings → Общие). */
+/**
+ * Close a tab from the UI. With unsaved changes (Settings → Общие) it asks
+ * Save / Don't save / Cancel, like Postman; Save on a never-saved tab opens the
+ * save-to dialog and the tab closes only once the request is written.
+ */
 export async function requestCloseTab(id: string): Promise<void> {
-  if (get(confirmCloseUnsaved) && get(dirtyTabIds).has(id)) {
-    const title = get(tabs).find((t) => t.id === id)?.title ?? '';
-    if (!(await requestConfirm(get(t)('tabs.confirmClose', { title }), get(t)('common.close')))) return;
+  const tab = get(tabs).find((x) => x.id === id);
+  if (tab && get(confirmCloseUnsaved) && get(dirtyTabIds).has(id)) {
+    const choice = await requestChoice(get(t)('tabs.confirmClose', { title: tab.title }), get(t)('common.save'), get(t)('tabs.dontSave'));
+    if (choice === false) return;
+    if (choice === true) {
+      activeTabId.set(id); // save works on the active tab
+      try {
+        if (tab.savedPath) await saveActiveRequest(parentId(tab.savedPath), tab.title);
+        else if (!(await requestSaveDialog())) return;
+      } catch {
+        return; // save failed: keep the tab and its edits
+      }
+    }
   }
   closeTab(id);
+}
+
+/** Bulk close: one confirm for every tab in `ids` with unsaved changes, then close them all. */
+async function closeTabs(ids: string[]): Promise<void> {
+  const dirty = get(dirtyTabIds);
+  const n = ids.filter((id) => dirty.has(id)).length;
+  if (n && get(confirmCloseUnsaved) && !(await requestConfirm(get(t)('tabs.confirmCloseMany', { n }), get(t)('tabs.closeWithoutSaving')))) return;
+  for (const id of ids) closeTab(id);
 }
 
 /**
@@ -151,15 +172,15 @@ export function duplicateTab(id: string): void {
 }
 
 /** Close every unpinned tab except `id` (which becomes active). Reuses closeTab so each closed tab's in-flight request/runtime state is cleaned up. */
-export function closeOtherTabs(id: string): void {
+export async function closeOtherTabs(id: string): Promise<void> {
   if (!get(tabs).some((t) => t.id === id)) return;
   activeTabId.set(id);
-  for (const tid of tabsToClose(get(tabs), id, 'others')) closeTab(tid);
+  await closeTabs(tabsToClose(get(tabs), id, 'others'));
 }
 
 /** S17b: close the unpinned tabs to the right of `id`. */
-export function closeTabsToRight(id: string): void {
-  for (const tid of tabsToClose(get(tabs), id, 'right')) closeTab(tid);
+export async function closeTabsToRight(id: string): Promise<void> {
+  await closeTabs(tabsToClose(get(tabs), id, 'right'));
 }
 
 /** S17b: pin / unpin `id`; pinned tabs lead the strip. */
@@ -168,6 +189,6 @@ export function togglePinTab(id: string): void {
 }
 
 /** Close every unpinned tab; with none pinned the main panel shows the "no open tabs" screen. */
-export function closeAllTabs(): void {
-  for (const tid of tabsToClose(get(tabs), '', 'all')) closeTab(tid);
+export async function closeAllTabs(): Promise<void> {
+  await closeTabs(tabsToClose(get(tabs), '', 'all'));
 }

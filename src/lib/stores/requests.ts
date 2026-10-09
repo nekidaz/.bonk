@@ -65,8 +65,8 @@ export function currentRequestSettings(): RequestSettings {
 }
 
 
-/** Save the active tab into folder `folderId` (root if undefined). */
-export async function saveActiveRequest(folderId?: string, name?: string): Promise<void> {
+/** Save the active tab into folder `folderId` (root if undefined). `asCopy` («Сохранить как…») writes a new file and points the tab at it, leaving the original untouched. */
+export async function saveActiveRequest(folderId?: string, name?: string, asCopy = false): Promise<void> {
   let root = get(workspacePath);
   if (!root) {
     // No workspace open — prompt the user to pick one before saving.
@@ -84,7 +84,7 @@ export async function saveActiveRequest(folderId?: string, name?: string): Promi
       : titleFromUrl(tab.request.url, HTTP_DEFAULT_TITLE));
   const node: RequestNode = {
     kind: 'request',
-    id: tab.savedPath ?? '',
+    id: asCopy ? '' : (tab.savedPath ?? ''),
     name: finalName,
     protocol: tab.protocol,
     request: { ...tab.request, headers: { ...tab.request.headers } },
@@ -93,7 +93,7 @@ export async function saveActiveRequest(folderId?: string, name?: string): Promi
   };
   const dirRel = folderId ? idToRel(folderId) : ROOT;
   try {
-    const newId = await workspaceSaveRequest(root, dirRel, tab.savedPath ?? null, node);
+    const newId = await workspaceSaveRequest(root, dirRel, asCopy ? null : (tab.savedPath ?? null), node);
     tabs.update((list) =>
       list.map((t) =>
         t.id === tab.id ? { ...t, title: finalName, manualTitle: true, savedPath: newId } : t,

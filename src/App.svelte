@@ -25,6 +25,7 @@
     addRequestToFolder,
     duplicateNode,
     requestConfirm,
+    requestSaveDialog,
     exportOpenApiFolder,
     openRunnerTab,
     openEnvironmentsTab,
@@ -347,8 +348,6 @@
   let editingNodeId = $state<string | undefined>(undefined);
   let editValue = $state('');
 
-  // Save Request dialog
-  let saveOpen = $state(false);
   let settingsOpen = $state(false);
 
   // Code snippets belong to the request tab that opened them. Keeping the tab
@@ -422,8 +421,9 @@
 
   let utilityMode = $state<UtilityMode | null>(null);
   let utilityPanelHeight = $state(220);
-  function openSaveDialog(): void {
-    saveOpen = true;
+  /** Save-to dialog (SaveRequestDialog flashes the Save button itself); `copy` = Save As. */
+  function openSaveDialog(copy = false): void {
+    void requestSaveDialog(copy);
   }
 
   // Brief "Saved ✓" feedback on the Save button after a successful write.
@@ -514,6 +514,7 @@
     switch (id) {
       case 'send': (document.querySelector('.bs-send') as HTMLButtonElement | null)?.click(); break;
       case 'save': void smartSave(); break;
+      case 'saveAs': if (active?.protocol === 'http' || active?.protocol === 'grpc') openSaveDialog(true); break;
       case 'codePanel': toggleCodePanel(); break;
       case 'newRequest': newRequestHere('http'); break;
       case 'newGrpc': newRequestHere('grpc'); break;
@@ -529,7 +530,7 @@
       case 'openFolder': void openWorkspaceFolder(); break;
       case 'settings': settingsOpen = true; break;
       case 'closeTab': void requestCloseTab($activeTabId); break;
-      case 'closeAllTabs': closeAllTabs(); break;
+      case 'closeAllTabs': void closeAllTabs(); break;
       case 'newTab': newTab(); break;
       case 'reopenTab': reopenClosedTab(); break;
       case 'expand':
@@ -915,6 +916,7 @@
     {closeMenu}
     tab={active}
     folderName={activeFolderName}
+    inHistory={sidebarPanel === 'history'}
     onNewHere={newRequestHere}
     onNewFolderHere={newFolderHere}
     onSwitch={switchTo}
@@ -933,10 +935,11 @@
     onRenameTab={tabRename}
     onCopyCurlTab={tabCopyCurl}
     onSaveTab={() => void smartSave()}
+    onSaveAsTab={() => openSaveDialog(true)}
     onRevealTab={tabReveal}
   />
 
-  <SaveRequestDialog bind:open={saveOpen} onSaved={flashSaved} />
+  <SaveRequestDialog onSaved={flashSaved} />
 
   <OpenApiImportDialog bind:open={importOpen} />
 

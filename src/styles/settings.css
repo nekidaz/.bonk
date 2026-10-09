@@ -183,8 +183,7 @@
 .me-list { flex: 1; min-height: 0; overflow: auto; display: flex; flex-direction: column; }
 .me-row { flex: none; display: flex; align-items: center; gap: 10px; height: 32px; padding: 0 6px; border-radius: var(--radius-control); cursor: pointer; }
 .me-row:hover { background: var(--color-hover); }
-.me-row input { margin: 0; accent-color: var(--color-action); }
-.me-nm { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: var(--font-size-body) var(--font-code); }
+.me-nm { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: var(--font-size-body) var(--font-ui); }
 .me-prod { flex: none; padding: 0 7px; height: 18px; border-radius: 999px; background: color-mix(in srgb, var(--red) 14%, transparent); color: var(--red); font: 500 10px/18px var(--font-code); }
 .me-empty { padding: 16px; color: var(--color-text-muted); font: var(--font-size-body) var(--font-ui); text-align: center; }
 .me-auto { flex: none; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 6px 0; border-top: 1px solid var(--color-border-subtle); font: var(--font-size-body) var(--font-ui); }

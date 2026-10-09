@@ -1,12 +1,21 @@
 <script lang="ts">
-  import { tabs, activeTabId, collections, saveActiveRequest, addFolder } from '../stores';
+  import { tabs, activeTabId, collections, saveActiveRequest, addFolder, saveDialog } from '../stores';
   import { findNode, parentId } from '../domain/tree';
   import FolderPicker from './FolderPicker.svelte';
   import { t } from '../i18n';
 
-  // `open` is the trigger held by the parent (App.svelte). The name/target state
+  // Opened through `requestSaveDialog()` (stores): App's Save / Save As and the
+  // close-tab «Сохранить» prompt all await the same dialog. The name/target state
   // lives here; the dialog seeds itself from the active tab each time it opens.
-  let { open = $bindable(), onSaved }: { open: boolean; onSaved?: () => void } = $props();
+  let { onSaved }: { onSaved?: () => void } = $props();
+
+  const open = $derived(!!$saveDialog);
+  const copy = $derived(!!$saveDialog?.copy);
+
+  function close(saved: boolean): void {
+    $saveDialog?.resolve(saved);
+    saveDialog.set(null);
+  }
 
   const active = $derived($tabs.find((tb) => tb.id === $activeTabId));
 
@@ -27,8 +36,8 @@
   async function confirmSave(): Promise<void> {
     saveError = '';
     try {
-      await saveActiveRequest(targetId, name);
-      open = false;
+      await saveActiveRequest(targetId, name, copy);
+      close(true);
       onSaved?.();
     } catch (err) {
       // Keep the dialog open and show why, so the user never thinks a failed
@@ -48,8 +57,8 @@
   <div class="bs-overlay" role="dialog" aria-modal="true">
     <div class="bs-modal">
       <div class="bs-modal-h">
-        <span class="t">{$t('dialog.save.title')}</span>
-        <button class="x" aria-label={$t('common.close')} onclick={() => (open = false)}><span class="material-symbols-outlined" style="font-size:18px">close</span></button>
+        <span class="t">{copy ? $t('dialog.save.copyTitle') : $t('dialog.save.title')}</span>
+        <button class="x" aria-label={$t('common.close')} onclick={() => close(false)}><span class="material-symbols-outlined" style="font-size:18px">close</span></button>
       </div>
       <div class="bs-modal-b">
         <label class="bs-flabel" for="bs-save-name">{$t('dialog.save.name')}</label>
@@ -67,7 +76,7 @@
         <button class="bs-btn link" onclick={newFolderInDialog}><span class="material-symbols-outlined" style="font-size:15px;vertical-align:-3px">add</span> {$t('dialog.save.newFolder')}</button>
         <div class="grow"></div>
         <button class="bs-btn primary" onclick={confirmSave}>{$t('common.save')}</button>
-        <button class="bs-btn ghost" onclick={() => (open = false)}>{$t('common.cancel')}</button>
+        <button class="bs-btn ghost" onclick={() => close(false)}>{$t('common.cancel')}</button>
       </div>
     </div>
   </div>

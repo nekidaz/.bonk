@@ -114,7 +114,8 @@
   }
 
   // Tree indent: 12px per level, capped so deep nesting doesn't starve the label width.
-  const indent = (depth: number) => 8 + Math.min(depth, 6) * 12;
+  // S22b tree: 24px per level; --d draws one guide line per ancestor level.
+  const indent = (depth: number) => 8 + Math.min(depth, 4) * 24;
 
 
   type DockSection = 'environments' | 'flows';
@@ -368,9 +369,9 @@
 {#snippet node(n: TreeNode, depth: number)}
   {#if n.kind === 'folder'}
     {@const changed = folderChangeCount(gitPrefixVal + idToRel(n.id), gitFiles)}
-    <button class="bs-trow" class:bs-drop={dropAt?.id === n.id && dropAt.pos === 'into'} class:bs-drop-before={dropAt?.id === n.id && dropAt.pos === 'before'} class:bs-drop-after={dropAt?.id === n.id && dropAt.pos === 'after'} class:bs-dragsrc={dragId === n.id} class:bs-dropped={droppedId === n.id} data-node-id={n.id} data-folder={n.expanded ? 'open' : 'closed'} style="padding-left:{indent(depth)}px" onpointerdown={(e) => onRowPointerDown(e, n.id)} oncontextmenu={(e) => { e.preventDefault(); openMenu('coll', e, n.id, true); }} onkeydown={(e) => rowKey(e, n)} onclick={() => { if (editingNodeId !== n.id) toggleFolder(n.id); }}>
+    <button class="bs-trow" class:bs-drop={dropAt?.id === n.id && dropAt.pos === 'into'} class:bs-drop-before={dropAt?.id === n.id && dropAt.pos === 'before'} class:bs-drop-after={dropAt?.id === n.id && dropAt.pos === 'after'} class:bs-dragsrc={dragId === n.id} class:bs-dropped={droppedId === n.id} data-node-id={n.id} data-folder={n.expanded ? 'open' : 'closed'} style="padding-left:{indent(depth)}px; --d:{Math.min(depth, 4)}" onpointerdown={(e) => onRowPointerDown(e, n.id)} oncontextmenu={(e) => { e.preventDefault(); openMenu('coll', e, n.id, true); }} onkeydown={(e) => rowKey(e, n)} onclick={() => { if (editingNodeId !== n.id) toggleFolder(n.id); }}>
       <span class="material-symbols-outlined cv">{n.expanded ? 'keyboard_arrow_down' : 'chevron_right'}</span>
-      <span class="material-symbols-outlined fo">folder</span>
+      <span class="material-symbols-outlined fo">{n.expanded ? 'folder_open' : 'folder'}</span>
       {#if editingNodeId === n.id}<!-- svelte-ignore a11y_autofocus --><input class="bs-nm bs-nm-input" bind:value={editValue} autofocus onpointerdown={(e) => e.stopPropagation()} onclick={(e) => e.stopPropagation()} onkeydown={inlineRenameKeydown} onblur={commitInlineRename} />{:else}<span class="bs-nm" title={n.name}>{n.name}</span>{/if}
       {#if dropAt?.id === n.id && dropAt.pos === 'into'}
         <span class="bs-tcount bs-tcount-drop">{n.children.length} → {n.children.length + 1}</span>
@@ -383,7 +384,7 @@
     </button>
     {#if n.expanded}
       {#if n.children.length === 0}
-        <div class="bs-empty" style="padding-left:{indent(depth) + 30}px"><p>{$t('sidebar.folderEmpty')}</p></div>
+        <div class="bs-empty" style="padding-left:{indent(depth + 1)}px"><p>{$t('sidebar.folderEmpty')}</p></div>
       {:else}
         {#each n.children as child (child.id)}
           {@render node(child, depth + 1)}
@@ -392,8 +393,8 @@
     {/if}
   {:else}
     {@const st = statusMap.get(gitPrefixVal + idToRel(n.id))}
-    <button class="bs-trow" class:sel={activeSavedPath === n.id} class:bs-drop-before={dropAt?.id === n.id && dropAt.pos === 'before'} class:bs-drop-after={dropAt?.id === n.id && dropAt.pos === 'after'} class:bs-dragsrc={dragId === n.id} class:bs-dropped={droppedId === n.id} data-node-id={n.id} style="padding-left:{indent(depth)}px" onpointerdown={(e) => onRowPointerDown(e, n.id)} oncontextmenu={(e) => { e.preventDefault(); openMenu('req', e, n.id, false); }} onkeydown={(e) => rowKey(e, n)} onclick={(e) => { if (editingNodeId !== n.id) openSavedRequest(n, e.metaKey || e.ctrlKey); }}>
-      <span class="bs-mp" style="color:{methodColor(n.protocol === 'grpc' ? 'GRPC' : n.request.method)}">{n.protocol === 'grpc' ? 'gRPC' : n.request.method.toUpperCase()}</span>
+    <button class="bs-trow" class:sel={activeSavedPath === n.id} class:bs-drop-before={dropAt?.id === n.id && dropAt.pos === 'before'} class:bs-drop-after={dropAt?.id === n.id && dropAt.pos === 'after'} class:bs-dragsrc={dragId === n.id} class:bs-dropped={droppedId === n.id} data-node-id={n.id} style="padding-left:{indent(depth)}px; --d:{Math.min(depth, 4)}" onpointerdown={(e) => onRowPointerDown(e, n.id)} oncontextmenu={(e) => { e.preventDefault(); openMenu('req', e, n.id, false); }} onkeydown={(e) => rowKey(e, n)} onclick={(e) => { if (editingNodeId !== n.id) openSavedRequest(n, e.metaKey || e.ctrlKey); }}>
+      <span class="bs-mp" style="color:{methodColor(n.protocol === 'grpc' ? 'GRPC' : n.request.method)}">{n.protocol === 'grpc' ? 'gRPC' : methodLabel(n.request.method)}</span>
       {#if editingNodeId === n.id}<!-- svelte-ignore a11y_autofocus --><input class="bs-nm bs-nm-input" bind:value={editValue} autofocus onpointerdown={(e) => e.stopPropagation()} onclick={(e) => e.stopPropagation()} onkeydown={inlineRenameKeydown} onblur={commitInlineRename} />{:else}<span class="bs-nm" title="{n.protocol === 'grpc' ? 'gRPC' : n.request.method.toUpperCase()} {n.name}">{n.name}</span>{/if}
       {#if st}
         <span class="bs-git-treebadge" style="color:{statusColor(st)}">{st}</span>

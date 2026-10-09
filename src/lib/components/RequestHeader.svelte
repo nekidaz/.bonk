@@ -103,7 +103,7 @@
   {:else}
     <span class="bs-title-row">
       <button class="nm rename" class:draft={!origin} title={$t('nav.header.rename')} onclick={startRename}>{tab.title}</button>
-      {#if $dirtyTabIds.has(tab.id)}<span class="bs-modified"><span class="dot" aria-hidden="true"></span>{$t('nav.header.modified')}</span>{/if}
+      {#if tab.savedPath && $dirtyTabIds.has(tab.id)}<span class="bs-modified"><span class="dot" aria-hidden="true"></span>{$t('nav.header.modified')}</span>{/if}
     </span>
   {/if}
   </div>

@@ -75,14 +75,28 @@ export function withInheritedAuth<T extends { request: HttpRequest }>(x: T, id: 
   return withEffectiveAuth(x, get(collections), id);
 }
 
-/** One-shot confirm dialog state; `null` when no dialog is open. */
-export const confirmState = writable<{ message: string; confirmLabel: string; resolve: (ok: boolean) => void } | null>(null);
+/** One-shot confirm dialog state; `null` when no dialog is open. `altLabel` adds a third button that resolves `'alt'`. */
+export const confirmState = writable<{ message: string; confirmLabel: string; altLabel?: string; resolve: (ok: boolean | 'alt') => void } | null>(null);
 
 /** Show an in-app confirm modal (the Tauri webview has no window.confirm). */
 export function requestConfirm(message: string, confirmLabel = get(t)('app.confirm.ok')): Promise<boolean> {
+  return requestChoice(message, confirmLabel).then((r) => r === true);
+}
+
+/** Three-way confirm: `true` = confirm, `'alt'` = the secondary action (e.g. «Не сохранять»), `false` = cancel. */
+export function requestChoice(message: string, confirmLabel: string, altLabel?: string): Promise<boolean | 'alt'> {
   // Resolve any still-open confirm as cancelled so its awaiter never hangs.
   get(confirmState)?.resolve(false);
-  return new Promise((resolve) => confirmState.set({ message, confirmLabel, resolve }));
+  return new Promise((resolve) => confirmState.set({ message, confirmLabel, altLabel, resolve }));
+}
+
+/** Save-to dialog (folder + name) for the active tab; `copy` = «Сохранить как…». `null` when closed. */
+export const saveDialog = writable<{ copy: boolean; resolve: (saved: boolean) => void } | null>(null);
+
+/** Open the save-to dialog; resolves `true` once the request is written, `false` on cancel. */
+export function requestSaveDialog(copy = false): Promise<boolean> {
+  get(saveDialog)?.resolve(false);
+  return new Promise((resolve) => saveDialog.set({ copy, resolve }));
 }
 
 /** Production send guard: the request awaiting a typed confirmation; `null` when closed. */

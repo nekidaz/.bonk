@@ -37,7 +37,12 @@ export function openEnvironmentsSheet(): void {
 /** Create a new environment, append it, make it active, and return its id. */
 export function addEnvironment(name = get(t)('env.new')): string {
   const id = crypto.randomUUID();
-  const env: Environment = { id, name: name.trim() || get(t)('env.new'), vars: [] };
+  // Names must be unique: the AI allow-list (and MCP `environment`) is name-based.
+  const base = name.trim() || get(t)('env.new');
+  const taken = new Set(get(environments).map((e) => e.name));
+  let unique = base;
+  for (let n = 2; taken.has(unique); n++) unique = `${base} ${n}`;
+  const env: Environment = { id, name: unique, vars: [] };
   environments.update((list) => [...list, env]);
   mcpPrefs.update((p) => autoAllowNewEnv(p, env)); // "allow new environments right away" (S32.8)
   activeEnvironmentId.set(id);

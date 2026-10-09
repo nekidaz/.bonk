@@ -10,6 +10,12 @@ import { get } from 'svelte/store';
 import { t as tr } from '../i18n';
 import type { GrpcResult, HttpRequest, HttpResponse, ScriptTestResult, VarRow } from './types';
 
+/**
+ * Master switch for the Scripts tab (HTTP + gRPC). When false the editor tab is hidden; scripts already saved in
+ * requests still run on send / in the runner / in flows. Flip to `true` to bring the tab back.
+ */
+export const SCRIPTS_ENABLED = false;
+
 export type ScriptPhase = 'pre-request' | 'test' | 'flow';
 
 /** Parsed shape of the `__out` object the QuickJS `run_script` returns. */

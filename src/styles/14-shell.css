@@ -13,6 +13,8 @@
   /* P1/P2: HTTP globe in text colour, gRPC hub in its method colour, tick on the right. */
   .bs-menu .mi.proto .ic { font-size: 15px; color: var(--color-text) !important; }
   .bs-menu .mi.proto.grpc .ic { color: var(--method-grpc) !important; }
+  /* S22b: the create menu tints HTTP too (the protocol switcher keeps it in text colour). */
+  .bs-menu .mi.proto.http.tint .ic { color: var(--method-get) !important; }
   .bs-menu .mi.proto .sc.check { margin-left: auto; font: 14px/1 'Material Symbols Outlined'; color: var(--color-text-secondary); }
 
   /* Workspace picker: «● MCP подключён» chip in the current workspace's meta row. */

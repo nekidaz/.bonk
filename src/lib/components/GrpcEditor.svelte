@@ -66,7 +66,7 @@
   import { t, tp, t as i18nT } from '../i18n';
   import { uiLanguage } from '../stores/prefs';
   import { resolveVars, mergeScope } from '../domain/vars';
-  import { buildGrpcScriptContext, applyGrpcRequestPatch, type ScriptResult } from '../domain/scripts';
+  import { buildGrpcScriptContext, applyGrpcRequestPatch, SCRIPTS_ENABLED, type ScriptResult } from '../domain/scripts';
   import {
     isGrpcNoServicesHint,
     isGrpcConnectionError,
@@ -1049,7 +1049,7 @@
     {@render gtab('auth', $t('grpc.tab.auth'))}
     {@render gtab('proto', $t('grpc.tab.proto'))}
     <!-- Not in the S19 mock: kept only for requests that already carry scripts. -->
-    {#if tab.grpc?.preRequestScript || tab.grpc?.testScript || gTab === 'scripts'}{@render gtab('scripts', $t('grpc.tab.scripts'))}{/if}
+    {#if SCRIPTS_ENABLED && (tab.grpc?.preRequestScript || tab.grpc?.testScript || gTab === 'scripts')}{@render gtab('scripts', $t('grpc.tab.scripts'))}{/if}
   </div>
   {#if messageStats}
     <div class="lb-tabrow-tools">

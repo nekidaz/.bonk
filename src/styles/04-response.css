@@ -64,7 +64,7 @@
   background: color-mix(in srgb, var(--orange) 14%, transparent);
   color: var(--orange);
 }
-.bs-content-type, .bs-final-url {
+.bs-content-type {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -73,7 +73,6 @@
   font-family: var(--mono);
   font-size: 11.5px;
 }
-.bs-final-url { margin-left: auto; max-width: 38%; color: var(--t3); }
 .bs-rbody.pretty { padding: 0; background: var(--bg); }
 .bs-response-editor {
   position: relative;

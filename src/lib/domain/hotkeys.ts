@@ -14,6 +14,7 @@ const TAB_PREV = IS_MAC ? 'Ctrl+Shift+Tab' : 'Mod+Shift+Tab';
 export const HOTKEY_COMMANDS: HotkeyCommand[] = [
   { id: 'send', label: 'hotkeys.cmd.send', group: 'hotkeys.group.request', def: 'Mod+Enter' },
   { id: 'save', label: 'hotkeys.cmd.save', group: 'hotkeys.group.request', def: 'Mod+S' },
+  { id: 'saveAs', label: 'hotkeys.cmd.saveAs', group: 'hotkeys.group.request', def: 'Mod+Shift+S' },
   { id: 'codePanel', label: 'hotkeys.cmd.codePanel', group: 'hotkeys.group.request', def: 'Mod+Alt+E' },
   { id: 'newRequest', label: 'hotkeys.cmd.newRequest', group: 'hotkeys.group.request', def: 'Mod+N' },
   { id: 'newGrpc', label: 'hotkeys.cmd.newGrpc', group: 'hotkeys.group.request', def: 'Mod+Alt+N' },

@@ -1,6 +1,5 @@
 <script lang="ts">
   import {
-    addFolder,
     clearHistory,
     closeAllTabs,
     closeOtherTabs,
@@ -24,6 +23,7 @@
     closeMenu,
     tab,
     folderName,
+    inHistory = false,
     onNewHere,
     onNewFolderHere,
     onSwitch,
@@ -42,6 +42,7 @@
     onRenameTab,
     onCopyCurlTab,
     onSaveTab,
+    onSaveAsTab,
     onRevealTab,
   }: {
     menu: AppMenuState;
@@ -50,6 +51,8 @@
     tab: Tab | undefined;
     /** Folder of the active saved request: the create menu adds next to it. */
     folderName: string | undefined;
+    /** S22c: the create menu opened from the History panel has no Folder row. */
+    inHistory?: boolean;
     onNewHere: (kind: RequestProtocol) => void;
     onNewFolderHere: () => void;
     onSwitch: (kind: RequestProtocol) => void;
@@ -68,6 +71,7 @@
     onRenameTab: () => void;
     onCopyCurlTab: () => void;
     onSaveTab: () => void;
+    onSaveAsTab: () => void;
     onRevealTab: () => void;
   } = $props();
 
@@ -109,11 +113,6 @@
     importOpen = true;
   }
 
-  function addRootFolder(): void {
-    void addFolder();
-    closeMenu();
-  }
-
   // ↑↓ walk the items (focus lands on the first one when the menu opens); Esc is handled globally and returns focus.
   $effect(() => {
     if (menu.kind && menuEl) menuEl.querySelector<HTMLButtonElement>('button.mi:not(:disabled)')?.focus();
@@ -146,12 +145,11 @@
   <div class="bs-menu" role="menu" tabindex="-1" onkeydown={menuKeydown} bind:this={menuEl} style="left:{menu.x}px; top:{top}px; width:{appMenuWidth(menu.kind)}px">
     {#if menu.kind === 'create'}
       <div class="lbl">{folderName ? $t('nav.menu.inFolder', { name: folderName }) : $t('nav.menu.newRequest')}</div>
-      {@render item('add', $t('nav.menu.http'), () => { closeMenu(); onNewHere('http'); }, '⌘N')}
-      {@render item('hub', $t('nav.menu.grpc'), () => { closeMenu(); onNewHere('grpc'); }, '⌥⌘N')}
-      {@render item('create_new_folder', $t('nav.menu.folder'), () => { closeMenu(); onNewFolderHere(); }, '⇧⌘F')}
+      <!-- S22b/S22c: protocol rows, then Folder (Collections only) and Import. -->
+      {@render item('language', 'HTTP', () => { closeMenu(); onNewHere('http'); }, '⌘N', 'proto http tint')}
+      {@render item('hub', 'gRPC', () => { closeMenu(); onNewHere('grpc'); }, '⌥⌘N', 'proto grpc')}
       <div class="dv"></div>
-      <div class="lbl">{$t('nav.menu.inWorkspace')}</div>
-      {@render item('library_add', $t('nav.menu.collection'), addRootFolder, '⇧⌘N')}
+      {#if !inHistory}{@render item('folder', $t('nav.menu.folder'), () => { closeMenu(); onNewFolderHere(); }, '⇧⌘F')}{/if}
       <button class="mi" class:open={importOpen} role="menuitem" aria-haspopup="menu" aria-expanded={importOpen} onpointerenter={showImport} onclick={showImport}>
         <span class="material-symbols-outlined ic" aria-hidden="true">download</span>
         <span class="lb">{$t('nav.menu.import')}</span>
@@ -212,6 +210,7 @@
       {@const request = tab.protocol === 'http' || tab.protocol === 'grpc'}
       {#if request}
         {@render item('save', $t('tabs.ctxSave'), () => { closeMenu(); onSaveTab(); }, '⌘S')}
+        {@render item('save_as', $t('tabs.ctxSaveAs'), () => { closeMenu(); onSaveAsTab(); }, '⇧⌘S')}
         {@render item('content_copy', $t('nav.menu.duplicate'), () => { closeMenu(); duplicateTab(id); }, '⌘D')}
         {@render item('edit', $t('nav.menu.rename'), onRenameTab, 'F2')}
       {/if}
@@ -225,9 +224,9 @@
       {/if}
       <div class="dv"></div>
       {@render item('close', $t('tabs.ctxClose'), () => { closeMenu(); void requestCloseTab(id); }, '⌘W')}
-      {@render item('tab_close', $t('tabs.ctxCloseOthers'), () => { closeMenu(); closeOtherTabs(id); })}
-      {@render item('tab_close_right', $t('tabs.ctxCloseRight'), () => { closeMenu(); closeTabsToRight(id); })}
-      {@render item('clear_all', $t('tabs.ctxCloseAll'), () => { closeMenu(); closeAllTabs(); }, '⌥⌘W')}
+      {@render item('tab_close', $t('tabs.ctxCloseOthers'), () => { closeMenu(); void closeOtherTabs(id); })}
+      {@render item('tab_close_right', $t('tabs.ctxCloseRight'), () => { closeMenu(); void closeTabsToRight(id); })}
+      {@render item('clear_all', $t('tabs.ctxCloseAll'), () => { closeMenu(); void closeAllTabs(); }, '⌥⌘W')}
     {:else if menu.kind === 'history'}
       {@render item($historyPaused ? 'play_arrow' : 'pause', $historyPaused ? $t('nav.menu.resume') : $t('nav.menu.pause'), () => { historyPaused.set(!$historyPaused); closeMenu(); })}
       {@render item('delete_sweep', $t('nav.menu.clearHistory'), () => { clearHistory(); closeMenu(); }, '', 'danger')}
