@@ -74,7 +74,7 @@ export const ru = {
   'runner.noEnv': 'Без окружения',
   'runner.runN': 'ПРОГОН #{n}',
   'runner.settings': 'Настройки прогона',
-  'runner.stopOnFail': 'Остановить при первой ошибке',
+  'runner.stopOnFail': 'Стоп при первой ошибке',
   'runner.saveResponses': 'Сохранять ответы',
   'runner.saveResponses.desc': 'Для отчёта и сравнения прогонов',
   'runner.preset.save': 'Сохранить как пресет',

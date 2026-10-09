@@ -36,10 +36,10 @@
     { id: 'proxy', label: 'settings.page.proxy', icon: 'lan', sub: 'settings.page.proxy.sub', view: SettingsProxy },
     { id: 'certs', label: 'settings.page.certs', icon: 'shield', sub: 'settings.page.certs.sub', view: SettingsCerts },
     { id: 'grpc', label: 'settings.page.grpc', icon: 'hub', sub: 'settings.page.grpc.sub', view: SettingsGrpc },
+    { id: 'mcp', label: 'settings.page.mcp', icon: 'smart_toy', sub: 'settings.page.mcp.sub', view: SettingsMcp },
     { id: 'appearance', label: 'settings.page.appearance', icon: 'contrast', sub: 'settings.page.appearance.sub', view: SettingsAppearance },
     { id: 'hotkeys', label: 'settings.page.hotkeys', icon: 'keyboard', sub: 'settings.page.hotkeys.sub', view: SettingsHotkeys },
     { id: 'data', label: 'settings.page.data', icon: 'database', sub: 'settings.page.data.sub', view: SettingsData },
-    { id: 'mcp', label: 'settings.page.mcp', icon: 'smart_toy', sub: 'settings.page.mcp.sub', view: SettingsMcp },
   ];
   let pageId = $state('general');
   const page = $derived(PAGES.find((p) => p.id === pageId) ?? PAGES[0]);
@@ -87,7 +87,7 @@
           {/each}
         </ul>
         <div class="st-ver">
-          Bonk {appVersion}{#if $updateStatus === 'uptodate'} · {$t('settings.update.uptodate')}{:else if $updateStatus === 'available'} · {$t('settings.update.available')}{:else if $updateStatus === 'checking'} · {$t('settings.update.checking')}{:else if $updateStatus === 'error'} · {$t('settings.update.error')}{/if}
+          Bonk {appVersion}{#if $updateStatus === 'uptodate'} · {$t('settings.update.uptodate')}{:else if $updateStatus === 'ready'} · {$t('settings.update.available')}{:else if $updateStatus === 'checking'} · {$t('settings.update.checking')}{:else if $updateStatus === 'error'} · {$t('settings.update.error')}{/if}
         </div>
       </nav>
 

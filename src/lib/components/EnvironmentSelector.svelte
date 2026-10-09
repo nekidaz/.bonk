@@ -108,7 +108,7 @@
       <div class="bs-env-heading"><span>{$t('env.all')}&nbsp;&nbsp;·&nbsp;&nbsp;{all.length}</span><span class="sort">A–Z</span></div>
       <div class="bs-env-scroll">
         {#if !q || $t('env.none').toLowerCase().includes(q)}{@render item(null, '')}{/if}
-        {#each all as env (env.id)}{@render item(env, recent.some((r) => r?.id === env.id) ? '' : keyFor(env))}{/each}
+        {#each all as env (env.id)}{@render item(env, '')}{/each}
       </div>
       <div class="bs-env-sep"></div>
       <div class="bs-env-foot">

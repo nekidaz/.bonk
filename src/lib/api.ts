@@ -221,6 +221,7 @@ export const openapiExportSave = (defaultName: string, contents: string, title?:
 // ---------- Data & workspace settings ----------
 export const appDataDir = () => invoke<string>('app_data_dir');
 export const revealPath = (path: string) => invoke<void>('reveal_path', { path });
+export const openReleases = () => invoke<void>('open_releases');
 export const workspaceRenameRoot = (root: string, name: string) =>
   invoke<string>('workspace_rename_root', { root, name });
 export const workspaceTrash = (root: string) => invoke<void>('workspace_trash', { root });

@@ -72,7 +72,8 @@
   </div>
   {#if large && stats}
     <div class="lb-tabrow-tools">
-      <span class="lb-fmt">
+      <span class="lb-fmt" class:raw={RAW_KINDS.includes(kind)}>
+        {#if RAW_KINDS.includes(kind)}<span class="kind" aria-hidden="true">Raw</span>{/if}
         <select aria-label={$t('lb.format')} value={kind} onchange={(e) => setKind(e.currentTarget.value as BodyKind)}>
           <optgroup label={$t('lb.fmt.text')}>
             {#each RAW_KINDS as k (k)}<option value={k}>{KIND_LABEL[k].startsWith('http.') ? $t(KIND_LABEL[k]) : KIND_LABEL[k]}</option>{/each}

@@ -141,6 +141,8 @@ export interface Tab {
   flowId?: string;
   /** Per-request overrides of timeout / redirects / TLS verification (session-only, not saved to the file). */
   settings?: RequestOverrides;
+  /** S17b: pinned tabs lead the strip and survive «Закрыть остальные / справа / все». */
+  pinned?: boolean;
 }
 
 /** Aggregated script output attached to a tab after a send (not persisted). */

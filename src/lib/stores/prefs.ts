@@ -17,7 +17,7 @@ export const CODE_FONTS = ['JetBrains Mono', 'SF Mono', 'Menlo', 'Fira Code'] as
 export const codeFont = persisted<string>('codeFont', 'JetBrains Mono');
 export const codeFontSize = persisted<number>('codeFontSize', 12);
 export type Density = 'compact' | 'normal';
-export const density = persisted<Density>('density', 'normal', (v): v is Density => v === 'compact' || v === 'normal');
+export const density = persisted<Density>('density', 'compact', (v): v is Density => v === 'compact' || v === 'normal');
 /** «Как в системе»: follow the OS light/dark appearance with the Bonk palettes. */
 export const themeFollowSystem = persisted('themeFollowSystem', false);
 
@@ -28,8 +28,9 @@ export const requestLayout = persisted<RequestLayout>('requestLayout', 'stack', 
 /** After a response arrives: leave the panes alone, or give the response the height (request folds into its strip). */
 export type AfterSend = 'keep' | 'expand';
 export const afterSend = persisted<AfterSend>('afterSend', 'keep', (v): v is AfterSend => v === 'keep' || v === 'expand');
-/** From SIDE_BY_SIDE_MIN px wide the request and response sit side by side whatever the layout above says. */
-export const sideOnWide = persisted('sideOnWide', true);
+/** From SIDE_BY_SIDE_MIN px wide the request and response sit side by side whatever the layout above says.
+ *  Off by default so the chosen layout wins; new key because the old `true` default was written to every install. */
+export const sideOnWide = persisted('sideOnWideOptIn', false);
 export const SIDE_BY_SIDE_MIN = 1440;
 /** Arrays longer than this show only their first/last items; the middle folds into a «ещё N объектов» chip. */
 export const FOLD_ARRAYS_MIN = 5;

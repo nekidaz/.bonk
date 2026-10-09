@@ -117,3 +117,22 @@ export function moveTabTo(list: Tab[], id: string, to: number): Tab[] {
   next.splice(to, 0, ...next.splice(from, 1));
   return next;
 }
+
+/** S17b: flip `id`'s pin; pinned tabs lead the strip, each group keeping its order. */
+export function togglePinned(list: Tab[], id: string): Tab[] {
+  const next = list.map((t) => (t.id === id ? { ...t, pinned: !t.pinned } : t));
+  return [...next.filter((t) => t.pinned), ...next.filter((t) => !t.pinned)];
+}
+
+/** S17b: ids that «Закрыть остальные / справа / все» close relative to `id`. Pinned tabs always stay. */
+export function tabsToClose(list: Tab[], id: string, scope: 'others' | 'right' | 'all'): string[] {
+  const at = list.findIndex((t) => t.id === id);
+  if (at < 0 && scope !== 'all') return [];
+  return list.filter((t, i) => !t.pinned && (scope === 'all' || (scope === 'others' ? i !== at : i > at))).map((t) => t.id);
+}
+
+/** P3/P4: switching HTTP ⇄ gRPC starts an empty, unsaved request of the new type in the same tab (pin kept); undo restores the old tab. */
+export function switchedProtocol(tab: Tab, protocol: 'http' | 'grpc'): Tab {
+  const fresh = protocol === 'grpc' ? newGrpcTab() : newHttpTab();
+  return { ...fresh, id: tab.id, pinned: tab.pinned };
+}

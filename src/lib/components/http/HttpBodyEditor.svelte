@@ -35,11 +35,10 @@
 
   let bodyError = $state('');
 
-  // S10: five body kinds; Form keeps both encodings and Raw keeps its formats (incl. GraphQL) one level down.
-  type Segment = 'none' | 'json' | 'form' | 'raw' | 'binary';
+  // S10: four body kinds, as in Postman; Form keeps both encodings and Raw keeps its formats (JSON first, GraphQL too) one level down.
+  type Segment = 'none' | 'form' | 'raw' | 'binary';
   const segments: { key: Segment; label: string }[] = [
     { key: 'none', label: 'http.body.none' },
-    { key: 'json', label: 'JSON' },
     { key: 'form', label: 'http.body.form' },
     { key: 'raw', label: 'http.body.raw' },
     { key: 'binary', label: 'http.body.binary' },
@@ -50,7 +49,7 @@
     if (mode === 'none') return 'none';
     if (mode === 'form-data' || mode === 'urlencoded') return 'form';
     if (mode === 'binary') return 'binary';
-    return mode === 'raw' && currentRawFormat(tab) === 'JSON' ? 'json' : 'raw';
+    return 'raw';
   });
   const bodyInfo = $derived.by(() => {
     const mode = currentBodyMode(tab);
@@ -75,10 +74,9 @@
 
   function pickSegment(key: Segment): void {
     const mode = currentBodyMode(tab);
-    if (key === 'none' || key === 'binary') setBodyMode(key);
-    else if (key === 'json') setRawFormat('JSON');
-    else if (key === 'form') setBodyMode(mode === 'urlencoded' ? 'urlencoded' : 'form-data');
-    else setRawFormat(currentRawFormat(tab) === 'JSON' ? 'Text' : currentRawFormat(tab));
+    if (key === segment) return; // keeps GraphQL when Raw is clicked again
+    if (key === 'none' || key === 'binary' || key === 'raw') setBodyMode(key);
+    else setBodyMode(mode === 'urlencoded' ? 'urlencoded' : 'form-data');
   }
 
   function pickRawFormat(value: string): void {
@@ -213,7 +211,7 @@
     {:else if segment === 'raw'}
       <span class="bs-body-format">
         <select aria-label={$t('http.body.raw_format_aria')} value={currentBodyMode(tab) === 'graphql' ? 'GraphQL' : currentRawFormat(tab)} onchange={(e) => pickRawFormat(e.currentTarget.value)}>
-          {#each ['Text', 'JavaScript', 'HTML', 'XML', 'GraphQL'] as format (format)}<option value={format}>{format === 'Text' ? $t('http.body.text') : format}</option>{/each}
+          {#each ['JSON', 'Text', 'JavaScript', 'HTML', 'XML', 'GraphQL'] as format (format)}<option value={format}>{format === 'Text' ? $t('http.body.text') : format}</option>{/each}
         </select>
         <span class="material-symbols-outlined" aria-hidden="true">keyboard_arrow_down</span>
       </span>

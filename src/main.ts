@@ -1,5 +1,6 @@
 import { mount } from 'svelte'
 import { isTauri } from '@tauri-apps/api/core'
+import { getCurrentWindow } from '@tauri-apps/api/window'
 // Fonts are vendored (not CDN) so this local-first app renders fully offline
 // and never phones home on launch. Inter = UI; JetBrains Mono = code/labels; Material
 // Symbols Outlined = UI icons (its `.material-symbols-outlined` utility class
@@ -18,8 +19,15 @@ import './bigsur.css'
 import { applyStoredTheme } from './lib/theme'
 import App from './App.svelte'
 
-// Native macOS title bars overlay their traffic lights on our toolbar.
-document.documentElement.dataset.nativeMacos = String(isTauri() && /Mac/i.test(navigator.platform))
+// Native macOS title bars overlay their traffic lights on our toolbar — except in full screen, where macOS hides them.
+const nativeMacos = isTauri() && /Mac/i.test(navigator.platform)
+document.documentElement.dataset.nativeMacos = String(nativeMacos)
+if (nativeMacos) {
+  const win = getCurrentWindow()
+  const sync = async () => { document.documentElement.dataset.nativeMacos = String(!(await win.isFullscreen())) }
+  void sync()
+  void win.onResized(sync)
+}
 
 // Apply the persisted theme before mount to avoid a flash.
 applyStoredTheme()

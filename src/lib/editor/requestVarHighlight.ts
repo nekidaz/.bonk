@@ -10,7 +10,8 @@ import { t } from '../i18n';
 import type { Extension } from '@codemirror/state';
 import type { Environment, VarRow } from '../domain/types';
 import { lookupVar } from '../domain/vars';
-import { environments, globals, setEnvVars, setGlobalVars } from '../stores';
+import { ENV_COLOR_VAR, envColor } from '../domain/palette';
+import { environments, globals, openEnvironmentsSheet, setEnvVars, setGlobalVars } from '../stores';
 import { variableHighlight } from './varDecorations';
 
 /**
@@ -26,22 +27,34 @@ export function requestVariableHighlight(
   activeEnvId: string | null,
 ): Extension {
   const active = activeEnvId !== null ? envs.find((e) => e.id === activeEnvId) : undefined;
+  const globalsSource = { name: get(t)('env.scope_globals') };
+  const source = (env: Environment) => ({ name: env.name, color: ENV_COLOR_VAR[envColor(env)] });
+  const findRow = (rows: VarRow[], key: string) => rows.findLast((r) => r.enabled && r.key.trim() === key);
   return variableHighlight({
     getScopeInfo(name) {
-      const hit = lookupVar(name, globalRows, active);
-      if (!hit) return null;
-      return {
-        value: hit.value,
-        scopeLabel: hit.source === 'env' && active ? get(t)('env.scope', { name: active.name }) : get(t)('env.scope_globals'),
-      };
+      const key = name.trim();
+      const envRow = active ? findRow(active.vars, key) : undefined;
+      const globalRow = findRow(globalRows, key);
+      if (active && envRow) {
+        return {
+          value: envRow.value,
+          source: source(active),
+          global: false,
+          secret: !!envRow.secret,
+          shadowed: globalRow && !globalRow.secret ? globalRow.value : undefined,
+        };
+      }
+      if (!globalRow) return null;
+      return { value: globalRow.value, source: globalsSource, global: true, secret: !!globalRow.secret };
     },
-    activeEnvName: () => active?.name ?? null,
-    onAdd(name, value, target) {
+    addTarget: () => (active ? source(active) : globalsSource),
+    envsWith: (name) => envs.filter((e) => e !== active && findRow(e.vars, name.trim())).map(source),
+    onOpenEnvs: openEnvironmentsSheet,
+    onAdd(name, value) {
       const key = name.trim();
       if (key === '') return;
       const row: VarRow = { key, value, enabled: true };
-      if (target === 'env') {
-        if (!active) return;
+      if (active) {
         const current = get(environments).find((e) => e.id === active.id);
         if (!current) return;
         setEnvVars(current.id, [...current.vars, row]);

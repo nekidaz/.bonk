@@ -54,6 +54,14 @@ export function bodyKindOf(t: Pick<Tab, 'request'>): BodyKind {
   return mode === 'form-data' ? 'multipart' : mode;
 }
 
+/** E3/E4: «Raw JSON», «Raw GraphQL»… for raw bodies, the mode in capitals otherwise. */
+export function bodyKindLabel(t: Pick<Tab, 'request'>): string {
+  const kind = bodyKindOf(t);
+  if (kind === 'graphql') return 'Raw GraphQL';
+  const format = KIND_FORMAT[kind];
+  return format ? `Raw ${format}` : kind.toUpperCase();
+}
+
 /** The request switched to `kind` (body text and form rows are kept). */
 export function applyBodyKind(request: HttpRequest, kind: BodyKind): HttpRequest {
   const format = KIND_FORMAT[kind];

@@ -59,6 +59,7 @@ pub fn run() {
             commands::openapi_export_save,
             commands::app_data_dir,
             commands::reveal_path,
+            commands::open_releases,
             commands::workspace_rename_root,
             commands::workspace_trash,
             commands::workspace_load,

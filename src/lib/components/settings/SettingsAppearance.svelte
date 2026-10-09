@@ -1,6 +1,6 @@
 <script lang="ts">
   import { t } from '../../i18n';
-  import { theme, setTheme, isDarkTheme, THEME_OPTIONS, type Theme } from '../../theme';
+  import { theme, setTheme, isDarkTheme } from '../../theme';
   import { themeFollowSystem, uiFontSize, codeFont, codeFontSize, density, UI_FONT_SIZES, CODE_FONTS, type Density } from '../../stores';
   import { requestLayout, afterSend, sideOnWide, foldArraysOver, FOLD_ARRAYS_MIN, FOLD_ARRAYS_MAX, type AfterSend, type RequestLayout } from '../../stores';
   import { row, number, select, seg, sw, commit } from './ui.svelte';
@@ -13,24 +13,19 @@
     if (m === 'light' && isDarkTheme($theme)) setTheme('smooth-light');
     if (m === 'dark' && !isDarkTheme($theme)) setTheme('smooth-dark');
   }
-  function pickPalette(t: Theme): void {
-    themeFollowSystem.set(false);
-    setTheme(t);
-  }
+  const MODES = ['light', 'dark', 'system'] as const;
 </script>
 
 <div class="st-group">{$t('settings.appearance.theme')}</div>
-<div class="st-card">
-  {#snippet m()}{@render seg($t('settings.appearance.theme.label'), mode, [{ label: $t('settings.appearance.light'), value: 'light' }, { label: $t('settings.appearance.dark'), value: 'dark' }, { label: $t('settings.appearance.system'), value: 'system' }], setMode)}{/snippet}
-  {@render row($t('settings.appearance.mode'), '', m)}
-</div>
+<!-- S32.5: three cards with a mini app preview; «Как в системе» follows the OS (App.svelte). -->
 <div class="st-card st-pad">
-  <div class="bs-theme-grid st-themes" role="radiogroup" aria-label={$t('settings.appearance.palette')}>
-    {#each THEME_OPTIONS as t (t.value)}
-      <button type="button" class="bs-theme-option" role="radio" aria-checked={$theme === t.value} class:on={$theme === t.value} onclick={() => pickPalette(t.value)}>
-        <span class="bs-theme-preview" style:--theme-chrome={t.preview.chrome} style:--theme-canvas={t.preview.canvas} style:--theme-accent={t.preview.accent} aria-hidden="true"></span>
-        <span class="bs-theme-label">{t.label}</span>
-        <span class="material-symbols-outlined bs-theme-check" style="font-size:13px" aria-hidden="true">check</span>
+  <div class="st-modes" role="radiogroup" aria-label={$t('settings.appearance.theme')}>
+    {#each MODES as m (m)}
+      <button type="button" class="st-mode" role="radio" aria-checked={mode === m} class:on={mode === m} onclick={() => setMode(m)}>
+        <span class="st-mode-pic {m}" aria-hidden="true">
+          {#if m !== 'system'}<i class="side"><b></b><b></b><b></b></i><i class="main"><b class="title"></b><b class="url"><b></b></b><b></b><b></b></i>{/if}
+        </span>
+        <span class="st-mode-label"><span class="radio"></span>{$t(`settings.appearance.${m}`)}</span>
       </button>
     {/each}
   </div>
@@ -49,7 +44,7 @@
 <div class="st-group">{$t('settings.appearance.density')}</div>
 <div class="st-card">
   {#snippet dn()}{@render seg($t('settings.appearance.density.label'), $density, [{ label: $t('settings.appearance.compact'), value: 'compact' }, { label: $t('settings.appearance.normal'), value: 'normal' }], (v) => density.set(v as Density))}{/snippet}
-  {@render row($t('settings.appearance.rows'), $t('settings.appearance.rows.desc'), dn)}
+  {@render row($t('settings.appearance.density.label'), $t('settings.appearance.density.desc'), dn)}
 </div>
 
 <div class="st-group">{$t('settings.appearance.layout')}</div>

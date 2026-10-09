@@ -53,8 +53,9 @@
       : ($workspacePath || '~'),
   );
   const issueCount = $derived($appConsoleEntries.filter((entry) => !entry.ok).length);
+  // C1: newest first.
   const visibleConsoleEntries = $derived(
-    (mode === 'issues' ? $appConsoleEntries.filter((entry) => !entry.ok) : $appConsoleEntries).filter((entry) => matchesConsoleFilter(entry, filter)),
+    (mode === 'issues' ? $appConsoleEntries.filter((entry) => !entry.ok) : $appConsoleEntries).filter((entry) => matchesConsoleFilter(entry, filter)).reverse(),
   );
   const promptDir = $derived(shortCwd(currentDirectory || $workspacePath, homeDirectory));
 
@@ -185,7 +186,7 @@
 
   $effect(() => {
     void $appConsoleEntries.length;
-    void tick().then(() => consoleOutputEl?.scrollTo({ top: consoleOutputEl.scrollHeight }));
+    void tick().then(() => consoleOutputEl?.scrollTo({ top: 0 }));
   });
 </script>
 

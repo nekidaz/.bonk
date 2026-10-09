@@ -93,9 +93,6 @@ export {
   currentRequestSettings,
   saveActiveRequest,
   restoreSavedRequest,
-  revertActiveTab,
-  setActiveRequestOverrides,
-  resetActiveRequestOverrides,
   addRequestToFolder,
   openSavedRequest,
   applyCurlToActiveTab,
@@ -104,7 +101,7 @@ export {
 } from './requests';
 
 // Tab lifecycle.
-export { renameActiveTab, resetActiveTabTitle, newTab, moveTab, setActiveProtocol, closeTab, requestCloseTab, duplicateTab, closeOtherTabs, closeAllTabs, reopenClosedTab } from './tabs';
+export { renameActiveTab, resetActiveTabTitle, newTab, moveTab, setActiveProtocol, closeTab, requestCloseTab, duplicateTab, closeOtherTabs, closeTabsToRight, closeAllTabs, togglePinTab, reopenClosedTab } from './tabs';
 
 // Git diff tabs.
 export { openGitDiffTab, openProjectDiffTab } from './git';

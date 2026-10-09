@@ -47,7 +47,7 @@
   import { clock, historyDay, historyPath } from '../domain/palette';
   import { idToRel, parentId, filterTree } from '../domain/tree';
 
-  type MenuKind = 'create' | 'switch' | 'reqmore' | 'coll' | 'req' | 'history';
+  type MenuKind = 'create' | 'switch' | 'coll' | 'req' | 'history';
 
   let {
     openMenu,
@@ -322,15 +322,11 @@
         </div>
         {#each group.entries as h (h.id)}
           {@const good = h.ok ?? ok(h.status)}
-          <button class="bs-history-row" class:sel={$tabs.find((tb) => tb.id === $activeTabId)?.historyId === h.id} type="button" title={$t('sidebar.openInNewTab')} onclick={() => openHistoryEntry(h)}>
-            <span class="line1">
-              <span class="m" style="color:{methodColor(h.protocol === 'grpc' ? 'GRPC' : h.request.method)}">{h.protocol === 'grpc' ? 'gRPC' : h.request.method.toUpperCase()}</span>
-              <span class="path">{historyPath(h)}</span>
-            </span>
-            <span class="line2">
-              <span class="st" class:warn={!good && h.status >= 400 && h.status < 500} class:err={!good && !(h.status >= 400 && h.status < 500)}>{h.protocol === 'grpc' ? (h.ok ? '0 OK' : 'ERR') : h.status || 'ERR'}</span>
-              <span>&nbsp;·&nbsp;&nbsp;{clock(h.at)}{#if h.envName}&nbsp;&nbsp;·&nbsp;&nbsp;{h.envName}{/if}</span>
-            </span>
+          <button class="bs-history-row" class:sel={$tabs.find((tb) => tb.id === $activeTabId)?.historyId === h.id} type="button" title={h.envName ? `${$t('sidebar.openInNewTab')} · ${h.envName}` : $t('sidebar.openInNewTab')} onclick={() => openHistoryEntry(h)}>
+            <span class="m" style="color:{methodColor(h.protocol === 'grpc' ? 'GRPC' : h.request.method)}">{h.protocol === 'grpc' ? 'gRPC' : methodLabel(h.request.method)}</span>
+            <span class="path">{historyPath(h)}</span>
+            <span class="st" class:warn={!good && h.status >= 400 && h.status < 500} class:err={!good && !(h.status >= 400 && h.status < 500)}>{h.protocol === 'grpc' ? (h.ok ? '0 OK' : 'ERR') : h.status || 'ERR'}</span>
+            <span class="at">{clock(h.at)}</span>
             {#if h.protocol !== 'grpc'}
               <span class="bs-act repeat" role="button" tabindex="0" title={$t('sidebar.repeat')} aria-label={$t('sidebar.repeat')} onclick={(e) => { e.stopPropagation(); void repeatEntry(h); }} onkeydown={(e) => actKey(e, () => void repeatEntry(h))}><span class="material-symbols-outlined" style="font-size:14px">replay</span></span>
             {/if}

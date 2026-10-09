@@ -487,6 +487,20 @@ pub fn reveal_path(path: String) -> Result<(), String> {
     status.map(|_| ()).map_err(|e| e.to_string())
 }
 
+/// Open the public release notes (the in-app update popover's "All changes").
+#[tauri::command]
+pub fn open_releases() -> Result<(), String> {
+    const URL: &str = "https://github.com/nekidaz/.bonk/releases";
+    let status = if cfg!(target_os = "macos") {
+        std::process::Command::new("open").arg(URL).status()
+    } else if cfg!(target_os = "windows") {
+        std::process::Command::new("explorer").arg(URL).status()
+    } else {
+        std::process::Command::new("xdg-open").arg(URL).status()
+    };
+    status.map(|_| ()).map_err(|e| e.to_string())
+}
+
 /// Rename the workspace folder `root` to `name` (same parent); returns the new path.
 #[tauri::command]
 pub fn workspace_rename_root(root: String, name: String) -> Result<String, String> {

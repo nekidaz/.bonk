@@ -12,7 +12,10 @@ import {
   moveTabTo,
   newGrpcTab,
   newHttpTab,
+  tabsToClose,
   titleFromUrl,
+  switchedProtocol,
+  togglePinned,
 } from '../domain/tab';
 import { tabs, activeTabId, updateActiveTab, requestConfirm } from './state';
 import { confirmCloseUnsaved } from './prefs';
@@ -53,38 +56,13 @@ export function resetActiveTabTitle(): void {
   tabs.update((list) => list.map((t) => (t.id === tab.id ? { ...t, title, manualTitle: false } : t)));
 }
 
-/**
- * Switch the active tab between HTTP and gRPC in place, seeding the protocol's
- * state on first switch. Frontend-only; the App shell re-renders the matching
- * bar/editor for the new protocol. Manually renamed tabs keep their title;
- * unnamed tabs keep deriving title from the active URL/endpoint.
- */
-export function setActiveProtocol(protocol: 'http' | 'grpc'): void {
-  updateActiveTab((t) => {
-    if (t.protocol === 'git' || t.protocol === 'env' || t.protocol === 'runner') return t;
-    if (t.protocol === protocol) return t;
-    if (protocol === 'grpc') {
-      const grpc: GrpcTabState = t.grpc ?? {
-        endpoint: '',
-        plaintext: true,
-        message: '',
-        metadata: {},
-      };
-      return {
-        ...t,
-        protocol: 'grpc',
-        title: t.manualTitle ? t.title : titleFromUrl(grpc.endpoint, GRPC_DEFAULT_TITLE),
-        request: { ...t.request, method: 'GRPC' },
-        grpc,
-      };
-    }
-    return {
-      ...t,
-      protocol: 'http',
-      title: t.manualTitle ? t.title : titleFromUrl(t.request.url, HTTP_DEFAULT_TITLE),
-      request: { ...t.request, method: t.request.method === 'GRPC' ? 'GET' : t.request.method },
-    };
-  });
+/** P3/P4: switch the active tab between HTTP and gRPC — it becomes an empty request of the new type. Returns the tab as it was (for undo), or undefined when nothing changed. */
+export function setActiveProtocol(protocol: 'http' | 'grpc'): Tab | undefined {
+  const t = get(tabs).find((x) => x.id === get(activeTabId));
+  if (!t || t.protocol === protocol || (t.protocol !== 'http' && t.protocol !== 'grpc')) return undefined;
+  const next = switchedProtocol(t, protocol);
+  tabs.update((list) => list.map((x) => (x.id === t.id ? next : x)));
+  return t;
 }
 
 // Most-recently-closed request tabs, for ⇧⌘T. Session-only.
@@ -172,16 +150,24 @@ export function duplicateTab(id: string): void {
   activeTabId.set(copy.id);
 }
 
-/** Close every tab except `id` (which becomes active). Reuses closeTab so each closed tab's in-flight request/runtime state is cleaned up. */
+/** Close every unpinned tab except `id` (which becomes active). Reuses closeTab so each closed tab's in-flight request/runtime state is cleaned up. */
 export function closeOtherTabs(id: string): void {
   if (!get(tabs).some((t) => t.id === id)) return;
   activeTabId.set(id);
-  for (const t of get(tabs)) {
-    if (t.id !== id) closeTab(t.id);
-  }
+  for (const tid of tabsToClose(get(tabs), id, 'others')) closeTab(tid);
 }
 
-/** Close every tab; the main panel then shows the "no open tabs" screen. */
+/** S17b: close the unpinned tabs to the right of `id`. */
+export function closeTabsToRight(id: string): void {
+  for (const tid of tabsToClose(get(tabs), id, 'right')) closeTab(tid);
+}
+
+/** S17b: pin / unpin `id`; pinned tabs lead the strip. */
+export function togglePinTab(id: string): void {
+  tabs.update((list) => togglePinned(list, id));
+}
+
+/** Close every unpinned tab; with none pinned the main panel shows the "no open tabs" screen. */
 export function closeAllTabs(): void {
-  for (const t of get(tabs)) closeTab(t.id);
+  for (const tid of tabsToClose(get(tabs), '', 'all')) closeTab(tid);
 }

@@ -8,6 +8,12 @@ export function methodShort(symbol: string): string {
   return i === -1 ? symbol : symbol.slice(i + 1);
 }
 
+/** E2/E5: short request message type of the picked method («CreateBatchRequest»), '' until the schema knows it. */
+export function grpcInputType(grpc: GrpcTabState | undefined): string {
+  const method = grpc?.tree?.services.flatMap((s) => s.methods).find((m) => m.symbol === grpc.method);
+  return methodShort(method?.inputType ?? '');
+}
+
 /**
  * Postman-style guidance shown when the server connection worked but its
  * services could not be listed (no reflection support): neutral "load a

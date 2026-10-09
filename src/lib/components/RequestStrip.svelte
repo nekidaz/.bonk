@@ -10,7 +10,8 @@
   import { formatBytes } from '../domain/http';
   import { currentBodyMode } from '../domain/httpBody';
   import { oneLinePreview } from '../domain/focusMode';
-  import { bodyKindOf } from '../domain/largeBody';
+  import { bodyKindLabel } from '../domain/largeBody';
+  import { grpcInputType } from '../domain/grpc';
   import { openGrpcEditorSection, type GrpcEditorSection } from '../grpcEditorUi';
   import type { Tab } from '../domain/types';
 
@@ -22,11 +23,11 @@
   const chips = $derived(
     grpc
       ? [
-          { id: 'message', label: 'Message', value: body ? formatBytes(body.length) : '—' },
+          { id: 'message', label: 'Message', value: body ? [grpcInputType(tab.grpc), formatBytes(body.length)].filter(Boolean).join(' · ') : '—' },
           { id: 'metadata', label: 'Metadata', value: String(Object.keys(tab.grpc?.metadata ?? {}).length) },
         ]
       : [
-          { id: 'body', label: 'Body', value: noBody ? '—' : `${bodyKindOf(tab).toUpperCase()} · ${formatBytes(body.length)}` },
+          { id: 'body', label: 'Body', value: noBody ? '—' : `${bodyKindLabel(tab)} · ${formatBytes(body.length)}` },
           { id: 'headers', label: 'Headers', value: String(Object.keys(tab.request.headers ?? {}).length) },
           { id: 'params', label: 'Params', value: String((tab.params ?? []).filter((p) => p.enabled && p.key.trim()).length) },
         ],

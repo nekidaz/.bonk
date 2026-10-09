@@ -8,6 +8,9 @@
     hydrate,
     newTab,
     requestCloseTab,
+    duplicateTab,
+    closeAllTabs,
+    revealNode,
     autoUpdateCheck,
     uiFontSize,
     codeFont,
@@ -19,7 +22,6 @@
     removeNode,
     renameNode,
     saveActiveRequest,
-    revertActiveTab,
     addRequestToFolder,
     duplicateNode,
     requestConfirm,
@@ -51,6 +53,7 @@
   import ResponseStrip from './lib/components/ResponseStrip.svelte';
   import { t } from './lib/i18n';
   import { get } from 'svelte/store';
+  import { methodColor } from './lib/domain/method';
   import { commandFor, eventToBinding, formatBinding } from './lib/domain/hotkeys';
   import { flushPendingSaves, loadState, saveState } from './lib/persist';
   import { nextTabIndex } from './lib/tablist';
@@ -246,8 +249,6 @@
     else await pasteCurl();
   }
   // Request header ⋯ menu: node actions run against the active tab's saved request (menu.nodeId = savedPath).
-  let reqSettingsOpen = $state(false);
-  function openMore(e: MouseEvent): void { openMenu('reqmore', e, active?.savedPath); }
   function tabRename(): void {
     closeMenu();
     void tick().then(() => document.querySelector<HTMLElement>('.bs-reqhead .nm.rename')?.click());
@@ -258,14 +259,33 @@
     if (active?.protocol !== 'http') return;
     void navigator.clipboard.writeText(toCurl(withInheritedAuth(active, active.savedPath), currentVarScope(true)));
   }
-  function tabRevert(): void {
-    closeMenu();
-    const prev = active;
-    if (!prev) return;
-    revertActiveTab();
-    showToast({ text: get(t)('nav.menu.reverted'), undo: () => tabs.update((list) => list.map((x) => (x.id === prev.id ? prev : x))) });
+  // S17b: a right-click makes the tab active, so the menu's request actions reuse the active-tab handlers.
+  function tabContext(e: MouseEvent, id: string): void {
+    e.preventDefault();
+    e.stopPropagation();
+    activeTabId.set(id);
+    openMenu('tab', e, id);
   }
-  function tabSettings(): void { closeMenu(); reqSettingsOpen = true; }
+  function tabKeydown(e: KeyboardEvent, id: string): void {
+    const mod = e.metaKey || e.ctrlKey;
+    const act = e.key === 'F2' ? tabRename
+      : mod && e.altKey && e.code === 'KeyC' ? tabCopyCurl
+      : mod && !e.altKey && e.code === 'KeyD' ? () => duplicateTab(id)
+      : undefined;
+    if (!act) return;
+    e.preventDefault();
+    e.stopPropagation();
+    activeTabId.set(id);
+    act();
+  }
+  function tabReveal(): void {
+    closeMenu();
+    const id = active?.savedPath;
+    if (!id) return;
+    showSidebar('collections');
+    revealNode(id);
+    void tick().then(() => document.querySelector<HTMLElement>('.bs-tree .bs-trow.sel')?.focus());
+  }
   function nodeOpen(): void {
     const n = menu.nodeId ? findNode($collections, menu.nodeId) : undefined;
     closeMenu();
@@ -410,9 +430,11 @@
   let savedFlash = $state(false);
   let savedFlashTimer: ReturnType<typeof setTimeout> | undefined;
   // S09b: confirmation toast after a save, with a one-step undo (⌘Z while it is visible).
-  let toast = $state<{ text: string; undo?: () => void } | null>(null);
+  // P3/P4 bring their own icon (swap_horiz in the new protocol's colour) and undo label («Вернуть HTTP»).
+  type Toast = { text: string; undo?: () => void; undoLabel?: string; icon?: string; iconColor?: string };
+  let toast = $state<Toast | null>(null);
   let toastTimer: ReturnType<typeof setTimeout> | undefined;
-  function showToast(next: { text: string; undo?: () => void }): void {
+  function showToast(next: Toast): void {
     toast = next;
     clearTimeout(toastTimer);
     toastTimer = setTimeout(() => (toast = null), 5000);
@@ -507,6 +529,7 @@
       case 'openFolder': void openWorkspaceFolder(); break;
       case 'settings': settingsOpen = true; break;
       case 'closeTab': void requestCloseTab($activeTabId); break;
+      case 'closeAllTabs': closeAllTabs(); break;
       case 'newTab': newTab(); break;
       case 'reopenTab': reopenClosedTab(); break;
       case 'expand':
@@ -731,8 +754,17 @@
   let grpcMethodOpen = $state(false);
 
   function switchTo(kind: RequestProtocol): void {
-    setActiveProtocol(kind);
     closeMenu();
+    const prev = setActiveProtocol(kind);
+    if (!prev) return;
+    const name = (p: RequestProtocol) => (p === 'grpc' ? 'gRPC' : 'HTTP');
+    showToast({
+      text: get(t)('app.toast.protocol', { kind: name(kind) }),
+      undo: () => tabs.update((list) => list.map((x) => (x.id === prev.id ? prev : x))),
+      undoLabel: get(t)('app.toast.protocolUndo', { kind: name(prev.protocol as RequestProtocol) }),
+      icon: 'swap_horiz',
+      iconColor: methodColor(kind === 'grpc' ? 'GRPC' : 'GET'),
+    });
   }
 
   function toggleCodePanel(): void {
@@ -803,7 +835,7 @@
         <!-- Main -->
         <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_noninteractive_element_interactions -->
         <main class="bs-main" class:req-hidden={requestHidden && !sideBySide} class:side={sideBySide} onfocusin={autoFocusIn} onclick={(e) => { if (requestHidden && (e.target as HTMLElement).closest('.bs-rtab')) requestHidden = false; }}>
-          <AppTabBar onNew={() => { newTab(); void tick().then(() => document.querySelector<HTMLElement>('.bs-urlbar .cm-content')?.focus()); }} />
+          <AppTabBar onNew={() => { newTab(); void tick().then(() => document.querySelector<HTMLElement>('.bs-urlbar .cm-content')?.focus()); }} onContext={tabContext} onTabKey={tabKeydown} />
           {#if active && requestTab && $focusMode}<FocusBar tab={active} mode={$focusMode} />{/if}
 
           {#if active}
@@ -829,7 +861,7 @@
                 {#if historySnapshot.original}<button type="button" onclick={() => openSavedRequest(historySnapshot!.original!.node)}>{$t('app.snapshot.original')}</button>{/if}
               </div>
             {/if}
-            <RequestHeader tab={active} {savedFlash} onSwitch={(e) => openMenu('switch', e)} onMore={openMore} bind:settingsOpen={reqSettingsOpen} onSmartSave={smartSave} onOpenSave={openSaveDialog} {codeOpen} onCode={toggleCodePanel} />
+            <RequestHeader tab={active} {savedFlash} onSwitch={(e) => openMenu('switch', e)} onSmartSave={smartSave} onOpenSave={openSaveDialog} {codeOpen} onCode={toggleCodePanel} />
 
             {#if active.protocol === 'grpc'}
               {#key active.id}
@@ -898,11 +930,10 @@
     onImportCurl={() => void importCurlFromClipboard()}
     onImport={importFrom}
     onExportOpenApi={exportOpenApi}
-    onSaveAs={openSaveDialog}
     onRenameTab={tabRename}
     onCopyCurlTab={tabCopyCurl}
-    onRevert={tabRevert}
-    onRequestSettings={tabSettings}
+    onSaveTab={() => void smartSave()}
+    onRevealTab={tabReveal}
   />
 
   <SaveRequestDialog bind:open={saveOpen} onSaved={flashSaved} />
@@ -917,9 +948,9 @@
 
   {#if toast}
     <div class="bs-toast" role="status">
-      <span class="material-symbols-outlined" aria-hidden="true">check_circle</span>
+      <span class="material-symbols-outlined" aria-hidden="true" style:color={toast.iconColor}>{toast.icon ?? 'check_circle'}</span>
       <span class="text">{toast.text}</span>
-      {#if toast.undo}<button type="button" onclick={undoToast}>{$t('app.toast.undo')} ⌘Z</button>{/if}
+      {#if toast.undo}<button type="button" onclick={undoToast}>{toast.undoLabel ?? $t('app.toast.undo')} ⌘Z</button>{/if}
     </div>
   {/if}
 

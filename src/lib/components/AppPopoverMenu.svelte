@@ -2,12 +2,17 @@
   import {
     addFolder,
     clearHistory,
+    closeAllTabs,
+    closeOtherTabs,
+    closeTabsToRight,
     collections,
-    dirtyTabIds,
+    duplicateTab,
     historyLimit,
     historyPaused,
     openSavedRequest,
+    requestCloseTab,
     runInRunner,
+    togglePinTab,
   } from '../stores';
   import { findNode } from '../domain/tree';
   import { appMenuWidth, type AppMenuState, type RequestProtocol } from '../domain/appShell';
@@ -34,11 +39,10 @@
     onImportCurl,
     onImport,
     onExportOpenApi,
-    onSaveAs,
     onRenameTab,
     onCopyCurlTab,
-    onRevert,
-    onRequestSettings,
+    onSaveTab,
+    onRevealTab,
   }: {
     menu: AppMenuState;
     closeMenu: () => void;
@@ -61,11 +65,10 @@
     onImportCurl: () => void;
     onImport: (source?: string) => void;
     onExportOpenApi: (format: 'json' | 'yaml') => void;
-    onSaveAs: () => void;
     onRenameTab: () => void;
     onCopyCurlTab: () => void;
-    onRevert: () => void;
-    onRequestSettings: () => void;
+    onSaveTab: () => void;
+    onRevealTab: () => void;
   } = $props();
 
   // Import sources (S22): every file format goes through the same import dialog, which sniffs the format.
@@ -164,27 +167,15 @@
         </div>
       {/if}
     {:else if menu.kind === 'switch'}
-      {@render item(tab?.protocol !== 'grpc' ? 'check' : '', 'HTTP', () => onSwitch('http'), '', `check ${tab?.protocol !== 'grpc' ? 'on' : ''}`)}
-      {@render item(tab?.protocol === 'grpc' ? 'check' : '', 'gRPC', () => onSwitch('grpc'), '', `check ${tab?.protocol === 'grpc' ? 'on' : ''}`)}
-    {:else if menu.kind === 'reqmore'}
-      {#if menu.nodeId}
-        {@render item('edit', $t('nav.menu.rename'), onRenameTab, 'F2')}
-        {@render item('content_copy', $t('nav.menu.duplicate'), onDuplicate, '⌘D')}
-        {#if tab?.protocol === 'http'}{@render item('code', $t('nav.menu.copyCurl'), onCopyCurlTab, '⌥⌘C')}{/if}
-        {@render item('drive_file_move', $t('nav.menu.moveTo'), onMove, '›')}
-        <div class="dv"></div>
-        {@render item('undo', $t('nav.menu.revert'), onRevert, '', '', !tab || !$dirtyTabIds.has(tab.id))}
-        {#if tab?.protocol === 'http'}{@render item('tune', $t('nav.menu.requestSettings'), onRequestSettings)}{/if}
-        {@render item('play_arrow', $t('nav.menu.runInRunner'), () => { const id = menu.nodeId!; closeMenu(); runInRunner(id); })}
-        <div class="dv"></div>
-        {@render item('delete', $t('nav.menu.delete'), onDelete, '⌫', 'danger')}
-      {:else}
-        {@render item('drive_file_move', $t('nav.menu.saveToFolder'), () => { closeMenu(); onSaveAs(); })}
-        {#if tab?.protocol === 'http'}
-          {@render item('code', $t('nav.menu.copyCurl'), onCopyCurlTab, '⌥⌘C')}
-          {@render item('tune', $t('nav.menu.requestSettings'), onRequestSettings)}
-        {/if}
-      {/if}
+      <!-- P1/P2: protocol icon in front, the current type ticked on the right. -->
+      {#each [{ p: 'http', icon: 'language', label: 'HTTP' }, { p: 'grpc', icon: 'hub', label: 'gRPC' }] as const as o (o.p)}
+        {@const on = (tab?.protocol === 'grpc') === (o.p === 'grpc')}
+        <button class="mi proto {o.p}" class:on role="menuitemradio" aria-checked={on} onclick={() => onSwitch(o.p)}>
+          <span class="material-symbols-outlined ic" aria-hidden="true">{o.icon}</span>
+          <span class="lb">{o.label}</span>
+          {#if on}<span class="material-symbols-outlined sc check" aria-hidden="true">check</span>{/if}
+        </button>
+      {/each}
     {:else if menu.kind === 'coll'}
       <div class="lbl">{$t('nav.menu.inFolderDefault', { name: node?.name ?? $t('nav.menu.folderDefault') })}</div>
       {@render item('add', $t('nav.menu.http'), () => onAddRequest('http'))}
@@ -215,6 +206,28 @@
       {@render item('drive_file_move', $t('nav.menu.moveTo'), onMove, '›')}
       <div class="dv"></div>
       {@render item('delete', $t('nav.menu.delete'), onDelete, '⌫', 'danger')}
+    {:else if menu.kind === 'tab' && tab}
+      <!-- S17b: right-click on a tab; App makes it active first, so the request actions reuse the active-tab handlers. -->
+      {@const id = tab.id}
+      {@const request = tab.protocol === 'http' || tab.protocol === 'grpc'}
+      {#if request}
+        {@render item('save', $t('tabs.ctxSave'), () => { closeMenu(); onSaveTab(); }, '⌘S')}
+        {@render item('content_copy', $t('nav.menu.duplicate'), () => { closeMenu(); duplicateTab(id); }, '⌘D')}
+        {@render item('edit', $t('nav.menu.rename'), onRenameTab, 'F2')}
+      {/if}
+      {@render item('keep', tab.pinned ? $t('tabs.ctxUnpin') : $t('tabs.ctxPin'), () => { closeMenu(); togglePinTab(id); })}
+      {#if request}
+        {@render item('account_tree', $t('tabs.ctxReveal'), onRevealTab, '', '', !tab.savedPath)}
+      {/if}
+      {#if tab.protocol === 'http'}
+        <div class="dv"></div>
+        {@render item('code', $t('nav.menu.copyCurl'), onCopyCurlTab, '⌥⌘C')}
+      {/if}
+      <div class="dv"></div>
+      {@render item('close', $t('tabs.ctxClose'), () => { closeMenu(); void requestCloseTab(id); }, '⌘W')}
+      {@render item('tab_close', $t('tabs.ctxCloseOthers'), () => { closeMenu(); closeOtherTabs(id); })}
+      {@render item('tab_close_right', $t('tabs.ctxCloseRight'), () => { closeMenu(); closeTabsToRight(id); })}
+      {@render item('clear_all', $t('tabs.ctxCloseAll'), () => { closeMenu(); closeAllTabs(); }, '⌥⌘W')}
     {:else if menu.kind === 'history'}
       {@render item($historyPaused ? 'play_arrow' : 'pause', $historyPaused ? $t('nav.menu.resume') : $t('nav.menu.pause'), () => { historyPaused.set(!$historyPaused); closeMenu(); })}
       {@render item('delete_sweep', $t('nav.menu.clearHistory'), () => { clearHistory(); closeMenu(); }, '', 'danger')}

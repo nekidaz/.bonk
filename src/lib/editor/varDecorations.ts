@@ -14,6 +14,7 @@ import {
   EditorView,
   MatchDecorator,
   ViewPlugin,
+  closeHoverTooltips,
   hoverTooltip,
   type DecorationSet,
   type Tooltip,
@@ -23,22 +24,36 @@ import { get } from 'svelte/store';
 import { t } from '../i18n';
 import { findVariables } from '../domain/vars';
 
-/** How a resolved variable presents in the hover tooltip. */
+/** Where a variable lives: an environment (name + CSS colour of its dot) or Globals. */
+export interface VarSource {
+  name: string;
+  /** CSS colour of the source dot; absent for Globals. */
+  color?: string;
+}
+
+/** How a resolved variable presents in the hover popover. */
 export interface VarScopeInfo {
   value: string;
-  /** Human label for the resolving layer, e.g. `Environment 'staging'` or `Globals`. */
-  scopeLabel: string;
+  source: VarSource;
+  /** True when it resolved from Globals rather than the active environment. */
+  global: boolean;
+  secret: boolean;
+  /** The Globals value this environment value overrides, if any. */
+  shadowed?: string;
 }
 
 export interface VariableHighlightOptions {
   /** Resolve a (trimmed) variable name in the current scope; `null` = unresolved. */
   getScopeInfo(name: string): VarScopeInfo | null;
-  /** Name of the active environment, or `null` when none is active. */
-  activeEnvName(): string | null;
-  /** Persist a new `{key, value, enabled}` row into the chosen scope. */
-  onAdd(name: string, value: string, target: 'env' | 'globals'): void;
+  /** Where a new variable lands: the active environment, else Globals. */
+  addTarget(): VarSource;
+  /** Inactive environments that do define the name (the «found in» chips). */
+  envsWith(name: string): VarSource[];
+  /** Persist a new `{key, value, enabled}` row into `addTarget()`. */
+  onAdd(name: string, value: string): void;
   /** Overwrite the value of an already-resolved variable in its owning scope. */
   onUpdate(name: string, value: string): void;
+  onOpenEnvs(): void;
 }
 
 const okDeco = Decoration.mark({ class: 'cm-var-ok' });
@@ -77,6 +92,10 @@ function el<K extends keyof HTMLElementTagNameMap>(
   return node;
 }
 
+function icon(name: string): HTMLElement {
+  return el('span', 'material-symbols-outlined', name);
+}
+
 function button(label: string, className: string, onClick: () => void): HTMLButtonElement {
   const btn = el('button', className, label);
   btn.type = 'button';
@@ -86,76 +105,204 @@ function button(label: string, className: string, onClick: () => void): HTMLButt
   return btn;
 }
 
-/**
- * Tooltip body for a variable that resolved: name + owning scope, and the
- * value in an editable input so it can be changed right from the popover
- * (Enter or Save writes back into the scope it resolved from).
- */
-function resolvedDom(name: string, info: VarScopeInfo, opts: VariableHighlightOptions): HTMLElement {
-  const root = el('div', 'cm-var-tip');
-  const head = el('div', 'cm-var-tip-head');
-  head.appendChild(el('span', 'cm-var-tip-name', name));
-  head.appendChild(el('span', 'cm-var-tip-scope', info.scopeLabel));
-  root.appendChild(head);
+function iconButton(name: string, title: string, onClick: () => void): HTMLButtonElement {
+  const btn = button('', 'cm-var-tip-icon', onClick);
+  btn.title = title;
+  btn.setAttribute('aria-label', title);
+  btn.appendChild(icon(name));
+  return btn;
+}
 
+function dot(color: string | undefined, className = 'cm-var-tip-dot'): HTMLElement {
+  const d = el('span', className);
+  if (color) d.style.background = color;
+  return d;
+}
+
+const tr = (key: string, vars?: Record<string, string>) => get(t)(key, vars);
+const mask = (v: string) => '•'.repeat(Math.min(Math.max(v.length, 8), 16));
+
+/** Glyph + name row + source line + «open environments». */
+function headDom(name: string, glyph: string, nameExtra: HTMLElement[], source: HTMLElement[], opts: VariableHighlightOptions) {
+  const head = el('div', 'cm-var-tip-head');
+  const g = el('span', 'cm-var-tip-glyph');
+  g.appendChild(icon(glyph));
+  const id = el('div', 'cm-var-tip-id');
+  const nameRow = el('div', 'cm-var-tip-namerow');
+  nameRow.append(el('span', 'cm-var-tip-name', name), ...nameExtra);
+  const src = el('div', 'cm-var-tip-src');
+  src.append(...source);
+  id.append(nameRow, src);
+  head.append(g, id, iconButton('open_in_new', tr('code.tip.open_envs'), opts.onOpenEnvs));
+  return head;
+}
+
+/** Hint row + Cancel + primary action, under a hairline. */
+function actionsDom(hint: string, primary: string, onCancel: () => void, onPrimary: () => void) {
+  const row = el('div', 'cm-var-tip-actions');
+  row.append(
+    el('span', 'cm-var-tip-keys', hint),
+    button(tr('code.tip.cancel'), 'cm-var-tip-btn', onCancel),
+    button(primary, 'cm-var-tip-btn primary', onPrimary),
+  );
+  return row;
+}
+
+function valueInput(name: string, value: string, placeholder: string): HTMLInputElement {
   const input = el('input', 'cm-var-tip-input');
   input.type = 'text';
-  input.value = info.value;
-  input.placeholder = get(t)('code.tip.value');
-  input.setAttribute('aria-label', get(t)('code.tip.value_for', { name }));
-  // Keep keystrokes (and Escape/Enter) inside the popover, away from the editor.
-  input.addEventListener('keydown', (e) => {
-    e.stopPropagation();
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      opts.onUpdate(name, input.value);
-    }
-  });
-  root.appendChild(input);
+  input.value = value;
+  input.placeholder = placeholder;
+  input.spellcheck = false;
+  input.setAttribute('aria-label', tr('code.tip.value_for', { name }));
+  return input;
+}
 
-  const actions = el('div', 'cm-var-tip-actions');
-  actions.appendChild(
-    button(get(t)('code.tip.save'), 'cm-var-tip-btn primary', () => opts.onUpdate(name, input.value)),
-  );
-  root.appendChild(actions);
+/**
+ * Popover for a resolved variable. View mode shows the value read-only (copy,
+ * reveal for secrets); clicking it switches to an inline edit with
+ * Enter = save, Esc = back to view.
+ */
+function resolvedDom(view: EditorView, name: string, info: VarScopeInfo, opts: VariableHighlightOptions): HTMLElement {
+  const root = el('div', 'cm-var-tip');
+  let editing = false;
+  let revealed = false;
+  const close = () => view.dispatch({ effects: closeHoverTooltips });
+
+  const render = () => {
+    root.replaceChildren();
+    const dirty = dot(undefined, 'cm-var-tip-dirty');
+    dirty.hidden = true;
+    const extra: HTMLElement[] = [dirty];
+    if (info.secret) {
+      const badge = el('span', 'cm-var-tip-badge');
+      badge.append(icon('lock'), el('span', '', tr('code.tip.secret')));
+      extra.push(badge);
+    }
+    const source = info.global
+      ? [el('span', 'cm-var-tip-env', info.source.name)]
+      : [dot(info.source.color), el('span', 'cm-var-tip-env', info.source.name), el('span', '', tr('code.tip.scope_env'))];
+    root.appendChild(headDom(name, info.secret ? 'key' : 'data_object', extra, source, opts));
+
+    const box = el('div', 'cm-var-tip-value');
+    const foot = el('div', 'cm-var-tip-foot');
+    if (editing) {
+      box.classList.add('editing');
+      const input = valueInput(name, info.value, tr('code.tip.value'));
+      const was = el('div', 'cm-var-tip-note');
+      was.append(el('span', '', tr('code.tip.was')), el('code', '', info.secret ? mask(info.value) : info.value));
+      was.hidden = true;
+      input.addEventListener('input', () => {
+        dirty.hidden = was.hidden = input.value === info.value;
+      });
+      const save = () => {
+        opts.onUpdate(name, input.value);
+        close();
+      };
+      const cancel = () => {
+        editing = false;
+        render();
+      };
+      input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          save();
+        } else if (e.key === 'Escape') {
+          e.preventDefault();
+          cancel();
+        }
+      });
+      box.appendChild(input);
+      foot.appendChild(was);
+      root.append(box, foot, actionsDom(tr('code.tip.enter_save'), tr('code.tip.save'), cancel, save));
+      queueMicrotask(() => {
+        input.focus();
+        input.select();
+      });
+      return;
+    }
+
+    const text = el('span', 'cm-var-tip-text', info.secret && !revealed ? mask(info.value) : info.value);
+    text.title = tr('code.tip.edit');
+    text.addEventListener('click', () => {
+      editing = true;
+      render();
+    });
+    box.appendChild(text);
+    if (info.secret) {
+      box.appendChild(
+        iconButton(revealed ? 'visibility_off' : 'visibility', tr('code.tip.reveal'), () => {
+          revealed = !revealed;
+          render();
+        }),
+      );
+    }
+    const copy = iconButton('content_copy', tr('code.tip.copy'), () => {
+      void navigator.clipboard?.writeText(info.value);
+      copy.firstElementChild!.textContent = 'check';
+    });
+    box.appendChild(copy);
+    root.appendChild(box);
+
+    if (info.secret) {
+      root.appendChild(el('div', 'cm-var-tip-note wrap', tr('env.secrets_note')));
+    } else if (info.shadowed !== undefined) {
+      foot.append(el('span', '', tr('code.tip.overrides')), el('code', '', info.shadowed));
+      foot.classList.add('cm-var-tip-note');
+      root.appendChild(foot);
+    }
+  };
+
+  root.addEventListener('keydown', (e) => {
+    // Keep keystrokes inside the popover, away from the editor.
+    e.stopPropagation();
+    if (e.key === 'Escape' && !editing) close();
+  });
+  render();
   return root;
 }
 
-/** Tooltip body for an unresolved variable: value input + quick-add buttons. */
-function unresolvedDom(name: string, opts: VariableHighlightOptions): HTMLElement {
-  const root = el('div', 'cm-var-tip');
-  const head = el('div', 'cm-var-tip-head');
-  head.appendChild(el('span', 'cm-var-tip-name', name));
-  head.appendChild(el('span', 'cm-var-tip-missing', get(t)('code.tip.unresolved')));
-  root.appendChild(head);
+/** Popover for an unresolved variable: value input + where it does exist + Add. */
+function unresolvedDom(view: EditorView, name: string, opts: VariableHighlightOptions): HTMLElement {
+  const root = el('div', 'cm-var-tip missing');
+  const target = opts.addTarget();
+  const close = () => view.dispatch({ effects: closeHoverTooltips });
+  const add = () => {
+    opts.onAdd(name, input.value);
+    close();
+  };
 
-  const input = el('input', 'cm-var-tip-input');
-  input.type = 'text';
-  input.placeholder = get(t)('code.tip.value');
-  input.setAttribute('aria-label', get(t)('code.tip.value_for', { name }));
-  // Keep keystrokes (and Escape/Enter) inside the popover, away from the editor.
+  root.appendChild(
+    headDom(name, 'help', [], [el('span', 'cm-var-tip-lead', tr('code.tip.missing_in')), ...(target.color ? [dot(target.color)] : []), el('span', 'cm-var-tip-env', target.name)], opts),
+  );
+
+  const box = el('div', 'cm-var-tip-value');
+  const input = valueInput(name, '', target.color ? tr('code.tip.value_for', { name: target.name }) : tr('code.tip.value'));
   input.addEventListener('keydown', (e) => {
     e.stopPropagation();
     if (e.key === 'Enter') {
       e.preventDefault();
-      opts.onAdd(name, input.value, opts.activeEnvName() !== null ? 'env' : 'globals');
+      add();
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      close();
     }
   });
-  root.appendChild(input);
+  box.appendChild(input);
+  root.appendChild(box);
 
-  const actions = el('div', 'cm-var-tip-actions');
-  const envName = opts.activeEnvName();
-  if (envName !== null) {
-    actions.appendChild(
-      button(get(t)('code.tip.add_to_env', { name: envName }), 'cm-var-tip-btn primary', () => opts.onAdd(name, input.value, 'env')),
-    );
+  const elsewhere = opts.envsWith(name);
+  if (elsewhere.length > 0) {
+    const foot = el('div', 'cm-var-tip-note');
+    foot.appendChild(el('span', '', tr('code.tip.found_in')));
+    for (const env of elsewhere) {
+      const chip = el('span', 'cm-var-tip-chip');
+      chip.append(dot(env.color), el('span', '', env.name));
+      foot.appendChild(chip);
+    }
+    root.appendChild(foot);
   }
-  actions.appendChild(
-    button(get(t)('code.tip.add_to_globals'), envName !== null ? 'cm-var-tip-btn' : 'cm-var-tip-btn primary', () =>
-      opts.onAdd(name, input.value, 'globals'),
-    ),
-  );
-  root.appendChild(actions);
+  root.appendChild(actionsDom(tr('code.tip.enter_add'), tr('code.tip.add'), close, add));
   return root;
 }
 
@@ -171,8 +318,8 @@ function varHover(opts: VariableHighlightOptions): Extension {
       return {
         pos: hit.from,
         end: hit.to,
-        create: () => ({
-          dom: info ? resolvedDom(hit.name, info, opts) : unresolvedDom(hit.name, opts),
+        create: (v) => ({
+          dom: info ? resolvedDom(v, hit.name, info, opts) : unresolvedDom(v, hit.name, opts),
         }),
       };
     },
@@ -183,11 +330,11 @@ function varHover(opts: VariableHighlightOptions): Extension {
 }
 
 /**
- * Colors ride on the app's CSS variables (01-base.css) so `.dark` re-themes
- * without touching the editor. `baseTheme` merges under the host's
- * `EditorView.theme`, so the tooltip chrome (surface, border) still comes from
- * the shared CodeEditor theme.
+ * Colors ride on the design-system tokens (design-system.css) so palettes and
+ * `.dark` re-theme without touching the editor. Geometry follows the Pencil
+ * design «V1 · Поповер переменной {{var}}»: card 20 → value box 14 → pills.
  */
+const muted = 'var(--color-text-muted)';
 const varTheme = EditorView.baseTheme({
   '.cm-var-ok': {
     color: 'var(--orange)',
@@ -199,62 +346,140 @@ const varTheme = EditorView.baseTheme({
     background: 'color-mix(in srgb, var(--red) 10%, transparent)',
     borderRadius: '3px',
   },
+  '.cm-tooltip.cm-tooltip-hover:has(.cm-var-tip)': {
+    marginTop: '6px',
+    background: 'var(--color-panel)',
+    border: '1px solid var(--color-border)',
+    borderRadius: 'var(--radius-card)',
+    boxShadow: '0 14px 36px var(--color-shadow)',
+  },
   '.cm-var-tip': {
+    '--tip-tone': 'var(--color-var)',
     display: 'flex',
     flexDirection: 'column',
-    gap: '7px',
-    padding: '9px 11px',
-    minWidth: '190px',
-    maxWidth: '300px',
-    fontSize: '12px',
-    fontFamily:
-      "-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Helvetica Neue', sans-serif",
+    gap: '12px',
+    width: '300px',
+    padding: '14px 14px 12px',
+    fontFamily: 'var(--font-ui)',
+    fontSize: 'var(--font-size-caption)',
+    color: muted,
   },
-  '.cm-var-tip-head': {
+  '.cm-var-tip.missing': { '--tip-tone': 'var(--color-warning)' },
+  '.cm-var-tip .material-symbols-outlined': { fontSize: '15px', fontWeight: '300', lineHeight: '1' },
+  '.cm-var-tip-head': { display: 'flex', alignItems: 'center', gap: '10px' },
+  '.cm-var-tip-glyph': {
+    flex: '0 0 30px',
+    height: '30px',
+    display: 'grid',
+    placeItems: 'center',
+    borderRadius: 'var(--radius-sm)',
+    color: 'var(--tip-tone)',
+    background: 'color-mix(in srgb, var(--tip-tone) 10%, transparent)',
+  },
+  '.cm-var-tip-glyph .material-symbols-outlined': { fontSize: '16px' },
+  '.cm-var-tip-id': { flex: '1', minWidth: '0', display: 'flex', flexDirection: 'column', gap: '3px' },
+  '.cm-var-tip-namerow, .cm-var-tip-src, .cm-var-tip-note': {
     display: 'flex',
-    alignItems: 'baseline',
-    justifyContent: 'space-between',
-    gap: '14px',
+    alignItems: 'center',
+    gap: '6px',
+    minWidth: '0',
   },
   '.cm-var-tip-name': {
-    fontFamily: 'var(--mono)',
-    fontWeight: '700',
-    color: 'var(--text)',
-    wordBreak: 'break-all',
-  },
-  '.cm-var-tip-scope': { color: 'var(--t3)', fontSize: '11px', whiteSpace: 'nowrap' },
-  '.cm-var-tip-missing': { color: 'var(--red)', fontSize: '11px', whiteSpace: 'nowrap' },
-  '.cm-var-tip-value': {
-    fontFamily: 'var(--mono)',
-    color: 'var(--t2)',
-    wordBreak: 'break-all',
-  },
-  '.cm-var-tip-value.empty': { color: 'var(--t3)', fontStyle: 'italic' },
-  '.cm-var-tip-input': {
-    font: 'inherit',
-    fontFamily: 'var(--mono)',
-    color: 'var(--text)',
-    background: 'var(--inset)',
-    border: '0.5px solid var(--sep)',
-    borderRadius: '6px',
-    padding: '4px 8px',
-    outline: 'none',
-  },
-  '.cm-var-tip-input:focus': {
-    borderColor: 'color-mix(in srgb, var(--accent) 62%, var(--sep))',
-  },
-  '.cm-var-tip-actions': { display: 'flex', gap: '6px', justifyContent: 'flex-end' },
-  '.cm-var-tip-btn': {
-    font: 'inherit',
-    fontSize: '11.5px',
+    fontFamily: 'var(--font-code)',
+    fontSize: 'var(--font-size-ui)',
     fontWeight: '600',
-    color: 'var(--text)',
-    background: 'var(--hover)',
-    border: 'none',
-    borderRadius: '6px',
-    padding: '4px 9px',
+    color: 'var(--color-text)',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
   },
-  '.cm-var-tip-btn.primary': { color: '#fff', background: 'var(--accent)' },
+  '.cm-var-tip-dot': { flex: '0 0 6px', height: '6px', borderRadius: '50%', background: muted },
+  '.cm-var-tip-dirty': { flex: '0 0 6px', height: '6px', borderRadius: '50%', background: 'var(--color-warning)' },
+  '.cm-var-tip-dirty[hidden]': { display: 'none' },
+  '.cm-var-tip-badge, .cm-var-tip-chip': {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '3px',
+    padding: '1px 7px',
+    borderRadius: 'var(--radius-control)',
+    background: 'var(--color-hover)',
+    color: 'var(--color-text-secondary)',
+    fontSize: 'var(--font-size-micro)',
+    fontWeight: '500',
+  },
+  '.cm-var-tip-badge .material-symbols-outlined': { fontSize: '11px', color: muted },
+  '.cm-var-tip-chip': { gap: '5px', padding: '2px 8px', fontSize: 'var(--font-size-caption)', fontWeight: '400' },
+  '.cm-var-tip-chip .cm-var-tip-dot': { flexBasis: '5px', height: '5px' },
+  '.cm-var-tip-src > span': { flexShrink: '0', whiteSpace: 'nowrap' },
+  '.cm-var-tip-src > .cm-var-tip-env': { flexShrink: '1', minWidth: '0', overflow: 'hidden', textOverflow: 'ellipsis' },
+  '.cm-var-tip-env': { color: 'var(--color-text-secondary)', fontWeight: '500', whiteSpace: 'nowrap' },
+  '.cm-var-tip-lead': { color: 'var(--tip-tone)', whiteSpace: 'nowrap' },
+  '.cm-var-tip-icon': {
+    flex: '0 0 24px',
+    height: '24px',
+    display: 'grid',
+    placeItems: 'center',
+    padding: '0',
+    border: 'none',
+    borderRadius: 'var(--radius-control)',
+    background: 'transparent',
+    color: muted,
+  },
+  '.cm-var-tip-head .cm-var-tip-icon': { flexBasis: '26px', height: '26px' },
+  '.cm-var-tip-icon:hover': { background: 'var(--color-hover)', color: 'var(--color-text)' },
+  '.cm-var-tip-value': {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '4px',
+    minHeight: '38px',
+    padding: '0 8px 0 12px',
+    borderRadius: 'var(--radius-md)',
+    border: '1px solid var(--color-border-subtle)',
+    background: 'var(--color-hover)',
+  },
+  '.cm-var-tip-value.editing, .cm-var-tip.missing .cm-var-tip-value:focus-within': {
+    background: 'var(--color-panel)',
+    border: `1.5px solid ${muted}`,
+  },
+  '.cm-var-tip-text, .cm-var-tip-input': {
+    flex: '1',
+    minWidth: '0',
+    fontFamily: 'var(--font-code)',
+    fontSize: 'var(--font-size-ui)',
+    color: 'var(--color-text)',
+  },
+  '.cm-var-tip-text': { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', cursor: 'text' },
+  '.cm-var-tip-input': {
+    height: '36px',
+    padding: '0',
+    border: 'none',
+    outline: 'none',
+    background: 'transparent',
+  },
+  '.cm-var-tip-input::placeholder': { color: muted },
+  '.cm-var-tip-note': { flexWrap: 'wrap', gap: '5px' },
+  '.cm-var-tip-note[hidden]': { display: 'none' },
+  '.cm-var-tip-note code': { fontFamily: 'var(--font-code)', fontSize: 'var(--font-size-caption)', wordBreak: 'break-all' },
+  '.cm-var-tip-note.wrap': { display: 'block', lineHeight: '1.45' },
+  '.cm-var-tip-actions': {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '6px',
+    paddingTop: '8px',
+    borderTop: '1px solid var(--color-border-subtle)',
+  },
+  '.cm-var-tip-keys': { flex: '1', whiteSpace: 'pre' },
+  '.cm-var-tip-btn': {
+    padding: '6px 14px',
+    border: 'none',
+    borderRadius: 'var(--radius-control)',
+    background: 'transparent',
+    color: 'var(--color-text-secondary)',
+    font: '500 var(--font-size-body)/1.3333 var(--font-ui)',
+  },
+  '.cm-var-tip-btn:hover': { background: 'var(--color-hover)' },
+  '.cm-var-tip-btn.primary': { background: 'var(--color-inverse)', color: 'var(--color-on-inverse)' },
+  '.cm-var-tip-btn.primary:hover': { background: 'var(--color-inverse)', opacity: '.88' },
 });
 
 /**

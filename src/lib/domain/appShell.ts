@@ -2,7 +2,7 @@ import type { RequestProtocol } from './types';
 
 export type { RequestProtocol };
 
-export type AppMenuKind = 'create' | 'switch' | 'reqmore' | 'coll' | 'req' | 'history' | null;
+export type AppMenuKind = 'create' | 'switch' | 'coll' | 'req' | 'history' | 'tab' | null;
 export type UtilityMode = 'terminal' | 'console' | 'issues';
 
 export type AppMenuState = {
@@ -19,7 +19,7 @@ export function appMenuWidth(kind: Exclude<AppMenuKind, null>): number {
   if (kind === 'create') return 272;
   if (kind === 'history') return 220;
   if (kind === 'switch') return 160;
-  if (kind === 'reqmore') return 260;
+  if (kind === 'tab') return 232;
   return 260;
 }
 

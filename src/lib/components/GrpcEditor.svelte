@@ -57,6 +57,12 @@
   import ScriptsEditor from './ScriptsEditor.svelte';
   import ProtoImportDialog from './ProtoImportDialog.svelte';
   import GrpcProtoPanel from './GrpcProtoPanel.svelte';
+  import EditorTools from './EditorTools.svelte';
+  import { isLargeBody, textStats } from '../domain/largeBody';
+  import { countLabel } from '../editor/largeFold';
+  import { formatBytes } from '../domain/http';
+  import { focusMode } from '../stores/ui';
+  import { toggleFocus } from '../domain/focusMode';
   import { t, tp, t as i18nT } from '../i18n';
   import { uiLanguage } from '../stores/prefs';
   import { resolveVars, mergeScope } from '../domain/vars';
@@ -130,18 +136,6 @@
   // G1: nothing to show in the editor until there's a schema — pick where it comes from.
   const chooseSchema = $derived(!tab.grpc?.tree && !tab.grpc?.method && !(tab.grpc?.message ?? '').trim());
   const noAddress = $derived(!(tab.grpc?.endpoint ?? '').trim());
-  // G3: schema loaded, method not picked yet.
-  const schemaSummary = $derived.by(() => {
-    const services = tab.grpc?.tree?.services ?? [];
-    const methods = services.reduce((n, s) => n + s.methods.length, 0);
-    const files = tab.grpc?.protoPaths?.length ?? 0;
-    return $t('grpc.msg.schemaSummary', {
-      source: tab.grpc?.source === 'proto' ? `${files} ${$tp(files, ['файл', 'файла', 'файлов'], ['file', 'files'])} .proto` : 'server reflection',
-      services: `${services.length} ${$tp(services.length, ['сервис', 'сервиса', 'сервисов'], ['service', 'services'])}`,
-      methods: `${methods} ${$tp(methods, ['метод', 'метода', 'методов'], ['method', 'methods'])}`,
-    });
-  });
-
   /** G4: ⌃Space (or typing) at a top-level key lists the request fields with their types. */
   async function fieldCompletions(ctx: CompletionContext): Promise<CompletionResult | null> {
     const word = ctx.matchBefore(/"?[\w$]*/);
@@ -183,6 +177,9 @@
   const streamMethod = $derived(!!selectedMethod?.serverStreaming || !!selectedMethod?.clientStreaming);
 
   const gTab = $derived($grpcEditorSections[tab.id] ?? 'message');
+  // E2 (rules 2, 3, 6): a large message loses its head — type, size, lines and tools move into the tabs row.
+  const largeMessage = $derived(gTab === 'message' && !chooseSchema && isLargeBody(tab.grpc?.message ?? ''));
+  const messageStats = $derived(largeMessage ? textStats(tab.grpc?.message ?? '') : undefined);
   // Per-tab gRPC in-flight state derived from the shared `busyMap` store so the
   // tab's Invoke/Connect buttons reflect ONLY that tab's request.
   const activeBusy = $derived($busyMap[tab.id]);
@@ -1045,13 +1042,28 @@
 {#snippet gtab(id: GrpcEditorSection, label: string, count = 0)}
   <button class="bs-rtab" class:on={gTab === id} role="tab" id="bs-gtab-{id}" aria-selected={gTab === id} aria-controls="bs-grpcpanel" tabindex={gTab === id ? 0 : -1} onclick={() => openGrpcEditorSection(tab.id, id)}>{label}{#if count}<span class="bs-tab-count">{count}</span>{/if}</button>
 {/snippet}
-<div class="bs-rtabs" role="tablist" aria-label={$t('grpc.tab.request')} use:tablist>
-  {@render gtab('message', $t('grpc.tab.message'))}
-  {@render gtab('metadata', $t('grpc.tab.metadata'), metadataCount)}
-  {@render gtab('auth', $t('grpc.tab.auth'))}
-  {@render gtab('proto', $t('grpc.tab.proto'))}
-  <!-- Not in the S19 mock: kept only for requests that already carry scripts. -->
-  {#if tab.grpc?.preRequestScript || tab.grpc?.testScript || gTab === 'scripts'}{@render gtab('scripts', $t('grpc.tab.scripts'))}{/if}
+<div class="lb-tabrow">
+  <div class="bs-rtabs" role="tablist" aria-label={$t('grpc.tab.request')} use:tablist>
+    {@render gtab('message', $t('grpc.tab.message'))}
+    {@render gtab('metadata', $t('grpc.tab.metadata'), metadataCount)}
+    {@render gtab('auth', $t('grpc.tab.auth'))}
+    {@render gtab('proto', $t('grpc.tab.proto'))}
+    <!-- Not in the S19 mock: kept only for requests that already carry scripts. -->
+    {#if tab.grpc?.preRequestScript || tab.grpc?.testScript || gTab === 'scripts'}{@render gtab('scripts', $t('grpc.tab.scripts'))}{/if}
+  </div>
+  {#if messageStats}
+    <div class="lb-tabrow-tools">
+      {#if selectedMethod?.inputType}
+        <span class="lb-msgtype" title={selectedMethod.inputType}><span class="material-symbols-outlined" aria-hidden="true">description</span>{selectedMethod.inputType.split('.').pop()}</span>
+      {/if}
+      <span class="lb-stats">{messageStats.approx ? '~' : ''}{formatBytes(messageStats.bytes)}  ·  {countLabel(messageStats.lines, 'lines', $uiLanguage)}</span>
+      <EditorTools scope="#bs-grpcpanel" onExpand={() => focusMode.update((m) => toggleFocus(m, 'request'))} expanded={$focusMode === 'request'}>
+        {#snippet extra()}
+          <button type="button" class="bs-ric bs-grpc-example" aria-label={$t('grpc.msg.example')} title={$t('grpc.msg.example')} onclick={grpcLoadExample}><span class="material-symbols-outlined" aria-hidden="true">description</span></button>
+        {/snippet}
+      </EditorTools>
+    </div>
+  {/if}
 </div>
 <div class="bs-reqpane" role="tabpanel" id="bs-grpcpanel" aria-labelledby="bs-gtab-{gTab}">
 {#if gTab === 'message' && chooseSchema}
@@ -1082,11 +1094,12 @@
   </div>
 {:else if gTab === 'message'}
   <div class="bs-http-body bs-grpc-message">
-    <div class="bs-body-head">
-      <span class="bs-body-caption">{$t('grpc.tab.message')}{#if selectedMethod?.inputType}&nbsp;&nbsp;·&nbsp;&nbsp;{selectedMethod.inputType.split('.').pop()}{/if}</span>
-      <span class="bs-body-source">{isProtoSource ? $t('grpc.msg.fromProto') : 'Server reflection'}</span>
-      <button class="bs-body-beautify" type="button" onclick={grpcLoadExample}><span class="material-symbols-outlined" aria-hidden="true">description</span>{$t('grpc.msg.example')}</button>
-    </div>
+    {#if !largeMessage}
+      <div class="bs-body-head">
+        <span class="bs-body-caption">{$t('grpc.tab.message')}{#if selectedMethod?.inputType}&nbsp;&nbsp;·&nbsp;&nbsp;{selectedMethod.inputType.split('.').pop()}{/if}</span>
+        <button class="bs-body-beautify bs-grpc-example" type="button" onclick={grpcLoadExample}><span class="material-symbols-outlined" aria-hidden="true">description</span>{$t('grpc.msg.example')}</button>
+      </div>
+    {/if}
     <div class="bs-body-cm" class:invalid={violations.length > 0 || issues.length > 0}>
       <CodeEditor
         value={tab.grpc?.message ?? ''}
@@ -1111,15 +1124,10 @@
         <span class="material-symbols-outlined" aria-hidden="true">error</span>
         {$t('grpc.msg.errors', { n: issues.length, unit: $tp(issues.length, ['ошибка', 'ошибки', 'ошибок'], ['error', 'errors']), list: issues.map(issueText).join('; ') })}
       </div>
-    {:else if selectedMethod?.inputType}
-      <div class="bs-grpc-valid" class:bad={!messageValid}>
-        <span class="material-symbols-outlined" aria-hidden="true">{messageValid ? 'check_circle' : 'error'}</span>
-        {messageValid ? $t('grpc.msg.valid', { type: selectedMethod.inputType, n: selectedMethod.inputFields ?? 0, unit: $tp(selectedMethod.inputFields ?? 0, ['поле', 'поля', 'полей'], ['field', 'fields']) }) : $t('grpc.msg.invalidJson')}
-      </div>
-    {:else if tab.grpc?.tree && !tab.grpc.method}
-      <div class="bs-grpc-valid">
-        <span class="material-symbols-outlined" aria-hidden="true">description</span>
-        {schemaSummary}
+    {:else if selectedMethod?.inputType && !messageValid}
+      <div class="bs-grpc-valid bad">
+        <span class="material-symbols-outlined" aria-hidden="true">error</span>
+        {$t('grpc.msg.invalidJson')}
       </div>
     {/if}
   </div>

@@ -33,6 +33,7 @@ export const HOTKEY_COMMANDS: HotkeyCommand[] = [
   { id: 'openFolder', label: 'hotkeys.cmd.openFolder', group: 'hotkeys.group.nav', def: 'Mod+O' },
   { id: 'settings', label: 'hotkeys.cmd.settings', group: 'hotkeys.group.nav', def: 'Mod+Comma' },
   { id: 'closeTab', label: 'hotkeys.cmd.closeTab', group: 'hotkeys.group.tabs', def: 'Mod+W' },
+  { id: 'closeAllTabs', label: 'hotkeys.cmd.closeAllTabs', group: 'hotkeys.group.tabs', def: 'Mod+Alt+W' },
   { id: 'newTab', label: 'hotkeys.cmd.newTab', group: 'hotkeys.group.tabs', def: 'Mod+T' },
   { id: 'reopenTab', label: 'hotkeys.cmd.reopenTab', group: 'hotkeys.group.tabs', def: 'Mod+Shift+T' },
   { id: 'nextTab', label: 'hotkeys.cmd.nextTab', group: 'hotkeys.group.tabs', def: TAB_NEXT },

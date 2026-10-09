@@ -1,4 +1,4 @@
-/* Bonk Mono 3.0 · Soft workspace geometry, taken from the Pencil design (S05 · Успех 2xx,
+/* Bonk Mono 3.0 · Soft workspace geometry, taken from the Pencil design (S32.5c · Стандартно,
    03 Geometry). Floating panels on a canvas: window 30 → panel 26 → card 20 → pill.
    Everything pressable is a capsule. Palettes only change colours, never layout. */
 
@@ -253,6 +253,7 @@
   .bs .bs-resp-host.closed { margin-bottom: 0; }
   .bs-resp { flex: 1; min-height: 0; border: 0; outline: 1px solid var(--color-border-subtle); outline-offset: -1px; border-radius: var(--radius-card); background: var(--color-sidebar); overflow: hidden; }
   .bs .bs-resp-host.closed .bs-resp { outline: 0; }
+  .bs .bs-resp .bs-response-view { background: transparent; }
   /* S04: indeterminate progress rides on top of the card while a request is in flight. */
   .bs-resp-progress { flex: none; height: 3px; overflow: hidden; border-radius: var(--radius-control); background: var(--color-selected); }
   .bs-resp-progress span { display: block; width: 36%; height: 100%; border-radius: var(--radius-control); background: linear-gradient(90deg, transparent, var(--color-text-secondary)); animation: bs-progress 1.4s var(--ease-soft) infinite; }
@@ -273,16 +274,6 @@
   .bs .bs-stpill.neutral { background: var(--color-selected); color: var(--color-text-secondary); }
   .bs .bs-rsub .x:disabled { opacity: .4; cursor: default; }
   .bs .bs-rsub .x:disabled:hover { background: transparent; color: var(--color-text-secondary); }
-  /* S06 / S07: one-line hint with the next step, above the response card. */
-  .bs-resp-hint { flex: none; display: flex; align-items: center; gap: 10px; height: 46px; margin-bottom: 8px; padding: 10px 8px 10px 16px; border-radius: var(--radius-card); color: var(--color-text); font: var(--font-size-body) var(--font-ui); }
-  .bs-resp-hint.warning { background: var(--color-warning-soft); }
-  .bs-resp-hint.danger { background: var(--color-danger-soft); }
-  .bs-resp-hint > .material-symbols-outlined { flex: none; font-size: 16px; }
-  .bs-resp-hint.warning > .material-symbols-outlined { color: var(--color-warning); }
-  .bs-resp-hint.danger > .material-symbols-outlined { color: var(--color-danger); }
-  .bs-resp-hint .text { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .bs-resp-hint button { flex: none; height: 26px; padding: 0 10px; outline: 1px solid var(--color-border); outline-offset: -1px; border-radius: var(--radius-control); background: var(--color-panel); color: var(--color-text); font: 500 var(--font-size-body) var(--font-ui); }
-  .bs-resp-hint button:hover { background: var(--color-selected); }
   /* S08: no response at all. */
   .bs-net-error { flex: 1; min-height: 0; overflow: auto; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; padding: 12px 40px 16px; text-align: center; }
   .bs-net-error .mark { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 50%; background: var(--color-danger-soft); color: var(--color-danger); }
@@ -347,8 +338,6 @@
   .bs :is(.bs-menu, .bs-method-menu, .bs-work-menu, .bs-tab-ctx, .bs-grpc-menu) button { border-radius: var(--radius-control); }
   .bs .bs-modal { border: 1px solid var(--color-border); border-radius: var(--radius-dialog); background: var(--color-panel); box-shadow: var(--shadow-panel); }
   .bs-settings-section { border-radius: var(--radius-card); background: var(--side); border-color: var(--color-border-subtle); }
-  .bs-theme-option { border-radius: var(--radius-md); }
-  .bs-theme-option.on { border-color: var(--color-text); background: var(--color-selected); }
   .bs .bs-btn { border-radius: var(--radius-control); }
   .bs .bs-btn.primary { background: var(--color-action); color: var(--color-on-action); }
   .bs-body-kv, .bs-body-cm { border-radius: var(--radius-card); }
@@ -359,6 +348,55 @@
     transition: background-color var(--duration-hover) ease, border-color var(--duration-hover) ease, color var(--duration-hover) ease, transform var(--duration-press) var(--ease-soft) !important;
   }
   .bs button:is(.bs-send, .bs-empty-action):active { transform: translateY(1px); }
+}
+
+/* Settings → Внешний вид → Плотность. The geometry above is «Стандартно» (S32.5c);
+   «Компактно» (S05) trims chrome so the request and response get the room. Type never changes. */
+:root[data-density='compact'] {
+  .bs { padding: 0 8px; }
+  .bs-body { margin: 8px 0; }
+  .bs-resizer-col { flex-basis: 8px; width: 8px; }
+  .bs-tb { height: 42px; }
+  .bs-tb .bs-work { height: 28px; }
+  .bs-toolbar-search, .bs-toolbar-environment, .bs-toolbar-env-button { height: 28px; }
+  .bs-ti { width: 28px; height: 28px; }
+
+  .bs-sidebar-layout { padding: 8px; }
+  .bs-railrow { height: 34px; }
+  .bs-filterrow { padding: 6px 0 8px; }
+  .bs-fbox { height: 28px; }
+  .bs-fi { flex-basis: 28px; width: 28px; height: 28px; }
+  .bs-trow { height: 26px; min-height: 26px; }
+
+  .bs-tabbar { height: 40px; }
+  .bs-tab { height: 28px; }
+  .bs-addt { flex-basis: 28px; width: 28px; height: 28px; }
+
+  .bs-reqhead { min-height: 60px; padding: 8px 14px; }
+  .bs-savegrp { height: 32px; }
+  .bs .bs-savegrp button.bs-save, .bs .bs-savegrp button.bs-hb { height: 26px; }
+  .bs .bs-savegrp button.bs-save-more, .bs .bs-savegrp button.bs-hb { width: 26px; }
+  .bs .bs-urlbar { min-height: 34px; padding: 0 14px; }
+  .bs-urlfield, .bs-grpc-endpoint-field, .bs-grpc-picker { height: 34px; }
+  .bs .bs-urlfield.expanded { min-height: 34px; }
+  .bs-method-wrap, .bs button.bs-method, .bs .bs-grpc-field .bs-grpc-trigger { height: 28px; }
+  .bs-method-wrap::after { top: 5px; }
+  .bs button.bs-send { height: 34px; }
+  .bs .bs-stream-btn { height: 34px; min-width: 34px; }
+  .bs-rtabs { margin: 6px 14px 0; }
+  .bs .lb-tabrow-tools { margin: 6px 14px 0 auto; }
+  .bs button.bs-rtab { height: 26px; }
+  .bs-pwrap, .bs-bodyarea { padding: 10px 14px; }
+  .bs-postman-message { margin: 10px 14px; }
+  .bs-grpc-connect-alert { margin-left: 14px; margin-right: 14px; }
+  .bs-pr { min-height: 28px; }
+  .bs-pr.h { min-height: 26px; }
+
+  .bs .bs-resp-host { margin: 0 8px 8px; }
+  .bs-resph { height: 38px; }
+  .bs-rsub, .bs .bs-rsub .x { height: 26px; }
+  .bs-ric { width: 24px; height: 24px; }
+  .bs-status { height: 26px; }
 }
 
 @media (max-width: 1100px) {
@@ -392,7 +430,6 @@ html[data-native-macos='true'] .bs-tb-left { padding-left: 66px; }
   .bs-resizer-col { position: relative; display: flex; align-items: center; justify-content: center; cursor: col-resize; }
   .bs-resizer-col .grip { width: 4px; height: 48px; border-radius: var(--radius-control); background: var(--color-text-secondary); opacity: 0; transition: opacity var(--duration-hover); }
   .bs-resizer-col:hover .grip, .bs-resizer-col.dragging .grip { opacity: 1; }
-  .bs-resizer-col .mono-tip { top: calc(50% - 40px); left: 13px; }
   .bs-resizer-col, .bs-resizer-col:hover { background: none; }
   .bs-body { position: relative; }
   .bs-side-grip { position: absolute; z-index: 5; left: 0; top: calc(50% - 24px); display: flex; width: 10px; height: 48px; cursor: col-resize; }
@@ -418,7 +455,7 @@ html[data-native-macos='true'] .bs-tb-left { padding-left: 66px; }
   .bs-code .b2, .bs-json-highlight .b2 { color: var(--sn); }
   .bs-body-empty { background: var(--canvas); }
   .bs-body-actions select:focus, .bs-body-kv-row select:focus, .bs-auth-form input:focus { border-color: var(--accent); }
-  .bs-grpc-error-hint > button, .bs-grpc-connect-actions button.primary, .cm-var-tip-btn.primary, .cm-tooltip.cm-tooltip-autocomplete > ul > li[aria-selected] { color: var(--on-accent); }
+  .bs-grpc-error-hint > button, .bs-grpc-connect-actions button.primary, .cm-tooltip.cm-tooltip-autocomplete > ul > li[aria-selected] { color: var(--on-accent); }
   .cm-tooltip.cm-tooltip-autocomplete > ul > li[aria-selected] .cm-completionDetail { color: var(--on-accent); opacity: .78; }
 }
 
@@ -549,7 +586,7 @@ html[data-native-macos='true'] .bs-tb-left { padding-left: 66px; }
   .bs-savegrp button.bs-save-main.primary, .bs-savegrp button.bs-save-main.primary:hover { background: var(--color-action); color: var(--color-on-action); }
   .bs-savegrp button.bs-save-main.primary kbd { color: var(--color-on-action); opacity: .7; }
   .bs-pr.changed { background: var(--color-hover); }
-  .bs-toast { position: fixed; z-index: 140; left: 50%; bottom: 42px; transform: translateX(-50%); display: flex; align-items: center; gap: 10px; width: 360px; max-width: calc(100vw - 32px); height: 46px; padding: 10px 8px 10px 14px; outline: 1px solid var(--color-border-subtle); outline-offset: -1px; border-radius: var(--radius-card); background: var(--color-raised); box-shadow: 0 12px 32px var(--color-shadow); color: var(--color-text); font: 500 var(--font-size-body) var(--font-ui); }
+  .bs-toast { position: fixed; z-index: 140; left: 50%; bottom: 42px; transform: translateX(-50%); display: flex; align-items: center; gap: 10px; width: max-content; min-width: 360px; max-width: calc(100vw - 32px); height: 46px; padding: 10px 8px 10px 14px; outline: 1px solid var(--color-border-subtle); outline-offset: -1px; border-radius: var(--radius-card); background: var(--color-raised); box-shadow: 0 12px 32px var(--color-shadow); color: var(--color-text); font: 500 var(--font-size-body) var(--font-ui); }
   .bs-toast > .material-symbols-outlined { flex: none; font-size: 16px; color: var(--color-success); }
   .bs-toast .text { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .bs-toast button { flex: none; height: 26px; padding: 0 10px; border-radius: var(--radius-control); background: transparent; color: var(--color-text-secondary); font: 500 var(--font-size-body) var(--font-ui); }
@@ -720,7 +757,7 @@ html[data-native-macos='true'] .bs-tb-left { padding-left: 66px; }
   .bs-grpc-trigger .path b { color: var(--color-text); font-weight: 600; }
   .bs-grpc-field .bs-grpc-menu { right: 0; left: auto; top: calc(100% + 10px); }
   .bs-body-caption { color: var(--color-text-muted); font: 500 var(--font-size-micro) var(--font-code); letter-spacing: var(--tracking-eyebrow); text-transform: uppercase; white-space: pre; }
-  .bs-body-source { margin-left: auto; display: inline-flex; align-items: center; height: 22px; padding: 0 10px; border-radius: var(--radius-control); background: var(--color-selected); color: var(--color-text-secondary); font: 500 var(--font-size-caption) var(--font-ui); }
+  .bs-grpc-message .bs-body-head .bs-body-beautify { margin-left: auto; }
   .bs-body-beautify.icon { width: 30px; padding: 0; justify-content: center; }
   .bs-grpc-valid { display: flex; align-items: center; gap: 6px; padding-left: 6px; color: var(--color-text-muted); font: var(--font-size-caption) var(--font-ui); }
   .bs-grpc-valid .material-symbols-outlined { font-size: 13px; }
@@ -800,24 +837,27 @@ html[data-native-macos='true'] .bs-tb-left { padding-left: 66px; }
 
 /* S21: history list and the "snapshot from history" banner. */
 :root .bs {
-  .bs-history-day { display: flex; align-items: center; gap: 8px; height: 29px; padding: 12px 10px 4px; color: var(--color-text-muted); font: 500 var(--font-size-micro)/13px var(--font-code); letter-spacing: var(--tracking-eyebrow); text-transform: uppercase; }
+  .bs-history-day { display: flex; align-items: center; gap: 8px; height: 27px; padding: 10px 10px 4px; color: var(--color-text-muted); font: 500 var(--font-size-micro)/13px var(--font-code); letter-spacing: var(--tracking-eyebrow); text-transform: uppercase; }
   .bs-history-day > span:first-child { flex: 1; }
   .bs-history-day .bs-paused { color: var(--color-warning); }
   .bs-history-options { display: grid; place-items: center; width: 22px; height: 22px; margin: -4px -4px -4px 0; border-radius: 50%; color: var(--color-text-muted); }
   .bs-history-options:hover { background: var(--hover); color: var(--color-text); }
   .bs-history-options .material-symbols-outlined { font-size: 16px; }
-  .bs-history-row { position: relative; display: flex; flex-direction: column; gap: 3px; width: 100%; padding: 8px 12px; border-radius: 16px; text-align: left; }
+  /* One 26px line: method · path · status · time; repeat/remove take the status+time slot on hover. */
+  .bs-history-row { display: flex; align-items: center; gap: 6px; width: 100%; height: 26px; padding: 0 10px; border-radius: var(--radius-control); text-align: left; }
+  .bs-history-row + .bs-history-row { margin-top: 2px; }
   .bs-history-row:hover { background: var(--hover); }
   .bs-history-row.sel { background: var(--color-selected); }
-  .bs-history-row .line1 { display: flex; align-items: center; gap: 8px; min-width: 0; }
-  .bs-history-row .m { flex: 0 0 44px; font: 600 var(--font-size-micro) var(--font-code); letter-spacing: .4px; }
-  .bs-history-row .path { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--color-text-secondary); font: var(--font-size-body)/16px var(--font-code); }
+  .bs-history-row .m { flex: 0 0 30px; font: 700 9.5px var(--font-code); letter-spacing: .3px; }
+  .bs-history-row .path { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--color-text-secondary); font: var(--font-size-body)/16px var(--font-code); }
   .bs-history-row.sel .path { color: var(--color-text); }
-  .bs-history-row .line2 { display: flex; padding-left: 52px; color: var(--color-text-muted); font: var(--font-size-micro)/13px var(--font-code); white-space: pre; overflow: hidden; }
-  .bs-history-row .st { color: var(--color-success); font-weight: 600; }
+  .bs-history-row .st { flex: none; color: var(--color-success); font: 600 var(--font-size-micro) var(--font-code); }
   .bs-history-row .st.warn { color: var(--color-warning); }
   .bs-history-row .st.err { color: var(--color-danger); }
-  .bs-history-row .bs-act { position: absolute; top: 8px; right: 8px; }
+  .bs-history-row .at { flex: none; color: var(--color-text-muted); font: var(--font-size-micro) var(--font-code); }
+  .bs-history-row .bs-act { display: none; flex: none; width: 20px; height: 20px; margin: 0; }
+  .bs-history-row:is(:hover, :focus-within) :is(.st, .at) { display: none; }
+  .bs-history-row:is(:hover, :focus-within) .bs-act { display: flex; opacity: 1; pointer-events: auto; }
   .bs-history-banner { flex: none; display: flex; align-items: center; gap: 10px; height: 46px; margin: 4px 20px 0; padding: 10px 8px 10px 16px; border-radius: var(--radius-card); background: var(--color-selected); color: var(--color-text); font: var(--font-size-body) var(--font-ui); }
   .bs-history-banner > .material-symbols-outlined { flex: none; font-size: 16px; color: var(--color-text-secondary); }
   .bs-history-banner .text { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
