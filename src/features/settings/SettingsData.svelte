@@ -1,14 +1,7 @@
 <script lang="ts">
   import { t, tp } from '$shared/i18n';
   import { onMount } from 'svelte';
-  import {
-    historyPaused,
-    history,
-    clearHistory,
-    exportIncludeSecrets,
-    exportFormat,
-    historyDays,
-  } from '$entities/history';
+  import { history, clearHistory, exportIncludeSecrets, exportFormat, historyDays } from '$entities/history';
   import { requestConfirm } from '$shared/ui';
   import { importApiFile, buildWorkspaceExport, buildPostmanCollection, workspace } from '$entities/workspace';
   import { environments } from '$entities/environment';
@@ -38,7 +31,7 @@
         ? t('settings.data.size.kb', { n: Math.round(b / 1024) })
         : t('settings.data.size.mb', { n: (b / 1048576).toFixed(1) });
   const historyNote = $derived(
-    `${$history.length} ${tp($history.length, ['запрос', 'запроса', 'запросов'], ['request', 'requests'])} · ${size(new TextEncoder().encode(JSON.stringify($history)).length)}`,
+    `${history.list.length} ${tp(history.list.length, ['запрос', 'запроса', 'запросов'], ['request', 'requests'])} · ${size(new TextEncoder().encode(JSON.stringify(history.list)).length)}`,
   );
 
   async function run(fn: () => Promise<string | void>): Promise<void> {
@@ -119,7 +112,7 @@
       (v) => (historyDays.current = Number(v)),
     )}{/snippet}
   {@render row(t('settings.data.keep'), t('settings.data.keep.desc'), keep)}
-  {#snippet pause()}{@render sw(t('settings.data.pause'), $historyPaused, (v) => historyPaused.set(v))}{/snippet}
+  {#snippet pause()}{@render sw(t('settings.data.pause'), history.paused, (v) => (history.paused = v))}{/snippet}
   {@render row(t('settings.data.pause'), t('settings.data.pause.desc'), pause)}
   {#snippet clr()}<button type="button" class="bs-btn ghost danger" onclick={clear}
       >{t('settings.data.clear.btn')}</button

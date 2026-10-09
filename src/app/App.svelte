@@ -265,7 +265,7 @@
   let sidebarPanel = $state<'collections' | 'history' | 'git' | 'flows'>('collections');
   // S21: a tab opened from history says so, and links back to the saved request it came from.
   const historySnapshot = $derived.by(() => {
-    const entry = active?.historyId ? $history.find((h) => h.id === active.historyId) : undefined;
+    const entry = active?.historyId ? history.list.find((h) => h.id === active.historyId) : undefined;
     return entry ? { entry, original: matchSaved(entry, searchRequests(workspace.tree, '', Infinity)) } : undefined;
   });
 

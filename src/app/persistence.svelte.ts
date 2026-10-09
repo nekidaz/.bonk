@@ -6,7 +6,7 @@ import { startupOpen, requestPrefs } from '$shared/settings';
 import { workspaceLoad, secretGet, secretSet, secretDelete } from '$shared/ipc';
 import { collectSecrets, mergeSecrets, secretAccountsOf, stripSecrets } from './secrets';
 import { normalizeTabTitleState, stripRuntimeTab, tabs } from '$entities/tab';
-import { history, historyLimit, historyPaused } from '$entities/history';
+import { history } from '$entities/history';
 import {
   collapsedFolders,
   collectExpanded,
@@ -97,10 +97,10 @@ async function restoreState(): Promise<void> {
     .map(stripRuntimeTab);
   await startupOpen.ready;
   if (restoredTabs.length > 0 && startupOpen.current === 'last') tabs.list = restoredTabs;
-  history.set(savedHistory);
+  history.list = savedHistory;
   workspace.recent = normalizeWorkspaceRecents(savedRecentWorkspacePaths);
-  historyLimit.set(await loadState<number>('historyLimit', 500));
-  historyPaused.set(await loadState<boolean>('historyPaused', false));
+  history.limit = await loadState<number>('historyLimit', 500);
+  history.paused = await loadState<boolean>('historyPaused', false);
   requestPrefs.responseLineWrap = await loadState<boolean>('responseLineWrap', true);
   requestPrefs.requestTimeoutMs = await loadState<number>('requestTimeoutMs', 30_000);
   requestPrefs.requestFollowRedirects = await loadState<boolean>('requestFollowRedirects', true);
@@ -148,19 +148,7 @@ async function restoreState(): Promise<void> {
  * exists for HMR / tests so the (single) live subscription set can be re-armed.
  */
 function wirePersistence(): () => void {
-  const unsubs = [
-    // Persist history immediately (not debounced): entries are low-frequency (one
-    // per sent request) and the debounced write was being lost on app quit
-    // (beforeunload is unreliable in the Tauri webview), so history "reset" on the
-    // next launch. Writing on each change keeps the on-disk history current.
-    history.subscribe((h) => void saveState('history', h)),
-    historyLimit.subscribe((n) => {
-      if (n > 0) history.update((h) => h.slice(0, n));
-    }),
-    historyLimit.subscribe((n) => saveStateDebounced('historyLimit', n)),
-    historyPaused.subscribe((p) => saveStateDebounced('historyPaused', p)),
-    flows.subscribe((v) => saveStateDebounced('flows', v)),
-  ];
+  const unsubs = [flows.subscribe((v) => saveStateDebounced('flows', v))];
   // Rune state: one effect per saved value; each re-runs (and saves) when the value it reads changes.
   const stopEffects = $effect.root(() => {
     // Persist requests, not live connections: a tab's gRPC connectionId/tree point
@@ -178,6 +166,14 @@ function wirePersistence(): () => void {
       ),
     );
     $effect(() => saveStateDebounced('activeTabId', tabs.activeId));
+    // Persist history immediately (not debounced): entries are low-frequency (one
+    // per sent request) and the debounced write was being lost on app quit
+    // (beforeunload is unreliable in the Tauri webview), so history "reset" on the
+    // next launch. Writing on each change keeps the on-disk history current.
+    // (Lowering history.limit trims the list itself, see entities/history.)
+    $effect(() => void saveState('history', history.list));
+    $effect(() => saveStateDebounced('historyLimit', history.limit));
+    $effect(() => saveStateDebounced('historyPaused', history.paused));
     $effect(() => saveStateDebounced('workspacePath', workspace.path));
     // Remember collapsed folders per workspace root (the Rust load always expands all).
     // Runs on tree changes only: the root is read untracked, as the old subscription did.

@@ -10,7 +10,7 @@ import { loadState, saveStateDebounced } from './persist';
  */
 export class Persisted<T> {
   #value = $state.raw() as T;
-  #loaded = false;
+  #loaded = $state(false);
   readonly ready: Promise<void>;
 
   constructor(
@@ -26,6 +26,11 @@ export class Persisted<T> {
       this.#loaded = true;
       saveStateDebounced(key, v);
     });
+  }
+
+  /** True once the stored value has been read (reactive: an $effect can wait for it). */
+  get loaded(): boolean {
+    return this.#loaded;
   }
 
   get current(): T {

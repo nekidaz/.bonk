@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { clearHistory, historyLimit, historyPaused } from '$entities/history';
+  import { clearHistory, history } from '$entities/history';
   import {
     closeAllTabs,
     closeOtherTabs,
@@ -354,10 +354,10 @@
       )}
     {:else if menu.kind === 'history'}
       {@render item(
-        $historyPaused ? 'play_arrow' : 'pause',
-        $historyPaused ? t('nav.menu.resume') : t('nav.menu.pause'),
+        history.paused ? 'play_arrow' : 'pause',
+        history.paused ? t('nav.menu.resume') : t('nav.menu.pause'),
         () => {
-          historyPaused.set(!$historyPaused);
+          history.paused = !history.paused;
           closeMenu();
         },
       )}
@@ -375,10 +375,10 @@
       <div class="lbl">{t('nav.menu.keepLast')}</div>
       {#each historyLimits as opt (opt.value)}
         {@render item(
-          $historyLimit === opt.value ? 'check' : '',
+          history.limit === opt.value ? 'check' : '',
           opt.value === 0 ? t('nav.menu.all') : opt.label,
           () => {
-            historyLimit.set(opt.value);
+            history.limit = opt.value;
             closeMenu();
           },
         )}

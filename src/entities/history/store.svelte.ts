@@ -1,20 +1,35 @@
-import { get, writable } from 'svelte/store';
+import { untrack } from 'svelte';
 import type { HistoryEntry, Tab, GrpcTabState } from '$shared/model';
 import { pushCapped } from './history';
 import { GRPC_DEFAULT_TITLE, HTTP_DEFAULT_TITLE, grpcSnapshot, titleFromUrl, tabs } from '$entities/tab';
 import { environments } from '$entities/environment';
 
-export const history = writable<HistoryEntry[]>([]);
-// 0 = unlimited. Otherwise keep the last N history entries.
-export const historyLimit = writable<number>(500);
-// While true, new requests are not recorded into history.
-export const historyPaused = writable<boolean>(false);
+/** Sent requests, newest first. */
+class History {
+  /** The entries. Replaced, never mutated in place. */
+  list = $state.raw<HistoryEntry[]>([]);
+  /** While true, new requests are not recorded. */
+  paused = $state(false);
+  #limit = $state(500);
+
+  /** Keep at most this many entries; 0 = unlimited. */
+  get limit(): number {
+    return this.#limit;
+  }
+
+  /** Lowering the limit drops the oldest entries right away. */
+  set limit(n: number) {
+    this.#limit = n;
+    if (n > 0) this.list = untrack(() => this.list).slice(0, n);
+  }
+}
+export const history = new History();
 
 export function addHistory(entry: HistoryEntry): void {
-  if (get(historyPaused)) return;
-  const limit = get(historyLimit);
+  if (history.paused) return;
+  const limit = history.limit;
   const envName = entry.envName ?? environments.active?.name;
-  history.update((h) => pushCapped(h, { ...entry, envName }, limit > 0 ? limit : Infinity));
+  history.list = pushCapped(history.list, { ...entry, envName }, limit > 0 ? limit : Infinity);
 }
 
 /** Open a history entry in a new tab so it can be edited and re-sent. */
@@ -55,11 +70,11 @@ export function openHistoryEntry(entry: HistoryEntry): void {
 }
 
 export function clearHistory(): void {
-  history.set([]);
+  history.list = [];
 }
 
 export function removeHistoryEntry(id: string): void {
-  history.update((h) => h.filter((e) => e.id !== id));
+  history.list = history.list.filter((e) => e.id !== id);
 }
 
 // HMR (dev only): app/persistence.ts hydrate() fills these singletons once at startup.

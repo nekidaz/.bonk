@@ -1,8 +1,6 @@
-import { untrack } from 'svelte';
-import { get } from 'svelte/store';
 import { persisted } from '$shared/persist';
 import { pruneByAge } from './history';
-import { history } from './store';
+import { history } from './store.svelte';
 
 /** Export: include keychain secret values. Off by default. */
 export const exportIncludeSecrets = persisted<boolean>('exportIncludeSecrets', false);
@@ -16,22 +14,17 @@ export const exportFormat = persisted<ExportFormat>(
 /** History retention in days; 0 = forever. */
 export const historyDays = persisted<number>('historyDays', 30);
 
-// Prune on every history change and when the setting changes, but only once the
-// saved setting has loaded (else the 30-day default would eat a "forever" history).
-void historyDays.ready.then(() => {
-  const prune = () => {
-    const h = get(history);
-    const kept = pruneByAge(
-      h,
-      untrack(() => historyDays.current),
-    );
-    if (kept !== h) history.set(kept);
-  };
-  history.subscribe(prune);
-  $effect.root(() => {
+/**
+ * Drop entries older than `historyDays`: on every history change and when the setting changes, but
+ * only once the saved setting has loaded (else the 30-day default would eat a "forever" history).
+ * Started once by main.ts; returns a stop function.
+ */
+export function watchHistoryRetention(): () => void {
+  return $effect.root(() => {
     $effect(() => {
-      void historyDays.current;
-      prune();
+      if (!historyDays.loaded) return;
+      const kept = pruneByAge(history.list, historyDays.current);
+      if (kept !== history.list) history.list = kept;
     });
   });
-});
+}

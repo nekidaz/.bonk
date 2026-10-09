@@ -18,7 +18,7 @@
 
   let curlInput = $state<HTMLInputElement | null>(null);
   const workspaceName = $derived(workspace.path.split('/').filter(Boolean).at(-1) ?? t('workspace.local'));
-  const recent = $derived(recentRequests($history, workspace.tree));
+  const recent = $derived(recentRequests(history.list, workspace.tree));
   const now = Date.now();
 
   function curlKeydown(e: KeyboardEvent): void {

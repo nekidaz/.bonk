@@ -29,7 +29,7 @@
     workspace,
   } from '$entities/workspace';
   import { tabs } from '$entities/tab';
-  import { history, historyPaused, openHistoryEntry, removeHistoryEntry } from '$entities/history';
+  import { history, openHistoryEntry, removeHistoryEntry } from '$entities/history';
   import { openSavedRequest } from '$entities/request';
   import { flows, openFlowTab, createFlow } from '$entities/flow';
   import {
@@ -70,7 +70,7 @@
   const ok = (s: number) => s >= 200 && s < 300;
 
   // History «repeat»: open the entry's snapshot and send it, like ⌘↵ on a palette hit.
-  async function repeatEntry(h: (typeof $history)[number]): Promise<void> {
+  async function repeatEntry(h: (typeof history.list)[number]): Promise<void> {
     openHistoryEntry(h);
     await tick();
     document.querySelector<HTMLButtonElement>('.bs-send')?.click();
@@ -152,7 +152,7 @@
   const visibleCollections = $derived(filterTree(workspace.tree, filter));
   // S21: newest first, grouped by day.
   const historyGroups = $derived.by(() => {
-    const groups: { day: string; entries: typeof $history }[] = [];
+    const groups: { day: string; entries: typeof history.list }[] = [];
     for (const h of [...visibleHistory].sort((a, b) => b.at - a.at).slice(0, 60)) {
       const day = historyDay(h.at);
       if (groups.at(-1)?.day !== day) groups.push({ day, entries: [] });
@@ -162,8 +162,8 @@
   });
   const visibleHistory = $derived.by(() => {
     const q = filter.trim().toLowerCase();
-    if (!q) return $history;
-    return $history.filter((h) => (h.request.url || '').toLowerCase().includes(q));
+    if (!q) return history.list;
+    return history.list.filter((h) => (h.request.url || '').toLowerCase().includes(q));
   });
 
   const gitFiles = $derived($gitStatus?.files ?? []);
@@ -577,7 +577,7 @@
               <div class="bs-history-day">
                 <span>{group.day}</span>
                 {#if gi === 0}
-                  {#if $historyPaused}<span class="bs-paused" title={t('sidebar.recordingPaused')}
+                  {#if history.paused}<span class="bs-paused" title={t('sidebar.recordingPaused')}
                       >{t('sidebar.paused')}</span
                     >{/if}
                   <button

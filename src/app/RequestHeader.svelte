@@ -41,7 +41,7 @@
   // Breadcrumb: the folder the saved request lives in.
   // A history snapshot (S21) shows where its original lives.
   const origin = $derived(
-    tab.savedPath ?? (tab.historyId ? $history.find((h) => h.id === tab.historyId)?.savedPath : undefined),
+    tab.savedPath ?? (tab.historyId ? history.list.find((h) => h.id === tab.historyId)?.savedPath : undefined),
   );
   const folderId = $derived(origin ? parentId(origin) : undefined);
   const folderName = $derived(folderId ? findNode(workspace.tree, folderId)?.name : undefined);

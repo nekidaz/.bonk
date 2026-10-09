@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { openHistoryEntry } from './store';
+import { openHistoryEntry } from './store.svelte';
 import { tabs } from '$entities/tab';
 import type { HistoryEntry } from '$shared/model';
 
