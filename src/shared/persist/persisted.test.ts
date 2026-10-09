@@ -25,5 +25,10 @@ describe('persisted', () => {
     size.current = 12;
     await flushPendingSaves();
     expect(saved()).toContainEqual({ key: 'size', value: 12 });
+
+    invoke.mockClear();
+    size.current = 12; // unchanged primitive: no write
+    await flushPendingSaves();
+    expect(saved()).toEqual([]);
   });
 });

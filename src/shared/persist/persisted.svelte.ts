@@ -38,6 +38,8 @@ export class Persisted<T> {
   }
 
   set current(v: T) {
+    // Like a writable store: an equal primitive is not a change (objects always are).
+    if (v === this.#value && (v === null || typeof v !== 'object')) return;
     this.#value = v;
     if (this.#loaded) saveStateDebounced(this.key, v);
   }
