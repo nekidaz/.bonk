@@ -4,6 +4,50 @@ All notable changes to bonk are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project aims to
 follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.8] - 2026-10-09
+
+### Added
+- Drag & drop in the sidebar tree: reorder requests and folders, move them
+  between folders, or hold ⌥ to copy. A collapsed folder opens when you hold a
+  row over it, Esc cancels, and a toast offers Undo (⌘Z). The manual order is
+  saved in the folder's `.folder.bonk.json`.
+- Large bodies and responses: a read-only response viewer with ⌘F search,
+  folding, line count and Save to file (Pretty/Raw for gRPC too); the response
+  and the request fold to strips (⇧⌘R / ⇧⌘E); an expanded mode (⌥⌘F); and a
+  side-by-side layout on wide windows, set in Settings → Appearance. The request
+  body flags JSON syntax errors as you type.
+- Closing a tab with unsaved changes asks Save / Don't save / Cancel; Save on a
+  never-saved tab opens the save dialog first. New **Save As** (⇧⌘S).
+- When an update is available, the update pill lists what's new.
+- Request actions menu (rename, duplicate, copy cURL, move, discard changes, run
+  in Runner, delete) and per-request timeout, redirect and TLS overrides.
+- 4xx/5xx responses show a hint with quick actions.
+- PKCS#12 (`.p12`) client certificates for HTTP and gRPC, Postman export, and an
+  environment picker for AI/MCP with auto-allow.
+- Runner: gRPC deadline, presets, saving responses, reopening past runs.
+- Console filter and status pills; terminal cwd prompt, interrupt and clear
+  shortcuts.
+- Redesigned welcome view, command palette, environments sheet and settings;
+  folder-level auth, secrets in the system keychain, importers, gRPC TLS,
+  streams and proto inspection.
+
+### Changed
+- Sidebar history rows fit on one line (method · path · status · time).
+- Sidebar tree: 24px per level with guide lines; expanded folders show an open
+  folder icon.
+- Renaming a saved request's tab renames it on disk right away.
+- Environment names are unique: a taken name gets a ` 2` suffix, since the
+  AI/MCP allow-list matches environments by name.
+
+### Fixed
+- Dragging requests and folders in the sidebar now works in the macOS app;
+  before, rows could be picked up but never dropped.
+- Create → Import sources open the matching file import directly.
+
+### Security
+- A gRPC `.p12` client identity is unpacked for grpcurl into a private (0700)
+  temporary directory that is removed after the call.
+
 ## [0.1.7] - 2026-08-11
 
 ### Added
