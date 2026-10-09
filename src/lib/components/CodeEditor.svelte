@@ -1,6 +1,6 @@
 <script lang="ts" module>
   /** Languages the editor can highlight. `text` = plain, no syntax colors. */
-  export type CodeEditorLang = 'javascript' | 'json' | 'text';
+  export type CodeEditorLang = 'javascript' | 'json' | 'json-lite' | 'text';
 </script>
 
 <script lang="ts">
@@ -58,7 +58,16 @@
   } from '@codemirror/autocomplete';
   import { javascript } from '@codemirror/lang-javascript';
   import { json } from '@codemirror/lang-json';
+  import { foldKeymap } from '@codemirror/language';
+  import { search, searchKeymap } from '@codemirror/search';
+  import { linter, type Diagnostic } from '@codemirror/lint';
   import { tags } from '@lezer/highlight';
+  import { get } from 'svelte/store';
+  import { uiLanguage } from '../stores/prefs';
+  import { lineHighlight } from '../editor/lineHighlight';
+  import { foldLargeArrays, largeFolding } from '../editor/largeFold';
+  import { jsonProblem } from '../domain/jsonLint';
+  import { jsonErrorMessage } from '../domain/jsonEditor';
 
   let {
     value,
@@ -78,6 +87,12 @@
     varHighlight,
     docId,
     ariaLabel,
+    readOnly = false,
+    bare = false,
+    folding,
+    autoFold = false,
+    lintJson = false,
+    wrap = false,
   }: {
     value: string;
     onChange: (value: string) => void;
@@ -121,6 +136,18 @@
     /** Identity of the document; a change rebuilds state (fresh undo history). */
     docId?: string;
     ariaLabel?: string;
+    /** Viewer mode: no editing helpers (autocomplete, brackets), but selection, Find (⌘F) and folding work. */
+    readOnly?: boolean;
+    /** Drop the card chrome (border, radius, fill): the host supplies it. */
+    bare?: boolean;
+    /** Fold gutter + «ещё N объектов» chips + fold keys. Default: on for multi-line JSON editors. */
+    folding?: boolean;
+    /** On every (re)loaded document fold the middle of arrays longer than the Settings threshold. */
+    autoFold?: boolean;
+    /** Underline the first JSON syntax error while typing (lang 'json' only; `{{vars}}` are allowed). */
+    lintJson?: boolean;
+    /** Soft-wrap long lines. */
+    wrap?: boolean;
   } = $props();
 
   let host: HTMLDivElement | undefined = $state();
@@ -132,6 +159,9 @@
   const langCompartment = new Compartment();
   const placeholderCompartment = new Compartment();
   const varCompartment = new Compartment();
+  const wrapCompartment = new Compartment();
+  /** Language the lint source checks against (kept in sync by the reconfigure effect). */
+  let currentLang = untrack(() => lang);
 
   /**
    * `singleLine` guard: rewrite any transaction that would insert a newline so
@@ -166,6 +196,8 @@
   function langExtension(l: CodeEditorLang): Extension {
     if (l === 'javascript') return javascript();
     if (l === 'json') return json();
+    // Big read-only JSON: tokenizer over the visible lines only (no background parse of the whole document).
+    if (l === 'json-lite') return lineHighlight();
     return [];
   }
 
@@ -237,7 +269,15 @@
           },
           '.cm-line': { padding: '0 14px' },
         }
-      : {
+      : bare
+        ? {
+            '&': { fontSize: 'var(--code-font-size, 12px)', backgroundColor: 'transparent', color: 'var(--text)', height: '100%' },
+            '&.cm-focused': { outline: 'none' },
+            '.cm-scroller': { fontFamily: 'var(--mono)', lineHeight: '1.65', overflow: 'auto' },
+            '.cm-content': { padding: '8px 0', caretColor: 'var(--accent)' },
+            '.cm-line': { padding: '0 16px 0 8px' },
+          }
+        : {
           '&': {
             fontSize: 'var(--code-font-size, 12px)',
             backgroundColor: 'var(--inset)',
@@ -321,6 +361,57 @@
         maxWidth: '260px',
       },
       '.cm-panels': { backgroundColor: 'var(--surface)', color: 'var(--text)' },
+      '.cm-panels-top': { borderBottom: '1px solid var(--color-border-subtle, var(--sepsoft))' },
+      '.bs-tk-key': { color: 'var(--sb)' },
+      '.bs-tk-str': { color: 'var(--ss)' },
+      '.bs-tk-lit': { color: 'var(--sn)' },
+      '.cm-foldGutter .cm-gutterElement': { padding: '0 2px', cursor: 'pointer', display: 'flex', alignItems: 'center' },
+      '.cm-foldGutter .bs-fold-mark': { fontSize: '14px', color: 'var(--t3)', lineHeight: '1' },
+      '.cm-foldPlaceholder': {
+        backgroundColor: 'var(--color-selected, var(--hover2))',
+        border: 'none',
+        borderRadius: '999px',
+        color: 'var(--color-text-secondary, var(--t2))',
+        padding: '1px 10px',
+        margin: '0 6px',
+        fontFamily: 'var(--font-ui, inherit)',
+        fontSize: 'var(--font-size-caption, 11px)',
+        cursor: 'pointer',
+      },
+      '.cm-foldPlaceholder:hover': { color: 'var(--color-text, var(--text))' },
+      '.cm-searchMatch': { backgroundColor: 'var(--color-warning-soft, rgba(232, 163, 61, 0.3))', outline: 'none' },
+      '.cm-searchMatch.cm-searchMatch-selected': { backgroundColor: 'color-mix(in srgb, var(--accent) 38%, transparent)' },
+      '.cm-panel.cm-search': { display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '6px 8px', padding: '8px 12px', fontFamily: 'var(--font-ui, inherit)', fontSize: 'var(--font-size-body, 12px)' },
+      '.cm-panel.cm-search br': { display: 'none' },
+      '.cm-panel.cm-search input.cm-textfield': {
+        height: '28px',
+        margin: '0',
+        padding: '0 12px',
+        border: '1px solid var(--color-border-subtle, var(--sep))',
+        borderRadius: '999px',
+        backgroundColor: 'var(--color-field, var(--inset))',
+        color: 'var(--text)',
+        fontSize: 'inherit',
+        outline: 'none',
+      },
+      '.cm-panel.cm-search input.cm-textfield:focus-visible': { boxShadow: 'var(--focus-ring, none)' },
+      '.cm-panel.cm-search button': {
+        height: '26px',
+        margin: '0',
+        padding: '0 10px',
+        border: 'none',
+        borderRadius: '999px',
+        backgroundImage: 'none',
+        backgroundColor: 'var(--color-selected, var(--hover2))',
+        color: 'var(--color-text-secondary, var(--t2))',
+        fontSize: 'inherit',
+        textTransform: 'none',
+      },
+      '.cm-panel.cm-search button:hover': { color: 'var(--text)' },
+      '.cm-panel.cm-search label': { display: 'inline-flex', alignItems: 'center', gap: '4px', color: 'var(--color-text-secondary, var(--t2))' },
+      '.cm-panel.cm-search [name=close]': { position: 'static', marginLeft: 'auto', padding: '0 8px', backgroundColor: 'transparent', fontSize: '16px' },
+      '.cm-diagnostic': { padding: '6px 10px', fontFamily: 'var(--font-ui, inherit)', fontSize: 'var(--font-size-body, 12px)' },
+      '.cm-diagnostic-error': { borderLeft: '3px solid var(--color-danger, var(--red))' },
       // G4: field list with the type on the right and the .proto comment below.
       '.cm-tooltip.bs-ac-rich': { minWidth: '340px', padding: '4px 6px', borderRadius: '12px' },
       '.cm-tooltip.bs-ac-rich > ul': { fontSize: '12px', maxHeight: '260px' },
@@ -391,7 +482,9 @@
           ]),
           EditorState.transactionFilter.of(stripNewlines),
         ]
-      : [
+      : readOnly
+        ? [lineNumbers(), bracketMatching(), EditorState.readOnly.of(true)]
+        : [
           lineNumbers(),
           indentUnit.of('  '),
           indentOnInput(),
@@ -415,16 +508,22 @@
                 : {},
           ),
         ];
+    const fold = !singleLine && (folding ?? lang === 'json');
     return [
       ...modeExtensions,
+      // ⌘F inside any multi-line editor opens the find panel (E1/E4 rule 3, 8).
+      ...(singleLine ? [] : [search({ top: true }), keymap.of(searchKeymap), ...(get(uiLanguage) === 'ru' ? [EditorState.phrases.of(RU_SEARCH)] : [])]),
+      ...(fold ? [largeFolding(), keymap.of(foldKeymap)] : []),
+      ...(lintJson && !readOnly ? [linter(lintSource, { delay: 400 })] : []),
+      wrapCompartment.of(wrap ? EditorView.lineWrapping : []),
       history(),
       drawSelection(),
       EditorState.tabSize.of(2),
       keymap.of([
-        ...(singleLine ? [] : closeBracketsKeymap),
+        ...(singleLine || readOnly ? [] : closeBracketsKeymap),
         ...defaultKeymap,
         ...historyKeymap,
-        ...(singleLine ? [] : [...completionKeymap, indentWithTab]),
+        ...(singleLine || readOnly ? [] : [...completionKeymap, indentWithTab]),
       ]),
       langCompartment.of(langExtension(lang)),
       placeholderCompartment.of(cmPlaceholder(placeholder)),
@@ -453,6 +552,36 @@
     ];
   }
 
+  const RU_SEARCH: Record<string, string> = {
+    Find: 'Найти',
+    Replace: 'Заменить',
+    next: 'далее',
+    previous: 'назад',
+    all: 'все',
+    'match case': 'с регистром',
+    regexp: 'regexp',
+    'by word': 'слово целиком',
+    replace: 'заменить',
+    'replace all': 'заменить все',
+    close: 'закрыть',
+    'Go to line': 'К строке',
+    go: 'перейти',
+  };
+
+  function lintSource(v: EditorView): Diagnostic[] {
+    if (currentLang !== 'json') return [];
+    const text = v.state.doc.toString();
+    const problem = jsonProblem(text);
+    if (!problem) return [];
+    const from = Math.min(problem.pos, text.length);
+    return [{ from, to: Math.min(from + 1, text.length), severity: 'error', message: jsonErrorMessage(text, problem.error) }];
+  }
+
+  /** Once per (re)loaded document: fold the middle of long JSON arrays. Never re-run on edits. */
+  function applyAutoFold(v: EditorView): void {
+    if (autoFold && !singleLine && (lang === 'json' || lang === 'json-lite')) foldLargeArrays(v);
+  }
+
   function createState(doc: string): EditorState {
     return EditorState.create({ doc, extensions: buildExtensions() });
   }
@@ -466,7 +595,9 @@
     if (!host) return;
     const created = untrack(() => {
       lastDocId = docId;
-      return new EditorView({ state: createState(value), parent: host });
+      const v = new EditorView({ state: createState(value), parent: host });
+      applyAutoFold(v);
+      return v;
     });
     view = created;
     return () => {
@@ -488,6 +619,7 @@
       if (nextDocId !== lastDocId) {
         lastDocId = nextDocId;
         view.setState(createState(nextValue));
+        untrack(() => applyAutoFold(view!));
       } else {
         const current = view.state.doc.toString();
         if (nextValue !== current) {
@@ -503,6 +635,7 @@
   $effect(() => {
     const l = lang;
     const p = placeholder;
+    currentLang = l;
     if (!view) return;
     view.dispatch({
       effects: [
@@ -515,6 +648,12 @@
   // Live-reconfigure the `{{var}}` highlight extension. The host derives a new
   // instance whenever the variable scope changes (env switch, quick-add from
   // the popover), so decorations flip resolved/unresolved without a remount.
+  $effect(() => {
+    const w = wrap;
+    if (!view) return;
+    view.dispatch({ effects: wrapCompartment.reconfigure(w ? EditorView.lineWrapping : []) });
+  });
+
   $effect(() => {
     const ext = varHighlight ?? [];
     if (!view) return;

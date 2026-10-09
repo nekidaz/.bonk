@@ -18,9 +18,16 @@
   import { grpcErrorNote } from '../domain/grpcError';
   import { methodShort, grpcCodeTone, dialFailureReason, isGrpcConnectionError } from '../domain/grpc';
   import { openGrpcEditorSection, requestGrpcEditorAction } from '../grpcEditorUi';
-  import { buildView, responseFormat, DISPLAY_CHARS, type ResponseView } from '../domain/responseRender';
+  import { responseFormat } from '../domain/responseRender';
+  import { GRPC_CODES, HTTP_STATUS_TEXT, grpcStatusLabel } from '../domain/statusLabel';
   import { get } from 'svelte/store';
-  import { responseLineWrap, responsePrettyDefault } from '../stores';
+  import { responsePrettyDefault, updateTabById, uiLanguage } from '../stores';
+  import ResponseBody, { type BodyInfo } from './ResponseBody.svelte';
+  import EditorTools from './EditorTools.svelte';
+  import { countLabel } from '../editor/largeFold';
+  import { focusMode } from '../stores/ui';
+  import { toggleFocus } from '../domain/focusMode';
+  import { responseFileName, saveResponseBody } from '../saveResponse';
   import { busyMap, grpcErrorMap } from '../requestRuntime';
   import type { Snippet } from 'svelte';
   import { isCancelled, isTimeout, responseTone } from '../domain/responseHint';
@@ -31,6 +38,9 @@
 
   let respTab = $state<'body' | 'headers' | 'trailers' | 'cookies' | 'timeline' | 'tests'>('body');
   let respMode = $state<'pretty' | 'raw' | 'preview'>(get(responsePrettyDefault) ? 'pretty' : 'raw');
+  /** gRPC responses get the same Pretty / Raw switch (E5). */
+  let grpcMode = $state<'pretty' | 'raw'>(get(responsePrettyDefault) ? 'pretty' : 'raw');
+  let bodyInfo = $state<BodyInfo | undefined>(undefined);
 
   // In-flight request for this tab: drives the "Sending…" meta and the live timer (S04).
   const busy = $derived(tab ? $busyMap[tab.id] : undefined);
@@ -54,7 +64,7 @@
     if (respTab === 'tests' && !testResults) respTab = 'body';
   });
 
-  const STATUS_TEXT: Record<number, string> = { 200: 'OK', 201: 'Created', 204: 'No Content', 400: 'Bad Request', 401: 'Unauthorized', 403: 'Forbidden', 404: 'Not Found', 500: 'Internal Error', 502: 'Bad Gateway', 503: 'Unavailable', 504: 'Gateway Timeout' };
+  const STATUS_TEXT = HTTP_STATUS_TEXT;
   // Mono: status reads without colour — glyph + code + text, falling back to the status class.
   const STATUS_CLASS: Record<number, string> = { 1: 'response.status.info', 2: 'response.status.success', 3: 'response.status.redirect', 4: 'response.status.client', 5: 'response.status.server' };
   const statusText = (s: number) => STATUS_TEXT[s] ?? $t(STATUS_CLASS[Math.floor(s / 100)] ?? 'response.status.network');
@@ -78,9 +88,6 @@
     }
     return out;
   }
-  const GRPC_CODES = ['OK', 'CANCELLED', 'UNKNOWN', 'INVALID_ARGUMENT', 'DEADLINE_EXCEEDED', 'NOT_FOUND', 'ALREADY_EXISTS', 'PERMISSION_DENIED', 'RESOURCE_EXHAUSTED', 'FAILED_PRECONDITION', 'ABORTED', 'OUT_OF_RANGE', 'UNIMPLEMENTED', 'INTERNAL', 'UNAVAILABLE', 'DATA_LOSS', 'UNAUTHENTICATED'];
-  /** `0 OK`, `14 UNAVAILABLE` — gRPC status with its numeric code. */
-  const grpcStatusLabel = (code: string) => (GRPC_CODES.includes(code) ? `${GRPC_CODES.indexOf(code)} ${code}` : code);
 
   function headerValue(headers: Record<string, string> | undefined, name: string): string {
     const lower = name.toLowerCase();
@@ -88,9 +95,8 @@
     return found?.[1] ?? '';
   }
 
-  const grpcView = $derived(
-    tab?.protocol === 'grpc' && tab.grpcResult ? buildView(tab.grpcResult, 'application/json', 'pretty') : undefined,
-  );
+  /** The unary result body shown in the viewer (not for errors, empty bodies, or a stream's feed). */
+  const grpcBody = $derived(tab?.protocol === 'grpc' && tab.grpcResult?.ok && tab.grpcResult.body ? tab.grpcResult : undefined);
   const grpcError = $derived(
     tab?.protocol === 'grpc' && tab.grpcResult && !tab.grpcResult.ok
       ? presentGrpcError(tab.grpcResult.status, tab.grpcResult.body)
@@ -102,6 +108,13 @@
   const grpcTone = $derived(tab?.grpcResult?.ok ? 'success' : grpcCodeTone(grpcCode));
   /** S25: the call never reached the server — a dedicated "unreachable" state. */
   const grpcUnreachable = $derived(grpcCode === 'UNAVAILABLE' && !tab?.grpcStream?.messages.length);
+  /** No reply ever came (14 UNAVAILABLE / 4 DEADLINE_EXCEEDED, nothing streamed): there is no size to report. */
+  const grpcNoReply = $derived((grpcCode === 'UNAVAILABLE' || grpcCode === 'DEADLINE_EXCEEDED') && !tab?.grpcStream?.messages.length);
+  /** Received stream messages as one JSON array (what Copy takes while / after streaming). */
+  const streamCopy = () => `[${tab?.grpcStream?.messages.filter((m) => !m.sent).map((m) => m.body).join(',') ?? ''}]`;
+  function clearFeed(): void {
+    if (tab) updateTabById(tab.id, (x) => (x.grpcStream ? { ...x, grpcStream: { ...x.grpcStream, messages: [] } } : x));
+  }
   /** Re-run the request from the editor's Invoke button (same path as ⌘↵). */
   /** gRPC durations: `42 ms`, `3.4 s` (S20/S25/S26). */
   const grpcElapsed = (ms: number) => (ms >= 1000 ? `${(ms / 1000).toFixed(1)} s` : `${ms} ms`);
@@ -121,11 +134,28 @@
   );
   const responseContentType = $derived(tab?.response ? headerValue(tab.response.headers, 'content-type') : '');
   const responseFmt = $derived(tab?.response ? responseFormat(tab.response.body, responseContentType) : 'Text');
-  const httpView = $derived(
-    tab?.protocol === 'http' && tab.response && respTab === 'body' && respMode !== 'preview'
-      ? buildView(tab.response, responseContentType, respMode)
-      : undefined,
+  // Where the body viewer is on screen: its line count and Find / Fold tools only make sense then.
+  const httpBodyShown = $derived(
+    tab?.protocol === 'http' && !!tab.response && respTab === 'body' && respMode !== 'preview' && !(tab.response.status === 0 && !isCancelled(tab.response)),
   );
+  const grpcBodyShown = $derived(!!grpcBody && respTab === 'body' && !tab?.grpcStream);
+  const bodyShown = $derived(httpBodyShown || grpcBodyShown);
+  const linesLabel = $derived(bodyShown && bodyInfo?.cm ? countLabel(bodyInfo.lines, 'lines', $uiLanguage) : '');
+
+  let saved = $state<'idle' | 'ok' | 'fail'>('idle');
+  async function saveBody(body: string, format: string): Promise<void> {
+    if (!tab) return;
+    try {
+      const path = await saveResponseBody(body, responseFileName(tab.title, format), $t('lb.save'));
+      if (!path) return;
+      saved = 'ok';
+    } catch (err) {
+      console.error('response: save failed', err);
+      saved = 'fail';
+    }
+    setTimeout(() => (saved = 'idle'), 1500);
+  }
+  const expandResponse = () => focusMode.update((m) => toggleFocus(m, 'response'));
 
   async function copyText(text: string): Promise<void> {
     try {
@@ -140,6 +170,23 @@
   <button class="x" class:on={respTab === id} {disabled} role="tab" id="bs-resptab-{id}" aria-selected={respTab === id} aria-controls="bs-resppanel" tabindex={respTab === id ? 0 : -1} onclick={() => (respTab = id)}>
     {label}{#if count}<span class="bs-tab-count">{count}</span>{/if}{#if id === 'tests' && testCount > 0}<span class="bs-test-badge" class:fail={passedCount < testCount}>{passedCount}/{testCount}</span>{/if}
   </button>
+{/snippet}
+
+{#snippet bodyTools(copy: () => void, body: string, format: string)}
+  <EditorTools scope="#bs-resppanel" editor={bodyShown && !!bodyInfo?.cm} onExpand={expandResponse} expanded={$focusMode === 'response'}>
+    {#snippet extra()}
+      <button class="bs-ric" aria-label={$t('response.copy')} title={$t('response.copy')} onclick={copy}><span class="material-symbols-outlined" style="font-size:15px">content_copy</span></button>
+      <button class="bs-ric" aria-label={$t('lb.save')} title={saved === 'fail' ? $t('lb.saveFailed') : $t('lb.save')} disabled={!body} onclick={() => saveBody(body, format)}><span class="material-symbols-outlined" style="font-size:15px">{saved === 'ok' ? 'check' : saved === 'fail' ? 'error' : 'download'}</span></button>
+    {/snippet}
+  </EditorTools>
+{/snippet}
+
+{#snippet modeSeg(value: string, set: (m: 'pretty' | 'raw' | 'preview') => void, preview: boolean)}
+  <div class="bs-seg lb-mode" role="radiogroup" aria-label={$t('lb.resp.mode')}>
+    <button type="button" role="radio" class:on={value === 'pretty'} aria-checked={value === 'pretty'} onclick={() => set('pretty')}>{$t('response.mode.pretty')}</button>
+    <button type="button" role="radio" class:on={value === 'raw'} aria-checked={value === 'raw'} onclick={() => set('raw')}>{$t('response.mode.raw')}</button>
+    {#if preview}<button type="button" role="radio" class:on={value === 'preview'} aria-checked={value === 'preview'} onclick={() => set('preview')}>{$t('response.mode.preview')}</button>{/if}
+  </div>
 {/snippet}
 
 {#snippet waitingForResponse(grpc: boolean)}
@@ -159,39 +206,6 @@
   </div>
 {/snippet}
 
-{#snippet codeBody(view: ResponseView)}
-  <div class="bs-rbody pretty">
-    {#if view.kind === 'plain'}
-      <div class="bs-response-editor" class:wrap={$responseLineWrap}>
-        <div class="bs-response-gutter" aria-hidden="true">
-          {#each view.lines as n}
-            <div>{n}</div>
-          {/each}
-        </div>
-        <div class="bs-code">{@html view.html}</div>
-      </div>
-    {:else if view.kind === 'lines'}
-      <div class="bs-response-editor chunked" class:wrap={$responseLineWrap}>
-        {#each view.chunks as c (c.firstLine)}
-          <div class="bs-resp-chunk" style="contain-intrinsic-size: auto {c.estPx}px">
-            <div class="bs-response-gutter" aria-hidden="true">
-              {#each c.gutter as n}<div>{n}</div>{/each}
-            </div>
-            <div class="bs-code">{@html c.html}</div>
-          </div>
-        {/each}
-      </div>
-    {:else}
-      <div class="bs-response-editor chunked chars">
-        {#each view.chunks as c (c.offset)}
-          <div class="bs-resp-cchunk" style="contain-intrinsic-size: auto {c.estPx}px">
-            <div class="bs-code">{@html c.html}</div>
-          </div>
-        {/each}
-      </div>
-    {/if}
-  </div>
-{/snippet}
 
 {#snippet unreachableFacts()}
   {#if tab?.grpcResult}grpc-status 14{#if tab.grpcResult.attempts}&nbsp;&nbsp;·&nbsp;&nbsp;{tab.grpcResult.attempts} {$tp(tab.grpcResult.attempts, ['попытка', 'попытки', 'попыток'], ['attempt', 'attempts'])}{/if}{#if tab.grpcResult.backoffMs?.length}&nbsp;&nbsp;·&nbsp;&nbsp;backoff {tab.grpcResult.backoffMs.map((ms) => ms / 1000).join(' → ')} s{/if}{/if}
@@ -228,7 +242,8 @@
         <span class="bs-stpill success"><span class="g" aria-hidden="true">●</span>{$t('response.streaming', { n: tab.grpcStream.messages.filter((m) => !m.sent).length })}</span>
         <span class="mo" title={$t('response.time')}>{((now - tab.grpcStream.startedAt) / 1000).toFixed(1)} s</span>
         <span class="mo" title={$t('response.size')}>{formatBytes(tab.grpcStream.messages.reduce((n, m) => n + m.sizeBytes, 0))}</span>
-        <button class="bs-ric" aria-label={$t('response.copy_messages')} title={$t('response.copy_messages')} onclick={() => copyText(`[${tab.grpcStream?.messages.filter((m) => !m.sent).map((m) => m.body).join(',')}]`)}><span class="material-symbols-outlined" style="font-size:15px">content_copy</span></button>
+        <button class="bs-ric" aria-label={$t('response.copy_messages')} title={$t('response.copy_messages')} onclick={() => copyText(streamCopy())}><span class="material-symbols-outlined" style="font-size:15px">content_copy</span></button>
+        <button class="bs-ric" aria-label={$t('response.clear_feed')} title={$t('response.clear_feed')} disabled={!tab.grpcStream.messages.length} onclick={clearFeed}><span class="material-symbols-outlined" style="font-size:15px">mop</span></button>
       </div>
     {:else if sending}
       {@render sendingMeta()}
@@ -236,11 +251,18 @@
       <div class="bs-meta">
         <span class="bs-stpill {grpcTone}"><span class="g" aria-hidden="true">{grpcTone === 'success' ? '✓' : grpcTone === 'warning' ? '!' : '×'}</span>{grpcStatusLabel(grpcCode)}</span>
         <span class="mo" title={$t('response.time')}>{grpcElapsed(tab.grpcResult.elapsed_ms)}</span>
-        <span class="mo" title={$t('response.size')}>{formatBytes(tab.grpcResult.size_bytes)}</span>
-        {#if grpcView?.truncated}
-          <span class="bs-format-pill warn">{$t('response.showing_first', { shown: formatBytes(DISPLAY_CHARS), total: formatBytes(tab.grpcResult.size_bytes) })}</span>
+        <span class="mo" title={$t('response.size')}>{grpcNoReply ? '—' : formatBytes(tab.grpcResult.size_bytes)}</span>
+        {#if linesLabel}<span class="mo lb-lines">{linesLabel}</span>{/if}
+        {#if grpcBodyShown && bodyInfo?.capped}
+          <span class="bs-format-pill warn">{$t('response.showing_first', { shown: formatBytes(bodyInfo.shown), total: formatBytes(tab.grpcResult.size_bytes) })}</span>
         {/if}
-        <button class="bs-ric" aria-label={$t('response.copy')} title={$t('response.copy')} onclick={() => copyText(tab.grpcResult?.body ?? '')}><span class="material-symbols-outlined" style="font-size:15px">content_copy</span></button>
+        {#if grpcBodyShown}{@render modeSeg(grpcMode, (m) => (grpcMode = m === 'raw' ? 'raw' : 'pretty'), false)}{/if}
+        {#if tab.grpcStream?.messages.length}
+          <button class="bs-ric" aria-label={$t('response.copy_messages')} title={$t('response.copy_messages')} onclick={() => copyText(streamCopy())}><span class="material-symbols-outlined" style="font-size:15px">content_copy</span></button>
+          <button class="bs-ric" aria-label={$t('response.clear_feed')} title={$t('response.clear_feed')} onclick={clearFeed}><span class="material-symbols-outlined" style="font-size:15px">mop</span></button>
+        {:else}
+          {@render bodyTools(() => copyText(tab.grpcResult?.body ?? ''), tab.grpcResult.ok ? tab.grpcResult.body : '', 'JSON')}
+        {/if}
       </div>
     {/if}
   </div>
@@ -343,8 +365,8 @@
         <details><summary>{$t('response.technical')}</summary><pre>{grpcError.raw}</pre></details>
       {/if}
     </div>
-  {:else if grpcView}
-    {@render codeBody(grpcView)}
+  {:else if grpcBody}
+    <ResponseBody source={grpcBody} contentType="application/json" mode={grpcMode} bind:info={bodyInfo} />
   {/if}
   </div>
 {:else if tab}
@@ -364,10 +386,12 @@
         <span class="bs-stpill {tone}"><span class="g" aria-hidden="true">{tone === 'success' ? '✓' : tab.response.status ? '!' : '×'}</span>{tab.response.status ? `${tab.response.status} ${statusText(tab.response.status)}` : isCancelled(tab.response) ? $t('response.status.cancelled') : $t('response.status.none')}</span>
         <span class="mo" title={$t('response.time')}>{tab.response.elapsed_ms >= 1000 ? `${(tab.response.elapsed_ms / 1000).toFixed(tab.response.elapsed_ms >= 10_000 ? 1 : 2)} s` : `${tab.response.elapsed_ms} ms`}</span>
         <span class="mo" title={$t('response.size')}>{tab.response.status ? formatBytes(tab.response.size_bytes) : '—'}</span>
+        {#if linesLabel}<span class="mo lb-lines">{linesLabel}</span>{/if}
         {#if tab.response.body_truncated}
           <span class="bs-format-pill warn">{$t('response.truncated')}</span>
         {/if}
-        <button class="bs-ric" aria-label={$t('response.copy')} title={$t('response.copy')} onclick={() => copyText(tab.response?.body ?? '')}><span class="material-symbols-outlined" style="font-size:15px">content_copy</span></button>
+        {#if respTab === 'body' && tab.response.status !== 0}{@render modeSeg(respMode, (m) => (respMode = m), responseFmt === 'HTML')}{/if}
+        {@render bodyTools(() => copyText(tab.response?.body ?? ''), tab.response.body, responseFmt)}
       </div>
     {/if}
   </div>
@@ -429,19 +453,14 @@
   {:else}
     <div class="bs-response-view">
       <!-- Mono 3.0: JSON renders straight into the card; other formats keep the view switch. -->
-      {#if responseFmt !== 'JSON' || respMode !== 'pretty' || tab.response.body_truncated || httpView?.truncated}
+      {#if tab.response.body_truncated || (httpBodyShown && bodyInfo?.capped) || (tab.response.final_url && tab.response.final_url !== buildUrl(tab.request.url, tab.params))}
       <div class="bs-response-tools">
-        <div class="bs-seg">
-          <button class:on={respMode === 'pretty'} aria-pressed={respMode === 'pretty'} onclick={() => (respMode = 'pretty')}>{$t('response.mode.pretty')}</button>
-          <button class:on={respMode === 'raw'} aria-pressed={respMode === 'raw'} onclick={() => (respMode = 'raw')}>{$t('response.mode.raw')}</button>
-          <button class:on={respMode === 'preview'} aria-pressed={respMode === 'preview'} onclick={() => (respMode = 'preview')}>{$t('response.mode.preview')}</button>
-        </div>
         <span class="bs-format-pill">{responseFmt}</span>
         {#if tab.response.body_truncated}
           <span class="bs-format-pill warn">{$t('response.body_truncated')}</span>
         {/if}
-        {#if httpView?.truncated}
-          <span class="bs-format-pill warn" title={$t('response.full_kept', { n: formatBytes(DISPLAY_CHARS) })}>{$t('response.showing_first', { shown: formatBytes(DISPLAY_CHARS), total: formatBytes(tab.response.size_bytes) })}</span>
+        {#if httpBodyShown && bodyInfo?.capped}
+          <span class="bs-format-pill warn" title={$t('response.full_kept', { n: formatBytes(bodyInfo.shown) })}>{$t('response.showing_first', { shown: formatBytes(bodyInfo.shown), total: formatBytes(tab.response.size_bytes) })}</span>
         {/if}
         {#if responseContentType}
           <span class="bs-content-type">{responseContentType}</span>
@@ -449,9 +468,6 @@
         {#if tab.response.final_url && tab.response.final_url !== buildUrl(tab.request.url, tab.params)}
           <span class="bs-final-url" title={tab.response.final_url}>{$t('response.final_url', { url: tab.response.final_url })}</span>
         {/if}
-        <button class="bs-tool-ic" title={$t('response.copy')} onclick={() => copyText(tab.response?.body ?? '')}>
-          <span class="material-symbols-outlined" style="font-size:15px">content_copy</span>
-        </button>
       </div>
       {/if}
       {#if respMode === 'preview'}
@@ -460,8 +476,8 @@
         {:else}
           <div class="bs-empty-resp"><span class="material-symbols-outlined" style="font-size:38px">preview</span><div>{$t('response.preview_html_only')}</div></div>
         {/if}
-      {:else if httpView}
-        {@render codeBody(httpView)}
+      {:else}
+        <ResponseBody source={tab.response} contentType={responseContentType} mode={respMode === "raw" ? "raw" : "pretty"} bind:info={bodyInfo} />
       {/if}
     </div>
   {/if}

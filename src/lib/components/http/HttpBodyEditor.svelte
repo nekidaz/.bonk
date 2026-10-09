@@ -21,6 +21,8 @@
     activeEnvironmentId,
   } from '../../stores';
   import { requestVariableHighlight } from '../../editor/requestVarHighlight';
+  import { isLargeBody } from '../../domain/largeBody';
+  import { jsonProblem } from '../../domain/jsonLint';
   import type { BodyMode, BodyParamKind, RawBodyFormat, Tab } from '../../domain/types';
 
   let { tab }: { tab: Tab } = $props();
@@ -66,6 +68,10 @@
     }
   });
   const canBeautify = $derived(currentBodyMode(tab) === 'raw' && ['JSON', 'HTML', 'XML'].includes(currentRawFormat(tab)));
+  // E1: a large text body loses this head — format, size, lines and tools move into the request tabs row.
+  const large = $derived((currentBodyMode(tab) === 'raw' || currentBodyMode(tab) === 'binary') && isLargeBody(tab.request.body ?? ''));
+  // S10: live syntax check, flagged next to the content type (the editor underlines the spot).
+  const bodyInvalid = $derived(!large && currentBodyMode(tab) === 'raw' && currentRawFormat(tab) === 'JSON' && !!jsonProblem(tab.request.body ?? ''));
 
   function pickSegment(key: Segment): void {
     const mode = currentBodyMode(tab);
@@ -192,6 +198,7 @@
 </script>
 
 <div class="bs-http-body">
+  {#if !large}
   <div class="bs-body-head">
     <div class="bs-body-seg" role="radiogroup" aria-label={$t('http.body.type_aria')}>
       {#each segments as seg (seg.key)}
@@ -211,11 +218,12 @@
         <span class="material-symbols-outlined" aria-hidden="true">keyboard_arrow_down</span>
       </span>
     {/if}
-    <span class="bs-body-info">{bodyInfo}</span>
+    <span class="bs-body-info">{bodyInfo}{#if bodyInvalid}<b class="lb-bad">{'  ·  '}{$t('lb.json.invalid')}</b>{/if}</span>
     {#if canBeautify}
       <button class="bs-body-beautify" type="button" onclick={beautifyBody}><span class="material-symbols-outlined" aria-hidden="true">format_align_left</span>{$t('http.body.beautify')}</button>
     {/if}
   </div>
+  {/if}
 
   {#if bodyError}<div class="bs-body-error">{bodyError}</div>{/if}
 
@@ -321,6 +329,8 @@
         placeholder={bodyPlaceholder(tab, $t)}
         minHeight="120px"
         {varHighlight}
+        lintJson
+        autoFold
         docId={tab.id}
         ariaLabel={$t('http.body.aria')}
       />

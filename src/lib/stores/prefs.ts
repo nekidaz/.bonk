@@ -20,3 +20,18 @@ export type Density = 'compact' | 'normal';
 export const density = persisted<Density>('density', 'normal', (v): v is Density => v === 'compact' || v === 'normal');
 /** «Как в системе»: follow the OS light/dark appearance with the Bonk palettes. */
 export const themeFollowSystem = persisted('themeFollowSystem', false);
+
+// Settings → Внешний вид → «Раскладка запроса и ответа» (S32.5b, E1–E7).
+/** stack: request above, response below · side: side by side · focus: the pane in use fills, the other folds into a strip. */
+export type RequestLayout = 'stack' | 'side' | 'focus';
+export const requestLayout = persisted<RequestLayout>('requestLayout', 'stack', (v): v is RequestLayout => v === 'stack' || v === 'side' || v === 'focus');
+/** After a response arrives: leave the panes alone, or give the response the height (request folds into its strip). */
+export type AfterSend = 'keep' | 'expand';
+export const afterSend = persisted<AfterSend>('afterSend', 'keep', (v): v is AfterSend => v === 'keep' || v === 'expand');
+/** From SIDE_BY_SIDE_MIN px wide the request and response sit side by side whatever the layout above says. */
+export const sideOnWide = persisted('sideOnWide', true);
+export const SIDE_BY_SIDE_MIN = 1440;
+/** Arrays longer than this show only their first/last items; the middle folds into a «ещё N объектов» chip. */
+export const FOLD_ARRAYS_MIN = 5;
+export const FOLD_ARRAYS_MAX = 10_000;
+export const foldArraysOver = persisted<number>('foldArraysOver', 50, (v): v is number => Number.isInteger(v) && (v as number) >= FOLD_ARRAYS_MIN && (v as number) <= FOLD_ARRAYS_MAX);

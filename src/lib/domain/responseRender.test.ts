@@ -1,6 +1,16 @@
 import { describe, it, expect } from 'vitest';
 import { esc } from './highlight';
-import { computeView, displayText, responseFormat, DISPLAY_CHARS, PARSE_BUDGET } from './responseRender';
+import { computeDoc, computeView, displayText, responseFormat, DISPLAY_CHARS, PARSE_BUDGET } from './responseRender';
+
+describe('computeDoc (CodeMirror viewer)', () => {
+  it('pretty-prints JSON for the viewer and keeps raw as is', () => {
+    expect(computeDoc('{"a":1}', 'application/json', 'pretty')).toEqual({ text: '{\n  "a": 1\n}', truncated: false, format: 'JSON' });
+    expect(computeDoc('{"a":1}', 'application/json', 'raw')?.text).toBe('{"a":1}');
+  });
+  it('leaves huge minified single-line bodies to the chunked renderer', () => {
+    expect(computeDoc(bigMinifiedJson(3_000_000), 'application/json', 'raw')).toBeUndefined();
+  });
+});
 
 /** Minified JSON array string of at least `targetBytes` characters. */
 function bigMinifiedJson(targetBytes: number): string {
