@@ -1,4 +1,3 @@
-import { get } from 'svelte/store';
 import { t } from '$shared/i18n';
 import type { BodyParam, HttpRequest, Tab } from './types';
 import { buildUrl } from './http';

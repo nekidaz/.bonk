@@ -16,7 +16,6 @@
    * propagation so clicking inside doesn't close it.
    */
   import { tick, untrack } from 'svelte';
-  import { get } from 'svelte/store';
   import { tabs, grpcSnapshot, titleFromUrl, GRPC_DEFAULT_TITLE } from '$entities/tab';
   import { workspace } from '$entities/workspace';
   import { addHistory } from '$entities/history';
@@ -24,10 +23,6 @@
   import {
     applyScriptVars,
     addAppConsoleEntry,
-    busyMap,
-    grpcErrorMap,
-    grpcEditorAction,
-    grpcEditorSections,
     isGrpcNoServicesHint,
     grpcConnectFailureMessage,
     inferGrpcPlaintext,
@@ -37,6 +32,8 @@
     GRPC_DIAL_BACKOFF_MS,
     parseGrpcurl,
     type GrpcConnectStage,
+    requestRuntime,
+    grpcEditorUi,
   } from '$entities/request';
   import {
     cancelRequest,
@@ -115,19 +112,19 @@
   const noAddress = $derived(!(tab.grpc?.endpoint ?? '').trim());
   const streamMethod = $derived(!!selectedMethod?.serverStreaming || !!selectedMethod?.clientStreaming);
 
-  const gTab = $derived($grpcEditorSections[tab.id] ?? 'message');
+  const gTab = $derived(grpcEditorUi.sections[tab.id] ?? 'message');
   // E2 (rules 2, 3, 6): a large message loses its head — type, size, lines and tools move into the tabs row.
   const largeMessage = $derived(gTab === 'message' && !chooseSchema && isLargeBody(tab.grpc?.message ?? ''));
   const messageStats = $derived(largeMessage ? textStats(tab.grpc?.message ?? '') : undefined);
   // Per-tab gRPC in-flight state derived from the shared `busyMap` store so the
   // tab's Invoke/Connect buttons reflect ONLY that tab's request.
-  const activeBusy = $derived($busyMap[tab.id]);
+  const activeBusy = $derived(requestRuntime.busy[tab.id]);
   const grpcConnecting = $derived(activeBusy?.kind === 'connect');
   const grpcInvoking = $derived(activeBusy?.kind === 'invoke');
   // Client/bidi: the stream is open and still takes messages from the editor.
   const streamWritable = $derived(grpcInvoking && !!activeBusy?.writable);
   // Per-tab gRPC error text, so a stale error never shows on the wrong tab.
-  const activeGrpcError = $derived($grpcErrorMap[tab.id] ?? '');
+  const activeGrpcError = $derived(requestRuntime.grpcErrors[tab.id] ?? '');
   // Postman-style: when the dial succeeded but the services can't be listed via
   // reflection, show neutral guidance to load a schema instead of a red error
   // (see grpcConnectFailureMessage in entities/request/grpc.ts).
@@ -168,9 +165,9 @@
   }
   // «Повторить» / TLS from the response pane's unreachable state (S25).
   $effect(() => {
-    const action = $grpcEditorAction;
+    const action = grpcEditorUi.action;
     if (!action || action.tabId !== tab.id) return;
-    grpcEditorAction.set(null);
+    grpcEditorUi.action = null;
     untrack(() => {
       if (action.kind === 'reconnect') void grpcDoConnect();
       else tlsOpen = true;
@@ -181,8 +178,8 @@
     const t = tab;
     if (!t?.grpc) return;
     const tabId = t.id;
-    grpcErrorMap.update((m) => ({ ...m, [tabId]: '' }));
-    busyMap.update((m) => ({ ...m, [tabId]: { kind: 'connect' } }));
+    requestRuntime.updateGrpcErrors((m) => ({ ...m, [tabId]: '' }));
+    requestRuntime.updateBusy((m) => ({ ...m, [tabId]: { kind: 'connect' } }));
     // Track which step failed: a dial failure (bad/unresolved endpoint,
     // unreachable server) must show the real error — schema guidance can't fix
     // it — while a post-dial reflection failure keeps the friendly hint.
@@ -238,10 +235,10 @@
           },
         }));
       } else {
-        grpcErrorMap.update((m) => ({ ...m, [tabId]: message }));
+        requestRuntime.updateGrpcErrors((m) => ({ ...m, [tabId]: message }));
       }
     } finally {
-      busyMap.update((m) => (m[tabId]?.kind === 'connect' ? omitKey(m, tabId) : m));
+      requestRuntime.updateBusy((m) => (m[tabId]?.kind === 'connect' ? omitKey(m, tabId) : m));
     }
   }
   /** G1: a pasted `grpcurl …` fills endpoint, TLS, method, message and metadata. */
@@ -274,7 +271,7 @@
   }
   function dismissGrpcError(): void {
     const tabId = tab.id;
-    grpcErrorMap.update((current) => omitKey(current, tabId));
+    requestRuntime.updateGrpcErrors((current) => omitKey(current, tabId));
   }
   /** Connect + reflect automatically if not already connected. */
   async function ensureConnected(): Promise<void> {
@@ -294,7 +291,7 @@
     const tabId = tab.id;
     let g = tabs.list.find((t) => t.id === tabId)?.grpc;
     if (!g?.method) {
-      grpcErrorMap.update((m) => ({ ...m, [tabId]: t('grpc.selectMethodFirst') }));
+      requestRuntime.updateGrpcErrors((m) => ({ ...m, [tabId]: t('grpc.selectMethodFirst') }));
       return;
     }
     if (!g.connectionId) {
@@ -302,19 +299,19 @@
       g = tabs.list.find((t) => t.id === tabId)?.grpc;
     }
     if (!g?.connectionId || !g.method) return;
-    grpcErrorMap.update((m) => ({ ...m, [tabId]: '' }));
+    requestRuntime.updateGrpcErrors((m) => ({ ...m, [tabId]: '' }));
     await loadGrpcTemplate(tabId, g.connectionId, g.method);
   }
   /** Client/bidi: send the editor message into the open stream. */
   async function grpcSendMore(): Promise<void> {
     const tabId = tab.id;
-    const busy = $busyMap[tabId];
+    const busy = requestRuntime.busy[tabId];
     const g = tabs.list.find((t) => t.id === tabId)?.grpc;
     if (!busy?.writable || !busy.requestId || !g) return;
     const body = resolveVars(g.message, currentVarScope()).trim() || '{}';
     try {
       await grpcStreamSend(busy.requestId, body);
-      grpcErrorMap.update((m) => ({ ...m, [tabId]: '' }));
+      requestRuntime.updateGrpcErrors((m) => ({ ...m, [tabId]: '' }));
       tabs.updateById(tabId, (x) => {
         const s = x.grpcStream;
         if (!s) return x;
@@ -327,21 +324,21 @@
         };
       });
     } catch (e) {
-      grpcErrorMap.update((m) => ({ ...m, [tabId]: String(e) }));
+      requestRuntime.updateGrpcErrors((m) => ({ ...m, [tabId]: String(e) }));
     }
   }
   /** Client/bidi: half-close; the server's replies keep arriving until it finishes. */
   async function grpcEndStream(): Promise<void> {
     const tabId = tab.id;
-    const requestId = $busyMap[tabId]?.requestId;
+    const requestId = requestRuntime.busy[tabId]?.requestId;
     if (!requestId) return;
-    busyMap.update((m) =>
+    requestRuntime.updateBusy((m) =>
       m[tabId]?.requestId === requestId ? { ...m, [tabId]: { ...m[tabId], writable: false } } : m,
     );
     await grpcStreamEnd(requestId);
   }
   async function grpcStop(): Promise<void> {
-    const requestId = $busyMap[tab.id]?.requestId;
+    const requestId = requestRuntime.busy[tab.id]?.requestId;
     if (requestId) await cancelRequest(requestId);
   }
   async function grpcDoInvoke(): Promise<void> {
@@ -350,7 +347,7 @@
     const tabId = t0.id;
     // If this tab already has an invoke in flight, the button is a Cancel
     // (or Send, while a client/bidi stream is still open).
-    const inFlight = $busyMap[tabId];
+    const inFlight = requestRuntime.busy[tabId];
     if (inFlight?.kind === 'invoke' && inFlight.writable) return grpcSendMore();
     if (inFlight?.kind === 'invoke' && inFlight.requestId) {
       await cancelRequest(inFlight.requestId);
@@ -365,16 +362,16 @@
     // A failed connect/reflect already left its banner via grpcDoConnect; the
     // two cases IT can't explain (blank endpoint, no method) get their own.
     if (!g?.connectionId) {
-      if (!g?.endpoint.trim()) grpcErrorMap.update((m) => ({ ...m, [tabId]: t('grpc.endpointFirst') }));
+      if (!g?.endpoint.trim()) requestRuntime.updateGrpcErrors((m) => ({ ...m, [tabId]: t('grpc.endpointFirst') }));
       return;
     }
     if (!g.method) {
-      grpcErrorMap.update((m) => ({ ...m, [tabId]: t('grpc.selectMethodFirst') }));
+      requestRuntime.updateGrpcErrors((m) => ({ ...m, [tabId]: t('grpc.selectMethodFirst') }));
       return;
     }
     const requestId = crypto.randomUUID();
-    grpcErrorMap.update((m) => ({ ...m, [tabId]: '' }));
-    busyMap.update((m) => ({ ...m, [tabId]: { kind: 'invoke', requestId } }));
+    requestRuntime.updateGrpcErrors((m) => ({ ...m, [tabId]: '' }));
+    requestRuntime.updateBusy((m) => ({ ...m, [tabId]: { kind: 'invoke', requestId } }));
 
     const tests: ScriptResult['tests'] = [];
     const logs: string[] = [];
@@ -409,8 +406,8 @@
           message: pre.error,
           logs,
         });
-        grpcErrorMap.update((m) => ({ ...m, [tabId]: t('grpc.err.preRequest', { err: pre.error ?? '' }) }));
-        busyMap.update((m) => (m[tabId]?.requestId === requestId ? omitKey(m, tabId) : m));
+        requestRuntime.updateGrpcErrors((m) => ({ ...m, [tabId]: t('grpc.err.preRequest', { err: pre.error ?? '' }) }));
+        requestRuntime.updateBusy((m) => (m[tabId]?.requestId === requestId ? omitKey(m, tabId) : m));
         return;
       }
       const patched = applyGrpcRequestPatch(
@@ -445,7 +442,7 @@
       if (streaming) {
         const sent = method?.clientStreaming ? sentEntries(resolvedMessage, 0) : [];
         if (method?.clientStreaming)
-          busyMap.update((m) =>
+          requestRuntime.updateBusy((m) =>
             m[tabId]?.requestId === requestId ? { ...m, [tabId]: { ...m[tabId], writable: true } } : m,
           );
         tabs.updateById(tabId, (x) => ({
@@ -476,7 +473,7 @@
     } catch (e) {
       result = invokeFailureResult(e);
     } finally {
-      busyMap.update((m) => (m[tabId]?.requestId === requestId ? omitKey(m, tabId) : m));
+      requestRuntime.updateBusy((m) => (m[tabId]?.requestId === requestId ? omitKey(m, tabId) : m));
     }
 
     // Test script — runs against the result; its env/globals writes are

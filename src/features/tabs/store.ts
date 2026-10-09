@@ -1,14 +1,12 @@
-import { get } from 'svelte/store';
 import { t } from '$shared/i18n';
 import type { GrpcTabState, Tab } from '$shared/model';
 import { cancelRequest } from '$shared/ipc';
 import {
-  busyMap,
-  grpcErrorMap,
   clearGrpcEditorSection,
   requestSaveDialog,
   dirtyTabIds,
   saveActiveRequest,
+  requestRuntime,
 } from '$entities/request';
 import { parentId, renameNode } from '$entities/workspace';
 import {
@@ -87,14 +85,14 @@ export function closeTab(id: string): void {
   if (idx === -1) return;
   // Cancel any in-flight request for this tab and drop its runtime state so a
   // closed tab can't leave an orphaned backend request or leak busy/error maps.
-  const busy = get(busyMap)[id];
+  const busy = requestRuntime.busy[id];
   if (busy?.requestId) void cancelRequest(busy.requestId);
-  busyMap.update((m) => {
+  requestRuntime.updateBusy((m) => {
     if (!(id in m)) return m;
     const { [id]: _b, ...rest } = m;
     return rest;
   });
-  grpcErrorMap.update((m) => {
+  requestRuntime.updateGrpcErrors((m) => {
     if (!(id in m)) return m;
     const { [id]: _e, ...rest } = m;
     return rest;
@@ -122,7 +120,7 @@ export function closeTab(id: string): void {
  */
 export async function requestCloseTab(id: string): Promise<void> {
   const tab = tabs.list.find((x) => x.id === id);
-  if (tab && confirmCloseUnsaved.current && get(dirtyTabIds).has(id)) {
+  if (tab && confirmCloseUnsaved.current && dirtyTabIds.current.has(id)) {
     const choice = await requestChoice(
       t('tabs.confirmClose', { title: tab.title }),
       t('common.save'),
@@ -144,7 +142,7 @@ export async function requestCloseTab(id: string): Promise<void> {
 
 /** Bulk close: one confirm for every tab in `ids` with unsaved changes, then close them all. */
 async function closeTabs(ids: string[]): Promise<void> {
-  const dirty = get(dirtyTabIds);
+  const dirty = dirtyTabIds.current;
   const n = ids.filter((id) => dirty.has(id)).length;
   if (
     n &&

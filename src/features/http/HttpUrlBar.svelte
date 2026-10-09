@@ -1,7 +1,7 @@
 <script lang="ts">
   import { t, tp } from '$shared/i18n';
   import { cancelRequest } from '$shared/ipc';
-  import { busyMap, sendHttpRequest, applyCurlToActiveTab, requestProductionSend } from '$entities/request';
+  import { sendHttpRequest, applyCurlToActiveTab, requestProductionSend, requestRuntime } from '$entities/request';
   import { tabs } from '$entities/tab';
   import { environments, currentVarScope, requestVariableHighlight, needsProductionGuard } from '$entities/environment';
   import { withInheritedAuth } from '$entities/workspace';
@@ -22,7 +22,7 @@
   let { tab, methodOpen = $bindable() }: { tab: Tab; methodOpen: boolean } = $props();
 
   const cancelledMsg = $derived(t('http.url.cancelled'));
-  const activeBusy = $derived($busyMap[tab.id]);
+  const activeBusy = $derived(requestRuntime.busy[tab.id]);
   // S38: everyday methods first, service ones (muted) below a divider.
   const methodGroups = [
     ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'QUERY'],
@@ -124,7 +124,7 @@
     const t = tab;
     if (!t || t.protocol !== 'http') return;
 
-    const inFlight = $busyMap[t.id];
+    const inFlight = requestRuntime.busy[t.id];
     if (inFlight?.kind === 'http' && inFlight.requestId) {
       await cancelRequest(inFlight.requestId);
       return;
@@ -146,7 +146,7 @@
 
     const id = t.id;
     const requestId = crypto.randomUUID();
-    busyMap.update((m) => ({ ...m, [id]: { kind: 'http', requestId, startedAt: Date.now() } }));
+    requestRuntime.updateBusy((m) => ({ ...m, [id]: { kind: 'http', requestId, startedAt: Date.now() } }));
     const req = buildRequestForSend(withInheritedAuth(t, t.savedPath), finalUrl);
 
     try {
@@ -163,7 +163,7 @@
       };
       tabs.updateById(id, (x) => ({ ...x, response: res }));
     } finally {
-      busyMap.update((m) => {
+      requestRuntime.updateBusy((m) => {
         if (m[id]?.requestId !== requestId) return m;
         const { [id]: _done, ...rest } = m;
         return rest;

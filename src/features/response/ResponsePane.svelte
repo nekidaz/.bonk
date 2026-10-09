@@ -1,7 +1,7 @@
 <script lang="ts">
   import { t } from '$shared/i18n';
   import ResponseView from './ResponseView.svelte';
-  import { busyMap } from '$entities/request';
+  import { requestRuntime } from '$entities/request';
   import type { Tab } from '$shared/model';
 
   let {
@@ -16,7 +16,7 @@
     onSettings: () => void;
   } = $props();
 
-  const sending = $derived(!!$busyMap[tab.id] && $busyMap[tab.id]?.kind !== 'connect');
+  const sending = $derived(!!requestRuntime.busy[tab.id] && requestRuntime.busy[tab.id]?.kind !== 'connect');
   // A stream shows its own live feed; the indeterminate bar is for request/response calls.
   const progress = $derived(sending && !tab.grpcStream);
 </script>

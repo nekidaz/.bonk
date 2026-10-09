@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { filterGrpcServices } from './grpcEditorUi';
+import { filterGrpcServices } from './grpcEditorUi.svelte';
 import type { GrpcService } from '$shared/model';
 
 const services: GrpcService[] = [

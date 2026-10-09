@@ -1,12 +1,12 @@
 <script lang="ts">
   import { t } from '$shared/i18n';
-  import { productionGuard } from './dialogs';
+  import { dialogs } from './dialogs.svelte';
   import { methodColor } from '$shared/model';
 
   let typed = $state('');
   let returnFocus: HTMLElement | null = null;
 
-  const guard = $derived($productionGuard);
+  const guard = $derived(dialogs.productionGuard);
   const matches = $derived(!!guard && typed.trim().toLowerCase() === guard.envName.toLowerCase());
   // Show the path; the host sits next to the environment pill.
   const path = $derived.by(() => {
@@ -28,7 +28,7 @@
   function close(ok: boolean): void {
     if (!guard || (ok && !matches)) return;
     guard.resolve(ok);
-    productionGuard.set(null);
+    dialogs.productionGuard = null;
     returnFocus?.focus();
   }
 

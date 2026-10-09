@@ -2,7 +2,7 @@
   /** The response folded into a 44 px strip (E1/E3 rule 1): status, time, size, first line, «Показать ответ ⇧⌘R». */
   import { t } from '$shared/i18n';
   import { hotkeys, formatBinding } from '$shared/settings';
-  import { busyMap, grpcCodeTone } from '$entities/request';
+  import { grpcCodeTone, requestRuntime } from '$entities/request';
   import { formatBytes, type Tab } from '$shared/model';
   import { oneLinePreview } from '$shared/ui';
   import { presentGrpcError } from './grpcError';
@@ -11,7 +11,7 @@
 
   let { tab, onShow }: { tab: Tab; onShow: () => void } = $props();
 
-  const sending = $derived(!!$busyMap[tab.id] && $busyMap[tab.id]?.kind !== 'connect');
+  const sending = $derived(!!requestRuntime.busy[tab.id] && requestRuntime.busy[tab.id]?.kind !== 'connect');
   const info = $derived.by(() => {
     if (tab.protocol === 'grpc') {
       const r = tab.grpcResult;

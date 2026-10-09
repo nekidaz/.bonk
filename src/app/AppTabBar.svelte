@@ -139,8 +139,8 @@
         {:else}
           <button
             class="x"
-            class:dirty={$dirtyTabIds.has(tb.id)}
-            aria-label={$dirtyTabIds.has(tb.id) ? t('tabs.closeTabUnsaved') : t('tabs.closeTab')}
+            class:dirty={dirtyTabIds.current.has(tb.id)}
+            aria-label={dirtyTabIds.current.has(tb.id) ? t('tabs.closeTabUnsaved') : t('tabs.closeTab')}
             title={t('tabs.close')}
             onclick={(e) => {
               e.stopPropagation();

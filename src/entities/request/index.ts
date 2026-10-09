@@ -1,10 +1,10 @@
 // Public API of entities/request (like the exported names of a Go package).
 // Code outside src/entities/request/ imports only from here; files inside use relative paths.
 
-export { addAppConsoleEntry, appConsoleEntries, type AppConsoleEntry, clearAppConsole } from './console';
-export { requestProductionSend, requestSaveDialog } from './dialogs';
+export { addAppConsoleEntry, appConsole, type AppConsoleEntry, clearAppConsole } from './console.svelte';
+export { requestProductionSend, requestSaveDialog } from './dialogs.svelte';
 export { isParamChanged } from './dirty';
-export { dirtyTabIds } from './dirtyTabs';
+export { dirtyTabIds } from './dirtyTabs.svelte';
 export { activeEnvMap, globalsMap, runGrpcNode, runHttpNode, runNode } from './execute';
 export {
   atTopLevelKey,
@@ -32,13 +32,12 @@ export {
 export {
   clearGrpcEditorSection,
   filterGrpcServices,
-  grpcEditorAction,
   type GrpcEditorSection,
-  grpcEditorSections,
+  grpcEditorUi,
   openGrpcEditorSection,
   requestGrpcEditorAction,
-} from './grpcEditorUi';
-export { busyMap, grpcErrorMap } from './requestRuntime';
+} from './grpcEditorUi.svelte';
+export { requestRuntime } from './requestRuntime.svelte';
 export {
   addRequestToFolder,
   applyCurlToActiveTab,

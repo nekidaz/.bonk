@@ -129,7 +129,7 @@
         <button class="nm rename" class:draft={!origin} title={t('nav.header.rename')} onclick={startRename}
           >{tab.title}</button
         >
-        {#if tab.savedPath && $dirtyTabIds.has(tab.id)}<span class="bs-modified"
+        {#if tab.savedPath && dirtyTabIds.current.has(tab.id)}<span class="bs-modified"
             ><span class="dot" aria-hidden="true"></span>{t('nav.header.modified')}</span
           >{/if}
       </span>
@@ -140,7 +140,7 @@
     <button
       class="bs-save bs-save-main"
       class:saved={savedFlash}
-      class:primary={$dirtyTabIds.has(tab.id)}
+      class:primary={dirtyTabIds.current.has(tab.id)}
       title={tab.savedPath ? t('nav.header.saveTip') : t('nav.header.saveToTip')}
       onclick={onSmartSave}
     >

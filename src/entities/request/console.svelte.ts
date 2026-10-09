@@ -1,4 +1,3 @@
-import { writable } from 'svelte/store';
 import type { RequestProtocol } from '$shared/model';
 
 export interface AppConsoleEntry {
@@ -16,8 +15,11 @@ export interface AppConsoleEntry {
 
 const MAX_CONSOLE_ENTRIES = 500;
 
-/** Runtime-only request console. It is intentionally separate from History. */
-export const appConsoleEntries = writable<AppConsoleEntry[]>([]);
+/** Runtime-only request console (`appConsole.entries`). It is intentionally separate from History. */
+class AppConsole {
+  entries = $state.raw<AppConsoleEntry[]>([]);
+}
+export const appConsole = new AppConsole();
 
 export function addAppConsoleEntry(
   entry: Omit<AppConsoleEntry, 'id' | 'at'> & Partial<Pick<AppConsoleEntry, 'id' | 'at'>>,
@@ -29,9 +31,9 @@ export function addAppConsoleEntry(
     id: entry.id ?? crypto.randomUUID(),
     at: entry.at ?? Date.now(),
   };
-  appConsoleEntries.update((entries) => [...entries, next].slice(-MAX_CONSOLE_ENTRIES));
+  appConsole.entries = [...appConsole.entries, next].slice(-MAX_CONSOLE_ENTRIES);
 }
 
 export function clearAppConsole(): void {
-  appConsoleEntries.set([]);
+  appConsole.entries = [];
 }

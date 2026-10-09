@@ -1,4 +1,3 @@
-import { get } from 'svelte/store';
 import { t } from '$shared/i18n';
 /**
  * Pure OpenAPI / Swagger import + export. This module is a leaf: it imports only

@@ -4,7 +4,7 @@
    * «Свернуть Esc» and Send. Send clicks the hidden editor's own Send button, so cancel / stream states stay its job.
    */
   import { t, uiLanguage } from '$shared/i18n';
-  import { busyMap, methodShort } from '$entities/request';
+  import { methodShort, requestRuntime } from '$entities/request';
   import { tabs } from '$entities/tab';
   import { focusMode } from '$shared/ui';
   import { formatBytes, methodColor, currentBodyMode, currentRawFormat, type Tab } from '$shared/model';
@@ -14,7 +14,7 @@
   let { tab, mode }: { tab: Tab; mode: 'request' | 'response' } = $props();
 
   const grpc = $derived(tab.protocol === 'grpc');
-  const busy = $derived(!!$busyMap[tab.id] && $busyMap[tab.id]?.kind !== 'connect');
+  const busy = $derived(!!requestRuntime.busy[tab.id] && requestRuntime.busy[tab.id]?.kind !== 'connect');
   const body = $derived(grpc ? (tab.grpc?.message ?? '') : (tab.request.body ?? ''));
   const stats = $derived(mode === 'request' ? textStats(body) : undefined);
   const address = $derived(

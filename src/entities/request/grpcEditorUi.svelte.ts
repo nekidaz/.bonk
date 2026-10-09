@@ -1,29 +1,33 @@
-import { writable } from 'svelte/store';
+import { untrack } from 'svelte';
 import type { GrpcService } from '$shared/model';
 
 export type GrpcEditorSection = 'message' | 'metadata' | 'auth' | 'proto' | 'scripts';
 
-/** Per-request UI state so the response pane can navigate the sibling editor. */
-export const grpcEditorSections = writable<Record<string, GrpcEditorSection>>({});
-
-export function openGrpcEditorSection(tabId: string, section: GrpcEditorSection): void {
-  grpcEditorSections.update((current) => ({ ...current, [tabId]: section }));
-}
-
 /** One-shot command from the response pane to the request's editor (S25 «Повторить» / TLS). */
 export type GrpcEditorAction = { tabId: string; kind: 'reconnect' | 'tls' };
-export const grpcEditorAction = writable<GrpcEditorAction | null>(null);
+
+/** gRPC editor UI state shared with the response pane, so it can drive the sibling editor. */
+class GrpcEditorUi {
+  /** Open section per tab id. */
+  sections = $state.raw<Record<string, GrpcEditorSection>>({});
+  /** Pending command for one tab's editor; the editor runs it and clears it. */
+  action = $state.raw<GrpcEditorAction | null>(null);
+}
+export const grpcEditorUi = new GrpcEditorUi();
+
+export function openGrpcEditorSection(tabId: string, section: GrpcEditorSection): void {
+  grpcEditorUi.sections = { ...grpcEditorUi.sections, [tabId]: section };
+}
 
 export function requestGrpcEditorAction(tabId: string, kind: GrpcEditorAction['kind']): void {
-  grpcEditorAction.set({ tabId, kind });
+  grpcEditorUi.action = { tabId, kind };
 }
 
 export function clearGrpcEditorSection(tabId: string): void {
-  grpcEditorSections.update((current) => {
-    if (!(tabId in current)) return current;
-    const { [tabId]: _removed, ...rest } = current;
-    return rest;
-  });
+  const current = untrack(() => grpcEditorUi.sections);
+  if (!(tabId in current)) return;
+  const { [tabId]: _removed, ...rest } = current;
+  grpcEditorUi.sections = rest;
 }
 
 /**

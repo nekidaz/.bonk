@@ -4,7 +4,7 @@
   import { cancelRequest, terminalDefaultCwd, terminalRun } from '$shared/ipc';
   import { snapPanelSize, type UtilityMode } from '$shared/ui';
   import { consoleStatus, formatElapsed, matchesConsoleFilter, shortCwd } from './utilPanel';
-  import { appConsoleEntries, clearAppConsole } from '$entities/request';
+  import { clearAppConsole, appConsole } from '$entities/request';
   import { workspace } from '$entities/workspace';
 
   type TerminalLine = {
@@ -53,10 +53,10 @@
         : currentDirectory
       : workspace.path || '~',
   );
-  const issueCount = $derived($appConsoleEntries.filter((entry) => !entry.ok).length);
+  const issueCount = $derived(appConsole.entries.filter((entry) => !entry.ok).length);
   // C1: newest first.
   const visibleConsoleEntries = $derived(
-    (mode === 'issues' ? $appConsoleEntries.filter((entry) => !entry.ok) : $appConsoleEntries)
+    (mode === 'issues' ? appConsole.entries.filter((entry) => !entry.ok) : appConsole.entries)
       .filter((entry) => matchesConsoleFilter(entry, filter))
       .reverse(),
   );
@@ -189,7 +189,7 @@
   });
 
   $effect(() => {
-    void $appConsoleEntries.length;
+    void appConsole.entries.length;
     void tick().then(() => consoleOutputEl?.scrollTo({ top: 0 }));
   });
 </script>
@@ -220,7 +220,7 @@
         onclick={() => onSelect('console')}
       >
         {t('util.tab.console')}
-        {#if $appConsoleEntries.length}<span class="bs-utility-count">{$appConsoleEntries.length}</span>{/if}
+        {#if appConsole.entries.length}<span class="bs-utility-count">{appConsole.entries.length}</span>{/if}
       </button>
       <button
         type="button"

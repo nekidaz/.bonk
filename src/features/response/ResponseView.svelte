@@ -22,12 +22,10 @@
     isGrpcConnectionError,
     openGrpcEditorSection,
     requestGrpcEditorAction,
-    busyMap,
-    grpcErrorMap,
+    requestRuntime,
   } from '$entities/request';
   import { responseFormat } from './responseRender';
   import { GRPC_CODES, HTTP_STATUS_TEXT, grpcStatusLabel } from './statusLabel';
-  import { get } from 'svelte/store';
   import { requestPrefs } from '$shared/settings';
   import { tabs } from '$entities/tab';
   import ResponseBody, { type BodyInfo } from './ResponseBody.svelte';
@@ -47,7 +45,7 @@
   let bodyInfo = $state<BodyInfo | undefined>(undefined);
 
   // In-flight request for this tab: drives the "Sending…" meta and the live timer (S04).
-  const busy = $derived(tab ? $busyMap[tab.id] : undefined);
+  const busy = $derived(tab ? requestRuntime.busy[tab.id] : undefined);
   const sending = $derived(!!busy && busy.kind !== 'connect');
   const tone = $derived(tab?.response ? responseTone(tab.response) : 'success');
   let now = $state(Date.now());
@@ -157,7 +155,9 @@
   const retry = () => document.querySelector<HTMLButtonElement>('.bs-send')?.click();
   // S25 also covers a failed connect (reflection / dial) before any call: same state, reconnect instead of re-invoke.
   const connectError = $derived(
-    tab?.protocol === 'grpc' && !tab.grpcResult && !tab.grpcStream && !sending ? ($grpcErrorMap[tab.id] ?? '') : '',
+    tab?.protocol === 'grpc' && !tab.grpcResult && !tab.grpcStream && !sending
+      ? (requestRuntime.grpcErrors[tab.id] ?? '')
+      : '',
   );
   const connectFailed = $derived(isGrpcConnectionError(connectError));
   const reconnecting = $derived(busy?.kind === 'connect');

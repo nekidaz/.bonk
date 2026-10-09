@@ -1,4 +1,3 @@
-import { get } from 'svelte/store';
 import {
   openInNewTab,
   proxyAuth,
@@ -8,7 +7,7 @@ import {
   activeClientCerts,
   requestPrefs,
 } from '$shared/settings';
-import { dirtyTabIds } from './dirtyTabs';
+import { dirtyTabIds } from './dirtyTabs.svelte';
 import {
   type Tab,
   type RequestNode,
@@ -40,7 +39,7 @@ import { grpcPathsToRel, grpcPathsToAbs } from './protoPaths';
 import { GRPC_DEFAULT_TITLE, HTTP_DEFAULT_TITLE, grpcSnapshot, titleFromUrl, tabs } from '$entities/tab';
 import { environments, currentVarScope, setEnvVars, setGlobalVars } from '$entities/environment';
 import { addHistory } from '$entities/history';
-import { addAppConsoleEntry } from './console';
+import { addAppConsoleEntry } from './console.svelte';
 
 function clampInt(value: number, min: number, max: number, fallback: number): number {
   if (!Number.isFinite(value)) return fallback;
@@ -180,7 +179,7 @@ export function openSavedRequest(req: RequestNode, inNewTab = false): void {
     !openInNewTab.current &&
     current?.savedPath &&
     (current.protocol === 'http' || current.protocol === 'grpc') &&
-    !get(dirtyTabIds).has(current.id);
+    !dirtyTabIds.current.has(current.id);
   const tab: Tab = {
     id: reuse ? current.id : crypto.randomUUID(),
     protocol: req.protocol,

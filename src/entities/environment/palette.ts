@@ -1,4 +1,3 @@
-import { get } from 'svelte/store';
 import { t, type Translate } from '$shared/i18n';
 import type { HistoryEntry, RequestNode, TreeNode } from '$shared/model';
 

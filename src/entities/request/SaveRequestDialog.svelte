@@ -2,7 +2,7 @@
   import { tabs } from '$entities/tab';
   import { addFolder, findNode, parentId, workspace } from '$entities/workspace';
   import { saveActiveRequest } from './store';
-  import { saveDialog } from './dialogs';
+  import { dialogs } from './dialogs.svelte';
   import { FolderPicker } from '$entities/workspace/components';
   import { t } from '$shared/i18n';
 
@@ -11,12 +11,12 @@
   // lives here; the dialog seeds itself from the active tab each time it opens.
   let { onSaved }: { onSaved?: () => void } = $props();
 
-  const open = $derived(!!$saveDialog);
-  const copy = $derived(!!$saveDialog?.copy);
+  const open = $derived(!!dialogs.save);
+  const copy = $derived(!!dialogs.save?.copy);
 
   function close(saved: boolean): void {
-    $saveDialog?.resolve(saved);
-    saveDialog.set(null);
+    dialogs.save?.resolve(saved);
+    dialogs.save = null;
   }
 
   const active = $derived(tabs.active);

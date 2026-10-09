@@ -5,7 +5,6 @@
  * environments / the active selection change — CodeEditor then swaps it in via
  * its var compartment and the decorations flip without a remount.
  */
-import { get } from 'svelte/store';
 import { t } from '$shared/i18n';
 import type { Extension } from '@codemirror/state';
 import { type Environment, type VarRow, lookupVar } from '$shared/model';
