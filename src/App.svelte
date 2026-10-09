@@ -37,6 +37,7 @@
     switchWorkspace,
     recentWorkspacePaths,
     hotkeys,
+    importApiFile,
   } from './lib/stores';
   import { t } from './lib/i18n';
   import { get } from 'svelte/store';
@@ -44,6 +45,7 @@
   import { flushPendingSaves, loadState, saveState } from './lib/persist';
   import { nextTabIndex } from './lib/tablist';
   import GrpcEditor from './lib/components/GrpcEditor.svelte';
+  import { requestGrpcEditorAction } from './lib/grpcEditorUi';
   import HttpRequestEditor from './lib/components/HttpRequestEditor.svelte';
   import AppPopoverMenu from './lib/components/AppPopoverMenu.svelte';
   import AppStatusBar from './lib/components/AppStatusBar.svelte';
@@ -201,6 +203,12 @@
   function addReq(p: RequestProtocol): void { void addRequestToFolder(menu.nodeId, p); closeMenu(); }
   let importOpen = $state(false);
   function importOpenApi(): void { closeMenu(); importOpen = true; }
+  // Welcome chips: OpenAPI keeps the paste/file dialog; file formats go straight to the picker (format is sniffed, then the matching importer runs).
+  function importFrom(source?: string): void {
+    if (!source || source === 'openapi') return importOpenApi();
+    closeMenu();
+    importApiFile().catch((err) => showToast({ text: err instanceof Error ? err.message : String(err) }));
+  }
 
   let paletteOpen = $state(false);
   let sidebarPanel = $state<'collections' | 'history' | 'git' | 'flows'>('collections');
@@ -724,11 +732,11 @@
               class:no-anim={panelDragging}
               style={responseHeight == null || requestHidden ? '' : `flex:0 0 ${responseHeight}px`}
             >
-              <ResponsePane tab={active} onResize={startSplitDrag} onResetSize={resetResponseSize} onSettings={() => (settingsOpen = true)} />
+              <ResponsePane tab={active} onResize={startSplitDrag} onResetSize={resetResponseSize} onSettings={() => (active.protocol === 'grpc' ? requestGrpcEditorAction(active.id, 'tls') : (settingsOpen = true))} />
             </div>
             {/if}
           {:else}
-            <WelcomeView onNewRequest={() => newRequestHere()} onImport={importOpenApi} onPasteCurl={(text) => { newTab(); applyCurlToActiveTab(text); }} />
+            <WelcomeView onNewRequest={() => newRequestHere()} onImport={importFrom} onPasteCurl={(text) => { newTab(); applyCurlToActiveTab(text); }} />
           {/if}
         </main>
 

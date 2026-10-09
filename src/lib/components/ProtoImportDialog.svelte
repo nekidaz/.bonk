@@ -4,6 +4,7 @@
   import {
     grpcProtoInspect,
     protoPick,
+    protoPickFolder,
     terminalDefaultCwd,
     workspacePickFolder,
     type ProtoFileInfo,
@@ -65,6 +66,11 @@
   async function pickFiles(): Promise<void> {
     const picked = await protoPick();
     if (picked) add(picked);
+  }
+
+  async function pickFolder(): Promise<void> {
+    const dir = await protoPickFolder();
+    if (dir) add([dir]);
   }
 
   async function pickImportFolder(): Promise<void> {
@@ -162,6 +168,7 @@
           <div class="a">{$t('import.proto.dropA')}</div>
           <div class="b">{$t('import.proto.dropB')}</div>
         </div>
+        <button type="button" class="pid-pill" onclick={pickFolder}>{$t('import.proto.pickFolder')}</button>
         <button type="button" class="pid-pill" onclick={pickFiles}>{$t('import.proto.pick')}</button>
       </div>
 

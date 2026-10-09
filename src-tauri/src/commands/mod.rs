@@ -822,6 +822,15 @@ pub fn proto_pick() -> Option<Vec<String>> {
         })
 }
 
+/// Folder of .proto files; `grpc_proto_inspect` expands it and makes it an import root.
+#[tauri::command]
+pub fn proto_pick_folder() -> Option<String> {
+    rfd::FileDialog::new()
+        .set_title("Choose proto folder")
+        .pick_folder()
+        .map(|p| p.to_string_lossy().into_owned())
+}
+
 #[tauri::command]
 pub async fn grpc_template(
     connection_id: String,

@@ -184,6 +184,9 @@
   .bs button.bs-send:disabled:hover { background: var(--color-action); }
   .bs button.bs-send.cancelling, .bs button.bs-send.cancelling:hover, .bs button.bs-send.cancelling:active { padding: 0 18px 0 20px; outline: 1px solid var(--color-border); outline-offset: -1px; background: var(--color-raised); box-shadow: none; }
   .bs .bs-send.cancelling .go { color: var(--color-text); }
+  .bs .bs-send:not(.cancelling) .go kbd { color: var(--color-on-action); font: var(--font-size-micro) var(--font-code); opacity: .6; }
+  .bs-mpick .mp-option.active:not(.on) { background: var(--color-hover); }
+  .bs-mpick .mp-option.active.on { box-shadow: inset 0 0 0 1px var(--color-border); }
   .bs .bs-send.cancelling kbd { color: var(--color-text-muted); font: var(--font-size-micro) var(--font-code); opacity: 1; }
   .bs .bs-send .go { min-width: 0; padding: 0; gap: 10px; justify-content: center; background: transparent; color: var(--color-on-action); font-size: var(--font-size-ui); font-weight: 600; }
   .bs-send .cv { display: none; }

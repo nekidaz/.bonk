@@ -7,7 +7,7 @@
   // S01 (empty workspace) and S02 (no open tabs) share the main panel when nothing is open.
   let { onNewRequest, onImport, onPasteCurl }: {
     onNewRequest: () => void;
-    onImport: () => void;
+    onImport: (source?: 'openapi' | 'postman' | 'insomnia' | 'har') => void;
     onPasteCurl: (text: string) => void;
   } = $props();
 
@@ -29,7 +29,7 @@
     <p>{$t('nav.welcome.firstText')}</p>
     <div class="actions">
       <button class="primary" type="button" onclick={onNewRequest}><span class="material-symbols-outlined" aria-hidden="true">add</span>{$t('nav.welcome.newRequest')}<kbd>⌘N</kbd></button>
-      <button class="secondary" type="button" onclick={onImport}>{$t('nav.welcome.import')}</button>
+      <button class="secondary" type="button" onclick={() => onImport()}>{$t('nav.welcome.import')}</button>
     </div>
     <label class="paste">
       <span class="material-symbols-outlined" aria-hidden="true">terminal</span>
@@ -46,7 +46,7 @@
     <div class="sources">
       <span class="lbl">{$t('nav.welcome.importFrom')}</span>
       <button type="button" onclick={() => curlInput?.focus()}>cURL</button>
-      {#each ['OpenAPI 3', 'Postman', 'Insomnia', 'HAR'] as src (src)}<button type="button" onclick={onImport}>{src}</button>{/each}
+      {#each [['OpenAPI 3', 'openapi'], ['Postman', 'postman'], ['Insomnia', 'insomnia'], ['HAR', 'har']] as const as [label, src] (src)}<button type="button" onclick={() => onImport(src)}>{label}</button>{/each}
     </div>
   </section>
 {:else}

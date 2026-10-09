@@ -3,7 +3,7 @@
   import ResponseView from './ResponseView.svelte';
   import { busyMap } from '../requestRuntime';
   import { activeEnvironmentId, environments } from '../stores';
-  import { responseHint } from '../domain/responseHint';
+  import { responseHint, type HintAction } from '../domain/responseHint';
   import type { Tab } from '../domain/types';
 
   let {
@@ -24,8 +24,9 @@
   const envName = $derived($environments.find((e) => e.id === $activeEnvironmentId)?.name);
   const hint = $derived(!sending && tab.protocol === 'http' && tab.response ? responseHint(tab, tab.response, envName, $t) : null);
 
-  function act(kind: 'auth' | 'retry'): void {
-    if (kind === 'auth') document.getElementById('bs-rtab-auth')?.click();
+  function act(a: HintAction): void {
+    if (a.kind === 'copy') void navigator.clipboard?.writeText(a.value);
+    else if (a.kind === 'auth') document.getElementById('bs-rtab-auth')?.click();
     else document.querySelector<HTMLButtonElement>('.bs-send')?.click();
   }
 </script>
@@ -36,7 +37,7 @@
   <div class="bs-resp-hint {hint.tone}" role="status">
     <span class="material-symbols-outlined" aria-hidden="true">{hint.icon}</span>
     <span class="text">{hint.text}</span>
-    <button type="button" onclick={() => act(hint.action.kind)}>{hint.action.label}</button>
+    {#each hint.actions as a (a.kind)}<button type="button" onclick={() => act(a)}>{a.label}</button>{/each}
   </div>
 {/if}
 {#if progress}<div class="bs-resp-progress" aria-hidden="true"><span></span></div>{/if}
