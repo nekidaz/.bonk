@@ -1,6 +1,10 @@
 // Visual regression: every scenario x both themes against the fake Tauri backend
 // (design/tools/shim.js). Baselines are local only; see docs/GUIDE.md "Скриншот-тесты".
 import { test, expect, type Page } from '@playwright/test';
+import { dumpComputedStyles } from './css-oracle';
+
+// CSS_ORACLE=<dir>: dump computed styles (css-oracle.ts) instead of taking screenshots.
+const ORACLE = process.env.CSS_ORACLE;
 
 const THEMES = ['smooth-light', 'smooth-dark'] as const;
 // Fixed "now": relative timestamps ("2 min ago") and history grouping stay identical on every run.
@@ -405,7 +409,8 @@ for (const theme of THEMES) {
           ),
         );
         await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
-        await expect(page).toHaveScreenshot(`${theme}-${s.name}.png`, { mask: s.mask?.(page) });
+        if (ORACLE) await dumpComputedStyles(page, ORACLE, `${theme}-${s.name}`);
+        else await expect(page).toHaveScreenshot(`${theme}-${s.name}.png`, { mask: s.mask?.(page) });
         expect(errors).toEqual([]);
       });
     }

@@ -1,0 +1,16 @@
+/* Global styles, one entry point (src/main.ts). The import order below IS the cascade order:
+   a later file wins over an earlier one for selectors of equal specificity. docs/GUIDE.md «Стили». */
+@import './tailwind.css';
+@import './tokens.css';
+@import './base.css';
+@import './controls.css';
+@import './dialogs.css';
+@import './shell.css';
+@import './sidebar.css';
+@import './git.css';
+@import './request.css';
+@import './grpc.css';
+@import './editor.css';
+@import './response.css';
+@import './environments.css';
+@import './motion.css';

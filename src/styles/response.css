@@ -1,0 +1,905 @@
+/* Response: status pills, body/raw/headers/timeline views, empty and error states, large-body tools. */
+
+:root .bs-resizer-row {
+  position: absolute;
+  left: 0;
+  right: 0;
+  z-index: 5;
+  cursor: row-resize;
+  background: transparent;
+  transition: background 120ms ease;
+  top: -3px;
+  height: 6px;
+}
+
+.bs .bs-resp-host.closed .bs-resizer-row {
+  visibility: visible;
+}
+
+.bs-resizer-row:hover {
+  background: linear-gradient(
+    to bottom,
+    transparent calc(50% - 1px),
+    var(--accent) calc(50% - 1px) calc(50% + 1px),
+    transparent calc(50% + 1px)
+  );
+}
+
+.bs-rsub .x {
+  color: var(--t2);
+}
+
+.bs-rsub .x.on {
+  font-weight: 600;
+}
+
+.bs-stpill.err {
+  color: var(--red);
+}
+
+.bs-stpill .g {
+  font-family: var(--font-ui, inherit);
+  font-weight: 700;
+}
+
+.bs-meta .mo b {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.bs-ric svg {
+  width: 15px;
+  height: 15px;
+}
+
+.bs-format-pill.warn {
+  background: color-mix(in srgb, var(--orange) 14%, transparent);
+  color: var(--orange);
+}
+
+.bs-response-editor .bs-code {
+  min-width: 0;
+  padding: 12px 16px 18px;
+  white-space: pre;
+  overflow-wrap: normal;
+  word-break: normal;
+}
+
+.bs-response-editor.wrap .bs-code {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+/* Chunked rendering for large responses: each chunk is its own gutter+code
+   grid row with `content-visibility: auto`, so the webview skips layout/paint/
+   GPU compositing for off-screen chunks. Keeps memory bounded and avoids the
+   giant single-layer texture that crashes WKWebView on huge bodies. */
+.bs-response-editor.chunked {
+  display: block;
+  padding: 12px 0 18px;
+}
+
+.bs-response-editor.chunked .bs-resp-chunk {
+  display: grid;
+  grid-template-columns: 56px minmax(0, 1fr);
+  content-visibility: auto;
+}
+
+.bs-response-editor.chunked .bs-response-gutter {
+  padding: 0 10px 0 0;
+}
+
+.bs-response-editor.chunked .bs-code {
+  padding: 0 16px;
+}
+
+/* Char-chunked path (very long lines, e.g. minified JSON): no per-line gutter,
+   always soft-wrapped so a single multi-MB line can't blow out the layer. */
+.bs-response-editor.chars .bs-resp-cchunk {
+  content-visibility: auto;
+}
+
+.bs-response-editor.chars .bs-code {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.bs-preview {
+  flex: 1;
+  min-height: 0;
+  background: #fff;
+}
+
+.bs-preview iframe {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  background: #fff;
+}
+
+.bs-code .k {
+  color: var(--sk);
+}
+
+.bs-empty-resp svg {
+  width: 38px;
+  height: 38px;
+}
+
+.bs-resppanel {
+  display: contents;
+}
+
+.bs-ric:active {
+  transform: scale(0.94);
+}
+
+.bs-resph,
+.bs-response-tools {
+  -webkit-backdrop-filter: none;
+}
+
+/* Editor and response panel */
+.bs-response-view {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--canvas);
+}
+
+.bs-rbody.pretty {
+  padding: 0;
+  background: var(--canvas);
+}
+
+.bs-meta {
+  font-size: 11px;
+}
+
+.bs-response-editor {
+  position: relative;
+  min-height: 100%;
+  display: grid;
+  background: var(--canvas);
+  grid-template-columns: 48px minmax(0, 1fr);
+}
+
+.bs-code {
+  font-family: var(--mono);
+  white-space: pre;
+  word-break: normal;
+  overflow-wrap: normal;
+  font-size: 12px;
+  line-height: 1.65;
+}
+
+.bs-empty-resp .material-symbols-outlined {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--t3);
+  border-radius: 0;
+  box-shadow: none;
+  width: auto;
+  height: auto;
+  border: 0;
+  background: transparent;
+  font-size: 30px !important;
+}
+
+.bs-empty-resp > div {
+  max-width: 320px;
+  text-align: center;
+  line-height: 1.45;
+  font-size: 11.5px;
+}
+
+:root .bs-rsub .x {
+  font-size: 12px;
+}
+
+:root .bs-rsub .x.on {
+  color: var(--text);
+}
+
+:root .bs-rsub .x.on::after {
+  background: var(--accent);
+}
+
+:root .bs-stpill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--mono);
+  font-weight: 700;
+  border: 0;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--green);
+  font-size: 12px;
+}
+
+:root .bs-empty-resp > .material-symbols-outlined {
+  display: grid;
+  place-items: center;
+  width: 80px;
+  height: 64px;
+  font-size: 56px !important;
+  color: var(--sep);
+}
+
+@media (max-width: 760px) {
+  :root .bs-meta .mo {
+    display: none;
+  }
+}
+
+:root .bs-timeline > div {
+  display: flex;
+  gap: 16px;
+}
+
+:root .bs-timeline .k {
+  flex: 0 0 110px;
+  color: var(--color-text-muted);
+}
+
+:root .bs .bs-resp-host.closed .bs-resp {
+  outline: 0;
+}
+
+:root .bs .bs-resp .bs-response-view {
+  background: transparent;
+}
+
+/* S04: indeterminate progress rides on top of the card while a request is in flight. */
+:root .bs-resp-progress {
+  flex: none;
+  height: 3px;
+  overflow: hidden;
+  border-radius: var(--radius-control);
+  background: var(--color-selected);
+}
+
+:root .bs-resp-progress span {
+  display: block;
+  width: 36%;
+  height: 100%;
+  border-radius: var(--radius-control);
+  background: linear-gradient(90deg, transparent, var(--color-text-secondary));
+  animation: bs-progress 1.4s var(--ease-soft) infinite;
+}
+
+:root .bs .bs-stpill.sending {
+  background: var(--color-selected);
+  color: var(--color-text-secondary);
+}
+
+:root .bs-meta .mo.now {
+  color: var(--color-text);
+}
+
+/* .bs-resppanel is display: contents, so dim what it wraps. */
+:root .bs-resppanel.dim > * {
+  opacity: 0.35;
+}
+
+:root .bs-resph {
+  display: flex;
+  align-items: center;
+  backdrop-filter: none;
+  box-shadow: none;
+  height: 50px;
+  flex-shrink: 0;
+  padding: 0 10px;
+  gap: 14px;
+  border: 0;
+  border-bottom: 1px solid var(--color-border-subtle);
+  border-radius: 0;
+  background: transparent;
+}
+
+:root .bs-rsub {
+  display: flex;
+  height: 30px;
+  gap: 2px;
+  align-items: stretch;
+}
+
+:root .bs .bs-rsub .x {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  margin: 0;
+  padding: 0 12px;
+  border: 0;
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--color-text-secondary);
+  font: 500 var(--font-size-body) var(--font-ui);
+}
+
+:root .bs .bs-rsub .x:hover {
+  color: var(--color-text);
+  background: var(--hover);
+}
+
+:root .bs .bs-rsub .x.on {
+  background: var(--color-raised);
+  color: var(--color-text);
+  font-weight: 600;
+  box-shadow: 0 1px 3px var(--color-shadow);
+}
+
+:root .bs-meta {
+  display: flex;
+  align-items: center;
+  margin-left: auto;
+  gap: 14px;
+}
+
+:root .bs .bs-stpill.warning {
+  background: var(--color-warning-soft);
+  color: var(--color-warning);
+}
+
+:root .bs .bs-stpill.danger {
+  background: var(--color-danger-soft);
+  color: var(--color-danger);
+}
+
+:root .bs .bs-stpill.neutral {
+  background: var(--color-selected);
+  color: var(--color-text-secondary);
+}
+
+:root .bs .bs-rsub .x:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+:root .bs .bs-rsub .x:disabled:hover {
+  background: transparent;
+  color: var(--color-text-secondary);
+}
+
+/* S08: no response at all. */
+:root .bs-net-error {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 12px 40px 16px;
+  text-align: center;
+}
+
+:root .bs-net-error .mark {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--color-danger-soft);
+  color: var(--color-danger);
+}
+
+:root .bs-net-error strong {
+  color: var(--color-text);
+  font: 600 var(--font-size-title)/18px var(--font-ui);
+}
+
+:root .bs-net-error p {
+  max-width: 440px;
+  margin: -4px 0 0;
+  color: var(--color-text-secondary);
+  font: var(--font-size-body)/1.5 var(--font-ui);
+}
+
+:root .bs-net-error code {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  height: 22px;
+  padding: 0 10px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  border-radius: var(--radius-control);
+  background: var(--color-selected);
+  color: var(--color-text-secondary);
+  font: var(--font-size-micro) var(--font-code);
+}
+
+:root .bs-net-error .actions {
+  display: flex;
+  gap: 8px;
+  padding-top: 6px;
+}
+
+:root .bs-net-error .retry {
+  outline: 1px solid var(--color-border-subtle);
+  outline-offset: -1px;
+  background: var(--color-panel);
+  color: var(--color-text);
+}
+
+:root .bs-net-error .retry:hover {
+  background: var(--color-selected);
+}
+
+:root .bs-net-error .quiet {
+  background: transparent;
+  color: var(--color-text-secondary);
+}
+
+:root .bs-net-error .quiet:hover {
+  background: var(--hover);
+  color: var(--color-text);
+}
+
+:root .bs .bs-stpill .g {
+  font: 600 var(--font-size-body) var(--font-code);
+}
+
+:root .bs-ric {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition:
+    background 120ms ease,
+    color 120ms ease,
+    transform 90ms ease;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: var(--color-panel);
+  color: var(--color-text-secondary);
+}
+
+:root .bs-ric .material-symbols-outlined {
+  font-size: 16px !important;
+}
+
+:root .bs-ric:hover {
+  background: var(--color-selected);
+}
+
+:root .bs-response-tools {
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  backdrop-filter: none;
+  box-shadow: none;
+  min-height: 40px;
+  padding: 0 16px;
+  gap: 8px;
+  border-bottom: 1px solid var(--color-border-subtle);
+  background: transparent;
+}
+
+:root .bs-format-pill {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  height: 22px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: var(--radius-control);
+  background: var(--color-selected);
+  color: var(--color-text-secondary);
+  font: 500 var(--font-size-caption) var(--font-ui);
+}
+
+:root .bs-content-type {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--color-text-muted);
+  font: var(--font-size-caption) var(--font-code);
+}
+
+:root .bs-rbody {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  contain: layout paint;
+  padding: 12px 16px;
+  border-radius: 0;
+  background: transparent;
+}
+
+:root .bs-rbody:has(.bs-response-gutter) {
+  padding-left: 0;
+}
+
+:root .bs-response-gutter {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  padding: 12px 10px 18px 0;
+  user-select: none;
+  background: var(--canvas);
+  border-right: 1px solid var(--sepsoft);
+  width: 44px;
+  padding-right: 12px;
+  color: var(--color-text-muted);
+  font: var(--font-size-body)/20px var(--font-code);
+  text-align: right;
+}
+
+:root .bs-rbody .bs-code {
+  font: var(--font-size-body)/20px var(--font-code);
+}
+
+:root .bs .bs-response-editor :is(.bs-code, .bs-response-gutter) {
+  padding-top: 0;
+  padding-bottom: 0;
+}
+
+:root .bs .bs-response-editor .bs-code {
+  padding-left: 0;
+}
+
+:root .bs :is(.bs-response-editor, .bs-resp-chunk) {
+  grid-template-columns: 44px minmax(0, 1fr);
+}
+
+:root .bs-empty-resp {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  color: var(--t2);
+  font-size: 12px;
+  border-radius: 0;
+  background: transparent;
+}
+
+:root .bs-response-waiting .mark {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--color-field);
+  color: var(--color-text-secondary);
+}
+
+:root .bs-response-waiting strong {
+  font: 600 var(--font-size-ui)/16px var(--font-ui);
+  color: var(--color-text);
+}
+
+:root .bs-response-waiting p {
+  margin: 0;
+  color: var(--color-text-muted);
+  font: var(--font-size-body)/15px var(--font-ui);
+}
+
+:root .bs .bs-resizer-row {
+  position: absolute;
+  z-index: 2;
+  left: 0;
+  right: 0;
+  top: -8px;
+  height: 8px;
+  border-radius: 0;
+}
+
+:root .bs-resizer-row::after {
+  display: none;
+}
+
+:root[data-density='compact'] .bs-resph {
+  height: 38px;
+}
+
+:root[data-density='compact'] .bs-rsub,
+:root[data-density='compact'] .bs .bs-rsub .x {
+  height: 26px;
+}
+
+:root[data-density='compact'] .bs-ric {
+  width: 24px;
+  height: 24px;
+}
+
+/* Empty-state artwork yields space when the response splitter is dragged up. */
+:root .bs-resp {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  border: 0;
+  outline: 1px solid var(--color-border-subtle);
+  outline-offset: -1px;
+  border-radius: var(--radius-card);
+  background: var(--color-sidebar);
+  overflow: hidden;
+  container: response / size;
+}
+
+:root .bs-response-waiting {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 24px 24px 28px;
+  text-align: center;
+  min-height: 0;
+  overflow: auto;
+}
+
+@container response (max-height: 165px) {
+  :root .bs-response-waiting .mark {
+    display: none;
+  }
+}
+
+/* S20: server stream feed and the Stop button. */
+:root .bs .bs-stream-feed {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 12px 14px;
+  overflow: auto;
+}
+
+:root .bs .bs-stream-feed .no {
+  flex: 0 0 36px;
+  color: var(--color-text-muted);
+  font: 600 var(--font-size-caption) var(--font-code);
+}
+
+:root .bs .bs-stream-feed .at {
+  flex: 0 0 116px;
+  color: var(--color-text-muted);
+  font: var(--font-size-caption) var(--font-code);
+}
+
+:root .bs .bs-stream-feed code {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font: inherit;
+  color: var(--color-text);
+}
+
+:root .bs .bs-stream-feed .waiting {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+  color: var(--color-text-muted);
+  font: var(--font-size-body) var(--font-ui);
+}
+
+:root .bs .bs-stream-feed .waiting .dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--color-success);
+}
+
+:root .bs .bs-stream-feed .msg.err .no {
+  color: var(--color-danger);
+}
+
+:root .bs .bs-stream-feed .waiting.ended .dot {
+  background: var(--color-text-muted);
+}
+
+:root .bs .bs-stream-feed .msg.sent .no {
+  color: var(--color-action);
+}
+
+:root .lb-tools .bs-ric {
+  display: inline-grid;
+  place-items: center;
+  transition: background var(--duration-hover) var(--ease-soft);
+}
+
+:root .lb-tools .bs-ric.on {
+  background: var(--color-selected);
+  color: var(--color-text);
+}
+
+:root .lb-tools .bs-ric:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+:root .lb-tools .bs-ric:focus-visible {
+  outline: 2px solid var(--color-text);
+  outline-offset: 2px;
+}
+
+/* E4 rule 8 · response viewer */
+:root .lb-resp-body,
+:root .lb-viewer {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+:root .lb-viewer .cm-gutters {
+  border-right: 0;
+  background: transparent;
+  color: var(--color-text-muted);
+}
+
+:root .lb-viewer .cm-lineNumbers .cm-gutterElement {
+  min-width: 44px;
+  padding: 0 8px 0 0;
+  font: var(--font-size-body)/20px var(--font-code);
+}
+
+:root .lb-viewer .cm-content {
+  font: var(--font-size-body)/20px var(--font-code);
+}
+
+:root .bs-meta .lb-mode {
+  flex: none;
+}
+
+:root .bs-meta .mo {
+  font: var(--font-size-caption) var(--font-code);
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}
+
+:root .bs-meta .bs-ric:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+@container response (max-width: 900px) {
+  :root .bs-meta .lb-lines {
+    display: none;
+  }
+}
+
+@container response (max-width: 800px) {
+  :root .bs-resph,
+  :root .bs-meta {
+    gap: 8px;
+  }
+}
+
+@container response (max-width: 700px) {
+  :root .bs-resph {
+    flex-wrap: wrap;
+    height: auto;
+    min-height: 50px;
+    padding-top: 8px;
+    padding-bottom: 8px;
+    row-gap: 6px;
+  }
+
+  :root .bs-meta {
+    margin-left: auto;
+  }
+}
+
+/* E3 / E6 · expanded mode: one bar, no sidebar / header / address / request tabs */
+:root .lb-focusbar {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  height: 56px;
+  margin: 0 10px;
+  padding: 0 0 0 10px;
+  border-bottom: 1px solid var(--color-border-subtle);
+}
+
+:root .lb-focusbar .method {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  height: 30px;
+  padding: 0 10px;
+  border-radius: var(--radius-control);
+  background: var(--color-field);
+  font: 600 var(--font-size-caption) var(--font-code);
+}
+
+:root .lb-focusbar .url {
+  flex: 0 1 auto;
+  min-width: 60px;
+  overflow: hidden;
+  color: var(--color-text);
+  font: var(--font-size-body) var(--font-code);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+:root .lb-focusbar .section {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  height: 30px;
+  padding: 0 12px;
+  border-radius: var(--radius-control);
+  background: var(--color-selected);
+  color: var(--color-text-secondary);
+  font: 500 var(--font-size-caption) var(--font-ui);
+}
+
+:root .lb-focusbar .stats {
+  flex: none;
+  color: var(--color-text-muted);
+  font: var(--font-size-caption) var(--font-code);
+  white-space: pre;
+}
+
+:root .lb-focusbar .spacer {
+  flex: 1;
+}
+
+:root .lb-focusbar .lb-collapse {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 36px;
+  padding: 0 14px;
+  outline: 1px solid var(--color-border);
+  outline-offset: -1px;
+  border-radius: var(--radius-control);
+  background: var(--color-panel);
+  color: var(--color-text);
+  font: 500 var(--font-size-body) var(--font-ui);
+}
+
+:root .lb-focusbar .lb-collapse:hover {
+  background: var(--color-selected);
+}
+
+:root .lb-focusbar .lb-send {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 40px;
+  padding: 0 18px;
+  border-radius: var(--radius-control);
+  background: var(--color-action);
+  color: var(--color-on-action);
+  font: 600 var(--font-size-body) var(--font-ui);
+}
+
+:root .lb-focusbar .lb-send.busy {
+  background: var(--color-selected);
+  color: var(--color-text);
+}
+
+:root .lb-focusbar .lb-send kbd {
+  color: inherit;
+}
+
+:root .lb-focusbar :is(.lb-collapse, .lb-send):focus-visible {
+  outline: 2px solid var(--color-text);
+  outline-offset: 2px;
+}
+
+:root .bs[data-focus] .bs-resizer-row,
+:root .bs .bs-main.side .bs-resizer-row {
+  display: none;
+}

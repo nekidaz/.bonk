@@ -2,7 +2,7 @@
 # Mirrors .github/workflows/ci.yml: if `make check` is green, CI is green.
 
 .DEFAULT_GOAL := help
-.PHONY: help setup dev ui mcp check lint test test-ts test-rs build visual visual-baseline fmt sidecar bump
+.PHONY: help setup dev ui mcp check lint test test-ts test-rs build visual visual-baseline css-oracle css-oracle-baseline fmt sidecar bump
 
 help: ## list targets
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  make %-16s %s\n", $$1, $$2}'
@@ -48,6 +48,15 @@ visual-baseline: build ## capture screenshots of the current UI as the baseline
 
 visual: build ## compare the UI against the baseline; diff report in visual/report
 	npx playwright test
+
+css-oracle-baseline: build ## dump computed styles of every scenario (+hover/focus/active) as the baseline
+	rm -rf visual/css-oracle/baseline
+	CSS_ORACLE=visual/css-oracle/baseline npx playwright test --workers=2 --reporter=dot
+
+css-oracle: build ## compare computed styles against the css-oracle baseline (stricter than make visual)
+	rm -rf visual/css-oracle/current
+	CSS_ORACLE=visual/css-oracle/current npx playwright test --workers=2 --reporter=dot
+	node visual/css-oracle-diff.mjs visual/css-oracle/baseline visual/css-oracle/current
 
 fmt: ## format everything: Rust (rustfmt) + TS/Svelte/CSS (prettier)
 	cargo fmt --all

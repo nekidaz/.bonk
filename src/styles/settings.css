@@ -1,3 +1,79 @@
+/* Settings modal */
+.bs-seg.compact button {
+  padding: 0 7px;
+  font-size: 11.5px;
+}
+
+/* S32.5b · Settings → Внешний вид → Раскладка */
+:root .st-layouts {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+:root .st-layout {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  padding: 12px;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-card);
+  background: var(--color-panel);
+  color: var(--color-text);
+  text-align: left;
+  cursor: pointer;
+  transition:
+    border-color var(--duration-hover) var(--ease-soft),
+    background var(--duration-hover) var(--ease-soft);
+}
+
+:root .st-layout:hover {
+  background: var(--color-hover);
+}
+
+:root .st-layout.on {
+  border-color: var(--color-text);
+}
+
+:root .st-layout:focus-visible {
+  outline: 2px solid var(--color-text);
+  outline-offset: 2px;
+}
+
+:root .st-layout-pic {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
+  height: 44px;
+  margin-bottom: 6px;
+}
+
+:root .st-layout-pic i {
+  flex: 1;
+  border-radius: 6px;
+  background: var(--color-selected);
+}
+
+:root .st-layout.on .st-layout-pic i:first-child {
+  background: var(--color-text-muted);
+}
+
+:root .st-layout-pic.side {
+  flex-direction: row;
+}
+
+:root .st-layout-pic.focus i:last-child {
+  flex: 0 0 8px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root .st-layout {
+    transition: none;
+  }
+}
+
 /* Settings sheet (S32–S32.7). Global so every section component shares the primitives. */
 /* Sizes follow the S32 mock (Pencil node «Settings sheet»). */
 .st-sheet {
@@ -242,11 +318,6 @@
 .st-num span {
   color: var(--color-text-muted);
   font: var(--font-size-caption) var(--font-ui);
-}
-.st-key kbd {
-  font: var(--font-size-body) var(--font-code);
-  color: var(--color-text-secondary);
-  white-space: nowrap;
 }
 .st-col {
   align-items: flex-start;
@@ -765,37 +836,10 @@
   flex: none;
   white-space: nowrap;
 }
-.st-mcp-chips {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: 4px;
-}
 /* S32.8 rows are 46–51 px, a bit denser than the other settings pages. */
 .st-mcp-card .st-row {
   min-height: 48px;
   padding: 8px 0;
-}
-.st-mcp-env {
-  display: inline-flex;
-  align-items: center;
-  gap: 3px;
-  height: 24px;
-  padding: 0 8px 0 6px;
-  border-radius: 999px;
-  border: 1px solid var(--color-border-subtle);
-  background: transparent;
-  color: var(--red);
-  font: var(--font-size-caption) var(--font-ui);
-  cursor: pointer;
-}
-.st-mcp-env.on {
-  background: var(--color-text);
-  border-color: var(--color-text);
-  color: var(--color-raised);
-}
-.st-mcp-env:disabled {
-  cursor: default;
 }
 .st-mcp-dim {
   opacity: 0.45;

@@ -1,0 +1,24 @@
+/* Reduced motion: switches animations off when the OS asks for it. */
+
+@media (prefers-reduced-motion: reduce) {
+  .bs .bs-side,
+  .bs .bs-resp-host {
+    transition: none !important;
+  }
+
+  :root .mono-switch,
+  :root .mono-switch::after {
+    transition: none;
+  }
+
+  :root .bs *,
+  :root .bs *::before,
+  :root .bs *::after {
+    transition: none !important;
+    animation: none !important;
+  }
+
+  :root .lb-tools .bs-ric {
+    transition: none;
+  }
+}
