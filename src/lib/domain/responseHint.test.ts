@@ -13,7 +13,17 @@ describe('responseHint', () => {
   it('points 401 at Authorization and 5xx at retry', () => {
     expect(responseHint(tab, res(401), 'Production')?.text).toBe('Сервер не принял токен. Проверьте вкладку Authorization — для окружения Production используется {{token}}.');
     const h = responseHint(tab, res(500, '', { 'X-Request-Id': 'req_7Hc2x9' }), undefined);
-    expect([h?.tone, h?.action.kind, h?.text.endsWith('Request-ID req_7Hc2x9.')]).toEqual(['danger', 'retry', true]);
-    expect(responseHint(tab, res(404), 'Production')).toBeNull();
+    expect([h?.tone, h?.actions.map((a) => a.kind).join(), h?.text.endsWith('Request-ID req_7Hc2x9.')]).toEqual(['danger', 'retry,copy', true]);
+    expect(h?.actions[1]).toMatchObject({ kind: 'copy', value: 'req_7Hc2x9' });
+    expect(responseHint(tab, res(500), undefined)?.actions.map((a) => a.kind)).toEqual(['retry']);
+    expect(responseHint(tab, res(200), 'Production')).toBeNull();
+  });
+  it('explains 4xx causes and offers retry only for retriable ones', () => {
+    expect(responseHint(tab, res(404), 'Production')?.text).toContain('Production');
+    for (const s of [400, 405, 409, 413, 415, 422]) expect(responseHint(tab, res(s), undefined)).toMatchObject({ tone: 'warning', actions: [] });
+    expect(responseHint(tab, res(415), undefined)?.text).toContain('Content-Type');
+    expect(responseHint(tab, res(408), undefined)?.actions.map((a) => a.kind)).toEqual(['retry']);
+    expect(responseHint(tab, res(429, '', { 'Retry-After': '30' }), undefined)?.text).toContain('30');
+    expect(responseHint(tab, res(429), undefined)?.actions.map((a) => a.kind)).toEqual(['retry']);
   });
 });

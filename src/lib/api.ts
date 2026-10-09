@@ -165,6 +165,7 @@ export const grpcStreamEnd = (requestId: string) => invoke<void>('grpc_stream_en
 export const grpcLoadProto = (connectionId: string, protoPaths: string[], importPaths: string[]) =>
   invoke<ServiceTree>('grpc_load_proto', { connectionId, protoPaths, importPaths });
 export const protoPick = () => invoke<string[] | null>('proto_pick');
+export const protoPickFolder = () => invoke<string | null>('proto_pick_folder');
 
 export interface ProtoFileError { kind: 'missing_import' | 'compile'; message: string; import?: string | null }
 export interface ProtoMethodInfo { name: string; kind: 'unary' | 'server_stream' | 'client_stream' | 'bidi' }

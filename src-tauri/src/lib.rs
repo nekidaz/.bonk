@@ -50,6 +50,7 @@ pub fn run() {
             commands::grpc_stream_end,
             commands::grpc_load_proto,
             commands::proto_pick,
+            commands::proto_pick_folder,
             commands::grpc_proto_inspect,
             commands::proto_read,
             commands::workspace_pick_folder,

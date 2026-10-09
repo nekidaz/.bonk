@@ -237,6 +237,19 @@
     if (!methodOpen) methodSearch = '';
   });
 
+  // Keyboard cursor over the flattened (service -> methods) list; the search box keeps focus.
+  const flatMethods = $derived(filteredGrpcServices.flatMap((s) => s.methods));
+  let activeIdx = $state(0);
+  $effect(() => {
+    // Reset on open / new query: start on the selected method when it is still listed.
+    void methodOpen; void methodSearch;
+    activeIdx = Math.max(0, untrack(() => flatMethods).findIndex((m) => m.symbol === untrack(() => tab.grpc?.method)));
+  });
+  $effect(() => {
+    void activeIdx;
+    if (methodOpen) document.querySelector('.bs-mpick .mp-option.active')?.scrollIntoView({ block: 'nearest' });
+  });
+
   function setGrpc(patch: Record<string, unknown>): void {
     updateActiveTab((t) => (t.grpc ? { ...t, grpc: { ...t.grpc, ...patch } } : t));
   }
@@ -475,11 +488,16 @@
       else methodOpen = false;
       return;
     }
+    if ((e.key === 'ArrowDown' || e.key === 'ArrowUp') && flatMethods.length) {
+      e.preventDefault();
+      activeIdx = (activeIdx + (e.key === 'ArrowDown' ? 1 : -1) + flatMethods.length) % flatMethods.length;
+      return;
+    }
     if (e.key === 'Enter') {
-      const first = filteredGrpcServices[0]?.methods[0];
-      if (first) {
+      const pick = flatMethods[activeIdx];
+      if (pick) {
         e.preventDefault();
-        grpcDoSelect(first.symbol);
+        grpcDoSelect(pick.symbol);
       }
     }
   }
@@ -880,7 +898,7 @@
                 {#each service.methods as m (m.symbol)}
                   {@const kind = grpcMethodKind(m)}
                   {@const on = m.symbol === tab.grpc?.method}
-                  <button class="mp-option" class:on role="menuitemradio" aria-checked={on} onpointerdown={(e) => { e.preventDefault(); grpcDoSelect(m.symbol); }} onclick={() => grpcDoSelect(m.symbol)} type="button" title={m.clientStreaming ? $t('grpc.picker.noClientStream') : undefined}>
+                  <button class="mp-option" class:on class:active={flatMethods[activeIdx]?.symbol === m.symbol} role="menuitemradio" aria-checked={on} onpointerdown={(e) => { e.preventDefault(); grpcDoSelect(m.symbol); }} onclick={() => grpcDoSelect(m.symbol)} type="button" title={m.clientStreaming ? $t('grpc.picker.noClientStream') : undefined}>
                     <span class="mp-line">
                       <span class="mp-name">{m.name}</span>
                       <span class="mp-kind" class:stream={kind !== 'unary'}>{kind}</span>
@@ -912,7 +930,7 @@
   {/if}
   <button class="bs-send" disabled={noAddress && !grpcInvoking} class:cancelling={grpcInvoking && !streamMethod} class:stop={grpcInvoking && streamMethod && !streamWritable} aria-busy={grpcInvoking} title={grpcInvoking && !streamWritable ? $t('grpc.invoking') : undefined} onclick={grpcDoInvoke}>
     <span class="go">
-      {#if streamWritable}<span>{$t('grpc.send')}</span>{:else if grpcInvoking && streamMethod}<span class="stop-square" aria-hidden="true"></span><span>{$t('grpc.stop')}</span>{:else if grpcInvoking}<span>{$t('common.cancel')}</span><kbd>Esc</kbd>{:else}<span>{$t('grpc.invoke')}</span>{/if}
+      {#if streamWritable}<span>{$t('grpc.send')}</span>{:else if grpcInvoking && streamMethod}<span class="stop-square" aria-hidden="true"></span><span>{$t('grpc.stop')}</span><kbd>⌘↵</kbd>{:else if grpcInvoking}<span>{$t('common.cancel')}</span><kbd>Esc</kbd>{:else}<span>{$t('grpc.invoke')}</span><kbd>⌘↵</kbd>{/if}
     </span>
   </button>
 </div>
