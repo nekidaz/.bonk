@@ -1,6 +1,7 @@
 <script lang="ts">
   import { collections, dirtyTabIds, history, renameActiveTab, resetActiveTabTitle } from '../stores';
   import CodeSnippetPopover from './CodeSnippetPopover.svelte';
+  import RequestSettingsPopover from './RequestSettingsPopover.svelte';
   import { findNode, parentId } from '../domain/tree';
   import type { Tab } from '../domain/types';
   import { t } from '../i18n';
@@ -9,18 +10,25 @@
     tab,
     savedFlash,
     onSwitch,
+    onMore,
     onSmartSave,
     onOpenSave,
     codeOpen,
     onCode,
+    settingsOpen = $bindable(false),
   }: {
     tab: Tab;
     savedFlash: boolean;
+    /** Protocol button: opens the HTTP / gRPC menu. */
     onSwitch: (e: MouseEvent) => void;
+    /** ⋯ button: opens the request-actions menu. */
+    onMore: (e: MouseEvent) => void;
     onSmartSave: () => void | Promise<void>;
     onOpenSave: () => void;
     codeOpen: boolean;
     onCode: () => void;
+    /** Per-request settings popover («Настройки запроса»), opened from the ⋯ menu. */
+    settingsOpen?: boolean;
   } = $props();
 
   // gRPC call shape for the eyebrow: unary / server stream / client stream / bidi stream.
@@ -37,6 +45,7 @@
   const folderId = $derived(origin ? parentId(origin) : undefined);
   const folderName = $derived(folderId ? findNode($collections, folderId)?.name : undefined);
 
+  let moreBtn = $state<HTMLButtonElement>();
   let editing = $state(false);
   let draft = $state('');
   let input = $state<HTMLInputElement | undefined>(undefined);
@@ -48,6 +57,7 @@
     tab.id;
     editing = false;
     draft = '';
+    settingsOpen = false;
   });
 
   function startRename(): void {
@@ -85,8 +95,11 @@
 </script>
 
 <div class="bs-reqhead">
+  <button class="bs-proto" type="button" title={$t('proto.tip', { type: tab.protocol === 'grpc' ? 'gRPC' : 'HTTP' })} aria-label={$t('proto.aria')} aria-haspopup="menu" onclick={onSwitch}>
+    <span class="material-symbols-outlined" aria-hidden="true" style:color={tab.protocol === 'grpc' ? 'var(--method-grpc)' : undefined}>{tab.protocol === 'grpc' ? 'hub' : 'language'}</span>
+  </button>
   <div class="bs-reqtitle">
-  <span class="bs-crumb">{origin ? `${folderName ?? $t('workspace.title')}  /  ${tab.protocol === 'grpc' ? callType : tab.request.method}` : `${$t('nav.welcome.newRequest')}  /  ${$t('nav.header.unsaved')}`}</span>
+  <span class="bs-crumb">{origin ? `${folderName ?? $t('workspace.title')}  /  ${tab.protocol === 'grpc' ? callType : tab.request.method}` : `${$t('nav.welcome.newRequest')}  /  ${tab.protocol === 'grpc' ? 'gRPC' : $t('nav.header.unsaved')}`}</span>
   {#if editing}
     <input
       class="nm title-input"
@@ -109,7 +122,8 @@
       <span class="material-symbols-outlined" aria-hidden="true">save</span>{$t('nav.header.save')}<kbd>⌘S</kbd>
     </button>
     <button class="bs-hb" class:on={codeOpen} title={$t('nav.header.codeTip')} aria-label={$t('nav.header.code')} aria-pressed={codeOpen} onpointerdown={(e) => e.stopPropagation()} onclick={onCode}><span class="material-symbols-outlined">code</span></button>
-    <button class="bs-hb" title={$t('nav.header.more')} aria-label={$t('nav.header.moreAria')} aria-haspopup="menu" onclick={onSwitch}><span class="material-symbols-outlined">more_horiz</span></button>
+    <button class="bs-hb" bind:this={moreBtn} title={$t('nav.header.more')} aria-label={$t('nav.header.moreAria')} aria-haspopup="menu" aria-expanded={settingsOpen || undefined} onclick={onMore}><span class="material-symbols-outlined">more_horiz</span></button>
     {#if codeOpen}<CodeSnippetPopover {tab} onClose={onCode} />{/if}
+    {#if settingsOpen}<RequestSettingsPopover {tab} onClose={() => { settingsOpen = false; moreBtn?.focus(); }} />{/if}
   </div>
 </div>

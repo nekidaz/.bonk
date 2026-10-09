@@ -32,6 +32,15 @@ describe('formatBinding', () => {
   });
 });
 
+describe('workspace shortcuts', () => {
+  it('⌘O opens a folder, ⌘, opens settings', () => {
+    const b = effectiveBindings({});
+    expect(commandFor(ev('KeyO', { metaKey: true }), b, true)).toBe('openFolder');
+    expect(commandFor(ev('Comma', { metaKey: true }), b, true)).toBe('settings');
+    expect(formatBinding(b.settings, true)).toEqual(['⌘', ',']);
+  });
+});
+
 describe('bindings', () => {
   it('defaults have no conflicts', () => {
     expect(findConflicts(effectiveBindings({}))).toEqual({});

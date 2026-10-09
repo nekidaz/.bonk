@@ -19,6 +19,7 @@
     removeNode,
     renameNode,
     saveActiveRequest,
+    revertActiveTab,
     addRequestToFolder,
     duplicateNode,
     requestConfirm,
@@ -235,6 +236,27 @@
     if (/^\s*curl\s/i.test(text)) { newTab(); applyCurlToActiveTab(text); }
     else await pasteCurl();
   }
+  // Request header ⋯ menu: node actions run against the active tab's saved request (menu.nodeId = savedPath).
+  let reqSettingsOpen = $state(false);
+  function openMore(e: MouseEvent): void { openMenu('reqmore', e, active?.savedPath); }
+  function tabRename(): void {
+    closeMenu();
+    void tick().then(() => document.querySelector<HTMLElement>('.bs-reqhead .nm.rename')?.click());
+  }
+  /** cURL of the tab as it is now (unsaved edits included), unlike the tree action that copies the file. */
+  function tabCopyCurl(): void {
+    closeMenu();
+    if (active?.protocol !== 'http') return;
+    void navigator.clipboard.writeText(toCurl(withInheritedAuth(active, active.savedPath), currentVarScope(true)));
+  }
+  function tabRevert(): void {
+    closeMenu();
+    const prev = active;
+    if (!prev) return;
+    revertActiveTab();
+    showToast({ text: get(t)('nav.menu.reverted'), undo: () => tabs.update((list) => list.map((x) => (x.id === prev.id ? prev : x))) });
+  }
+  function tabSettings(): void { closeMenu(); reqSettingsOpen = true; }
   function nodeOpen(): void {
     const n = menu.nodeId ? findNode($collections, menu.nodeId) : undefined;
     closeMenu();
@@ -276,14 +298,15 @@
     { label: activeFolderName ? $t('palette.cmd.newIn', { folder: activeFolderName }) : $t('palette.cmd.new'), icon: 'add', shortcut: keys('newRequest'), run: () => newRequestHere() },
     { label: activeFolderName ? $t('palette.cmd.curlIn', { folder: activeFolderName }) : $t('palette.cmd.curl'), icon: 'terminal', run: () => void pasteCurl() },
     { label: $t('palette.cmd.openapi'), icon: 'upload_file', run: importOpenApi },
-    { label: $t('palette.cmd.envs'), icon: 'layers', run: openEnvironmentsTab },
+    { label: $t('palette.cmd.envs'), icon: 'layers', shortcut: keys('env'), run: openEnvironmentsTab },
+    { label: $t('palette.cmd.workspace'), icon: 'folder_managed', shortcut: keys('workspaceMenu'), run: () => (workspaceMenuOpen = true) },
     { label: 'Flows', icon: 'account_tree', run: () => showSidebar('flows') },
     { label: $t('palette.cmd.runner'), icon: 'play_arrow', run: openRunnerTab },
     { label: $t('palette.cmd.sidebar'), icon: 'left_panel_open', shortcut: keys('sidebar'), run: toggleSidebar },
     { label: $t('palette.cmd.response'), icon: 'bottom_panel_open', run: () => { responseHidden = !responseHidden; requestHidden = false; } },
     { label: $t('palette.cmd.code'), icon: 'code', shortcut: keys('codePanel'), run: () => toggleCodePanel() },
-    { label: $t('palette.cmd.folder'), icon: 'folder_open', run: () => void openWorkspaceFolder() },
-    { label: $t('palette.cmd.settings'), icon: 'settings', run: () => (settingsOpen = true) },
+    { label: $t('palette.cmd.folder'), icon: 'folder_open', shortcut: keys('openFolder'), run: () => void openWorkspaceFolder() },
+    { label: $t('palette.cmd.settings'), icon: 'settings', shortcut: keys('settings'), run: () => (settingsOpen = true) },
   ]);
   function exportOpenApi(format: 'json' | 'yaml'): void {
     const id = menu.nodeId;
@@ -404,6 +427,8 @@
       case 'showHistory': showSidebar('history'); break;
       case 'terminal': toggleUtilityPanel('terminal'); break;
       case 'workspaceMenu': workspaceMenuOpen = !workspaceMenuOpen; break;
+      case 'openFolder': void openWorkspaceFolder(); break;
+      case 'settings': settingsOpen = true; break;
       case 'closeTab': void requestCloseTab($activeTabId); break;
       case 'newTab': newTab(); break;
       case 'reopenTab': reopenClosedTab(); break;
@@ -716,7 +741,7 @@
                 {#if historySnapshot.original}<button type="button" onclick={() => openSavedRequest(historySnapshot!.original!.node)}>{$t('app.snapshot.original')}</button>{/if}
               </div>
             {/if}
-            <RequestHeader tab={active} {savedFlash} onSwitch={(e) => openMenu('switch', e)} onSmartSave={smartSave} onOpenSave={openSaveDialog} {codeOpen} onCode={toggleCodePanel} />
+            <RequestHeader tab={active} {savedFlash} onSwitch={(e) => openMenu('switch', e)} onMore={openMore} bind:settingsOpen={reqSettingsOpen} onSmartSave={smartSave} onOpenSave={openSaveDialog} {codeOpen} onCode={toggleCodePanel} />
 
             {#if active.protocol === 'grpc'}
               {#key active.id}
@@ -766,6 +791,7 @@
   <AppPopoverMenu
     {menu}
     {closeMenu}
+    tab={active}
     folderName={activeFolderName}
     onNewHere={newRequestHere}
     onNewFolderHere={newFolderHere}
@@ -783,6 +809,10 @@
     onImport={importOpenApi}
     onExportOpenApi={exportOpenApi}
     onSaveAs={openSaveDialog}
+    onRenameTab={tabRename}
+    onCopyCurlTab={tabCopyCurl}
+    onRevert={tabRevert}
+    onRequestSettings={tabSettings}
   />
 
   <SaveRequestDialog bind:open={saveOpen} onSaved={flashSaved} />

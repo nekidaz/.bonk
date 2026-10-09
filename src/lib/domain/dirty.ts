@@ -1,4 +1,6 @@
 import type { Param, RequestNode, Tab } from './types';
+import { grpcSnapshot } from './tab';
+import { grpcPathsToAbs } from './protoPaths';
 
 /** JSON with empty values dropped, so `body: ''` vs a missing body (or a trailing blank param row) never reads as a change. */
 function canon(value: unknown): unknown {
@@ -36,4 +38,16 @@ export function isParamChanged(tab: Tab, saved: RequestNode | undefined, i: numb
   const row = tab.params?.[i];
   if (!row || !(row.key || row.value || row.description)) return false;
   return !same(row, saved.params?.[i]);
+}
+
+/** The tab put back to what the saved request holds on disk («Сбросить изменения»); id, response and overrides stay. */
+export function revertedTab(tab: Tab, saved: RequestNode, root: string): Tab {
+  return {
+    ...tab,
+    title: saved.name,
+    manualTitle: true,
+    request: { ...saved.request, headers: { ...saved.request.headers } },
+    params: saved.params?.map((p) => ({ ...p })),
+    grpc: grpcPathsToAbs(grpcSnapshot(saved.grpc), root),
+  };
 }

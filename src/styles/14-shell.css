@@ -1,0 +1,45 @@
+/* Request-actions menu, protocol button, per-request settings, MCP chip, history repeat.
+   Same `:root` wrapper as 13-smooth so these win over the older layers. */
+:root {
+  /* Protocol button (Q34l0k): 28px field capsule left of the request title. */
+  .bs-proto { flex: none; display: grid; place-items: center; width: 28px; height: 28px; margin-bottom: 1px; border: 1px solid var(--color-border-subtle); border-radius: 9px; background: var(--color-field); color: var(--color-text-secondary); }
+  .bs-proto:hover { background: var(--hover-strong); color: var(--color-text); }
+  .bs-proto:focus-visible { outline: 2px solid var(--color-text); outline-offset: 2px; }
+  .bs-proto .material-symbols-outlined { font-size: 16px; }
+
+  /* Disabled / checked menu rows. */
+  .bs-menu .mi:disabled { color: var(--color-text-muted); cursor: default; opacity: .55; }
+  .bs-menu .mi:disabled:hover { background: transparent; font-weight: inherit; }
+  .bs-menu .mi.check.on .ic { color: var(--color-text) !important; }
+
+  /* Per-request settings popover, anchored under the ⋯ button like the code snippet. */
+  .bs-reqset { position: absolute; z-index: 100; top: calc(100% + 8px); right: -1px; display: flex; flex-direction: column; gap: 10px; width: 340px; max-width: calc(100vw - 40px); padding: 14px; outline: 1px solid var(--color-border); outline-offset: -1px; border-radius: var(--radius-card); background: var(--color-raised); box-shadow: 0 16px 40px #00000080; color: var(--color-text); text-align: left; cursor: default; }
+  .bs-reqset:focus { outline: 1px solid var(--color-border); }
+  .bs-reqset .head { display: flex; align-items: center; gap: 8px; height: 28px; padding-left: 4px; }
+  .bs-reqset .eyebrow { flex: 1; color: var(--color-text-muted); font: 500 var(--font-size-micro) var(--font-code); letter-spacing: var(--tracking-eyebrow); text-transform: uppercase; }
+  .bs-reqset .close { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; color: var(--color-text-secondary); }
+  .bs-reqset .close:hover { background: var(--hover); }
+  .bs-reqset .close .material-symbols-outlined { font-size: 16px; }
+  .bs-reqset .sub { margin: 0; padding: 0 4px; color: var(--color-text-muted); font: var(--font-size-body)/16px var(--font-ui); }
+  .bs-reqset .row { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 40px; padding: 4px 4px 4px 4px; color: var(--color-text); cursor: pointer; }
+  .bs-reqset .row .text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+  .bs-reqset .row b { font: 500 var(--font-size-ui) var(--font-ui); }
+  .bs-reqset .row small { color: var(--color-text-muted); font: var(--font-size-caption) var(--font-ui); }
+  .bs-reqset .row small:empty { display: none; }
+  .bs-reqset .row input[type='number'] { width: 76px; height: 30px; padding: 0 10px; border: 1px solid var(--color-border); border-radius: var(--radius-control); background: var(--color-field); color: var(--color-text); font: var(--font-size-ui) var(--font-code); text-align: right; }
+  .bs-reqset .row input[type='number']:focus-visible { outline: 2px solid var(--color-text); outline-offset: 1px; }
+  .bs-reqset .foot { display: flex; justify-content: flex-end; gap: 8px; padding-top: 4px; }
+  .bs-reqset .foot button { height: 30px; padding: 0 14px; border-radius: var(--radius-control); background: var(--color-selected); color: var(--color-text); font: 500 var(--font-size-body) var(--font-ui); }
+  .bs-reqset .foot button:disabled { opacity: .45; cursor: default; }
+  .bs-reqset .foot button.done { background: var(--color-action); color: var(--color-on-action); }
+
+  /* Workspace picker: «● MCP подключён» chip in the current workspace's meta row. */
+  .bs .bs-work-menu .bs-work-item .meta span.mcp { display: inline-flex; align-items: center; gap: 5px; }
+  .bs .bs-work-menu .bs-work-item .meta span.mcp::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--color-success); }
+  .bs .bs-work-menu .bs-work-item:focus-visible { outline: 2px solid var(--color-text); outline-offset: -2px; }
+
+  /* History rows: repeat + remove appear on hover / focus. */
+  .bs-history-row .bs-act { display: flex; opacity: 0; pointer-events: none; }
+  .bs-history-row:hover .bs-act, .bs-history-row:focus-within .bs-act { opacity: 1; pointer-events: auto; }
+  .bs-history-row .bs-act.repeat { right: 34px; }
+}

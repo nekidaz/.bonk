@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { recentWorkspaceChoices, snapPanelSize, workspaceInitials, workspaceName } from './appShell';
+import { mcpConnected, recentWorkspaceChoices, snapPanelSize, workspaceInitials, workspaceName } from './appShell';
 
 describe('snapPanelSize', () => {
   it('collapses after the snap threshold', () => {
@@ -31,5 +31,12 @@ describe('workspace switcher helpers', () => {
   it('offers recents without the current one, capped at 8', () => {
     const paths = ['/a', '/b', '/c', '/d', '/e', '/f', '/g', '/h', '/i', '/j'];
     expect(recentWorkspaceChoices(paths, '/b')).toEqual(['/a', '/c', '/d', '/e', '/f', '/g', '/h', '/i']);
+  });
+});
+
+describe('mcpConnected', () => {
+  it('needs an installed client pointing at exactly this workspace', () => {
+    const clients = [{ installed: true, workspace: '/a' }, { installed: false, workspace: '/b' }, { installed: true }];
+    expect([mcpConnected(clients, '/a'), mcpConnected(clients, '/b'), mcpConnected(clients, '/c'), mcpConnected(clients, '')]).toEqual([true, false, false, false]);
   });
 });

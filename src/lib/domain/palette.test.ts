@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { envColor, envTone, isProtected, historyDay, historyPath, needsProductionGuard, pushRecent, recentRequests, searchRequests, timeAgo } from './palette';
+import { envShortcutTargets, paletteSlot, searchEnvironments, envColor, envTone, isProtected, historyDay, historyPath, needsProductionGuard, pushRecent, recentRequests, searchRequests, timeAgo } from './palette';
 import type { TreeNode } from './types';
 
 const req = (name: string, url: string, method = 'GET'): TreeNode => ({
@@ -71,5 +71,31 @@ describe('history rows', () => {
     const h = (url: string) => ({ id: '1', protocol: 'http' as const, request: { method: 'GET', url, headers: {} }, status: 200, at: now });
     expect([historyPath(h('{{baseUrl}}/v1/payments?limit=20')), historyPath(h('https://api.x.io/v1/a')), historyPath(h('/raw'))]).toEqual(['/v1/payments', '/v1/a', '/raw']);
     expect(historyPath({ ...h(''), protocol: 'grpc', grpc: { endpoint: 'h', method: 'helloworld.Greeter.SayHello', plaintext: true, message: '', metadata: {} } })).toBe('Greeter/SayHello');
+  });
+});
+
+describe('palette groups', () => {
+  it('searchEnvironments is empty for a blank query and matches by name', () => {
+    const envs = [{ name: 'Production' }, { name: 'Staging' }, { name: 'prod-eu' }];
+    expect(searchEnvironments(envs, ' ')).toEqual([]);
+    expect(searchEnvironments(envs, 'PROD').map((e) => e.name)).toEqual(['Production', 'prod-eu']);
+    expect(searchEnvironments(envs, 'o', 1)).toHaveLength(1);
+  });
+  it('paletteSlot maps the flat index across requests, environments and commands', () => {
+    const n = { requests: 2, envs: 1, commands: 2 };
+    expect([0, 1, 2, 3, 4].map((i) => paletteSlot(i, n))).toEqual([
+      { group: 'request', index: 0 }, { group: 'request', index: 1 }, { group: 'env', index: 0 },
+      { group: 'command', index: 0 }, { group: 'command', index: 1 },
+    ]);
+    expect([paletteSlot(5, n), paletteSlot(-1, n)]).toEqual([undefined, undefined]);
+  });
+});
+
+describe('envShortcutTargets', () => {
+  it('numbers recents first, then the remaining envs, capped at nine', () => {
+    const e = (id: string) => ({ id });
+    expect(envShortcutTargets([e('b'), e('a')], [e('a'), e('b'), e('c')]).map((x) => x.id)).toEqual(['b', 'a', 'c']);
+    const many = Array.from({ length: 12 }, (_, i) => e(String(i)));
+    expect(envShortcutTargets([], many)).toHaveLength(9);
   });
 });

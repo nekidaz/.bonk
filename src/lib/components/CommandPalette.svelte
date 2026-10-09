@@ -5,9 +5,9 @@
 <script lang="ts">
   import { tick } from 'svelte';
   import { t } from '../i18n';
-  import { collections, openSavedRequest } from '../stores';
+  import { activeEnvironmentId, collections, environments, openSavedRequest, setActiveEnvironment } from '../stores';
   import { methodColor } from '../domain/method';
-  import { searchRequests } from '../domain/palette';
+  import { ENV_COLOR_VAR, envColor, envToneOf, paletteSlot, searchEnvironments, searchRequests } from '../domain/palette';
   import type { RequestNode } from '../domain/types';
 
   let { open = $bindable(), commands }: { open: boolean; commands: PaletteCommand[] } = $props();
@@ -19,7 +19,9 @@
 
   const requests = $derived(searchRequests($collections, query));
   const matchedCommands = $derived(commands.filter((c) => c.label.toLowerCase().includes(query.trim().toLowerCase())));
-  const total = $derived(requests.length + matchedCommands.length);
+  const envs = $derived(searchEnvironments($environments, query));
+  const counts = $derived({ requests: requests.length, envs: envs.length, commands: matchedCommands.length });
+  const total = $derived(counts.requests + counts.envs + counts.commands);
 
   $effect(() => {
     if (!open) return;
@@ -43,8 +45,11 @@
   }
 
   function runAt(i: number, send = false): void {
-    if (i < requests.length) void openRequest(requests[i].node, send);
-    else if (matchedCommands[i - requests.length]) { open = false; matchedCommands[i - requests.length].run(); }
+    const slot = paletteSlot(i, counts);
+    if (!slot) return;
+    if (slot.group === 'request') void openRequest(requests[slot.index].node, send);
+    else if (slot.group === 'env') { open = false; setActiveEnvironment(envs[slot.index].id); }
+    else { open = false; matchedCommands[slot.index].run(); }
   }
 
   function keydown(e: KeyboardEvent): void {
@@ -90,10 +95,22 @@
             </div>
           {/each}
         {/if}
+        {#if envs.length}
+          <div class="bs-palette-heading"><span>{$t('palette.envs')}</span><span>{envs.length}</span></div>
+          {#each envs as env, j (env.id)}
+            {@const i = requests.length + j}
+            {@const tone = envToneOf(env)}
+            <div class="bs-palette-item cmd" class:on={sel === i} id="bs-palette-{i}" data-index={i} role="option" aria-selected={sel === i} tabindex="-1" onpointermove={() => (sel = i)} onclick={() => runAt(i)} onkeydown={() => {}}>
+              <span class="material-symbols-outlined" style:color={tone === 'production' ? undefined : ENV_COLOR_VAR[envColor(env)]} aria-hidden="true">{tone === 'production' ? 'lock' : 'circle'}</span>
+              <span class="name">{env.name}</span>
+              {#if env.id === $activeEnvironmentId}<span class="material-symbols-outlined" aria-hidden="true">check</span>{/if}
+            </div>
+          {/each}
+        {/if}
         {#if matchedCommands.length}
           <div class="bs-palette-heading"><span>{$t('palette.commands')}</span><span>{matchedCommands.length}</span></div>
           {#each matchedCommands as c, j (c.label)}
-            {@const i = requests.length + j}
+            {@const i = requests.length + envs.length + j}
             <div class="bs-palette-item cmd" class:on={sel === i} id="bs-palette-{i}" data-index={i} role="option" aria-selected={sel === i} tabindex="-1" onpointermove={() => (sel = i)} onclick={() => runAt(i)} onkeydown={() => {}}>
               <span class="material-symbols-outlined" aria-hidden="true">{c.icon}</span>
               <span class="name">{c.label}</span>

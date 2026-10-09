@@ -1,7 +1,7 @@
 <script lang="ts">
   import { t } from '../i18n';
   import type { Environment } from '../domain/types';
-  import { ENV_COLOR_VAR, envColor, envToneOf, pushRecent, type EnvTone } from '../domain/palette';
+  import { ENV_COLOR_VAR, envColor, envShortcutTargets, envToneOf, pushRecent, type EnvTone } from '../domain/palette';
   import { activeEnvironmentId, addEnvironment, environments, openEnvironmentsSheet, setActiveEnvironment } from '../stores';
 
   const RECENT_KEY = 'bonk.recentEnvironments';
@@ -25,6 +25,10 @@
   );
   const all = $derived([...$environments].filter((env) => !q || env.name.toLowerCase().includes(q)).sort((a, b) => a.name.localeCompare(b.name)));
 
+  // ⌘1…⌘9 pick from this list: recents, then the rest of the visible environments.
+  const targets = $derived(envShortcutTargets(recent as Environment[], all));
+  const keyFor = (env: Environment): string => { const i = targets.findIndex((x) => x.id === env.id); return i < 0 ? '' : `⌘${i + 1}`; };
+
   function readRecent(): string[] {
     try { return JSON.parse(globalThis.localStorage?.getItem(RECENT_KEY) ?? '[]'); } catch { return []; }
   }
@@ -45,12 +49,27 @@
     query = '';
   }
 
-  // While the list is open, ⌘1…⌘3 pick a recent environment and ⌘E returns to the search field.
+  let menuEl = $state<HTMLDivElement | null>(null);
+
+  // ⌘1…⌘9 pick a visible environment, ⌘E returns to the search field; ↑↓ walk the search field and the rows.
   function menuKeydown(e: KeyboardEvent): void {
-    if (!(e.metaKey || e.ctrlKey)) return;
-    const n = Number(e.key);
-    if (n >= 1 && n <= 3 && recent[n - 1]) { e.preventDefault(); e.stopPropagation(); choose(recent[n - 1]!.id); }
-    else if (e.key.toLowerCase() === 'e') { e.preventDefault(); e.stopPropagation(); search?.focus(); }
+    if (e.metaKey || e.ctrlKey) {
+      const n = Number(e.key);
+      if (n >= 1 && n <= 9 && targets[n - 1]) { e.preventDefault(); e.stopPropagation(); choose(targets[n - 1].id); }
+      else if (e.key.toLowerCase() === 'e') { e.preventDefault(); e.stopPropagation(); search?.focus(); }
+      return;
+    }
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      const stops = [...(menuEl?.querySelectorAll<HTMLElement>('input, button') ?? [])];
+      if (!stops.length) return;
+      e.preventDefault();
+      const i = stops.indexOf(document.activeElement as HTMLElement);
+      stops[(i + (e.key === 'ArrowDown' ? 1 : -1) + stops.length) % stops.length].focus();
+    } else if (e.key === 'Enter' && e.target === search && targets[0] && q) {
+      // ↵ in a filtered search picks the first match; focused rows are plain buttons and click themselves.
+      e.preventDefault();
+      choose(targets[0].id);
+    }
   }
 </script>
 
@@ -73,7 +92,7 @@
     <span class="material-symbols-outlined chevron" aria-hidden="true">keyboard_arrow_up</span>
   </button>
   {#if open}
-    <div class="bs-env-menu" role="menu" aria-label={$t('env.select_aria')} tabindex="-1" onkeydown={menuKeydown}>
+    <div class="bs-env-menu" role="menu" aria-label={$t('env.select_aria')} tabindex="-1" bind:this={menuEl} onkeydown={menuKeydown}>
       <label class="bs-env-search">
         <span class="material-symbols-outlined" aria-hidden="true">search</span>
         <input bind:this={search} bind:value={query} placeholder={$t('env.find')} aria-label={$t('env.find')} {@attach (el) => el.focus()} />
@@ -82,14 +101,14 @@
       {#if recent.length}
         <div class="bs-env-heading"><span>{$t('env.recent')}</span></div>
         {#each recent as env, i (env!.id)}
-          {@render item(env!, env!.id === $activeEnvironmentId ? '✓' : `⌘${i + 1}`)}
+          {@render item(env!, env!.id === $activeEnvironmentId ? '✓' : keyFor(env!))}
         {/each}
         <div class="bs-env-sep"></div>
       {/if}
       <div class="bs-env-heading"><span>{$t('env.all')}&nbsp;&nbsp;·&nbsp;&nbsp;{all.length}</span><span class="sort">A–Z</span></div>
       <div class="bs-env-scroll">
         {#if !q || $t('env.none').toLowerCase().includes(q)}{@render item(null, '')}{/if}
-        {#each all as env (env.id)}{@render item(env, '')}{/each}
+        {#each all as env (env.id)}{@render item(env, recent.some((r) => r?.id === env.id) ? '' : keyFor(env))}{/each}
       </div>
       <div class="bs-env-sep"></div>
       <div class="bs-env-foot">
