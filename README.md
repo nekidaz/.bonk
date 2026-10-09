@@ -1,162 +1,116 @@
 <div align="center">
 
-<img src="docs/landing/favicon.svg" width="72" alt="bonk" />
+[![bonk — The API client for you and your AI.](docs/landing/screenshots/social.png)](https://nekidaz.github.io/.bonk/)
 
-# bonk
+[![Release](https://img.shields.io/github/v/release/nekidaz/.bonk?style=flat-square&color=5eead4&label=release)](https://github.com/nekidaz/.bonk/releases/latest)
+[![Downloads](https://img.shields.io/github/downloads/nekidaz/.bonk/total?style=flat-square&color=5eead4)](https://github.com/nekidaz/.bonk/releases)
+[![License](https://img.shields.io/badge/license-MIT-5eead4?style=flat-square)](LICENSE)
+![Platforms](https://img.shields.io/badge/macOS_·_Windows_·_Linux-1b1b1b?style=flat-square)
 
-### Your API workflow. On your machine.
-
-A local-first desktop client for **HTTP and gRPC**.<br />
-Send requests, test collections, build flows, and connect your AI tools — in a workspace you own.
-
-[![Release](https://img.shields.io/github/v/release/nekidaz/.bonk?style=flat-square&color=5264de&label=release)](https://github.com/nekidaz/.bonk/releases/latest)
-[![Downloads](https://img.shields.io/github/downloads/nekidaz/.bonk/total?style=flat-square&color=5264de)](https://github.com/nekidaz/.bonk/releases)
-[![License](https://img.shields.io/badge/license-MIT-5264de?style=flat-square)](LICENSE)
-![Platforms](https://img.shields.io/badge/macOS_·_Windows_·_Linux-151c2b?style=flat-square)
-
-[**Download**](https://github.com/nekidaz/.bonk/releases/latest) · [**Website**](https://nekidaz.github.io/.bonk/) · [Features](#what-you-can-do) · [Quick start](#your-first-workspace) · [AI / MCP](#connect-your-ai-tools) · [Screenshots](#a-look-inside)
+[**Download**](https://github.com/nekidaz/.bonk/releases/latest) · [**Website**](https://nekidaz.github.io/.bonk/) · [Features](#everything-for-the-request) · [AI / MCP](#your-ai-agent-now-speaks-api) · [Quick start](#your-first-request) · [Screenshots](#a-look-inside)
 
 </div>
 
-![Bonk: file-based collections, HTTP query parameters, and a JSON response side by side](docs/landing/screenshots/hero.jpg)
+**Bonk is a native HTTP and gRPC client built in Rust.** Requests live as readable
+files next to your code. Environments, scripts, a collection runner, and an
+integrated MCP server turn that folder into an API workspace for you and your AI tools.
 
-Bonk brings the API workflow onto your desktop: a request editor, a response
-inspector, reusable environments, scripts, a collection runner, and a Flow
-canvas. The request engine is Rust; the desktop shell is Tauri; the interface
-is Svelte and TypeScript.
+Open a directory and start sending requests. No account is required. Save a
+request as `*.bonk.json`, review its changes in Git, and let an assistant work
+with the same files. The desktop app uses Tauri and your OS WebView.
 
-**Open a folder and start.** No account is required. Saved requests are readable
-`*.bonk.json` files, and folders on disk are the collections in your sidebar.
-Keep them beside your code, share them with a teammate, or review changes in Git.
-
-## Why Bonk
-
-- **A workspace you own.** Requests live in your selected directory, rather than
-  requiring hosted collection storage.
-- **Both protocols in one app.** HTTP and gRPC share environments, scripts,
-  history, and collection workflows.
-- **Native where it matters.** Rust handles requests and local operations;
-  Tauri uses your OS WebView without bundling Chromium.
-- **From debugging to repeatable checks.** Test a response, run a folder with
-  iteration data, or connect requests on a Flow canvas.
-- **AI can use the same workspace.** The bundled MCP server exposes requests,
-  schemas, and execution with configurable permissions.
-
-Bonk works offline for editing and organizing local work. API calls, update
-checks, and Git remotes use the network.
-
-## What you can do
-
-| Area | Included workflows |
-| --- | --- |
-| **HTTP** | Query parameters, enabled/disabled headers, bearer/basic/API-key auth, collection auth inheritance, JSON/text/XML/HTML bodies, multipart files, URL-encoded forms, binary uploads, and GraphQL. |
-| **Responses** | Pretty/raw views, syntax highlighting, headers, cookies, timing, response size, JSONPath filtering, folding, search, and request/response layouts including side by side and focus mode. |
-| **gRPC** | Server reflection or local `.proto` files, searchable methods, message templates, metadata, unary and streaming calls, deadlines, TLS/mTLS settings, readable errors, and `grpcurl` snippets. |
-| **Environments** | `{{variables}}`, globals, named environments, inline variable editing, secret values, and confirmation for protected environments. |
-| **Scripts & tests** | Sandboxed JavaScript pre-request and response scripts, familiar `pm.*` helpers, assertions, console output, and variable updates for HTTP and gRPC. |
-| **Collection Runner** | HTTP/gRPC collection runs, request selection and ordering, iterations, CSV/JSON data, delays, stop-on-failure, saved presets, run history, and JSON reports. |
-| **Flows** | A node canvas with request, script, condition, loop, and delay blocks; payloads pass between steps, with live status and an output log. |
-| **Files & Git** | Nested request folders, save/rename/duplicate/move, request diffs, staging, commits, branches, history, pull, and push via system Git. |
-| **Import & export** | Paste cURL; import Postman Collection v2.x and OpenAPI/Swagger; export Postman/OpenAPI collections and language-specific request snippets. |
-| **Desktop tools** | Searchable history, a command palette, configurable shortcuts, a terminal, console/issues panels, resizable panes, English/Russian UI, and editor-inspired themes. |
-| **AI / MCP** | One-click setup for detected clients, a standalone headless server, STDIO and Streamable HTTP, read-only mode, network controls, and host allowlists. |
-| **Updates** | In-app checks and installation of signed release updates. |
-
-Import support and familiar `pm.*` helpers do not imply complete compatibility
-with every Postman feature or script API.
+[![Bonk desktop: HTTP request collections, query parameters, response JSON, and passing tests](docs/landing/screenshots/hero.jpg)](docs/landing/screenshots/hero.jpg)
 
 ## Install
 
-[**Get the latest release →**](https://github.com/nekidaz/.bonk/releases/latest)
-
-| Platform | Distribution |
-| --- | --- |
-| macOS · Apple Silicon | Homebrew cask or `.dmg` |
-| Windows · x64 | Installer from GitHub Releases |
-| Linux · x64 | `.AppImage` or `.deb` |
-
-### macOS
+### macOS · Apple Silicon
 
 ```sh
 brew install --cask nekidaz/tap/bonk
 ```
 
-You can also download the Apple Silicon `.dmg`. The app is not notarized by
-Apple; follow the macOS installation notes in the release if Gatekeeper blocks
-first launch. Updater signatures and Apple notarization are separate mechanisms.
+Prefer a direct download? Get the `.dmg` from
+[GitHub Releases](https://github.com/nekidaz/.bonk/releases/latest).
+The app is not notarized by Apple; see the release's macOS installation notes
+if Gatekeeper blocks first launch.
 
-### Windows
+### Windows · x64
 
 Download the Windows installer from
-[Releases](https://github.com/nekidaz/.bonk/releases/latest) and run the setup
-wizard. The release assets list the currently available builds.
+[GitHub Releases](https://github.com/nekidaz/.bonk/releases/latest) and run the setup wizard.
 
-### Linux
+### Linux · x64
 
-For an AppImage, run these commands from the download directory:
+Download an `.AppImage` or `.deb` from
+[GitHub Releases](https://github.com/nekidaz/.bonk/releases/latest).
 
 ```sh
+# AppImage — from the download directory
 chmod +x bonk_*.AppImage
 ./bonk_*.AppImage
-```
 
-For Debian or Ubuntu:
-
-```sh
+# Debian / Ubuntu
 sudo apt install ./bonk_*.deb
 ```
 
-**Updates:** use **Settings → Check for updates**, or upgrade the Homebrew cask
-with `brew upgrade --cask bonk`.
+Use **Settings → Check for updates** for signed in-app updates, or
+`brew upgrade --cask bonk` for Homebrew installations.
 
-## Your first workspace
+## Everything for the request
 
-1. **Open a folder** in Bonk. An empty directory is enough to start.
-2. **Create an HTTP request** and enter a URL such as `http://localhost:8080/health`.
-3. **Send it** and inspect the body, status, headers, and timing.
-4. **Save the request** with `⌘S` on macOS or `Ctrl+S` on Windows/Linux. Choose a
-   collection folder and name.
-5. **Add an environment** with `baseUrl = http://localhost:8080`, then change
-   the request URL to `{{baseUrl}}/health` to reuse it against other targets.
-
-Already have a collection? Import a Postman or OpenAPI file. For a single
-request, paste its cURL command into the URL bar.
-
-### Add a response test
-
-In the HTTP request's **Scripts → Tests** editor:
-
-```javascript
-pm.test("Service is healthy", () => {
-  pm.expect(pm.response).to.have.status(200);
-});
-```
-
-Send the request again and inspect the **Tests** response tab. To run checks
-across a collection, open **Runner**, choose the requests and environment,
-and start a run.
-
-## A look inside
-
-Screenshots show the current application UI with synthetic example data.
-The displayed API targets, responses, and timings are illustrative.
-
-| HTTP · request and response | gRPC · reflected methods and messages |
+| Workflow | What you get |
 | --- | --- |
-| ![HTTP editor and JSON response](docs/landing/screenshots/http.jpg) | ![gRPC service browser and response](docs/landing/screenshots/grpc.jpg) |
+| **HTTP & responses** | Query parameters, auth, headers, JSON/text/form/multipart/binary bodies, and GraphQL. Inspect formatted responses, cookies, timing, and size; search or filter JSON with JSONPath. |
+| **gRPC** | Discover services with reflection or load `.proto` files. Call unary and streaming methods with metadata, deadlines, TLS/mTLS, message templates, and readable errors. |
+| **Environments** | Reuse `{{variables}}`, globals, and named environments. Edit values inline, mark secrets, and require confirmation before requests to protected environments. |
+| **Scripts & tests** | Sandboxed JavaScript pre-request and response scripts with familiar `pm.*` helpers, assertions, console output, and variable updates for HTTP and gRPC. |
+| **Collection Runner** | Select and order requests, run iterations with CSV/JSON data, add delays, and stop on failure. Save presets, inspect run history, and export JSON reports. |
+| **Flows** | Connect request, script, condition, loop, and delay blocks on a canvas. Pass payloads between steps and follow live status and output. |
+| **Files & Git** | Organize nested request folders. Review diffs, stage files, commit, switch branches, and pull or push through system Git. |
+| **Import & export** | Paste cURL, import Postman Collection v2.x or OpenAPI/Swagger, export collections, and generate language-specific request snippets. |
+| **Desktop workflow** | Command palette, configurable shortcuts, history, terminal, console, resizable panes, themes, and English/Russian UI. |
+| **AI / MCP** | One-click client setup, a standalone headless server, STDIO and Streamable HTTP, workspace permissions, network controls, and host allowlists. |
 
-| Scripts · response assertions | Environments · reusable variables |
-| --- | --- |
-| ![JavaScript response tests](docs/landing/screenshots/scripts.jpg) | ![Named environments and variables](docs/landing/screenshots/environments.jpg) |
+Bonk works offline for editing and organizing local work. API calls, update
+checks, and Git remotes use the network. Postman import and `pm.*` helpers cover
+supported workflows; they do not provide every Postman feature or script API.
 
-**Collection Runner** — configure and run repeatable checks across your requests.
+## Your AI agent now speaks API
 
-![Bonk collection runner](docs/landing/screenshots/runner.jpg)
+Bonk ships with its own **MCP server**. Claude Desktop, Claude Code, ChatGPT,
+Codex, and other compatible clients can browse your workspace, build and save
+requests, explore gRPC schemas, and execute API calls. The desktop app does
+not need to stay open for a configured headless server to run.
 
-## Your workspace is a directory
+> “Add POST /v1/refunds to Payments API and run it on staging.
+> Take the token from the environment.”
+
+The agent can discover the workspace, save the request alongside your other
+files, and execute it with the selected environment. Its changes show up in
+Bonk and in your Git diff.
+
+### Connect a client
+
+1. Open your workspace and go to **Settings → AI / MCP**.
+2. Select the environment and choose whether to allow workspace edits and API calls.
+3. Optionally restrict the hosts the server can contact.
+4. Click **Install for all clients**, then restart the configured apps.
+
+Bonk preserves unrelated client settings. **Remove from clients** removes its
+integration entry. Local clients use STDIO; remote clients can connect through
+Streamable HTTP at `/mcp`.
+
+**You choose the permissions.** Read-only mode disables file edits; no-network
+mode disables API calls; a host allowlist limits outbound targets. Environment
+tokens provided through `BONK_VAR_*` can be injected into requests without
+being shown to the model. Keys, cookies, and passwords are redacted by default.
+
+[**MCP setup, configuration, and permissions →**](docs/MCP.md)
+
+## Collections are just files
 
 ```text
-my-api/
+payments-api/
 ├── payments/
 │   ├── list-payments.bonk.json
 │   └── create-payment.bonk.json
@@ -166,8 +120,7 @@ my-api/
     └── say-hello.bonk.json
 ```
 
-Each request file contains its name, protocol, request options, and optional
-parameters or gRPC configuration. For example:
+A saved HTTP request looks like this:
 
 ```json
 {
@@ -181,38 +134,73 @@ parameters or gRPC configuration. For example:
 }
 ```
 
-There is no collection manifest to keep in sync. Collection auth can be saved
-in a folder's `.folder.bonk.json`. Preferences, history, and session state live
-separately in the platform application-data directory. Variables marked as
-secret use the OS keychain when available; request files can still contain
-credentials you enter directly, so review them before committing or sharing.
+Folders become collections. There is no collection manifest to keep in sync.
+Keep requests in the same repository as the API, review changes in a pull
+request, and share the directory with your team.
 
-## Connect your AI tools
+Collection auth can live in `.folder.bonk.json`. Preferences, history, and
+session state live separately in the platform application-data directory.
+Variables marked as secret use the OS keychain when available. Credentials
+entered directly into a request can still be saved in its file; review files
+before committing or sharing them.
 
-Bonk includes a native **MCP server**, so compatible assistants can work with the
-same request files you use in the app. The desktop app does not need to remain
-open for a configured headless server to run.
+## Your first request
 
-1. Open the workspace you want to connect.
-2. Go to **Settings → AI / MCP** and choose the environment and permissions.
-3. Choose whether to allow workspace edits and API calls; optionally limit
-   target hosts.
-4. Click **Install for all clients** and restart the configured apps.
+1. **Open a folder.** An empty directory is enough.
+2. **Create an HTTP request.** Enter your API URL, for example `http://localhost:8080/health`.
+3. **Send it.** Inspect the status, body, headers, and timing.
+4. **Save it.** Press `⌘S` on macOS or `Ctrl+S` on Windows/Linux and choose a collection folder.
+5. **Reuse it.** Add an environment with `baseUrl = http://localhost:8080`, then set the URL to `{{baseUrl}}/health`.
 
-The server can inspect and edit requests, validate HTTP calls, explore gRPC
-schemas, generate message templates, and execute saved requests. Local clients
-use STDIO; remote clients can use Streamable HTTP at `/mcp`.
+Have requests already? Import a Postman/OpenAPI file or paste a cURL command
+into the URL bar.
 
-Existing unrelated client configuration is preserved. **Remove from clients**
-removes Bonk's integration entry.
+### Turn a response into a check
 
-[**MCP setup and permissions guide →**](docs/MCP.md)
+Add this in **Scripts → Tests**:
+
+```javascript
+pm.test("Service is healthy", () => {
+  pm.expect(pm.response).to.have.status(200);
+});
+```
+
+Send again and open the **Tests** response tab. To check a whole collection,
+open **Runner**, choose the requests and environment, and start a run.
+
+## A look inside
+
+These screenshots show the current application with synthetic example data.
+
+### gRPC — discover services and call methods
+
+[![Bonk gRPC editor with reflected services, a message template, and a response](docs/landing/screenshots/grpc.jpg)](docs/landing/screenshots/grpc.jpg)
+
+### Collection Runner — repeatable checks across your API
+
+[![Bonk collection runner with request results, timings, and test details](docs/landing/screenshots/runner.jpg)](docs/landing/screenshots/runner.jpg)
+
+<details>
+<summary><strong>Scripts and response tests</strong></summary>
+
+[![JavaScript response tests and their results in Bonk](docs/landing/screenshots/scripts.jpg)](docs/landing/screenshots/scripts.jpg)
+
+</details>
+
+<details>
+<summary><strong>Environments and reusable variables</strong></summary>
+
+[![Named environments and variables in Bonk](docs/landing/screenshots/environments.jpg)](docs/landing/screenshots/environments.jpg)
+
+</details>
 
 ## Feedback & releases
 
-Found a problem or have a feature request? [Open an issue](https://github.com/nekidaz/.bonk/issues)
-and include your OS, Bonk version, and a minimal reproduction with credentials
-removed. For release history, see [CHANGELOG.md](CHANGELOG.md).
+[**Report a bug or suggest a feature**](https://github.com/nekidaz/.bonk/issues) ·
+[Changelog](CHANGELOG.md) · [Telegram](https://t.me/delayrat)
+
+For bug reports, include your OS, Bonk version, and a minimal reproduction with
+credentials removed.
 
 ## License
 
