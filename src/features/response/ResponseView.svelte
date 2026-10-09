@@ -197,7 +197,7 @@
     }
     setTimeout(() => (saved = 'idle'), 1500);
   }
-  const expandResponse = () => focusMode.update((m) => toggleFocus(m, 'response'));
+  const expandResponse = () => (focusMode.current = toggleFocus(focusMode.current, 'response'));
 
   async function copyText(text: string): Promise<void> {
     try {
@@ -237,7 +237,7 @@
     scope="#bs-resppanel"
     editor={bodyShown && !!bodyInfo?.cm}
     onExpand={expandResponse}
-    expanded={$focusMode === 'response'}
+    expanded={focusMode.current === 'response'}
   >
     {#snippet extra()}
       <button class="bs-ric" aria-label={t('response.copy')} title={t('response.copy')} onclick={copy}

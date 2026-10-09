@@ -106,7 +106,7 @@
   }
 
   function onKeydown(e: KeyboardEvent): void {
-    if (embedded || !$environmentsSheetOpen || e.key !== 'Escape' || $confirmState) return;
+    if (embedded || !$environmentsSheetOpen || e.key !== 'Escape' || confirmState.current) return;
     e.preventDefault();
     e.stopPropagation();
     if (menuOpen) menuOpen = false;

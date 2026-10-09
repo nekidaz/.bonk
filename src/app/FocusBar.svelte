@@ -71,7 +71,8 @@
       {/snippet}
     </EditorTools>
   {/if}
-  <button type="button" class="lb-collapse" onclick={() => focusMode.set(null)}>{t('lb.collapse')}<kbd>Esc</kbd></button
+  <button type="button" class="lb-collapse" onclick={() => (focusMode.current = null)}
+    >{t('lb.collapse')}<kbd>Esc</kbd></button
   >
   <button type="button" class="lb-send" class:busy onclick={send}
     >{busy ? t('common.cancel') : grpc ? t('grpc.invoke') : t('http.url.send')}{#if !busy}<kbd>⌘↵</kbd>{/if}</button

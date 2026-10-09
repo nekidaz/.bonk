@@ -2,7 +2,7 @@
   import { onMount, type Component } from 'svelte';
   import { getVersion } from '@tauri-apps/api/app';
   import { workspacePath } from '$entities/workspace';
-  import { updateStatus } from '$shared/updater';
+  import { updater } from '$shared/updater';
   import { t } from '$shared/i18n';
   import '../../styles/settings.css';
   import SettingsGeneral from './SettingsGeneral.svelte';
@@ -113,10 +113,10 @@
           {/each}
         </ul>
         <div class="st-ver">
-          Bonk {appVersion}{#if $updateStatus === 'uptodate'}
-            · {t('settings.update.uptodate')}{:else if $updateStatus === 'ready'}
-            · {t('settings.update.available')}{:else if $updateStatus === 'checking'}
-            · {t('settings.update.checking')}{:else if $updateStatus === 'error'}
+          Bonk {appVersion}{#if updater.status === 'uptodate'}
+            · {t('settings.update.uptodate')}{:else if updater.status === 'ready'}
+            · {t('settings.update.available')}{:else if updater.status === 'checking'}
+            · {t('settings.update.checking')}{:else if updater.status === 'error'}
             · {t('settings.update.error')}{/if}
         </div>
       </nav>

@@ -1,13 +1,17 @@
-import { writable, get } from 'svelte/store';
 import { t } from '$shared/i18n';
 
-/** One-shot confirm dialog state; `null` when no dialog is open. `altLabel` adds a third button that resolves `'alt'`. */
-export const confirmState = writable<{
+export interface ConfirmRequest {
   message: string;
   confirmLabel: string;
   altLabel?: string;
   resolve: (ok: boolean | 'alt') => void;
-} | null>(null);
+}
+
+/** One-shot confirm dialog (`confirmState.current`); `null` when no dialog is open. `altLabel` adds a third button that resolves `'alt'`. */
+class ConfirmState {
+  current = $state.raw<ConfirmRequest | null>(null);
+}
+export const confirmState = new ConfirmState();
 
 /** Show an in-app confirm modal (the Tauri webview has no window.confirm). */
 export function requestConfirm(message: string, confirmLabel = t('app.confirm.ok')): Promise<boolean> {
@@ -17,6 +21,6 @@ export function requestConfirm(message: string, confirmLabel = t('app.confirm.ok
 /** Three-way confirm: `true` = confirm, `'alt'` = the secondary action (e.g. «Не сохранять»), `false` = cancel. */
 export function requestChoice(message: string, confirmLabel: string, altLabel?: string): Promise<boolean | 'alt'> {
   // Resolve any still-open confirm as cancelled so its awaiter never hangs.
-  get(confirmState)?.resolve(false);
-  return new Promise((resolve) => confirmState.set({ message, confirmLabel, altLabel, resolve }));
+  confirmState.current?.resolve(false);
+  return new Promise((resolve) => (confirmState.current = { message, confirmLabel, altLabel, resolve }));
 }

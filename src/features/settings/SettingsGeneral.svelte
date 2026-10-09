@@ -1,30 +1,23 @@
 <script lang="ts">
   import { uiLanguage, type UiLanguage, t } from '$shared/i18n';
   import { startupOpen, autoUpdateCheck, openInNewTab, confirmCloseUnsaved } from '$shared/settings';
-  import {
-    updateStatus,
-    updateVersion,
-    updateCurrent,
-    updateProgress,
-    installUpdate,
-    openReleaseNotes,
-  } from '$shared/updater';
+  import { installUpdate, openReleaseNotes, updater } from '$shared/updater';
   import SettingsWorkspace from './SettingsWorkspace.svelte';
   import { row, sw, select } from './ui.svelte';
 
   let { appVersion }: { appVersion: string } = $props();
 
-  const ready = $derived($updateStatus === 'ready' || $updateStatus === 'installing');
+  const ready = $derived(updater.status === 'ready' || updater.status === 'installing');
   const updateNote = $derived(
     ready
-      ? t('settings.update.ready', { cur: $updateCurrent || appVersion, v: $updateVersion })
-      : $updateStatus === 'checking'
+      ? t('settings.update.ready', { cur: updater.currentVersion || appVersion, v: updater.version })
+      : updater.status === 'checking'
         ? `Bonk ${appVersion} · ${t('settings.update.checking')}`
-        : $updateStatus === 'downloading'
-          ? `Bonk ${appVersion} · ${t('settings.update.downloading', { v: $updateVersion, pct: Math.round($updateProgress * 100) })}`
-          : $updateStatus === 'uptodate'
+        : updater.status === 'downloading'
+          ? `Bonk ${appVersion} · ${t('settings.update.downloading', { v: updater.version, pct: Math.round(updater.progress * 100) })}`
+          : updater.status === 'uptodate'
             ? `Bonk ${appVersion} · ${t('settings.update.uptodate')}`
-            : $updateStatus === 'error'
+            : updater.status === 'error'
               ? `Bonk ${appVersion} · ${t('settings.update.error')}`
               : `Bonk ${appVersion} · ${t('settings.update.startup')}`,
   );
@@ -61,8 +54,8 @@
     {#if ready}
       <div class="st-upd">
         <button type="button" class="st-upd-link" onclick={openReleaseNotes}>{t('update.whatsNew')}</button>
-        <button type="button" class="st-upd-restart" disabled={$updateStatus === 'installing'} onclick={installUpdate}>
-          <span class="material-symbols-outlined" aria-hidden="true">restart_alt</span>{$updateStatus === 'installing'
+        <button type="button" class="st-upd-restart" disabled={updater.status === 'installing'} onclick={installUpdate}>
+          <span class="material-symbols-outlined" aria-hidden="true">restart_alt</span>{updater.status === 'installing'
             ? t('update.restarting')
             : t('update.restart')}
         </button>

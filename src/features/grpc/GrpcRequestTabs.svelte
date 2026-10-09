@@ -67,8 +67,8 @@
       >
       <EditorTools
         scope="#bs-grpcpanel"
-        onExpand={() => focusMode.update((m) => toggleFocus(m, 'request'))}
-        expanded={$focusMode === 'request'}
+        onExpand={() => (focusMode.current = toggleFocus(focusMode.current, 'request'))}
+        expanded={focusMode.current === 'request'}
       >
         {#snippet extra()}
           <button

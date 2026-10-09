@@ -1,14 +1,7 @@
 <script lang="ts">
   /** U1/U2: toolbar pill once an update is downloaded; opens the "what's new" popover. */
   import { t } from '$shared/i18n';
-  import {
-    updateStatus,
-    updateVersion,
-    updateCurrent,
-    updateNotes,
-    installUpdate,
-    openReleaseNotes,
-  } from '$shared/updater';
+  import { installUpdate, openReleaseNotes, updater } from '$shared/updater';
 
   const KIND_ICON: Record<string, string> = {
     added: 'auto_awesome',
@@ -20,7 +13,7 @@
   const MAX_ITEMS = 4;
 
   let open = $state(false);
-  const busy = $derived($updateStatus === 'installing');
+  const busy = $derived(updater.status === 'installing');
 </script>
 
 <svelte:window
@@ -30,26 +23,26 @@
   }}
 />
 
-{#if $updateStatus === 'ready' || busy}
+{#if updater.status === 'ready' || busy}
   <div class="upd" role="presentation" onpointerdown={(e) => e.stopPropagation()}>
     <button class="pill" type="button" aria-haspopup="dialog" aria-expanded={open} onclick={() => (open = !open)}>
       <span class="material-symbols-outlined" aria-hidden="true">arrow_circle_up</span>
       <span class="label">{t('update.pill')}</span>
-      <span class="ver">{$updateVersion}</span>
+      <span class="ver">{updater.version}</span>
     </button>
     {#if open}
       <div class="pop" role="dialog" aria-label={t('update.ready')}>
         <div class="head">
           <span class="eyebrow">{t('update.ready')}</span>
           <div class="title-row">
-            <span class="title">Bonk {$updateVersion}</span>{#if $updateCurrent}<span class="cur"
-                >{t('update.current', { v: $updateCurrent })}</span
+            <span class="title">Bonk {updater.version}</span>{#if updater.currentVersion}<span class="cur"
+                >{t('update.current', { v: updater.currentVersion })}</span
               >{/if}
           </div>
         </div>
-        {#if $updateNotes.length}
+        {#if updater.notes.length}
           <ul class="notes">
-            {#each $updateNotes.slice(0, MAX_ITEMS) as n, i (i)}
+            {#each updater.notes.slice(0, MAX_ITEMS) as n, i (i)}
               <li>
                 <span class="mark"
                   ><span class="material-symbols-outlined" aria-hidden="true"

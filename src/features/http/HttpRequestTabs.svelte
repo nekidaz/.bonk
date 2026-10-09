@@ -122,8 +122,8 @@
         scope="#bs-reqpanel"
         onBeautify={canBeautify ? doBeautify : undefined}
         beautifyTitle={body.length > BEAUTIFY_MAX_CHARS ? t('lb.beautifyTooLarge') : ''}
-        onExpand={() => focusMode.update((m) => toggleFocus(m, 'request'))}
-        expanded={$focusMode === 'request'}
+        onExpand={() => (focusMode.current = toggleFocus(focusMode.current, 'request'))}
+        expanded={focusMode.current === 'request'}
       />
     </div>
   {/if}

@@ -450,24 +450,24 @@
   /** E7: request | response side by side — chosen, or automatic on a wide window. Expanded mode wins. */
   const sideBySide = $derived(
     requestTab &&
-      !$focusMode &&
+      !focusMode.current &&
       (requestLayout.current === 'side' || (sideOnWide.current && innerWidth >= SIDE_BY_SIDE_MIN)),
   );
   /** In stacked layouts a hidden pane folds into its 44 px strip. */
-  const respStrip = $derived(!sideBySide && (responseHidden || $focusMode === 'request'));
-  const reqStrip = $derived(!sideBySide && requestHidden && !$focusMode);
+  const respStrip = $derived(!sideBySide && (responseHidden || focusMode.current === 'request'));
+  const reqStrip = $derived(!sideBySide && requestHidden && !focusMode.current);
   // Expanded mode belongs to the tab it was opened on.
   let focusTabId: string | undefined;
   $effect(() => {
     const id = active?.id;
     if (id !== focusTabId) {
       focusTabId = id;
-      untrack(() => focusMode.set(null));
+      untrack(() => (focusMode.current = null));
     }
   });
   // Entering expanded mode brings that pane back from its strip.
   $effect(() => {
-    const m = $focusMode;
+    const m = focusMode.current;
     untrack(() => {
       if (m === 'request') requestHidden = false;
       else if (m === 'response') responseHidden = false;
@@ -495,7 +495,7 @@
   });
   /** Auto-focus: the pane being worked in fills, the other folds into its strip. */
   function autoFocusIn(e: FocusEvent): void {
-    if (requestLayout.current !== 'focus' || sideBySide || $focusMode) return;
+    if (requestLayout.current !== 'focus' || sideBySide || focusMode.current) return;
     const el = e.target instanceof Element ? e.target : null;
     if (el?.closest('.bs-reqpane')) {
       requestHidden = false;
@@ -506,12 +506,12 @@
     }
   }
   function showResponse(): void {
-    focusMode.set(null);
+    focusMode.current = null;
     responseHidden = false;
     if (requestLayout.current === 'focus') requestHidden = true;
   }
   function showRequest(): void {
-    focusMode.set(null);
+    focusMode.current = null;
     requestHidden = false;
     if (requestLayout.current === 'focus') responseHidden = true;
   }
@@ -584,9 +584,9 @@
         : document.querySelector<HTMLElement>('[aria-haspopup][aria-expanded="true"]');
       if (!trigger && !menu.kind) {
         // Esc leaves expanded mode; CodeMirror's own Esc (find panel, completion) prevents default first.
-        if ($focusMode && !e.defaultPrevented && !document.querySelector('.bs-modal, .bs-overlay')) {
+        if (focusMode.current && !e.defaultPrevented && !document.querySelector('.bs-modal, .bs-overlay')) {
           e.preventDefault();
-          focusMode.set(null);
+          focusMode.current = null;
         }
         return;
       }
@@ -694,22 +694,23 @@
         reopenClosedTab();
         break;
       case 'expand':
-        if (requestTab) focusMode.update((m) => expandTarget(m, !!document.activeElement?.closest('.bs-resp-host')));
+        if (requestTab)
+          focusMode.current = expandTarget(focusMode.current, !!document.activeElement?.closest('.bs-resp-host'));
         break;
       case 'toggleResponse':
         if (sideBySide) break;
         if (respStrip) showResponse();
         else {
-          focusMode.set(null);
+          focusMode.current = null;
           responseHidden = true;
           requestHidden = false;
         }
         break;
       case 'toggleRequest':
         if (sideBySide) break;
-        if (reqStrip || $focusMode === 'response') showRequest();
+        if (reqStrip || focusMode.current === 'response') showRequest();
         else {
-          focusMode.set(null);
+          focusMode.current = null;
           requestHidden = true;
           responseHidden = false;
         }
@@ -987,7 +988,11 @@
   onkeydown={globalKeydown}
 />
 
-<div class="bs" class:sidebar-hidden={!sidebarShown} data-focus={requestTab && $focusMode ? $focusMode : undefined}>
+<div
+  class="bs"
+  class:sidebar-hidden={!sidebarShown}
+  data-focus={requestTab && focusMode.current ? focusMode.current : undefined}
+>
   <AppToolbar bind:workspaceMenuOpen onSearch={() => (paletteOpen = true)} onSettings={() => (settingsOpen = true)} />
 
   <div class="bs-body">
@@ -1058,7 +1063,7 @@
             onContext={tabContext}
             onTabKey={tabKeydown}
           />
-          {#if active && requestTab && $focusMode}<FocusBar tab={active} mode={$focusMode} />{/if}
+          {#if active && requestTab && focusMode.current}<FocusBar tab={active} mode={focusMode.current} />{/if}
 
           {#if active}
             {#if active.protocol === 'git'}
@@ -1112,7 +1117,7 @@
                 class="bs-resp-host"
                 class:closed={respStrip}
                 class:no-anim={panelDragging}
-                style={responseHeight == null || requestHidden || sideBySide || $focusMode
+                style={responseHeight == null || requestHidden || sideBySide || focusMode.current
                   ? ''
                   : `flex:0 0 ${responseHeight}px`}
               >

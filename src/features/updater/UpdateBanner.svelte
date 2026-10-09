@@ -2,21 +2,21 @@
   /** U1: one-off toast once an update has downloaded in the background. It hides
    * itself after a while; the toolbar pill keeps the update reachable. */
   import { t } from '$shared/i18n';
-  import { updateToast, updateVersion, installUpdate } from '$shared/updater';
+  import { installUpdate, updater } from '$shared/updater';
 
   const AUTO_HIDE_MS = 12_000;
 
   $effect(() => {
-    if (!$updateToast) return;
-    const timer = setTimeout(() => updateToast.set(false), AUTO_HIDE_MS);
+    if (!updater.toast) return;
+    const timer = setTimeout(() => (updater.toast = false), AUTO_HIDE_MS);
     return () => clearTimeout(timer);
   });
 </script>
 
-{#if $updateToast}
+{#if updater.toast}
   <div class="upd" role="status" aria-live="polite">
     <span class="material-symbols-outlined ic" aria-hidden="true">download_done</span>
-    <span class="txt">{t('update.downloaded', { v: $updateVersion })}</span>
+    <span class="txt">{t('update.downloaded', { v: updater.version })}</span>
     <button class="btn" type="button" onclick={installUpdate}>{t('update.restart')}</button>
   </div>
 {/if}
