@@ -1,0 +1,216 @@
+/* Element defaults (html, body, buttons, inputs, kbd, scrollbars), the icon font, keyframes. */
+
+@keyframes send-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes bs-popover-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes bs-progress {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(280%);
+  }
+}
+
+.bs button {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: none;
+  letter-spacing: 0;
+}
+
+/* Belongs to request.css, but the cascade needs it before `.bs input:focus-visible` (same elements, same specificity), so it lives here. */
+:root .bs-pc input {
+  width: 100%;
+  outline: none;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+}
+
+/* Material Symbols inherit the surrounding text colour. */
+.material-symbols-outlined {
+  font-family: 'Material Symbols Outlined';
+  font-weight: 300;
+  font-style: normal;
+  line-height: 1;
+  letter-spacing: normal;
+  text-transform: none;
+  display: inline-block;
+  white-space: nowrap;
+  word-wrap: normal;
+  direction: ltr;
+  -webkit-font-feature-settings: 'liga';
+  -webkit-font-smoothing: antialiased;
+  font-size: 18px;
+  color: currentColor;
+}
+
+/* Big Sur scrollbars. */
+::-webkit-scrollbar {
+  width: 11px;
+  height: 11px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(120, 120, 128, 0.35);
+  border-radius: 6px;
+  border: 3px solid transparent;
+  background-clip: padding-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(120, 120, 128, 0.55);
+  background-clip: padding-box;
+}
+
+html {
+  height: 100%;
+  width: 100%;
+  margin: 0;
+}
+
+#app {
+  height: 100%;
+  width: 100%;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.bs svg {
+  width: 16px;
+  height: 16px;
+  stroke-width: 1.75;
+}
+
+/* Tauri WebView repaints aggressively while the cursor crosses many hoverable
+   controls. Keep hover feedback instant instead of animating every mouse move. */
+.bs * {
+  box-sizing: border-box;
+  transition: none !important;
+}
+
+.bs *::before,
+.bs *::after {
+  transition: none !important;
+}
+
+.bs input,
+.bs textarea {
+  letter-spacing: 0;
+}
+
+.bs input:focus-visible,
+.bs textarea:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+.bs button:focus-visible {
+  box-shadow: var(--focus-ring);
+}
+
+.bs ::-webkit-scrollbar-thumb:hover {
+  background: rgba(120, 120, 128, 0.52);
+  background-clip: padding-box;
+}
+
+body {
+  color: var(--text);
+  padding: 0;
+  overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+  letter-spacing: 0;
+  height: 100%;
+  width: 100%;
+  margin: 0;
+  background: var(--bg);
+}
+
+.bs ::-webkit-scrollbar {
+  width: 9px;
+  height: 9px;
+}
+
+.bs ::-webkit-scrollbar-thumb {
+  border: 3px solid transparent;
+  border-radius: 0;
+  background: color-mix(in srgb, var(--t3) 58%, transparent);
+  background-clip: padding-box;
+}
+
+:root .bs {
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  font-size: 13px;
+  letter-spacing: 0;
+  padding: 0 10px;
+  font-family: var(--font-ui);
+  background: var(--color-canvas);
+}
+
+:root .bs button {
+  cursor: pointer;
+}
+
+:root .bs button:disabled {
+  cursor: default;
+}
+
+:root .bs .material-symbols-outlined {
+  pointer-events: none;
+  font-weight: 300;
+}
+
+/* Belongs to sidebar.css, but the cascade needs it before `:root .bs button:focus-visible` (same elements, same specificity), so it lives here. */
+:root .bs button.bs-empty-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 34px;
+  padding: 0 16px;
+  border: 0;
+  outline: 1px solid var(--color-border-subtle);
+  outline-offset: -1px;
+  border-radius: var(--radius-control);
+  background: var(--color-panel);
+  color: var(--color-text);
+  font-size: var(--font-size-body);
+  font-weight: 500;
+}
+
+/* Menus and dialogs: raised card 20, capsule items */
+:root .bs button:focus-visible {
+  outline: 2px solid var(--color-text);
+  outline-offset: 2px;
+}
+
+/* Settings → Внешний вид → Плотность. The geometry above is «Стандартно» (S32.5c);
+   «Компактно» (S05) trims chrome so the request and response get the room. Type never changes. */
+:root[data-density='compact'] .bs {
+  padding: 0 8px;
+}

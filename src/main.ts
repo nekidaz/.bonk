@@ -4,7 +4,7 @@ import { getCurrentWindow } from '@tauri-apps/api/window';
 // Fonts are vendored (not CDN) so this local-first app renders fully offline
 // and never phones home on launch. Inter = UI; JetBrains Mono = code/labels; Material
 // Symbols Outlined = UI icons (its `.material-symbols-outlined` utility class
-// lives in app.css; this import only provides the @font-face). Weight 300
+// lives in src/styles/base.css; this import only provides the @font-face). Weight 300
 // is the Bonk Mono icon weight (no font-variation/FILL is used).
 import '@fontsource/inter/400.css';
 import '@fontsource/inter/500.css';
@@ -14,8 +14,7 @@ import '@fontsource/jetbrains-mono/400.css';
 import '@fontsource/jetbrains-mono/500.css';
 import '@fontsource/jetbrains-mono/600.css';
 import '@fontsource/material-symbols-outlined/300.css';
-import './app.css';
-import './bigsur.css';
+import './styles/index.css';
 import { applyStoredTheme } from '$shared/settings';
 import App from './app/App.svelte';
 

@@ -1,0 +1,139 @@
+/* CodeMirror editors: body/response editors, variable highlighting, autocomplete, search panel. */
+
+.bs-code .s2 {
+  color: var(--ss);
+}
+
+.bs-code .n2 {
+  color: var(--sn);
+}
+
+.bs-code .b2 {
+  color: var(--sb);
+}
+
+.bs-code .pu {
+  color: var(--sp);
+}
+
+.bs-code .br {
+  color: #8b949e;
+}
+
+.bs-code .tag {
+  color: var(--sk);
+}
+
+.bs-code .attr {
+  color: var(--sn);
+}
+
+:root .bs .bs-urlfield .cm-var-ok,
+:root .bs .bs-urlfield .cm-var-missing {
+  margin-right: 2px;
+  padding: 2px 9px;
+  border-radius: var(--radius-control);
+}
+
+:root .bs .cm-var-ok {
+  color: var(--color-var);
+  background: var(--color-var-soft);
+}
+
+:root .bs .cm-var-missing {
+  color: var(--color-danger);
+  background: var(--color-danger-soft);
+}
+
+/* Mono 3.0: booleans/null share the number colour (design syntax-number); --sb is the key colour. */
+:is([data-theme='smooth-light'], [data-theme='smooth-dark']) .bs .bs-code .b2 {
+  color: var(--sn);
+}
+
+:is([data-theme='smooth-light'], [data-theme='smooth-dark'])
+  .bs
+  .cm-tooltip.cm-tooltip-autocomplete
+  > ul
+  > li[aria-selected] {
+  color: var(--on-accent);
+}
+
+:is([data-theme='smooth-light'], [data-theme='smooth-dark'])
+  .bs
+  .cm-tooltip.cm-tooltip-autocomplete
+  > ul
+  > li[aria-selected]
+  .cm-completionDetail {
+  color: var(--on-accent);
+  opacity: 0.78;
+}
+
+:root .bs .bs-http-body .bs-body-cm .bs-code-editor {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+/* Content-sized (≥ minHeight) while the response is open; grows into the freed space once it is collapsed or shrunk. */
+:root .bs .bs-http-body .bs-body-cm > .bs-code-editor:not(.fill) {
+  flex: 1 0 auto;
+  display: flex;
+  flex-direction: column;
+}
+
+:root .bs .bs-http-body .bs-body-cm > .bs-code-editor:not(.fill) .cm-editor {
+  flex: 1 0 auto;
+}
+
+:root .bs .bs-urlfield:is(.long, .expanded) .cm-url-punct {
+  color: var(--syntax-punct, var(--t3));
+}
+
+:root .bs .bs-urlfield:is(.long, .expanded) .cm-url-key {
+  color: var(--sk);
+}
+
+:root .bs .bs-urlfield:is(.long, .expanded) .cm-url-value {
+  color: var(--ss);
+}
+
+:root .bs .bs-urlfield.expanded .cm-url-seg {
+  white-space: nowrap;
+}
+
+:root .bs .bs-grpc-field .bs-code-editor {
+  flex: 0 1 auto;
+  min-width: 80px;
+}
+
+:root .bs .bs-body-cm .cm-error-line {
+  background: var(--color-warning-soft);
+}
+
+:root .bs-http-body.bs-grpc-message .bs-body-cm > .bs-code-editor {
+  min-height: 100%;
+}
+
+:root .lb-tools {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* Rule 4 · «ещё N объектов · M строк» fold chip */
+:root .bs-fold-chip {
+  border: 0;
+  user-select: none;
+}
+
+:root .bs-fold-chip:focus-visible {
+  outline: 2px solid var(--color-text);
+  outline-offset: 1px;
+}
+
+@container response (max-width: 800px) {
+  :root .bs-meta .lb-tools .lb-ed {
+    display: none;
+  }
+}

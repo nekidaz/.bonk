@@ -1,8 +1,9 @@
 import forms from '@tailwindcss/forms';
 
 /**
- * Big Sur token layer. Every colour resolves to a CSS variable so the whole app
- * themes via `:root` (light) / `.dark` (dark) defined in app.css. The Material-3
+ * Big Sur token layer. Every colour resolves to a CSS variable from src/styles/tokens.css
+ * (palettes on html[data-theme='smooth-light' | 'smooth-dark']), so the theme switch reskins
+ * Tailwind utilities too. The Material-3
  * token NAMES are kept so existing component classes keep working.
  */
 /** @type {import('tailwindcss').Config} */
