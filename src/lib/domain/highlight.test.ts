@@ -7,8 +7,8 @@ import {
   memoText,
   bodyEditorHtml,
   MAX_HIGHLIGHT_CHARS,
-} from '../src/lib/domain/highlight';
-import type { Tab } from '../src/lib/domain/types';
+} from './highlight';
+import type { Tab } from './types';
 
 function tab(overrides: Partial<Tab['request']> = {}): Tab {
   return {

@@ -7,8 +7,8 @@ import {
   buildUrlEncodedBody,
   buildMultipartBody,
   buildRequestForSend,
-} from '../src/lib/domain/httpBody';
-import type { BodyMode, BodyParam, RawBodyFormat, Tab } from '../src/lib/domain/types';
+} from './httpBody';
+import type { BodyMode, BodyParam, RawBodyFormat, Tab } from './types';
 
 function bp(key: string, value: string, enabled = true): BodyParam {
   return { key, value, description: '', enabled };

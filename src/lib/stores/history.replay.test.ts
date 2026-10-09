@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { get } from 'svelte/store';
-import { openHistoryEntry, tabs, activeTabId } from '../src/lib/stores';
-import type { HistoryEntry } from '../src/lib/domain/types';
+import { openHistoryEntry, tabs, activeTabId } from './index';
+import type { HistoryEntry } from '../domain/types';
 
 describe('openHistoryEntry', () => {
   it('opens an http entry in a new active tab with its request restored', () => {

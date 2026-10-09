@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { get } from 'svelte/store';
-import { collections, revealNode } from '../src/lib/stores';
-import { collapsedFolders, withSavedCollapse } from '../src/lib/stores/workspace';
-import type { TreeNode } from '../src/lib/domain/types';
+import { collections, revealNode } from './index';
+import { collapsedFolders, withSavedCollapse } from './workspace';
+import type { TreeNode } from '../domain/types';
 
 const req: TreeNode = { kind: 'request', id: 'fs:a/b/r.json', name: 'r', protocol: 'http', request: { method: 'GET', url: '', headers: {} } };
 const tree = (open: boolean): TreeNode[] => [

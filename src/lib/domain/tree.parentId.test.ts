@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { parentId } from '../src/lib/domain/tree';
+import { parentId } from './tree';
 
 describe('parentId', () => {
   it('returns the parent folder id of a nested node', () => {

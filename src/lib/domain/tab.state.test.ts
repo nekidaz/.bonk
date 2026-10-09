@@ -6,8 +6,8 @@ import {
   relinkTabPaths,
   normalizeTabTitleState,
   moveTabTo,
-} from '../src/lib/domain/tab';
-import type { Tab } from '../src/lib/domain/types';
+} from './tab';
+import type { Tab } from './types';
 
 function httpTab(over: Partial<Tab> = {}): Tab {
   return {

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { uiLanguage } from '../src/lib/stores/prefs';
+import { uiLanguage } from '../stores/prefs';
 import {
   applyEnvPatch,
   applyGrpcRequestPatch,
@@ -7,8 +7,8 @@ import {
   buildGrpcScriptContext,
   buildScriptContext,
   parseScriptResult,
-} from '../src/lib/domain/scripts';
-import type { GrpcResult, HttpRequest, HttpResponse, VarRow } from '../src/lib/domain/types';
+} from './scripts';
+import type { GrpcResult, HttpRequest, HttpResponse, VarRow } from './types';
 
 uiLanguage.set('en'); // these assertions check the English strings
 

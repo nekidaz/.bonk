@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { uiLanguage } from '../src/lib/stores/prefs';
+import { uiLanguage } from '../stores/prefs';
 import {
   jsonLineCol,
   jsonErrorMessage,
@@ -7,8 +7,8 @@ import {
   parseJsonForBeautify,
   maybeInsertCommaBeforeJsonValue,
   bodyPlaceholder,
-} from '../src/lib/domain/jsonEditor';
-import type { Tab } from '../src/lib/domain/types';
+} from './jsonEditor';
+import type { Tab } from './types';
 
 uiLanguage.set('en'); // these assertions check the English strings
 

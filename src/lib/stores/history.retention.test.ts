@@ -1,10 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { HistoryEntry } from '../src/lib/domain/types';
+import type { HistoryEntry } from '../domain/types';
 
 // stores.ts imports the api module at eval time; every named export it uses must
 // be stubbed or the module-eval throws. We never exercise the workspace/send
 // paths here — this file only covers history retention.
-vi.mock('../src/lib/api', () => ({
+vi.mock('../api', () => ({
   httpSend: vi.fn(),
   filePick: vi.fn(),
   cancelRequest: vi.fn(),
@@ -21,7 +21,7 @@ vi.mock('../src/lib/api', () => ({
 // persist.ts talks to Tauri via `invoke`, unavailable under vitest. `hydrate()`
 // is what registers the "lowering historyLimit truncates existing" subscription,
 // so we run it once with persist stubbed to wire that behavior up.
-vi.mock('../src/lib/persist', async () => {
+vi.mock('../persist', async () => {
   const { writable: writableOf } = await import('svelte/store');
   return ({
   persisted: (<T>(_k: string, v: T) => Object.assign(writableOf(v), { ready: Promise.resolve() })),
@@ -32,7 +32,7 @@ vi.mock('../src/lib/persist', async () => {
   });
 });
 
-import { history, historyLimit, historyPaused, addHistory, hydrate } from '../src/lib/stores';
+import { history, historyLimit, historyPaused, addHistory, hydrate } from './index';
 
 function entry(id: string): HistoryEntry {
   return { id, protocol: 'http', request: { method: 'GET', url: `https://example.com/${id}`, headers: {} }, status: 200, at: Date.now() };

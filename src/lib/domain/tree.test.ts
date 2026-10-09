@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { filterTree, findNode, findParent, idToRel, relToParts } from '../src/lib/domain/tree';
-import type { TreeNode } from '../src/lib/domain/types';
+import { filterTree, findNode, findParent, idToRel, relToParts } from './tree';
+import type { TreeNode } from './types';
 
 const tree: TreeNode[] = [
   {

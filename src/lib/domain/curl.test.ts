@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { parseCurl, toCurl } from '../src/lib/domain/curl';
-import type { Tab } from '../src/lib/domain/types';
+import { parseCurl, toCurl } from './curl';
+import type { Tab } from './types';
 
 describe('parseCurl', () => {
   it('parses method, headers, url and json body', () => {
