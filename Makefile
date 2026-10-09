@@ -25,8 +25,9 @@ sidecar: # stage the MCP sidecar binary — src-tauri's build.rs refuses to buil
 
 check: lint test build ## everything CI runs
 
-lint: sidecar ## svelte-check (TS types) + clippy (warnings = errors)
+lint: sidecar ## svelte-check (TS types) + rustfmt check + clippy (warnings = errors)
 	npm run check
+	cargo fmt --all --check
 	cargo clippy --workspace --all-targets -- -D warnings
 
 test: test-ts test-rs ## all tests
