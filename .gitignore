@@ -4,6 +4,7 @@ src-tauri/target/
 dist/
 visual/__screenshots__/
 visual/report/
+visual/css-oracle/
 test-results/
 .idea/
 .DS_Store
