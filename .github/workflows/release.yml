@@ -82,13 +82,13 @@ jobs:
         with:
           targets: ${{ matrix.rust-targets }}
 
-      # Cache cargo registry + target/ per platform so warm runs skip recompiling
-      # all dependencies (cold first run still pays full cost).
+      # Restore-only: a cache saved by a tag run is scoped to that tag, so the
+      # next tag could never read it — saving just cost minutes (4+ on Windows).
       - name: Cache Rust build
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: '. -> target'
-          cache-on-failure: true
+          save-if: false
 
       - name: Install frontend dependencies
         run: npm ci
@@ -126,6 +126,10 @@ jobs:
           # linuxdeploy/AppImage needs FUSE, which CI runners lack — extract instead of mount.
           APPIMAGE_EXTRACT_AND_RUN: 1
         with:
+          # Call the CLI directly: `npm run tauri` first runs prepare:mcp, which
+          # rebuilt bonk-mcp in DEBUG (2–6 min) and overwrote the release sidecar
+          # staged above, so the bundles shipped a debug MCP server.
+          tauriScript: npx tauri
           # Cross-publish the release into the public distribution repo.
           owner: nekidaz
           repo: .bonk

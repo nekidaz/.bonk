@@ -1,3 +1,8 @@
 [workspace]
 members = ["src-tauri", "crates/bonk-core", "crates/bonk-mcp"]
 resolver = "2"
+
+# Release binaries ship without symbol tables: the Linux bonk-mcp asset was 225 MB
+# and the sidecar inflated every bundle. Panic messages keep their file:line.
+[profile.release]
+strip = true
