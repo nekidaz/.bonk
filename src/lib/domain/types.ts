@@ -75,7 +75,7 @@ export interface RequestSettings {
   caPaths: string[];
   trustSystemCas: boolean;
   /** Per-host mTLS identities; the backend picks the one matching the request host. */
-  clientCerts: { host: string; certPath: string; keyPath: string }[];
+  clientCerts: { host: string; certPath: string; keyPath: string; p12Path?: string; p12Password?: string }[];
 }
 
 /** Per-request overrides of the global request settings (RequestSettings popover); unset = use the global value. */
@@ -281,7 +281,7 @@ export interface GrpcResult { ok: boolean; status: string; body: string; elapsed
 /** A decoded `google.rpc.Status` detail; BadRequest carries field violations (S24). */
 export interface GrpcErrorDetail { typeName: string; fieldViolations: { field: string; description: string }[]; }
 /** Per-request TLS options (S29). Unset = system roots, verified. */
-export interface GrpcTls { insecure?: boolean; caCert?: string; clientCert?: string; clientKey?: string; }
+export interface GrpcTls { insecure?: boolean; caCert?: string; clientCert?: string; clientKey?: string; clientP12?: string; clientP12Password?: string; }
 /** The server's leaf certificate as seen in a TLS handshake. */
 export interface GrpcCertInfo { verified: boolean; error?: string | null; subject: string; issuer: string; notAfter: number; }
 

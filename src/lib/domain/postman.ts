@@ -1,7 +1,7 @@
 import { get } from 'svelte/store';
 import { t } from '../i18n';
 import { paramsFromUrl, syncUrlWithParams } from './http';
-import type { AuthConfig, BodyParam, HttpRequest, Param, RequestNode, VarRow } from './types';
+import type { AuthConfig, BodyParam, HttpRequest, Param, RequestNode, TreeNode, VarRow } from './types';
 
 type RecordValue = Record<string, unknown>;
 
@@ -228,4 +228,79 @@ export function isPostmanCollection(text: string): boolean {
   } catch {
     return false;
   }
+}
+
+// ---------- Export: Postman Collection v2.1 ----------
+
+type Json = Record<string, unknown>;
+
+const scriptBody = (code: string) => ({ type: 'text/javascript', exec: code.split('\n') });
+
+function events(pre?: string, test?: string): Json[] {
+  return [['prerequest', pre], ['test', test]].flatMap(([listen, code]) => (code ? [{ listen, script: scriptBody(code) }] : []));
+}
+
+function exportAuth(a: AuthConfig | undefined): Json | undefined {
+  const kv = (pairs: [string, string | undefined][]) => pairs.map(([key, value]) => ({ key, value: value ?? '', type: 'string' }));
+  switch (a?.type) {
+    case 'none': return { type: 'noauth' };
+    case 'bearer': return { type: 'bearer', bearer: kv([['token', a.bearerToken]]) };
+    case 'basic': return { type: 'basic', basic: kv([['username', a.basicUsername], ['password', a.basicPassword]]) };
+    case 'apiKey': return { type: 'apikey', apikey: kv([['key', a.apiKeyName], ['value', a.apiKeyValue], ['in', a.apiKeyIn ?? 'header']]) };
+    default: return undefined; // inherit / absent: let Postman inherit
+  }
+}
+
+function exportBody(r: HttpRequest): Json | undefined {
+  const params = () => (r.bodyParams ?? []).map((p) => ({
+    key: p.key, value: p.kind === 'file' ? '' : p.value, type: p.kind === 'file' ? 'file' : 'text',
+    ...(p.description ? { description: p.description } : {}), ...(p.enabled ? {} : { disabled: true }),
+  }));
+  switch (r.bodyMode) {
+    case 'raw': {
+      const language = { JSON: 'json', HTML: 'html', XML: 'xml', JavaScript: 'javascript', Text: 'text' }[r.rawBodyFormat ?? 'Text'];
+      return { mode: 'raw', raw: r.body ?? '', options: { raw: { language } } };
+    }
+    case 'urlencoded': return { mode: 'urlencoded', urlencoded: params() };
+    case 'form-data': return { mode: 'formdata', formdata: params() };
+    case 'graphql': return { mode: 'graphql', graphql: { query: r.body ?? '', variables: r.graphqlVariables ?? '' } };
+    case 'binary': return { mode: 'file' };
+    default: return undefined;
+  }
+}
+
+function exportRequest(n: RequestNode): Json {
+  const r = n.request;
+  const off = new Set(r.disabledHeaders ?? []);
+  const keys = [...new Set([...Object.keys(r.headers), ...off])];
+  const header = keys.map((key) => ({
+    key, value: r.headers[key] ?? '',
+    ...(r.headerNotes?.[key] ? { description: r.headerNotes[key] } : {}), ...(off.has(key) ? { disabled: true } : {}),
+  }));
+  const query = (n.params ?? []).map((p) => ({ key: p.key, value: p.value, ...(p.description ? { description: p.description } : {}), ...(p.enabled ? {} : { disabled: true }) }));
+  const auth = exportAuth(r.auth);
+  const body = exportBody(r);
+  const event = events(r.preRequestScript, r.testScript);
+  return {
+    name: n.name,
+    request: { method: r.method, header, url: query.length ? { raw: r.url, query } : { raw: r.url }, ...(body ? { body } : {}), ...(auth ? { auth } : {}) },
+    ...(event.length ? { event } : {}),
+  };
+}
+
+function exportItems(nodes: TreeNode[]): Json[] {
+  return nodes.flatMap((n): Json[] => {
+    if (n.kind === 'request') return n.protocol === 'http' ? [exportRequest(n)] : []; // Postman v2.1 has no gRPC
+    const auth = exportAuth(n.auth);
+    return [{ name: n.name, ...(auth ? { auth } : {}), item: exportItems(n.children) }];
+  });
+}
+
+/** Postman Collection v2.1 JSON of the HTTP requests in the tree (gRPC is skipped); globals become collection variables. */
+export function buildPostmanCollection(name: string, collections: TreeNode[], globals: VarRow[], includeSecrets: boolean): string {
+  return JSON.stringify({
+    info: { name, schema: 'https://schema.getpostman.com/json/collection/v2.1.0/collection.json' },
+    item: exportItems(collections),
+    variable: globals.map((v) => ({ key: v.key, value: v.secret && !includeSecrets ? '' : v.value, ...(v.enabled ? {} : { disabled: true }) })),
+  }, null, 2);
 }

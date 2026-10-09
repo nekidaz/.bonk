@@ -12,6 +12,43 @@ use std::process::Stdio;
 use std::time::Instant;
 use tokio::io::AsyncWriteExt;
 
+/// Private temp directory for secret files (decrypted client identity): created
+/// owner-only, files exclusive-created 0600, the whole tree removed on drop.
+struct SecretDir(PathBuf);
+
+impl SecretDir {
+    fn create() -> Result<Self, String> {
+        let path = std::env::temp_dir().join(format!("bonk-{:016x}", fastrand::u64(..)));
+        let mut builder = std::fs::DirBuilder::new();
+        #[cfg(unix)]
+        std::os::unix::fs::DirBuilderExt::mode(&mut builder, 0o700);
+        builder
+            .create(&path)
+            .map_err(|e| format!("create temp dir failed: {e}"))?;
+        Ok(Self(path))
+    }
+
+    fn write(&self, name: &str, data: &[u8]) -> Result<PathBuf, String> {
+        use std::io::Write;
+        let path = self.0.join(name);
+        let mut options = std::fs::OpenOptions::new();
+        options.write(true).create_new(true);
+        #[cfg(unix)]
+        std::os::unix::fs::OpenOptionsExt::mode(&mut options, 0o600);
+        options
+            .open(&path)
+            .and_then(|mut f| f.write_all(data))
+            .map_err(|e| format!("write {name} failed: {e}"))?;
+        Ok(path)
+    }
+}
+
+impl Drop for SecretDir {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_dir_all(&self.0);
+    }
+}
+
 /// Locate grpcurl. A Finder-launched app gets a bare PATH, so also probe the
 /// usual Homebrew / Go install dirs.
 pub fn find_grpcurl() -> Option<PathBuf> {
@@ -164,6 +201,7 @@ pub async fn call(
 
     let (host, plaintext) = target(endpoint, plaintext);
     let mut cmd = tokio::process::Command::new(bin);
+    let mut secret_dir: Option<SecretDir> = None;
     if plaintext {
         cmd.arg("-plaintext");
     } else {
@@ -173,7 +211,16 @@ pub async fn call(
         if let Some(ca) = &tls.ca_cert {
             cmd.arg("-cacert").arg(ca);
         }
-        if let (Some(cert), Some(key)) = (&tls.client_cert, &tls.client_key) {
+        if tls.client_p12.as_deref().is_some_and(|p| !p.is_empty()) {
+            // grpcurl takes PEM files: unpack the bundle into a private temp dir
+            // (0700, files 0600), removed by the guard on every exit path.
+            let (cert, key) = tls
+                .client_identity_pem()?
+                .ok_or("client identity missing")?;
+            let dir = secret_dir.insert(SecretDir::create()?);
+            cmd.arg("-cert").arg(dir.write("cert.pem", &cert)?);
+            cmd.arg("-key").arg(dir.write("key.pem", &key)?);
+        } else if let (Some(cert), Some(key)) = (&tls.client_cert, &tls.client_key) {
             cmd.arg("-cert").arg(cert).arg("-key").arg(key);
         }
     }
@@ -218,6 +265,7 @@ pub async fn call(
     };
     let output = run.await;
     let _ = std::fs::remove_file(&protoset);
+    drop(secret_dir);
     let output = output?;
     let elapsed_ms = start.elapsed().as_millis() as u64;
 

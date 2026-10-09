@@ -23,7 +23,11 @@ export function fileName(path: string): string {
   return path.split(/[\\/]/).filter(Boolean).at(-1) ?? path;
 }
 
-export interface HostCert { host: string; certPath: string; keyPath: string }
+/** Per-host mTLS identity: PEM cert + key files, or one PKCS#12 bundle (`p12Path`, password in the keychain). */
+export interface HostCert { host: string; certPath: string; keyPath: string; p12Path?: string }
+
+/** Has a usable identity (PEM pair or .p12). */
+export const hasIdentity = (c: Pick<HostCert, 'certPath' | 'keyPath' | 'p12Path'>): boolean => !!c.p12Path || (!!c.certPath && !!c.keyPath);
 
 /** First client identity whose host matches (exact, `*.wildcard`, or empty = any). Mirrors bonk-core `pick_client_cert`. */
 export function pickClientCert<T extends { host: string }>(certs: T[], host: string): T | undefined {

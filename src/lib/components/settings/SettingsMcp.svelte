@@ -8,6 +8,8 @@
   } from '../../api';
   import { requestConfirm, workspacePath, environments } from '../../stores';
   import { mcpPrefs } from '../../stores/mcpPrefs';
+  import { allowedEnvNames } from '../../domain/mcpEnvs';
+  import McpEnvPicker from './McpEnvPicker.svelte';
   import { timeAgo } from '../../domain/palette';
   import { methodColor } from '../../domain/method';
   import { row, sw, select, chips } from './ui.svelte';
@@ -21,14 +23,14 @@
 
   // Unique: the allow-list is by name, and two environments may share one (a duplicate key would crash the {#each}).
   const envNames = $derived([...new Set($environments.map((e) => e.name))]);
-  const envOn = (name: string) => ($mcpPrefs.environments ? $mcpPrefs.environments.includes(name) : !/prod/i.test(name));
+  const allowedEnvs = $derived(allowedEnvNames($mcpPrefs, $environments));
   const opts = $derived<McpInstallOptions>({
     workspace: $workspacePath,
     readOnly: !$mcpPrefs.allowWrites,
     noNetwork: !$mcpPrefs.allowNetwork,
     targetHosts: $mcpPrefs.targetHosts,
     exposeSecrets: $mcpPrefs.exposeSecrets,
-    environments: envNames.filter(envOn),
+    environments: envNames.filter((n) => allowedEnvs.has(n)),
     mutatingMethods: $mcpPrefs.mutatingMethods,
   });
   const noWs = $derived(!$workspacePath);
@@ -96,10 +98,6 @@
   });
 
   const patch = (p: Partial<typeof $mcpPrefs>) => mcpPrefs.update((v) => ({ ...v, ...p }));
-  function toggleEnv(name: string): void {
-    const cur = envNames.filter(envOn);
-    patch({ environments: cur.includes(name) ? cur.filter((n) => n !== name) : [...cur, name] });
-  }
   const METHODS = $derived<{ label: string; value: McpMethodPolicy }[]>([
     { label: $t('settings.mcp.m.allow'), value: 'allow' },
     { label: $t('settings.mcp.m.ask'), value: 'ask' },
@@ -161,15 +159,8 @@
       {#snippet s2()}{@render sw($t('settings.mcp.net'), $mcpPrefs.allowNetwork, (v) => patch({ allowNetwork: v }))}{/snippet}
       {@render row($t('settings.mcp.net'), $t('settings.mcp.net.desc'), s2)}
       <div class="st-row st-mcp-envs" class:st-mcp-dim={!$mcpPrefs.allowNetwork}>
-        <span class="st-name">{$t('settings.mcp.envs')}</span>
-        <div class="st-mcp-chips" role="group" aria-label={$t('settings.mcp.envs.aria')}>
-          {#each envNames as name (name)}
-            {@const on = envOn(name)}
-            <button type="button" class="st-mcp-env" class:on disabled={!$mcpPrefs.allowNetwork} aria-pressed={on} onclick={() => toggleEnv(name)}>
-              <span class="material-symbols-outlined" aria-hidden="true">{on ? 'check' : 'block'}</span>{name}
-            </button>
-          {/each}
-        </div>
+        <div class="st-copy"><span class="st-name">{$t('settings.mcp.envs')}</span><span class="st-desc">{$t('settings.mcp.envs.sub')}</span></div>
+        <McpEnvPicker disabled={!$mcpPrefs.allowNetwork} />
       </div>
       <div class:st-mcp-dim={!$mcpPrefs.allowNetwork}>
         {#snippet s3()}<div class:st-mcp-off={!$mcpPrefs.allowNetwork}>{@render select($t('settings.mcp.methods.desc'), $mcpPrefs.mutatingMethods, METHODS, (v) => patch({ mutatingMethods: v as McpMethodPolicy }))}</div>{/snippet}

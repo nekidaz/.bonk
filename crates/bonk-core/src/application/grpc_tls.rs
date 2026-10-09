@@ -59,13 +59,13 @@ fn client_config(
         .map_err(|e| e.to_string())?
         .dangerous()
         .with_custom_certificate_verifier(verifier);
-    let mut config = match (&tls.client_cert, &tls.client_key) {
-        (Some(cert), Some(key)) => {
-            let certs = CertificateDer::pem_file_iter(cert)
-                .and_then(|it| it.collect::<Result<Vec<_>, _>>())
-                .map_err(|e| format!("client certificate {cert}: {e}"))?;
+    let mut config = match tls.client_identity_pem()? {
+        Some((cert, key)) => {
+            let certs = CertificateDer::pem_slice_iter(&cert)
+                .collect::<Result<Vec<_>, _>>()
+                .map_err(|e| format!("client certificate: {e}"))?;
             let key =
-                PrivateKeyDer::from_pem_file(key).map_err(|e| format!("client key {key}: {e}"))?;
+                PrivateKeyDer::from_pem_slice(&key).map_err(|e| format!("client key: {e}"))?;
             builder
                 .with_client_auth_cert(certs, key)
                 .map_err(|e| format!("client certificate: {e}"))?

@@ -117,11 +117,23 @@ fn apply_tls_files(
         builder = builder.tls_certs_only(roots);
     }
     if let Some(c) = client_cert {
-        let mut pem = read_pem(&c.cert_path, "client certificate")?;
-        pem.push(b'\n');
-        pem.extend(read_pem(&c.key_path, "client key")?);
+        let (pem, what) = match c.p12_path.as_deref().filter(|p| !p.is_empty()) {
+            Some(p12) => {
+                let (cert, key) = bonk_core::infra::pkcs12::p12_to_pem(
+                    p12,
+                    c.p12_password.as_deref().unwrap_or_default(),
+                )?;
+                ([cert, b"\n".to_vec(), key].concat(), p12)
+            }
+            None => {
+                let mut pem = read_pem(&c.cert_path, "client certificate")?;
+                pem.push(b'\n');
+                pem.extend(read_pem(&c.key_path, "client key")?);
+                (pem, c.cert_path.as_str())
+            }
+        };
         let id = reqwest::Identity::from_pem(&pem)
-            .map_err(|e| format!("client certificate «{}»: {e}", c.cert_path))?;
+            .map_err(|e| format!("client certificate «{what}»: {e}"))?;
         builder = builder.identity(id);
     }
     Ok(builder)
@@ -236,6 +248,8 @@ mod tests {
                 host: String::new(),
                 cert_path: "/nonexistent/c.pem".into(),
                 key_path: "/nonexistent/k.pem".into(),
+                p12_path: None,
+                p12_password: None,
             }],
             ..RequestSettings::default()
         };

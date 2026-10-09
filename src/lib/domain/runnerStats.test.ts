@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { RequestNode, RunResultRow } from './types';
 import {
   buildMatrix, compactJson, durationDelta, insightFor, p95, p95Delta, passedDelta, plural, pushHistory,
-  relDay, runBars, statusLabel, testCount, varLinks, summarizeRun, testDetail, waterfall, type RunSummary,
+  pushRecord, relDay, runBars, toRecord, RECORD_BODY, RECORD_ROWS, statusLabel, testCount, varLinks, summarizeRun, testDetail, waterfall, type RunSummary,
 } from './runnerStats';
 
 const row = (p: Partial<RunResultRow>): RunResultRow => ({
@@ -90,5 +90,25 @@ describe('runnerStats', () => {
     const now = new Date(2026, 9, 9, 0, 30).getTime();
     expect(relDay(now - 3_600_000, 'ru', now)).toBe('вчера');
     expect(relDay(now, 'ru', now)).toBe('сегодня');
+  });
+});
+
+describe('run records', () => {
+  const run = (n: number, results: RunResultRow[]) => ({ n, startedAt: 1, finishedAt: 2, iterations: 1, results });
+  it('keeps truncated bodies only when asked', () => {
+    const r = [row({ responseBody: 'x'.repeat(RECORD_BODY + 50) }), row({})];
+    expect(toRecord(run(1, r), true).results[0].responseBody).toHaveLength(RECORD_BODY);
+    expect(toRecord(run(1, r), true).results[1]).not.toHaveProperty('responseBody');
+    expect(toRecord(run(1, r), false).results[0]).not.toHaveProperty('responseBody');
+  });
+  it('bounds the rows', () => {
+    expect(toRecord(run(1, Array.from({ length: RECORD_ROWS + 5 }, () => row({}))), false).results).toHaveLength(RECORD_ROWS);
+  });
+  it('push replaces the same run and keeps the newest', () => {
+    let l = [1, 2, 3].map((n) => toRecord(run(n, []), false));
+    l = pushRecord(l, toRecord(run(2, [row({})]), false));
+    expect(l.map((x) => x.n)).toEqual([1, 2, 3]);
+    expect(l[1].results).toHaveLength(1);
+    expect(pushRecord(l, toRecord(run(4, []), false), 3).map((x) => x.n)).toEqual([2, 3, 4]);
   });
 });

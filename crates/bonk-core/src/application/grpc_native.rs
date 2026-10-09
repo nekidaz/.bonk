@@ -84,10 +84,7 @@ pub async fn connect_with(
             let pem = std::fs::read(ca).map_err(|e| format!("CA {ca}: {e}"))?;
             config = config.ca_certificate(Certificate::from_pem(pem));
         }
-        if let (Some(cert), Some(key)) = (&tls.client_cert, &tls.client_key) {
-            let cert =
-                std::fs::read(cert).map_err(|e| format!("client certificate {cert}: {e}"))?;
-            let key = std::fs::read(key).map_err(|e| format!("client key {key}: {e}"))?;
+        if let Some((cert, key)) = tls.client_identity_pem()? {
             config = config.identity(Identity::from_pem(cert, key));
         }
         builder = builder

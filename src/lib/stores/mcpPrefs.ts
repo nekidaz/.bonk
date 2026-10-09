@@ -1,5 +1,6 @@
 import { persisted } from '../persist';
 import type { McpMethodPolicy } from '../api';
+import type { McpEnvScope } from '../domain/mcpEnvs';
 
 export interface McpPrefs {
   /** Allow create/update/move/delete of workspace requests (inverse of readOnly). */
@@ -9,8 +10,12 @@ export interface McpPrefs {
   exposeSecrets: boolean;
   mutatingMethods: McpMethodPolicy;
   targetHosts: string[];
-  /** Environment names AI may use; null = default (all except production-like). */
+  /** `all-but-prod` (default) or `selected` (only `environments`). Absent in prefs from older builds. */
+  envScope?: McpEnvScope;
+  /** Environment names AI may use when scope is `selected`; null = legacy default (all except production-like). */
   environments: string[] | null;
+  /** Scope `selected`: allow environments created later right away (never production-like ones). */
+  autoAllowNew?: boolean;
 }
 
 export const defaultMcpPrefs: McpPrefs = {
@@ -19,7 +24,9 @@ export const defaultMcpPrefs: McpPrefs = {
   exposeSecrets: false,
   mutatingMethods: 'ask',
   targetHosts: [],
+  envScope: 'all-but-prod',
   environments: null,
+  autoAllowNew: false,
 };
 
 const isPrefs = (v: unknown): v is McpPrefs =>

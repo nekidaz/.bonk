@@ -4,7 +4,7 @@
    * or repeat one of the recent runs. Picking opens the run setup (R2).
    * Shared atoms (.rn-eyebrow, .rn-btn …) are styled by RunnerView.
    */
-  import { collections, runnerHistory, setRunnerFolders, setRunnerStage, repeatRun, uiLanguage } from '../stores';
+  import { collections, runnerHistory, runnerPresets, setRunnerFolders, setRunnerStage, repeatRun, applyPreset, deletePreset, uiLanguage } from '../stores';
   import { relDay } from '../domain/runnerStats';
   import type { FolderNode, TreeNode } from '../domain/types';
   import { t, tp } from '../i18n';
@@ -105,6 +105,23 @@
       </div>
     {/if}
 
+    {#if $runnerPresets.length > 0}
+      <div class="rn-eyebrow">{$t('runner.preset.title')}</div>
+      <div class="rp-recent">
+        {#each [...$runnerPresets].reverse() as p (p.name)}
+          <div class="rp-card rp-preset">
+            <button class="rp-pbody" type="button" onclick={() => applyPreset(p)}>
+              <span class="rp-card-name">{p.name}</span>
+              <small>{[`×${p.iterations}`, p.delayMs ? `${p.delayMs} ms` : ''].filter(Boolean).join(' · ')}</small>
+            </button>
+            <button class="rp-pdel" type="button" title={$t('runner.preset.delete')} aria-label={$t('runner.preset.delete')} onclick={() => deletePreset(p.name)}>
+              <span class="material-symbols-outlined" aria-hidden="true">close</span>
+            </button>
+          </div>
+        {/each}
+      </div>
+    {/if}
+
     <p class="rp-hint"><span class="material-symbols-outlined" aria-hidden="true">info</span>{$t('runner.pick.hint')}</p>
   </div>
 </div>
@@ -191,6 +208,11 @@
   .rp-card-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 600 12px/16px var(--font-ui); }
   .rp-card small { color: var(--color-text-muted); font: 11px/14px var(--font-ui); }
 
+  .rp-preset { position: relative; padding: 0; }
+  .rp-pbody { display: flex; flex-direction: column; gap: 3px; padding: 11px 28px 11px 12px; text-align: left; color: inherit; min-width: 0; }
+  .rp-pdel { position: absolute; top: 6px; right: 6px; display: inline-flex; color: var(--color-text-muted); }
+  .rp-pdel:hover { color: var(--color-text); }
+  .rp-pdel .material-symbols-outlined { font-size: 14px; }
   .rp-hint { display: flex; align-items: center; gap: 7px; margin: 2px 0 0; color: var(--color-text-muted); font: 11px var(--font-ui); }
   .rp-hint .material-symbols-outlined { font-size: 14px; }
 </style>
