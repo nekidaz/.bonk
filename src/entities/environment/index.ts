@@ -23,14 +23,11 @@ export {
 } from './palette';
 export { requestVariableHighlight } from './requestVarHighlight';
 export {
-  activeEnvironmentId,
   addEnvironment,
   currentVarScope,
   environments,
-  environmentsSheetOpen,
-  globals,
   openEnvironmentsTab,
   setActiveEnvironment,
   setEnvVars,
   setGlobalVars,
-} from './store';
+} from './store.svelte';

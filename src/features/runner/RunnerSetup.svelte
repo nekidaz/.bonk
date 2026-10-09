@@ -6,7 +6,7 @@
    * Shared atoms (.rn-eyebrow, .rn-btn …) are styled by RunnerView.
    */
   import { findNode, parentId, workspace } from '$entities/workspace';
-  import { environments, activeEnvironmentId } from '$entities/environment';
+  import { environments } from '$entities/environment';
   import {
     runnerConfig,
     runnerRun,
@@ -88,7 +88,7 @@
   }
 
   // ---- Settings ----
-  const env = $derived($environments.find((e) => e.id === $activeEnvironmentId));
+  const env = $derived(environments.active);
   const dataDriven = $derived(cfg.dataRows.length > 0);
   const iterations = $derived(dataDriven ? cfg.dataRows.length : cfg.iterations);
   let fileInput: HTMLInputElement | undefined = $state();

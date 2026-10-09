@@ -20,13 +20,15 @@
   } from '$shared/model';
   import { bodyParamRows, emptyBodyParam, fileName } from './httpHeaders';
   import { tabs } from '$entities/tab';
-  import { globals, environments, activeEnvironmentId, requestVariableHighlight } from '$entities/environment';
+  import { environments, requestVariableHighlight } from '$entities/environment';
 
   let { tab }: { tab: Tab } = $props();
 
   // `{{var}}` inline highlight + hover quick-set for the body editor. Scripts
   // editors intentionally do NOT get this: `{{}}` is not resolved in scripts.
-  const varHighlight = $derived(requestVariableHighlight($globals, $environments, $activeEnvironmentId));
+  const varHighlight = $derived(
+    requestVariableHighlight(environments.globals, environments.list, environments.activeId),
+  );
 
   let bodyError = $state('');
 

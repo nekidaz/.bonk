@@ -3,14 +3,7 @@
   import { cancelRequest } from '$shared/ipc';
   import { busyMap, sendHttpRequest, applyCurlToActiveTab, requestProductionSend } from '$entities/request';
   import { tabs } from '$entities/tab';
-  import {
-    globals,
-    environments,
-    activeEnvironmentId,
-    currentVarScope,
-    requestVariableHighlight,
-    needsProductionGuard,
-  } from '$entities/environment';
+  import { environments, currentVarScope, requestVariableHighlight, needsProductionGuard } from '$entities/environment';
   import { withInheritedAuth } from '$entities/workspace';
   import { urlHighlight } from '$shared/editor';
   import { EditorView } from '@codemirror/view';
@@ -85,7 +78,9 @@
   // `{{var}}` inline highlight + hover quick-set. Re-derived whenever the
   // variable stores change so the URL bar's decorations stay in sync (e.g.
   // adding a value from the popover flips missing → resolved immediately).
-  const varHighlight = $derived(requestVariableHighlight($globals, $environments, $activeEnvironmentId));
+  const varHighlight = $derived(
+    requestVariableHighlight(environments.globals, environments.list, environments.activeId),
+  );
 
   // S13: at rest the URL is one line with a fading tail and a "+N params" hint; focus opens it into
   // a card that wraps between parameters. `long` / `hidden` are measured on the one-line layout.
@@ -136,7 +131,7 @@
     }
 
     const finalUrl = buildUrl(t.request.url, t.params);
-    const env = $environments.find((e) => e.id === $activeEnvironmentId);
+    const env = environments.active;
     const envName = env?.name;
     if (env && envName && needsProductionGuard(t.request.method, env)) {
       const url = resolveVars(finalUrl, currentVarScope());

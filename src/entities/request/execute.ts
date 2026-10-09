@@ -1,4 +1,3 @@
-import { get } from 'svelte/store';
 import { t } from '$shared/i18n';
 import {
   type RequestNode,
@@ -28,7 +27,7 @@ import {
   grpcAuthMetadata,
 } from './grpc';
 import { effectiveAuth, withInheritedAuth, workspace } from '$entities/workspace';
-import { activeEnvironmentId, environments, globals } from '$entities/environment';
+import { environments } from '$entities/environment';
 import { currentRequestSettings, applyScriptVars } from './store';
 
 /**
@@ -45,14 +44,14 @@ import { currentRequestSettings, applyScriptVars } from './store';
 
 /** The active environment's `name → value` map, or `{}` when none is selected. */
 export function activeEnvMap(): Record<string, string> {
-  const id = get(activeEnvironmentId);
-  const env = id ? get(environments).find((e) => e.id === id) : undefined;
+  const id = environments.activeId;
+  const env = id ? environments.list.find((e) => e.id === id) : undefined;
   return mergeScope([], env);
 }
 
 /** The globals `name → value` map. */
 export function globalsMap(): Record<string, string> {
-  return mergeScope(get(globals), undefined);
+  return mergeScope(environments.globals, undefined);
 }
 
 /**

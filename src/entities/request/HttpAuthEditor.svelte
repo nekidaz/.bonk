@@ -2,7 +2,7 @@
   import { t } from '$shared/i18n';
   import { authFolderFor, workspace } from '$entities/workspace';
   import { resolveVars, type ApiKeyLocation, type AuthConfig, type AuthType, type Tab } from '$shared/model';
-  import { envToneOf, activeEnvironmentId, currentVarScope, environments, globals } from '$entities/environment';
+  import { envToneOf, currentVarScope, environments } from '$entities/environment';
   import { tabs } from '$entities/tab';
 
   // Edits the request's auth (`tab`; gRPC tabs keep it on `tab.grpc`) or, in the folder dialog, a draft `value` (`onChange`).
@@ -38,13 +38,13 @@
           : null,
   );
   const secret = $derived(secretField ? (auth[secretField] ?? '') : '');
-  const activeEnv = $derived($environments.find((e) => e.id === $activeEnvironmentId));
+  const activeEnv = $derived(environments.active);
   const envName = $derived(activeEnv?.name);
   // Re-read the scope whenever variables change.
   const resolved = $derived.by(() => {
-    void $globals;
-    void $environments;
-    void $activeEnvironmentId;
+    void environments.globals;
+    void environments.list;
+    void environments.activeId;
     return /\{\{/.test(secret) ? resolveVars(secret, currentVarScope()) : '';
   });
   let reveal = $state<boolean | null>(null);

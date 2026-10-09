@@ -11,7 +11,6 @@
   import { tick } from 'svelte';
   import { t } from '$shared/i18n';
   import {
-    activeEnvironmentId,
     environments,
     setActiveEnvironment,
     ENV_COLOR_VAR,
@@ -34,7 +33,7 @@
 
   const requests = $derived(searchRequests(workspace.tree, query));
   const matchedCommands = $derived(commands.filter((c) => c.label.toLowerCase().includes(query.trim().toLowerCase())));
-  const envs = $derived(searchEnvironments($environments, query));
+  const envs = $derived(searchEnvironments(environments.list, query));
   const counts = $derived({ requests: requests.length, envs: envs.length, commands: matchedCommands.length });
   const total = $derived(counts.requests + counts.envs + counts.commands);
 
@@ -164,7 +163,7 @@
                 aria-hidden="true">{tone === 'production' ? 'lock' : 'circle'}</span
               >
               <span class="name">{env.name}</span>
-              {#if env.id === $activeEnvironmentId}<span class="material-symbols-outlined" aria-hidden="true"
+              {#if env.id === environments.activeId}<span class="material-symbols-outlined" aria-hidden="true"
                   >check</span
                 >{/if}
             </div>

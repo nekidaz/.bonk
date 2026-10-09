@@ -38,7 +38,7 @@ import {
 } from './runnerPlan';
 import { isArrayOf, loadState, saveState, saveStateDebounced } from '$shared/persist';
 import { tabs } from '$entities/tab';
-import { environments, activeEnvironmentId, setActiveEnvironment } from '$entities/environment';
+import { environments, setActiveEnvironment } from '$entities/environment';
 import { runNode } from '$entities/request';
 
 /**
@@ -152,7 +152,7 @@ export function runInRunner(folderId: string): void {
 export function repeatRun(s: RunSummary): void {
   if (s.folderIds) setRunnerFolders(s.folderIds);
   if (s.iterations && get(runnerConfig).dataRows.length === 0) setIterations(s.iterations);
-  if (s.envId !== undefined && (s.envId === null || get(environments).some((e) => e.id === s.envId)))
+  if (s.envId !== undefined && (s.envId === null || environments.list.some((e) => e.id === s.envId)))
     setActiveEnvironment(s.envId);
   void runCollection();
 }
@@ -198,7 +198,7 @@ export function setSaveResponses(saveResponses: boolean): void {
 
 /** Auto name of a preset: "<scope> · <environment>". */
 export function currentPresetName(): string {
-  const env = get(environments).find((e) => e.id === get(activeEnvironmentId));
+  const env = environments.active;
   return `${runnerScopeTitle(get(runnerConfig).folderIds, workspace.tree)} · ${env?.name ?? t('runner.noEnv')}`;
 }
 
@@ -206,7 +206,7 @@ export function currentPresetName(): string {
 export function savePreset(): string {
   const c = get(runnerConfig);
   const name = currentPresetName();
-  runnerPresets.update((l) => upsertPreset(l, presetFrom(c, name, get(activeEnvironmentId))));
+  runnerPresets.update((l) => upsertPreset(l, presetFrom(c, name, environments.activeId)));
   return name;
 }
 
@@ -220,7 +220,7 @@ export function applyPreset(p: RunnerPreset): void {
   setRunnerFolders(p.folderIds);
   runnerConfig.update((c) => applyPresetSettings(c, p));
   persistConfig();
-  if (p.envId === null || get(environments).some((e) => e.id === p.envId)) setActiveEnvironment(p.envId);
+  if (p.envId === null || environments.list.some((e) => e.id === p.envId)) setActiveEnvironment(p.envId);
   setRunnerStage('setup');
 }
 
@@ -249,13 +249,13 @@ function finishRun(status: RunStatus): void {
   const r = get(runnerRun);
   if (r.results.length === 0 || r.startedAt === null) return;
   const { folderIds } = get(runnerConfig);
-  const envId = get(activeEnvironmentId);
+  const envId = environments.activeId;
   const summary = {
     ...summarizeRun(r.n, r.startedAt, r.finishedAt ?? Date.now(), r.results),
     title: runnerScopeTitle(folderIds, workspace.tree),
     folderIds,
     envId,
-    envName: get(environments).find((e) => e.id === envId)?.name,
+    envName: environments.list.find((e) => e.id === envId)?.name,
     iterations: r.iterations,
   };
   const history = pushHistory(get(runnerHistory), summary);
@@ -432,7 +432,7 @@ export async function bindIdFrom(targetNodeId: string, b: IdBinding): Promise<bo
   const src = b.sourceNodeId ? findNode(tree, b.sourceNodeId) : undefined;
   const dst = findNode(tree, targetNodeId);
   if (!root || src?.kind !== 'request' || dst?.kind !== 'request') return false;
-  const nodes = bindIdNodes(src, dst, b, !!get(activeEnvironmentId));
+  const nodes = bindIdNodes(src, dst, b, !!environments.activeId);
   try {
     for (const node of nodes) {
       const folder = parentId(node.id);

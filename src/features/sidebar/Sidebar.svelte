@@ -34,7 +34,6 @@
   import { flows, openFlowTab, createFlow } from '$entities/flow';
   import {
     environments,
-    activeEnvironmentId,
     setActiveEnvironment,
     openEnvironmentsTab,
     clock,
@@ -144,7 +143,7 @@
   function manageEnvs(): void {
     openEnvironmentsTab();
   }
-  const activeEnvName = $derived($environments.find((e) => e.id === $activeEnvironmentId)?.name ?? t('sidebar.noEnv'));
+  const activeEnvName = $derived(environments.active?.name ?? t('sidebar.noEnv'));
 
   // Sidebar filter: narrows the Collections tree (name / URL / gRPC endpoint,
   // matching folders keep their subtree, ancestors stay visible + expanded) and
@@ -669,24 +668,24 @@
           <div class="bs-dock-body">
             <button
               class="bs-dock-item"
-              class:on={$activeEnvironmentId === null}
+              class:on={environments.activeId === null}
               type="button"
               onclick={() => chooseEnv(null)}
             >
               <span class="material-symbols-outlined" aria-hidden="true" style="font-size:14px"
-                >{$activeEnvironmentId === null ? 'check' : 'block'}</span
+                >{environments.activeId === null ? 'check' : 'block'}</span
               >
               <span>{t('sidebar.noEnv')}</span>
             </button>
-            {#each $environments as environment (environment.id)}
+            {#each environments.list as environment (environment.id)}
               <button
                 class="bs-dock-item"
-                class:on={$activeEnvironmentId === environment.id}
+                class:on={environments.activeId === environment.id}
                 type="button"
                 onclick={() => chooseEnv(environment.id)}
               >
                 <span class="material-symbols-outlined" aria-hidden="true" style="font-size:14px"
-                  >{$activeEnvironmentId === environment.id ? 'check' : 'layers'}</span
+                  >{environments.activeId === environment.id ? 'check' : 'layers'}</span
                 >
                 <span>{environment.name}</span>
               </button>

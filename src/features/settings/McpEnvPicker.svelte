@@ -22,11 +22,11 @@
   let pos = $state({ left: 0, top: 0 });
 
   const scope = $derived(scopeOf(mcpPrefs.current));
-  const allowed = $derived(allowedEnvNames(mcpPrefs.current, $environments));
+  const allowed = $derived(allowedEnvNames(mcpPrefs.current, environments.list));
   // One row per name: the allow-list is name-based.
   const rows = $derived.by(() => {
     const byName = new Map<string, { name: string; prod: boolean }>();
-    for (const e of $environments)
+    for (const e of environments.list)
       byName.set(e.name, { name: e.name, prod: (byName.get(e.name)?.prod ?? false) || isProdLike(e) });
     return [...byName.values()].sort((a, b) => a.name.localeCompare(b.name));
   });
@@ -124,10 +124,10 @@
       <div class="me-eyebrow">
         <span>{t('settings.mcp.env.allowed', { n: allowed.size, total })}</span>
         <span class="me-bulk">
-          <button type="button" onclick={() => apply(setAllEnvs($environments, true))}
+          <button type="button" onclick={() => apply(setAllEnvs(environments.list, true))}
             >{t('settings.mcp.env.all')}</button
           >
-          <button type="button" onclick={() => apply(setAllEnvs($environments, false))}
+          <button type="button" onclick={() => apply(setAllEnvs(environments.list, false))}
             >{t('settings.mcp.env.none')}</button
           >
         </span>
@@ -139,7 +139,7 @@
             <input
               type="checkbox"
               checked={allowed.has(r.name)}
-              onchange={() => apply(toggleEnv(mcpPrefs.current, $environments, r.name))}
+              onchange={() => apply(toggleEnv(mcpPrefs.current, environments.list, r.name))}
             />
             <span class="me-nm" title={r.name}>{r.name}</span>
             {#if r.prod}<span class="me-prod">{t('settings.mcp.env.prod')}</span>{/if}

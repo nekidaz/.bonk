@@ -7,17 +7,7 @@
    */
   import { tick, untrack } from 'svelte';
   import { t, tp } from '$shared/i18n';
-  import {
-    activeEnvironmentId,
-    environments,
-    environmentsSheetOpen,
-    globals,
-    ENV_COLORS,
-    ENV_COLOR_VAR,
-    envColor,
-    isProtected,
-    type EnvColor,
-  } from '$entities/environment';
+  import { environments, ENV_COLORS, ENV_COLOR_VAR, envColor, isProtected, type EnvColor } from '$entities/environment';
   import { workspace } from '$entities/workspace';
   import { confirmState, requestConfirm } from '$shared/ui';
   import { type Environment, type VarRow, countRequestsUsingVars, maskSecret } from '$shared/model';
@@ -67,11 +57,11 @@
     return tp(n, ['запросе', 'запросах', 'запросах'], ['request', 'requests']);
   }
 
-  const shown = $derived(embedded || $environmentsSheetOpen);
+  const shown = $derived(embedded || environments.sheetOpen);
 
   function seed(): void {
-    draft = $environments.map((e) => ({ ...e, vars: e.vars.map((r) => ({ ...r })) }));
-    draftGlobals = $globals.map((r) => ({ ...r }));
+    draft = environments.list.map((e) => ({ ...e, vars: e.vars.map((r) => ({ ...r })) }));
+    draftGlobals = environments.globals.map((r) => ({ ...r }));
   }
 
   // Seed the draft each time the sheet opens (and remember who to refocus on close).
@@ -79,9 +69,9 @@
     if (!shown) return;
     untrack(() => {
       opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-      draft = $environments.map((e) => ({ ...e, vars: e.vars.map((r) => ({ ...r })) }));
-      draftGlobals = $globals.map((r) => ({ ...r }));
-      selected = draft.some((e) => e.id === $activeEnvironmentId) ? $activeEnvironmentId! : (draft[0]?.id ?? GLOBALS);
+      draft = environments.list.map((e) => ({ ...e, vars: e.vars.map((r) => ({ ...r })) }));
+      draftGlobals = environments.globals.map((r) => ({ ...r }));
+      selected = draft.some((e) => e.id === environments.activeId) ? environments.activeId! : (draft[0]?.id ?? GLOBALS);
       query = '';
       menuOpen = false;
       revealed = [];
@@ -95,20 +85,20 @@
       revealed = [];
       return;
     }
-    environmentsSheetOpen.set(false);
+    environments.sheetOpen = false;
     void tick().then(() => opener?.focus());
   }
 
   function save(): void {
     const ids = new Set(draft.map((e) => e.id));
-    environments.set(draft.map((e) => ({ ...e, name: e.name.trim() || t('env.default_name') })));
-    globals.set(draftGlobals);
-    if ($activeEnvironmentId && !ids.has($activeEnvironmentId)) activeEnvironmentId.set(null);
+    environments.list = draft.map((e) => ({ ...e, name: e.name.trim() || t('env.default_name') }));
+    environments.globals = draftGlobals;
+    if (environments.activeId && !ids.has(environments.activeId)) environments.activeId = null;
     if (!embedded) close();
   }
 
   function onKeydown(e: KeyboardEvent): void {
-    if (embedded || !$environmentsSheetOpen || e.key !== 'Escape' || confirmState.current) return;
+    if (embedded || !environments.sheetOpen || e.key !== 'Escape' || confirmState.current) return;
     e.preventDefault();
     e.stopPropagation();
     if (menuOpen) menuOpen = false;
@@ -191,7 +181,7 @@
 
 {#if embedded}
   <div class="bs-envsheet embedded" role="region" aria-labelledby="bs-envsheet-title">{@render content()}</div>
-{:else if $environmentsSheetOpen}
+{:else if environments.sheetOpen}
   <div
     class="bs-overlay bs-envsheet-overlay"
     role="presentation"

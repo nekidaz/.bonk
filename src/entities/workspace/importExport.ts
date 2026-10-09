@@ -1,4 +1,3 @@
-import { get } from 'svelte/store';
 import type { RequestNode, TreeNode } from '$shared/model';
 import { openapiImportPick, openapiExportSave, workspaceCreateFolder, workspaceSaveRequest } from '$shared/ipc';
 import { idToRel, findNode } from './tree';
@@ -11,7 +10,7 @@ import {
   type ParsedPostmanCollection,
 } from './postman';
 import { ROOT, openWorkspaceFolder, reloadWorkspace, workspace } from './store.svelte';
-import { environments, activeEnvironmentId, addEnvironment, setEnvVars } from '$entities/environment';
+import { environments, addEnvironment, setEnvVars } from '$entities/environment';
 
 /**
  * OpenAPI / Swagger import + export orchestration. The pure parse/build logic
@@ -64,10 +63,10 @@ async function saveSpecToWorkspace(root: string, spec: ReturnType<typeof parseOp
       // not silently steal the user's active environment (their {{vars}} would
       // stop resolving), so restore the previous selection when one existed;
       // with none active, the imported env becomes active as a sensible default.
-      const prevActive = get(activeEnvironmentId);
+      const prevActive = environments.activeId;
       const envId = addEnvironment(spec.title);
       setEnvVars(envId, [{ key: 'baseUrl', value: spec.baseUrl, enabled: true }]);
-      if (prevActive) activeEnvironmentId.set(prevActive);
+      if (prevActive) environments.activeId = prevActive;
     }
     await reloadWorkspace();
   });
@@ -88,10 +87,10 @@ async function savePostmanToWorkspace(root: string, collection: ParsedPostmanCol
     };
     await saveItems(collectionId, collection.items);
     if (collection.variables.length > 0) {
-      const previous = get(activeEnvironmentId);
+      const previous = environments.activeId;
       const id = addEnvironment(collection.title);
       setEnvVars(id, collection.variables);
-      if (previous) activeEnvironmentId.set(previous);
+      if (previous) environments.activeId = previous;
     }
     await reloadWorkspace();
   });
@@ -205,8 +204,8 @@ export async function exportOpenApiFolder(folderId: string, format: 'json' | 'ya
   // Prefer the active environment's baseUrl, else any environment that defines one.
   let baseUrl: string | undefined;
   if (usesBaseUrl) {
-    const envs = get(environments);
-    const activeId = get(activeEnvironmentId);
+    const envs = environments.list;
+    const activeId = environments.activeId;
     const active = activeId ? envs.find((e) => e.id === activeId) : undefined;
     const findBaseUrl = (env: (typeof envs)[number] | undefined): string | undefined =>
       env?.vars.find((v) => v.enabled && v.key === 'baseUrl')?.value;

@@ -1,5 +1,4 @@
 import { untrack } from 'svelte';
-import { derived, get } from 'svelte/store';
 import type { ProxyMode, Tab, HistoryEntry, TreeNode, Environment, VarRow } from '$shared/model';
 import { type Flow, flows } from '$entities/flow';
 import { loadState, saveState, saveStateDebounced } from '$shared/persist';
@@ -16,7 +15,7 @@ import {
   withSavedCollapse,
   workspace,
 } from '$entities/workspace';
-import { globals, environments, activeEnvironmentId } from '$entities/environment';
+import { environments } from '$entities/environment';
 
 let hydrated = false;
 
@@ -27,8 +26,8 @@ let secretTimer: ReturnType<typeof setTimeout> | undefined;
 let secretChain: Promise<void> = Promise.resolve();
 
 async function syncSecrets(): Promise<void> {
-  const g = get(globals);
-  const e = get(environments);
+  const g = environments.globals;
+  const e = environments.list;
   const want = collectSecrets(g, e);
   for (const [account, value] of want) {
     if (inKeychain.get(account) === value) continue;
@@ -120,9 +119,9 @@ async function restoreState(): Promise<void> {
     await loadState<VarRow[]>('globals', []),
     await loadState<Environment[]>('environments', []),
   );
-  globals.set(loaded.globals);
-  environments.set(loaded.envs);
-  activeEnvironmentId.set(await loadState<string | null>('activeEnvironmentId', null));
+  environments.globals = loaded.globals;
+  environments.list = loaded.envs;
+  environments.activeId = await loadState<string | null>('activeEnvironmentId', null);
   flows.set(await loadState<Flow[]>('flows', []));
   Object.assign(collapsedFolders, await loadState<Record<string, string[]>>('collapsedFolders', {}));
   let nextTree: TreeNode[] = [];
@@ -160,8 +159,6 @@ function wirePersistence(): () => void {
     }),
     historyLimit.subscribe((n) => saveStateDebounced('historyLimit', n)),
     historyPaused.subscribe((p) => saveStateDebounced('historyPaused', p)),
-    derived([globals, environments], (v) => v).subscribe(scheduleSecretSync),
-    activeEnvironmentId.subscribe((id) => saveStateDebounced('activeEnvironmentId', id)),
     flows.subscribe((v) => saveStateDebounced('flows', v)),
   ];
   // Rune state: one effect per saved value; each re-runs (and saves) when the value it reads changes.
@@ -194,6 +191,13 @@ function wirePersistence(): () => void {
       saveStateDebounced('collapsedFolders', collapsedFolders);
     });
     $effect(() => saveStateDebounced('recentWorkspacePaths', workspace.recent));
+    // Variables go through the keychain sync (secrets out of state.json), which saves both keys.
+    $effect(() => {
+      void environments.globals;
+      void environments.list;
+      scheduleSecretSync();
+    });
+    $effect(() => saveStateDebounced('activeEnvironmentId', environments.activeId));
     $effect(() => saveStateDebounced('responseLineWrap', requestPrefs.responseLineWrap));
     $effect(() => saveStateDebounced('requestTimeoutMs', requestPrefs.requestTimeoutMs));
     $effect(() => saveStateDebounced('requestFollowRedirects', requestPrefs.requestFollowRedirects));

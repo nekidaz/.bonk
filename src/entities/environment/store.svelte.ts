@@ -1,4 +1,3 @@
-import { get, writable } from 'svelte/store';
 import { t } from '$shared/i18n';
 import { type Environment, type Tab, type VarRow, mergeScope } from '$shared/model';
 import { mcpPrefs } from './mcpPrefs';
@@ -8,12 +7,19 @@ import { tabs } from '$entities/tab';
 // Postman-style variables. Globals apply everywhere; the active environment's
 // vars override globals. These live in app-state (persist), NOT workspace files,
 // so secrets don't leak into shared collection files.
-export const globals = writable<VarRow[]>([]);
-export const environments = writable<Environment[]>([]);
-export const activeEnvironmentId = writable<string | null>(null);
-
-/** Whether the Environments management sheet (EnvironmentsSheet) is open. */
-export const environmentsSheetOpen = writable(false);
+class Environments {
+  /** Global variables. Replaced, never mutated in place. */
+  globals = $state.raw<VarRow[]>([]);
+  /** All environments. Replaced, never mutated in place. */
+  list = $state.raw<Environment[]>([]);
+  /** The selected environment; null = «No environment». */
+  activeId = $state<string | null>(null);
+  /** Whether the Environments management sheet (EnvironmentsSheet) is open. */
+  sheetOpen = $state(false);
+  /** The selected environment, if any. */
+  active = $derived(this.list.find((e) => e.id === this.activeId));
+}
+export const environments = new Environments();
 
 /**
  * The current `{{var}}` resolution scope: globals merged with the active
@@ -22,9 +28,7 @@ export const environmentsSheetOpen = writable(false);
  * secret variables as literal `{{key}}` (cURL / code snippets).
  */
 export function currentVarScope(redactSecrets = false): Record<string, string> {
-  const activeId = get(activeEnvironmentId);
-  const active = activeId ? get(environments).find((e) => e.id === activeId) : undefined;
-  return mergeScope(get(globals), active, redactSecrets);
+  return mergeScope(environments.globals, environments.active, redactSecrets);
 }
 
 /**
@@ -53,7 +57,7 @@ export function openEnvironmentsTab(): void {
 
 /** S31: «Manage environments» in the environment dropdown opens the sheet. */
 export function openEnvironmentsSheet(): void {
-  environmentsSheetOpen.set(true);
+  environments.sheetOpen = true;
 }
 
 /** Create a new environment, append it, make it active, and return its id. */
@@ -61,43 +65,43 @@ export function addEnvironment(name = t('env.new')): string {
   const id = crypto.randomUUID();
   // Names must be unique: the AI allow-list (and MCP `environment`) is name-based.
   const base = name.trim() || t('env.new');
-  const taken = new Set(get(environments).map((e) => e.name));
+  const taken = new Set(environments.list.map((e) => e.name));
   let unique = base;
   for (let n = 2; taken.has(unique); n++) unique = `${base} ${n}`;
   const env: Environment = { id, name: unique, vars: [] };
-  environments.update((list) => [...list, env]);
+  environments.list = [...environments.list, env];
   mcpPrefs.current = autoAllowNewEnv(mcpPrefs.current, env); // "allow new environments right away" (S32.8)
-  activeEnvironmentId.set(id);
+  environments.activeId = id;
   return id;
 }
 
 /** Rename an environment in place (no-op if the id is unknown). */
 export function renameEnvironment(id: string, name: string): void {
-  const old = get(environments).find((e) => e.id === id);
-  environments.update((list) => list.map((e) => (e.id === id ? { ...e, name: name.trim() || e.name } : e)));
-  const next = get(environments).find((e) => e.id === id);
+  const old = environments.list.find((e) => e.id === id);
+  environments.list = environments.list.map((e) => (e.id === id ? { ...e, name: name.trim() || e.name } : e));
+  const next = environments.list.find((e) => e.id === id);
   if (old && next) mcpPrefs.current = renameEnvAllowance(mcpPrefs.current, old.name, next); // keep the AI allow-list by name in sync
 }
 
 /** Delete an environment; clears the active selection if it was the active one. */
 export function deleteEnvironment(id: string): void {
-  environments.update((list) => list.filter((e) => e.id !== id));
-  if (get(activeEnvironmentId) === id) activeEnvironmentId.set(null);
+  environments.list = environments.list.filter((e) => e.id !== id);
+  if (environments.activeId === id) environments.activeId = null;
 }
 
 /** Select the active environment, or `null` for "No environment". */
 export function setActiveEnvironment(id: string | null): void {
-  activeEnvironmentId.set(id);
+  environments.activeId = id;
 }
 
 /** Replace an environment's variable rows (no-op if the id is unknown). */
 export function setEnvVars(id: string, rows: VarRow[]): void {
-  environments.update((list) => list.map((e) => (e.id === id ? { ...e, vars: rows } : e)));
+  environments.list = environments.list.map((e) => (e.id === id ? { ...e, vars: rows } : e));
 }
 
 /** Replace the globals variable rows. */
 export function setGlobalVars(rows: VarRow[]): void {
-  globals.set(rows);
+  environments.globals = rows;
 }
 
 // HMR (dev only): app/persistence.ts hydrate() fills these singletons once at startup.

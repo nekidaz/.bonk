@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { get } from 'svelte/store';
   import { t, tp } from '$shared/i18n';
   import { onMount } from 'svelte';
   import {
@@ -12,7 +11,7 @@
   } from '$entities/history';
   import { requestConfirm } from '$shared/ui';
   import { importApiFile, buildWorkspaceExport, buildPostmanCollection, workspace } from '$entities/workspace';
-  import { globals, environments } from '$entities/environment';
+  import { environments } from '$entities/environment';
   import { appDataDir, openapiExportSave, revealPath } from '$shared/ipc';
   import { row, sw, select } from './ui.svelte';
 
@@ -59,8 +58,14 @@
       const name = workspace.path.split(/[\\/]/).filter(Boolean).at(-1) ?? 'workspace';
       const postman = exportFormat.current === 'postman';
       const text = postman
-        ? buildPostmanCollection(name, workspace.tree, get(globals), exportIncludeSecrets.current)
-        : buildWorkspaceExport(name, workspace.tree, get(globals), get(environments), exportIncludeSecrets.current);
+        ? buildPostmanCollection(name, workspace.tree, environments.globals, exportIncludeSecrets.current)
+        : buildWorkspaceExport(
+            name,
+            workspace.tree,
+            environments.globals,
+            environments.list,
+            exportIncludeSecrets.current,
+          );
       return (await openapiExportSave(
         postman ? `${name}.postman_collection.json` : `${name}.bonk.json`,
         text,

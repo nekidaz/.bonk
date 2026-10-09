@@ -38,14 +38,7 @@ import {
 } from '$entities/workspace';
 import { grpcPathsToRel, grpcPathsToAbs } from './protoPaths';
 import { GRPC_DEFAULT_TITLE, HTTP_DEFAULT_TITLE, grpcSnapshot, titleFromUrl, tabs } from '$entities/tab';
-import {
-  globals,
-  environments,
-  activeEnvironmentId,
-  currentVarScope,
-  setEnvVars,
-  setGlobalVars,
-} from '$entities/environment';
+import { environments, currentVarScope, setEnvVars, setGlobalVars } from '$entities/environment';
 import { addHistory } from '$entities/history';
 import { addAppConsoleEntry } from './console';
 
@@ -226,14 +219,14 @@ export function applyCurlToActiveTab(curl: string): boolean {
 
 /** The active environment's `name → value` map, or `{}` when none is selected. */
 function activeEnvMap(): Record<string, string> {
-  const id = get(activeEnvironmentId);
-  const env = id ? get(environments).find((e) => e.id === id) : undefined;
+  const id = environments.activeId;
+  const env = id ? environments.list.find((e) => e.id === id) : undefined;
   return mergeScope([], env);
 }
 
 /** The globals `name → value` map. */
 function globalsMap(): Record<string, string> {
-  return mergeScope(get(globals), undefined);
+  return mergeScope(environments.globals, undefined);
 }
 
 /**
@@ -247,14 +240,14 @@ export function applyScriptVars(result: ScriptResult): void {
   const hasEnv = Object.keys(result.envSet).length > 0 || result.envUnset.length > 0;
   const hasGlob = Object.keys(result.globalsSet).length > 0 || result.globalsUnset.length > 0;
   if (hasEnv) {
-    const id = get(activeEnvironmentId);
+    const id = environments.activeId;
     if (id) {
-      const env = get(environments).find((e) => e.id === id);
+      const env = environments.list.find((e) => e.id === id);
       if (env) setEnvVars(id, applyEnvPatch(env.vars, result.envSet, result.envUnset));
     }
   }
   if (hasGlob) {
-    setGlobalVars(applyEnvPatch(get(globals), result.globalsSet, result.globalsUnset));
+    setGlobalVars(applyEnvPatch(environments.globals, result.globalsSet, result.globalsUnset));
   }
 }
 

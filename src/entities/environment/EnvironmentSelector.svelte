@@ -2,13 +2,7 @@
   import { t } from '$shared/i18n';
   import type { Environment } from '$shared/model';
   import { ENV_COLOR_VAR, envColor, envShortcutTargets, envToneOf, pushRecent, type EnvTone } from './palette';
-  import {
-    activeEnvironmentId,
-    addEnvironment,
-    environments,
-    openEnvironmentsSheet,
-    setActiveEnvironment,
-  } from './store';
+  import { addEnvironment, environments, openEnvironmentsSheet, setActiveEnvironment } from './store.svelte';
 
   const RECENT_KEY = 'bonk.recentEnvironments';
   const TONE_ICON: Record<EnvTone, string> = {
@@ -23,19 +17,19 @@
   let search = $state<HTMLInputElement | null>(null);
   let recentIds = $state<string[]>(readRecent());
 
-  const activeEnv = $derived($environments.find((env) => env.id === $activeEnvironmentId));
+  const activeEnv = $derived(environments.active);
   const environmentName = $derived(activeEnv?.name ?? t('env.none'));
   const tone = $derived(activeEnv ? envToneOf(activeEnv) : 'none');
   const q = $derived(query.trim().toLowerCase());
   // S14: the active environment always heads the recents.
   const recent = $derived(
-    [...new Set([...($activeEnvironmentId ? [$activeEnvironmentId] : []), ...recentIds])]
+    [...new Set([...(environments.activeId ? [environments.activeId] : []), ...recentIds])]
       .slice(0, 3)
-      .map((id) => $environments.find((env) => env.id === id))
+      .map((id) => environments.list.find((env) => env.id === id))
       .filter((env) => env !== undefined && (!q || env.name.toLowerCase().includes(q))),
   );
   const all = $derived(
-    [...$environments]
+    [...environments.list]
       .filter((env) => !q || env.name.toLowerCase().includes(q))
       .sort((a, b) => a.name.localeCompare(b.name)),
   );
@@ -121,7 +115,7 @@
 
 {#snippet item(env: Environment | null, hint: string)}
   {@const tn = env ? envToneOf(env) : 'none'}
-  {@const on = (env?.id ?? null) === $activeEnvironmentId}
+  {@const on = (env?.id ?? null) === environments.activeId}
   <button class="bs-env-item" class:on role="menuitemradio" aria-checked={on} onclick={() => choose(env?.id ?? null)}>
     <span
       class="material-symbols-outlined lead tone-{tn}"
@@ -172,7 +166,7 @@
       {#if recent.length}
         <div class="bs-env-heading"><span>{t('env.recent')}</span></div>
         {#each recent as env, i (env!.id)}
-          {@render item(env!, env!.id === $activeEnvironmentId ? '✓' : keyFor(env!))}
+          {@render item(env!, env!.id === environments.activeId ? '✓' : keyFor(env!))}
         {/each}
         <div class="bs-env-sep"></div>
       {/if}

@@ -9,7 +9,7 @@
    */
   import { onMount } from 'svelte';
   import { findNode, workspace } from '$entities/workspace';
-  import { environments, activeEnvironmentId, ENV_COLOR_VAR, envColor } from '$entities/environment';
+  import { environments, ENV_COLOR_VAR, envColor } from '$entities/environment';
   import {
     runnerConfig,
     runnerRun,
@@ -70,7 +70,7 @@
     return extra.length ? `+ ${extra.join(', ')} · ${count}` : count;
   });
 
-  const env = $derived($environments.find((e) => e.id === (viewed ? viewed.envId : $activeEnvironmentId)));
+  const env = $derived(environments.list.find((e) => e.id === (viewed ? viewed.envId : environments.activeId)));
   const envLabel = $derived(viewed ? (viewed.envName ?? t('runner.noEnv')) : (env?.name ?? t('runner.noEnv')));
   const dataDriven = $derived($runnerConfig.dataRows.length > 0);
   const iterationCount = $derived(dataDriven ? $runnerConfig.dataRows.length : $runnerConfig.iterations);

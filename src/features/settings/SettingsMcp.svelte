@@ -29,8 +29,8 @@
   let fullLog = $state(false);
 
   // Unique: the allow-list is by name, and two environments may share one (a duplicate key would crash the {#each}).
-  const envNames = $derived([...new Set($environments.map((e) => e.name))]);
-  const allowedEnvs = $derived(allowedEnvNames(mcpPrefs.current, $environments));
+  const envNames = $derived([...new Set(environments.list.map((e) => e.name))]);
+  const allowedEnvs = $derived(allowedEnvNames(mcpPrefs.current, environments.list));
   const opts = $derived<McpInstallOptions>({
     workspace: workspace.path,
     readOnly: !mcpPrefs.current.allowWrites,

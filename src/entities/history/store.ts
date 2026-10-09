@@ -2,7 +2,7 @@ import { get, writable } from 'svelte/store';
 import type { HistoryEntry, Tab, GrpcTabState } from '$shared/model';
 import { pushCapped } from './history';
 import { GRPC_DEFAULT_TITLE, HTTP_DEFAULT_TITLE, grpcSnapshot, titleFromUrl, tabs } from '$entities/tab';
-import { environments, activeEnvironmentId } from '$entities/environment';
+import { environments } from '$entities/environment';
 
 export const history = writable<HistoryEntry[]>([]);
 // 0 = unlimited. Otherwise keep the last N history entries.
@@ -13,7 +13,7 @@ export const historyPaused = writable<boolean>(false);
 export function addHistory(entry: HistoryEntry): void {
   if (get(historyPaused)) return;
   const limit = get(historyLimit);
-  const envName = entry.envName ?? get(environments).find((e) => e.id === get(activeEnvironmentId))?.name;
+  const envName = entry.envName ?? environments.active?.name;
   history.update((h) => pushCapped(h, { ...entry, envName }, limit > 0 ? limit : Infinity));
 }
 

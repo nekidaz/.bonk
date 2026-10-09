@@ -10,7 +10,7 @@ import { t } from '$shared/i18n';
 import type { Extension } from '@codemirror/state';
 import { type Environment, type VarRow, lookupVar } from '$shared/model';
 import { ENV_COLOR_VAR, envColor } from './palette';
-import { environments, globals, openEnvironmentsSheet, setEnvVars, setGlobalVars } from './store';
+import { environments, openEnvironmentsSheet, setEnvVars, setGlobalVars } from './store.svelte';
 import { variableHighlight } from './varDecorations';
 
 /**
@@ -54,11 +54,11 @@ export function requestVariableHighlight(
       if (key === '') return;
       const row: VarRow = { key, value, enabled: true };
       if (active) {
-        const current = get(environments).find((e) => e.id === active.id);
+        const current = environments.list.find((e) => e.id === active.id);
         if (!current) return;
         setEnvVars(current.id, [...current.vars, row]);
       } else {
-        setGlobalVars([...get(globals), row]);
+        setGlobalVars([...environments.globals, row]);
       }
     },
     onUpdate(name, value) {
@@ -66,13 +66,13 @@ export function requestVariableHighlight(
       if (key === '') return;
       // Re-read the stores at click time and re-resolve which scope owns the
       // name, so the write lands where the tooltip's value actually came from.
-      const currentEnv = active !== undefined ? get(environments).find((e) => e.id === active.id) : undefined;
-      const hit = lookupVar(key, get(globals), currentEnv);
+      const currentEnv = active !== undefined ? environments.list.find((e) => e.id === active.id) : undefined;
+      const hit = lookupVar(key, environments.globals, currentEnv);
       if (!hit) return;
       if (hit.source === 'env' && currentEnv) {
         setEnvVars(currentEnv.id, updateLastEnabled(currentEnv.vars, key, value));
       } else {
-        setGlobalVars(updateLastEnabled(get(globals), key, value));
+        setGlobalVars(updateLastEnabled(environments.globals, key, value));
       }
     },
   });

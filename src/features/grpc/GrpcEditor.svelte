@@ -50,13 +50,7 @@
     grpcTemplate,
     runScript,
   } from '$shared/ipc';
-  import {
-    currentVarScope,
-    globals,
-    environments,
-    activeEnvironmentId,
-    requestVariableHighlight,
-  } from '$entities/environment';
+  import { currentVarScope, environments, requestVariableHighlight } from '$entities/environment';
   import { CodeEditor, ScriptsEditor } from '$shared/editor/components';
   import GrpcErrorAlert from './GrpcErrorAlert.svelte';
   import GrpcTlsPopover from './GrpcTlsPopover.svelte';
@@ -90,14 +84,14 @@
 
   /** The active environment's `name → value` map, or `{}` when none is selected. */
   function activeEnvMap(): Record<string, string> {
-    const id = get(activeEnvironmentId);
-    const env = id ? get(environments).find((e) => e.id === id) : undefined;
+    const id = environments.activeId;
+    const env = id ? environments.list.find((e) => e.id === id) : undefined;
     return mergeScope([], env);
   }
 
   /** The globals `name → value` map. */
   function globalsMap(): Record<string, string> {
-    return mergeScope(get(globals), undefined);
+    return mergeScope(environments.globals, undefined);
   }
 
   let {
@@ -535,7 +529,9 @@
   // `{{var}}` inline highlight + hover quick-set, shared by the endpoint,
   // message, and metadata editors; re-derived whenever the variable stores
   // change.
-  const varHighlight = $derived(requestVariableHighlight($globals, $environments, $activeEnvironmentId));
+  const varHighlight = $derived(
+    requestVariableHighlight(environments.globals, environments.list, environments.activeId),
+  );
 </script>
 
 <div class="bs-urlbar bs-grpc-bar">

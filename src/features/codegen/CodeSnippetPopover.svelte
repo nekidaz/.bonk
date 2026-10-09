@@ -8,7 +8,7 @@
   import { methodShort } from '$entities/request';
   import { methodColor, type Tab } from '$shared/model';
   import { openapiExportSave } from '$shared/ipc';
-  import { activeEnvironmentId, environments, globals, currentVarScope } from '$entities/environment';
+  import { environments, currentVarScope } from '$entities/environment';
   import { withInheritedAuth, workspace } from '$entities/workspace';
 
   let { tab, onClose }: { tab: Tab; onClose: () => void } = $props();
@@ -56,9 +56,7 @@
   // S15: name a secret the toggle protects when the request uses one.
   const sampleVar = $derived.by(() => {
     const used = lines.join('\n').match(/\{\{\s*[^{}"\s]+?\s*\}\}/g) ?? [];
-    const secrets = new Set(
-      ($environments.find((e) => e.id === $activeEnvironmentId)?.vars ?? []).filter((v) => v.secret).map((v) => v.key),
-    );
+    const secrets = new Set((environments.active?.vars ?? []).filter((v) => v.secret).map((v) => v.key));
     return used.find((u) => secrets.has(u.slice(2, -2).trim())) ?? used[0] ?? '{{var}}';
   });
 
@@ -120,10 +118,10 @@
   $effect(() => {
     const t = tab;
     const l = lang;
-    void $globals;
+    void environments.globals;
     void workspace.tree;
-    void $environments;
-    void $activeEnvironmentId;
+    void environments.list;
+    void environments.activeId;
     const scope = resolve ? currentVarScope(true) : {};
     let cancelled = false;
     void generateSnippet(withInheritedAuth(t, t.savedPath), l, scope).then((c) => {
