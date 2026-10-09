@@ -51,11 +51,11 @@ visual: build ## compare the UI against the baseline; diff report in visual/repo
 
 css-oracle-baseline: build ## dump computed styles of every scenario (+hover/focus/active) as the baseline
 	rm -rf visual/css-oracle/baseline
-	CSS_ORACLE=visual/css-oracle/baseline npx playwright test --reporter=dot
+	CSS_ORACLE=visual/css-oracle/baseline npx playwright test --workers=2 --reporter=dot
 
 css-oracle: build ## compare computed styles against the css-oracle baseline (stricter than make visual)
 	rm -rf visual/css-oracle/current
-	CSS_ORACLE=visual/css-oracle/current npx playwright test --reporter=dot
+	CSS_ORACLE=visual/css-oracle/current npx playwright test --workers=2 --reporter=dot
 	node visual/css-oracle-diff.mjs visual/css-oracle/baseline visual/css-oracle/current
 
 fmt: ## format everything: Rust (rustfmt) + TS/Svelte/CSS (prettier)

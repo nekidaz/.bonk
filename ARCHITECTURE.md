@@ -88,7 +88,7 @@ are enforced by `src/architecture.test.ts`. Path aliases: `$shared`, `$entities`
 
 A slice's public API is its `index.ts` (code) and `components.ts` (Svelte components); other
 slices import only those, never deep paths. Tests sit next to the module they cover
-(`foo.ts` → `foo.test.ts`). Global CSS stays in `src/app.css`, `src/bigsur.css`, `src/styles/`.
+(`foo.ts` → `foo.test.ts`). Global CSS is `src/styles/`: one entry `index.css` (import order = cascade order), design tokens in `tokens.css`, one file per UI area; `settings.css` is imported by `SettingsModal.svelte`.
 
 ## HTTP request flow
 
