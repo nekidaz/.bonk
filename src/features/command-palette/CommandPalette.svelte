@@ -22,7 +22,7 @@
   } from '$entities/environment';
   import { workspace } from '$entities/workspace';
   import { openSavedRequest } from '$entities/request';
-  import { methodColor, type RequestNode } from '$shared/model';
+  import { methodColor, methodLabel, type RequestNode } from '$shared/model';
 
   let { open = $bindable(), commands }: { open: boolean; commands: PaletteCommand[] } = $props();
 
@@ -132,7 +132,7 @@
               onkeydown={() => {}}
             >
               <span class="m" style="color:{methodColor(r.node.protocol === 'grpc' ? 'GRPC' : r.node.request.method)}"
-                >{r.node.protocol === 'grpc' ? 'gRPC' : r.node.request.method.toUpperCase()}</span
+                >{r.node.protocol === 'grpc' ? 'gRPC' : methodLabel(r.node.request.method)}</span
               >
               <span class="name">{r.node.name}</span>
               <span class="meta">{r.folder}</span>
