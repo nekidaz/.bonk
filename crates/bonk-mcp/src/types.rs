@@ -210,6 +210,15 @@ impl From<GrpcRequestSpec> for GrpcTabState {
 
 #[derive(Debug, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
+pub struct ListWorkspaceArgs {
+    /// Return full request definitions (headers, bodies, auth; credentials redacted).
+    /// Large on big workspaces: prefer get_request for one request.
+    #[serde(default)]
+    pub full: bool,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
 pub struct ListRequestsArgs {
     #[serde(default)]
     pub query: Option<String>,
@@ -318,11 +327,21 @@ pub struct RequestSettingsSpec {
     pub follow_redirects: Option<bool>,
     #[serde(default)]
     pub validate_tls: Option<bool>,
+    /// Most body bytes returned to the client (default 32 KiB). A longer body is cut
+    /// and `bodyTruncated` is set; `sizeBytes` keeps the real size.
     #[serde(default)]
     pub max_response_body_bytes: Option<usize>,
 }
 
+/// Response body handed back to the model unless it asks for more.
+pub const DEFAULT_OUTPUT_BODY_BYTES: usize = 32 * 1024;
+
 impl RequestSettingsSpec {
+    pub fn output_body_limit(&self) -> usize {
+        self.max_response_body_bytes
+            .unwrap_or(DEFAULT_OUTPUT_BODY_BYTES)
+    }
+
     pub fn into_core(self, server_max: usize) -> RequestSettings {
         let defaults = RequestSettings::default();
         RequestSettings {
@@ -478,6 +497,18 @@ pub struct RequestSummary {
     pub target: String,
 }
 
+/// list_workspace's default tree: names, ids and request targets, no request bodies.
+#[derive(Debug, Serialize, JsonSchema)]
+#[serde(tag = "kind", rename_all = "lowercase")]
+pub enum TreeEntry {
+    Folder {
+        id: String,
+        name: String,
+        children: Vec<TreeEntry>,
+    },
+    Request(RequestSummary),
+}
+
 #[derive(Debug, Serialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct MutationResult {
@@ -514,6 +545,21 @@ pub struct HttpResponseOutput {
     pub elapsed_ms: u64,
     pub size_bytes: usize,
     pub body_truncated: bool,
+}
+
+impl HttpResponseOutput {
+    /// Cut the body to `limit` bytes on a char boundary; `size_bytes` keeps the real size.
+    pub fn truncate_body(mut self, limit: usize) -> Self {
+        if self.body.len() > limit {
+            let mut end = limit;
+            while !self.body.is_char_boundary(end) {
+                end -= 1;
+            }
+            self.body.truncate(end);
+            self.body_truncated = true;
+        }
+        self
+    }
 }
 
 #[derive(Debug, Serialize, JsonSchema)]
@@ -571,4 +617,33 @@ fn default_value_object() -> Value {
 
 fn root_id() -> String {
     "fs:".into()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn response(body: &str) -> HttpResponseOutput {
+        HttpResponseOutput {
+            status: 200,
+            headers: BTreeMap::new(),
+            body: body.into(),
+            final_url: String::new(),
+            elapsed_ms: 0,
+            size_bytes: body.len(),
+            body_truncated: false,
+        }
+    }
+
+    #[test]
+    fn truncate_body_cuts_on_a_char_boundary_and_keeps_the_real_size() {
+        let cut = response("ab€cd").truncate_body(3);
+        assert_eq!(cut.body, "ab");
+        assert!(cut.body_truncated);
+        assert_eq!(cut.size_bytes, 7);
+
+        let whole = response("short").truncate_body(DEFAULT_OUTPUT_BODY_BYTES);
+        assert_eq!(whole.body, "short");
+        assert!(!whole.body_truncated);
+    }
 }

@@ -304,7 +304,7 @@ Important options:
 | `--target-host HOST` | Outbound host/port allowlist; repeatable; supports `*.domain` |
 | `--allow-all-targets` | Explicitly permit any outbound target |
 | `--variable-prefix PREFIX` | Process-secret prefix; default `BONK_VAR_` |
-| `--max-response-body-bytes N` | Response ceiling, 1 MiB to 250 MiB |
+| `--max-response-body-bytes N` | Most bytes read from the network, 1 MiB to 250 MiB. The body returned to the model is cut to the call's `settings.maxResponseBodyBytes` (default 32 KiB) |
 | `--app-state FILE` | Bonk app `state.json`; its globals and environments resolve `{{NAME}}` (secret values come from the OS keychain) |
 | `--environment NAME` | App environment the model may pass as `environment`; repeatable; others are denied |
 | `--mutating-methods allow\|ask\|deny` | HTTP POST/PUT/PATCH/DELETE policy; `ask` (default) asks the user via MCP elicitation; clients without elicitation are refused |
@@ -317,12 +317,16 @@ Important options:
 
 ## Suggested agent workflow
 
-1. Call `workspace_info` and `list_workspace` or `list_requests`.
+1. Call `workspace_info` and `list_workspace` or `list_requests`. `list_workspace`
+   returns summaries (id, name, method, target); pass `full: true` only when you
+   need every request's headers and body.
 2. Read a relevant request with `get_request`.
 3. Build an inline request or save a new one with placeholders.
 4. Call `validate_http` before the first HTTP execution.
 5. Ask for user approval before network or destructive tools.
 6. Call `send_http`/`run_saved_request`, inspect tests, then save corrections.
+   Bodies come back cut to 32 KiB (`bodyTruncated: true`); raise
+   `settings.maxResponseBodyBytes` when you need more.
 
 ## Client documentation
 
