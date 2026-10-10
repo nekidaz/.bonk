@@ -9,7 +9,7 @@ use bonk_core::conn::GrpcConn;
 use bonk_core::domain::http::{
     pick_client_cert, ClientCert, ProxyMode, ProxySettings, RequestSettings,
 };
-use bonk_core::infra::cookie_jar::{jar_file_name, CookieJar, JarProvider};
+use bonk_core::infra::cookie_jar::{jar_path, CookieJar, JarProvider};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct HttpClientKey {
@@ -196,8 +196,7 @@ impl AppState {
         if let Some(jar) = jars.get(workspace) {
             return Ok(jar.clone());
         }
-        let path = data_dir.join("cookies").join(jar_file_name(workspace));
-        let jar = Arc::new(CookieJar::open(path)?);
+        let jar = Arc::new(CookieJar::open(jar_path(data_dir, workspace))?);
         jars.insert(workspace.to_string(), jar.clone());
         Ok(jar)
     }

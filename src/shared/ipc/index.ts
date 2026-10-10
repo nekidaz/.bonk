@@ -8,6 +8,7 @@ export {
   cookiesAdd,
   cookiesClear,
   cookiesJarPath,
+  cookiesKeepSession,
   cookiesList,
   cookiesRemove,
   filePick,
