@@ -397,7 +397,7 @@ impl BonkRuntime {
         materialize_body_and_params(&mut request, params.as_deref());
         let (environment, globals, secrets) = self.scopes(variables, environment)?;
         let scope = merged_scope(&globals, &environment);
-        resolve_http_request(&mut request, &scope);
+        resolve_http_request(&mut request, &scope)?;
         apply_auth(&mut request)?;
         self.normalize_file_paths(&mut request)
             .map_err(|error| sanitize_error(&error, &secrets))?;
@@ -476,7 +476,7 @@ impl BonkRuntime {
         }
 
         let scope = merged_scope(&globals, &environment);
-        resolve_http_request(&mut request, &scope);
+        resolve_http_request(&mut request, &scope)?;
         apply_auth(&mut request)?;
         self.normalize_file_paths(&mut request)
             .map_err(|error| sanitize_error(&error, &secrets))?;

@@ -59,17 +59,33 @@ pub(crate) fn materialize_body_and_params(request: &mut HttpRequest, params: Opt
         }
         "form-data" => request.body = None,
         "graphql" => {
-            if request.body.as_deref().is_some_and(|body| !body.is_empty()) {
+            // Variables alone still make a request (the query may come from a script).
+            let has_vars = request
+                .graphql_variables
+                .as_deref()
+                .is_some_and(|vars| !vars.trim().is_empty());
+            if request.body.as_deref().is_some_and(|body| !body.is_empty()) || has_vars {
+                request.body.get_or_insert_with(String::new);
                 set_header_if_missing(&mut request.headers, "Content-Type", "application/json");
+            } else {
+                request.body = None;
             }
         }
-        "raw"
-            if request.raw_body_format.as_deref() == Some("JSON")
-                && request.body.as_deref().is_some_and(|body| !body.is_empty()) =>
-        {
+        "raw" if raw_is_json(request) && request.body.as_deref().is_some_and(|b| !b.is_empty()) => {
             set_header_if_missing(&mut request.headers, "Content-Type", "application/json");
         }
         _ => {}
+    }
+}
+
+/// The raw body's format: the explicit one, else sniffed like `currentRawFormat` in httpBody.ts.
+fn raw_is_json(request: &HttpRequest) -> bool {
+    match request.raw_body_format.as_deref() {
+        Some(format) => format == "JSON",
+        None => {
+            let body = request.body.as_deref().unwrap_or_default().trim_start();
+            body.starts_with('{') || body.starts_with('[')
+        }
     }
 }
 
@@ -287,5 +303,47 @@ mod tests {
             encode_preserving_vars("hello {{ token }} world", false),
             "hello%20{{ token }}%20world"
         );
+    }
+
+    /// `src/shared/model/requestPrep.cases.json` is the spec the app's TS preparation also
+    /// runs (`httpBody.parity.test.ts`): the same saved request must go out the same way.
+    #[test]
+    fn shared_cases_match_the_app() {
+        #[derive(serde::Deserialize)]
+        struct Case {
+            name: String,
+            request: HttpRequest,
+            #[serde(default)]
+            params: Vec<Param>,
+            scope: BTreeMap<String, String>,
+            expected: serde_json::Value,
+        }
+        let cases: Vec<Case> = serde_json::from_str(include_str!(
+            "../../../src/shared/model/requestPrep.cases.json"
+        ))
+        .unwrap();
+        let mut mismatches = Vec::new();
+        for case in cases {
+            // execute_http's order.
+            let mut request = case.request;
+            materialize_body_and_params(&mut request, Some(&case.params));
+            crate::vars::resolve_http_request(&mut request, &case.scope).unwrap();
+            apply_auth(&mut request).unwrap();
+            // Disabled headers are dropped at send time (bonk-core reqwest_client).
+            let off = request.disabled_headers.clone().unwrap_or_default();
+            request.headers.retain(|key, _| !off.contains(key));
+            let got = serde_json::json!({
+                "url": request.url,
+                "headers": request.headers,
+                "body": request.body,
+            });
+            if got != case.expected {
+                mismatches.push(format!(
+                    "{}\n  got:  {got}\n  want: {}",
+                    case.name, case.expected
+                ));
+            }
+        }
+        assert!(mismatches.is_empty(), "{}", mismatches.join("\n"));
     }
 }

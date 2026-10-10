@@ -132,7 +132,11 @@ pub(crate) fn rows_scope(
     scope
 }
 
-pub(crate) fn resolve_http_request(request: &mut HttpRequest, scope: &BTreeMap<String, String>) {
+/// Mirrors `resolveRequestVars` in src/shared/model/vars.ts (shared cases: request_prep.rs).
+pub(crate) fn resolve_http_request(
+    request: &mut HttpRequest,
+    scope: &BTreeMap<String, String>,
+) -> Result<(), String> {
     request.url = resolve_text(&request.url, scope);
     request.body = request
         .body
@@ -159,6 +163,47 @@ pub(crate) fn resolve_http_request(request: &mut HttpRequest, scope: &BTreeMap<S
     if let Some(auth) = request.auth.as_mut() {
         resolve_auth(auth, scope);
     }
+    if request.body_mode.as_deref() == Some("graphql") {
+        if let Some(query) = request.body.take() {
+            let variables = graphql_variables(request.graphql_variables.as_deref(), scope)?;
+            // ponytail: serde_json sorts object keys where JSON.stringify keeps the typed
+            // order; same JSON to a server, different bytes. Enable `preserve_order` if it matters.
+            request.body =
+                Some(serde_json::json!({ "query": query, "variables": variables }).to_string());
+        }
+    }
+    Ok(())
+}
+
+/// The GraphQL Variables editor text as a JSON object with `{{vars}}` resolved in its strings.
+fn graphql_variables(
+    source: Option<&str>,
+    scope: &BTreeMap<String, String>,
+) -> Result<Value, String> {
+    let source = source.unwrap_or_default().trim();
+    if source.is_empty() {
+        return Ok(Value::Object(Default::default()));
+    }
+    let value: Value = serde_json::from_str(source)
+        .map_err(|_| "GraphQL variables must be valid JSON.".to_string())?;
+    if !value.is_object() {
+        return Err("GraphQL variables must be a JSON object.".into());
+    }
+    fn resolve(value: Value, scope: &BTreeMap<String, String>) -> Value {
+        match value {
+            Value::String(text) => Value::String(resolve_text(&text, scope)),
+            Value::Array(items) => {
+                Value::Array(items.into_iter().map(|v| resolve(v, scope)).collect())
+            }
+            Value::Object(map) => Value::Object(
+                map.into_iter()
+                    .map(|(k, v)| (k, resolve(v, scope)))
+                    .collect(),
+            ),
+            other => other,
+        }
+    }
+    Ok(resolve(value, scope))
 }
 
 pub(crate) fn resolve_auth(auth: &mut AuthConfig, scope: &BTreeMap<String, String>) {
@@ -307,7 +352,7 @@ mod tests {
             ("name".into(), "api".into()),
             ("token".into(), "secret".into()),
         ]);
-        resolve_http_request(&mut request, &scope);
+        resolve_http_request(&mut request, &scope).unwrap();
         assert_eq!(request.url, "https://example.com/users/42");
         assert_eq!(request.headers.get("x-api").unwrap(), "secret");
     }
