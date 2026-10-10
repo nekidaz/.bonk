@@ -1,6 +1,6 @@
 import { t } from '$shared/i18n';
-import { cancelRequest } from '$shared/ipc';
-import { buildRequestForSend, buildUrl, resolveVars, type HttpResponse, type Tab } from '$shared/model';
+import { cancelRequest, httpPrepare } from '$shared/ipc';
+import { buildUrl, resolveVars, type HttpResponse, type Tab } from '$shared/model';
 import { tabs } from '$entities/tab';
 import { environments, currentVarScope, needsProductionGuard } from '$entities/environment';
 import { withInheritedAuth } from '$entities/workspace';
@@ -39,9 +39,9 @@ export async function sendHttpTab(tab: Tab, opts: { skipScripts?: boolean } = {}
   const id = tab.id;
   const requestId = crypto.randomUUID();
   requestRuntime.updateBusy((m) => ({ ...m, [id]: { kind: 'http', requestId, startedAt: Date.now() } }));
-  const req = buildRequestForSend(withInheritedAuth(tab, tab.savedPath), finalUrl);
 
   try {
+    const req = await httpPrepare(withInheritedAuth(tab, tab.savedPath).request, tab.params);
     await sendHttpRequest(id, req, requestId, opts);
   } catch (e) {
     // A pre-request script error is never a cancel, whatever its message says.

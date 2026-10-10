@@ -39,6 +39,8 @@ export {
   grpcStreamSend,
   grpcTemplate,
   grpcTlsInspect,
+  httpPrepare,
+  httpResolve,
   httpSend,
   installMcpIntegration,
   mcpClientConfig,

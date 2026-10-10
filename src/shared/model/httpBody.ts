@@ -89,7 +89,8 @@ function basicAuthToken(username: string, password: string): string {
 }
 
 /**
- * Build the HttpRequest to send for a tab: applies the body mode (urlencoded /
+ * Preview copy (cURL, code snippets) of bonk-core's `request_prep::materialize`, which
+ * is what actually sends; `requestPrep.cases.json` keeps the two in step. Applies the body mode (urlencoded /
  * form-data / raw / binary / graphql) to produce the wire body and any
  * Content-Type header, and stamps the resolved `finalUrl`. Auth is applied
  * later, by `resolveRequestVars`, once its `{{vars}}` are resolved. Pure: depends only

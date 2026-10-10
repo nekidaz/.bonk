@@ -1,6 +1,6 @@
-// The request the app sends vs the one bonk-mcp sends: both prepare it from the same saved
-// request, in different languages. `requestPrep.cases.json` is the shared spec; the Rust side
-// runs the same file in crates/bonk-mcp/src/request_prep.rs (`shared_cases_match_the_app`).
+// What the app previews (cURL, code snippets) vs what it sends: sending goes through bonk-core
+// (crates/bonk-core/src/domain/request_prep.rs, shared with bonk-mcp), previews through this TS.
+// `requestPrep.cases.json` is the shared spec; Rust runs it in `shared_cases_match_the_app`.
 import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('@tauri-apps/api/core', () => ({ invoke: vi.fn(async () => ({})) }));

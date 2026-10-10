@@ -36,6 +36,8 @@ pub fn run() {
             commands::http::cancel_request,
             commands::terminal::terminal_default_cwd,
             commands::terminal::terminal_run,
+            commands::http::http_prepare,
+            commands::http::http_resolve,
             commands::http::http_send,
             commands::http::run_script,
             commands::cookies::cookies_list,

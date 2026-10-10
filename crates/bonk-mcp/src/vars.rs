@@ -3,8 +3,7 @@ use std::{
     path::Path,
 };
 
-use bonk_core::domain::http::{AuthConfig, HttpRequest};
-use regex::Regex;
+use bonk_core::domain::{http::HttpRequest, request_prep::VAR_RE};
 use serde::{de::DeserializeOwned, Deserialize};
 use serde_json::Value;
 
@@ -132,110 +131,6 @@ pub(crate) fn rows_scope(
     scope
 }
 
-/// Mirrors `resolveRequestVars` in src/shared/model/vars.ts (shared cases: request_prep.rs).
-pub(crate) fn resolve_http_request(
-    request: &mut HttpRequest,
-    scope: &BTreeMap<String, String>,
-) -> Result<(), String> {
-    request.url = resolve_text(&request.url, scope);
-    request.body = request
-        .body
-        .as_ref()
-        .map(|value| resolve_text(value, scope));
-    request.binary_file_path = request
-        .binary_file_path
-        .as_ref()
-        .map(|value| resolve_text(value, scope));
-    request.headers = std::mem::take(&mut request.headers)
-        .into_iter()
-        .map(|(key, value)| (resolve_text(&key, scope), resolve_text(&value, scope)))
-        .collect();
-    if let Some(rows) = request.body_params.as_mut() {
-        for row in rows {
-            row.key = resolve_text(&row.key, scope);
-            row.value = resolve_text(&row.value, scope);
-            row.file_path = row
-                .file_path
-                .as_ref()
-                .map(|value| resolve_text(value, scope));
-        }
-    }
-    if let Some(auth) = request.auth.as_mut() {
-        resolve_auth(auth, scope);
-    }
-    if request.body_mode.as_deref() == Some("graphql") {
-        if let Some(query) = request.body.take() {
-            let variables = graphql_variables(request.graphql_variables.as_deref(), scope)?;
-            // ponytail: serde_json sorts object keys where JSON.stringify keeps the typed
-            // order; same JSON to a server, different bytes. Enable `preserve_order` if it matters.
-            request.body =
-                Some(serde_json::json!({ "query": query, "variables": variables }).to_string());
-        }
-    }
-    Ok(())
-}
-
-/// The GraphQL Variables editor text as a JSON object with `{{vars}}` resolved in its strings.
-fn graphql_variables(
-    source: Option<&str>,
-    scope: &BTreeMap<String, String>,
-) -> Result<Value, String> {
-    let source = source.unwrap_or_default().trim();
-    if source.is_empty() {
-        return Ok(Value::Object(Default::default()));
-    }
-    let value: Value = serde_json::from_str(source)
-        .map_err(|_| "GraphQL variables must be valid JSON.".to_string())?;
-    if !value.is_object() {
-        return Err("GraphQL variables must be a JSON object.".into());
-    }
-    fn resolve(value: Value, scope: &BTreeMap<String, String>) -> Value {
-        match value {
-            Value::String(text) => Value::String(resolve_text(&text, scope)),
-            Value::Array(items) => {
-                Value::Array(items.into_iter().map(|v| resolve(v, scope)).collect())
-            }
-            Value::Object(map) => Value::Object(
-                map.into_iter()
-                    .map(|(k, v)| (k, resolve(v, scope)))
-                    .collect(),
-            ),
-            other => other,
-        }
-    }
-    Ok(resolve(value, scope))
-}
-
-pub(crate) fn resolve_auth(auth: &mut AuthConfig, scope: &BTreeMap<String, String>) {
-    for value in [
-        &mut auth.bearer_token,
-        &mut auth.basic_username,
-        &mut auth.basic_password,
-        &mut auth.api_key_name,
-        &mut auth.api_key_value,
-    ] {
-        if let Some(current) = value.as_ref() {
-            *value = Some(resolve_text(current, scope));
-        }
-    }
-}
-
-pub(crate) fn variable_regex() -> Regex {
-    Regex::new(r"\{\{\s*([^{}]*?)\s*\}\}").expect("valid variable regex")
-}
-
-pub(crate) fn resolve_text(value: &str, scope: &BTreeMap<String, String>) -> String {
-    variable_regex()
-        .replace_all(value, |captures: &regex::Captures<'_>| {
-            let name = captures.get(1).map_or("", |value| value.as_str()).trim();
-            scope
-                .get(name)
-                .cloned()
-                .unwrap_or_else(|| captures[0].to_string())
-        })
-        .into_owned()
-}
-
 pub(crate) fn merged_scope(
     globals: &BTreeMap<String, String>,
     environment: &BTreeMap<String, String>,
@@ -271,7 +166,7 @@ pub(crate) fn unresolved_in_request(request: &HttpRequest) -> Vec<String> {
 }
 
 pub(crate) fn collect_unresolved(value: &str, out: &mut BTreeSet<String>) {
-    for captures in variable_regex().captures_iter(value) {
+    for captures in VAR_RE.captures_iter(value) {
         if let Some(name) = captures.get(1) {
             out.insert(name.as_str().trim().to_string());
         }
@@ -320,42 +215,6 @@ pub(crate) fn reject_unresolved_grpc<'a>(
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    fn request(url: &str) -> HttpRequest {
-        HttpRequest {
-            method: "GET".into(),
-            url: url.into(),
-            headers: BTreeMap::new(),
-            body: None,
-            graphql_variables: None,
-            binary_file_path: None,
-            body_mode: None,
-            raw_body_format: None,
-            body_params: None,
-            auth: None,
-            pre_request_script: None,
-            test_script: None,
-            header_notes: None,
-            disabled_headers: None,
-        }
-    }
-
-    #[test]
-    fn resolves_variables_across_request_fields() {
-        let mut request = request("{{base}}/users/{{id}}");
-        request
-            .headers
-            .insert("x-{{name}}".into(), "{{token}}".into());
-        let scope = BTreeMap::from([
-            ("base".into(), "https://example.com".into()),
-            ("id".into(), "42".into()),
-            ("name".into(), "api".into()),
-            ("token".into(), "secret".into()),
-        ]);
-        resolve_http_request(&mut request, &scope).unwrap();
-        assert_eq!(request.url, "https://example.com/users/42");
-        assert_eq!(request.headers.get("x-api").unwrap(), "secret");
-    }
 
     #[test]
     fn rejects_unresolved_grpc_metadata() {

@@ -1,5 +1,11 @@
 use crate::state::AppState;
-use bonk_core::domain::http::{HttpRequest, HttpResponse, RequestSettings};
+use std::collections::BTreeMap;
+
+use bonk_core::domain::{
+    http::{HttpRequest, HttpResponse, RequestSettings},
+    request_prep,
+    workspace::Param,
+};
 use tauri::State;
 use tokio::sync::oneshot;
 
@@ -41,6 +47,24 @@ pub fn cancel_request(request_id: String, state: State<'_, AppState>) -> Result<
         let _ = cancel.send(());
     }
     Ok(())
+}
+
+/// Before the pre-request script: params into the URL, the body for its mode.
+/// `{{vars}}` are left for `http_resolve`. Same code bonk-mcp sends with.
+#[tauri::command]
+pub fn http_prepare(mut req: HttpRequest, params: Option<Vec<Param>>) -> HttpRequest {
+    request_prep::materialize(&mut req, params.as_deref());
+    req
+}
+
+/// After the pre-request script: `{{vars}}` from `scope`, then auth.
+#[tauri::command]
+pub fn http_resolve(
+    mut req: HttpRequest,
+    scope: BTreeMap<String, String>,
+) -> Result<HttpRequest, String> {
+    request_prep::resolve(&mut req, &scope)?;
+    Ok(req)
 }
 
 #[tauri::command]

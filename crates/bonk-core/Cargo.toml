@@ -19,6 +19,7 @@ protox = "0.9"
 fastrand = "2"
 rquickjs = "0.12"
 base64 = "0.22"
+regex = "1"
 bytes = "1"
 http = "1"
 tokio = { version = "1", features = ["sync", "rt", "rt-multi-thread", "time", "process", "io-util", "net"] }

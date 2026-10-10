@@ -9,11 +9,14 @@ layers with a deliberately thin boundary between them:
   app state, native dialogs. Owns no business logic.
 - **`crates/bonk-core/`** — Tauri-independent Rust core: all HTTP/gRPC/workspace/
   state logic. Buildable and testable without a webview (`cargo test -p bonk-core`).
+  `domain/request_prep.rs` turns a request into what goes on the wire (params, body,
+  `{{vars}}`, auth, folder-auth inheritance); the app (`http_prepare` / `http_resolve`)
+  and bonk-mcp both send through it.
 - **`crates/bonk-mcp/`** — headless Model Context Protocol server. Reuses
   `bonk-core` and exposes workspace resources/tools over STDIO or Streamable HTTP.
   `server.rs` holds the MCP surface, `runtime.rs` the `BonkRuntime` operations, and
-  helpers live in `vars.rs` (env/variable resolution), `request_prep.rs`
-  (auth/body/URL), `scripts.rs`, and `redact.rs` (secret scrubbing).
+  helpers live in `vars.rs` (app env/globals + keychain), `request_prep.rs`
+  (HTTP client, target-host policy), `scripts.rs`, and `redact.rs` (secret scrubbing).
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -107,9 +110,11 @@ sequenceDiagram
     participant CORE as bonk_core::application::http
     participant NET as target server
 
-    UI->>S: send() — build req (buildUrl + buildRequestForSend)
+    UI->>API: httpPrepare(req, params) — params + body (bonk-core request_prep)
+    UI->>S: send(req)
     S->>S: capture origin tabId + requestId, mark busy[tabId]
-    S->>API: sendHttpRequest(tabId, req, requestId)
+    S->>API: pre-request script, then httpResolve(req, scope) — {{vars}} + auth
+    S->>API: httpSend(resolved, requestId)
     API->>CMD: invoke("http_send", {req, requestId})
     CMD->>CORE: send(client, req, cancel-token)
     CORE->>NET: reqwest (follows redirects)

@@ -6,6 +6,7 @@ import type { HttpRequest, HttpResponse, Tab } from '$shared/model';
 // module-eval in stores.ts throws. We never exercise the workspace paths here.
 vi.mock('$shared/ipc/api', () => ({
   httpSend: vi.fn(),
+  httpResolve: vi.fn(async (req: unknown) => req),
   runScript: vi.fn(),
   filePick: vi.fn(),
   cancelRequest: vi.fn(),

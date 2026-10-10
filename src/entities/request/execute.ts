@@ -5,18 +5,25 @@ import {
   type RunResultRow,
   type ScriptTestResult,
   mergeScope,
-  resolveRequestVars,
   resolveVars,
   applyRequestPatch,
   buildScriptContext,
   applyGrpcRequestPatch,
   buildGrpcScriptContext,
   buildUrl,
-  buildRequestForSend,
   allTestsPassed,
 } from '$shared/model';
 import { grpcTlsFor, currentGrpcPrefs, withGlobalImports, requestPrefs } from '$shared/settings';
-import { httpSend, runScript, grpcConnect, grpcReflect, grpcCall, grpcLoadProto } from '$shared/ipc';
+import {
+  httpPrepare,
+  httpResolve,
+  httpSend,
+  runScript,
+  grpcConnect,
+  grpcReflect,
+  grpcCall,
+  grpcLoadProto,
+} from '$shared/ipc';
 import { grpcPathsToAbs } from './protoPaths';
 import {
   inferGrpcPlaintext,
@@ -92,7 +99,7 @@ async function runHttp(req: HttpRequest, iterationData: Record<string, string>):
   // 1. Pre-request script — against the raw request; writes fold into the stores
   //    (feeding {{var}} resolution below) and a fatal error aborts this request.
   if (req.preRequestScript && req.preRequestScript.trim() !== '') {
-    const url = resolveRequestVars(req, runScopeFor(iterationData)).url;
+    const url = (await httpResolve(req, runScopeFor(iterationData))).url;
     const context = buildScriptContext(
       req,
       undefined,
@@ -111,7 +118,7 @@ async function runHttp(req: HttpRequest, iterationData: Record<string, string>):
 
   // 2. Interpolate {{var}} placeholders (fresh scope, now including pre-request
   //    writes), then send.
-  const resolved = resolveRequestVars(outgoing, runScopeFor(iterationData));
+  const resolved = await httpResolve(outgoing, runScopeFor(iterationData));
   const requestId = crypto.randomUUID();
   const res = await httpSend(resolved, requestId, currentRequestSettings());
 
@@ -144,7 +151,7 @@ export async function runHttpNode(
   const finalUrl = buildUrl(node.request.url, node.params);
   const target = resolveVars(finalUrl, scope);
   try {
-    const outgoing = buildRequestForSend(withInheritedAuth(node, node.id), finalUrl);
+    const outgoing = await httpPrepare(withInheritedAuth(node, node.id).request, node.params);
     const out = await runHttp(outgoing, iterationData);
     const ok = out.error === undefined && out.status >= 200 && out.status < 300 && allTestsPassed(out.tests);
     return {
