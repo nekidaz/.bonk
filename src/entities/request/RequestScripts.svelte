@@ -6,7 +6,7 @@
   import { tick } from 'svelte';
   import { ScriptsEditor } from '$shared/editor/components';
   import { focusMode, toggleFocus } from '$shared/ui';
-  import { formatBytes, type Tab } from '$shared/model';
+  import { elapsedLabel, formatBytes, grpcStatusLabel, HTTP_STATUS_TEXT, type Tab } from '$shared/model';
   import { tabs } from '$entities/tab';
   import { scriptStage, scriptUi, setScriptRunPanel, setScriptStage, setScriptsOpen } from './scriptUi.svelte';
 
@@ -42,8 +42,8 @@
       return r
         ? {
             tone: r.ok ? ('success' as const) : ('danger' as const),
-            status: r.status,
-            detail: `${r.elapsed_ms} ms  ·  ${formatBytes(r.size_bytes)}`,
+            status: grpcStatusLabel(r.status),
+            detail: `${elapsedLabel(r.elapsed_ms)}  ·  ${formatBytes(r.size_bytes)}`,
           }
         : undefined;
     }
@@ -51,8 +51,8 @@
     if (!r || r.status === 0) return undefined;
     return {
       tone: r.status >= 500 ? ('danger' as const) : r.status >= 400 ? ('warning' as const) : ('success' as const),
-      status: String(r.status),
-      detail: `${r.elapsed_ms} ms  ·  ${formatBytes(r.size_bytes)}`,
+      status: `${r.status} ${HTTP_STATUS_TEXT[r.status] ?? ''}`.trim(),
+      detail: `${elapsedLabel(r.elapsed_ms)}  ·  ${formatBytes(r.size_bytes)}`,
     };
   });
 
