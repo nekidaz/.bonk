@@ -1,9 +1,13 @@
 import { untrack } from 'svelte';
 import { cookiesAdd, cookiesClear, cookiesJarPath, cookiesList, cookiesRemove } from '$shared/ipc';
-import type { CookieInfo } from '$shared/model';
+import type { CookieInfo, ResponseCookie } from '$shared/model';
+import { cookieJarScope } from '$shared/settings';
 import { tabs } from '$entities/tab';
 import { workspace } from '$entities/workspace';
-import { cookieUrl, type CookieDraft, isLocalDomain, sameCookie, setCookieOf } from './cookies';
+import { cookiesFor, cookieUrl, type CookieDraft, isLocalDomain, sameCookie, setCookieOf } from './cookies';
+
+/** Which jar requests use: the open workspace's, or the app-wide one ('') — Settings → Cookies. */
+export const cookieJarKey = (): string => (cookieJarScope.current === 'app' ? '' : workspace.path);
 
 /**
  * The open workspace's cookie jar (Flow · Cookies) as the UI sees it: the cookie list (for the
@@ -19,11 +23,11 @@ class CookieJarStore {
   focusDomain = $state<string | null>(null);
 
   refresh = async (): Promise<void> => {
-    const ws = workspace.path;
+    const ws = cookieJarKey();
     try {
       const [list, path] = await Promise.all([cookiesList(ws), cookiesJarPath(ws)]);
-      // Another workspace opened meanwhile: its own refresh is on the way.
-      if (ws !== workspace.path) return;
+      // Another jar (workspace / scope) took over meanwhile: its own refresh is on the way.
+      if (ws !== cookieJarKey()) return;
       this.list = list;
       this.path = path;
     } catch (err) {
@@ -39,7 +43,7 @@ class CookieJarStore {
 
   /** Add `draft`, or replace `original` with it (an edit that renames it removes the old entry). */
   save = async (draft: CookieDraft, original?: CookieInfo): Promise<void> => {
-    const ws = workspace.path;
+    const ws = cookieJarKey();
     if (original && !sameCookie(original, { ...draft, name: draft.name.trim(), domain: draft.domain.trim() }))
       await cookiesRemove(ws, original.domain, original.path, original.name);
     await cookiesAdd(ws, cookieUrl(draft.domain, draft.path), setCookieOf(draft));
@@ -48,23 +52,49 @@ class CookieJarStore {
 
   /** A Set-Cookie pasted from a browser, stored as if `domain` had sent it. */
   paste = async (setCookie: string, domain: string): Promise<void> => {
-    await cookiesAdd(workspace.path, cookieUrl(domain), setCookie.replace(/^set-cookie:\s*/i, '').trim());
+    await cookiesAdd(cookieJarKey(), cookieUrl(domain), setCookie.replace(/^set-cookie:\s*/i, '').trim());
     await this.refresh();
   };
 
   remove = async (c: CookieInfo): Promise<void> => {
-    await cookiesRemove(workspace.path, c.domain, c.path, c.name);
+    await cookiesRemove(cookieJarKey(), c.domain, c.path, c.name);
     await this.refresh();
   };
 
   removeDomain = async (domain: string): Promise<void> => {
-    await cookiesClear(workspace.path, domain);
+    await cookiesClear(cookieJarKey(), domain);
     await this.refresh();
   };
 
+  /** `pm.cookies.jar().clear(url)`: delete every cookie a request to `url` would carry. */
+  clearFor = async (url: string): Promise<void> => {
+    let host: string;
+    try {
+      host = new URL(url).hostname.toLowerCase();
+    } catch {
+      return;
+    }
+    const ws = cookieJarKey();
+    const domains = new Set(
+      untrack(() => this.list)
+        .filter((c) => host === c.domain || (!c.hostOnly && host.endsWith(`.${c.domain}`)))
+        .map((c) => c.domain),
+    );
+    for (const d of domains) await cookiesClear(ws, d);
+    await this.refresh();
+  };
+
+  /** `pm.cookies` for a script of a request to `url` (after `response`, in a test script). */
+  scriptCookies = (url: string, response?: ResponseCookie[]): { name: string; value: string }[] =>
+    cookiesFor(
+      untrack(() => this.list),
+      url,
+      response,
+    );
+
   /** Empty the jar (optionally sparing localhost / IP domains); returns how many cookies went. */
   clear = async (keepLocal: boolean): Promise<number> => {
-    const ws = workspace.path;
+    const ws = cookieJarKey();
     const before = untrack(() => this.list);
     const doomed = keepLocal ? before.filter((c) => !isLocalDomain(c.domain)) : before;
     if (keepLocal) for (const d of new Set(doomed.map((c) => c.domain))) await cookiesClear(ws, d);
@@ -75,11 +105,11 @@ class CookieJarStore {
 }
 export const cookieJar = new CookieJarStore();
 
-/** Re-read the jar when the workspace changes and after each response (it may have set cookies). */
+/** Re-read the jar when the workspace or scope changes and after each response (it may have set cookies). */
 export function watchCookieJar(): () => void {
   return $effect.root(() => {
     $effect(() => {
-      void workspace.path;
+      void cookieJarKey();
       void tabs.active?.response;
       void untrack(cookieJar.refresh);
     });

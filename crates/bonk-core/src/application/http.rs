@@ -1,4 +1,4 @@
-use crate::domain::http::{HttpRequest, HttpResponse, RequestSettings};
+use crate::domain::http::{cookie_host_excluded, HttpRequest, HttpResponse, RequestSettings};
 use crate::domain::url::normalize_url;
 use crate::infra::cookie_jar::CookieJar;
 use crate::infra::reqwest_client::build_request_to;
@@ -49,10 +49,22 @@ pub async fn http_send(
     let size_bytes = bytes.len();
     let body = String::from_utf8_lossy(&bytes).into_owned();
     let (cookies, jar_sends) = match (jar, jar_before) {
-        (Some(jar), Some(before)) => (
-            CookieJar::response_cookies(&set_cookies, &final_url, &before, settings.cookies_save),
-            settings.cookies_send.then(|| jar.sends_to(&final_url)),
-        ),
+        (Some(jar), Some(before)) => {
+            let excluded = reqwest::Url::parse(&final_url).is_ok_and(|u| {
+                u.host_str()
+                    .is_some_and(|h| cookie_host_excluded(h, &settings.cookies_exclude))
+            });
+            let saved = settings.cookies_save && !excluded;
+            let sends = if excluded {
+                0
+            } else {
+                jar.sends_to(&final_url)
+            };
+            (
+                CookieJar::response_cookies(&set_cookies, &final_url, &before, saved),
+                settings.cookies_send.then_some(sends),
+            )
+        }
         _ => (Vec::new(), None),
     };
     Ok(HttpResponse {

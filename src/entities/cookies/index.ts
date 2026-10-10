@@ -3,6 +3,7 @@
 
 export {
   changeCounts,
+  cookiesFor,
   type CookieDraft,
   domainGroups,
   type DomainGroup,
@@ -15,4 +16,4 @@ export {
   type SameSite,
   setCookieOf,
 } from './cookies';
-export { cookieJar, watchCookieJar } from './store.svelte';
+export { cookieJar, cookieJarKey, watchCookieJar } from './store.svelte';

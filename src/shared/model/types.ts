@@ -104,6 +104,12 @@ export interface RequestSettings {
   clientCerts: { host: string; certPath: string; keyPath: string; p12Path?: string; p12Password?: string }[];
   /** Workspace root whose cookie jar stores and sends cookies; '' = the app-wide jar. */
   cookieJar: string;
+  cookiesSave: boolean;
+  cookiesSend: boolean;
+  /** Save session cookies too, so they survive a restart. */
+  cookiesKeepSession: boolean;
+  /** Domains never stored nor sent (`sentry.io`, `*.doubleclick.net`). */
+  cookiesExclude: string[];
 }
 
 /** Per-request overrides of the global request settings (RequestSettings popover); unset = use the global value. */

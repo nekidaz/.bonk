@@ -2,7 +2,7 @@
 //! with the next requests (domain, path, Secure and expiry are honoured by `cookie_store`).
 //! Persistent cookies are saved as a JSON array; session cookies live until bonk closes.
 
-use crate::domain::http::{CookieChange, CookieInfo, ResponseCookie};
+use crate::domain::http::{cookie_host_excluded, CookieChange, CookieInfo, ResponseCookie};
 use cookie_store::{Cookie, CookieDomain, CookieExpiration, CookieStore};
 use reqwest::header::HeaderValue;
 use reqwest::Url;
@@ -15,6 +15,8 @@ pub struct CookieJar {
     store: RwLock<CookieStore>,
     /// Changed since the last save.
     dirty: AtomicBool,
+    /// Save session cookies too (Settings → Cookies «Хранить между запусками»).
+    keep_session: AtomicBool,
 }
 
 impl CookieJar {
@@ -34,6 +36,7 @@ impl CookieJar {
             path,
             store: RwLock::new(store),
             dirty: AtomicBool::new(false),
+            keep_session: AtomicBool::new(false),
         })
     }
 
@@ -52,15 +55,26 @@ impl CookieJar {
         self.store.write().unwrap_or_else(|e| e.into_inner())
     }
 
-    /// Write persistent cookies (expired ones too) to disk, if anything changed.
+    /// Whether the next save keeps session cookies; a change re-saves the file.
+    pub fn set_keep_session(&self, keep: bool) {
+        if self.keep_session.swap(keep, Ordering::Relaxed) != keep {
+            self.dirty.store(true, Ordering::Relaxed);
+        }
+    }
+
+    /// Write persistent cookies (expired ones too, and session ones when kept) to disk,
+    /// if anything changed.
     pub fn save(&self) -> Result<(), String> {
         if !self.dirty.swap(false, Ordering::Relaxed) {
             return Ok(());
         }
         let json = {
             let store = self.read();
-            let cookies: Vec<&Cookie<'static>> =
-                store.iter_any().filter(|c| c.is_persistent()).collect();
+            let keep_session = self.keep_session.load(Ordering::Relaxed);
+            let cookies: Vec<&Cookie<'static>> = store
+                .iter_any()
+                .filter(|c| keep_session || c.is_persistent())
+                .collect();
             serde_json::to_vec_pretty(&cookies).map_err(|e| e.to_string())?
         };
         write_private(&self.path, &json).map_err(|e| {
@@ -252,27 +266,41 @@ fn cookie_info(c: &Cookie<'static>) -> CookieInfo {
     }
 }
 
-/// What a reqwest client sees: the jar plus the save/send switches of its settings.
+/// What a reqwest client sees: the jar plus the save/send switches and the excluded
+/// domains of its settings.
 pub struct JarProvider {
     pub jar: Arc<CookieJar>,
     pub save: bool,
     pub send: bool,
+    pub exclude: Vec<String>,
+}
+
+impl JarProvider {
+    fn excluded(&self, url: &Url) -> bool {
+        url.host_str()
+            .is_some_and(|h| cookie_host_excluded(h, &self.exclude))
+    }
 }
 
 impl reqwest::cookie::CookieStore for JarProvider {
     fn set_cookies(&self, headers: &mut dyn Iterator<Item = &HeaderValue>, url: &Url) {
-        if !self.save {
+        if !self.save || self.excluded(url) {
             return;
         }
+        // A `Domain=` pointing at an excluded domain is dropped too.
         let cookies = headers.filter_map(|h| {
             let s = h.to_str().ok()?;
-            cookie_store::RawCookie::parse(s.to_string()).ok()
+            let c = cookie_store::RawCookie::parse(s.to_string()).ok()?;
+            let foreign = c
+                .domain()
+                .is_some_and(|d| cookie_host_excluded(d.trim_start_matches('.'), &self.exclude));
+            (!foreign).then_some(c)
         });
         self.jar.write().store_response_cookies(cookies, url);
     }
 
     fn cookies(&self, url: &Url) -> Option<HeaderValue> {
-        if !self.send {
+        if !self.send || self.excluded(url) {
             return None;
         }
         let value = self
@@ -313,6 +341,7 @@ mod tests {
             jar: jar.clone(),
             save,
             send,
+            exclude: Vec::new(),
         }
     }
 
@@ -377,6 +406,36 @@ mod tests {
             sent(&provider(&jar, true, true), "https://a.kz/").as_deref(),
             Some("x=1")
         );
+    }
+
+    #[test]
+    fn excluded_domains_are_neither_stored_nor_sent() {
+        let dir = tmp_dir("exclude");
+        let jar = jar_in(&dir);
+        let p = JarProvider {
+            exclude: vec!["*.tracker.io".into()],
+            ..provider(&jar, true, true)
+        };
+        respond(&p, "https://ad.tracker.io/", &["t=1"]);
+        respond(&p, "https://a.kz/", &["ok=1", "spy=1; Domain=tracker.io"]);
+        let names: Vec<String> = jar.list().into_iter().map(|c| c.name).collect();
+        assert_eq!(names, ["ok"]);
+        jar.add("t=1", "https://ad.tracker.io/").unwrap();
+        assert_eq!(sent(&p, "https://ad.tracker.io/"), None);
+    }
+
+    #[test]
+    fn keep_session_saves_session_cookies_too() {
+        let dir = tmp_dir("keep");
+        let jar = jar_in(&dir);
+        jar.set_keep_session(true);
+        jar.add("session=1", "https://a.kz/").unwrap();
+        jar.save().unwrap();
+        assert_eq!(jar_in(&dir).list().len(), 1);
+        // Switching it off re-saves without them.
+        jar.set_keep_session(false);
+        jar.save().unwrap();
+        assert!(jar_in(&dir).list().is_empty());
     }
 
     #[test]

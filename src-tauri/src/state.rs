@@ -24,6 +24,7 @@ pub struct HttpClientKey {
     cookie_jar: String,
     cookies_save: bool,
     cookies_send: bool,
+    cookies_exclude: Vec<String>,
 }
 
 impl HttpClientKey {
@@ -39,6 +40,7 @@ impl HttpClientKey {
             cookie_jar: settings.cookie_jar.clone(),
             cookies_save: settings.cookies_save,
             cookies_send: settings.cookies_send,
+            cookies_exclude: settings.cookies_exclude.clone(),
         }
     }
 }
@@ -169,6 +171,7 @@ fn build_http_client(
             jar,
             save: settings.cookies_save,
             send: settings.cookies_send,
+            exclude: settings.cookies_exclude.clone(),
         }));
     }
     builder = apply_proxy(builder, &settings.proxy)?;

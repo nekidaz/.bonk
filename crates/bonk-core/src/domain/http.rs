@@ -183,6 +183,26 @@ pub struct RequestSettings {
     /// Send matching jar cookies in the `Cookie` header (a hand-written one wins).
     #[serde(default = "default_true")]
     pub cookies_send: bool,
+    /// Also save session cookies, so they survive a restart like persistent ones.
+    #[serde(default)]
+    pub cookies_keep_session: bool,
+    /// Domains whose cookies are neither stored nor sent (`sentry.io`, `*.doubleclick.net`).
+    #[serde(default)]
+    pub cookies_exclude: Vec<String>,
+}
+
+/// Whether `host` falls under one of the excluded domains: `x.com`, `*.x.com` and `.x.com`
+/// all mean x.com and every subdomain of it.
+pub fn cookie_host_excluded(host: &str, exclude: &[String]) -> bool {
+    let host = host.to_ascii_lowercase();
+    exclude.iter().any(|p| {
+        let d = p
+            .trim()
+            .trim_start_matches("*.")
+            .trim_start_matches('.')
+            .to_ascii_lowercase();
+        !d.is_empty() && (host == d || host.ends_with(&format!(".{d}")))
+    })
 }
 
 /// One cookie of a jar, as the Cookies window lists it.
@@ -234,6 +254,8 @@ impl Default for RequestSettings {
             cookie_jar: String::new(),
             cookies_save: true,
             cookies_send: true,
+            cookies_keep_session: false,
+            cookies_exclude: Vec::new(),
         }
     }
 }
@@ -254,6 +276,8 @@ impl RequestSettings {
             cookie_jar: self.cookie_jar,
             cookies_save: self.cookies_save,
             cookies_send: self.cookies_send,
+            cookies_keep_session: self.cookies_keep_session,
+            cookies_exclude: self.cookies_exclude,
         }
     }
 }
@@ -298,6 +322,21 @@ mod tests {
         assert_eq!(pick("b.kz"), Some(""));
         assert_eq!(pick("other.com"), Some(""));
         assert_eq!(pick_client_cert(&certs[..2], "other.com"), None);
+    }
+
+    #[test]
+    fn cookie_exclusions_cover_subdomains() {
+        let ex = [
+            "sentry.io".to_string(),
+            "*.doubleclick.net".to_string(),
+            " ".to_string(),
+        ];
+        assert!(cookie_host_excluded("sentry.io", &ex));
+        assert!(cookie_host_excluded("o1.ingest.Sentry.io", &ex));
+        assert!(cookie_host_excluded("doubleclick.net", &ex));
+        assert!(cookie_host_excluded("ad.doubleclick.net", &ex));
+        assert!(!cookie_host_excluded("notsentry.io", &ex));
+        assert!(!cookie_host_excluded("api.a.kz", &ex));
     }
 
     #[test]

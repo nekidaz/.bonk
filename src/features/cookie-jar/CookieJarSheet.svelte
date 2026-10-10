@@ -7,9 +7,9 @@
   import { tick, untrack } from 'svelte';
   import { t, tp } from '$shared/i18n';
   import type { CookieInfo } from '$shared/model';
-  import { workspace } from '$entities/workspace';
   import {
     cookieJar,
+    cookieJarKey,
     type CookieDraft,
     domainGroups,
     draftOf,
@@ -45,7 +45,7 @@
   const groups = $derived(domainGroups(cookies, query));
   const allDomains = $derived(new Set(cookies.map((c) => c.domain)));
   const rows = $derived(selected ? cookies.filter((c) => c.domain === selected) : []);
-  const wsName = $derived(workspace.path.split(/[/\\]/).filter(Boolean).at(-1) ?? '');
+  const wsName = $derived(cookieJarKey().split(/[/\\]/).filter(Boolean).at(-1) ?? '');
   const cookiesWord = (n: number) => `${n} ${tp(n, ['cookie', 'cookies', 'cookies'], ['cookie', 'cookies'])}`;
   const kicker = $derived(
     [wsName, t(wsName ? 'cookies.kicker.workspace' : 'cookies.kicker.app'), cookiesWord(cookies.length)]
@@ -575,7 +575,9 @@
 
 <style>
   /* Sizes follow the CJ2 mock (Pencil node «Cookie jar»), the same frame as the S31 sheet. */
-  .bs-jar-overlay {
+  /* Above Settings: «Открыть банку» there opens it on top. */
+  .bs-jar-overlay.bs-jar-overlay {
+    z-index: 101;
     background: var(--color-scrim);
   }
   .bs-jar.bs-jar {

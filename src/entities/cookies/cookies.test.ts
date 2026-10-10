@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { CookieInfo, ResponseCookie } from '$shared/model';
 import {
   changeCounts,
+  cookiesFor,
   cookieUrl,
   domainGroups,
   draftOf,
@@ -100,5 +101,41 @@ describe('changeCounts', () => {
       deleted: 1,
       rejected: 0,
     });
+  });
+});
+
+describe('cookiesFor', () => {
+  const jar = [
+    cookie({ name: 'sid', value: 's1' }),
+    cookie({ name: 'wide', domain: 'a.kz', hostOnly: false }),
+    cookie({ name: 'v1', path: '/v1' }),
+    cookie({ name: 'tls', secure: true }),
+    cookie({ name: 'old', expired: true }),
+    cookie({ name: 'other', domain: 'b.kz' }),
+  ];
+  const names = (url: string, resp: ResponseCookie[] = []) => cookiesFor(jar, url, resp).map((c) => c.name);
+  it('matches domain, path, Secure and expiry like the jar', () => {
+    expect(names('https://api.a.kz/v1/x')).toEqual(['sid', 'wide', 'v1', 'tls']);
+    expect(names('http://api.a.kz/v10')).toEqual(['sid', 'wide']);
+    expect(names('https://www.a.kz/')).toEqual(['wide']);
+    expect(names('not a url')).toEqual([]);
+  });
+  it('applies the response Set-Cookies on top', () => {
+    const rc = (p: Partial<CookieInfo>, change: ResponseCookie['change']): ResponseCookie => ({
+      ...cookie(p),
+      change,
+    });
+    expect(
+      cookiesFor(jar, 'https://api.a.kz/', [
+        rc({ name: 'sid', value: 's2' }, 'updated'),
+        rc({ name: 'wide', domain: 'a.kz' }, 'deleted'),
+        rc({ name: 'csrf' }, 'new'),
+        rc({ name: 'evil' }, 'rejected'),
+      ]),
+    ).toEqual([
+      { name: 'tls', value: '1' },
+      { name: 'sid', value: 's2' },
+      { name: 'csrf', value: '1' },
+    ]);
   });
 });

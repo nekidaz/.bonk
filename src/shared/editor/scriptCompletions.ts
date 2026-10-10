@@ -70,6 +70,7 @@ const TREE: Record<string, Member[]> = {
     { name: 'globals', doc: 'pm.globals', of: 'pm.globals' },
     { name: 'variables', doc: 'pm.variables', of: 'pm.variables' },
     { name: 'iterationData', doc: 'pm.iterationData', of: 'pm.iterationData' },
+    { name: 'cookies', doc: 'pm.cookies', of: 'pm.cookies' },
     { name: 'request', doc: 'pm.request', of: 'pm.request' },
     { name: 'response', doc: 'pm.response', of: 'pm.response' },
     {
@@ -94,6 +95,15 @@ const TREE: Record<string, Member[]> = {
     { name: 'get', args: '(key)', insert: "get('${key}')", doc: 'pm.iterationData.get' },
     { name: 'has', args: '(key)', insert: "has('${key}')", doc: 'pm.iterationData.has' },
     { name: 'toObject', args: '()', insert: 'toObject()', doc: 'pm.iterationData.toObject' },
+  ],
+  'pm.cookies': [
+    { name: 'get', args: '(name)', insert: "get('${name}')", sig: 'name: string', doc: 'pm.cookies.get' },
+    { name: 'has', args: '(name)', insert: "has('${name}')", sig: 'name: string', doc: 'pm.cookies.has' },
+    { name: 'toObject', args: '()', insert: 'toObject()', doc: 'pm.cookies.toObject' },
+    { name: 'jar', args: '()', insert: 'jar()', doc: 'pm.cookies.jar', of: 'pm.cookies.jar' },
+  ],
+  'pm.cookies.jar': [
+    { name: 'clear', args: '(url)', insert: "clear('${url}')", sig: 'url: string', doc: 'pm.cookies.jar.clear' },
   ],
   'pm.request': [
     { name: 'url', doc: 'pm.request.url' },

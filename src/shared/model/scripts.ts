@@ -38,6 +38,8 @@ export interface ScriptResult {
   globalsSet: Record<string, string>;
   /** global var names the script removed. */
   globalsUnset: string[];
+  /** URLs whose cookies `pm.cookies.jar().clear(url)` asked to delete. */
+  cookieClears?: string[];
   /** Mutations to apply to the outgoing request (pre-request only). */
   requestPatch?: RequestPatch | null;
   /** Fatal error (thrown/timeout) captured from the script, if any. */
@@ -86,6 +88,8 @@ export interface ScriptContext {
   iterationData: Record<string, string>;
   /** Flow block payload, exposed to the script as the `payload` global. */
   payload?: unknown;
+  /** Cookies going to the request URL, exposed as `pm.cookies`. */
+  cookies?: { name: string; value: string }[];
 }
 
 /**
@@ -102,8 +106,10 @@ export function buildScriptContext(
   environment: Record<string, string>,
   globals: Record<string, string>,
   iterationData: Record<string, string> = {},
+  cookies: { name: string; value: string }[] = [],
 ): ScriptContext {
   return {
+    cookies,
     request: {
       method: req.method,
       url: req.url,
@@ -272,6 +278,7 @@ export function parseScriptResult(raw: string): ScriptResult {
     envUnset: stringArray(data.envUnset),
     globalsSet: stringRecord(data.globalsSet),
     globalsUnset: stringArray(data.globalsUnset),
+    cookieClears: stringArray(data.cookieClears),
     requestPatch:
       patch && typeof patch === 'object'
         ? {

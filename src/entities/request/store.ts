@@ -6,6 +6,10 @@ import {
   trustSystemCas,
   activeClientCerts,
   requestPrefs,
+  cookiesSave,
+  cookiesSend,
+  cookiesKeepSession,
+  cookiesExclude,
 } from '$shared/settings';
 import { dirtyTabIds } from './dirtyTabs.svelte';
 import {
@@ -42,6 +46,7 @@ import { GRPC_DEFAULT_TITLE, HTTP_DEFAULT_TITLE, grpcSnapshot, titleFromUrl, tab
 import { environments, currentVarScope, setEnvVars, setGlobalVars } from '$entities/environment';
 import { addHistory } from '$entities/history';
 import { addAppConsoleEntry } from './console.svelte';
+import { cookieJar, cookieJarKey } from '$entities/cookies';
 
 function clampInt(value: number, min: number, max: number, fallback: number): number {
   if (!Number.isFinite(value)) return fallback;
@@ -67,7 +72,11 @@ export function currentRequestSettings(): RequestSettings {
     caPaths: requestPrefs.trustedCaPaths,
     trustSystemCas: trustSystemCas.current,
     clientCerts: activeClientCerts(),
-    cookieJar: workspace.path,
+    cookieJar: cookieJarKey(),
+    cookiesSave: cookiesSave.current,
+    cookiesSend: cookiesSend.current,
+    cookiesKeepSession: cookiesKeepSession.current,
+    cookiesExclude: cookiesExclude.current,
   };
 }
 
@@ -253,6 +262,7 @@ export function applyScriptVars(result: ScriptResult): void {
   if (hasGlob) {
     setGlobalVars(applyEnvPatch(environments.globals, result.globalsSet, result.globalsUnset));
   }
+  for (const url of result.cookieClears ?? []) void cookieJar.clearFor(url);
 }
 
 /** Run one stage's script; an IPC failure (timeout, bad output) becomes a failed result, never a throw. */
@@ -313,7 +323,14 @@ export async function sendHttpRequest(
     pre = await runStage(
       'pre-request',
       req.preRequestScript,
-      buildScriptContext(req, undefined, activeEnvMap(), globalsMap()),
+      buildScriptContext(
+        req,
+        undefined,
+        activeEnvMap(),
+        globalsMap(),
+        {},
+        cookieJar.scriptCookies(resolveRequestVars(req, currentVarScope()).url),
+      ),
     );
     applyScriptVars(pre);
     if (pre.error) {
@@ -367,7 +384,12 @@ export async function sendHttpRequest(
   let postMs: number | undefined;
   if (hasScript(req.testScript)) {
     const t0 = performance.now();
-    post = await runStage('test', req.testScript, buildScriptContext(resolved, res, activeEnvMap(), globalsMap()));
+    const cookies = cookieJar.scriptCookies(resolved.url, res.cookies);
+    post = await runStage(
+      'test',
+      req.testScript,
+      buildScriptContext(resolved, res, activeEnvMap(), globalsMap(), {}, cookies),
+    );
     postMs = Math.round(performance.now() - t0);
     applyScriptVars(post);
   }

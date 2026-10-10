@@ -54,6 +54,7 @@ pub async fn http_send(
     let cancel = register_cancel(&state, &request_id)?;
     let settings = settings.unwrap_or_default().normalized();
     let jar = super::cookies::jar(&app, &state, &settings.cookie_jar)?;
+    jar.set_keep_session(settings.cookies_keep_session);
     let client = state.http_client(&settings, &req.url, Some(jar.clone()))?;
     let result = if let Some(cancel) = cancel {
         tokio::select! {

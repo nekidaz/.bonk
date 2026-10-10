@@ -123,3 +123,39 @@ export function changeCounts(cookies: ResponseCookie[]): Record<CookieChange, nu
   for (const c of cookies) if (c.change) out[c.change]++;
   return out;
 }
+
+/**
+ * The cookies a request to `url` carries (`pm.cookies`): unexpired jar cookies whose domain, path
+ * and Secure flag fit the URL, after applying `response` Set-Cookies (the jar list may not have
+ * been re-read yet when a test script runs).
+ */
+export function cookiesFor(
+  list: CookieInfo[],
+  url: string,
+  response: ResponseCookie[] = [],
+): { name: string; value: string }[] {
+  let u: URL;
+  try {
+    u = new URL(url);
+  } catch {
+    return [];
+  }
+  const host = u.hostname.toLowerCase();
+  let jar = list;
+  for (const r of response) {
+    if (r.change === 'new' || r.change === 'updated' || r.change === 'deleted') {
+      jar = jar.filter((c) => !sameCookie(c, r));
+      if (r.change !== 'deleted') jar = [...jar, r];
+    }
+  }
+  const pathFits = (p: string) => p === '/' || u.pathname === p || u.pathname.startsWith(p.endsWith('/') ? p : `${p}/`);
+  return jar
+    .filter(
+      (c) =>
+        !c.expired &&
+        (host === c.domain || (!c.hostOnly && host.endsWith(`.${c.domain}`))) &&
+        pathFits(c.path) &&
+        (!c.secure || u.protocol === 'https:'),
+    )
+    .map((c) => ({ name: c.name, value: c.value }));
+}

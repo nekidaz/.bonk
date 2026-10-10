@@ -46,5 +46,13 @@ export {
   uiFontSize,
 } from './prefs';
 export { fileName, type HostCert, proxyUrlError } from './proxy';
+export {
+  cookieJarScope,
+  type CookieJarScope,
+  cookiesExclude,
+  cookiesKeepSession,
+  cookiesSave,
+  cookiesSend,
+} from './cookiePrefs.svelte';
 export { requestPrefs } from './requestPrefs.svelte';
 export { applyStoredTheme, isDarkTheme, setTheme, theme } from './theme.svelte';
