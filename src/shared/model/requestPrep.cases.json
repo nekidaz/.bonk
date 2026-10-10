@@ -1,0 +1,182 @@
+[
+  {
+    "name": "params own the query string; {{vars}} survive encoding, then resolve",
+    "request": { "method": "GET", "url": "{{base}}/items?old=1#top", "headers": {}, "body": null },
+    "params": [
+      { "key": "q", "value": "a b", "description": "", "enabled": true },
+      { "key": "id", "value": "{{id}}", "description": "", "enabled": true },
+      { "key": "off", "value": "x", "description": "", "enabled": false }
+    ],
+    "scope": { "base": "https://api.test", "id": "42" },
+    "expected": { "url": "https://api.test/items?q=a%20b&id=42#top", "headers": {}, "body": null }
+  },
+  {
+    "name": "disabled headers are not sent; header keys and values resolve",
+    "request": {
+      "method": "GET",
+      "url": "https://api.test",
+      "headers": { "X-{{name}}": "{{value}}", "X-Off": "1" },
+      "disabledHeaders": ["X-Off"],
+      "body": null
+    },
+    "scope": { "name": "Trace", "value": "t-1" },
+    "expected": { "url": "https://api.test", "headers": { "X-Trace": "t-1" }, "body": null }
+  },
+  {
+    "name": "urlencoded body: space as +, placeholders resolved after encoding",
+    "request": {
+      "method": "POST",
+      "url": "https://api.test",
+      "headers": {},
+      "body": "ignored",
+      "bodyMode": "urlencoded",
+      "bodyParams": [
+        { "key": "name", "value": "Ada Lovelace", "description": "", "enabled": true },
+        { "key": "token", "value": "{{token}}", "description": "", "enabled": true },
+        { "key": "off", "value": "1", "description": "", "enabled": false }
+      ]
+    },
+    "scope": { "token": "s3cr3t" },
+    "expected": {
+      "url": "https://api.test",
+      "headers": { "Content-Type": "application/x-www-form-urlencoded" },
+      "body": "name=Ada+Lovelace&token=s3cr3t"
+    }
+  },
+  {
+    "name": "raw body that looks like JSON gets a JSON content type",
+    "request": {
+      "method": "POST",
+      "url": "https://api.test",
+      "headers": {},
+      "body": "{\"id\": \"{{id}}\"}",
+      "bodyMode": "raw"
+    },
+    "scope": { "id": "7" },
+    "expected": {
+      "url": "https://api.test",
+      "headers": { "Content-Type": "application/json" },
+      "body": "{\"id\": \"7\"}"
+    }
+  },
+  {
+    "name": "raw text body: no content type is invented",
+    "request": {
+      "method": "POST",
+      "url": "https://api.test",
+      "headers": {},
+      "body": "hello {{who}}",
+      "bodyMode": "raw",
+      "rawBodyFormat": "Text"
+    },
+    "scope": { "who": "world" },
+    "expected": { "url": "https://api.test", "headers": {}, "body": "hello world" }
+  },
+  {
+    "name": "an existing Content-Type wins, whatever its case",
+    "request": {
+      "method": "POST",
+      "url": "https://api.test",
+      "headers": { "content-type": "application/vnd.api+json" },
+      "body": "{}",
+      "bodyMode": "raw",
+      "rawBodyFormat": "JSON"
+    },
+    "scope": {},
+    "expected": {
+      "url": "https://api.test",
+      "headers": { "content-type": "application/vnd.api+json" },
+      "body": "{}"
+    }
+  },
+  {
+    "name": "body mode none sends no body",
+    "request": { "method": "POST", "url": "https://api.test", "headers": {}, "body": "leftover", "bodyMode": "none" },
+    "scope": {},
+    "expected": { "url": "https://api.test", "headers": {}, "body": null }
+  },
+  {
+    "name": "graphql: query and resolved variables are wrapped as JSON",
+    "request": {
+      "method": "POST",
+      "url": "https://api.test/graphql",
+      "headers": {},
+      "body": "query { user(id: $id) { name } }",
+      "bodyMode": "graphql",
+      "graphqlVariables": "{\"id\": \"{{userId}}\"}"
+    },
+    "scope": { "userId": "u1" },
+    "expected": {
+      "url": "https://api.test/graphql",
+      "headers": { "Content-Type": "application/json" },
+      "body": "{\"query\":\"query { user(id: $id) { name } }\",\"variables\":{\"id\":\"u1\"}}"
+    }
+  },
+  {
+    "name": "bearer token from a variable",
+    "request": {
+      "method": "GET",
+      "url": "https://api.test",
+      "headers": {},
+      "body": null,
+      "auth": { "type": "bearer", "bearerToken": " {{token}} " }
+    },
+    "scope": { "token": "abc" },
+    "expected": { "url": "https://api.test", "headers": { "Authorization": "Bearer abc" }, "body": null }
+  },
+  {
+    "name": "basic auth credentials from variables",
+    "request": {
+      "method": "GET",
+      "url": "https://api.test",
+      "headers": {},
+      "body": null,
+      "auth": { "type": "basic", "basicUsername": "{{user}}", "basicPassword": "{{pass}}" }
+    },
+    "scope": { "user": "ada", "pass": "pw" },
+    "expected": { "url": "https://api.test", "headers": { "Authorization": "Basic YWRhOnB3" }, "body": null }
+  },
+  {
+    "name": "an explicit Authorization header wins over auth",
+    "request": {
+      "method": "GET",
+      "url": "https://api.test",
+      "headers": { "authorization": "Token mine" },
+      "body": null,
+      "auth": { "type": "bearer", "bearerToken": "abc" }
+    },
+    "scope": {},
+    "expected": { "url": "https://api.test", "headers": { "authorization": "Token mine" }, "body": null }
+  },
+  {
+    "name": "api key in the query: appended after the params, resolved value encoded",
+    "request": {
+      "method": "GET",
+      "url": "https://api.test/items#top",
+      "headers": {},
+      "body": null,
+      "auth": { "type": "apiKey", "apiKeyName": "api key", "apiKeyValue": "{{key}}", "apiKeyIn": "query" }
+    },
+    "params": [{ "key": "page", "value": "2", "description": "", "enabled": true }],
+    "scope": { "key": "a&b" },
+    "expected": { "url": "https://api.test/items?page=2&api%20key=a%26b#top", "headers": {}, "body": null }
+  },
+  {
+    "name": "api key in a header",
+    "request": {
+      "method": "GET",
+      "url": "https://api.test",
+      "headers": {},
+      "body": null,
+      "auth": { "type": "apiKey", "apiKeyName": "X-Api-Key", "apiKeyValue": "{{key}}" }
+    },
+    "scope": { "key": "k1" },
+    "expected": { "url": "https://api.test", "headers": { "X-Api-Key": "k1" }, "body": null }
+  },
+  {
+    "name": "unknown variables are left visible",
+    "request": { "method": "GET", "url": "https://{{host}}/x", "headers": {}, "body": null },
+    "scope": {},
+    "expected": { "url": "https://{{host}}/x", "headers": {}, "body": null }
+  }
+]

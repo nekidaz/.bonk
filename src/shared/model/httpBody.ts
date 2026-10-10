@@ -91,7 +91,8 @@ function basicAuthToken(username: string, password: string): string {
 /**
  * Build the HttpRequest to send for a tab: applies the body mode (urlencoded /
  * form-data / raw / binary / graphql) to produce the wire body and any
- * Content-Type header, and stamps the resolved `finalUrl`. Pure: depends only
+ * Content-Type header, and stamps the resolved `finalUrl`. Auth is applied
+ * later, by `resolveRequestVars`, once its `{{vars}}` are resolved. Pure: depends only
  * on the tab and url. Multipart file bodies are assembled by the Rust backend
  * so files can be streamed from disk and reqwest can own the boundary header.
  */
@@ -133,7 +134,17 @@ export function buildRequestForSend(t: Pick<Tab, 'request'>, finalUrl: string): 
     }
   }
 
-  const auth = t.request.auth;
+  return { ...t.request, url, headers, body };
+}
+
+/**
+ * Add the auth header (or api-key query param) from `req.auth`. Runs on RESOLVED values:
+ * a Basic header is base64, so a `{{var}}` inside it could never be resolved afterwards.
+ */
+export function applyAuth(req: HttpRequest): HttpRequest {
+  const auth = req.auth;
+  let headers = req.headers ?? {};
+  let url = req.url;
   if (auth?.type === 'bearer' && auth.bearerToken?.trim()) {
     headers = setHeaderIfMissing(headers, 'Authorization', `Bearer ${auth.bearerToken.trim()}`);
   } else if (auth?.type === 'basic') {
@@ -150,6 +161,5 @@ export function buildRequestForSend(t: Pick<Tab, 'request'>, finalUrl: string): 
       headers = setHeaderIfMissing(headers, name, auth.apiKeyValue);
     }
   }
-
-  return { ...t.request, url, headers, body };
+  return { ...req, url, headers };
 }

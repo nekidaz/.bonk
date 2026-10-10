@@ -241,47 +241,4 @@ describe('buildRequestForSend', () => {
     expect(req.url).toBe('https://api.example.com/final');
     expect(req.headers).toEqual({ Authorization: 'Bearer x' });
   });
-
-  it('adds bearer auth without overriding an explicit Authorization header', () => {
-    const req = buildRequestForSend(
-      tab({ bodyMode: 'none', auth: { type: 'bearer', bearerToken: 'token-1' } }),
-      'https://api.example.com',
-    );
-    expect(req.headers.Authorization).toBe('Bearer token-1');
-
-    const overridden = buildRequestForSend(
-      tab({
-        bodyMode: 'none',
-        headers: { authorization: 'Custom x' },
-        auth: { type: 'bearer', bearerToken: 'token-1' },
-      }),
-      'https://api.example.com',
-    );
-    expect(overridden.headers).toEqual({ authorization: 'Custom x' });
-  });
-
-  it('adds basic auth as a generated Authorization header', () => {
-    const req = buildRequestForSend(
-      tab({ bodyMode: 'none', auth: { type: 'basic', basicUsername: 'user', basicPassword: 'pass' } }),
-      'https://api.example.com',
-    );
-    expect(req.headers.Authorization).toBe('Basic dXNlcjpwYXNz');
-  });
-
-  it('adds API key auth to either headers or query params', () => {
-    const headerReq = buildRequestForSend(
-      tab({
-        bodyMode: 'none',
-        auth: { type: 'apiKey', apiKeyName: 'x-api-key', apiKeyValue: 'secret', apiKeyIn: 'header' },
-      }),
-      'https://api.example.com',
-    );
-    expect(headerReq.headers['x-api-key']).toBe('secret');
-
-    const queryReq = buildRequestForSend(
-      tab({ bodyMode: 'none', auth: { type: 'apiKey', apiKeyName: 'api key', apiKeyValue: 'a&b', apiKeyIn: 'query' } }),
-      'https://api.example.com/path?x=1#top',
-    );
-    expect(queryReq.url).toBe('https://api.example.com/path?x=1&api%20key=a%26b#top');
-  });
 });
