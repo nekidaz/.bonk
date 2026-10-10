@@ -63,14 +63,11 @@ impl CookieJar {
                 store.iter_any().filter(|c| c.is_persistent()).collect();
             serde_json::to_vec_pretty(&cookies).map_err(|e| e.to_string())?
         };
-        let err = |e: std::io::Error| format!("cookie jar «{}»: {e}", self.path.display());
-        if let Some(dir) = self.path.parent() {
-            std::fs::create_dir_all(dir).map_err(err)?;
-        }
-        // Write-then-rename, so a crash mid-write never leaves a truncated jar.
-        let tmp = self.path.with_extension("json.tmp");
-        std::fs::write(&tmp, json).map_err(err)?;
-        std::fs::rename(&tmp, &self.path).map_err(err)
+        write_private(&self.path, &json).map_err(|e| {
+            // Keep the changes pending so the next save retries them.
+            self.dirty.store(true, Ordering::Relaxed);
+            format!("cookie jar «{}»: {e}", self.path.display())
+        })
     }
 
     /// Every cookie, expired ones included, sorted by domain, path and name.
@@ -113,6 +110,30 @@ impl CookieJar {
             store.remove(domain, &path, &name);
         }
     }
+}
+
+/// Write `bytes` to `path` readable by the owner only (session tokens live there), via
+/// write-then-rename so a crash mid-write never leaves a truncated jar.
+fn write_private(path: &Path, bytes: &[u8]) -> std::io::Result<()> {
+    use std::io::Write;
+    let mut dirs = std::fs::DirBuilder::new();
+    dirs.recursive(true);
+    let mut file = std::fs::OpenOptions::new();
+    file.write(true).create(true).truncate(true);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::{DirBuilderExt, OpenOptionsExt};
+        dirs.mode(0o700);
+        file.mode(0o600);
+    }
+    if let Some(dir) = path.parent() {
+        dirs.create(dir)?;
+    }
+    let tmp = path.with_extension("json.tmp");
+    // A leftover from a crash may have other permissions; `mode` applies only on create.
+    let _ = std::fs::remove_file(&tmp);
+    file.open(&tmp)?.write_all(bytes)?;
+    std::fs::rename(&tmp, path)
 }
 
 /// File name of the jar for workspace root `workspace` (empty = the app-wide jar):
@@ -303,6 +324,15 @@ mod tests {
             &["keep=1; Max-Age=3600", "session=1"],
         );
         jar.save().unwrap();
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let mode = std::fs::metadata(dir.join("jar.json"))
+                .unwrap()
+                .permissions()
+                .mode();
+            assert_eq!(mode & 0o777, 0o600, "jar holds session tokens: owner-only");
+        }
         let names: Vec<String> = jar_in(&dir).list().into_iter().map(|c| c.name).collect();
         assert_eq!(names, ["keep"]);
     }
