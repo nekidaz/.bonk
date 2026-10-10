@@ -3,7 +3,9 @@
 //! is handed over as a `-protoset`, so grpcurl never re-reflects.
 
 use crate::conn::GrpcDescriptorCache;
-use crate::domain::grpc::{GrpcErrorDetail, GrpcFieldViolation, GrpcPrefs, GrpcResult, GrpcTls};
+use crate::domain::grpc::{
+    GrpcError, GrpcErrorCode, GrpcErrorDetail, GrpcFieldViolation, GrpcPrefs, GrpcResult, GrpcTls,
+};
 use prost::Message;
 use serde::de::DeserializeSeed;
 use std::collections::{BTreeMap, HashMap};
@@ -114,14 +116,21 @@ fn metadata_section(stdout: &str, title: &str) -> BTreeMap<String, String> {
     out
 }
 
-fn status_error(stderr: &str, stdout: &str, elapsed_ms: u64) -> Result<GrpcResult, String> {
+fn status_error(stderr: &str, stdout: &str, elapsed_ms: u64) -> Result<GrpcResult, GrpcError> {
     let field = |name: &str| {
         stderr
             .lines()
             .find_map(|l| l.trim().strip_prefix(name).map(str::trim))
     };
     let (Some(code), Some(msg)) = (field("Code:"), field("Message:")) else {
-        return Err(stderr.trim().to_string());
+        // No status: grpcurl failed before the call. Its stderr is the only signal
+        // (grpcurl/cmd/grpcurl: "Failed to dial target host %q: %v").
+        let code = if stderr.contains("Failed to dial target host") {
+            GrpcErrorCode::Unavailable
+        } else {
+            GrpcErrorCode::Unknown
+        };
+        return Err(GrpcError::new(code, stderr.trim()));
     };
     let mut status = String::new();
     for (i, c) in code.chars().enumerate() {
@@ -184,7 +193,7 @@ pub async fn call(
     json_body: &str,
     metadata: &HashMap<String, String>,
     prefs: &GrpcPrefs,
-) -> Result<GrpcResult, String> {
+) -> Result<GrpcResult, GrpcError> {
     let method = cache
         .methods
         .get(method_symbol)
@@ -192,7 +201,8 @@ pub async fn call(
     if method.is_client_streaming() || method.is_server_streaming() {
         return Err(format!(
             "{method_symbol} is a streaming RPC; bonk currently supports unary calls only."
-        ));
+        )
+        .into());
     }
 
     let protoset = std::env::temp_dir().join(format!("bonk-{}.protoset", fastrand::u64(..)));
@@ -341,7 +351,16 @@ mod tests {
         assert_eq!(r.details[0].field_violations[0].field, "name");
         assert_eq!(
             status_error("Failed to dial target host \"x\": refused\n", "", 0).unwrap_err(),
-            "Failed to dial target host \"x\": refused"
+            GrpcError::new(
+                GrpcErrorCode::Unavailable,
+                "Failed to dial target host \"x\": refused"
+            )
+        );
+        assert_eq!(
+            status_error("Error invoking method: boom\n", "", 0)
+                .unwrap_err()
+                .code,
+            GrpcErrorCode::Unknown
         );
     }
 

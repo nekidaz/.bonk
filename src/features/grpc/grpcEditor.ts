@@ -3,12 +3,14 @@ import type { Completion } from '@codemirror/autocomplete';
 import type { Translate } from '$shared/i18n';
 import { effectiveAuth } from '$entities/workspace';
 import {
-  isGrpcConnectionError,
+  isGrpcConnectionCode,
   grpcFieldStub,
   grpcAuthMetadata,
   outgoingGrpcMetadata,
+  type GrpcTabError,
   type GrpcurlImport,
 } from '$entities/request';
+import { grpcErrorCode } from '$shared/ipc';
 import {
   resolveVars,
   type AuthConfig,
@@ -30,14 +32,14 @@ export interface EditorErrorPresentation {
 
 /** Classify an editor-side error (not a gRPC status) into the banner shown above the request tabs. */
 export function presentEditorError(
-  error: string,
+  { message: error, code }: GrpcTabError,
   guiding: boolean,
   endpoint: string,
   tr: Translate,
 ): EditorErrorPresentation {
   if (guiding)
     return { kind: 'schema', title: tr('grpc.err.schemaTitle'), message: error, raw: error, icon: 'description' };
-  if (isGrpcConnectionError(error)) {
+  if (isGrpcConnectionCode(code)) {
     const target = endpoint.trim() || tr('grpc.err.theServer');
     return {
       kind: 'connection',
@@ -66,8 +68,8 @@ export function presentEditorError(
  * A connection error is drawn by the response pane, but only when the tab has no response yet.
  * Drop a stale result/stream so a failed connect/reflect is not hidden behind the previous reply.
  */
-export function withoutStaleResponse(tab: Tab, error: string): Tab {
-  return isGrpcConnectionError(error) ? { ...tab, grpcResult: undefined, grpcStream: undefined } : tab;
+export function withoutStaleResponse(tab: Tab, code: string | undefined): Tab {
+  return isGrpcConnectionCode(code) ? { ...tab, grpcResult: undefined, grpcStream: undefined } : tab;
 }
 
 /** `pkg.Service.Method` -> its service and method name. */
@@ -149,11 +151,11 @@ export function omitKey<V>(map: Record<string, V>, key: string): Record<string, 
 
 /** The synthetic response shown when an invoke fails before/while the call runs. */
 export function invokeFailureResult(e: unknown): GrpcResult {
-  const cancelled = String(e).toLowerCase().includes('cancel');
+  const code = grpcErrorCode(e);
   return {
     ok: false,
-    status: cancelled ? 'CANCELLED' : 'ERROR',
-    body: cancelled ? 'Request cancelled' : String(e),
+    status: code ?? 'ERROR',
+    body: code === 'CANCELLED' ? 'Request cancelled' : e instanceof Error ? e.message : String(e),
     elapsed_ms: 0,
     size_bytes: 0,
   };

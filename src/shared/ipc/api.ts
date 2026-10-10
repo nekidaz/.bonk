@@ -135,6 +135,28 @@ export const runScript = async (phase: ScriptPhase, code: string, context: unkno
 export const httpSend = (req: HttpRequest, requestId?: string, settings?: RequestSettings): Promise<HttpResponse> =>
   invoke<HttpResponse>('http_send', { req, requestId: requestId ?? null, settings: settings ?? null });
 
+/** A failed gRPC command. `code` is the gRPC status name Rust picked (`GrpcErrorCode`), e.g. `UNAVAILABLE`. */
+export class GrpcCommandError extends Error {
+  constructor(
+    readonly code: string,
+    message: string,
+  ) {
+    super(message);
+  }
+}
+
+/** `code` of a failed gRPC command; undefined for untyped errors. */
+export const grpcErrorCode = (e: unknown): string | undefined => (e instanceof GrpcCommandError ? e.code : undefined);
+
+/** `invoke` for commands returning Rust's `GrpcError` (`{ code, message }`): rejects with a `GrpcCommandError`. */
+function grpcInvoke<T>(cmd: string, args: Record<string, unknown>): Promise<T> {
+  return invoke<T>(cmd, args).catch((e: unknown) => {
+    if (e && typeof e === 'object' && 'code' in e && 'message' in e)
+      throw new GrpcCommandError(String(e.code), String(e.message));
+    throw e;
+  });
+}
+
 export const grpcConnect = (
   endpoint: string,
   plaintext: boolean,
@@ -142,7 +164,7 @@ export const grpcConnect = (
   timeoutMs?: number,
   prefs?: GrpcPrefs,
 ) =>
-  invoke<string>('grpc_connect', {
+  grpcInvoke<string>('grpc_connect', {
     endpoint,
     plaintext,
     tls: tls ?? null,
@@ -154,7 +176,7 @@ export const certFileInfo = (path: string) => invoke<[string, number]>('cert_fil
 export const grpcTlsInspect = (endpoint: string, tls?: GrpcTls) =>
   invoke<GrpcCertInfo>('grpc_tls_inspect', { endpoint, tls: tls ?? null });
 export const grpcReflect = (connectionId: string, timeoutMs?: number) =>
-  invoke<ServiceTree>('grpc_reflect', { connectionId, timeoutMs: timeoutMs ?? null });
+  grpcInvoke<ServiceTree>('grpc_reflect', { connectionId, timeoutMs: timeoutMs ?? null });
 export const grpcTemplate = (connectionId: string, method: string) =>
   invoke<string>('grpc_template', { connectionId, method });
 export const grpcCall = (
@@ -165,7 +187,7 @@ export const grpcCall = (
   requestId?: string,
   timeoutMs?: number,
 ) =>
-  invoke<GrpcResult>('grpc_call', {
+  grpcInvoke<GrpcResult>('grpc_call', {
     connectionId,
     method,
     jsonBody,
@@ -184,7 +206,14 @@ export function grpcStream(
 ): Promise<GrpcResult> {
   const channel = new Channel<GrpcStreamMessage>();
   channel.onmessage = onMessage;
-  return invoke<GrpcResult>('grpc_stream', { connectionId, method, jsonBody, metadata, requestId, onMessage: channel });
+  return grpcInvoke<GrpcResult>('grpc_stream', {
+    connectionId,
+    method,
+    jsonBody,
+    metadata,
+    requestId,
+    onMessage: channel,
+  });
 }
 /** Client/bidi: send more messages (an object or an array) into the open stream `requestId`. */
 export const grpcStreamSend = (requestId: string, jsonBody: string) =>

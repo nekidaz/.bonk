@@ -3,7 +3,6 @@ import { describe, expect, it, vi } from 'vitest';
 vi.mock('@tauri-apps/api/core', () => ({ invoke: vi.fn(async () => ({})) }));
 import {
   grpcAuthMetadata,
-  isRetryableDialError,
   dialFailureReason,
   stripsAuthorization,
   outgoingGrpcMetadata,
@@ -17,7 +16,6 @@ import {
   checkGrpcMessage,
   atTopLevelKey,
   grpcFieldStub,
-  isGrpcConnectionError,
 } from './grpc';
 import type { GrpcField } from '$shared/model';
 
@@ -93,10 +91,8 @@ describe('plaintext authorization guard', () => {
   });
 });
 
-describe('dial retry helpers', () => {
-  it('retries only failures that never reached the server', () => {
-    expect(isRetryableDialError('connect failed: tcp connect error: Connection refused (os error 61)')).toBe(true);
-    expect(isRetryableDialError('invalid endpoint http://{{host}}: invalid uri')).toBe(false);
+describe('dialFailureReason', () => {
+  it('shortens a dial error to its cause', () => {
     expect(dialFailureReason('connect failed: tcp connect error: Connection refused (os error 61)')).toBe(
       'connection refused',
     );
@@ -199,18 +195,5 @@ describe('atTopLevelKey', () => {
 describe('grpcFieldStub', () => {
   it('inserts a value of the field type', () => {
     expect(FIELDS.map(grpcFieldStub)).toEqual(['""', '"FORMAL"', '0', '[]']);
-  });
-});
-
-describe('isGrpcConnectionError', () => {
-  it('flags dial and transport failures', () => {
-    expect(isGrpcConnectionError('transport error: connection refused')).toBe(true);
-    expect(isGrpcConnectionError('dns error: failed to lookup address')).toBe(true);
-  });
-
-  it('leaves schema hints, request errors and empty text alone', () => {
-    expect(isGrpcConnectionError(grpcNoServicesHint())).toBe(false);
-    expect(isGrpcConnectionError('Select a method first')).toBe(false);
-    expect(isGrpcConnectionError('')).toBe(false);
   });
 });

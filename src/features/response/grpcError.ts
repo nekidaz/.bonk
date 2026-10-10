@@ -37,32 +37,16 @@ function normalizeCode(value: string): string {
     .toUpperCase();
 }
 
-function inferCode(text: string, fallback: string): string {
-  // A real status code from the server wins over guessing from the text.
-  const known = normalizeCode(fallback);
-  if (known !== 'UNKNOWN' && PRESENTATIONS[known]) return known;
-  const explicit =
-    text.match(/grpc status\s+([A-Za-z_]+)\s*:/i)?.[1] ?? text.match(/(?:code|status)\s*[=:]\s*([A-Za-z_]+)/i)?.[1];
-  if (explicit) return normalizeCode(explicit);
-
-  const lower = text.toLowerCase();
-  if (/authentication|credentials|authorization token|unauthenticated/.test(lower)) return 'UNAUTHENTICATED';
-  if (/permission denied|not authorized|forbidden/.test(lower)) return 'PERMISSION_DENIED';
-  if (/deadline|timed? out|timeout/.test(lower)) return 'DEADLINE_EXCEEDED';
-  if (/unavailable|connection refused|transport error|failed to dial|connect failed|dns error/.test(lower))
-    return 'UNAVAILABLE';
-  if (/cancelled|canceled/.test(lower)) return 'CANCELLED';
-
-  const normalizedFallback = normalizeCode(fallback);
-  return PRESENTATIONS[normalizedFallback] ? normalizedFallback : 'UNKNOWN';
+/** `status` is a real gRPC code (from the server, or the `code` of a `GrpcCommandError`); anything else is UNKNOWN. */
+function knownCode(status: string): string {
+  const code = normalizeCode(status);
+  return PRESENTATIONS[code] ? code : 'UNKNOWN';
 }
 
 function cleanMessage(raw: string): string {
   return raw
     .trim()
     .replace(/^(?:error:\s*)?/i, '')
-    .replace(/^grpc status\s+[A-Za-z_]+\s*:\s*/i, '')
-    .replace(/^grpc status\s*:?\s*/i, '')
     .replace(/^status\s*[=:]\s*[A-Za-z_]+\s*,?\s*/i, '')
     .replace(/^message\s*[=:]\s*/i, '')
     .trim();
@@ -70,7 +54,7 @@ function cleanMessage(raw: string): string {
 
 export function presentGrpcError(status: string, body: string, tr: Translate = t): GrpcErrorPresentation {
   const raw = body.trim() || status.trim() || tr('grpc.error.unknownRaw');
-  const code = inferCode(raw, status);
+  const code = knownCode(status);
   const presentation = PRESENTATIONS[code] ?? PRESENTATIONS.UNKNOWN;
   const title = tr(`grpc.error.${PRESENTATIONS[code] ? code : 'UNKNOWN'}.title`);
   return {

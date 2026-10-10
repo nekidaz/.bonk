@@ -4,24 +4,17 @@ vi.mock('@tauri-apps/api/core', () => ({ invoke: vi.fn(async () => ({})) }));
 import { presentGrpcError } from './grpcError';
 
 describe('presentGrpcError', () => {
-  it('extracts a tonic status and keeps the human message', () => {
-    const view = presentGrpcError(
-      'ERROR',
-      'grpc status Unauthenticated: The request does not have valid authentication credentials: authorization token is not provided',
-    );
+  it('presents the status code and keeps the human message', () => {
+    const view = presentGrpcError('Unauthenticated', 'authorization token is not provided');
     expect(view.code).toBe('UNAUTHENTICATED');
     expect(view.title).toBe('Требуется аутентификация');
-    expect(view.message).toBe(
-      'The request does not have valid authentication credentials: authorization token is not provided',
-    );
+    expect(view.message).toBe('authorization token is not provided');
     expect(view.hint).toContain('Metadata');
     expect(view.action).toBe('metadata');
   });
 
-  it('infers authentication errors when the transport omitted the status code', () => {
-    const view = presentGrpcError('ERROR', 'grpc status authorization token is not provided');
-    expect(view.code).toBe('UNAUTHENTICATED');
-    expect(view.message).toBe('authorization token is not provided');
+  it('does not guess a code from the message text', () => {
+    expect(presentGrpcError('ERROR', 'connection refused: deadline exceeded').code).toBe('UNKNOWN');
   });
 
   it('uses the result status for cancellations', () => {

@@ -228,3 +228,75 @@ pub struct GrpcCertInfo {
     /// Expiry as unix seconds.
     pub not_after: i64,
 }
+
+/// What went wrong in a gRPC connect/reflect/call, as a gRPC status code, so the UI
+/// branches on `code` instead of matching words in `message`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum GrpcErrorCode {
+    /// Anything not classified below.
+    Unknown,
+    Cancelled,
+    /// Bad endpoint, request JSON or metadata: fixable in the editor.
+    InvalidArgument,
+    DeadlineExceeded,
+    /// The server could not be reached (dial, TCP, TLS handshake).
+    Unavailable,
+}
+
+/// Error of the gRPC commands; serialises as `{ "code": "UNAVAILABLE", "message": "…" }`.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct GrpcError {
+    pub code: GrpcErrorCode,
+    pub message: String,
+}
+
+impl GrpcError {
+    pub fn new(code: GrpcErrorCode, message: impl Into<String>) -> Self {
+        Self {
+            code,
+            message: message.into(),
+        }
+    }
+}
+
+/// Untyped `String` errors (`?` on the many helpers that return one) stay `Unknown`.
+impl From<String> for GrpcError {
+    fn from(message: String) -> Self {
+        Self::new(GrpcErrorCode::Unknown, message)
+    }
+}
+
+impl From<&str> for GrpcError {
+    fn from(message: &str) -> Self {
+        Self::new(GrpcErrorCode::Unknown, message)
+    }
+}
+
+/// Lets `String`-error callers (bonk-mcp, tests) keep using `?`.
+impl From<GrpcError> for String {
+    fn from(e: GrpcError) -> Self {
+        e.message
+    }
+}
+
+impl std::fmt::Display for GrpcError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.message)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn grpc_error_serialises_as_code_and_message() {
+        // The webview reads exactly this shape (`grpcInvoke` in src/shared/ipc/api.ts).
+        let e = GrpcError::new(GrpcErrorCode::DeadlineExceeded, "timed out");
+        assert_eq!(
+            serde_json::to_value(&e).unwrap(),
+            serde_json::json!({ "code": "DEADLINE_EXCEEDED", "message": "timed out" })
+        );
+    }
+}

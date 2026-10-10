@@ -92,11 +92,7 @@ export function closeTab(id: string): void {
     const { [id]: _b, ...rest } = m;
     return rest;
   });
-  requestRuntime.updateGrpcErrors((m) => {
-    if (!(id in m)) return m;
-    const { [id]: _e, ...rest } = m;
-    return rest;
-  });
+  requestRuntime.clearGrpcError(id);
   clearGrpcEditorSection(id);
   const next = list.filter((t) => t.id !== id);
   const closing = list[idx];

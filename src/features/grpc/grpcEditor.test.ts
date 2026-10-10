@@ -16,6 +16,7 @@ import {
   withoutStaleResponse,
 } from './grpcEditor';
 import type { GrpcField, Tab } from '$shared/model';
+import { GrpcCommandError } from '$shared/ipc';
 
 const grpcTab = (grpc: Record<string, unknown> = {}, extra: Record<string, unknown> = {}) =>
   ({
@@ -34,11 +35,17 @@ describe('omitKey', () => {
 });
 
 describe('invokeFailureResult', () => {
-  it('maps a cancellation to CANCELLED and everything else to ERROR', () => {
-    expect(invokeFailureResult(new Error('request Cancelled by user'))).toMatchObject({
+  it('uses the backend code as the status, and ERROR for untyped failures', () => {
+    expect(invokeFailureResult(new GrpcCommandError('CANCELLED', 'request cancelled'))).toMatchObject({
       ok: false,
       status: 'CANCELLED',
       body: 'Request cancelled',
+    });
+    expect(
+      invokeFailureResult(new GrpcCommandError('DEADLINE_EXCEEDED', 'request timed out after 5 ms')),
+    ).toMatchObject({
+      status: 'DEADLINE_EXCEEDED',
+      body: 'request timed out after 5 ms',
     });
     expect(invokeFailureResult('boom')).toMatchObject({
       ok: false,
@@ -133,22 +140,26 @@ const tr = (key: string, params?: Record<string, string | number>) =>
 
 describe('presentEditorError', () => {
   it('schema guidance wins over everything', () => {
-    expect(presentEditorError('anything', true, '', tr)).toMatchObject({
+    expect(presentEditorError({ message: 'anything', code: 'UNAVAILABLE' }, true, '', tr)).toMatchObject({
       kind: 'schema',
       message: 'anything',
       icon: 'description',
     });
   });
   it('falls back to the server name when the endpoint is blank', () => {
-    const p = presentEditorError('connection refused', false, '  ', tr);
+    const p = presentEditorError({ message: 'connect failed', code: 'UNAVAILABLE' }, false, '  ', tr);
     expect(p.kind).toBe('connection');
     expect(p.message).toBe('grpc.err.connMsg:{"target":"grpc.err.theServer"}');
   });
   it('classifies script, validation and unknown errors', () => {
-    expect(presentEditorError('Pre-request script failed', false, 'h:1', tr).kind).toBe('script');
-    expect(presentEditorError('Select a method first', false, 'h:1', tr).kind).toBe('validation');
-    expect(presentEditorError('Выберите метод', false, 'h:1', tr).kind).toBe('validation');
-    expect(presentEditorError('boom', false, 'h:1', tr)).toMatchObject({ kind: 'unknown', raw: 'boom' });
+    const present = (message: string, code?: string) => presentEditorError({ message, code }, false, 'h:1', tr);
+    expect(present('Pre-request script failed').kind).toBe('script');
+    expect(present('Select a method first').kind).toBe('validation');
+    expect(present('Выберите метод').kind).toBe('validation');
+    expect(present('boom')).toMatchObject({ kind: 'unknown', raw: 'boom' });
+    // Only the code makes a connection error: the words alone don't.
+    expect(present('connection refused').kind).toBe('unknown');
+    expect(present('invalid endpoint x', 'INVALID_ARGUMENT').kind).toBe('unknown');
   });
 });
 
@@ -224,11 +235,12 @@ describe('fieldCompletionOptions', () => {
 describe('withoutStaleResponse', () => {
   const stale = grpcTab({}, { grpcResult: { ok: true, status: 'OK' }, grpcStream: { messages: [] } });
   it('drops the previous reply on a connection error so the response pane can show it', () => {
-    const t = withoutStaleResponse(stale, 'connect failed: transport error');
+    const t = withoutStaleResponse(stale, 'UNAVAILABLE');
     expect(t.grpcResult).toBeUndefined();
     expect(t.grpcStream).toBeUndefined();
   });
   it('keeps the reply for other errors', () => {
-    expect(withoutStaleResponse(stale, 'select a method first')).toBe(stale);
+    expect(withoutStaleResponse(stale, undefined)).toBe(stale);
+    expect(withoutStaleResponse(stale, 'INVALID_ARGUMENT')).toBe(stale);
   });
 });

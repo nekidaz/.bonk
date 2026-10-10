@@ -28,7 +28,7 @@
     inferGrpcPlaintext,
     methodShort,
     stripsAuthorization,
-    isRetryableDialError,
+    isGrpcConnectionCode,
     GRPC_DIAL_BACKOFF_MS,
     parseGrpcurl,
     type GrpcConnectStage,
@@ -38,6 +38,7 @@
   import {
     cancelRequest,
     grpcConnect,
+    grpcErrorCode,
     grpcReflect,
     grpcLoadProto,
     grpcCall,
@@ -125,11 +126,11 @@
   // Client/bidi: the stream is open and still takes messages from the editor.
   const streamWritable = $derived(grpcInvoking && !!activeBusy?.writable);
   // Per-tab gRPC error text, so a stale error never shows on the wrong tab.
-  const activeGrpcError = $derived(requestRuntime.grpcErrors[tab.id] ?? '');
+  const activeGrpcError = $derived(requestRuntime.grpcErrors[tab.id]);
   // Postman-style: when the dial succeeded but the services can't be listed via
   // reflection, show neutral guidance to load a schema instead of a red error
   // (see grpcConnectFailureMessage in entities/request/grpc.ts).
-  const grpcGuiding = $derived(isGrpcNoServicesHint(activeGrpcError));
+  const grpcGuiding = $derived(isGrpcNoServicesHint(activeGrpcError?.message ?? ''));
   const editorError = $derived(
     activeGrpcError ? presentEditorError(activeGrpcError, grpcGuiding, tab.grpc?.endpoint ?? '', t) : undefined,
   );
@@ -179,7 +180,7 @@
     const t = tab;
     if (!t?.grpc) return;
     const tabId = t.id;
-    requestRuntime.updateGrpcErrors((m) => ({ ...m, [tabId]: '' }));
+    requestRuntime.clearGrpcError(tabId);
     requestRuntime.updateBusy((m) => ({ ...m, [tabId]: { kind: 'connect' } }));
     // Track which step failed: a dial failure (bad/unresolved endpoint,
     // unreachable server) must show the real error — schema guidance can't fix
@@ -208,7 +209,7 @@
           break;
         } catch (e) {
           const wait = backoff[attempts - 1];
-          if (wait === undefined || !isRetryableDialError(String(e))) throw e;
+          if (wait === undefined || !isGrpcConnectionCode(grpcErrorCode(e))) throw e;
           await new Promise((r) => setTimeout(r, wait));
         }
       }
@@ -220,8 +221,10 @@
       tabs.updateById(tabId, (x) => (x.grpc ? { ...x, grpc: { ...x.grpc, connectionId: connId, tree } } : x));
     } catch (e) {
       const message = grpcConnectFailureMessage(t.grpc?.source, stage, e);
+      // Only a dial failure is about reaching the server; after it the schema stage shows its own message.
+      const code = stage === 'dial' ? grpcErrorCode(e) : undefined;
       // S25: an Invoke that can't reach the server is a response, not an editor error.
-      if (fromInvoke && stage === 'dial' && !/invalid endpoint|invalid uri|proto/i.test(message)) {
+      if (fromInvoke && isGrpcConnectionCode(code)) {
         tabs.updateById(tabId, (x) => ({
           ...x,
           grpcStream: undefined,
@@ -236,8 +239,8 @@
           },
         }));
       } else {
-        requestRuntime.updateGrpcErrors((m) => ({ ...m, [tabId]: message }));
-        tabs.updateById(tabId, (x) => withoutStaleResponse(x, message));
+        requestRuntime.setGrpcError(tabId, message, code);
+        tabs.updateById(tabId, (x) => withoutStaleResponse(x, code));
       }
     } finally {
       requestRuntime.updateBusy((m) => (m[tabId]?.kind === 'connect' ? omitKey(m, tabId) : m));
@@ -273,7 +276,7 @@
   }
   function dismissGrpcError(): void {
     const tabId = tab.id;
-    requestRuntime.updateGrpcErrors((current) => omitKey(current, tabId));
+    requestRuntime.clearGrpcError(tabId);
   }
   /** Connect + reflect automatically if not already connected. */
   async function ensureConnected(): Promise<void> {
@@ -293,7 +296,7 @@
     const tabId = tab.id;
     let g = tabs.list.find((t) => t.id === tabId)?.grpc;
     if (!g?.method) {
-      requestRuntime.updateGrpcErrors((m) => ({ ...m, [tabId]: t('grpc.selectMethodFirst') }));
+      requestRuntime.setGrpcError(tabId, t('grpc.selectMethodFirst'));
       return;
     }
     if (!g.connectionId) {
@@ -301,7 +304,7 @@
       g = tabs.list.find((t) => t.id === tabId)?.grpc;
     }
     if (!g?.connectionId || !g.method) return;
-    requestRuntime.updateGrpcErrors((m) => ({ ...m, [tabId]: '' }));
+    requestRuntime.clearGrpcError(tabId);
     await loadGrpcTemplate(tabId, g.connectionId, g.method);
   }
   /** Client/bidi: send the editor message into the open stream. */
@@ -313,7 +316,7 @@
     const body = resolveVars(g.message, currentVarScope()).trim() || '{}';
     try {
       await grpcStreamSend(busy.requestId, body);
-      requestRuntime.updateGrpcErrors((m) => ({ ...m, [tabId]: '' }));
+      requestRuntime.clearGrpcError(tabId);
       tabs.updateById(tabId, (x) => {
         const s = x.grpcStream;
         if (!s) return x;
@@ -326,7 +329,7 @@
         };
       });
     } catch (e) {
-      requestRuntime.updateGrpcErrors((m) => ({ ...m, [tabId]: String(e) }));
+      requestRuntime.setGrpcError(tabId, String(e));
     }
   }
   /** Client/bidi: half-close; the server's replies keep arriving until it finishes. */
@@ -364,15 +367,15 @@
     // A failed connect/reflect already left its banner via grpcDoConnect; the
     // two cases IT can't explain (blank endpoint, no method) get their own.
     if (!g?.connectionId) {
-      if (!g?.endpoint.trim()) requestRuntime.updateGrpcErrors((m) => ({ ...m, [tabId]: t('grpc.endpointFirst') }));
+      if (!g?.endpoint.trim()) requestRuntime.setGrpcError(tabId, t('grpc.endpointFirst'));
       return;
     }
     if (!g.method) {
-      requestRuntime.updateGrpcErrors((m) => ({ ...m, [tabId]: t('grpc.selectMethodFirst') }));
+      requestRuntime.setGrpcError(tabId, t('grpc.selectMethodFirst'));
       return;
     }
     const requestId = crypto.randomUUID();
-    requestRuntime.updateGrpcErrors((m) => ({ ...m, [tabId]: '' }));
+    requestRuntime.clearGrpcError(tabId);
     requestRuntime.updateBusy((m) => ({ ...m, [tabId]: { kind: 'invoke', requestId } }));
 
     const tests: ScriptResult['tests'] = [];
@@ -408,7 +411,7 @@
           message: pre.error,
           logs,
         });
-        requestRuntime.updateGrpcErrors((m) => ({ ...m, [tabId]: t('grpc.err.preRequest', { err: pre.error ?? '' }) }));
+        requestRuntime.setGrpcError(tabId, t('grpc.err.preRequest', { err: pre.error ?? '' }));
         requestRuntime.updateBusy((m) => (m[tabId]?.requestId === requestId ? omitKey(m, tabId) : m));
         return;
       }

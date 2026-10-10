@@ -2,7 +2,8 @@
 //! self-signed dev servers, and a handshake probe that reports what
 //! certificate the server presented and whether it verifies.
 
-use crate::domain::grpc::{GrpcCertInfo, GrpcPrefs, GrpcTls};
+use crate::application::grpc_native::{invalid, unavailable};
+use crate::domain::grpc::{GrpcCertInfo, GrpcError, GrpcPrefs, GrpcTls};
 use rustls::client::danger::{HandshakeSignatureValid, ServerCertVerified, ServerCertVerifier};
 use rustls::client::WebPkiServerVerifier;
 use rustls::crypto::{aws_lc_rs, CryptoProvider};
@@ -184,7 +185,7 @@ pub async fn connect_insecure(
     endpoint: &str,
     tls: &GrpcTls,
     prefs: &GrpcPrefs,
-) -> Result<Channel, String> {
+) -> Result<Channel, GrpcError> {
     let config = client_config(tls, Arc::new(NoVerify(provider())))?;
     let target = endpoint.to_string();
     let connector = tower::service_fn(move |_: http::Uri| {
@@ -205,7 +206,7 @@ pub async fn connect_insecure(
     // (it refuses https:// without its own TLS config); :scheme goes out as
     // "http". Fine for gRPC servers; switch if a proxy ever rejects it.
     let mut builder = Endpoint::from_shared(format!("http://{host}:{port}"))
-        .map_err(|e| format!("invalid endpoint {endpoint}: {e}"))?
+        .map_err(|e| invalid(format!("invalid endpoint {endpoint}: {e}")))?
         .connect_timeout(std::time::Duration::from_secs(8));
     if prefs.keepalive_secs > 0 {
         builder = builder
@@ -215,7 +216,7 @@ pub async fn connect_insecure(
     builder
         .connect_with_connector(connector)
         .await
-        .map_err(|e| format!("connect failed: {e}"))
+        .map_err(|e| unavailable(format!("connect failed: {e}")))
 }
 
 /// Handshake with the server and describe its leaf certificate.
