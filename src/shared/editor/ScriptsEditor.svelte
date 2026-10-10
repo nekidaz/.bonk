@@ -306,7 +306,8 @@
     display: flex;
     flex-direction: column;
     gap: 10px;
-    padding: 10px 0 0;
+    /* Same side inset as the other request tabs (.bs-pwrap): the card's frame never sits on the window edge. */
+    padding: 10px 14px 0;
   }
   .bar {
     display: flex;
@@ -347,6 +348,8 @@
   }
   .snip-toggle.on {
     color: var(--text);
+    background: var(--color-raised);
+    border-color: var(--sep);
   }
   .snip-toggle .material-symbols-outlined {
     font-size: 15px;
@@ -543,10 +546,6 @@
     padding: 8px 12px 10px;
     color: var(--t3);
     font-size: var(--font-size-micro);
-  }
-  /* SC8: expanded — the FocusBar above supplies the stage switch and tools. */
-  .expanded {
-    padding: 10px 0 0;
   }
   /* SC9: results under the editor after a run. */
   .run {
