@@ -13,7 +13,14 @@
    * everything else from `tab`.
    */
   import { t, tp, uiLanguage } from '$shared/i18n';
-  import { formatBytes, type Tab, type TabTestResults } from '$shared/model';
+  import {
+    formatBytes,
+    GRPC_CODES,
+    grpcStatusLabel,
+    HTTP_STATUS_TEXT,
+    type Tab,
+    type TabTestResults,
+  } from '$shared/model';
   import { presentGrpcError, grpcErrorNote } from './grpcError';
   import {
     methodShort,
@@ -28,7 +35,6 @@
   } from '$entities/request';
   import { environments, openEnvironmentsTab } from '$entities/environment';
   import { responseFormat } from './responseRender';
-  import { GRPC_CODES, HTTP_STATUS_TEXT, grpcStatusLabel } from './statusLabel';
   import { requestPrefs } from '$shared/settings';
   import { tabs } from '$entities/tab';
   import ResponseBody, { type BodyInfo } from './ResponseBody.svelte';

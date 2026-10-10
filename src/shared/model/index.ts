@@ -5,6 +5,7 @@ export { parseCurl, toCurl, tokenize } from './curl';
 export { buildUrl, formatBytes, mergeParamsFromUrl, paramsFromUrl, syncUrlWithParams } from './http';
 export { buildRequestForSend, currentBodyMode, currentRawFormat, enabledBodyParams } from './httpBody';
 export { methodColor, methodLabel } from './method';
+export { elapsedLabel, GRPC_CODES, grpcStatusLabel, HTTP_STATUS_TEXT } from './statusLabel';
 export {
   allTestsPassed,
   applyEnvPatch,

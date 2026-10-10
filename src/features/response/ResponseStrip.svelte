@@ -3,11 +3,10 @@
   import { t } from '$shared/i18n';
   import { hotkeys, formatBinding } from '$shared/settings';
   import { grpcCodeTone, requestRuntime } from '$entities/request';
-  import { formatBytes, type Tab } from '$shared/model';
+  import { elapsedLabel, formatBytes, grpcStatusLabel, HTTP_STATUS_TEXT, type Tab } from '$shared/model';
   import { oneLinePreview } from '$shared/ui';
   import { presentGrpcError } from './grpcError';
   import { isCancelled, responseTone } from './responseHint';
-  import { HTTP_STATUS_TEXT, elapsedLabel, grpcStatusLabel } from './statusLabel';
 
   let { tab, onShow }: { tab: Tab; onShow: () => void } = $props();
 

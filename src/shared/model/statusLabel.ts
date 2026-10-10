@@ -1,4 +1,4 @@
-/** Status wording shared by the response header and its collapsed strip. Pure. */
+/** Status wording shared by the response header, its collapsed strip and the script results panel. Pure. */
 export const HTTP_STATUS_TEXT: Record<number, string> = {
   200: 'OK',
   201: 'Created',
