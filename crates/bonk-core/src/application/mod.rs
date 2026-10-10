@@ -4,6 +4,7 @@ pub mod grpc_native;
 pub mod grpc_tls;
 pub mod grpcurl;
 pub mod http;
+pub mod import_file;
 pub mod mcp_install;
 pub mod proto_inspect;
 pub mod scripts;

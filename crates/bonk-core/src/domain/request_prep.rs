@@ -463,6 +463,7 @@ mod tests {
             .unwrap(),
             params: None,
             grpc: None,
+            spec: None,
         }))
     }
 
@@ -472,6 +473,7 @@ mod tests {
             name: id.into(),
             expanded: true,
             auth: auth.map(Box::new),
+            source: None,
             children,
         })
     }
