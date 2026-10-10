@@ -10,6 +10,7 @@ import { history } from '$entities/history';
 import {
   collectExpanded,
   expandedFolders,
+  legacyCollapsedFolders,
   normalizeWorkspaceRecents,
   rememberWorkspacePath,
   withSavedExpanded,
@@ -124,6 +125,7 @@ async function restoreState(): Promise<void> {
   environments.activeId = await loadState<string | null>('activeEnvironmentId', null);
   flows.list = await loadState<Flow[]>('flows', []);
   Object.assign(expandedFolders, await loadState<Record<string, string[]>>('expandedFolders', {}));
+  Object.assign(legacyCollapsedFolders, await loadState<Record<string, string[]>>('collapsedFolders', {}));
   let nextTree: TreeNode[] = [];
   if (savedWorkspacePath) {
     try {

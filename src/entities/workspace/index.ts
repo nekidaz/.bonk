@@ -12,6 +12,7 @@ export {
   expandedFolders,
   duplicateNode,
   moveNode,
+  legacyCollapsedFolders,
   normalizeWorkspaceRecents,
   openWorkspaceFolder,
   reloadWorkspace,
