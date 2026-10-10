@@ -62,6 +62,14 @@ export function presentEditorError(
   return { kind: 'unknown', title: tr('grpc.err.unknownTitle'), message: error, raw: error, icon: 'error' };
 }
 
+/**
+ * A connection error is drawn by the response pane, but only when the tab has no response yet.
+ * Drop a stale result/stream so a failed connect/reflect is not hidden behind the previous reply.
+ */
+export function withoutStaleResponse(tab: Tab, error: string): Tab {
+  return isGrpcConnectionError(error) ? { ...tab, grpcResult: undefined, grpcStream: undefined } : tab;
+}
+
 /** `pkg.Service.Method` -> its service and method name. */
 export function splitMethodSymbol(symbol: string): { service: string; name: string } {
   const cut = symbol.lastIndexOf('.');
