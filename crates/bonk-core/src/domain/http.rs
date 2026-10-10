@@ -147,6 +147,37 @@ pub struct RequestSettings {
     pub trust_system_cas: bool,
     #[serde(default)]
     pub client_certs: Vec<ClientCert>,
+    /// Workspace root whose cookie jar this request uses; empty = the app-wide jar.
+    #[serde(default)]
+    pub cookie_jar: String,
+    /// Store `Set-Cookie` from responses into the jar.
+    #[serde(default = "default_true")]
+    pub cookies_save: bool,
+    /// Send matching jar cookies in the `Cookie` header (a hand-written one wins).
+    #[serde(default = "default_true")]
+    pub cookies_send: bool,
+}
+
+/// One cookie of a jar, as the Cookies window lists it.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CookieInfo {
+    pub name: String,
+    pub value: String,
+    /// Host (host-only cookie) or the `Domain` attribute without a leading dot.
+    pub domain: String,
+    /// No `Domain` attribute: sent to exactly this host, not its subdomains.
+    pub host_only: bool,
+    pub path: String,
+    /// Unix ms; `None` = session cookie, gone when bonk closes.
+    pub expires_ms: Option<i64>,
+    pub expired: bool,
+    pub http_only: bool,
+    pub secure: bool,
+    /// `Strict` / `Lax` / `None`, as sent; `None` when the attribute is absent.
+    pub same_site: Option<String>,
+    /// The cookie as a `Set-Cookie` value (for the raw view and editing).
+    pub raw: String,
 }
 
 /// First client identity whose `host` matches the request host.
@@ -173,6 +204,9 @@ impl Default for RequestSettings {
             ca_paths: Vec::new(),
             trust_system_cas: true,
             client_certs: Vec::new(),
+            cookie_jar: String::new(),
+            cookies_save: true,
+            cookies_send: true,
         }
     }
 }
@@ -190,6 +224,9 @@ impl RequestSettings {
             ca_paths: self.ca_paths,
             trust_system_cas: self.trust_system_cas,
             client_certs: self.client_certs,
+            cookie_jar: self.cookie_jar,
+            cookies_save: self.cookies_save,
+            cookies_send: self.cookies_send,
         }
     }
 }
@@ -203,6 +240,10 @@ fn default_follow_redirects() -> bool {
 }
 
 fn default_validate_tls() -> bool {
+    true
+}
+
+fn default_true() -> bool {
     true
 }
 

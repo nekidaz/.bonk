@@ -76,6 +76,8 @@ export interface RequestSettings {
   trustSystemCas: boolean;
   /** Per-host mTLS identities; the backend picks the one matching the request host. */
   clientCerts: { host: string; certPath: string; keyPath: string; p12Path?: string; p12Password?: string }[];
+  /** Workspace root whose cookie jar stores and sends cookies; '' = the app-wide jar. */
+  cookieJar: string;
 }
 
 /** Per-request overrides of the global request settings (RequestSettings popover); unset = use the global value. */

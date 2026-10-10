@@ -11,6 +11,7 @@ const base: RequestSettings = {
   caPaths: [],
   trustSystemCas: true,
   clientCerts: [],
+  cookieJar: '',
 };
 
 describe('withOverrides', () => {

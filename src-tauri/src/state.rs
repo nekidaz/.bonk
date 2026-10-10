@@ -1,6 +1,7 @@
 use reqwest::header::{HeaderMap, HeaderValue, ACCEPT, USER_AGENT};
 use std::collections::HashMap;
-use std::sync::Mutex;
+use std::path::Path;
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use tokio::sync::oneshot;
 
@@ -8,6 +9,7 @@ use bonk_core::conn::GrpcConn;
 use bonk_core::domain::http::{
     pick_client_cert, ClientCert, ProxyMode, ProxySettings, RequestSettings,
 };
+use bonk_core::infra::cookie_jar::{jar_file_name, CookieJar, JarProvider};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct HttpClientKey {
@@ -19,6 +21,9 @@ pub struct HttpClientKey {
     trust_system_cas: bool,
     /// The identity picked for the request host (certs are per-host, a client holds one).
     client_cert: Option<ClientCert>,
+    cookie_jar: String,
+    cookies_save: bool,
+    cookies_send: bool,
 }
 
 impl HttpClientKey {
@@ -31,12 +36,17 @@ impl HttpClientKey {
             ca_paths: settings.ca_paths.clone(),
             trust_system_cas: settings.trust_system_cas,
             client_cert: pick_client_cert(&settings.client_certs, host).cloned(),
+            cookie_jar: settings.cookie_jar.clone(),
+            cookies_save: settings.cookies_save,
+            cookies_send: settings.cookies_send,
         }
     }
 }
 
 pub struct AppState {
     http_clients: Mutex<HashMap<HttpClientKey, reqwest::Client>>,
+    /// Open cookie jars by workspace root ('' = the app-wide jar).
+    cookie_jars: Mutex<HashMap<String, Arc<CookieJar>>>,
     pub conns: Mutex<HashMap<String, GrpcConn>>,
     pub cancels: Mutex<HashMap<String, oneshot::Sender<()>>>,
     /// Open client/bidi gRPC streams by request id; removing one half-closes it.
@@ -141,6 +151,7 @@ fn apply_tls_files(
 fn build_http_client(
     key: &HttpClientKey,
     settings: &RequestSettings,
+    jar: Option<Arc<CookieJar>>,
 ) -> Result<reqwest::Client, String> {
     let mut builder = reqwest::Client::builder()
         .default_headers(default_headers())
@@ -152,6 +163,13 @@ fn build_http_client(
     }
     if !settings.follow_redirects {
         builder = builder.redirect(reqwest::redirect::Policy::none());
+    }
+    if let Some(jar) = jar.filter(|_| settings.cookies_save || settings.cookies_send) {
+        builder = builder.cookie_provider(Arc::new(JarProvider {
+            jar,
+            save: settings.cookies_save,
+            send: settings.cookies_send,
+        }));
     }
     builder = apply_proxy(builder, &settings.proxy)?;
     builder = apply_tls_files(
@@ -166,11 +184,28 @@ fn build_http_client(
 }
 
 impl AppState {
-    /// Client for a request to `url`; its host selects the mTLS identity.
+    /// The cookie jar of workspace root `workspace`, opened from `data_dir/cookies/` once.
+    pub fn cookie_jar(&self, data_dir: &Path, workspace: &str) -> Result<Arc<CookieJar>, String> {
+        let mut jars = self
+            .cookie_jars
+            .lock()
+            .map_err(|_| "cookie jar lock poisoned".to_string())?;
+        if let Some(jar) = jars.get(workspace) {
+            return Ok(jar.clone());
+        }
+        let path = data_dir.join("cookies").join(jar_file_name(workspace));
+        let jar = Arc::new(CookieJar::open(path)?);
+        jars.insert(workspace.to_string(), jar.clone());
+        Ok(jar)
+    }
+
+    /// Client for a request to `url`; its host selects the mTLS identity, `jar` (the
+    /// workspace's, from `settings.cookie_jar`) stores and sends its cookies.
     pub fn http_client(
         &self,
         settings: &RequestSettings,
         url: &str,
+        jar: Option<Arc<CookieJar>>,
     ) -> Result<reqwest::Client, String> {
         let host = reqwest::Url::parse(url)
             .ok()
@@ -184,7 +219,7 @@ impl AppState {
         if let Some(client) = clients.get(&key) {
             return Ok(client.clone());
         }
-        let client = build_http_client(&key, settings)?;
+        let client = build_http_client(&key, settings, jar)?;
         clients.insert(key, client.clone());
         Ok(client)
     }
@@ -194,6 +229,7 @@ impl Default for AppState {
     fn default() -> Self {
         Self {
             http_clients: Mutex::new(HashMap::new()),
+            cookie_jars: Mutex::new(HashMap::new()),
             conns: Mutex::new(HashMap::new()),
             cancels: Mutex::new(HashMap::new()),
             grpc_streams: Mutex::new(HashMap::new()),
@@ -206,7 +242,7 @@ mod tests {
     use super::*;
 
     fn build(s: &RequestSettings) -> Result<reqwest::Client, String> {
-        build_http_client(&HttpClientKey::new(s, ""), s)
+        build_http_client(&HttpClientKey::new(s, ""), s, None)
     }
 
     fn with_proxy(mode: ProxyMode, url: &str) -> RequestSettings {

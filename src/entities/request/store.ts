@@ -67,6 +67,7 @@ export function currentRequestSettings(): RequestSettings {
     caPaths: requestPrefs.trustedCaPaths,
     trustSystemCas: trustSystemCas.current,
     clientCerts: activeClientCerts(),
+    cookieJar: workspace.path,
   };
 }
 
