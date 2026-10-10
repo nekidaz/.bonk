@@ -12,6 +12,7 @@ use bonk_core::{
         http::{HttpRequest, RequestSettings},
         workspace::{GrpcTabState, Param, RequestNode, TreeNode},
     },
+    infra::cookie_jar::{jar_path, CookieJar, JarProvider},
 };
 use serde_json::Value;
 
@@ -33,8 +34,8 @@ use crate::{
     },
     vars::{
         app_scopes, keychain_secret, load_app_vars, merged_scope, reject_unresolved,
-        reject_unresolved_grpc, resolve_http_request, resolve_text, unresolved_in_request, Scopes,
-        VariableMap,
+        reject_unresolved_grpc, resolve_http_request, resolve_text, state_field,
+        unresolved_in_request, Scopes, VariableMap,
     },
 };
 
@@ -126,6 +127,31 @@ impl BonkRuntime {
 
     pub fn config(&self) -> &RuntimeConfig {
         &self.config
+    }
+
+    /// The app's cookie jar for this workspace, read-only: its cookies go out with the agent's
+    /// requests, but Set-Cookie from them is not stored (the app owns the file and rewrites it
+    /// from memory). Follows Settings → Cookies in state.json: off when sending is off, the
+    /// app-wide jar when that scope is chosen, excluded domains honoured. `None` without
+    /// `--app-state` or when the jar can't be read.
+    fn read_only_jar(&self) -> Option<JarProvider> {
+        let state_path = self.config.app_state.as_deref()?;
+        let state = bonk_core::application::app_state::load_map(state_path).ok()?;
+        if state.get("cookiesSend").and_then(Value::as_bool) == Some(false) {
+            return None;
+        }
+        let workspace = if state.get("cookieJarScope").and_then(Value::as_str) == Some("app") {
+            String::new()
+        } else {
+            self.config.root.to_string_lossy().into_owned()
+        };
+        let jar = CookieJar::open(jar_path(state_path.parent()?, &workspace)).ok()?;
+        Some(JarProvider {
+            jar: Arc::new(jar),
+            save: false,
+            send: true,
+            exclude: state_field(&state, "cookiesExclude"),
+        })
     }
 
     fn root_str(&self) -> String {
@@ -470,7 +496,7 @@ impl BonkRuntime {
             .map_err(|error| sanitize_error(&error, &secrets))?;
 
         let settings = settings.normalized();
-        let client = build_http_client(&settings, &self.config.target_hosts)?;
+        let client = build_http_client(&settings, &self.config.target_hosts, self.read_only_jar())?;
         let response = http::http_send(client, request.clone(), settings, None)
             .await
             .map_err(|error| sanitize_error(&error, &secrets))?;
@@ -1023,6 +1049,53 @@ fn compact(nodes: Vec<TreeNode>) -> Vec<TreeEntry> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn read_only_jar_follows_the_app_cookie_settings() {
+        use reqwest::cookie::CookieStore as _;
+        let workspace = TestWorkspace::new();
+        let data = workspace.0.join("appdata");
+        std::fs::create_dir_all(&data).unwrap();
+        let state = data.join("state.json");
+        let mut runtime = workspace.runtime(false, true);
+        assert!(runtime.read_only_jar().is_none(), "no --app-state, no jar");
+        Arc::make_mut(&mut runtime.config).app_state = Some(state.clone());
+
+        // The app saved a cookie into this workspace's jar.
+        let root = runtime.config.root.to_string_lossy().into_owned();
+        let app_jar = CookieJar::open(jar_path(&data, &root)).unwrap();
+        app_jar
+            .add("sid=1; Max-Age=3600", "https://api.a.kz/")
+            .unwrap();
+        app_jar.save().unwrap();
+        let url = reqwest::Url::parse("https://api.a.kz/x").unwrap();
+        let header = |p: &JarProvider| p.cookies(&url).map(|v| v.to_str().unwrap().to_string());
+
+        std::fs::write(&state, "{}").unwrap();
+        let jar = runtime.read_only_jar().expect("jar");
+        assert_eq!(header(&jar).as_deref(), Some("sid=1"));
+        // Read-only: a response's Set-Cookie does not reach the file.
+        let set = reqwest::header::HeaderValue::from_static("new=1");
+        jar.set_cookies(&mut std::iter::once(&set), &url);
+        assert_eq!(
+            CookieJar::open(jar_path(&data, &root))
+                .unwrap()
+                .list()
+                .len(),
+            1
+        );
+
+        std::fs::write(&state, r#"{"cookiesExclude":["a.kz"]}"#).unwrap();
+        assert_eq!(header(&runtime.read_only_jar().unwrap()), None);
+        std::fs::write(&state, r#"{"cookieJarScope":"app"}"#).unwrap();
+        assert_eq!(
+            header(&runtime.read_only_jar().unwrap()),
+            None,
+            "app-wide jar is empty"
+        );
+        std::fs::write(&state, r#"{"cookiesSend":false}"#).unwrap();
+        assert!(runtime.read_only_jar().is_none());
+    }
 
     struct TestWorkspace(PathBuf);
 

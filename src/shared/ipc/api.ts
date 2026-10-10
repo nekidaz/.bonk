@@ -297,6 +297,9 @@ export const cookiesAdd = (workspace: string, url: string, setCookie: string) =>
   invoke<void>('cookies_add', { workspace, url, setCookie });
 export const cookiesRemove = (workspace: string, domain: string, path: string, name: string) =>
   invoke<boolean>('cookies_remove', { workspace, domain, path, name });
+/** «Хранить между запусками» changed: re-save the jar with or without its session cookies. */
+export const cookiesKeepSession = (workspace: string, keep: boolean) =>
+  invoke<void>('cookies_keep_session', { workspace, keep });
 /** Remove every cookie of `domain`, or the whole jar when null. */
 export const cookiesClear = (workspace: string, domain: string | null) =>
   invoke<void>('cookies_clear', { workspace, domain });

@@ -1,7 +1,7 @@
 import { untrack } from 'svelte';
-import { cookiesAdd, cookiesClear, cookiesJarPath, cookiesList, cookiesRemove } from '$shared/ipc';
+import { cookiesAdd, cookiesClear, cookiesJarPath, cookiesKeepSession, cookiesList, cookiesRemove } from '$shared/ipc';
 import type { CookieInfo, ResponseCookie } from '$shared/model';
-import { cookieJarScope } from '$shared/settings';
+import { cookieJarScope, cookiesKeepSession as keepSession } from '$shared/settings';
 import { tabs } from '$entities/tab';
 import { workspace } from '$entities/workspace';
 import { cookiesFor, cookieUrl, type CookieDraft, isLocalDomain, sameCookie, setCookieOf } from './cookies';
@@ -112,6 +112,13 @@ export function watchCookieJar(): () => void {
       void cookieJarKey();
       void tabs.active?.response;
       void untrack(cookieJar.refresh);
+    });
+    // Tell the jar about «Хранить между запусками» as soon as it (or the jar) changes, so the
+    // file gains or drops session cookies now rather than on the next request.
+    $effect(() => {
+      const ws = cookieJarKey();
+      const keep = keepSession.current;
+      cookiesKeepSession(ws, keep).catch((err) => console.error('cookies: keep-session failed', err));
     });
   });
 }

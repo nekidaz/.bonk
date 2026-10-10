@@ -7,6 +7,7 @@ use bonk_core::domain::{
 };
 
 use crate::vars::variable_regex;
+use bonk_core::infra::cookie_jar::JarProvider;
 
 pub(crate) fn count_tree(nodes: &[TreeNode], requests: &mut usize, folders: &mut usize) {
     for node in nodes {
@@ -249,9 +250,11 @@ pub(crate) fn target_host_allowed(patterns: &[String], host: &str, port: Option<
     })
 }
 
+/// `jar`: the app's cookie jar, read-only (see `BonkRuntime::read_only_jar`).
 pub(crate) fn build_http_client(
     settings: &RequestSettings,
     target_hosts: &[String],
+    jar: Option<JarProvider>,
 ) -> Result<reqwest::Client, String> {
     let mut builder = reqwest::Client::builder()
         .user_agent(format!("bonk-mcp/{}", env!("CARGO_PKG_VERSION")))
@@ -287,6 +290,9 @@ pub(crate) fn build_http_client(
         }));
     } else {
         builder = builder.redirect(reqwest::redirect::Policy::none());
+    }
+    if let Some(jar) = jar {
+        builder = builder.cookie_provider(std::sync::Arc::new(jar));
     }
     builder
         .build()

@@ -23,6 +23,20 @@ pub fn cookies_list(
     Ok(jar(&app, &state, &workspace)?.list())
 }
 
+/// Settings → Cookies «Хранить между запусками» changed: re-save the jar with or without
+/// its session cookies right away (not only on the next request).
+#[tauri::command]
+pub fn cookies_keep_session(
+    workspace: String,
+    keep: bool,
+    app: tauri::AppHandle,
+    state: State<'_, AppState>,
+) -> Result<(), String> {
+    let jar = jar(&app, &state, &workspace)?;
+    jar.set_keep_session(keep);
+    jar.save()
+}
+
 /// Where the jar file lives (shown in the jar window's footer).
 #[tauri::command]
 pub fn cookies_jar_path(

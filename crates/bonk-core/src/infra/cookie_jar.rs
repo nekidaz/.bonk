@@ -193,6 +193,21 @@ fn write_private(path: &Path, bytes: &[u8]) -> std::io::Result<()> {
     std::fs::rename(&tmp, path)
 }
 
+/// Where the jar of workspace root `workspace` ('' = the app-wide jar) lives under `data_dir`.
+/// The root is canonicalized first, so the app and bonk-mcp (which canonicalizes its
+/// `--workspace`) name the same file even through a symlink.
+pub fn jar_path(data_dir: &Path, workspace: &str) -> PathBuf {
+    let root = workspace.trim();
+    let root = if root.is_empty() {
+        String::new()
+    } else {
+        std::fs::canonicalize(root)
+            .map(|p| p.to_string_lossy().into_owned())
+            .unwrap_or_else(|_| root.to_string())
+    };
+    data_dir.join("cookies").join(jar_file_name(&root))
+}
+
 /// File name of the jar for workspace root `workspace` (empty = the app-wide jar):
 /// `<folder>-<hash of the full path>.json`, so two `api` folders don't share one.
 pub fn jar_file_name(workspace: &str) -> String {
@@ -609,6 +624,19 @@ mod tests {
         );
         assert_eq!(a, jar_file_name("/Users/me/Acme Payments"));
         assert_ne!(a, jar_file_name("/Users/other/Acme Payments"));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn jar_path_is_the_same_through_a_symlink() {
+        let dir = tmp_dir("link");
+        let real = dir.join("real");
+        std::fs::create_dir_all(&real).unwrap();
+        std::os::unix::fs::symlink(&real, dir.join("link")).unwrap();
+        let data = Path::new("/data");
+        let via = |p: &Path| jar_path(data, &p.to_string_lossy());
+        assert_eq!(via(&real), via(&dir.join("link")));
+        assert_eq!(jar_path(data, ""), data.join("cookies/default.json"));
     }
 
     #[test]
