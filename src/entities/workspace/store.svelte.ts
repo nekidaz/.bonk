@@ -1,6 +1,7 @@
 import type { AuthConfig, HttpRequest, TreeNode } from '$shared/model';
 import {
   workspaceLoad,
+  workspaceLoadChildren,
   workspacePickFolder,
   workspaceCreateFolder,
   workspaceSaveFolderAuth,
@@ -91,7 +92,7 @@ export function withSavedExpanded(root: string, tree: TreeNode[]): TreeNode[] {
   return applyExpanded(tree, new Map((expandedFolders[root] ?? []).map((id) => [id, true])));
 }
 
-/** @internal — used within entities/workspace; not in index.ts. */
+/** Re-read the whole workspace from disk (keeping open folders open); refreshDirs() is the cheap path. */
 export async function reloadWorkspace(): Promise<void> {
   const path = workspace.path;
   if (!path) return;
@@ -101,14 +102,73 @@ export async function reloadWorkspace(): Promise<void> {
   const expanded = new Map<string, boolean>();
   collectExpanded(workspace.tree, expanded);
   workspace.tree = applyExpanded(tree, expanded);
-  // Defensive: a tab whose savedPath no longer resolves to a real node would, on
-  // the next Save, create a duplicate file instead of overwriting. Per-mutation
-  // remaps run before this, so validly-relinked tabs keep their path; clear only
-  // genuinely-orphaned links so the next save prompts/creates rather than duplicates.
+  unlinkOrphanTabs();
+}
+
+// Defensive: a tab whose savedPath no longer resolves to a real node would, on
+// the next Save, create a duplicate file instead of overwriting. Per-mutation
+// remaps run before this, so validly-relinked tabs keep their path; clear only
+// genuinely-orphaned links so the next save prompts/creates rather than duplicates.
+function unlinkOrphanTabs(): void {
   const loaded = workspace.tree;
   tabs.update((list) =>
     list.map((t) => (t.savedPath && !findNode(loaded, t.savedPath) ? { ...t, savedPath: undefined } : t)),
   );
+}
+
+let refreshing: Promise<void> = Promise.resolve();
+
+/**
+ * After a change on disk inside folders `dirs` (undefined or ROOT = the workspace root), re-read
+ * just those folders instead of the whole workspace. Subfolders the tree already has keep their
+ * loaded children (Rust doesn't read them); new ones load whole. Deepest first, so a parent then
+ * reuses its just-refreshed child. Calls run one at a time, and each splices into the tree as it
+ * is when the disk read returns (a folder toggled meanwhile stays toggled).
+ */
+export function refreshDirs(...dirs: (string | undefined)[]): Promise<void> {
+  const run = refreshing.then(() => refreshNow(dirs));
+  refreshing = run.catch(() => {});
+  return run;
+}
+
+async function refreshNow(dirs: (string | undefined)[]): Promise<void> {
+  const root = workspace.path;
+  if (!root) return;
+  const depth = (id: string) => (id === ROOT ? 0 : idToRel(id).split('/').length);
+  for (const dir of [...new Set(dirs.map((d) => d || ROOT))].sort((a, b) => depth(b) - depth(a))) {
+    const before = childrenOf(workspace.tree, dir);
+    if (!before) return reloadWorkspace(); // not a folder in the tree: start over
+    const keep = new Set(before.filter((n) => n.kind === 'folder').map((n) => n.id));
+    const fresh = await workspaceLoadChildren(root, idToRel(dir), [...keep]);
+    if (workspace.path !== root) return; // another workspace was opened meanwhile
+    const old = new Map((childrenOf(workspace.tree, dir) ?? []).map((n) => [n.id, n]));
+    const expanded = new Map<string, boolean>();
+    collectExpanded(workspace.tree, expanded);
+    const children: TreeNode[] = [];
+    for (const n of fresh) {
+      const was = old.get(n.id);
+      if (n.kind !== 'folder' || !keep.has(n.id)) children.push(...applyExpanded([n], expanded));
+      else if (was?.kind === 'folder') children.push({ ...n, expanded: was.expanded, children: was.children });
+      else return reloadWorkspace(); // a kept folder vanished from the tree meanwhile
+    }
+    workspace.tree = dir === ROOT ? children : withChildren(workspace.tree, dir, children);
+  }
+  unlinkOrphanTabs();
+}
+
+function childrenOf(tree: TreeNode[], dir: string): TreeNode[] | undefined {
+  if (dir === ROOT) return tree;
+  const n = findNode(tree, dir);
+  return n?.kind === 'folder' ? n.children : undefined;
+}
+
+/** `nodes` with folder `id`'s children replaced; only the folders on the path to it are copied. */
+function withChildren(nodes: TreeNode[], id: string, children: TreeNode[]): TreeNode[] {
+  return nodes.map((n) => {
+    if (n.kind !== 'folder') return n;
+    if (n.id === id) return { ...n, children };
+    return id.startsWith(n.id + '/') ? { ...n, children: withChildren(n.children, id, children) } : n;
+  });
 }
 
 /**
@@ -192,7 +252,7 @@ export async function addFolder(parentFolderId?: string, name = 'New Folder'): P
   }
   return runWorkspaceOp('addFolder', async () => {
     const newId = await workspaceCreateFolder(root, parentFolderId ? idToRel(parentFolderId) : ROOT, name);
-    await reloadWorkspace();
+    await refreshDirs(parentFolderId);
     return newId;
   });
 }
@@ -203,7 +263,7 @@ export async function saveFolderAuth(folderId: string, auth: AuthConfig | null):
   if (!root) return;
   await runWorkspaceOp('saveFolderAuth', async () => {
     await workspaceSaveFolderAuth(root, idToRel(folderId), auth);
-    await reloadWorkspace();
+    await refreshDirs(parentId(folderId));
   });
 }
 
@@ -215,7 +275,7 @@ export async function removeNode(id: string): Promise<void> {
     // Clear savedPath on the deleted node and anything nested under it: an
     // orphaned link would, on the next Save, create a duplicate file.
     tabs.update((list) => relinkTabPaths(list, id, undefined));
-    await reloadWorkspace();
+    await refreshDirs(parentId(id));
   });
 }
 
@@ -232,7 +292,7 @@ export async function renameNode(id: string, name: string): Promise<void> {
         t.savedPath === newId ? { ...t, title: clean, manualTitle: true } : t,
       ),
     );
-    await reloadWorkspace();
+    await refreshDirs(parentId(id));
   });
 }
 
@@ -241,7 +301,7 @@ export async function duplicateNode(id: string): Promise<void> {
   if (!root) return;
   await runWorkspaceOp('duplicateNode', async () => {
     await workspaceDuplicate(root, id);
-    await reloadWorkspace();
+    await refreshDirs(parentId(id));
   });
 }
 
@@ -251,7 +311,7 @@ export async function moveNode(id: string, destFolderId?: string): Promise<void>
   await runWorkspaceOp('moveNode', async () => {
     const newId = await workspaceMove(root, id, destFolderId ? idToRel(destFolderId) : ROOT);
     tabs.update((list) => relinkTabPaths(list, id, newId));
-    await reloadWorkspace();
+    await refreshDirs(parentId(id), destFolderId);
   });
 }
 
@@ -287,7 +347,7 @@ export async function dropNode(
       ids.splice(ids.indexOf(at.id) + (at.after ? 1 : 0), 0, newId);
       await workspaceReorder(root, dest ? idToRel(dest) : ROOT, ids.map(baseName));
     }
-    await reloadWorkspace();
+    await refreshDirs(parentId(id), dest);
     return newId;
   });
 }
@@ -306,7 +366,7 @@ export async function undoDrop(newId: string, copy: boolean, parent: string | un
       tabs.update((list) => relinkTabPaths(list, newId, back));
       await workspaceReorder(root, parent ? idToRel(parent) : ROOT, ids.map(baseName));
     }
-    await reloadWorkspace();
+    await refreshDirs(parentId(newId), parent);
   });
 }
 

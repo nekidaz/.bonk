@@ -62,6 +62,7 @@ export {
   workspaceDelete,
   workspaceDuplicate,
   workspaceLoad,
+  workspaceLoadChildren,
   workspaceMove,
   workspacePickFolder,
   workspaceRename,

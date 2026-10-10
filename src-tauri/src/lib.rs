@@ -62,6 +62,7 @@ pub fn run() {
             commands::workspace::workspace_rename_root,
             commands::workspace::workspace_trash,
             commands::workspace::workspace_load,
+            commands::workspace::workspace_load_children,
             commands::workspace::workspace_create_folder,
             commands::workspace::workspace_save_request,
             commands::workspace::workspace_save_folder_auth,

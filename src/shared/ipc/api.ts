@@ -258,6 +258,9 @@ export const protoRead = (path: string) => invoke<string>('proto_read', { path }
 export const workspacePickFolder = () => invoke<string | null>('workspace_pick_folder');
 export const filePick = () => invoke<string | null>('file_pick');
 export const workspaceLoad = (path: string) => invoke<TreeNode[]>('workspace_load', { path });
+/** Children of folder `dir` ('' = root); subfolders listed in `keep` come back without their children. */
+export const workspaceLoadChildren = (root: string, dir: string, keep: string[]) =>
+  invoke<TreeNode[]>('workspace_load_children', { root, dir, keep });
 export const workspaceCreateFolder = (root: string, parent: string, name: string) =>
   invoke<string>('workspace_create_folder', { root, parent, name });
 export const workspaceSaveFolderAuth = (root: string, dir: string, auth: AuthConfig | null) =>

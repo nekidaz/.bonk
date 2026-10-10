@@ -52,6 +52,16 @@ pub fn workspace_load(path: String) -> Result<Vec<bonk_core::domain::workspace::
 }
 
 #[tauri::command]
+pub fn workspace_load_children(
+    root: String,
+    dir: String,
+    keep: Vec<String>,
+) -> Result<Vec<bonk_core::domain::workspace::TreeNode>, String> {
+    require_absolute_root(&root)?;
+    bonk_core::application::workspace::load_children(&root, &dir, &keep)
+}
+
+#[tauri::command]
 pub fn workspace_create_folder(
     root: String,
     parent: String,

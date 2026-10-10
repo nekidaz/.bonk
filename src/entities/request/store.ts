@@ -31,7 +31,7 @@ import {
   parentId,
   ROOT,
   openWorkspaceFolder,
-  reloadWorkspace,
+  refreshDirs,
   runWorkspaceOp,
   workspace,
 } from '$entities/workspace';
@@ -96,11 +96,13 @@ export async function saveActiveRequest(folderId?: string, name?: string, asCopy
   };
   const dirRel = folderId ? idToRel(folderId) : ROOT;
   try {
-    const newId = await workspaceSaveRequest(root, dirRel, asCopy ? null : (tab.savedPath ?? null), node);
+    const existing = asCopy ? undefined : tab.savedPath;
+    const newId = await workspaceSaveRequest(root, dirRel, existing ?? null, node);
     tabs.update((list) =>
       list.map((t) => (t.id === tab.id ? { ...t, title: finalName, manualTitle: true, savedPath: newId } : t)),
     );
-    await reloadWorkspace();
+    // Saving into another folder moves the file, so its old folder changed too.
+    await (existing ? refreshDirs(folderId, parentId(existing)) : refreshDirs(folderId));
   } catch (err) {
     console.error('workspace: saveActiveRequest failed', err);
     throw err;
@@ -128,7 +130,7 @@ export async function restoreSavedRequest(prev: RequestNode): Promise<void> {
         : t,
     ),
   );
-  await reloadWorkspace();
+  await refreshDirs(folder);
 }
 
 /** Create a new empty request of `protocol` inside `folderId` (root if undefined) and open it. */
@@ -158,7 +160,7 @@ export async function addRequestToFolder(folderId: string | undefined, protocol:
         };
   await runWorkspaceOp('addRequestToFolder', async () => {
     const newId = await workspaceSaveRequest(root, folderId ? idToRel(folderId) : ROOT, null, node);
-    await reloadWorkspace();
+    await refreshDirs(folderId);
     const created = findNode(workspace.tree, newId);
     if (created && created.kind === 'request') openSavedRequest(created);
   });

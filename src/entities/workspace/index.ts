@@ -15,7 +15,7 @@ export {
   legacyCollapsedFolders,
   normalizeWorkspaceRecents,
   openWorkspaceFolder,
-  reloadWorkspace,
+  refreshDirs,
   rememberWorkspacePath,
   removeNode,
   renameNode,
