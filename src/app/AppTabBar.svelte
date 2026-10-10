@@ -208,7 +208,11 @@
 
 {#if overflowMenu}
   <button class="bs-backdrop" aria-label={t('nav.menu.closeMenu')} onclick={() => (overflowMenu = null)}></button>
-  <div class="bs-menu" role="menu" style="left:{overflowMenu.x}px; top:{overflowMenu.y}px; width:240px">
+  <div
+    class="bs-menu"
+    role="menu"
+    style="left:{overflowMenu.x}px; top:{overflowMenu.y}px; width:240px; max-height:calc(100vh - {overflowMenu.y}px - 12px); overflow-y:auto"
+  >
     {#each overflowTabs as tb (tb.id)}
       <button
         class="mi"
