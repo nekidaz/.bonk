@@ -223,7 +223,8 @@
   justify-content: flex-start;
   gap: 8px;
   width: auto;
-  max-width: 360px;
+  /* Never wider than the picker's slot, or it overlaps Send in a narrow window. */
+  max-width: min(100%, 360px);
   height: 36px;
   padding: 0 10px 0 12px;
   border: 0;
@@ -251,9 +252,48 @@
   white-space: nowrap;
 }
 
+/* Short of room, the service gives way first: «helloworld.Gr…SayHello». */
+:root .bs .bs-grpc-trigger .path:has(.svc) {
+  display: flex;
+}
+
+:root .bs .bs-grpc-trigger .path .svc {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 :root .bs .bs-grpc-trigger .path b {
+  flex: none;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
   color: var(--color-text);
   font-weight: 600;
+}
+
+/* Flow · Размеры окна: the method picker keeps room for at least the method name. ≤ 900 drops ⌘↵ from
+   Send (shell.css), ≤ 760 also the TLS word (lock icon and colour stay), the picker's icon and service. */
+@media (max-width: 760px) {
+  :root .bs .bs-grpc-field .bs-grpc-security .lbl,
+  :root .bs .bs-grpc-trigger :is(.lead, .svc) {
+    display: none;
+  }
+
+  :root .bs .bs-grpc-field {
+    gap: 10px;
+  }
+
+  /* The address shrinks first; a long method name still stops at 45 % and ellipsizes. */
+  :root .bs .bs-grpc-field .bs-grpc-picker {
+    flex-shrink: 0;
+    max-width: 45%;
+  }
+
+  :root .bs .bs-grpc-field .bs-grpc-trigger {
+    gap: 4px;
+    padding: 0 6px 0 8px;
+  }
 }
 
 :root .bs .bs-grpc-field .bs-grpc-menu {

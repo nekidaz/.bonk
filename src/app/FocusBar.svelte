@@ -78,7 +78,7 @@
     >{/if}
   <span class="spacer"></span>
   {#if scripts}
-    <EditorTools scope=".bs-script-editor">
+    <EditorTools scope=".bs-script-editor" format pill>
       {#snippet extra()}
         <button
           type="button"

@@ -7,6 +7,7 @@
   import type { Snippet } from 'svelte';
   import { EditorView } from '@codemirror/view';
   import { openSearchPanel } from '@codemirror/search';
+  import { indentRange } from '@codemirror/language';
   import { t } from '$shared/i18n';
   import { hotkeys, formatBinding } from '$shared/settings';
   import { toggleFoldAll } from './largeFold';
@@ -18,6 +19,8 @@
     onExpand,
     expanded = false,
     editor = true,
+    format = false,
+    pill = false,
     extra,
   }: {
     /** Selector of the element holding the editor (`.cm-editor` is looked up inside it). */
@@ -29,6 +32,10 @@
     expanded?: boolean;
     /** false: the pane shows no CodeMirror view (legacy renderer) — no Find / Fold all. */
     editor?: boolean;
+    /** Format: re-indent the whole document by its syntax (scripts; bodies use `onBeautify`). */
+    format?: boolean;
+    /** Flow · Скрипты: the cluster sits in its own rounded capsule. */
+    pill?: boolean;
     /** Extra buttons before Expand (Copy, Save to file). */
     extra?: Snippet;
   } = $props();
@@ -47,16 +54,27 @@
     const v = view();
     if (v) toggleFoldAll(v);
   }
+  function reindent(): void {
+    const v = view();
+    if (!v) return;
+    const changes = indentRange(v.state, 0, v.state.doc.length);
+    if (!changes.empty) v.dispatch({ changes });
+  }
   const expandKeys = $derived(formatBinding(hotkeys.current.expand ?? '').join(''));
 </script>
 
-<div class="lb-tools" role="toolbar" aria-label={t('lb.tools')}>
+<div class="lb-tools" class:pill role="toolbar" aria-label={t('lb.tools')}>
   {#if editor}
     <button type="button" class="bs-ric lb-ed" aria-label={t('lb.find')} title="{t('lb.find')}  ⌘F" onclick={find}
       ><span class="material-symbols-outlined" aria-hidden="true">search</span></button
     >
     <button type="button" class="bs-ric lb-ed" aria-label={t('lb.foldAll')} title={t('lb.foldAll')} onclick={foldAll}
       ><span class="material-symbols-outlined" aria-hidden="true">unfold_less</span></button
+    >
+  {/if}
+  {#if format}
+    <button type="button" class="bs-ric" aria-label={t('lb.reindent')} title={t('lb.reindent')} onclick={reindent}
+      ><span class="material-symbols-outlined" aria-hidden="true">format_align_left</span></button
     >
   {/if}
   {#if onBeautify}
@@ -73,7 +91,7 @@
   {#if onExpand}
     <button
       type="button"
-      class="bs-ric"
+      class="bs-ric lb-expand"
       class:on={expanded}
       aria-pressed={expanded}
       aria-label={expanded ? t('lb.collapse') : t('lb.expand')}
@@ -84,3 +102,21 @@
     >
   {/if}
 </div>
+
+<style>
+  .pill {
+    flex: none;
+    gap: 2px;
+    padding: 3px;
+    background: var(--color-field);
+    border: 1px solid var(--color-border-subtle);
+    border-radius: 999px;
+  }
+  .pill :global(.bs-ric) {
+    border-radius: 999px;
+  }
+  .pill :global(.bs-ric:not(:hover):not(.on)) {
+    background: transparent;
+    box-shadow: none;
+  }
+</style>
