@@ -452,3 +452,30 @@ test('saves the session to app state', async ({ page }) => {
   expect(s.expandedFolders[root]).not.toContain('fs:auth');
   expect(s.workspacePath).toBe(root);
 });
+
+// Not a screenshot: the sidebar tree renders only the rows in view, and scrolling or ↑↓ reach the rest.
+test('virtual sidebar tree handles 10k requests', async ({ page }) => {
+  await page.goto('/?big=1&notabs=1');
+  const tree = page.locator('.bs-tree');
+  await row(page, 'Service 0').waitFor();
+  expect(await page.locator('.bs-tree .bs-trow').count()).toBeLessThan(100);
+  // 100 folders + 10 000 requests, one pitch each.
+  expect(await tree.evaluate((el) => el.scrollHeight)).toBeGreaterThan(10_100 * 25);
+
+  await row(page, 'Service 0').focus();
+  await page.keyboard.press('ArrowDown', { delay: 0 });
+  for (let i = 1; i < 60; i++) await page.keyboard.press('ArrowDown');
+  await expect(page.locator(':focus')).toContainText('Request 0.59');
+
+  await tree.evaluate((el) => (el.scrollTop = el.scrollHeight));
+  await expect(row(page, 'Request 99.99')).toBeVisible();
+  expect(await page.locator('.bs-tree .bs-trow').count()).toBeLessThan(100);
+
+  // Switching to a tab whose request is scrolled out of the DOM scrolls the tree back to it.
+  await openRequest(page, 'Request 99.99');
+  await tree.evaluate((el) => (el.scrollTop = 0));
+  await openRequest(page, 'Request 0.1');
+  await page.getByRole('tab', { name: /Request 99\.99/ }).click();
+  await expect(page.locator('.bs-trow.sel')).toContainText('Request 99.99');
+  await expect(page.locator('.bs-trow.sel')).toBeInViewport();
+});
