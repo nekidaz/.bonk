@@ -92,7 +92,7 @@
 
 /* Menus and dialogs stay visually close to their source control. */
 .bs-menu .mi:hover .ic {
-  color: currentColor !important;
+  color: currentColor;
 }
 
 .bs-menu .mi.danger:hover {
@@ -536,7 +536,7 @@
   flex: 0 0 16px;
   width: 16px;
   font-size: 16px;
-  color: var(--color-text-muted) !important;
+  color: var(--color-text-muted);
 }
 
 :root .bs .bs-menu .mi .lb {
@@ -569,7 +569,7 @@
 
 :root .bs .bs-menu .mi:hover .ic,
 :root .bs .bs-menu .mi:focus-visible .ic {
-  color: var(--color-text) !important;
+  color: var(--color-text);
 }
 
 :root .bs .bs-menu .mi.open {
@@ -578,7 +578,7 @@
 
 :root .bs .bs-menu .mi.danger,
 :root .bs .bs-menu .mi.danger .ic {
-  color: var(--color-danger) !important;
+  color: var(--color-danger);
 }
 
 /* Disabled menu rows. */
@@ -596,11 +596,11 @@
 /* P1/P2: HTTP globe in text colour, gRPC hub in its method colour, tick on the right. */
 :root .bs-menu .mi.proto .ic {
   font-size: 15px;
-  color: var(--color-text) !important;
+  color: var(--color-text);
 }
 
 :root .bs-menu .mi.proto.grpc .ic {
-  color: var(--method-grpc) !important;
+  color: var(--method-grpc);
 }
 
 :root .bs-menu .mi.proto .sc.check {

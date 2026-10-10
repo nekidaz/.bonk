@@ -703,12 +703,13 @@
   color: var(--color-text);
 }
 
-:root .bs .bs-savegrp .material-symbols-outlined {
-  font-size: 17px !important;
+/* Direct buttons only: the code popover also renders inside .bs-savegrp. */
+:root .bs .bs-savegrp > button .material-symbols-outlined {
+  font-size: 17px;
 }
 
 :root .bs .bs-savegrp .bs-save-main .material-symbols-outlined {
-  font-size: 16px !important;
+  font-size: 16px;
 }
 
 :root .bs .bs-save.saved,
@@ -777,7 +778,7 @@
 }
 
 :root .bs button.bs-method .material-symbols-outlined {
-  font-size: 14px !important;
+  font-size: 14px;
   color: var(--color-text-muted);
 }
 
@@ -1069,11 +1070,6 @@
 /* Belongs to response.css, but the cascade needs it before `:root .bs .bs-body-beautify .material-symbols-outlined` (same elements, same specificity), so it lives here. */
 :root .bs-net-error .quiet .material-symbols-outlined {
   font-size: 16px;
-}
-
-/* Belongs to response.css, but the cascade needs it before `:root .bs .bs-body-beautify .material-symbols-outlined` (same elements, same specificity), so it lives here. */
-:root .bs-response-waiting .mark .material-symbols-outlined {
-  font-size: 20px;
 }
 
 /* CodeMirror-backed raw/GraphQL/binary body editor. */
@@ -2057,7 +2053,7 @@
 }
 
 :root .bs .bs-snippet .close .material-symbols-outlined {
-  font-size: 16px;
+  font-size: 17px;
 }
 
 :root .bs .bs-snippet .langs {
@@ -2200,7 +2196,7 @@
 }
 
 :root .bs .bs-snippet :is(.download, .copy) .material-symbols-outlined {
-  font-size: 16px;
+  font-size: 17px;
 }
 
 :root .bs .bs-snippet .copy kbd {
@@ -2374,7 +2370,7 @@
 
 /* S22b: the create menu tints HTTP too (the protocol switcher keeps it in text colour). */
 :root .bs-menu .mi.proto.http.tint .ic {
-  color: var(--method-get) !important;
+  color: var(--method-get);
 }
 
 /* E1 rule 2 · the request tabs capsule with the body tools on the right */

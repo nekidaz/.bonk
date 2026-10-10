@@ -547,7 +547,7 @@
         onclick={onSwitch}
       >
         <span>gRPC</span>
-        <span class="material-symbols-outlined" style="font-size:15px">expand_more</span>
+        <span class="material-symbols-outlined">expand_more</span>
       </button>
     </div>
     <CodeEditor

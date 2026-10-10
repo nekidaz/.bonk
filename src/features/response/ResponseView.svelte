@@ -242,7 +242,7 @@
   >
     {#snippet extra()}
       <button class="bs-ric" aria-label={t('response.copy')} title={t('response.copy')} onclick={copy}
-        ><span class="material-symbols-outlined" style="font-size:15px">content_copy</span></button
+        ><span class="material-symbols-outlined">content_copy</span></button
       >
       <button
         class="bs-ric"
@@ -250,7 +250,7 @@
         title={saved === 'fail' ? t('lb.saveFailed') : t('lb.save')}
         disabled={!body}
         onclick={() => saveBody(body, format)}
-        ><span class="material-symbols-outlined" style="font-size:15px"
+        ><span class="material-symbols-outlined"
           >{saved === 'ok' ? 'check' : saved === 'fail' ? 'error' : 'download'}</span
         ></button
       >
@@ -308,7 +308,7 @@
     <span class="mo now" title={t('response.time')}>{((now - (busy?.startedAt ?? now)) / 1000).toFixed(1)} s</span>
     <span class="mo" title={t('response.size')}>—</span>
     <button class="bs-ric" aria-label={t('response.copy')} title={t('response.copy')} disabled
-      ><span class="material-symbols-outlined" style="font-size:15px">content_copy</span></button
+      ><span class="material-symbols-outlined">content_copy</span></button
     >
   </div>
 {/snippet}
@@ -390,15 +390,14 @@
             class="bs-ric"
             aria-label={t('response.copy_messages')}
             title={t('response.copy_messages')}
-            onclick={() => copyText(streamCopy())}
-            ><span class="material-symbols-outlined" style="font-size:15px">content_copy</span></button
+            onclick={() => copyText(streamCopy())}><span class="material-symbols-outlined">content_copy</span></button
           >
           <button
             class="bs-ric"
             aria-label={t('response.clear_feed')}
             title={t('response.clear_feed')}
             disabled={!tab.grpcStream.messages.length}
-            onclick={clearFeed}><span class="material-symbols-outlined" style="font-size:15px">mop</span></button
+            onclick={clearFeed}><span class="material-symbols-outlined">mop</span></button
           >
         </div>
       {:else if sending}
@@ -428,14 +427,13 @@
               class="bs-ric"
               aria-label={t('response.copy_messages')}
               title={t('response.copy_messages')}
-              onclick={() => copyText(streamCopy())}
-              ><span class="material-symbols-outlined" style="font-size:15px">content_copy</span></button
+              onclick={() => copyText(streamCopy())}><span class="material-symbols-outlined">content_copy</span></button
             >
             <button
               class="bs-ric"
               aria-label={t('response.clear_feed')}
               title={t('response.clear_feed')}
-              onclick={clearFeed}><span class="material-symbols-outlined" style="font-size:15px">mop</span></button
+              onclick={clearFeed}><span class="material-symbols-outlined">mop</span></button
             >
           {:else}
             {@render bodyTools(
@@ -778,7 +776,7 @@
             </div>
           {:else}
             <div class="bs-empty-resp">
-              <span class="material-symbols-outlined" style="font-size:38px">preview</span>
+              <span class="material-symbols-outlined">preview</span>
               <div>{t('response.preview_html_only')}</div>
             </div>
           {/if}
