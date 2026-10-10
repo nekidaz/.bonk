@@ -177,10 +177,20 @@ pub async fn mcp_install(
     let saved = serde_json::to_vec_pretty(&options).map_err(|error| error.to_string())?;
     atomic_config_write(&data.join(OPTIONS_FILE), &saved)?;
 
-    Ok(McpOperationResult {
-        status: collect_status(&app).await?,
-        messages,
-    })
+    let status = collect_status(&app).await?;
+    // Old copies are only safe to delete once no client config points at them
+    // (a partial `clients` filter or a failed write leaves some on the old path).
+    if status
+        .clients
+        .iter()
+        .all(|client| client.error.is_none() && !(client.installed && client.needs_update))
+    {
+        if let Some(keep) = binary.file_name().and_then(|name| name.to_str()) {
+            prune_old_mcp_binaries(binary.parent().unwrap_or(Path::new(".")), keep);
+        }
+    }
+
+    Ok(McpOperationResult { status, messages })
 }
 
 #[tauri::command]
@@ -475,6 +485,23 @@ fn install_mcp_binary(app: &AppHandle) -> Result<PathBuf, String> {
     set_executable(&temporary)?;
     replace_file(&temporary, &destination)?;
     Ok(destination)
+}
+
+/// Best-effort: delete other `bonk-mcp-*` copies and stale `.bonk-mcp-*.tmp` files,
+/// keeping `keep`. Errors (e.g. a binary still running on Windows) are ignored.
+fn prune_old_mcp_binaries(dir: &Path, keep: &str) {
+    let Ok(entries) = fs::read_dir(dir) else {
+        return;
+    };
+    for entry in entries.flatten() {
+        let name = entry.file_name();
+        let Some(name) = name.to_str() else { continue };
+        let stale_copy = name.starts_with("bonk-mcp-") && name != keep;
+        let stale_tmp = name.starts_with(".bonk-mcp-") && name.ends_with(".tmp");
+        if (stale_copy || stale_tmp) && entry.path().is_file() {
+            let _ = fs::remove_file(entry.path());
+        }
+    }
 }
 
 #[cfg(unix)]
@@ -966,6 +993,26 @@ mod tests {
         fn drop(&mut self) {
             let _ = fs::remove_dir_all(&self.0);
         }
+    }
+
+    #[test]
+    fn prune_keeps_only_current_binary() {
+        let dir = TestDirectory::new();
+        for name in [
+            "bonk-mcp-1.0.0",
+            "bonk-mcp-2.0.0",
+            ".bonk-mcp-42.tmp",
+            "other.txt",
+        ] {
+            fs::write(dir.0.join(name), b"x").unwrap();
+        }
+        prune_old_mcp_binaries(&dir.0, "bonk-mcp-2.0.0");
+        let mut left: Vec<_> = fs::read_dir(&dir.0)
+            .unwrap()
+            .map(|e| e.unwrap().file_name().into_string().unwrap())
+            .collect();
+        left.sort();
+        assert_eq!(left, ["bonk-mcp-2.0.0", "other.txt"]);
     }
 
     fn restricted_options() -> McpInstallOptions {
