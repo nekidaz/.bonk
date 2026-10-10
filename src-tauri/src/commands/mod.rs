@@ -2,6 +2,7 @@ pub(crate) mod app;
 pub(crate) mod git;
 pub(crate) mod grpc;
 pub(crate) mod http;
+pub(crate) mod mcp;
 pub(crate) mod secrets;
 pub(crate) mod terminal;
 pub(crate) mod workspace;

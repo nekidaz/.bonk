@@ -1,3 +1,6 @@
+//! Installs the bonk-mcp server into local AI clients (Claude Desktop, ChatGPT/Codex,
+//! Claude Code) by editing their config files, and reports what is installed.
+
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::{
@@ -6,7 +9,6 @@ use std::{
     path::{Path, PathBuf},
     time::Duration,
 };
-use tauri::{AppHandle, Manager};
 use tokio::process::Command;
 use toml_edit::{value, Array, DocumentMut, Item, Table};
 
@@ -85,6 +87,15 @@ fn default_mutating_methods() -> String {
     "ask".into()
 }
 
+/// Directories the install works in; the Tauri shell resolves them from its path API.
+pub struct McpDirs {
+    pub home: PathBuf,
+    /// Where state.json lives (`app_data_dir`).
+    pub data: PathBuf,
+    /// Where the versioned bonk-mcp binary is copied (`app_local_data_dir`).
+    pub local_data: PathBuf,
+}
+
 #[derive(Debug, Clone)]
 struct ClientPaths {
     claude_desktop_config: PathBuf,
@@ -115,21 +126,19 @@ impl ClientPaths {
     }
 }
 
-#[tauri::command]
-pub async fn mcp_integration_status(app: AppHandle) -> Result<McpIntegrationStatus, String> {
-    collect_status(&app).await
+pub async fn status(dirs: &McpDirs) -> Result<McpIntegrationStatus, String> {
+    collect_status(dirs).await
 }
 
-#[tauri::command]
-pub async fn mcp_install(
-    app: AppHandle,
+pub async fn install(
+    dirs: &McpDirs,
     mut options: McpInstallOptions,
 ) -> Result<McpOperationResult, String> {
     let workspace = canonical_workspace(&options.workspace)?;
     validate_options(&options)?;
-    let binary = install_mcp_binary(&app)?;
-    let data = data_dir(&app)?;
-    let clients = ClientPaths::discover(&home_dir(&app)?);
+    let binary = install_mcp_binary(dirs)?;
+    let data = &dirs.data;
+    let clients = ClientPaths::discover(&dirs.home);
     let mut messages = Vec::new();
     let mut attempted = 0usize;
     let mut succeeded = 0usize;
@@ -145,7 +154,7 @@ pub async fn mcp_install(
             continue;
         }
         attempted += 1;
-        let args = mcp_args(&workspace, &options, id, &data);
+        let args = mcp_args(&workspace, &options, id, data);
         let result = match (id, clients.claude_code.as_deref()) {
             (CLAUDE_DESKTOP, _) => {
                 install_claude_desktop(&clients.claude_desktop_config, &binary, &args)
@@ -177,7 +186,7 @@ pub async fn mcp_install(
     let saved = serde_json::to_vec_pretty(&options).map_err(|error| error.to_string())?;
     atomic_config_write(&data.join(OPTIONS_FILE), &saved)?;
 
-    let status = collect_status(&app).await?;
+    let status = collect_status(dirs).await?;
     // Old copies are only safe to delete once no client config points at them
     // (a partial `clients` filter or a failed write leaves some on the old path).
     if status
@@ -193,12 +202,11 @@ pub async fn mcp_install(
     Ok(McpOperationResult { status, messages })
 }
 
-#[tauri::command]
-pub async fn mcp_uninstall(
-    app: AppHandle,
+pub async fn uninstall(
+    dirs: &McpDirs,
     clients: Option<Vec<String>>,
 ) -> Result<McpOperationResult, String> {
-    let paths = ClientPaths::discover(&home_dir(&app)?);
+    let paths = ClientPaths::discover(&dirs.home);
     let wanted = |id| wanted(clients.as_deref(), id);
     let mut messages = Vec::new();
 
@@ -228,18 +236,17 @@ pub async fn mcp_uninstall(
     }
 
     Ok(McpOperationResult {
-        status: collect_status(&app).await?,
+        status: collect_status(dirs).await?,
         messages,
     })
 }
 
 /// `{"mcpServers":{"bonk":{…}}}` for configuring any other MCP client by hand.
-#[tauri::command]
-pub fn mcp_client_config(app: AppHandle, options: McpInstallOptions) -> Result<String, String> {
+pub fn client_config(dirs: &McpDirs, options: McpInstallOptions) -> Result<String, String> {
     let workspace = canonical_workspace(&options.workspace)?;
     validate_options(&options)?;
-    let binary = install_mcp_binary(&app)?;
-    let args = mcp_args(&workspace, &options, OTHER_CLIENT, &data_dir(&app)?);
+    let binary = install_mcp_binary(dirs)?;
+    let args = mcp_args(&workspace, &options, OTHER_CLIENT, &dirs.data);
     serde_json::to_string_pretty(&json!({
         "mcpServers": { SERVER_NAME: { "command": binary, "args": args } }
     }))
@@ -247,26 +254,25 @@ pub fn mcp_client_config(app: AppHandle, options: McpInstallOptions) -> Result<S
 }
 
 /// Newest-first tool calls recorded by every installed server.
-#[tauri::command]
-pub fn mcp_journal(app: AppHandle, limit: Option<usize>) -> Result<Vec<Value>, String> {
-    let mut entries = read_journal(&data_dir(&app)?.join(JOURNAL_FILE));
+pub fn journal(dirs: &McpDirs, limit: Option<usize>) -> Vec<Value> {
+    let mut entries = read_journal(&dirs.data.join(JOURNAL_FILE));
     entries.reverse();
     entries.truncate(limit.unwrap_or(200));
-    Ok(entries)
+    entries
 }
 
-async fn collect_status(app: &AppHandle) -> Result<McpIntegrationStatus, String> {
-    let paths = ClientPaths::discover(&home_dir(app)?);
-    let installed_binary = installed_mcp_path(app)?;
+async fn collect_status(dirs: &McpDirs) -> Result<McpIntegrationStatus, String> {
+    let paths = ClientPaths::discover(&dirs.home);
+    let installed_binary = installed_mcp_path(dirs);
     let binary_available = installed_binary.is_file() || bundled_mcp_path().is_some();
-    let data = data_dir(app)?;
+    let data = &dirs.data;
     let saved = fs::read(data.join(OPTIONS_FILE))
         .ok()
         .and_then(|raw| serde_json::from_slice::<McpInstallOptions>(&raw).ok());
     let expected = |id| {
         saved
             .as_ref()
-            .map(|options| mcp_args(Path::new(&options.workspace), options, id, &data))
+            .map(|options| mcp_args(Path::new(&options.workspace), options, id, data))
     };
 
     let mut clients = vec![
@@ -308,19 +314,6 @@ impl ClientPaths {
 
 fn wanted(clients: Option<&[String]>, id: &str) -> bool {
     clients.is_none_or(|clients| clients.iter().any(|client| client == id))
-}
-
-fn home_dir(app: &AppHandle) -> Result<PathBuf, String> {
-    app.path()
-        .home_dir()
-        .map_err(|error| format!("failed to find the home directory: {error}"))
-}
-
-/// Where state.json lives (see `state_path` in commands).
-fn data_dir(app: &AppHandle) -> Result<PathBuf, String> {
-    app.path()
-        .app_data_dir()
-        .map_err(|error| format!("failed to resolve the Bonk data directory: {error}"))
 }
 
 /// Journal lines from the rotated file then the live one (oldest first).
@@ -434,15 +427,13 @@ fn needs_update(
         })
 }
 
-fn installed_mcp_path(app: &AppHandle) -> Result<PathBuf, String> {
+/// `make bump` keeps every crate on the app's version, so this is the app version.
+fn installed_mcp_path(dirs: &McpDirs) -> PathBuf {
     let mut name = format!("bonk-mcp-{}", env!("CARGO_PKG_VERSION"));
     if cfg!(target_os = "windows") {
         name.push_str(".exe");
     }
-    app.path()
-        .app_local_data_dir()
-        .map(|directory| directory.join("mcp").join(name))
-        .map_err(|error| format!("failed to resolve the Bonk data directory: {error}"))
+    dirs.local_data.join("mcp").join(name)
 }
 
 fn executable_name() -> &'static str {
@@ -463,8 +454,8 @@ fn bundled_mcp_path() -> Option<PathBuf> {
     candidates.into_iter().find(|candidate| candidate.is_file())
 }
 
-fn install_mcp_binary(app: &AppHandle) -> Result<PathBuf, String> {
-    let destination = installed_mcp_path(app)?;
+fn install_mcp_binary(dirs: &McpDirs) -> Result<PathBuf, String> {
+    let destination = installed_mcp_path(dirs);
     let Some(source) = bundled_mcp_path() else {
         if destination.is_file() {
             return Ok(destination);
