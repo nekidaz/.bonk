@@ -1,5 +1,6 @@
 //! Turning a saved/edited request into the one that goes on the wire: params into the URL,
-//! the body for its mode, `{{vars}}`, auth. The app (via `http_prepare` / `http_resolve`)
+//! the body for its mode, `{{vars}}`, auth; a gRPC call's message and metadata. The app
+//! (via `http_prepare` / `http_resolve` / `grpc_prepare`)
 //! and bonk-mcp both call these, so a request goes out the same way from either.
 //! `src/shared/model/requestPrep.cases.json` is the spec; the app's TS copy (used only
 //! for previews: cURL, code snippets) runs the same cases.
@@ -8,6 +9,7 @@ use std::{collections::BTreeMap, sync::LazyLock};
 
 use base64::{engine::general_purpose::STANDARD as BASE64, Engine};
 use regex::Regex;
+use serde::Serialize;
 use serde_json::Value;
 
 use super::{
@@ -180,17 +182,46 @@ fn nearest_folder_auth<'a>(nodes: &'a [TreeNode], id: &str) -> Option<Option<&'a
     None
 }
 
-/// gRPC metadata as the app sends it: the auth's entry first, explicit metadata over it,
-/// `{{vars}}` resolved; over plaintext `authorization` is dropped unless the request opts
-/// in (S30). Mirrors `grpcAuthMetadata` + `outgoingGrpcMetadata` in entities/request/grpc.ts.
-pub fn grpc_metadata(
-    auth: &AuthConfig,
+/// A gRPC call's wire payload.
+#[derive(Debug, PartialEq, Serialize)]
+pub struct GrpcOutgoing {
+    pub message: String,
+    pub metadata: BTreeMap<String, String>,
+}
+
+/// After the pre-request script: `{{vars}}` resolved in the message (an empty editor is
+/// protobuf's empty message, `{}`) and the metadata. Metadata is the auth's entry first,
+/// explicit rows over it; over plaintext `authorization` is dropped unless the request
+/// opts in (S30). `auth` is already effective (see `effective_auth`).
+pub fn grpc_prepare(
+    auth: Option<&AuthConfig>,
+    message: &str,
+    metadata: &BTreeMap<String, String>,
+    scope: &Scope,
+    strip_authorization: bool,
+) -> GrpcOutgoing {
+    let message = resolve_text(message, scope);
+    let message = match message.trim() {
+        "" => "{}".to_string(),
+        trimmed => trimmed.to_string(),
+    };
+    GrpcOutgoing {
+        message,
+        metadata: grpc_metadata(auth, metadata, scope, strip_authorization),
+    }
+}
+
+fn grpc_metadata(
+    auth: Option<&AuthConfig>,
     metadata: &BTreeMap<String, String>,
     scope: &Scope,
     strip_authorization: bool,
 ) -> BTreeMap<String, String> {
     let text = |value: &str| resolve_text(value, scope);
     let mut out = BTreeMap::new();
+    let Some(auth) = auth else {
+        return explicit_metadata(out, metadata, scope, strip_authorization);
+    };
     match auth.auth_type.as_str() {
         "bearer" => {
             if let Some(token) = auth.bearer_token.as_deref().map(str::trim) {
@@ -216,8 +247,17 @@ pub fn grpc_metadata(
         }
         _ => {}
     }
+    explicit_metadata(out, metadata, scope, strip_authorization)
+}
+
+fn explicit_metadata(
+    mut out: BTreeMap<String, String>,
+    metadata: &BTreeMap<String, String>,
+    scope: &Scope,
+    strip_authorization: bool,
+) -> BTreeMap<String, String> {
     for (key, value) in metadata {
-        out.insert(text(key), text(value));
+        out.insert(resolve_text(key, scope), resolve_text(value, scope));
     }
     if strip_authorization {
         out.retain(|key, _| !key.eq_ignore_ascii_case("authorization"));
@@ -507,14 +547,52 @@ mod tests {
     }
 
     #[test]
-    fn grpc_metadata_adds_auth_under_explicit_metadata() {
-        let scope = Scope::from([("token".into(), "t1".into())]);
-        let explicit = BTreeMap::from([("x-id".into(), "{{token}}".into())]);
-        let md = grpc_metadata(&auth("bearer"), &explicit, &scope, false);
-        assert_eq!(md.get("authorization").unwrap(), "Bearer t1");
-        assert_eq!(md.get("x-id").unwrap(), "t1");
-        let plaintext = grpc_metadata(&auth("bearer"), &explicit, &scope, true);
-        assert!(!plaintext.contains_key("authorization"));
+    fn grpc_prepare_resolves_and_lets_explicit_metadata_win() {
+        let scope = Scope::from([("token".into(), "T".into())]);
+        let bearer = auth("bearer");
+        let explicit = BTreeMap::from([
+            ("authorization".into(), "Custom {{token}}".into()),
+            ("x".into(), "{{token}}".into()),
+        ]);
+        let out = grpc_prepare(Some(&bearer), "  ", &explicit, &scope, false);
+        assert_eq!(out.message, "{}");
+        assert_eq!(
+            out.metadata,
+            BTreeMap::from([
+                ("authorization".into(), "Custom T".into()),
+                ("x".into(), "T".into()),
+            ])
+        );
+        let none = BTreeMap::new();
+        let out = grpc_prepare(Some(&bearer), r#"{"a":"{{token}}"}"#, &none, &scope, false);
+        assert_eq!(out.message, r#"{"a":"T"}"#);
+        assert_eq!(out.metadata.get("authorization").unwrap(), "Bearer T");
+        let plaintext = grpc_prepare(Some(&bearer), "{}", &explicit, &scope, true);
+        assert_eq!(
+            plaintext.metadata,
+            BTreeMap::from([("x".into(), "T".into())])
+        );
+    }
+
+    #[test]
+    fn grpc_auth_kinds_map_to_metadata() {
+        let none = BTreeMap::new();
+        let md = |auth: AuthConfig| {
+            grpc_prepare(Some(&auth), "{}", &none, &Scope::new(), false).metadata
+        };
+        let basic = AuthConfig {
+            basic_username: Some("a".into()),
+            basic_password: Some("b".into()),
+            ..auth("basic")
+        };
+        assert_eq!(md(basic).get("authorization").unwrap(), "Basic YTpi");
+        let key = AuthConfig {
+            api_key_name: Some("X-Key".into()),
+            api_key_value: Some("1".into()),
+            ..auth("apiKey")
+        };
+        assert_eq!(md(key), BTreeMap::from([("x-key".into(), "1".into())]));
+        assert!(md(auth("none")).is_empty());
     }
 
     #[test]

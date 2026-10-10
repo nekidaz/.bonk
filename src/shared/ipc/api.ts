@@ -193,6 +193,24 @@ export const grpcReflect = (connectionId: string, timeoutMs?: number) =>
   grpcInvoke<ServiceTree>('grpc_reflect', { connectionId, timeoutMs: timeoutMs ?? null });
 export const grpcTemplate = (connectionId: string, method: string) =>
   invoke<string>('grpc_template', { connectionId, method });
+/** A gRPC call's wire message + metadata, prepared by bonk-core (shared with bonk-mcp). */
+export const grpcPrepare = (p: {
+  /** Effective auth: the request's own or its folder's (`effectiveAuth`). */
+  auth?: AuthConfig;
+  message: string;
+  metadata?: Record<string, string>;
+  scope: Record<string, string>;
+  /** Plaintext without the S30 opt-in: don't send `authorization`. */
+  stripAuthorization?: boolean;
+}) =>
+  invoke<{ message: string; metadata: Record<string, string> }>('grpc_prepare', {
+    auth: p.auth ?? null,
+    message: p.message,
+    metadata: p.metadata ?? {},
+    scope: p.scope,
+    stripAuthorization: p.stripAuthorization ?? false,
+  });
+
 export const grpcCall = (
   connectionId: string,
   method: string,

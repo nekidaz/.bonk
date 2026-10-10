@@ -712,9 +712,16 @@ impl BonkRuntime {
 
         let scope = merged_scope(&globals, &environment);
         endpoint = resolve_text(&endpoint, &scope);
-        message = resolve_text(&message, &scope);
         let strip_authorization = grpc.plaintext && !grpc.keep_auth_on_plaintext.unwrap_or(false);
-        metadata = request_prep::grpc_metadata(&auth, &metadata, &scope, strip_authorization);
+        let outgoing = request_prep::grpc_prepare(
+            Some(&auth),
+            &message,
+            &metadata,
+            &scope,
+            strip_authorization,
+        );
+        message = outgoing.message;
+        metadata = outgoing.metadata;
         let method = resolve_text(&method, &scope);
         reject_unresolved_grpc(&endpoint, &method, &message, metadata.iter())?;
         self.check_grpc_target(&endpoint)

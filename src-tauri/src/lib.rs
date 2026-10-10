@@ -48,6 +48,7 @@ pub fn run() {
             commands::cookies::cookies_clear,
             commands::grpc::grpc_connect,
             commands::grpc::cert_file_info,
+            commands::grpc::grpc_prepare,
             commands::grpc::grpc_tls_inspect,
             commands::grpc::grpc_reflect,
             commands::grpc::grpc_template,

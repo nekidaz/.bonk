@@ -2,10 +2,8 @@ import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('@tauri-apps/api/core', () => ({ invoke: vi.fn(async () => ({})) }));
 import {
-  grpcAuthMetadata,
   dialFailureReason,
   stripsAuthorization,
-  outgoingGrpcMetadata,
   grpcCodeTone,
   grpcMethodKind,
   grpcNoServicesHint,
@@ -83,7 +81,6 @@ describe('plaintext authorization guard', () => {
     expect(stripsAuthorization({}, true)).toBe(true);
     expect(stripsAuthorization({ keepAuthOnPlaintext: true }, true)).toBe(false);
     expect(stripsAuthorization({}, false)).toBe(false);
-    expect(outgoingGrpcMetadata({ Authorization: 'x', 'x-id': '1' }, true)).toEqual({ 'x-id': '1' });
   });
   it('tones and kinds', () => {
     expect([grpcCodeTone('INVALID_ARGUMENT'), grpcCodeTone('INTERNAL')]).toEqual(['warning', 'danger']);
@@ -96,18 +93,6 @@ describe('dialFailureReason', () => {
     expect(dialFailureReason('connect failed: tcp connect error: Connection refused (os error 61)')).toBe(
       'connection refused',
     );
-  });
-});
-
-describe('grpcAuthMetadata', () => {
-  it('maps auth configs to metadata', () => {
-    const r = (v: string) => v.replace('{{t}}', 'tok');
-    expect(grpcAuthMetadata({ type: 'bearer', bearerToken: '{{t}}' }, r)).toEqual({ authorization: 'Bearer tok' });
-    expect(grpcAuthMetadata({ type: 'basic', basicUsername: 'a', basicPassword: 'b' }, r)).toEqual({
-      authorization: 'Basic YTpi',
-    });
-    expect(grpcAuthMetadata({ type: 'apiKey', apiKeyName: 'X-Key', apiKeyValue: '1' }, r)).toEqual({ 'x-key': '1' });
-    expect(grpcAuthMetadata({ type: 'none' }, r)).toEqual({});
   });
 });
 

@@ -9,7 +9,6 @@ import {
   invokeFailureResult,
   omitKey,
   presentEditorError,
-  resolveOutgoingGrpc,
   sentEntries,
   splitMethodSymbol,
   withGrpcEndpoint,
@@ -106,32 +105,6 @@ describe('applyGrpcurlImport', () => {
     );
     expect(t.grpc).toMatchObject({ method: 'keep', message: 'keep' });
     expect(t.grpc && 'source' in t.grpc && t.grpc.source).toBeFalsy();
-  });
-});
-
-describe('resolveOutgoingGrpc', () => {
-  const bearer = { type: 'bearer', bearerToken: '{{tok}}', apiKeyIn: 'header' } as never;
-  it('resolves vars, lets explicit metadata win over auth and defaults an empty message to {}', () => {
-    const out = resolveOutgoingGrpc(
-      bearer,
-      '  ',
-      { authorization: 'Custom {{tok}}', x: '{{tok}}' },
-      [],
-      undefined,
-      { tok: 'T' },
-      false,
-    );
-    expect(out).toEqual({ message: '{}', metadata: { authorization: 'Custom T', x: 'T' } });
-    expect(resolveOutgoingGrpc(bearer, '{"a":"{{tok}}"}', {}, [], undefined, { tok: 'T' }, false).message).toBe(
-      '{"a":"T"}',
-    );
-    expect(resolveOutgoingGrpc(bearer, '{}', {}, [], undefined, { tok: 'T' }, false).metadata).toEqual({
-      authorization: 'Bearer T',
-    });
-  });
-  it('strips authorization when asked', () => {
-    const out = resolveOutgoingGrpc(bearer, '{}', { x: '1' }, [], undefined, { tok: 'T' }, true);
-    expect(out.metadata).toEqual({ x: '1' });
   });
 });
 

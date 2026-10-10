@@ -23,16 +23,10 @@ import {
   grpcReflect,
   grpcCall,
   grpcLoadProto,
+  grpcPrepare,
 } from '$shared/ipc';
 import { grpcPathsToAbs } from './protoPaths';
-import {
-  inferGrpcPlaintext,
-  grpcConnectFailureMessage,
-  methodShort,
-  outgoingGrpcMetadata,
-  stripsAuthorization,
-  grpcAuthMetadata,
-} from './grpc';
+import { inferGrpcPlaintext, grpcConnectFailureMessage, methodShort, stripsAuthorization } from './grpc';
 import { effectiveAuth, withInheritedAuth, workspace } from '$entities/workspace';
 import { environments } from '$entities/environment';
 import { currentRequestSettings, applyScriptVars } from './store';
@@ -265,10 +259,13 @@ export async function runGrpcNode(
       metadata = patched.metadata;
     }
 
-    const resolvedMessage = resolveVars(message, scope);
-    const merged = grpcAuthMetadata(effectiveAuth(workspace.tree, node.id, g.auth), (v) => resolveVars(v, scope));
-    for (const [k, v] of Object.entries(metadata)) merged[k] = resolveVars(v, scope);
-    const resolvedMetadata = outgoingGrpcMetadata(merged, stripsAuthorization(g, plaintext));
+    const { message: resolvedMessage, metadata: resolvedMetadata } = await grpcPrepare({
+      auth: effectiveAuth(workspace.tree, node.id, g.auth),
+      message,
+      metadata,
+      scope,
+      stripAuthorization: stripsAuthorization(g, plaintext),
+    });
     const result = await grpcCall(
       connId,
       g.method,

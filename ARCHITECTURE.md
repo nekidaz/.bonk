@@ -10,8 +10,8 @@ layers with a deliberately thin boundary between them:
 - **`crates/bonk-core/`** — Tauri-independent Rust core: all HTTP/gRPC/workspace/
   state logic. Buildable and testable without a webview (`cargo test -p bonk-core`).
   `domain/request_prep.rs` turns a request into what goes on the wire (params, body,
-  `{{vars}}`, auth, folder-auth inheritance); the app (`http_prepare` / `http_resolve`)
-  and bonk-mcp both send through it.
+  `{{vars}}`, auth, folder-auth inheritance, gRPC message + metadata); the app
+  (`http_prepare` / `http_resolve` / `grpc_prepare`) and bonk-mcp both send through it.
 - **`crates/bonk-mcp/`** — headless Model Context Protocol server. Reuses
   `bonk-core` and exposes workspace resources/tools over STDIO or Streamable HTTP.
   `server.rs` holds the MCP surface, `runtime.rs` the `BonkRuntime` operations, and

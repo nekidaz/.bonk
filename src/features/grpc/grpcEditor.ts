@@ -1,25 +1,9 @@
 /** Pure helpers behind GrpcEditor.svelte: no stores, no components. */
 import type { Completion } from '@codemirror/autocomplete';
 import type { Translate } from '$shared/i18n';
-import { effectiveAuth } from '$entities/workspace';
-import {
-  isGrpcConnectionCode,
-  grpcFieldStub,
-  grpcAuthMetadata,
-  outgoingGrpcMetadata,
-  type GrpcTabError,
-  type GrpcurlImport,
-} from '$entities/request';
+import { isGrpcConnectionCode, grpcFieldStub, type GrpcTabError, type GrpcurlImport } from '$entities/request';
 import { grpcErrorCode } from '$shared/ipc';
-import {
-  resolveVars,
-  type AuthConfig,
-  type GrpcField,
-  type GrpcResult,
-  type GrpcStreamMessage,
-  type Tab,
-  type TreeNode,
-} from '$shared/model';
+import { type GrpcField, type GrpcResult, type GrpcStreamMessage, type Tab } from '$shared/model';
 
 export type EditorErrorKind = 'connection' | 'schema' | 'validation' | 'script' | 'unknown';
 export interface EditorErrorPresentation {
@@ -192,23 +176,4 @@ export function applyGrpcurlImport(t: Tab, cmd: GrpcurlImport, title: string): T
       tree: undefined,
     },
   };
-}
-
-/**
- * Wire payload for an invoke: `{{var}}`s resolved in message and metadata, an
- * empty editor sent as `{}`, the Auth tab (own or the collection's) first and
- * explicit metadata rows winning, `authorization` dropped when `stripAuth`.
- */
-export function resolveOutgoingGrpc(
-  auth: AuthConfig | undefined,
-  message: string,
-  metadata: Record<string, string>,
-  tree: TreeNode[],
-  savedPath: string | undefined,
-  scope: Record<string, string>,
-  stripAuth: boolean,
-): { message: string; metadata: Record<string, string> } {
-  const merged = grpcAuthMetadata(effectiveAuth(tree, savedPath, auth), (v) => resolveVars(v, scope));
-  for (const [k, val] of Object.entries(metadata)) merged[k] = resolveVars(val, scope);
-  return { message: resolveVars(message, scope).trim() || '{}', metadata: outgoingGrpcMetadata(merged, stripAuth) };
 }
