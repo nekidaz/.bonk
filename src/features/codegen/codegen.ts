@@ -124,6 +124,18 @@ function protectVars(har: HarRequest): { har: HarRequest; restore: (code: string
   return { har: out, restore };
 }
 
+/**
+ * Mirror of bonk-core's `normalize_url`: a send prepends a scheme to `host/path`, so the snippet must
+ * too (httpsnippet rejects scheme-less URLs). A leading `{{var}}` is left alone — it may carry the scheme.
+ */
+function withScheme(url: string): string {
+  const u = url.trim();
+  if (!u || u.includes('://') || u.startsWith('{{')) return u;
+  const host = u.split(/[/:?#]/)[0];
+  const local = ['localhost', '127.0.0.1', '0.0.0.0'].includes(host) || u.startsWith('[::1]');
+  return `${local ? 'http' : 'https'}://${u}`;
+}
+
 function toHar(tab: Tab, scope: Record<string, string>): HarRequest {
   const finalUrl = buildUrl(tab.request.url, tab.params);
   const built = buildRequestForSend(tab, finalUrl);
@@ -131,7 +143,7 @@ function toHar(tab: Tab, scope: Record<string, string>): HarRequest {
   const headers = Object.entries(req.headers ?? {}).map(([name, value]) => ({ name, value }));
   const har: HarRequest = {
     method: req.method || 'GET',
-    url: req.url,
+    url: withScheme(req.url),
     httpVersion: 'HTTP/1.1',
     // The query string already lives in `url`; leaving this empty avoids dupes.
     queryString: [],
