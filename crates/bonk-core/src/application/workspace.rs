@@ -52,10 +52,20 @@ pub fn load(root: &str) -> Result<Vec<TreeNode>, String> {
         ));
     }
 
-    load_dir(root, root)
+    load_dir(root, root, &[])
 }
 
-fn load_dir(root: &Path, dir: &Path) -> Result<Vec<TreeNode>, String> {
+/// Load the children of folder `dir_rel` (`""` = root) after a change in it. Subfolders whose
+/// ids are in `keep` come back with no children (the caller already has them); the rest load whole.
+pub fn load_children(root: &str, dir_rel: &str, keep: &[String]) -> Result<Vec<TreeNode>, String> {
+    let dir = resolve(root, dir_rel)?;
+    if !dir.is_dir() {
+        return Err(format!("not a folder: {}", dir.display()));
+    }
+    load_dir(Path::new(root), &dir, keep)
+}
+
+fn load_dir(root: &Path, dir: &Path, keep: &[String]) -> Result<Vec<TreeNode>, String> {
     let mut folders: Vec<TreeNode> = Vec::new();
     let mut requests: Vec<TreeNode> = Vec::new();
 
@@ -78,10 +88,15 @@ fn load_dir(root: &Path, dir: &Path) -> Result<Vec<TreeNode>, String> {
         }
 
         if path.is_dir() {
-            let children = load_dir(root, &path)?;
+            let id = rel_id(root, &path)?;
+            let children = if keep.contains(&id) {
+                vec![]
+            } else {
+                load_dir(root, &path, &[])?
+            };
 
             folders.push(TreeNode::Folder(FolderNode {
-                id: rel_id(root, &path)?,
+                id,
                 name: file_name(&path),
                 // Collapsed: a big collection would otherwise render every row at once.
                 expanded: false,
@@ -819,6 +834,42 @@ mod tests {
         assert_eq!(sub.children.len(), 1);
 
         let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn load_children_reads_one_folder_and_skips_kept_subfolders() {
+        let root = temp_root();
+        write_request(&root.join("API"), "Top");
+        write_request(&root.join("API").join("Kept"), "Deep");
+        write_request(&root.join("API").join("New"), "Deep");
+        write_request(&root.join("Other"), "Elsewhere");
+        let children = |node: &TreeNode| match node {
+            TreeNode::Folder(folder) => folder.children.len(),
+            TreeNode::Request(_) => 0,
+        };
+
+        let api = load_children(root.to_str().unwrap(), "fs:API", &["fs:API/Kept".into()]).unwrap();
+
+        let ids: Vec<_> = api.iter().map(|n| (node_id(n), children(n))).collect();
+        assert_eq!(
+            ids,
+            [
+                ("fs:API/Kept", 0),
+                ("fs:API/New", 1),
+                ("fs:API/Top.bonk.json", 0)
+            ]
+        );
+        assert!(load_children(root.to_str().unwrap(), "fs:API/Top.bonk.json", &[]).is_err());
+        assert!(load_children(root.to_str().unwrap(), "../x", &[]).is_err());
+
+        let _ = fs::remove_dir_all(root);
+    }
+
+    fn node_id(node: &TreeNode) -> &str {
+        match node {
+            TreeNode::Folder(folder) => &folder.id,
+            TreeNode::Request(request) => &request.id,
+        }
     }
 
     #[test]

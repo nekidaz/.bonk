@@ -2,7 +2,7 @@ import { untrack } from 'svelte';
 import { t } from '$shared/i18n';
 import type { Tab, RunResultRow, RunStatus } from '$shared/model';
 import { workspaceSaveRequest } from '$shared/ipc';
-import { findNode, idToRel, parentId, ROOT, reloadWorkspace, workspace } from '$entities/workspace';
+import { findNode, idToRel, parentId, ROOT, refreshDirs, workspace } from '$entities/workspace';
 import {
   pushHistory,
   pushRecord,
@@ -472,7 +472,7 @@ export async function bindIdFrom(targetNodeId: string, b: IdBinding): Promise<bo
     console.error('runner: bindIdFrom failed', e);
     return false;
   } finally {
-    await reloadWorkspace();
+    await refreshDirs(...nodes.map((n) => parentId(n.id)));
   }
 }
 

@@ -9,7 +9,7 @@ import {
   type ImportedPostmanItem,
   type ParsedPostmanCollection,
 } from './postman';
-import { ROOT, openWorkspaceFolder, reloadWorkspace, workspace } from './store.svelte';
+import { ROOT, openWorkspaceFolder, refreshDirs, workspace } from './store.svelte';
 import { environments, addEnvironment, setEnvVars } from '$entities/environment';
 
 /**
@@ -68,7 +68,7 @@ async function saveSpecToWorkspace(root: string, spec: ReturnType<typeof parseOp
       setEnvVars(envId, [{ key: 'baseUrl', value: spec.baseUrl, enabled: true }]);
       if (prevActive) environments.activeId = prevActive;
     }
-    await reloadWorkspace();
+    await refreshDirs(ROOT);
   });
 }
 
@@ -92,7 +92,7 @@ async function savePostmanToWorkspace(root: string, collection: ParsedPostmanCol
       setEnvVars(id, collection.variables);
       if (previous) environments.activeId = previous;
     }
-    await reloadWorkspace();
+    await refreshDirs(ROOT);
   });
 }
 
