@@ -4,7 +4,8 @@
  * graph stays acyclic (state imports it; requests imports it).
  */
 import { t as tr } from '$shared/i18n';
-import type { Environment, HttpRequest, TreeNode, VarRow } from './types';
+import type { AuthConfig, Environment, HttpRequest, TreeNode, VarRow } from './types';
+import { applyAuth } from './httpBody';
 
 /** Matches a `{{ name }}` placeholder, capturing the (possibly padded) name. */
 const VAR_RE = /\{\{\s*([^{}]*?)\s*\}\}/g;
@@ -104,7 +105,8 @@ export function resolveVars(text: string, scope: Record<string, string>): string
 
 /**
  * Return a copy of `req` with `resolveVars` applied to the URL, every header
- * key and value, and the body (when present). The input is never mutated.
+ * key and value, the body (when present) and the auth fields, then the auth
+ * applied (`applyAuth`). The input is never mutated.
  */
 export function resolveRequestVars(req: HttpRequest, scope: Record<string, string>): HttpRequest {
   const headers: Record<string, string> = {};
@@ -135,13 +137,24 @@ export function resolveRequestVars(req: HttpRequest, scope: Record<string, strin
     };
     body = JSON.stringify({ query: body, variables: resolveValue(variables) });
   }
-  return {
+  return applyAuth({
     ...req,
     url: resolveVars(req.url, scope),
     headers,
     body,
     ...(req.binaryFilePath === undefined ? {} : { binaryFilePath: resolveVars(req.binaryFilePath, scope) }),
-  };
+    ...(req.auth === undefined ? {} : { auth: resolveAuthVars(req.auth, scope) }),
+  });
+}
+
+function resolveAuthVars(auth: AuthConfig, scope: Record<string, string>): AuthConfig {
+  const fields = ['bearerToken', 'basicUsername', 'basicPassword', 'apiKeyName', 'apiKeyValue'] as const;
+  const out = { ...auth };
+  for (const field of fields) {
+    const value = auth[field];
+    if (value !== undefined) out[field] = resolveVars(value, scope);
+  }
+  return out;
 }
 
 /** Saved requests (any depth) that reference at least one of `keys` as `{{key}}` anywhere in their definition. */
