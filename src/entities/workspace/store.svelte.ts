@@ -69,20 +69,20 @@ export function applyExpanded(nodes: TreeNode[], map: Map<string, boolean>): Tre
   );
 }
 
-/** Collapsed folder ids per workspace root, persisted so the tree reopens as left. @internal */
-export const collapsedFolders: Record<string, string[]> = {};
+/** Open folder ids per workspace root, persisted so the tree reopens as left. @internal */
+export const expandedFolders: Record<string, string[]> = {};
 
-/** Re-apply workspace `root`'s remembered collapsed folders to a freshly loaded tree. @internal */
-export function withSavedCollapse(root: string, tree: TreeNode[]): TreeNode[] {
-  return applyExpanded(tree, new Map((collapsedFolders[root] ?? []).map((id) => [id, false])));
+/** Re-open workspace `root`'s remembered open folders in a freshly loaded (all collapsed) tree. @internal */
+export function withSavedExpanded(root: string, tree: TreeNode[]): TreeNode[] {
+  return applyExpanded(tree, new Map((expandedFolders[root] ?? []).map((id) => [id, true])));
 }
 
 /** @internal — used within entities/workspace; not in index.ts. */
 export async function reloadWorkspace(): Promise<void> {
   const path = workspace.path;
   if (!path) return;
-  // The Rust `load` always returns folders expanded:true. Preserve the user's
-  // current collapse state across the reload instead of re-expanding everything.
+  // The Rust `load` always returns folders collapsed. Preserve the user's
+  // current open folders across the reload instead of collapsing everything.
   const tree = await workspaceLoad(path);
   const expanded = new Map<string, boolean>();
   collectExpanded(workspace.tree, expanded);
@@ -130,7 +130,7 @@ export async function switchWorkspace(path: string): Promise<void> {
     const previous = workspace.path;
     const tree = await workspaceLoad(clean);
     workspace.path = clean;
-    workspace.tree = withSavedCollapse(clean, tree);
+    workspace.tree = withSavedExpanded(clean, tree);
     rememberWorkspacePath(clean);
     if (previous && previous !== clean) {
       // savedPath is relative to the old workspace root. Keeping it after a root

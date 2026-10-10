@@ -430,7 +430,7 @@ test('saves the session to app state', async ({ page }) => {
     tabs: { id: string; savedPath?: string; testResults?: unknown }[];
     activeTabId: string;
     history: { request: { method: string }; status: number }[];
-    collapsedFolders: Record<string, string[]>;
+    expandedFolders: Record<string, string[]>;
     workspacePath: string;
   };
   const saved = () =>
@@ -440,7 +440,7 @@ test('saves the session to app state', async ({ page }) => {
       ).__TAURI_INTERNALS__.invoke('app_state_load'),
     );
   const root = '/Users/aru/work/Acme Payments';
-  await expect.poll(async () => (await saved()).collapsedFolders?.[root]).toContain('fs:auth');
+  await expect.poll(async () => (await saved()).expandedFolders?.[root]).toContain('fs:payments');
   await expect
     .poll(async () => (await saved()).tabs.map((t) => t.savedPath))
     .toEqual(['fs:payments/list', 'fs:payments/create', undefined, 'fs:payments/get']); // undefined: Environments tab
@@ -449,6 +449,6 @@ test('saves the session to app state', async ({ page }) => {
   expect(s.tabs.some((t) => 'testResults' in t)).toBe(false);
   expect(s.history).toHaveLength(8);
   expect([s.history[0].request.method, s.history[0].status]).toEqual(['GET', 200]);
-  expect(s.collapsedFolders[root]).not.toContain('fs:payments');
+  expect(s.expandedFolders[root]).not.toContain('fs:auth');
   expect(s.workspacePath).toBe(root);
 });

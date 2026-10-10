@@ -8,11 +8,11 @@ import { collectSecrets, mergeSecrets, secretAccountsOf, stripSecrets } from './
 import { normalizeTabTitleState, stripRuntimeTab, tabs } from '$entities/tab';
 import { history } from '$entities/history';
 import {
-  collapsedFolders,
   collectExpanded,
+  expandedFolders,
   normalizeWorkspaceRecents,
   rememberWorkspacePath,
-  withSavedCollapse,
+  withSavedExpanded,
   workspace,
 } from '$entities/workspace';
 import { environments } from '$entities/environment';
@@ -123,11 +123,11 @@ async function restoreState(): Promise<void> {
   environments.list = loaded.envs;
   environments.activeId = await loadState<string | null>('activeEnvironmentId', null);
   flows.list = await loadState<Flow[]>('flows', []);
-  Object.assign(collapsedFolders, await loadState<Record<string, string[]>>('collapsedFolders', {}));
+  Object.assign(expandedFolders, await loadState<Record<string, string[]>>('expandedFolders', {}));
   let nextTree: TreeNode[] = [];
   if (savedWorkspacePath) {
     try {
-      nextTree = withSavedCollapse(savedWorkspacePath, await workspaceLoad(savedWorkspacePath));
+      nextTree = withSavedExpanded(savedWorkspacePath, await workspaceLoad(savedWorkspacePath));
       workspace.path = savedWorkspacePath;
       rememberWorkspacePath(savedWorkspacePath);
     } catch {
@@ -174,7 +174,7 @@ function wirePersistence(): () => void {
     $effect(() => saveStateDebounced('historyLimit', history.limit));
     $effect(() => saveStateDebounced('historyPaused', history.paused));
     $effect(() => saveStateDebounced('workspacePath', workspace.path));
-    // Remember collapsed folders per workspace root (the Rust load always expands all).
+    // Remember open folders per workspace root (the Rust load always collapses all).
     // Runs on tree changes only: the root is read untracked.
     $effect(() => {
       const tree = workspace.tree;
@@ -182,8 +182,8 @@ function wirePersistence(): () => void {
       if (!root) return;
       const expanded = new Map<string, boolean>();
       collectExpanded(tree, expanded);
-      collapsedFolders[root] = [...expanded].filter(([, open]) => !open).map(([id]) => id);
-      saveStateDebounced('collapsedFolders', collapsedFolders);
+      expandedFolders[root] = [...expanded].filter(([, open]) => open).map(([id]) => id);
+      saveStateDebounced('expandedFolders', expandedFolders);
     });
     $effect(() => saveStateDebounced('recentWorkspacePaths', workspace.recent));
     // Variables go through the keychain sync (secrets out of state.json), which saves both keys.

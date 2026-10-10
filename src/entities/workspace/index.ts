@@ -6,10 +6,10 @@ export { exportOpenApiFolder, importApiFile, importApiText } from './importExpor
 export { buildPostmanCollection } from './postman';
 export {
   addFolder,
-  collapsedFolders,
   collectExpanded,
   deleteWorkspace,
   dropNode,
+  expandedFolders,
   duplicateNode,
   moveNode,
   normalizeWorkspaceRecents,
@@ -27,7 +27,7 @@ export {
   toggleFolder,
   undoDrop,
   withInheritedAuth,
-  withSavedCollapse,
+  withSavedExpanded,
   workspace,
 } from './store.svelte';
 export { filterTree, findNode, idToRel, parentId } from './tree';

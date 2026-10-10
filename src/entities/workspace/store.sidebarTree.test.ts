@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { revealNode, collapsedFolders, withSavedCollapse, workspace } from './store.svelte';
+import { revealNode, expandedFolders, withSavedExpanded, workspace } from './store.svelte';
 import type { TreeNode } from '$shared/model';
 
 const req: TreeNode = {
@@ -29,9 +29,9 @@ describe('sidebar tree', () => {
     expect(openIds(workspace.tree)).toEqual(['fs:a', 'fs:a/b']);
   });
 
-  it('withSavedCollapse re-applies the collapsed folders remembered for that workspace', () => {
-    collapsedFolders['/ws'] = ['fs:a/b'];
-    expect(openIds(withSavedCollapse('/ws', tree(true)))).toEqual(['fs:a']);
-    expect(openIds(withSavedCollapse('/other', tree(true)))).toEqual(['fs:a', 'fs:a/b']);
+  it('withSavedExpanded re-opens the folders remembered for that workspace', () => {
+    expandedFolders['/ws'] = ['fs:a'];
+    expect(openIds(withSavedExpanded('/ws', tree(false)))).toEqual(['fs:a']);
+    expect(openIds(withSavedExpanded('/other', tree(false)))).toEqual([]);
   });
 });
