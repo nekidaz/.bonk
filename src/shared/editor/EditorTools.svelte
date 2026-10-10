@@ -73,7 +73,7 @@
   {#if onExpand}
     <button
       type="button"
-      class="bs-ric"
+      class="bs-ric lb-expand"
       class:on={expanded}
       aria-pressed={expanded}
       aria-label={expanded ? t('lb.collapse') : t('lb.expand')}
