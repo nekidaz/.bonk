@@ -13,6 +13,7 @@ import {
   sentEntries,
   splitMethodSymbol,
   withGrpcEndpoint,
+  withoutStaleResponse,
 } from './grpcEditor';
 import type { GrpcField, Tab } from '$shared/model';
 
@@ -217,5 +218,17 @@ describe('fieldCompletionOptions', () => {
     const { changes, selection } = dispatch.mock.calls[0][0];
     expect(changes).toEqual({ from: 1, to: 5, insert: '"user_name": ""' });
     expect(selection.anchor).toBe(1 + '"user_name": ""'.length - 1);
+  });
+});
+
+describe('withoutStaleResponse', () => {
+  const stale = grpcTab({}, { grpcResult: { ok: true, status: 'OK' }, grpcStream: { messages: [] } });
+  it('drops the previous reply on a connection error so the response pane can show it', () => {
+    const t = withoutStaleResponse(stale, 'connect failed: transport error');
+    expect(t.grpcResult).toBeUndefined();
+    expect(t.grpcStream).toBeUndefined();
+  });
+  it('keeps the reply for other errors', () => {
+    expect(withoutStaleResponse(stale, 'select a method first')).toBe(stale);
   });
 });

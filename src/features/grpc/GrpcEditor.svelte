@@ -77,6 +77,7 @@
     withGrpcEndpoint,
     applyGrpcurlImport,
     resolveOutgoingGrpc,
+    withoutStaleResponse,
   } from './grpcEditor';
 
   /** The active environment's `name → value` map, or `{}` when none is selected. */
@@ -236,6 +237,7 @@
         }));
       } else {
         requestRuntime.updateGrpcErrors((m) => ({ ...m, [tabId]: message }));
+        tabs.updateById(tabId, (x) => withoutStaleResponse(x, message));
       }
     } finally {
       requestRuntime.updateBusy((m) => (m[tabId]?.kind === 'connect' ? omitKey(m, tabId) : m));
