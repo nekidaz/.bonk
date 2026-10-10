@@ -50,6 +50,8 @@ export {
   type McpJournalEntry,
   type McpMethodPolicy,
   openapiExportSave,
+  importReadFile,
+  type ImportFile,
   openapiImportPick,
   openReleases,
   type ProtoFileInfo,
@@ -76,6 +78,7 @@ export {
   workspaceRenameRoot,
   workspaceReorder,
   workspaceSaveFolderAuth,
+  workspaceSaveFolderSource,
   workspaceSaveRequest,
   workspaceTrash,
 } from './api';

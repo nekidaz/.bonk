@@ -4,7 +4,15 @@ import { appMenuWidth, type AppMenuKind, type AppMenuState, type UtilityMode } f
 
 /** S09b: confirmation toast after a save, with a one-step undo (⌘Z while it is visible).
  *  P3/P4 bring their own icon (swap_horiz in the new protocol's colour) and undo label («Вернуть HTTP»). */
-export type Toast = { text: string; undo?: () => void; undoLabel?: string; icon?: string; iconColor?: string };
+export type Toast = {
+  text: string;
+  undo?: () => void;
+  undoLabel?: string;
+  /** A follow-up that isn't an undo (no ⌘Z): «Открыть» after an import. */
+  action?: { label: string; run: () => void };
+  icon?: string;
+  iconColor?: string;
+};
 
 /**
  * View state of the app shell (one window): which menu, popover and dialog is open, the toast,
@@ -19,7 +27,6 @@ class Shell {
 
   paletteOpen = $state(false);
   settingsOpen = $state(false);
-  importOpen = $state(false);
   moveOpen = $state(false);
   moveSourceId = $state<string | undefined>(undefined);
   authFolderId = $state<string | undefined>(undefined);
@@ -73,6 +80,11 @@ class Shell {
     this.toast = next;
     clearTimeout(this.#toastTimer);
     this.#toastTimer = setTimeout(() => (this.toast = null), 5000);
+  };
+
+  toastAction = (): void => {
+    this.toast?.action?.run();
+    this.toast = null;
   };
 
   undoToast = (): void => {

@@ -2,15 +2,15 @@ import { t } from '$shared/i18n';
 /**
  * Pure OpenAPI / Swagger import + export. This module is a leaf: it imports only
  * `types` and the `yaml` codec, never stores/ipc/tauri, so it stays fully
- * unit-testable and the import graph stays acyclic. Store orchestration
- * (picking files, creating folders/environments, native save) lives in
- * `importExport.ts`.
+ * unit-testable and the import graph stays acyclic. The import window
+ * (features/import) turns the parsed operations into a preview and saves them.
  *
- * Import parses an OpenAPI 3.0/3.1 or Swagger 2.0 document (JSON or YAML) into a
- * set of folders of `RequestNode`s plus a base URL. Export walks saved requests
- * back into a minimal OpenAPI 3.0.3 document. Round-tripping a bonk-authored
- * spec preserves path + method; it is intentionally lossy on everything the
- * client doesn't model (schemas, responses, examples beyond a single one).
+ * Import parses an OpenAPI 3.0/3.1 or Swagger 2.0 document (JSON or YAML) into
+ * operations (one `RequestNode` each), servers, the collection-wide security
+ * scheme and non-fatal warnings. Export walks saved requests back into a minimal
+ * OpenAPI 3.0.3 document. Round-tripping a bonk-authored spec preserves path +
+ * method; it is intentionally lossy on everything the client doesn't model
+ * (schemas, responses, examples beyond a single one).
  */
 import type { AuthConfig, BodyParam, Param, RequestNode, RawBodyFormat } from '$shared/model';
 import { parse as parseYaml, stringify as stringifyYaml } from 'yaml';
@@ -23,11 +23,61 @@ export interface ImportedFolder {
   requests: RequestNode[];
 }
 
-/** The result of parsing a spec: the collection title, its base URL, and folders. */
+/** How operations become requests (the preview's switches, IM4). */
+export interface OpenApiOptions {
+  /** Request bodies from the schema's example/default; off = empty body. */
+  bodies: boolean;
+  /** `/payments/{id}` → `/payments/{{id}}`; off keeps `{id}`. */
+  pathVars: boolean;
+  /** Requests using the collection's scheme inherit it from the collection folder. */
+  collectionAuth: boolean;
+}
+
+export const OPENAPI_DEFAULTS: OpenApiOptions = { bodies: true, pathVars: true, collectionAuth: true };
+
+/** One operation = one request. `key` links it across re-imports: operationId, else `METHOD path`. */
+export interface SpecOperation {
+  key: string;
+  method: string;
+  path: string;
+  tag: string | null;
+  node: RequestNode;
+  /** The body schema is a oneOf/anyOf with this many variants (the first one was used). */
+  variants?: number;
+  /** A `$ref` in the body schema doesn't resolve, so the example is incomplete. */
+  missingRef?: boolean;
+}
+
+/** Non-fatal problems: the import goes on, the preview lists them (IM5). */
+export type SpecWarning =
+  | { kind: 'ref'; ref: string; ops: string[] }
+  | { kind: 'variants'; schema: string; count: number; ops: string[] }
+  | { kind: 'server'; variable: string; server: string; value: string };
+
+export interface SpecServer {
+  url: string;
+  description: string;
+}
+
+/** The result of parsing a spec. */
 export interface ParsedSpec {
   title: string;
+  /** `info.version` of the API (e.g. `1.4.2`), '' when absent. */
+  version: string;
+  /** `OpenAPI 3.1` / `Swagger 2.0`. */
+  format: string;
+  /** First server; `{{baseUrl}}` resolves to it. */
   baseUrl: string;
+  servers: SpecServer[];
+  /** Operations grouped by first tag (kept for callers that don't regroup). */
   folders: ImportedFolder[];
+  ops: SpecOperation[];
+  /** The scheme most requests use; with `collectionAuth` it moves to the collection folder. */
+  collectionAuth: { scheme: string; auth: AuthConfig } | null;
+  tags: number;
+  schemas: number;
+  schemeNames: string[];
+  warnings: SpecWarning[];
 }
 
 /** Loosely-typed spec document; we probe fields defensively rather than model the whole schema. */
@@ -57,6 +107,11 @@ function parseDocument(text: string): Doc {
   return doc;
 }
 
+/** True for an OpenAPI 3.x or Swagger 2.0 document. */
+export function isOpenApiDoc(doc: Doc): boolean {
+  return (typeof doc.openapi === 'string' && doc.openapi.startsWith('3.')) || doc.swagger === '2.0';
+}
+
 /** 'oas3' for OpenAPI 3.x, 'swagger2' for Swagger 2.0; throws on anything else. */
 function detectVersion(doc: Doc): 'oas3' | 'swagger2' {
   if (typeof doc.openapi === 'string' && doc.openapi.startsWith('3.')) return 'oas3';
@@ -64,30 +119,41 @@ function detectVersion(doc: Doc): 'oas3' | 'swagger2' {
   throw new Error(t('import.err.unsupported'));
 }
 
-/** Substitute `{var}` templating in an OAS3 server URL using its `variables` defaults. */
-function resolveServerUrl(server: Obj): string {
+/**
+ * Substitute `{var}` templating in an OAS3 server URL using its `variables` defaults.
+ * A variable with a real choice (enum) or no default is reported to `warn`.
+ */
+function resolveServerUrl(server: Obj, warn?: (w: SpecWarning) => void): string {
   const url = typeof server.url === 'string' ? server.url : '';
   const variables = isObject(server.variables) ? server.variables : {};
-  return url.replace(/\{([^{}]+)\}/g, (match, name: string) => {
+  const resolved = url.replace(/\{([^{}]+)\}/g, (match, name: string) => {
     const v = variables[name];
-    if (isObject(v) && v.default != null) return String(v.default);
-    return match;
+    return isObject(v) && v.default != null ? String(v.default) : match;
   });
+  for (const [name, v] of Object.entries(variables)) {
+    if (!url.includes(`{${name}}`) || !isObject(v)) continue;
+    const choices = Array.isArray(v.enum) ? v.enum.length : 0;
+    if (v.default == null || choices > 1)
+      warn?.({ kind: 'server', variable: name, server: resolved, value: String(v.default ?? '') });
+  }
+  return resolved;
 }
 
-/** Compute the base URL for either spec flavor (empty string when undeterminable). */
-function specBaseUrl(doc: Doc, version: 'oas3' | 'swagger2'): string {
+/** Servers of either spec flavor (Swagger 2: scheme+host+basePath). */
+function specServers(doc: Doc, version: 'oas3' | 'swagger2', warn: (w: SpecWarning) => void): SpecServer[] {
   if (version === 'oas3') {
     const servers = Array.isArray(doc.servers) ? doc.servers : [];
-    const first = servers[0];
-    return isObject(first) ? resolveServerUrl(first) : '';
+    return servers.filter(isObject).map((s) => ({
+      url: resolveServerUrl(s, warn),
+      description: typeof s.description === 'string' ? s.description : '',
+    }));
   }
+  const host = typeof doc.host === 'string' ? doc.host : '';
+  if (!host) return [];
+  const basePath = typeof doc.basePath === 'string' ? doc.basePath : '';
   const schemes = Array.isArray(doc.schemes) ? doc.schemes : [];
   const scheme = typeof schemes[0] === 'string' ? schemes[0] : 'https';
-  const host = typeof doc.host === 'string' ? doc.host : '';
-  if (!host) return '';
-  const basePath = typeof doc.basePath === 'string' ? doc.basePath : '';
-  return `${scheme}://${host}${basePath}`;
+  return [{ url: `${scheme}://${host}${basePath}`, description: '' }];
 }
 
 /** Resolve a local `$ref` pointer (`#/a/b/c`) against `doc`; returns null if unresolvable. */
@@ -111,23 +177,38 @@ function deref(node: Obj, doc: Doc): Obj {
   return node;
 }
 
+/** What building an example ran into: unresolved refs and oneOf/anyOf choices. */
+export interface ExampleNotes {
+  missing: Set<string>;
+  variants: { schema: string; count: number }[];
+}
+
 /**
  * Build a representative example value for `schema`, resolving `$ref`s with a
  * cycle guard (`seen` of ref strings) and a depth cap. Priority: explicit
  * `example` → `default` → first `enum` → shape by `type`. `allOf` merges object
  * results; `oneOf`/`anyOf` take the first. A missing `type` with `properties`
- * is treated as an object.
+ * is treated as an object. `notes` collects what had to be skipped or chosen.
  */
-export function exampleFromSchema(schema: unknown, doc: Doc, seen: Set<string> = new Set(), depth = 0): unknown {
+export function exampleFromSchema(
+  schema: unknown,
+  doc: Doc,
+  seen: Set<string> = new Set(),
+  depth = 0,
+  notes?: ExampleNotes,
+): unknown {
   if (depth > 6 || !isObject(schema)) return null;
 
   if (typeof schema.$ref === 'string') {
     if (seen.has(schema.$ref)) return null; // cycle
     const target = resolveRef(schema.$ref, doc);
-    if (!target) return null;
+    if (!target) {
+      notes?.missing.add(schema.$ref);
+      return null;
+    }
     const nextSeen = new Set(seen);
     nextSeen.add(schema.$ref);
-    return exampleFromSchema(target, doc, nextSeen, depth + 1);
+    return exampleFromSchema(target, doc, nextSeen, depth + 1, notes);
   }
 
   if ('example' in schema && schema.example !== undefined) return schema.example;
@@ -137,14 +218,19 @@ export function exampleFromSchema(schema: unknown, doc: Doc, seen: Set<string> =
   if (Array.isArray(schema.allOf)) {
     const merged: Obj = {};
     for (const part of schema.allOf) {
-      const partExample = exampleFromSchema(part, doc, seen, depth + 1);
+      const partExample = exampleFromSchema(part, doc, seen, depth + 1, notes);
       if (isObject(partExample)) Object.assign(merged, partExample);
     }
     return merged;
   }
   const combo = schema.oneOf ?? schema.anyOf;
   if (Array.isArray(combo) && combo.length > 0) {
-    return exampleFromSchema(combo[0], doc, seen, depth + 1);
+    if (combo.length > 1 && notes) {
+      // Name the choice after the schema holding it (the last ref we followed).
+      const holder = [...seen].at(-1)?.split('/').at(-1) ?? (typeof schema.title === 'string' ? schema.title : 'body');
+      notes.variants.push({ schema: holder, count: combo.length });
+    }
+    return exampleFromSchema(combo[0], doc, seen, depth + 1, notes);
   }
 
   const type = typeof schema.type === 'string' ? schema.type : undefined;
@@ -152,12 +238,12 @@ export function exampleFromSchema(schema: unknown, doc: Doc, seen: Set<string> =
     const out: Obj = {};
     const props = isObject(schema.properties) ? schema.properties : {};
     for (const [key, propSchema] of Object.entries(props)) {
-      out[key] = exampleFromSchema(propSchema, doc, seen, depth + 1);
+      out[key] = exampleFromSchema(propSchema, doc, seen, depth + 1, notes);
     }
     return out;
   }
   if (type === 'array') {
-    const item = exampleFromSchema(schema.items, doc, seen, depth + 1);
+    const item = exampleFromSchema(schema.items, doc, seen, depth + 1, notes);
     return item === null ? [] : [item];
   }
   if (type === 'integer' || type === 'number') return 0;
@@ -208,58 +294,69 @@ function templatePath(path: string): string {
   return path.replace(/\{([^{}]+)\}/g, '{{$1}}');
 }
 
-/** Look up a security scheme by name across both spec flavors. */
-function findSecurityScheme(doc: Doc, name: string): Obj | null {
-  const oas3 =
-    isObject(doc.components) && isObject(doc.components.securitySchemes) ? doc.components.securitySchemes : undefined;
-  if (oas3 && isObject(oas3[name])) return oas3[name] as Obj;
-  const sw2 = isObject(doc.securityDefinitions) ? doc.securityDefinitions : undefined;
-  if (sw2 && isObject(sw2[name])) return sw2[name] as Obj;
-  return null;
+/** All security schemes of either spec flavor, by name. */
+function securitySchemes(doc: Doc): Obj {
+  if (isObject(doc.components) && isObject(doc.components.securitySchemes)) return doc.components.securitySchemes;
+  return isObject(doc.securityDefinitions) ? doc.securityDefinitions : {};
 }
 
-/** Map the first resolvable security requirement to a bonk AuthConfig, or undefined. */
-function resolveAuth(operation: Obj, doc: Doc): AuthConfig | undefined {
+/** A bonk AuthConfig for a security scheme; secrets are `{{vars}}`, never values. */
+function schemeAuth(scheme: Obj): AuthConfig | undefined {
+  const type = typeof scheme.type === 'string' ? scheme.type : '';
+  const flavor = typeof scheme.scheme === 'string' ? scheme.scheme.toLowerCase() : '';
+  if ((type === 'http' && flavor === 'basic') || type === 'basic') {
+    return { type: 'basic', basicUsername: '{{username}}', basicPassword: '{{password}}' };
+  }
+  if (type === 'http' || type === 'oauth2' || type === 'openIdConnect')
+    return { type: 'bearer', bearerToken: '{{token}}' };
+  if (type === 'apiKey') {
+    return {
+      type: 'apiKey',
+      apiKeyName: typeof scheme.name === 'string' ? scheme.name : '',
+      apiKeyIn: scheme.in === 'query' ? 'query' : 'header',
+      apiKeyValue: '{{apiKey}}',
+    };
+  }
+  return undefined;
+}
+
+/**
+ * The scheme an operation uses: the first resolvable one of its (or the document's)
+ * requirements. `null` = explicitly none (`security: []`), undefined = not specified.
+ */
+function operationScheme(operation: Obj, doc: Doc): { name: string; auth: AuthConfig } | null | undefined {
   const security = Array.isArray(operation.security)
     ? operation.security
     : Array.isArray(doc.security)
       ? doc.security
       : undefined;
   if (!security) return undefined;
+  const schemes = securitySchemes(doc);
   for (const requirement of security) {
     if (!isObject(requirement)) continue;
-    for (const schemeName of Object.keys(requirement)) {
-      const scheme = findSecurityScheme(doc, schemeName);
-      if (!scheme) continue;
-      const type = typeof scheme.type === 'string' ? scheme.type : '';
-      const flavor = typeof scheme.scheme === 'string' ? scheme.scheme.toLowerCase() : '';
-      if (type === 'http' && flavor === 'basic') return { type: 'basic' };
-      if (type === 'http' || type === 'oauth2') return { type: 'bearer', bearerToken: '' };
-      if (type === 'basic') return { type: 'basic' }; // Swagger2
-      if (type === 'apiKey') {
-        return {
-          type: 'apiKey',
-          apiKeyName: typeof scheme.name === 'string' ? scheme.name : '',
-          apiKeyIn: scheme.in === 'query' ? 'query' : 'header',
-          apiKeyValue: '',
-        };
-      }
+    for (const name of Object.keys(requirement)) {
+      const scheme = schemes[name];
+      const auth = isObject(scheme) ? schemeAuth(scheme) : undefined;
+      if (auth) return { name, auth };
     }
   }
-  return undefined;
+  return security.length === 0 ? null : undefined;
 }
 
-/** Build the OAS3 requestBody (JSON preferred) into request fields; mutates `req`/`headers`. */
+/** Build the OAS3 requestBody (JSON preferred) into request fields; mutates `headers`. */
 function applyOas3Body(
   requestBody: unknown,
   doc: Doc,
   headers: Record<string, string>,
+  notes: ExampleNotes,
 ): { body?: string; bodyMode?: 'raw'; rawBodyFormat?: RawBodyFormat } {
+  if (isObject(requestBody)) requestBody = deref(requestBody, doc);
   if (!isObject(requestBody) || !isObject(requestBody.content)) return {};
   const content = requestBody.content;
   const json = content['application/json'];
   if (isObject(json)) {
-    const example = exampleFromSchema(json.schema, doc);
+    const example =
+      json.example !== undefined ? json.example : exampleFromSchema(json.schema, doc, new Set(), 0, notes);
     headers['Content-Type'] = 'application/json';
     return {
       body: JSON.stringify(example ?? {}, null, 2),
@@ -269,7 +366,7 @@ function applyOas3Body(
   }
   const firstType = Object.keys(content)[0];
   if (firstType && isObject(content[firstType])) {
-    const example = exampleFromSchema((content[firstType] as Obj).schema, doc);
+    const example = exampleFromSchema((content[firstType] as Obj).schema, doc, new Set(), 0, notes);
     headers['Content-Type'] = firstType;
     return {
       body: typeof example === 'string' ? example : example == null ? '' : JSON.stringify(example, null, 2),
@@ -280,27 +377,27 @@ function applyOas3Body(
   return {};
 }
 
-/** Parse a full spec document into folders of RequestNodes + a base URL. */
-export function parseOpenApi(text: string, fileName: string): ParsedSpec {
-  const doc = parseDocument(text);
+/** Parse a full spec text (JSON or YAML) into operations, servers and warnings. */
+export function parseOpenApi(text: string, fileName: string, opts: OpenApiOptions = OPENAPI_DEFAULTS): ParsedSpec {
+  return readOpenApi(parseDocument(text), fileName, opts);
+}
+
+/** Read an already-parsed spec document into operations, servers and warnings. */
+export function readOpenApi(doc: Doc, fileName: string, opts: OpenApiOptions = OPENAPI_DEFAULTS): ParsedSpec {
   const version = detectVersion(doc);
+  const warnings: SpecWarning[] = [];
 
   const info = isObject(doc.info) ? doc.info : {};
   const title =
     (typeof info.title === 'string' && info.title.trim()) || fileName.replace(/\.(json|ya?ml)$/i, '') || 'Imported API';
-  const baseUrl = specBaseUrl(doc, version);
+  const servers = specServers(doc, version, (w) => warnings.push(w));
+  const schemes = securitySchemes(doc);
 
-  // Folders keyed by tag; a null key holds ungrouped requests. Insertion order is
-  // preserved so the output tree is stable.
-  const folders = new Map<string | null, ImportedFolder>();
-  const folderFor = (tag: string | null): ImportedFolder => {
-    let f = folders.get(tag);
-    if (!f) {
-      f = { name: tag, requests: [] };
-      folders.set(tag, f);
-    }
-    return f;
-  };
+  // The collection's scheme: the document-wide one, else the one most operations name.
+  const ops: SpecOperation[] = [];
+  const opSchemes: ({ name: string; auth: AuthConfig } | null | undefined)[] = [];
+  const missingRefs = new Map<string, string[]>();
+  const variantSchemas = new Map<string, { count: number; ops: string[] }>();
 
   const paths = isObject(doc.paths) ? doc.paths : {};
   for (const [path, pathItemRaw] of Object.entries(paths)) {
@@ -316,10 +413,12 @@ export function parseOpenApi(text: string, fileName: string): ParsedSpec {
         (typeof operation.summary === 'string' && operation.summary) ||
         (typeof operation.operationId === 'string' && operation.operationId) ||
         `${upper} ${path}`;
+      const key = (typeof operation.operationId === 'string' && operation.operationId) || `${upper} ${path}`;
 
       const headers: Record<string, string> = {};
       const params: Param[] = [];
       const parameters = mergeParameters(pathItem.parameters, operation.parameters, doc);
+      const notes: ExampleNotes = { missing: new Set(), variants: [] };
 
       // Swagger2 carries the body + form fields inside `parameters`; collect them.
       const bodyParams: BodyParam[] = [];
@@ -359,12 +458,12 @@ export function parseOpenApi(text: string, fileName: string): ParsedSpec {
       let outBodyParams: BodyParam[] | undefined;
 
       if (version === 'oas3') {
-        const applied = applyOas3Body(operation.requestBody, doc, headers);
+        const applied = applyOas3Body(operation.requestBody, doc, headers, notes);
         body = applied.body;
         bodyMode = applied.bodyMode;
         rawBodyFormat = applied.rawBodyFormat;
       } else if (swaggerBodySchema !== undefined) {
-        const example = exampleFromSchema(swaggerBodySchema, doc);
+        const example = exampleFromSchema(swaggerBodySchema, doc, new Set(), 0, notes);
         const consumes = Array.isArray(operation.consumes) ? operation.consumes : [];
         const contentType = typeof consumes[0] === 'string' ? consumes[0] : 'application/json';
         headers['Content-Type'] = contentType;
@@ -375,8 +474,10 @@ export function parseOpenApi(text: string, fileName: string): ParsedSpec {
         bodyMode = 'urlencoded';
         outBodyParams = bodyParams;
       }
+      if (!opts.bodies && body !== undefined) body = '';
 
-      const auth = resolveAuth(operation, doc);
+      const scheme = operationScheme(operation, doc);
+      opSchemes.push(scheme);
       const tag = Array.isArray(operation.tags) && typeof operation.tags[0] === 'string' ? operation.tags[0] : null;
 
       const node: RequestNode = {
@@ -386,21 +487,84 @@ export function parseOpenApi(text: string, fileName: string): ParsedSpec {
         protocol: 'http',
         request: {
           method: upper,
-          url: '{{baseUrl}}' + templatePath(path),
+          url: '{{baseUrl}}' + (opts.pathVars ? templatePath(path) : path),
           headers,
           ...(body !== undefined ? { body } : {}),
           ...(bodyMode ? { bodyMode } : {}),
           ...(rawBodyFormat ? { rawBodyFormat } : {}),
           ...(outBodyParams ? { bodyParams: outBodyParams } : {}),
-          ...(auth ? { auth } : {}),
         },
         ...(params.length > 0 ? { params } : {}),
       };
-      folderFor(tag).requests.push(node);
+      const op: SpecOperation = { key, method: upper, path, tag, node };
+      for (const ref of notes.missing) {
+        missingRefs.set(ref, [...(missingRefs.get(ref) ?? []), key]);
+        op.missingRef = true;
+      }
+      const variant = notes.variants[0];
+      if (variant) {
+        op.variants = variant.count;
+        const seen = variantSchemas.get(variant.schema);
+        variantSchemas.set(variant.schema, { count: variant.count, ops: [...(seen?.ops ?? []), key] });
+      }
+      ops.push(op);
     }
   }
 
-  return { title, baseUrl, folders: [...folders.values()] };
+  const collectionAuth = pickCollectionScheme(doc, opSchemes);
+  ops.forEach((op, i) => {
+    const scheme = opSchemes[i];
+    if (scheme === null) op.node.request.auth = { type: 'none' };
+    else if (scheme && !(opts.collectionAuth && scheme.name === collectionAuth?.scheme))
+      op.node.request.auth = scheme.auth;
+  });
+
+  for (const [ref, keys] of missingRefs) warnings.push({ kind: 'ref', ref, ops: keys });
+  for (const [schema, v] of variantSchemas) warnings.push({ kind: 'variants', schema, count: v.count, ops: v.ops });
+
+  // Folders keyed by tag; a null key holds ungrouped requests. Insertion order is
+  // preserved so the output tree is stable.
+  const folders = new Map<string | null, ImportedFolder>();
+  for (const op of ops) {
+    const f = folders.get(op.tag) ?? { name: op.tag, requests: [] };
+    f.requests.push(op.node);
+    folders.set(op.tag, f);
+  }
+
+  const components = isObject(doc.components) ? doc.components : {};
+  const schemaDefs = isObject(components.schemas)
+    ? components.schemas
+    : isObject(doc.definitions)
+      ? doc.definitions
+      : {};
+  const tagNames = new Set(ops.map((o) => o.tag).filter(Boolean));
+  return {
+    title,
+    version: typeof info.version === 'string' || typeof info.version === 'number' ? String(info.version) : '',
+    format: version === 'oas3' ? `OpenAPI ${String(doc.openapi).split('.').slice(0, 2).join('.')}` : 'Swagger 2.0',
+    baseUrl: servers[0]?.url ?? '',
+    servers,
+    folders: [...folders.values()],
+    ops,
+    collectionAuth,
+    tags: tagNames.size,
+    schemas: Object.keys(schemaDefs).length,
+    schemeNames: Object.keys(schemes),
+    warnings,
+  };
+}
+
+/** The document-wide scheme, else the one most operations use. */
+function pickCollectionScheme(
+  doc: Doc,
+  opSchemes: ({ name: string; auth: AuthConfig } | null | undefined)[],
+): { scheme: string; auth: AuthConfig } | null {
+  const global = operationScheme({}, doc);
+  if (global) return { scheme: global.name, auth: global.auth };
+  const counts = new Map<string, { n: number; auth: AuthConfig }>();
+  for (const s of opSchemes) if (s) counts.set(s.name, { n: (counts.get(s.name)?.n ?? 0) + 1, auth: s.auth });
+  const top = [...counts].sort((a, b) => b[1].n - a[1].n)[0];
+  return top ? { scheme: top[0], auth: top[1].auth } : null;
 }
 
 // ---------- Export ----------

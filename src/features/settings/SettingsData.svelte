@@ -3,7 +3,7 @@
   import { onMount } from 'svelte';
   import { history, clearHistory, exportIncludeSecrets, exportFormat, historyDays } from '$entities/history';
   import { requestConfirm } from '$shared/ui';
-  import { importApiFile, buildWorkspaceExport, buildPostmanCollection, workspace } from '$entities/workspace';
+  import { buildWorkspaceExport, buildPostmanCollection, importWindow, workspace } from '$entities/workspace';
   import { environments } from '$entities/environment';
   import { appDataDir, openapiExportSave, revealPath } from '$shared/ipc';
   import { row, sw, select } from './ui.svelte';
@@ -42,10 +42,7 @@
       status = String(e);
     }
   }
-  const doImport = () =>
-    run(async () => {
-      await importApiFile();
-    });
+  const doImport = (): void => importWindow.open();
   const doExport = () =>
     run(async () => {
       const name = workspace.path.split(/[\\/]/).filter(Boolean).at(-1) ?? 'workspace';

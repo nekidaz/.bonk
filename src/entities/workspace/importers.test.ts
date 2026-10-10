@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isCurlText, parseCurlFile, isHar, isInsomniaExport, parseHar, parseInsomniaExport } from './importers';
+import { parseCurlFile, parseInsomniaExport } from './importers';
 
 describe('Insomnia import', () => {
   const doc = {
@@ -33,11 +33,6 @@ describe('Insomnia import', () => {
   };
   const text = JSON.stringify(doc);
 
-  it('detects the format', () => {
-    expect(isInsomniaExport(text)).toBe(true);
-    expect(isInsomniaExport('{"info":{},"item":[]}')).toBe(false);
-  });
-
   it('maps folders, templates, requests and env vars', () => {
     const c = parseInsomniaExport(text);
     expect(c.title).toBe('My API');
@@ -62,51 +57,9 @@ describe('Insomnia import', () => {
   });
 });
 
-describe('HAR import', () => {
-  const har = {
-    log: {
-      pages: [{ title: 'Page 1' }],
-      entries: [
-        {
-          request: {
-            method: 'POST',
-            url: 'https://a.io/v1/x?q=1',
-            headers: [
-              { name: ':authority', value: 'a.io' },
-              { name: 'Cookie', value: 'c' },
-              { name: 'Content-Length', value: '3' },
-              { name: 'Host', value: 'a.io' },
-              { name: 'Accept', value: 'json' },
-            ],
-            postData: { mimeType: 'application/json', text: '{"a":1}' },
-          },
-        },
-        { request: { method: 'POST', url: 'https://a.io/v1/x?q=1', headers: [] } },
-        { request: { method: 'GET', url: 'https://a.io/v1/x?q=1', headers: [] } },
-      ],
-    },
-  };
-  const text = JSON.stringify(har);
-
-  it('detects, filters headers, dedupes and names', () => {
-    expect(isHar(text)).toBe(true);
-    expect(isHar('{"log":{}}')).toBe(false);
-    const c = parseHar(text);
-    expect(c.title).toBe('Page 1');
-    expect(c.items).toHaveLength(2);
-    const first = c.items[0];
-    if (first.kind !== 'request') throw new Error('expected request');
-    expect(first.node.name).toBe('POST /v1/x');
-    expect(first.node.request.headers).toEqual({ Accept: 'json' });
-    expect(first.node.request.body).toBe('{"a":1}');
-    expect(first.node.params).toEqual([expect.objectContaining({ key: 'q', value: '1' })]);
-  });
-});
-
 describe('cURL file import', () => {
   it('parses several commands, with line continuations', () => {
     const text = "curl -X POST https://a.test/x \\\n  -H 'A: b' -d '{}'\n# note\ncurl https://a.test/y?q=1";
-    expect(isCurlText(text)).toBe(true);
     const out = parseCurlFile(text);
     expect(out.items).toHaveLength(2);
     const first = out.items[0];

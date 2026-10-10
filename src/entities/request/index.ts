@@ -51,6 +51,7 @@ export {
   addRequestToFolder,
   applyCurlToActiveTab,
   applyScriptVars,
+  currentRequestSettings,
   openSavedRequest,
   restoreSavedRequest,
   saveActiveRequest,

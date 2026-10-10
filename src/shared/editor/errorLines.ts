@@ -1,4 +1,5 @@
 import { Decoration, EditorView, ViewPlugin, type DecorationSet, type ViewUpdate } from '@codemirror/view';
+import { revealLine } from './scriptMarks';
 import type { Extension } from '@codemirror/state';
 
 /**
@@ -32,6 +33,29 @@ export function errorFieldLines(fields: string[]): Extension {
       decorations: DecorationSet;
       constructor(view: EditorView) {
         this.decorations = build(view);
+      }
+      update(u: ViewUpdate) {
+        if (u.docChanged) this.decorations = build(u.view);
+      }
+    },
+    { decorations: (v) => v.decorations },
+  );
+}
+
+/** IM6: tint line `line` (1-based) of a document that doesn't parse; `reveal` also scrolls there and puts the cursor on it. */
+export function errorAtLine(line: number, reveal = false): Extension {
+  const mark = Decoration.line({ class: 'cm-import-error' });
+  const build = (view: EditorView): DecorationSet =>
+    line >= 1 && line <= view.state.doc.lines
+      ? Decoration.set([mark.range(view.state.doc.line(line).from)])
+      : Decoration.none;
+  return ViewPlugin.fromClass(
+    class {
+      decorations: DecorationSet;
+      constructor(view: EditorView) {
+        this.decorations = build(view);
+        // A view can't be dispatched to while it is being configured.
+        if (reveal) requestAnimationFrame(() => revealLine(view, line));
       }
       update(u: ViewUpdate) {
         if (u.docChanged) this.decorations = build(u.view);

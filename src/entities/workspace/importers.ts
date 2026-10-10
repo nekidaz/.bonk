@@ -49,7 +49,7 @@ function makeNode(name: string, request: HttpRequest, params: Param[]): Imported
 
 // ---------- Insomnia export v4 ----------
 
-export function isInsomniaExport(text: string): boolean {
+function isInsomniaExport(text: string): boolean {
   const doc = parseJson(text);
   return doc?._type === 'export' && doc.__export_format === 4 && Array.isArray(doc.resources);
 }
@@ -146,63 +146,7 @@ export function parseInsomniaExport(text: string): ParsedPostmanCollection {
   };
 }
 
-// ---------- HAR 1.2 ----------
-
-export function isHar(text: string): boolean {
-  return Array.isArray(object(parseJson(text)?.log)?.entries);
-}
-
-const HAR_SKIP_HEADERS = new Set(['cookie', 'content-length', 'host']);
-
-export function parseHar(text: string): ParsedPostmanCollection {
-  const log = object(parseJson(text)?.log);
-  if (!log || !Array.isArray(log.entries)) throw new Error(t('import.err.har'));
-  const items: ImportedPostmanItem[] = [];
-  const seen = new Set<string>();
-  for (const entry of rows(log.entries)) {
-    const req = object(entry.request);
-    if (!req) continue;
-    const method = (str(req.method) || 'GET').toUpperCase();
-    const url = str(req.url);
-    if (!url || seen.has(`${method} ${url}`)) continue;
-    seen.add(`${method} ${url}`);
-    const headers: Record<string, string> = {};
-    for (const h of rows(req.headers)) {
-      const name = str(h.name);
-      if (!name.trim() || name.startsWith(':') || HAR_SKIP_HEADERS.has(name.toLowerCase())) continue;
-      headers[name] = str(h.value);
-    }
-    const request: HttpRequest = { method, url, headers };
-    const postData = object(req.postData);
-    if (postData && typeof postData.text === 'string' && postData.text) {
-      request.bodyMode = 'raw';
-      request.body = postData.text;
-      const mime = str(postData.mimeType).toLowerCase();
-      request.rawBodyFormat = mime.includes('json')
-        ? 'JSON'
-        : mime.includes('xml')
-          ? 'XML'
-          : mime.includes('html')
-            ? 'HTML'
-            : 'Text';
-    }
-    let path = url;
-    try {
-      path = new URL(url).pathname;
-    } catch {
-      path = url.split(/[?#]/)[0];
-    }
-    items.push(makeNode(`${method} ${path}`, request, paramsFromUrl(url)));
-  }
-  const pageTitle = str(rows(log.pages)[0]?.title).trim();
-  return { title: pageTitle || 'HAR import', items, variables: [] };
-}
-
 // ---------- cURL (text file with one or more commands) ----------
-
-export function isCurlText(text: string): boolean {
-  return /^\s*curl\s/i.test(text);
-}
 
 export function parseCurlFile(text: string): ParsedPostmanCollection {
   // A command starts at a line beginning with `curl`; `\`-continued lines stay with it.

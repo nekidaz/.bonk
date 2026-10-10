@@ -244,16 +244,6 @@ export function parsePostmanCollection(text: string): ParsedPostmanCollection {
   };
 }
 
-/** Cheap format check for the shared Import dialog; the parser validates details. */
-export function isPostmanCollection(text: string): boolean {
-  try {
-    const doc = object(JSON.parse(text));
-    return !!(object(doc?.info) && Array.isArray(doc?.item));
-  } catch {
-    return false;
-  }
-}
-
 // ---------- Export: Postman Collection v2.1 ----------
 
 type Json = Record<string, unknown>;

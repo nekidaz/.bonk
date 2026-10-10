@@ -245,6 +245,36 @@ export interface RequestNode {
   request: HttpRequest;
   params?: Param[];
   grpc?: GrpcTabState;
+  /** The spec operation this request was imported from; re-import updates it (IM8). */
+  spec?: SpecLink;
+}
+
+/** What an import generated for one request, so a re-import can tell spec changes from user edits. */
+export interface SpecBase {
+  method: string;
+  url: string;
+  params: [string, string][];
+  headers: Record<string, string>;
+  body: string;
+}
+
+/** Link from a saved request to its spec operation: `op` = operationId, else `METHOD path`. */
+export interface SpecLink {
+  op: string;
+  base: SpecBase;
+}
+
+/** Where a collection was imported from (`.folder.bonk.json` `source`), for «Обновить из спецификации». */
+export interface ImportSource {
+  kind: 'url' | 'file';
+  /** URL or absolute file path. */
+  location: string;
+  /** `OpenAPI 3.1`, `Postman v2.1`… */
+  format: string;
+  /** `info.version` at the last import. */
+  version?: string;
+  /** Import options at the last import (format-specific). */
+  options?: Record<string, unknown>;
 }
 
 export interface FolderNode {
@@ -254,6 +284,8 @@ export interface FolderNode {
   expanded: boolean;
   /** Collection-level auth (`.folder.bonk.json`); requests set to 'inherit' use it. */
   auth?: AuthConfig;
+  /** Set on a collection made by import (IM8). */
+  source?: ImportSource;
   children: TreeNode[];
 }
 

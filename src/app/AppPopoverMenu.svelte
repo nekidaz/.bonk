@@ -35,6 +35,7 @@
     onCopyCurl,
     onImportCurl,
     onImport,
+    onUpdateFromSpec,
     onExportOpenApi,
     onRenameTab,
     onCopyCurlTab,
@@ -64,6 +65,7 @@
     onCopyCurl: () => void;
     onImportCurl: () => void;
     onImport: (source?: string) => void;
+    onUpdateFromSpec: (folderId: string) => void;
     onExportOpenApi: (format: 'json' | 'yaml') => void;
     onRenameTab: () => void;
     onCopyCurlTab: () => void;
@@ -256,6 +258,9 @@
             runInRunner(id);
           })}
           {@render item('lock', t('nav.menu.collAuth'), onAuth)}
+          {#if node?.kind === 'folder' && node.source}
+            {@render item('sync', t('nav.menu.updateFromSpec'), () => onUpdateFromSpec(node.id))}
+          {/if}
           {@render item('upload', t('nav.menu.exportJson'), () => onExportOpenApi('json'))}
           {@render item('upload', t('nav.menu.exportYaml'), () => onExportOpenApi('yaml'))}
         {/if}

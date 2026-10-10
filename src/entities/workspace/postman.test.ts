@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildPostmanCollection, isPostmanCollection, parsePostmanCollection } from './postman';
+import { buildPostmanCollection, parsePostmanCollection } from './postman';
 import type { TreeNode } from '$shared/model';
 
 describe('Postman Collection export', () => {
@@ -53,7 +53,6 @@ describe('Postman Collection export', () => {
     const doc = JSON.parse(text);
     expect(doc.info.schema).toContain('v2.1.0');
     expect(doc.variable.map((v: { value: string }) => v.value)).toEqual(['u', '']);
-    expect(isPostmanCollection(text)).toBe(true);
     const back = parsePostmanCollection(text);
     expect(back.title).toBe('Ws');
     const folder = back.items[0];
@@ -197,9 +196,7 @@ describe('Postman Collection import', () => {
     expect(calls).toEqual(['collection', 'request']);
   });
 
-  it('recognizes collection JSON and rejects unrelated documents', () => {
-    expect(isPostmanCollection('{"info":{"name":"A"},"item":[]}')).toBe(true);
-    expect(isPostmanCollection('{"openapi":"3.0.0","info":{},"paths":{}}')).toBe(false);
+  it('rejects documents that are not a collection', () => {
     expect(() => parsePostmanCollection('not json')).toThrow('корректным JSON');
     expect(() => parsePostmanCollection('{}')).toThrow('Ожидается коллекция Postman');
   });
