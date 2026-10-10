@@ -159,17 +159,7 @@
       </div>
     {/if}
   {:else}
-    <header>
-      <span>{t('script.outline')}</span>
-      <button
-        type="button"
-        title={`${t('script.outline.hide')} ⌥⌘O`}
-        aria-label={t('script.outline.hide')}
-        onclick={toggle}
-      >
-        <span class="material-symbols-outlined" aria-hidden="true">dock_to_right</span>
-      </button>
-    </header>
+    <header>{t('script.outline')}</header>
     <label class="search">
       <span class="material-symbols-outlined" aria-hidden="true">search</span>
       <input
@@ -236,14 +226,12 @@
   header {
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    padding: 12px 10px 6px 14px;
+    padding: 14px 14px 8px;
     color: var(--t3);
     font: 600 var(--font-size-micro) var(--mono);
     letter-spacing: var(--tracking-eyebrow);
     text-transform: uppercase;
   }
-  header button,
   .rail-toggle {
     width: 24px;
     height: 24px;
@@ -253,12 +241,10 @@
     color: var(--t3);
     border-radius: var(--radius-sm);
   }
-  header button:hover,
   .rail-toggle:hover {
     color: var(--text);
     background: var(--hover);
   }
-  header .material-symbols-outlined,
   .rail-toggle .material-symbols-outlined {
     font-size: 15px;
   }
