@@ -42,6 +42,7 @@ export {
   type ScriptJump,
   scriptStage,
   scriptUi,
+  setScriptRunPanel,
   setScriptsOpen,
   setScriptStage,
 } from './scriptUi.svelte';

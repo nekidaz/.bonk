@@ -6,9 +6,9 @@
   import { tick } from 'svelte';
   import { ScriptsEditor } from '$shared/editor/components';
   import { focusMode, toggleFocus } from '$shared/ui';
-  import type { Tab } from '$shared/model';
+  import { formatBytes, type Tab } from '$shared/model';
   import { tabs } from '$entities/tab';
-  import { scriptStage, scriptUi, setScriptStage, setScriptsOpen } from './scriptUi.svelte';
+  import { scriptStage, scriptUi, setScriptRunPanel, setScriptStage, setScriptsOpen } from './scriptUi.svelte';
 
   let {
     tab,
@@ -29,7 +29,31 @@
   $effect(() => {
     const id = tab.id;
     setScriptsOpen(id, true);
-    return () => setScriptsOpen(id, false);
+    return () => {
+      setScriptsOpen(id, false);
+      setScriptRunPanel(id, false);
+    };
+  });
+
+  // SC9: status, time and size of the last response, for the results panel that replaces the strip.
+  const response = $derived.by(() => {
+    if (tab.protocol === 'grpc') {
+      const r = tab.grpcResult;
+      return r
+        ? {
+            tone: r.ok ? ('success' as const) : ('danger' as const),
+            status: r.status,
+            detail: `${r.elapsed_ms} ms  ·  ${formatBytes(r.size_bytes)}`,
+          }
+        : undefined;
+    }
+    const r = tab.response;
+    if (!r || r.status === 0) return undefined;
+    return {
+      tone: r.status >= 500 ? ('danger' as const) : r.status >= 400 ? ('warning' as const) : ('success' as const),
+      status: String(r.status),
+      detail: `${r.elapsed_ms} ms  ·  ${formatBytes(r.size_bytes)}`,
+    };
   });
 
   $effect(() => {
@@ -53,6 +77,8 @@
   results={tab.testResults}
   expanded={focusMode.current === 'request'}
   onExpand={() => (focusMode.current = toggleFocus(focusMode.current, 'request'))}
+  {response}
+  onRunPanel={(open) => setScriptRunPanel(tab.id, open)}
   onClearConsole={() =>
     tabs.updateById(tab.id, (x) => (x.testResults ? { ...x, testResults: { ...x.testResults, events: [] } } : x))}
 />
