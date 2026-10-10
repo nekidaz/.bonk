@@ -24,23 +24,35 @@
     class="bs-status-link"
     class:on={utilityMode === 'console' || utilityMode === 'issues'}
     type="button"
+    aria-label={t('nav.status.console')}
     aria-pressed={utilityMode === 'console' || utilityMode === 'issues'}
     onclick={onConsole}
-    ><span class="material-symbols-outlined" aria-hidden="true">data_object</span>{t('nav.status.console')}</button
+    ><span class="material-symbols-outlined" aria-hidden="true">data_object</span><span class="lbl"
+      >{t('nav.status.console')}</span
+    ></button
   >
   <button
     class="bs-status-link"
     class:on={utilityMode === 'terminal'}
     type="button"
+    aria-label={t('nav.status.terminal')}
     aria-pressed={utilityMode === 'terminal'}
     onclick={onTerminal}
-    ><span class="material-symbols-outlined" aria-hidden="true">terminal</span>{t('nav.status.terminal')}</button
+    ><span class="material-symbols-outlined" aria-hidden="true">terminal</span><span class="lbl"
+      >{t('nav.status.terminal')}</span
+    ></button
   >
   <div class="bs-spacer"></div>
-  <button class="bs-status-link runner" class:on={runnerOn} type="button" aria-pressed={runnerOn} onclick={onRunner}
+  <button
+    class="bs-status-link runner"
+    class:on={runnerOn}
+    type="button"
+    aria-pressed={runnerOn}
+    aria-label={t('nav.status.runner')}
+    onclick={onRunner}
     ><span class="material-symbols-outlined" class:spin={runner.run.status === 'running'} aria-hidden="true"
       >{runner.run.status === 'running' ? 'progress_activity' : 'play_arrow'}</span
-    >{t('nav.status.runner')}</button
+    ><span class="lbl">{t('nav.status.runner')}</span></button
   >
 </div>
 

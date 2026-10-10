@@ -15,6 +15,8 @@ const SIDEBAR_COLLAPSE_AT = 180;
 // S35: below this window width the sidebar gives up width first (down to SIDEBAR_MIN),
 // then the main area adapts. Pure CSS, so it tracks window resizes for free.
 const SQUEEZE_BELOW = 1100;
+// Flow · Размеры окна: at the 720 px minimum (anything up to this) the request folds into its strip.
+const COMPACT_MAX = 760;
 const PANE_MIN = 120; // min height for both the request pane and the response
 const RESPONSE_COLLAPSE_AT = 72;
 const RESPONSE_DEFAULT_HEIGHT = null; // null = default flex:1
@@ -83,6 +85,14 @@ class Layout {
     });
     $effect(() => {
       this.sidebarWidth = clamp(this.sidebarWidths[workspace.path] ?? SIDEBAR_DEFAULT, SIDEBAR_MIN, SIDEBAR_MAX);
+    });
+    // Shrinking to the minimum window folds the request into its strip (⌄ opens it); widening unfolds it.
+    let compact = false;
+    $effect(() => {
+      const now = this.innerWidth <= COMPACT_MAX;
+      if (now === compact) return;
+      compact = now;
+      untrack(() => (this.requestHidden = now));
     });
     // Expanded mode belongs to the tab it was opened on.
     let focusTabId: string | undefined;

@@ -140,7 +140,7 @@
         style:background={activeEnv ? ENV_COLOR_VAR[envColor(activeEnv)] : undefined}
         aria-hidden="true"
       ></span>{/if}
-    <span class="bs-toolbar-env-name">{environmentName}</span>
+    <span class="bs-toolbar-env-name" title={environmentName}>{environmentName}</span>
     <span class="material-symbols-outlined chevron" aria-hidden="true">keyboard_arrow_up</span>
   </button>
   {#if open}

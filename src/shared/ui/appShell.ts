@@ -35,6 +35,13 @@ export function workspaceInitials(name: string): string {
   return letters.slice(0, 2).toLowerCase();
 }
 
+/** A folder path for one line: the home dir as «~», split so CSS can cut the start and keep the last folder. */
+export function pathParts(path: string): { dir: string; leaf: string } {
+  const p = path.replace(/^\/(?:Users|home)\/[^/]+(?=\/|$)/, '~');
+  const cut = Math.max(p.lastIndexOf('/'), p.lastIndexOf('\\')) + 1;
+  return { dir: p.slice(0, cut), leaf: p.slice(cut) };
+}
+
 /** Some installed MCP client is configured for this workspace (the «● MCP подключён» chip). */
 export function mcpConnected(clients: { installed: boolean; workspace?: string | null }[], workspace: string): boolean {
   return !!workspace && clients.some((c) => c.installed && c.workspace === workspace);

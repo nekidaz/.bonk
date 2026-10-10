@@ -21,12 +21,15 @@
   // Runner / environment / sidebar controls out of the window. Keep the active
   // tab visible when it or the strip changes (new tab, switch, close, reorder).
   let tabsScrollEl = $state<HTMLDivElement | null>(null);
-  $effect(() => {
-    const id = tabs.activeId;
-    void tabs.list.length;
+  function revealActive(): void {
     tabsScrollEl
-      ?.querySelector(`[data-tab-id="${CSS.escape(id)}"]`)
+      ?.querySelector(`[data-tab-id="${CSS.escape(tabs.activeId)}"]`)
       ?.scrollIntoView({ inline: 'nearest', block: 'nearest' });
+  }
+  $effect(() => {
+    void tabs.activeId;
+    void tabs.list.length;
+    revealActive();
   });
 
   // Vertical mouse-wheel over the strip scrolls it horizontally (trackpads
@@ -63,6 +66,38 @@
     return url ? `${t.title}\n${url}` : t.title;
   }
 
+  // Flow · Размеры окна: tabs that don't fit the strip are listed behind «+N».
+  let overflowIds = $state.raw<string[]>([]);
+  let overflowMenu = $state<{ x: number; y: number } | null>(null);
+  const overflowTabs = $derived(tabs.list.filter((tb) => overflowIds.includes(tb.id)));
+  function measureOverflow(): void {
+    const el = tabsScrollEl;
+    if (!el) return;
+    const box = el.getBoundingClientRect();
+    overflowIds = [...el.querySelectorAll<HTMLElement>('.bs-tab')]
+      .filter((tab) => {
+        const r = tab.getBoundingClientRect();
+        return r.left < box.left - 1 || r.right > box.right + 1;
+      })
+      .map((tab) => tab.dataset.tabId ?? '');
+  }
+  $effect(() => {
+    const el = tabsScrollEl;
+    if (!el) return;
+    void tabs.list;
+    measureOverflow();
+    const ro = new ResizeObserver(() => {
+      revealActive();
+      measureOverflow();
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  });
+  function openOverflow(e: MouseEvent): void {
+    const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    overflowMenu = { x: Math.min(r.left, window.innerWidth - 248), y: r.bottom + 4 };
+  }
+
   // Drag-reorder: tabs move live under the pointer, like browser tabs.
   let dragTabId = $state<string | null>(null);
   function onTabDragEnter(index: number): void {
@@ -74,16 +109,15 @@
   }
 </script>
 
-<div class="bs-tabbar">
-  <div
-    class="bs-tabs-scroll"
-    bind:this={tabsScrollEl}
-    role="presentation"
-    oncontextmenu={(e) => onContext(e, tabs.activeId)}
-    ondblclick={(e) => {
-      if (e.target === e.currentTarget) newTab();
-    }}
-  >
+<div
+  class="bs-tabbar"
+  role="presentation"
+  oncontextmenu={(e) => onContext(e, tabs.activeId)}
+  ondblclick={(e) => {
+    if (e.target === e.currentTarget || e.target === tabsScrollEl) newTab();
+  }}
+>
+  <div class="bs-tabs-scroll" bind:this={tabsScrollEl} role="presentation" onscroll={measureOverflow}>
     {#each tabs.list as tb, i (tb.id)}
       <div
         class="bs-tab"
@@ -154,11 +188,47 @@
         {/if}
       </div>
     {/each}
-    <button class="bs-addt" title={t('tabs.newRequestHint')} aria-label={t('tabs.newRequest')} onclick={onNew}
-      ><span class="material-symbols-outlined" style="font-size:18px">add</span></button
-    >
   </div>
+  {#if overflowTabs.length}
+    <button
+      class="bs-tabs-more"
+      type="button"
+      aria-haspopup="menu"
+      aria-expanded={!!overflowMenu}
+      aria-label={t('tabs.more', { n: overflowTabs.length })}
+      onclick={openOverflow}
+      >+{overflowTabs.length}<span class="material-symbols-outlined" aria-hidden="true">keyboard_arrow_down</span
+      ></button
+    >
+  {/if}
+  <button class="bs-addt" title={t('tabs.newRequestHint')} aria-label={t('tabs.newRequest')} onclick={onNew}
+    ><span class="material-symbols-outlined" style="font-size:18px">add</span></button
+  >
 </div>
+
+{#if overflowMenu}
+  <button class="bs-backdrop" aria-label={t('nav.menu.closeMenu')} onclick={() => (overflowMenu = null)}></button>
+  <div class="bs-menu" role="menu" style="left:{overflowMenu.x}px; top:{overflowMenu.y}px; width:240px">
+    {#each overflowTabs as tb (tb.id)}
+      <button
+        class="mi"
+        role="menuitem"
+        title={tabTooltip(tb)}
+        onclick={() => {
+          overflowMenu = null;
+          tabs.activeId = tb.id;
+        }}
+      >
+        <span class="tm" style:color={TAB_ICON[tb.protocol] ? undefined : tabMethodColor(tb)}
+          >{#if TAB_ICON[tb.protocol]}<span class="material-symbols-outlined" aria-hidden="true"
+              >{TAB_ICON[tb.protocol]}</span
+            >{:else}{tabMethodLabel(tb)}{/if}</span
+        >
+        <span class="lb">{tb.title === HTTP_DEFAULT_TITLE ? t('tabs.untitled') : tb.title}</span>
+      </button>
+    {/each}
+  </div>
+{/if}
 
 <style>
   /* S36: "Runner · <scope>" gets a wider tab. */
@@ -166,6 +236,40 @@
     flex-basis: 200px;
     width: 200px;
     max-width: 200px;
+  }
+  /* «+N»: the strip hugs its tabs, so «+N» and «+» sit right after the last visible one. */
+  .bs-tabs-scroll {
+    flex: 0 1 auto;
+  }
+  .bs-tabs-scroll:not(:has(.bs-tab)) {
+    display: none;
+  }
+  .bs-tabs-more {
+    display: flex;
+    flex: none;
+    align-items: center;
+    gap: 2px;
+    height: 27px;
+    padding: 0 6px 0 10px;
+    border-radius: var(--radius-control);
+    background: var(--color-field);
+    color: var(--color-text-secondary);
+    font: 600 var(--font-size-caption) var(--font-code);
+  }
+  .bs-tabs-more:hover {
+    color: var(--color-text);
+  }
+  .bs-tabs-more .material-symbols-outlined {
+    font-size: 14px;
+  }
+  .tm {
+    flex: 0 0 40px;
+    font: 600 var(--font-size-micro) var(--font-code);
+    letter-spacing: 0.4px;
+  }
+  .tm .material-symbols-outlined {
+    font-size: 14px;
+    color: var(--color-text-muted);
   }
   /* S17b: a pinned tab keeps its pin where the close button was. */
   .bs-tab .x.pin {

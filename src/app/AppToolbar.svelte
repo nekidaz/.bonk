@@ -21,6 +21,7 @@
   <button class="bs-toolbar-search" type="button" aria-label={t('nav.toolbar.searchAria')} onclick={onSearch}>
     <span class="material-symbols-outlined" aria-hidden="true">search</span>
     <span class="bs-toolbar-search-input">{t('nav.toolbar.search')}</span>
+    <span class="bs-toolbar-search-input short">{t('nav.toolbar.searchShort')}</span>
     <kbd>⌘K</kbd>
   </button>
   <div class="bs-tb-right">

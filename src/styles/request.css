@@ -2548,6 +2548,23 @@
   color: var(--color-text-secondary);
 }
 
+/* Flow · Размеры окна: at the minimum window only ⌄ is left of «Показать тело». */
+@media (max-width: 760px) {
+  :root .lb-strip.req {
+    gap: 8px;
+  }
+
+  :root .lb-strip.req :is(.label, .act .lbl, .act kbd) {
+    display: none;
+  }
+
+  :root .lb-strip.req .act {
+    width: 30px;
+    padding: 0;
+    justify-content: center;
+  }
+}
+
 :root .lb-strip :is(.chip, .act):focus-visible {
   outline: 2px solid var(--color-text);
   outline-offset: 2px;
