@@ -27,6 +27,8 @@ class Workspace {
   path = $state('');
   /** Recently opened folders, newest first (at most 10). */
   recent = $state.raw<string[]>([]);
+  /** The node revealNode() last asked to show (a fresh object each call); the sidebar scrolls to it. */
+  revealed = $state.raw<{ id: string } | undefined>(undefined);
 }
 export const workspace = new Workspace();
 
@@ -315,6 +317,7 @@ export function revealNode(id: string): void {
       n.kind === 'folder' && id.startsWith(n.id + '/') ? { ...n, expanded: true, children: expandTo(n.children) } : n,
     );
   workspace.tree = expandTo(workspace.tree);
+  workspace.revealed = { id };
 }
 
 export function toggleFolder(id: string): void {

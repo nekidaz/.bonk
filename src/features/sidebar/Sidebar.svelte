@@ -42,6 +42,7 @@
   } from '$entities/environment';
   import { methodColor, methodLabel, type TreeNode } from '$shared/model';
   import GitPanel from './GitPanel.svelte';
+  import { flattenTree, rowOffsets, scrollToShow, visibleRange, type Pitch } from './rows';
   import { t } from '$shared/i18n';
   import { GIT_ENABLED, folderChangeCount, statusColor, git } from '$entities/git';
 
@@ -83,7 +84,7 @@
     run();
   }
 
-  // Selection follows the active tab: open the folders above it and scroll it into view.
+  // Selection follows the active tab: open the folders above it; the reveal effect below scrolls to it.
   // Derived to a string so editing the request doesn't re-run this (and re-open folders).
   let treeEl = $state<HTMLElement>();
   const activeSavedPath = $derived(tabs.active?.savedPath);
@@ -91,7 +92,51 @@
     const id = activeSavedPath;
     if (!id) return;
     untrack(() => revealNode(id));
-    void tick().then(() => treeEl?.querySelector('.bs-trow.sel')?.scrollIntoView({ block: 'nearest' }));
+  });
+
+  // Sidebar filter: narrows the Collections tree (name / URL / gRPC endpoint,
+  // matching folders keep their subtree, ancestors stay visible + expanded) and
+  // the History list (URL substring). Escape or the ✕ button clears it.
+  const filterActive = $derived(filter.trim() !== '');
+  const visibleCollections = $derived(filterTree(workspace.tree, filter));
+
+  // Virtual tree: only the rows inside the scrolled-to band (plus OVERSCAN px each side) are in
+  // the DOM, and the row list's padding stands in for the rest, so a 10k-request collection renders
+  // a few dozen rows. Row heights are measured from the DOM (they change with density).
+  const OVERSCAN = 400;
+  let scrollTop = $state(0);
+  let viewH = $state(0);
+  let pitch = $state.raw<Pitch>({ node: 32, empty: 40 });
+  const rows = $derived(flattenTree(visibleCollections));
+  const offsets = $derived(rowOffsets(rows, pitch));
+  const range = $derived(visibleRange(offsets, scrollTop - OVERSCAN, scrollTop + viewH + OVERSCAN));
+  const slice = $derived(rows.slice(range[0], range[1]));
+  const padTop = $derived(offsets[range[0]]);
+  const padBottom = $derived(offsets[rows.length] - offsets[range[1]]);
+
+  // Rendered rows are the row list's only children, in slice order: the gap between two
+  // neighbours' tops is the pitch of the first one's kind.
+  let rowsEl = $state<HTMLElement>();
+  $effect(() => {
+    const shown = slice;
+    const els = rowsEl?.children;
+    if (!els || els.length !== shown.length) return;
+    const next = { ...untrack(() => pitch) };
+    for (let i = 0; i + 1 < els.length; i++)
+      next[shown[i].kind] = els[i + 1].getBoundingClientRect().top - els[i].getBoundingClientRect().top;
+    if (next.node !== untrack(() => pitch).node || next.empty !== untrack(() => pitch).empty) pitch = next;
+  });
+
+  /** Scroll the tree just enough to show row `i`; scrollTop updates now, so the row renders on the next tick. */
+  function showRow(i: number): void {
+    if (!treeEl || i < 0) return;
+    treeEl.scrollTop = scrollToShow(offsets, i, treeEl.scrollTop, treeEl.clientHeight);
+    scrollTop = treeEl.scrollTop;
+  }
+  $effect(() => {
+    const target = workspace.revealed;
+    if (!target || untrack(() => panel) !== 'collections') return;
+    untrack(() => showRow(rows.findIndex((r) => r.key === target.id)));
   });
 
   // Tree keyboard: ↑↓ move between rows, ←→ collapse / expand a folder; ↵ is the
@@ -99,8 +144,14 @@
   function rowKey(e: KeyboardEvent, n: TreeNode): void {
     if (editingNodeId === n.id) return;
     if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
-      const rows = [...(treeEl?.querySelectorAll<HTMLElement>('.bs-trow') ?? [])];
-      rows[rows.indexOf(e.currentTarget as HTMLElement) + (e.key === 'ArrowDown' ? 1 : -1)]?.focus();
+      const step = e.key === 'ArrowDown' ? 1 : -1;
+      let i = rows.findIndex((r) => r.key === n.id) + step;
+      while (rows[i]?.kind === 'empty') i += step;
+      const next = rows[i];
+      if (next) {
+        showRow(i);
+        void tick().then(() => treeEl?.querySelector<HTMLElement>(`[data-node-id="${CSS.escape(next.key)}"]`)?.focus());
+      }
     } else if (
       n.kind === 'folder' &&
       (e.key === 'ArrowLeft' || e.key === 'ArrowRight') &&
@@ -145,11 +196,6 @@
   }
   const activeEnvName = $derived(environments.active?.name ?? t('sidebar.noEnv'));
 
-  // Sidebar filter: narrows the Collections tree (name / URL / gRPC endpoint,
-  // matching folders keep their subtree, ancestors stay visible + expanded) and
-  // the History list (URL substring). Escape or the ✕ button clears it.
-  const filterActive = $derived(filter.trim() !== '');
-  const visibleCollections = $derived(filterTree(workspace.tree, filter));
   // S21: newest first, grouped by day.
   const historyGroups = $derived.by(() => {
     const groups: { day: string; entries: typeof history.list }[] = [];
@@ -474,15 +520,6 @@
             onkeydown={() => {}}><span class="material-symbols-outlined" style="font-size:15px">more_horiz</span></span
           >
         </button>
-        {#if n.expanded}
-          {#if n.children.length === 0}
-            <div class="bs-empty" style="padding-left:{indent(depth + 1)}px"><p>{t('sidebar.folderEmpty')}</p></div>
-          {:else}
-            {#each n.children as child (child.id)}
-              {@render node(child, depth + 1)}
-            {/each}
-          {/if}
-        {/if}
       {:else}
         {@const st = statusMap.get(gitPrefixVal + idToRel(n.id))}
         <button
@@ -544,6 +581,8 @@
       <div
         class="bs-tree"
         bind:this={treeEl}
+        bind:clientHeight={viewH}
+        onscroll={() => (scrollTop = treeEl?.scrollTop ?? 0)}
         class:bs-flows-selected={panel === 'flows'}
         class:bs-droproot={dropAt?.id === ''}
         class:bs-dragging={!!dragId}
@@ -559,9 +598,21 @@
                 >{/if}
             </div>
           {:else}
-            {#each visibleCollections as n (n.id)}
-              {@render node(n, 0)}
-            {/each}
+            <!-- Padding, not .bs-tree's: a scroll container can't shrink below its own padding. -->
+            <div
+              bind:this={rowsEl}
+              style="display:flex; flex-direction:column; gap:inherit; flex:none; padding:{padTop}px 0 {padBottom}px"
+            >
+              {#each slice as row (row.key)}
+                {#if row.kind === 'empty'}
+                  <div class="bs-empty" style="padding-left:{indent(row.depth)}px">
+                    <p>{t('sidebar.folderEmpty')}</p>
+                  </div>
+                {:else}
+                  {@render node(row.node, row.depth)}
+                {/if}
+              {/each}
+            </div>
           {/if}
         {:else if panel === 'history'}
           {#if visibleHistory.length === 0}
