@@ -267,7 +267,7 @@
         ><span class="material-symbols-outlined">content_copy</span></button
       >
       <button
-        class="bs-ric"
+        class="bs-ric lb-save"
         aria-label={t('lb.save')}
         title={saved === 'fail' ? t('lb.saveFailed') : t('lb.save')}
         disabled={!body}
