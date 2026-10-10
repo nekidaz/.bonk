@@ -1,8 +1,7 @@
 name: Release
 
-# Build signed macOS + Linux bundles (Windows dropped 2026-10-09: ~40 min per
-# release on the private-repo runner, 1 download in v0.1.7) and publish them to a GitHub
-# Release when a version tag is pushed, e.g. `git tag v0.1.0 && git push origin v0.1.0`.
+# Build macOS, Linux and Windows release binaries on main to warm the cache.
+# Version tags also package them and upload a draft GitHub Release.
 #
 # This is the PRIVATE source repo (nekidaz/bonk-src). The release is cross-
 # published into the PUBLIC repo nekidaz/.bonk (via tauri-action's owner/repo +
@@ -20,11 +19,32 @@ name: Release
 #   TAURI_SIGNING_PRIVATE_KEY_PASSWORD  its password ("" if generated without one)
 on:
   push:
+    branches:
+      - main
     tags:
       - 'v*'
+    # GitHub applies paths only to branch pushes; every version tag still builds.
+    paths:
+      - '.github/workflows/release.yml'
+      - '.cargo/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - 'rust-toolchain*'
+      - 'crates/**'
+      - 'src-tauri/**'
+      - 'package.json'
+      - 'package-lock.json'
+  # Warm the cache manually, including before the first release after this change.
+  # Dispatch never publishes, even when run against a tag.
+  workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
+
+concurrency:
+  group: desktop-${{ github.event_name }}-${{ github.ref }}
+  # Superseded main builds can stop; a release must finish its uploads.
+  cancel-in-progress: ${{ github.ref == 'refs/heads/main' }}
 
 jobs:
   release:
@@ -46,7 +66,15 @@ jobs:
             mcp-path: target/release/bonk-mcp
             mcp-asset: bonk-mcp-x86_64-unknown-linux-gnu
             mcp-sidecar: src-tauri/binaries/bonk-mcp-x86_64-unknown-linux-gnu
+          - platform: windows-latest
+            args: --bundles nsis
+            rust-targets: ''
+            mcp-build-args: ''
+            mcp-path: target/release/bonk-mcp.exe
+            mcp-asset: bonk-mcp-x86_64-pc-windows-msvc.exe
+            mcp-sidecar: src-tauri/binaries/bonk-mcp-x86_64-pc-windows-msvc.exe
     runs-on: ${{ matrix.platform }}
+    timeout-minutes: 45
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -76,19 +104,23 @@ jobs:
         with:
           targets: ${{ matrix.rust-targets }}
 
-      # Restore-only: a cache saved by a tag run is scoped to that tag, so the
-      # next tag could never read it — saving just cost minutes (4+ on Windows).
+      # Tags can restore main's cache, but cannot share caches with other tags.
+      # Warm both MCP and desktop dependency graphs in release mode on main.
+      # Keep this separate from CI's debug cache. Bump v1 if build flags change.
       - name: Cache Rust build
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: '. -> target'
-          save-if: false
+          # Include the virtual workspace's release profile as well as the
+          # member manifests/lockfile that rust-cache hashes automatically.
+          shared-key: desktop-release-v1-${{ matrix.platform }}-${{ hashFiles('Cargo.toml') }}
+          save-if: ${{ github.ref == 'refs/heads/main' }}
 
       - name: Install frontend dependencies
         run: npm ci
 
       - name: Build MCP server
-        run: cargo build --release -p bonk-mcp ${{ matrix.mcp-build-args }}
+        run: cargo build --locked --release --timings -p bonk-mcp ${{ matrix.mcp-build-args }}
 
       - name: Stage MCP sidecar for desktop bundle
         shell: bash
@@ -96,9 +128,16 @@ jobs:
           mkdir -p src-tauri/binaries
           cp "${{ matrix.mcp-path }}" "${{ matrix.mcp-sidecar }}"
 
+      # Use the same target, release profile and Tauri CLI as the tag build.
+      # No installer, updater signature or distribution token is needed here.
+      - name: Warm desktop release build
+        if: github.event_name != 'push' || !startsWith(github.ref, 'refs/tags/v')
+        run: npx tauri build ${{ matrix.args }} --no-bundle -- --locked --timings
+
       # The release body doubles as latest.json `notes`, which the in-app update
       # popover lists as "what's new" — so use this version's CHANGELOG section.
       - name: Release notes from CHANGELOG
+        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
         id: notes
         shell: bash
         run: |
@@ -110,6 +149,7 @@ jobs:
           } >> "$GITHUB_OUTPUT"
 
       - name: Build and release
+        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
         uses: tauri-apps/tauri-action@v0
         env:
           # DIST_TOKEN is a PAT with contents:write on nekidaz/.bonk; tauri-action
@@ -128,7 +168,7 @@ jobs:
           owner: nekidaz
           repo: .bonk
           releaseCommitish: main
-          args: ${{ matrix.args }}
+          args: ${{ matrix.args }} -- --locked --timings
           tagName: ${{ github.ref_name }}
           releaseName: 'bonk ${{ github.ref_name }}'
           releaseBody: ${{ steps.notes.outputs.body }}
@@ -137,6 +177,7 @@ jobs:
           includeUpdaterJson: true
 
       - name: Upload MCP server to release
+        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.DIST_TOKEN }}
@@ -147,3 +188,14 @@ jobs:
             "mcp-dist/${{ matrix.mcp-asset }}" \
             --clobber \
             --repo nekidaz/.bonk
+
+      - name: Upload Cargo build timings
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cargo-timings-${{ matrix.platform }}
+          path: |
+            target/cargo-timings/*.html
+            target/*/cargo-timings/*.html
+          if-no-files-found: ignore
+          retention-days: 7
