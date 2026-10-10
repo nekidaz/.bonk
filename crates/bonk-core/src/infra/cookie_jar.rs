@@ -2,7 +2,7 @@
 //! with the next requests (domain, path, Secure and expiry are honoured by `cookie_store`).
 //! Persistent cookies are saved as a JSON array; session cookies live until bonk closes.
 
-use crate::domain::http::CookieInfo;
+use crate::domain::http::{CookieChange, CookieInfo, ResponseCookie};
 use cookie_store::{Cookie, CookieDomain, CookieExpiration, CookieStore};
 use reqwest::header::HeaderValue;
 use reqwest::Url;
@@ -94,6 +94,49 @@ impl CookieJar {
         self.write().remove(domain, path, name).is_some()
     }
 
+    /// How many cookies a request to `url` would carry now.
+    pub fn sends_to(&self, url: &str) -> usize {
+        Url::parse(url).map_or(0, |u| self.read().get_request_values(&u).count())
+    }
+
+    /// The `Set-Cookie` values a response from `url` carried and what each did to the jar,
+    /// given the jar as it was before the request (`before`). `saved` = saving was on.
+    pub fn response_cookies(
+        set_cookies: &[String],
+        url: &str,
+        before: &[CookieInfo],
+        saved: bool,
+    ) -> Vec<ResponseCookie> {
+        let Ok(url) = Url::parse(url) else {
+            return Vec::new();
+        };
+        set_cookies
+            .iter()
+            .filter_map(|raw| {
+                let (cookie, change) = match Cookie::parse(raw.as_str(), &url) {
+                    Ok(c) => {
+                        let info = cookie_info(&c.into_owned());
+                        let change = if info.expired {
+                            CookieChange::Deleted
+                        } else if before.iter().any(|b| {
+                            (&b.domain, &b.path, &b.name) == (&info.domain, &info.path, &info.name)
+                        }) {
+                            CookieChange::Updated
+                        } else {
+                            CookieChange::New
+                        };
+                        (info, change)
+                    }
+                    Err(_) => (raw_cookie_info(raw, &url)?, CookieChange::Rejected),
+                };
+                Some(ResponseCookie {
+                    cookie,
+                    change: saved.then_some(change),
+                })
+            })
+            .collect()
+    }
+
     /// Remove every cookie of `domain`, or all cookies when `None`.
     pub fn clear(&self, domain: Option<&str>) {
         let mut store = self.write();
@@ -166,6 +209,28 @@ fn domain_of(c: &Cookie<'_>) -> String {
         .as_cow()
         .map(|d| d.into_owned())
         .unwrap_or_default()
+}
+
+/// A `Set-Cookie` the jar refused, described from its own attributes.
+fn raw_cookie_info(raw: &str, url: &Url) -> Option<CookieInfo> {
+    let c = cookie_store::RawCookie::parse(raw).ok()?;
+    Some(CookieInfo {
+        name: c.name().to_string(),
+        value: c.value().to_string(),
+        domain: c
+            .domain()
+            .map(|d| d.trim_start_matches('.').to_string())
+            .or_else(|| url.host_str().map(str::to_string))
+            .unwrap_or_default(),
+        host_only: c.domain().is_none(),
+        path: c.path().unwrap_or("/").to_string(),
+        expires_ms: None,
+        expired: false,
+        http_only: c.http_only().unwrap_or(false),
+        secure: c.secure().unwrap_or(false),
+        same_site: c.same_site().map(|s| s.to_string()),
+        raw: raw.to_string(),
+    })
 }
 
 fn cookie_info(c: &Cookie<'static>) -> CookieInfo {
@@ -437,6 +502,42 @@ mod tests {
             assert_eq!(manual.text().await.unwrap(), "mine=1");
             assert_eq!(jar.list()[0].domain, "127.0.0.1");
         });
+    }
+
+    #[test]
+    fn response_cookies_report_their_effect() {
+        let dir = tmp_dir("resp");
+        let jar = jar_in(&dir);
+        jar.add("sid=old; Path=/", "https://api.a.kz/").unwrap();
+        jar.add("gone=1; Path=/", "https://api.a.kz/").unwrap();
+        let before = jar.list();
+        let set: Vec<String> = [
+            "sid=new; Path=/",
+            "csrf=1; Path=/",
+            "gone=; Path=/; Max-Age=0",
+            "evil=1; Domain=other.org",
+        ]
+        .map(String::from)
+        .to_vec();
+        let got = CookieJar::response_cookies(&set, "https://api.a.kz/x", &before, true);
+        let changes: Vec<(&str, Option<CookieChange>)> = got
+            .iter()
+            .map(|c| (c.cookie.name.as_str(), c.change))
+            .collect();
+        assert_eq!(
+            changes,
+            [
+                ("sid", Some(CookieChange::Updated)),
+                ("csrf", Some(CookieChange::New)),
+                ("gone", Some(CookieChange::Deleted)),
+                ("evil", Some(CookieChange::Rejected)),
+            ]
+        );
+        assert_eq!(got[3].cookie.domain, "other.org");
+        let off = CookieJar::response_cookies(&set[..1], "https://api.a.kz/", &before, false);
+        assert_eq!(off[0].change, None);
+        assert_eq!(jar.sends_to("https://api.a.kz/"), 2);
+        assert_eq!(jar.sends_to("https://b.kz/"), 0);
     }
 
     #[test]

@@ -78,6 +78,33 @@ pub struct HttpResponse {
     pub size_bytes: usize,
     #[serde(default)]
     pub body_truncated: bool,
+    /// The response's `Set-Cookie`s, parsed, with what each did to the jar.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub cookies: Vec<ResponseCookie>,
+    /// How many jar cookies the next request to `final_url` will carry.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub jar_sends: Option<usize>,
+}
+
+/// A `Set-Cookie` of a response and its effect on the jar.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ResponseCookie {
+    #[serde(flatten)]
+    pub cookie: CookieInfo,
+    /// `None` when saving to the jar is switched off.
+    pub change: Option<CookieChange>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum CookieChange {
+    New,
+    Updated,
+    /// Expired on arrival (`Max-Age=0`, a past `Expires`): the jar drops it.
+    Deleted,
+    /// Not valid for this URL (foreign `Domain`, `Secure` over http…): not stored.
+    Rejected,
 }
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
