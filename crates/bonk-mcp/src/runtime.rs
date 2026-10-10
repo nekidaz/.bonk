@@ -28,7 +28,7 @@ use crate::{
         apply_request_patch, grpc_script_context, http_script_context, run_script, ScriptState,
     },
     types::{
-        GrpcCallOutput, GrpcSchemaArgs, HttpRunOutput, MutationResult, RequestSummary,
+        GrpcCallOutput, GrpcSchemaArgs, HttpRunOutput, MutationResult, RequestSummary, TreeEntry,
         ValidationResult, WorkspaceInfo,
     },
     vars::{
@@ -161,6 +161,11 @@ impl BonkRuntime {
         Ok(tree)
     }
 
+    /// The tree with each request reduced to its summary (no headers, bodies or auth).
+    pub fn compact_tree(&self) -> Result<Vec<TreeEntry>, String> {
+        Ok(compact(self.tree()?))
+    }
+
     pub fn list_requests(
         &self,
         query: Option<&str>,
@@ -177,31 +182,7 @@ impl BonkRuntime {
                     .as_deref()
                     .is_none_or(|wanted| node.protocol.eq_ignore_ascii_case(wanted))
             })
-            .map(|node| {
-                let (method, target) = if node.protocol == "grpc" {
-                    let grpc = node.grpc.as_ref();
-                    (
-                        "gRPC".into(),
-                        grpc.map(|value| {
-                            let method = value.method.as_deref().unwrap_or_default();
-                            format!("{} {method}", value.endpoint).trim().to_string()
-                        })
-                        .unwrap_or_default(),
-                    )
-                } else {
-                    (
-                        node.request.method.clone(),
-                        redact_sensitive_url(&node.request.url),
-                    )
-                };
-                RequestSummary {
-                    id: node.id,
-                    name: node.name,
-                    protocol: node.protocol,
-                    method,
-                    target,
-                }
-            })
+            .map(summarize)
             .filter(|item| {
                 query.as_deref().is_none_or(|needle| {
                     item.id.to_ascii_lowercase().contains(needle)
@@ -453,6 +434,7 @@ impl BonkRuntime {
         variables: BTreeMap<String, String>,
         environment: Option<&str>,
         settings: RequestSettings,
+        body_limit: usize,
     ) -> Result<HttpRunOutput, String> {
         self.require_network()?;
         materialize_body_and_params(&mut request, params.as_deref());
@@ -511,7 +493,8 @@ impl BonkRuntime {
         let transport_ok = (200..400).contains(&response.status);
         Ok(HttpRunOutput {
             ok: transport_ok && tests_ok && script_ok,
-            response: sanitize_http_response(response, &secrets),
+            // Cut after sanitizing, so a secret is never split past the redaction.
+            response: sanitize_http_response(response, &secrets).truncate_body(body_limit),
             tests: sanitize_tests(state.tests, &secrets),
             logs: state
                 .logs
@@ -531,6 +514,7 @@ impl BonkRuntime {
         variables: BTreeMap<String, String>,
         environment: Option<&str>,
         settings: RequestSettings,
+        body_limit: usize,
     ) -> Result<Value, String> {
         let node = self.find_request(id)?;
         if node.protocol == "grpc" {
@@ -544,8 +528,15 @@ impl BonkRuntime {
             .map_err(|error| error.to_string())
         } else {
             serde_json::to_value(
-                self.execute_http(node.request, node.params, variables, environment, settings)
-                    .await?,
+                self.execute_http(
+                    node.request,
+                    node.params,
+                    variables,
+                    environment,
+                    settings,
+                    body_limit,
+                )
+                .await?,
             )
             .map_err(|error| error.to_string())
         }
@@ -989,6 +980,46 @@ impl BonkRuntime {
     }
 }
 
+fn summarize(node: RequestNode) -> RequestSummary {
+    let (method, target) = if node.protocol == "grpc" {
+        let grpc = node.grpc.as_ref();
+        (
+            "gRPC".into(),
+            grpc.map(|value| {
+                let method = value.method.as_deref().unwrap_or_default();
+                format!("{} {method}", value.endpoint).trim().to_string()
+            })
+            .unwrap_or_default(),
+        )
+    } else {
+        (
+            node.request.method.clone(),
+            redact_sensitive_url(&node.request.url),
+        )
+    };
+    RequestSummary {
+        id: node.id,
+        name: node.name,
+        protocol: node.protocol,
+        method,
+        target,
+    }
+}
+
+fn compact(nodes: Vec<TreeNode>) -> Vec<TreeEntry> {
+    nodes
+        .into_iter()
+        .map(|node| match node {
+            TreeNode::Folder(folder) => TreeEntry::Folder {
+                id: folder.id,
+                name: folder.name,
+                children: compact(folder.children),
+            },
+            TreeNode::Request(request) => TreeEntry::Request(summarize(*request)),
+        })
+        .collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1117,6 +1148,42 @@ mod tests {
         let read_only = workspace.runtime(true, false);
         assert!(read_only.delete_node(&id).is_err());
         assert_eq!(read_only.list_requests(None, None).unwrap().len(), 1);
+    }
+
+    #[test]
+    fn compact_tree_keeps_names_and_targets_but_drops_request_details() {
+        let workspace = TestWorkspace::new();
+        let runtime = workspace.runtime(false, false);
+        let folder = runtime
+            .create_folder("fs:", "Payments")
+            .expect("create folder")
+            .id
+            .expect("folder id");
+        let mut node = RequestNode {
+            id: String::new(),
+            name: "Charge".into(),
+            protocol: "http".into(),
+            request: request("https://example.com/charge?api_key=literal"),
+            params: None,
+            grpc: None,
+        };
+        node.request.method = "POST".into();
+        node.request.body = Some("{\"amount\": 12900}".into());
+        runtime
+            .save_request(None, &folder, node)
+            .expect("save request");
+
+        let tree = serde_json::to_value(runtime.compact_tree().expect("compact tree")).unwrap();
+        let charge = &tree[0]["children"][0];
+        assert_eq!(tree[0]["kind"], "folder");
+        assert_eq!(tree[0]["name"], "Payments");
+        assert_eq!(charge["kind"], "request");
+        assert_eq!(charge["method"], "POST");
+        assert!(charge["target"]
+            .as_str()
+            .is_some_and(|target| target.starts_with("https://example.com/charge")
+                && !target.contains("literal")));
+        assert!(charge.get("request").is_none());
     }
 
     #[cfg(unix)]

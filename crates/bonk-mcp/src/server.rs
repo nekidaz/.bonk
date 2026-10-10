@@ -24,8 +24,9 @@ use crate::{
     runtime::{method_gate, BonkRuntime, MethodGate, DENIED},
     types::{
         CreateFolderArgs, GetRequestArgs, GrpcCallArgs, GrpcTemplateArgs, JournalEntry, JsonOutput,
-        ListRequestsArgs, MoveNodeArgs, MutationResult, NodeArgs, RenameNodeArgs, RequestList,
-        RunSavedRequestArgs, SaveRequestArgs, SendHttpArgs, ValidateHttpArgs,
+        ListRequestsArgs, ListWorkspaceArgs, MoveNodeArgs, MutationResult, NodeArgs,
+        RenameNodeArgs, RequestList, RunSavedRequestArgs, SaveRequestArgs, SendHttpArgs,
+        ValidateHttpArgs,
     },
 };
 
@@ -203,7 +204,7 @@ impl BonkMcpServer {
     }
 
     #[tool(
-        description = "Return the complete Bonk folder/request tree with stable fs: ids. Stored credentials and sensitive URL/header values are always redacted.",
+        description = "Return the Bonk folder/request tree with stable fs: ids. By default each request is a summary (id, name, protocol, method, target); pass full=true for complete definitions, or use get_request for one. Stored credentials and sensitive URL/header values are always redacted.",
         annotations(
             title = "List Bonk workspace tree",
             read_only_hint = true,
@@ -212,10 +213,16 @@ impl BonkMcpServer {
             open_world_hint = false
         )
     )]
-    async fn list_workspace(&self) -> Result<Json<JsonOutput>, String> {
-        let tree = self.runtime.redacted_tree()?;
-        serde_json::to_value(tree)
-            .map(|result| Json(JsonOutput { result }))
+    async fn list_workspace(
+        &self,
+        Parameters(args): Parameters<ListWorkspaceArgs>,
+    ) -> Result<Json<JsonOutput>, String> {
+        let tree = if args.full {
+            serde_json::to_value(self.runtime.redacted_tree()?)
+        } else {
+            serde_json::to_value(self.runtime.compact_tree()?)
+        };
+        tree.map(|result| Json(JsonOutput { result }))
             .map_err(|error| error.to_string())
     }
 
@@ -394,7 +401,7 @@ impl BonkMcpServer {
     }
 
     #[tool(
-        description = "Send an inline HTTP request through Bonk. Runs pre-request and test scripts, resolves variables, applies auth/body modes, and returns the bounded response plus test results. This may change an external system.",
+        description = "Send an inline HTTP request through Bonk. Runs pre-request and test scripts, resolves variables, applies auth/body modes, and returns the response plus test results. The body is cut to settings.maxResponseBodyBytes (default 32 KiB; bodyTruncated marks a cut). This may change an external system.",
         annotations(
             title = "Send HTTP request",
             read_only_hint = false,
@@ -415,6 +422,7 @@ impl BonkMcpServer {
             args.environment.as_deref(),
         )
         .await?;
+        let body_limit = args.settings.output_body_limit();
         let settings = args
             .settings
             .into_core(self.runtime.config().max_response_body_bytes);
@@ -426,13 +434,14 @@ impl BonkMcpServer {
                 args.variables,
                 args.environment.as_deref(),
                 settings,
+                body_limit,
             )
             .await
             .map(Json)
     }
 
     #[tool(
-        description = "Execute a saved Bonk HTTP or gRPC request by fs: id, including variables and pre-request/test scripts. This may change an external system.",
+        description = "Execute a saved Bonk HTTP or gRPC request by fs: id, including variables and pre-request/test scripts. An HTTP body is cut to settings.maxResponseBodyBytes (default 32 KiB; bodyTruncated marks a cut). This may change an external system.",
         annotations(
             title = "Run saved Bonk request",
             read_only_hint = false,
@@ -456,6 +465,7 @@ impl BonkMcpServer {
             )
             .await?;
         }
+        let body_limit = args.settings.output_body_limit();
         let settings = args
             .settings
             .into_core(self.runtime.config().max_response_body_bytes);
@@ -465,6 +475,7 @@ impl BonkMcpServer {
                 args.variables,
                 args.environment.as_deref(),
                 settings,
+                body_limit,
             )
             .await
             .map(|result| Json(JsonOutput { result }))
@@ -609,7 +620,7 @@ impl ServerHandler for BonkMcpServer {
                 .map_err(|error| McpError::internal_error(error, None))?;
             let tree = self
                 .runtime
-                .redacted_tree()
+                .compact_tree()
                 .map_err(|error| McpError::internal_error(error, None))?;
             json!({ "workspace": info, "requests": requests, "tree": tree })
         } else {
