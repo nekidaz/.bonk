@@ -72,8 +72,20 @@ export function applyExpanded(nodes: TreeNode[], map: Map<string, boolean>): Tre
 /** Open folder ids per workspace root, persisted so the tree reopens as left. @internal */
 export const expandedFolders: Record<string, string[]> = {};
 
+/**
+ * The old `collapsedFolders` state key: collapsed folder ids per root, everything else was open.
+ * Read only until that root has an `expandedFolders` entry, which the next save writes. @internal
+ */
+export const legacyCollapsedFolders: Record<string, string[]> = {};
+
 /** Re-open workspace `root`'s remembered open folders in a freshly loaded (all collapsed) tree. @internal */
 export function withSavedExpanded(root: string, tree: TreeNode[]): TreeNode[] {
+  const legacy = expandedFolders[root] ? undefined : legacyCollapsedFolders[root];
+  if (legacy) {
+    const all = new Map<string, boolean>();
+    collectExpanded(tree, all);
+    return applyExpanded(tree, new Map([...all.keys()].map((id) => [id, !legacy.includes(id)])));
+  }
   return applyExpanded(tree, new Map((expandedFolders[root] ?? []).map((id) => [id, true])));
 }
 

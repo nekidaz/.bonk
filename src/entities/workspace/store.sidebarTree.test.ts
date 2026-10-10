@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { revealNode, expandedFolders, withSavedExpanded, workspace } from './store.svelte';
+import { revealNode, expandedFolders, legacyCollapsedFolders, withSavedExpanded, workspace } from './store.svelte';
 import type { TreeNode } from '$shared/model';
 
 const req: TreeNode = {
@@ -33,5 +33,12 @@ describe('sidebar tree', () => {
     expandedFolders['/ws'] = ['fs:a'];
     expect(openIds(withSavedExpanded('/ws', tree(false)))).toEqual(['fs:a']);
     expect(openIds(withSavedExpanded('/other', tree(false)))).toEqual([]);
+  });
+
+  it('withSavedExpanded migrates the old collapsed-folders state until the new one exists', () => {
+    legacyCollapsedFolders['/old'] = ['fs:a/b'];
+    expect(openIds(withSavedExpanded('/old', tree(false)))).toEqual(['fs:a', 'fs:ab']);
+    expandedFolders['/old'] = [];
+    expect(openIds(withSavedExpanded('/old', tree(false)))).toEqual([]);
   });
 });
