@@ -9,6 +9,8 @@
   import { MoveDialog, FolderAuthDialog } from '$features/sidebar/components';
   import { SettingsModal } from '$features/settings/components';
   import { EnvironmentsSheet } from '$features/environments/components';
+  import { CookieJarSheet } from '$features/cookie-jar/components';
+  import { cookieJar } from '$entities/cookies';
   import { OpenApiImportDialog } from '$features/import/components';
   import { UpdateBanner } from '$features/updater/components';
   import { CommandPalette, type PaletteCommand } from '$features/command-palette/components';
@@ -69,6 +71,7 @@
     },
     { label: 'Flows', icon: 'account_tree', run: () => layout.showSidebar('flows') },
     { label: t('palette.cmd.runner'), icon: 'play_arrow', run: openRunnerTab },
+    { label: t('cookies.title'), icon: 'cookie', run: () => cookieJar.open() },
     { label: t('palette.cmd.sidebar'), icon: 'left_panel_open', shortcut: keys('sidebar'), run: layout.toggleSidebar },
     {
       label: t('palette.cmd.response'),
@@ -127,6 +130,8 @@
 <OpenApiImportDialog bind:open={shell.importOpen} />
 
 <EnvironmentsSheet />
+
+<CookieJarSheet onCleared={(text) => shell.showToast({ text, icon: 'delete_sweep' })} />
 
 <ConfirmDialog />
 

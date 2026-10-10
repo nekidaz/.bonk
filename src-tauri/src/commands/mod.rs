@@ -1,4 +1,5 @@
 pub(crate) mod app;
+pub(crate) mod cookies;
 pub(crate) mod git;
 pub(crate) mod grpc;
 pub(crate) mod http;

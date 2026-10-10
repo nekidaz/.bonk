@@ -29,6 +29,7 @@ import {
 import { effectiveAuth, withInheritedAuth, workspace } from '$entities/workspace';
 import { environments } from '$entities/environment';
 import { currentRequestSettings, applyScriptVars } from './store';
+import { cookieJar } from '$entities/cookies';
 
 /**
  * Collection Runner execution: runs ONE saved request (HTTP or gRPC) through the
@@ -91,7 +92,15 @@ async function runHttp(req: HttpRequest, iterationData: Record<string, string>):
   // 1. Pre-request script — against the raw request; writes fold into the stores
   //    (feeding {{var}} resolution below) and a fatal error aborts this request.
   if (req.preRequestScript && req.preRequestScript.trim() !== '') {
-    const context = buildScriptContext(req, undefined, activeEnvMap(), globalsMap(), iterationData);
+    const url = resolveRequestVars(req, runScopeFor(iterationData)).url;
+    const context = buildScriptContext(
+      req,
+      undefined,
+      activeEnvMap(),
+      globalsMap(),
+      iterationData,
+      cookieJar.scriptCookies(url),
+    );
     const pre = await runScript('pre-request', req.preRequestScript, context);
     applyScriptVars(pre);
     logs.push(...pre.logs);
@@ -109,7 +118,8 @@ async function runHttp(req: HttpRequest, iterationData: Record<string, string>):
   // 3. Test script — against the response; its env/globals writes fold too.
   let error: string | undefined;
   if (req.testScript && req.testScript.trim() !== '') {
-    const context = buildScriptContext(resolved, res, activeEnvMap(), globalsMap(), iterationData);
+    const cookies = cookieJar.scriptCookies(resolved.url, res.cookies);
+    const context = buildScriptContext(resolved, res, activeEnvMap(), globalsMap(), iterationData, cookies);
     const post = await runScript('test', req.testScript, context);
     applyScriptVars(post);
     logs.push(...post.logs);

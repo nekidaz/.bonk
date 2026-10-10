@@ -7,6 +7,7 @@
   import '../../styles/settings.css';
   import SettingsGeneral from './SettingsGeneral.svelte';
   import SettingsRequests from './SettingsRequests.svelte';
+  import SettingsCookies from './SettingsCookies.svelte';
   import SettingsProxy from './SettingsProxy.svelte';
   import SettingsCerts from './SettingsCerts.svelte';
   import SettingsGrpc from './SettingsGrpc.svelte';
@@ -38,6 +39,13 @@
       icon: 'send',
       sub: 'settings.page.requests.sub',
       view: SettingsRequests,
+    },
+    {
+      id: 'cookies',
+      label: 'settings.page.cookies',
+      icon: 'cookie',
+      sub: 'settings.page.cookies.sub',
+      view: SettingsCookies,
     },
     { id: 'proxy', label: 'settings.page.proxy', icon: 'lan', sub: 'settings.page.proxy.sub', view: SettingsProxy },
     { id: 'certs', label: 'settings.page.certs', icon: 'shield', sub: 'settings.page.certs.sub', view: SettingsCerts },

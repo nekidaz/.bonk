@@ -471,7 +471,7 @@ impl BonkRuntime {
 
         let settings = settings.normalized();
         let client = build_http_client(&settings, &self.config.target_hosts)?;
-        let response = http::http_send(client, request.clone(), settings)
+        let response = http::http_send(client, request.clone(), settings, None)
             .await
             .map_err(|error| sanitize_error(&error, &secrets))?;
 

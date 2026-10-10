@@ -35,7 +35,7 @@ const USER_FILE: &str = "script.js";
 /// header change with a `Date.now()` stamp. `tests[].line` is the line of the
 /// `pm.test` call, `tests[].errorLine` the line of the failed assertion.
 const PRELUDE: &str = r#"
-globalThis.__out={logs:[],events:[],tests:[],envSet:{},envUnset:[],globalsSet:{},globalsUnset:[],requestPatch:null,error:null,errorLine:null};
+globalThis.__out={logs:[],events:[],tests:[],envSet:{},envUnset:[],globalsSet:{},globalsUnset:[],cookieClears:[],requestPatch:null,error:null,errorLine:null};
 globalThis.__line=function(stack){var m=/script\.js:(\d+)/.exec(String(stack||''));return m?Math.max(1,Number(m[1])-1):null;};
 globalThis.__msg=function(e){if(!e||typeof e!=='object')return String(e);var n=e.name&&e.name!=='Error'?e.name+': ':'';return n+String(e.message);};
 (function(){
@@ -68,6 +68,11 @@ globalThis.__msg=function(e){if(!e||typeof e!=='object')return String(e);var n=e
       text:function(){return c.response.body||'';},json:function(){return JSON.parse(c.response.body||'null');}};
     Object.defineProperty(resp,'to',{get:function(){return new Assertion(resp,false).to;}});
   }
+  var cks=(c.cookies||[]).slice();
+  function ckFind(n){for(var i=0;i<cks.length;i++)if(cks[i].name===n)return cks[i];return undefined;}
+  var cookies={get:function(n){var x=ckFind(n);return x?x.value:undefined;},has:function(n){return !!ckFind(n);},
+    toObject:function(){var o={};cks.forEach(function(x){o[x.name]=x.value;});return o;},
+    jar:function(){return {clear:function(url,cb){__out.cookieClears.push(String(url||req.url||''));if(typeof cb==='function')cb(null);}};}};
   function scope(name,store,setB,unsetA){return {
     get:function(k){return store[k];},
     has:function(k){return Object.prototype.hasOwnProperty.call(store,k);},
@@ -122,7 +127,7 @@ globalThis.__msg=function(e){if(!e||typeof e!=='object')return String(e);var n=e
     variables:{get:lookup,has:function(k){return lookup(k)!==undefined;},set:function(k,v){locals[k]=String(v);},
       toObject:function(){return Object.assign({},glob,env,iterData,locals);},
       replaceIn:function(s){return String(s).replace(/\{\{([^{}]+)\}\}/g,function(m,k){var v=lookup(k.trim());return v===undefined?m:v;});}},
-    request:request, response:resp,
+    request:request, response:resp, cookies:cookies,
     test:function(name,fn){var line=__line(new Error().stack),t={name:String(name),passed:true};if(line)t.line=line;
       try{fn();}catch(e){t.passed=false;t.error=__msg(e);var el=__line(e&&e.stack);if(el)t.errorLine=el;}
       __out.tests.push(t);ev({kind:'test',name:t.name,passed:t.passed});},
@@ -292,6 +297,36 @@ mod tests {
         assert_eq!(tests[1]["name"], "fails");
         assert_eq!(tests[1]["passed"], false);
         assert!(tests[1]["error"].as_str().unwrap().contains("equal"));
+    }
+
+    #[test]
+    fn pm_cookies_reads_context_and_queues_jar_clears() {
+        let ctx =
+            r#"{"request":{"url":"https://api.a.kz/x"},"cookies":[{"name":"sid","value":"s1"}]}"#;
+        let out = run(
+            r#"
+            pm.test('get', function(){ pm.expect(pm.cookies.get('sid')).to.equal('s1'); });
+            pm.test('has', function(){ pm.expect(pm.cookies.has('nope')).to.be.false; });
+            pm.test('obj', function(){ pm.expect(pm.cookies.toObject()).to.deep.equal({sid:'s1'}); });
+            var called = false;
+            pm.cookies.jar().clear('https://b.kz/', function(){ called = true; });
+            pm.cookies.jar().clear();
+            pm.test('callback', function(){ pm.expect(called).to.be.true; });
+            "#,
+            ctx,
+        );
+        assert!(
+            out["tests"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .all(|t| t["passed"] == true),
+            "{out}"
+        );
+        assert_eq!(
+            out["cookieClears"],
+            serde_json::json!(["https://b.kz/", "https://api.a.kz/x"])
+        );
     }
 
     #[test]

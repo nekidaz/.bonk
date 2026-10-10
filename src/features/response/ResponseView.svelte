@@ -38,6 +38,7 @@
   import { requestPrefs } from '$shared/settings';
   import { tabs } from '$entities/tab';
   import ResponseBody, { type BodyInfo } from './ResponseBody.svelte';
+  import ResponseCookies from './ResponseCookies.svelte';
   import { EditorTools, ScriptConsole, ScriptTests } from '$shared/editor/components';
   import { consoleRows, countLabel } from '$shared/editor';
   import { focusMode, toggleFocus, tablist } from '$shared/ui';
@@ -676,7 +677,12 @@
       <div class="bs-rsub" role="tablist" aria-label={t('response.aria')} use:tablist>
         {@render rtab('body', t('response.tab.body'))}
         {@render rtab('headers', t('response.tab.headers'), responseHeaderEntries.length, tab.response?.status === 0)}
-        {@render rtab('cookies', t('response.tab.cookies'), responseCookies.length, tab.response?.status === 0)}
+        {@render rtab(
+          'cookies',
+          t('response.tab.cookies'),
+          tab.response?.cookies?.length ?? responseCookies.length,
+          tab.response?.status === 0,
+        )}
         {@render rtab('timeline', t('response.tab.timeline'))}
         {#if testResults}{@render rtab('tests', t('response.tab.tests'))}{@render rtab(
             'console',
@@ -781,7 +787,10 @@
           >
         </div>
       </div>
+    {:else if respTab === 'cookies' && (tab.response.cookies || tab.response.jar_sends != null)}
+      <ResponseCookies response={tab.response} />
     {:else if respTab === 'cookies'}
+      <!-- Responses from before the jar (history, MCP): the raw Set-Cookie lines. -->
       <!-- prettier-ignore -->
       <div class="bs-rbody"><div class="bs-code">{#each responseCookies as c, i (i)}<div>{c}</div>{/each}{#if responseCookies.length === 0}<span style="color:var(--t3)">{t('response.no_cookies')}</span>{/if}</div></div>
     {:else if respTab === 'timeline'}

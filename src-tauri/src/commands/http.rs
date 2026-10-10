@@ -48,20 +48,27 @@ pub async fn http_send(
     req: HttpRequest,
     request_id: Option<String>,
     settings: Option<RequestSettings>,
+    app: tauri::AppHandle,
     state: State<'_, AppState>,
 ) -> Result<HttpResponse, String> {
     let cancel = register_cancel(&state, &request_id)?;
     let settings = settings.unwrap_or_default().normalized();
-    let client = state.http_client(&settings, &req.url)?;
+    let jar = super::cookies::jar(&app, &state, &settings.cookie_jar)?;
+    jar.set_keep_session(settings.cookies_keep_session);
+    let client = state.http_client(&settings, &req.url, Some(jar.clone()))?;
     let result = if let Some(cancel) = cancel {
         tokio::select! {
-            res = bonk_core::application::http::http_send(client, req, settings) => res,
+            res = bonk_core::application::http::http_send(client, req, settings, Some(&jar)) => res,
             _ = cancel => Err("request cancelled".to_string()),
         }
     } else {
-        bonk_core::application::http::http_send(client, req, settings).await
+        bonk_core::application::http::http_send(client, req, settings, Some(&jar)).await
     };
     finish_cancel(&state, &request_id);
+    // A jar that can't be written must not hide the response; it's retried on the next save.
+    if let Err(e) = jar.save() {
+        eprintln!("{e}");
+    }
     result
 }
 

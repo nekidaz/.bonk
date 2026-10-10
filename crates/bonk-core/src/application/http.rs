@@ -1,15 +1,20 @@
-use crate::domain::http::{HttpRequest, HttpResponse, RequestSettings};
+use crate::domain::http::{cookie_host_excluded, HttpRequest, HttpResponse, RequestSettings};
 use crate::domain::url::normalize_url;
+use crate::infra::cookie_jar::CookieJar;
 use crate::infra::reqwest_client::build_request_to;
 use std::collections::BTreeMap;
 use std::time::Instant;
 
+/// Send `req`. `jar` is the cookie jar `client` was built with: the response then reports
+/// its `Set-Cookie`s and what they did to the jar.
 pub async fn http_send(
     client: reqwest::Client,
     req: HttpRequest,
     settings: RequestSettings,
+    jar: Option<&CookieJar>,
 ) -> Result<HttpResponse, String> {
     let settings = settings.normalized();
+    let jar_before = jar.map(CookieJar::list);
     let method = reqwest::Method::from_bytes(req.method.to_uppercase().as_bytes())
         .map_err(|e| format!("bad method: {e}"))?;
     let request_url = normalize_url(&req.url);
@@ -18,10 +23,24 @@ pub async fn http_send(
     let resp = client.execute(request).await.map_err(|e| e.to_string())?;
     let status = resp.status().as_u16();
     let final_url = resp.url().to_string();
-    let headers: BTreeMap<String, String> = resp
+    // A repeated header (several Set-Cookie, Vary…) is one comma-joined entry, as HTTP
+    // allows; collecting straight into the map would keep only the last one.
+    let mut headers: BTreeMap<String, String> = BTreeMap::new();
+    for (k, v) in resp.headers() {
+        let v = v.to_str().unwrap_or("");
+        headers
+            .entry(k.to_string())
+            .and_modify(|e| {
+                e.push_str(", ");
+                e.push_str(v);
+            })
+            .or_insert_with(|| v.to_string());
+    }
+    let set_cookies: Vec<String> = resp
         .headers()
+        .get_all(reqwest::header::SET_COOKIE)
         .iter()
-        .map(|(k, v)| (k.to_string(), v.to_str().unwrap_or("").to_string()))
+        .filter_map(|v| v.to_str().ok().map(str::to_string))
         .collect();
     // Read raw bytes so the size reflects the real (decompressed) body length and
     // non-UTF-8/binary bodies don't get mis-measured; decode lossily for display.
@@ -29,6 +48,25 @@ pub async fn http_send(
     let (bytes, body_truncated) = read_body_limited(resp, settings.max_response_body_bytes).await?;
     let size_bytes = bytes.len();
     let body = String::from_utf8_lossy(&bytes).into_owned();
+    let (cookies, jar_sends) = match (jar, jar_before) {
+        (Some(jar), Some(before)) => {
+            let excluded = reqwest::Url::parse(&final_url).is_ok_and(|u| {
+                u.host_str()
+                    .is_some_and(|h| cookie_host_excluded(h, &settings.cookies_exclude))
+            });
+            let saved = settings.cookies_save && !excluded;
+            let sends = if excluded {
+                0
+            } else {
+                jar.sends_to(&final_url)
+            };
+            (
+                CookieJar::response_cookies(&set_cookies, &final_url, &before, saved),
+                settings.cookies_send.then_some(sends),
+            )
+        }
+        _ => (Vec::new(), None),
+    };
     Ok(HttpResponse {
         status,
         headers,
@@ -37,6 +75,8 @@ pub async fn http_send(
         elapsed_ms: start.elapsed().as_millis() as u64,
         size_bytes,
         body_truncated,
+        cookies,
+        jar_sends,
     })
 }
 
@@ -102,10 +142,15 @@ mod tests {
                 header_notes: None,
                 disabled_headers: None,
             };
-            let first = http_send(client.clone(), req.clone(), RequestSettings::default())
-                .await
-                .unwrap();
-            let second = http_send(client, req, RequestSettings::default())
+            let first = http_send(
+                client.clone(),
+                req.clone(),
+                RequestSettings::default(),
+                None,
+            )
+            .await
+            .unwrap();
+            let second = http_send(client, req, RequestSettings::default(), None)
                 .await
                 .unwrap();
             println!(

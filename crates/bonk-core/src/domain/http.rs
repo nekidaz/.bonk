@@ -78,6 +78,33 @@ pub struct HttpResponse {
     pub size_bytes: usize,
     #[serde(default)]
     pub body_truncated: bool,
+    /// The response's `Set-Cookie`s, parsed, with what each did to the jar.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub cookies: Vec<ResponseCookie>,
+    /// How many jar cookies the next request to `final_url` will carry.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub jar_sends: Option<usize>,
+}
+
+/// A `Set-Cookie` of a response and its effect on the jar.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ResponseCookie {
+    #[serde(flatten)]
+    pub cookie: CookieInfo,
+    /// `None` when saving to the jar is switched off.
+    pub change: Option<CookieChange>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum CookieChange {
+    New,
+    Updated,
+    /// Expired on arrival (`Max-Age=0`, a past `Expires`): the jar drops it.
+    Deleted,
+    /// Not valid for this URL (foreign `Domain`, `Secure` over http…): not stored.
+    Rejected,
 }
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -147,6 +174,57 @@ pub struct RequestSettings {
     pub trust_system_cas: bool,
     #[serde(default)]
     pub client_certs: Vec<ClientCert>,
+    /// Workspace root whose cookie jar this request uses; empty = the app-wide jar.
+    #[serde(default)]
+    pub cookie_jar: String,
+    /// Store `Set-Cookie` from responses into the jar.
+    #[serde(default = "default_true")]
+    pub cookies_save: bool,
+    /// Send matching jar cookies in the `Cookie` header (a hand-written one wins).
+    #[serde(default = "default_true")]
+    pub cookies_send: bool,
+    /// Also save session cookies, so they survive a restart like persistent ones.
+    #[serde(default)]
+    pub cookies_keep_session: bool,
+    /// Domains whose cookies are neither stored nor sent (`sentry.io`, `*.doubleclick.net`).
+    #[serde(default)]
+    pub cookies_exclude: Vec<String>,
+}
+
+/// Whether `host` falls under one of the excluded domains: `x.com`, `*.x.com` and `.x.com`
+/// all mean x.com and every subdomain of it.
+pub fn cookie_host_excluded(host: &str, exclude: &[String]) -> bool {
+    let host = host.to_ascii_lowercase();
+    exclude.iter().any(|p| {
+        let d = p
+            .trim()
+            .trim_start_matches("*.")
+            .trim_start_matches('.')
+            .to_ascii_lowercase();
+        !d.is_empty() && (host == d || host.ends_with(&format!(".{d}")))
+    })
+}
+
+/// One cookie of a jar, as the Cookies window lists it.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CookieInfo {
+    pub name: String,
+    pub value: String,
+    /// Host (host-only cookie) or the `Domain` attribute without a leading dot.
+    pub domain: String,
+    /// No `Domain` attribute: sent to exactly this host, not its subdomains.
+    pub host_only: bool,
+    pub path: String,
+    /// Unix ms; `None` = session cookie, gone when bonk closes.
+    pub expires_ms: Option<i64>,
+    pub expired: bool,
+    pub http_only: bool,
+    pub secure: bool,
+    /// `Strict` / `Lax` / `None`, as sent; `None` when the attribute is absent.
+    pub same_site: Option<String>,
+    /// The cookie as a `Set-Cookie` value (for the raw view and editing).
+    pub raw: String,
 }
 
 /// First client identity whose `host` matches the request host.
@@ -173,6 +251,11 @@ impl Default for RequestSettings {
             ca_paths: Vec::new(),
             trust_system_cas: true,
             client_certs: Vec::new(),
+            cookie_jar: String::new(),
+            cookies_save: true,
+            cookies_send: true,
+            cookies_keep_session: false,
+            cookies_exclude: Vec::new(),
         }
     }
 }
@@ -190,6 +273,11 @@ impl RequestSettings {
             ca_paths: self.ca_paths,
             trust_system_cas: self.trust_system_cas,
             client_certs: self.client_certs,
+            cookie_jar: self.cookie_jar,
+            cookies_save: self.cookies_save,
+            cookies_send: self.cookies_send,
+            cookies_keep_session: self.cookies_keep_session,
+            cookies_exclude: self.cookies_exclude,
         }
     }
 }
@@ -203,6 +291,10 @@ fn default_follow_redirects() -> bool {
 }
 
 fn default_validate_tls() -> bool {
+    true
+}
+
+fn default_true() -> bool {
     true
 }
 
@@ -230,6 +322,21 @@ mod tests {
         assert_eq!(pick("b.kz"), Some(""));
         assert_eq!(pick("other.com"), Some(""));
         assert_eq!(pick_client_cert(&certs[..2], "other.com"), None);
+    }
+
+    #[test]
+    fn cookie_exclusions_cover_subdomains() {
+        let ex = [
+            "sentry.io".to_string(),
+            "*.doubleclick.net".to_string(),
+            " ".to_string(),
+        ];
+        assert!(cookie_host_excluded("sentry.io", &ex));
+        assert!(cookie_host_excluded("o1.ingest.Sentry.io", &ex));
+        assert!(cookie_host_excluded("doubleclick.net", &ex));
+        assert!(cookie_host_excluded("ad.doubleclick.net", &ex));
+        assert!(!cookie_host_excluded("notsentry.io", &ex));
+        assert!(!cookie_host_excluded("api.a.kz", &ex));
     }
 
     #[test]

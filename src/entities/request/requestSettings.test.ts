@@ -11,6 +11,11 @@ const base: RequestSettings = {
   caPaths: [],
   trustSystemCas: true,
   clientCerts: [],
+  cookieJar: '',
+  cookiesSave: true,
+  cookiesSend: true,
+  cookiesKeepSession: false,
+  cookiesExclude: [],
 };
 
 describe('withOverrides', () => {

@@ -1,4 +1,5 @@
 import { onDestroy, onMount } from 'svelte';
+import { watchCookieJar } from '$entities/cookies';
 import { watchGitWorkspace } from '$entities/git';
 import { watchHistoryRetention } from '$entities/history';
 import { watchDocumentLang } from '$shared/i18n';
@@ -27,6 +28,7 @@ export function startApp(): void {
   onDestroy(watchDocumentLang());
   onDestroy(watchHistoryRetention());
   onDestroy(watchGitWorkspace());
+  onDestroy(watchCookieJar());
 
   layout.startEffects();
 
