@@ -4,6 +4,38 @@ All notable changes to bonk are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project aims to
 follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.9] - 2026-10-10
+
+### Added
+- The window now adapts from 1920px down to a 720×520 minimum: compact
+  toolbar, search and footer on narrow windows, and tabs that don't fit go
+  behind a «+N» menu.
+- On a narrow response panel the status shows just the code (`404`); hover it
+  for the full text.
+
+### Changed
+- Large workspaces open with folders collapsed, and the sidebar tree only
+  renders visible rows, so 10k-request collections stay fast. Bonk remembers
+  which folders you opened.
+- Tree edits refresh only the folders that changed.
+- Long method names (`DELETE`, `OPTIONS`) use short labels in the tab menu,
+  welcome view, command palette and runner, like the sidebar.
+- Tabs cut off at the edge of the tab strip fade out instead of ending in a
+  hard cut.
+
+### Fixed
+- `{{vars}}` resolve before auth is applied, so auth values can use variables.
+- MCP sends HTTP requests the same way as the app (GraphQL bodies, raw JSON).
+- gRPC connect and reflection errors show even when the tab has an older
+  response.
+- Code snippets add a scheme to URLs without one, like Send does.
+- The «+N» tab menu scrolls instead of running off-screen.
+- On a narrow window in compact density the response status row no longer
+  overlaps the body.
+- macOS: the toolbar sits after the traffic lights, which are vertically
+  centred.
+- Old `bonk-mcp` copies are removed once MCP clients point at the current one.
+
 ## [0.1.8] - 2026-10-09
 
 ### Added

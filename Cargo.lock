@@ -593,7 +593,7 @@ dependencies = [
 
 [[package]]
 name = "bonk"
-version = "0.1.8"
+version = "0.1.9"
 dependencies = [
  "bonk-core",
  "keyring",
@@ -613,7 +613,7 @@ dependencies = [
 
 [[package]]
 name = "bonk-core"
-version = "0.1.8"
+version = "0.1.9"
 dependencies = [
  "base64 0.22.1",
  "bytes",
@@ -642,7 +642,7 @@ dependencies = [
 
 [[package]]
 name = "bonk-mcp"
-version = "0.1.8"
+version = "0.1.9"
 dependencies = [
  "anyhow",
  "axum",
