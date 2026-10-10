@@ -1,22 +1,27 @@
 use super::http::{finish_cancel, register_cancel};
 use crate::state::AppState;
 use bonk_core::conn::GrpcConn;
-use bonk_core::domain::grpc::{GrpcCertInfo, GrpcPrefs, GrpcResult, GrpcTls, ServiceTree};
+use bonk_core::domain::grpc::{
+    GrpcCertInfo, GrpcError, GrpcErrorCode, GrpcPrefs, GrpcResult, GrpcTls, ServiceTree,
+};
 use std::collections::HashMap;
 use std::future::Future;
 use std::time::Duration;
 use tauri::State;
 
-async fn timeout_result<T, F>(timeout_ms: Option<u64>, future: F) -> Result<T, String>
+async fn timeout_result<T, F>(timeout_ms: Option<u64>, future: F) -> Result<T, GrpcError>
 where
-    F: Future<Output = Result<T, String>>,
+    F: Future<Output = Result<T, GrpcError>>,
 {
     let Some(ms) = timeout_ms.filter(|ms| *ms > 0) else {
         return future.await;
     };
     match tokio::time::timeout(Duration::from_millis(ms), future).await {
         Ok(result) => result,
-        Err(_) => Err(format!("request timed out after {ms} ms")),
+        Err(_) => Err(GrpcError::new(
+            GrpcErrorCode::DeadlineExceeded,
+            format!("request timed out after {ms} ms"),
+        )),
     }
 }
 
@@ -43,7 +48,7 @@ pub async fn grpc_connect(
     prefs: Option<GrpcPrefs>,
     timeout_ms: Option<u64>,
     state: State<'_, AppState>,
-) -> Result<String, String> {
+) -> Result<String, GrpcError> {
     let tls = tls.unwrap_or_default();
     let prefs = prefs.unwrap_or_default();
     // Distinct TLS options / limits get distinct connections.
@@ -75,6 +80,10 @@ pub async fn grpc_connect(
     Ok(id)
 }
 
+fn cancelled() -> GrpcError {
+    GrpcError::new(GrpcErrorCode::Cancelled, "request cancelled")
+}
+
 fn conn(state: &State<AppState>, id: &str) -> Result<GrpcConn, String> {
     state
         .conns
@@ -90,7 +99,7 @@ pub async fn grpc_reflect(
     connection_id: String,
     timeout_ms: Option<u64>,
     state: State<'_, AppState>,
-) -> Result<ServiceTree, String> {
+) -> Result<ServiceTree, GrpcError> {
     let conn = conn(&state, &connection_id)?;
     if let Some(cache) = conn.cache {
         return Ok(cache.tree);
@@ -228,7 +237,7 @@ pub async fn grpc_stream(
     request_id: Option<String>,
     on_message: tauri::ipc::Channel<bonk_core::application::grpc_native::GrpcStreamMessage>,
     state: State<'_, AppState>,
-) -> Result<GrpcResult, String> {
+) -> Result<GrpcResult, GrpcError> {
     let conn = conn(&state, &connection_id)?;
     let channel = conn
         .channel
@@ -271,7 +280,7 @@ pub async fn grpc_stream(
     let result = if let Some(cancel) = cancel {
         tokio::select! {
             res = call => res,
-            _ = cancel => Err("request cancelled".to_string()),
+            _ = cancel => Err(cancelled()),
         }
     } else {
         call.await
@@ -319,7 +328,7 @@ pub async fn grpc_call(
     request_id: Option<String>,
     timeout_ms: Option<u64>,
     state: State<'_, AppState>,
-) -> Result<GrpcResult, String> {
+) -> Result<GrpcResult, GrpcError> {
     let conn = conn(&state, &connection_id)?;
     let channel = conn
         .channel
@@ -362,7 +371,7 @@ pub async fn grpc_call(
     let result = if let Some(cancel) = cancel {
         tokio::select! {
             res = timeout_result(timeout_ms, call) => res,
-            _ = cancel => Err("request cancelled".to_string()),
+            _ = cancel => Err(cancelled()),
         }
     } else {
         timeout_result(timeout_ms, call).await

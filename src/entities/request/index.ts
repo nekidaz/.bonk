@@ -21,9 +21,8 @@ export {
   grpcMethodKind,
   type GrpcurlImport,
   inferGrpcPlaintext,
-  isGrpcConnectionError,
+  isGrpcConnectionCode,
   isGrpcNoServicesHint,
-  isRetryableDialError,
   methodShort,
   outgoingGrpcMetadata,
   parseGrpcurl,
@@ -37,7 +36,7 @@ export {
   openGrpcEditorSection,
   requestGrpcEditorAction,
 } from './grpcEditorUi.svelte';
-export { requestRuntime } from './requestRuntime.svelte';
+export { type GrpcTabError, requestRuntime } from './requestRuntime.svelte';
 export {
   addRequestToFolder,
   applyCurlToActiveTab,

@@ -19,7 +19,7 @@
     methodShort,
     grpcCodeTone,
     dialFailureReason,
-    isGrpcConnectionError,
+    isGrpcConnectionCode,
     openGrpcEditorSection,
     requestGrpcEditorAction,
     requestRuntime,
@@ -156,10 +156,10 @@
   // S25 also covers a failed connect (reflection / dial) before any call: same state, reconnect instead of re-invoke.
   const connectError = $derived(
     tab?.protocol === 'grpc' && !tab.grpcResult && !tab.grpcStream && !sending
-      ? (requestRuntime.grpcErrors[tab.id] ?? '')
-      : '',
+      ? requestRuntime.grpcErrors[tab.id]
+      : undefined,
   );
-  const connectFailed = $derived(isGrpcConnectionError(connectError));
+  const connectFailed = $derived(isGrpcConnectionCode(connectError?.code));
   const reconnecting = $derived(busy?.kind === 'connect');
   const responseHeaderEntries = $derived(tab?.response ? Object.entries(tab.response.headers) : []);
   // Set-Cookie values (several may arrive comma-joined); split before each `name=`.
@@ -509,7 +509,7 @@
     {:else if !tab.grpcResult}
       {#if connectFailed}
         {@render unreachable(
-          connectError,
+          connectError?.message ?? '',
           () => requestGrpcEditorAction(tab.id, 'reconnect'),
           () => requestGrpcEditorAction(tab.id, 'tls'),
         )}

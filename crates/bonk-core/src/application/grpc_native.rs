@@ -1,7 +1,7 @@
 use crate::conn::GrpcDescriptorCache;
 use crate::domain::grpc::{
-    GrpcErrorDetail, GrpcField, GrpcFieldViolation, GrpcMethod, GrpcPrefs, GrpcResult, GrpcService,
-    GrpcTls, ServiceTree,
+    GrpcError, GrpcErrorCode, GrpcErrorDetail, GrpcField, GrpcFieldViolation, GrpcMethod,
+    GrpcPrefs, GrpcResult, GrpcService, GrpcTls, ServiceTree,
 };
 use base64::engine::general_purpose::STANDARD as BASE64;
 use base64::Engine;
@@ -38,7 +38,7 @@ fn tls_domain(endpoint: &str) -> &str {
     }
 }
 
-pub async fn connect(endpoint: &str, plaintext: bool) -> Result<Channel, String> {
+pub async fn connect(endpoint: &str, plaintext: bool) -> Result<Channel, GrpcError> {
     connect_with(
         endpoint,
         plaintext,
@@ -54,7 +54,7 @@ pub async fn connect_with(
     plaintext: bool,
     tls: &GrpcTls,
     prefs: &GrpcPrefs,
-) -> Result<Channel, String> {
+) -> Result<Channel, GrpcError> {
     let secure = !plaintext && !endpoint.starts_with("http://");
     if secure && tls.insecure {
         return super::grpc_tls::connect_insecure(endpoint, tls, prefs).await;
@@ -67,7 +67,7 @@ pub async fn connect_with(
         format!("https://{endpoint}")
     };
     let mut builder = Endpoint::from_shared(uri.clone())
-        .map_err(|e| format!("invalid endpoint {uri}: {e}"))?
+        .map_err(|e| invalid(format!("invalid endpoint {uri}: {e}")))?
         // Bound the TCP/TLS handshake so an unreachable endpoint fails fast
         // instead of leaving the UI stuck "connecting" forever.
         .connect_timeout(std::time::Duration::from_secs(8));
@@ -94,10 +94,18 @@ pub async fn connect_with(
     builder
         .connect()
         .await
-        .map_err(|e| format!("connect failed: {e}"))
+        .map_err(|e| unavailable(format!("connect failed: {e}")))
 }
 
-pub async fn reflect(endpoint: &str, plaintext: bool) -> Result<GrpcDescriptorCache, String> {
+pub(crate) fn invalid(message: String) -> GrpcError {
+    GrpcError::new(GrpcErrorCode::InvalidArgument, message)
+}
+
+pub(crate) fn unavailable(message: String) -> GrpcError {
+    GrpcError::new(GrpcErrorCode::Unavailable, message)
+}
+
+pub async fn reflect(endpoint: &str, plaintext: bool) -> Result<GrpcDescriptorCache, GrpcError> {
     reflect_with(
         endpoint,
         plaintext,
@@ -112,7 +120,7 @@ pub async fn reflect_with(
     plaintext: bool,
     tls: &GrpcTls,
     prefs: &GrpcPrefs,
-) -> Result<GrpcDescriptorCache, String> {
+) -> Result<GrpcDescriptorCache, GrpcError> {
     // Use a FRESH connection per reflection attempt. A server that only speaks
     // v1alpha resets the connection when asked for the unknown v1 reflection
     // service; reusing one channel would carry that reset into the v1alpha
@@ -127,8 +135,11 @@ pub async fn reflect_with(
     }
     let channel = connect_with(endpoint, plaintext, tls, prefs).await?;
     match tokio::time::timeout(dur, reflect_v1alpha(channel)).await {
-        Ok(result) => result,
-        Err(_) => Err("reflection timed out".to_string()),
+        Ok(result) => Ok(result?),
+        Err(_) => Err(GrpcError::new(
+            GrpcErrorCode::DeadlineExceeded,
+            "reflection timed out",
+        )),
     }
 }
 
@@ -395,7 +406,7 @@ pub async fn call(
     method_symbol: &str,
     json_body: &str,
     metadata: &HashMap<String, String>,
-) -> Result<GrpcResult, String> {
+) -> Result<GrpcResult, GrpcError> {
     call_with(
         channel,
         cache,
@@ -414,7 +425,7 @@ pub async fn call_with(
     json_body: &str,
     metadata: &HashMap<String, String>,
     prefs: &GrpcPrefs,
-) -> Result<GrpcResult, String> {
+) -> Result<GrpcResult, GrpcError> {
     let method = cache
         .methods
         .get(method_symbol)
@@ -423,11 +434,10 @@ pub async fn call_with(
     // Unary only here; streams go through `call_stream`. Invoking a
     // streaming RPC as unary returns a wrong/partial result or hangs until timeout.
     if method.is_client_streaming() || method.is_server_streaming() {
-        return Err(format!(
-            "{method_symbol} is a streaming RPC; use a stream call."
-        ));
+        return Err(format!("{method_symbol} is a streaming RPC; use a stream call.").into());
     }
-    let (req, path) = prepare_request(&method, parse_message(&method, json_body)?, metadata)?;
+    let body = parse_message(&method, json_body).map_err(invalid)?;
+    let (req, path) = prepare_request(&method, body, metadata).map_err(invalid)?;
 
     let start = Instant::now();
     // Shared counter the decoder writes the raw protobuf byte count into, so we
@@ -445,7 +455,7 @@ pub async fn call_with(
         .max_encoding_message_size(prefs.max_message_bytes());
     grpc.ready()
         .await
-        .map_err(|e| format!("grpc client not ready: {e}"))?;
+        .map_err(|e| unavailable(format!("grpc client not ready: {e}")))?;
     // A unary RPC is one message each way on the wire, so drive it as a
     // server stream: unlike `unary`, that keeps headers and trailers apart.
     let response = match grpc.server_streaming(req, path, codec).await {
@@ -652,21 +662,21 @@ pub async fn call_stream<F: FnMut(GrpcStreamMessage) + Send>(
     prefs: &GrpcPrefs,
     more: Option<StreamReceiver>,
     mut on_message: F,
-) -> Result<GrpcResult, String> {
+) -> Result<GrpcResult, GrpcError> {
     let method = cache
         .methods
         .get(method_symbol)
         .ok_or_else(|| format!("unknown method: {method_symbol}"))?
         .clone();
     if !method.is_client_streaming() && !method.is_server_streaming() {
-        return Err(format!("{method_symbol} is not a streaming RPC."));
+        return Err(format!("{method_symbol} is not a streaming RPC.").into());
     }
-    let messages = parse_messages(&method, json_body)?;
+    let messages = parse_messages(&method, json_body).map_err(invalid)?;
     // A closed channel yields nothing, so `None` ends the request stream after `messages`.
     let more = more.unwrap_or_else(|| tokio::sync::mpsc::unbounded_channel().1);
     let outgoing = tokio_stream::iter(messages)
         .chain(tokio_stream::wrappers::UnboundedReceiverStream::new(more));
-    let (req, path) = prepare_request(&method, outgoing, metadata)?;
+    let (req, path) = prepare_request(&method, outgoing, metadata).map_err(invalid)?;
     let start = Instant::now();
     let wire_size = Arc::new(AtomicUsize::new(0));
     let codec = DynamicCodec {
@@ -678,7 +688,7 @@ pub async fn call_stream<F: FnMut(GrpcStreamMessage) + Send>(
         .max_encoding_message_size(prefs.max_message_bytes());
     grpc.ready()
         .await
-        .map_err(|e| format!("grpc client not ready: {e}"))?;
+        .map_err(|e| unavailable(format!("grpc client not ready: {e}")))?;
     let response = match grpc.streaming(req, path, codec).await {
         Ok(response) => response,
         Err(status) => {
@@ -1651,6 +1661,28 @@ service RootService { rpc RootCall (dep.Ping) returns (dep.Ping); }
             .await
             .unwrap();
             assert!(result.ok);
+        });
+    }
+
+    #[test]
+    fn connect_errors_carry_a_grpc_code() {
+        // A port that was just free: the dial is refused right away.
+        let port = std::net::TcpListener::bind("127.0.0.1:0")
+            .unwrap()
+            .local_addr()
+            .unwrap()
+            .port();
+        let prefs = GrpcPrefs::default();
+        let tls = GrpcTls::default();
+        tokio::runtime::Runtime::new().unwrap().block_on(async {
+            let refused = connect_with(&format!("127.0.0.1:{port}"), true, &tls, &prefs)
+                .await
+                .unwrap_err();
+            assert_eq!(refused.code, GrpcErrorCode::Unavailable, "{refused}");
+            let bad = connect_with("bad host:1", true, &tls, &prefs)
+                .await
+                .unwrap_err();
+            assert_eq!(bad.code, GrpcErrorCode::InvalidArgument, "{bad}");
         });
     }
 }

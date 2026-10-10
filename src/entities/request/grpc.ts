@@ -23,11 +23,12 @@ export const grpcNoServicesHint = (): string => t('grpc.noServicesHint');
 export const isGrpcNoServicesHint = (msg: string): boolean =>
   msg === ru['grpc.noServicesHint'] || msg === en['grpc.noServicesHint'];
 
-/** A dial/transport failure (bad address, refused, TLS mismatch…), not a schema hint or a request error. */
-export const isGrpcConnectionError = (msg: string): boolean =>
-  !!msg &&
-  !isGrpcNoServicesHint(msg) &&
-  /connect|transport|network|dns|certificate|tls|deadline|unavailable|refused|dial/i.test(msg);
+/**
+ * The server was not reached (refused, DNS, TLS handshake, connect timeout): `code` from a
+ * `GrpcCommandError`. Such a dial is safe to retry, and the response pane draws it as S25.
+ */
+export const isGrpcConnectionCode = (code: string | undefined): boolean =>
+  code === 'UNAVAILABLE' || code === 'DEADLINE_EXCEEDED';
 
 /**
  * Infer plaintext-vs-TLS from an endpoint. An explicit `https://` / `http://`
@@ -81,11 +82,6 @@ export function outgoingGrpcMetadata(metadata: Record<string, string>, stripAuth
 
 /** S25: waits between dial attempts when Invoke can't reach the server (3 attempts). */
 export const GRPC_DIAL_BACKOFF_MS = [500, 2000];
-
-/** Dial failures where the request never reached the server, so retrying is safe. */
-export function isRetryableDialError(error: string): boolean {
-  return /refused|unavailable|timed? ?out|reset|unreachable|dns|no route/i.test(error);
-}
 
 /** Short cause for the S25 card: «connection refused», or the error itself. */
 export function dialFailureReason(error: string): string {

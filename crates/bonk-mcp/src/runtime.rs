@@ -616,7 +616,7 @@ impl BonkRuntime {
         reject_unresolved_grpc(&endpoint, &method, &message, metadata.iter())?;
         let channel = grpc_native::connect(&endpoint, schema.plaintext)
             .await
-            .map_err(|error| sanitize_error(&error, &secrets))?;
+            .map_err(|error| sanitize_error(&error.message, &secrets))?;
         let timeout = Duration::from_millis(timeout_ms.unwrap_or(30_000).min(600_000));
         let result = tokio::time::timeout(
             timeout,
@@ -624,7 +624,7 @@ impl BonkRuntime {
         )
         .await
         .map_err(|_| format!("gRPC call timed out after {} ms", timeout.as_millis()))?
-        .map_err(|error| sanitize_error(&error, &secrets))?;
+        .map_err(|error| sanitize_error(&error.message, &secrets))?;
         Ok(GrpcCallOutput {
             ok: result.ok,
             status: result.status,
@@ -715,7 +715,7 @@ impl BonkRuntime {
             .map_err(|error| sanitize_error(&error, &secrets))?;
         let channel = grpc_native::connect(&endpoint, grpc.plaintext)
             .await
-            .map_err(|error| sanitize_error(&error, &secrets))?;
+            .map_err(|error| sanitize_error(&error.message, &secrets))?;
         let metadata_map = metadata.clone().into_iter().collect::<HashMap<_, _>>();
         let result = tokio::time::timeout(
             Duration::from_secs(30),
@@ -723,7 +723,7 @@ impl BonkRuntime {
         )
         .await
         .map_err(|_| "gRPC call timed out after 30000 ms".to_string())?
-        .map_err(|error| sanitize_error(&error, &secrets))?;
+        .map_err(|error| sanitize_error(&error.message, &secrets))?;
 
         if let Some(code) = grpc
             .test_script
@@ -782,7 +782,7 @@ impl BonkRuntime {
     ) -> Result<GrpcDescriptorCache, String> {
         if schema.proto_paths.is_empty() {
             self.require_network()?;
-            grpc_native::reflect(endpoint, schema.plaintext).await
+            Ok(grpc_native::reflect(endpoint, schema.plaintext).await?)
         } else {
             let files = self.normalize_proto_paths(&schema.proto_paths)?;
             let includes = self.normalize_proto_paths(&schema.import_paths)?;
