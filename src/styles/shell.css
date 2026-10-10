@@ -1218,10 +1218,12 @@
   }
 }
 
-/* Native macOS traffic lights sit in the header's left 80px. */
-/* (traffic lights 52px + 14px gap, as in the mock's header «Left» frame). */
+/* Native macOS traffic lights overlay the header's left edge: start 14px after them (the mock's gap).
+   --traffic-lights-right is their measured right edge (src/main.ts); without it (browser, tests) the
+   62px fallback keeps the old 66px inset.
+   The 10px is .bs-tb's own left padding. */
 html[data-native-macos='true'] .bs-tb-left {
-  padding-left: 66px;
+  padding-left: calc(var(--traffic-lights-right, 62px) + 14px - 10px);
 }
 
 /* S33–S35: resize grip + width tooltip; the hidden sidebar's pull-to-open grip. */
