@@ -162,7 +162,7 @@
       <span class="hint">{stage === 'pre' ? t('script.pre.hint') : t('script.post.hint')}</span>
       <span class="spacer"></span>
       <span class="meta">{`JavaScript · ${countLabel(lineCount, 'lines')}`}</span>
-      {#if big}<EditorTools scope=".bs-script-editor" {onExpand} {expanded} />{/if}
+      <EditorTools scope=".bs-script-editor" {onExpand} {expanded} />
       <button
         type="button"
         class="snip-toggle"
