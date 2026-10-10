@@ -27,7 +27,7 @@
   import { openSavedRequest } from '$entities/request';
   import RunnerPick from './RunnerPick.svelte';
   import RunnerSetup from './RunnerSetup.svelte';
-  import { methodColor, formatBytes, type RequestNode } from '$shared/model';
+  import { methodColor, methodLabel, formatBytes, type RequestNode } from '$shared/model';
   import { highlightJson } from '$shared/editor';
   import {
     buildMatrix,
@@ -391,7 +391,9 @@
             >
               <span class="rn-no">{pad2(ri + 1)}</span>
               <span class="rn-req">
-                <b style="color:{methodColor(row.protocol === 'grpc' ? 'GRPC' : row.method)}">{row.method}</b>
+                <b style="color:{methodColor(row.protocol === 'grpc' ? 'GRPC' : row.method)}"
+                  >{row.protocol === 'grpc' ? row.method : methodLabel(row.method)}</b
+                >
                 <span class="rn-name" title={row.name}>{row.name}</span>
               </span>
               {#each row.cells as c, ci (ci)}

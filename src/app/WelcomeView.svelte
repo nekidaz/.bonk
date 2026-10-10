@@ -1,7 +1,7 @@
 <script lang="ts">
   import { workspace } from '$entities/workspace';
   import { history, openHistoryEntry } from '$entities/history';
-  import { methodColor } from '$shared/model';
+  import { methodColor, methodLabel } from '$shared/model';
   import { recentRequests, timeAgo } from '$entities/environment';
   import { t } from '$shared/i18n';
 
@@ -81,7 +81,9 @@
       <div class="lbl">{t('nav.welcome.recent')}</div>
       {#each recent as r, i (r.entry.id)}
         <button class="row" class:on={i === 0} type="button" onclick={() => openHistoryEntry(r.entry)}>
-          <span class="m" style="color:{methodColor(r.method === 'gRPC' ? 'GRPC' : r.method)}">{r.method}</span>
+          <span class="m" style="color:{methodColor(r.method === 'gRPC' ? 'GRPC' : r.method)}"
+            >{r.method === 'gRPC' ? r.method : methodLabel(r.method)}</span
+          >
           <span class="name">{r.name}</span>
           <span class="folder">{r.folder}</span>
           <span class="st" class:err={!r.ok}>{r.status}</span>

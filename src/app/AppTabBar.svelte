@@ -2,7 +2,7 @@
   import { tabs, HTTP_DEFAULT_TITLE } from '$entities/tab';
   import { requestCloseTab, newTab, moveTab, togglePinTab } from '$features/tabs';
   import { dirtyTabIds } from '$entities/request';
-  import { methodColor, type Tab } from '$shared/model';
+  import { methodColor, methodLabel, type Tab } from '$shared/model';
   import { t } from '$shared/i18n';
 
   let {
@@ -222,7 +222,7 @@
         <span class="tm" style:color={TAB_ICON[tb.protocol] ? undefined : tabMethodColor(tb)}
           >{#if TAB_ICON[tb.protocol]}<span class="material-symbols-outlined" aria-hidden="true"
               >{TAB_ICON[tb.protocol]}</span
-            >{:else}{tabMethodLabel(tb)}{/if}</span
+            >{:else if tb.protocol === 'grpc'}gRPC{:else}{methodLabel(tb.request.method)}{/if}</span
         >
         <span class="lb">{tb.title === HTTP_DEFAULT_TITLE ? t('tabs.untitled') : tb.title}</span>
       </button>
