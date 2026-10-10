@@ -11,7 +11,6 @@ export {
   checkGrpcMessage,
   dialFailureReason,
   GRPC_DIAL_BACKOFF_MS,
-  grpcAuthMetadata,
   grpcCodeTone,
   grpcConnectFailureMessage,
   type GrpcConnectStage,
@@ -24,7 +23,6 @@ export {
   isGrpcConnectionCode,
   isGrpcNoServicesHint,
   methodShort,
-  outgoingGrpcMetadata,
   parseGrpcurl,
   stripsAuthorization,
 } from './grpc';

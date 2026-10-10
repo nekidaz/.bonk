@@ -32,6 +32,7 @@ export {
   grpcConnect,
   grpcErrorCode,
   grpcLoadProto,
+  grpcPrepare,
   grpcProtoInspect,
   grpcReflect,
   grpcStream,

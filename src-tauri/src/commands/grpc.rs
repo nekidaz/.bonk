@@ -4,7 +4,11 @@ use bonk_core::conn::GrpcConn;
 use bonk_core::domain::grpc::{
     GrpcCertInfo, GrpcError, GrpcErrorCode, GrpcPrefs, GrpcResult, GrpcTls, ServiceTree,
 };
-use std::collections::HashMap;
+use bonk_core::domain::{
+    http::AuthConfig,
+    request_prep::{self, GrpcOutgoing},
+};
+use std::collections::{BTreeMap, HashMap};
 use std::future::Future;
 use std::time::Duration;
 use tauri::State;
@@ -35,6 +39,25 @@ pub async fn grpc_tls_inspect(
 }
 
 /// (subject CN, expiry unix seconds) of a CA/cert file, for the Settings list.
+/// After the pre-request script: the call's message and metadata with `{{vars}}` and
+/// auth applied. Same code bonk-mcp calls with. `auth` is the effective one (own or folder).
+#[tauri::command]
+pub fn grpc_prepare(
+    auth: Option<AuthConfig>,
+    message: String,
+    metadata: BTreeMap<String, String>,
+    scope: BTreeMap<String, String>,
+    strip_authorization: bool,
+) -> GrpcOutgoing {
+    request_prep::grpc_prepare(
+        auth.as_ref(),
+        &message,
+        &metadata,
+        &scope,
+        strip_authorization,
+    )
+}
+
 #[tauri::command]
 pub fn cert_file_info(path: String) -> Result<(String, i64), String> {
     bonk_core::application::grpc_tls::cert_file_info(&path)

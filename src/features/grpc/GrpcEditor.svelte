@@ -17,7 +17,7 @@
    */
   import { tick, untrack } from 'svelte';
   import { tabs, grpcSnapshot, titleFromUrl, GRPC_DEFAULT_TITLE } from '$entities/tab';
-  import { workspace } from '$entities/workspace';
+  import { effectiveAuth, workspace } from '$entities/workspace';
   import { addHistory } from '$entities/history';
   import { grpcTlsFor, currentGrpcPrefs, withGlobalImports, requestPrefs } from '$shared/settings';
   import {
@@ -47,6 +47,7 @@
     grpcStream,
     grpcStreamSend,
     grpcStreamEnd,
+    grpcPrepare,
     grpcTemplate,
     runScript,
   } from '$shared/ipc';
@@ -81,7 +82,6 @@
     invokeFailureResult,
     withGrpcEndpoint,
     applyGrpcurlImport,
-    resolveOutgoingGrpc,
     withoutStaleResponse,
   } from './grpcEditor';
 
@@ -322,8 +322,8 @@
     const busy = requestRuntime.busy[tabId];
     const g = tabs.list.find((t) => t.id === tabId)?.grpc;
     if (!busy?.writable || !busy.requestId || !g) return;
-    const body = resolveVars(g.message, currentVarScope()).trim() || '{}';
     try {
+      const { message: body } = await grpcPrepare({ message: g.message, scope: currentVarScope() });
       await grpcStreamSend(busy.requestId, body);
       requestRuntime.clearGrpcError(tabId);
       tabs.updateById(tabId, (x) => {
@@ -438,23 +438,22 @@
     // Interpolate {{var}} placeholders (globals + active environment, now
     // including anything the pre-request script set) into the message JSON
     // and metadata values just before dispatch.
-    const scope = currentVarScope();
-    // A visually empty editor represents protobuf's valid empty message: sent as `{}` on the wire.
-    const { message: resolvedMessage, metadata: resolvedMetadata } = resolveOutgoingGrpc(
-      g.auth,
-      message,
-      metadata,
-      workspace.tree,
-      tab.savedPath,
-      scope,
-      stripAuth,
-    );
+    // bonk-core prepares the wire payload (an empty editor goes out as `{}`), as for bonk-mcp.
+    let resolvedMessage = '{}';
+    let resolvedMetadata: Record<string, string> = {};
     // S20: streams (server, client, bidi) arrive message by message; everything else is a unary call.
     // A client/bidi stream sends the editor message (an array = one message per element),
     // then stays open for Send until End.
     const method = g.tree?.services.flatMap((s) => s.methods).find((m) => m.symbol === g.method);
     const streaming = !!method?.serverStreaming || !!method?.clientStreaming;
     try {
+      ({ message: resolvedMessage, metadata: resolvedMetadata } = await grpcPrepare({
+        auth: effectiveAuth(workspace.tree, tab.savedPath, g.auth),
+        message,
+        metadata,
+        scope: currentVarScope(),
+        stripAuthorization: stripAuth,
+      }));
       if (streaming) {
         const sent = method?.clientStreaming ? sentEntries(resolvedMessage, 0) : [];
         if (method?.clientStreaming)

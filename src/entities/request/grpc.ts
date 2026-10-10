@@ -1,4 +1,4 @@
-import { type AuthConfig, type GrpcField, type GrpcTabState, tokenize } from '$shared/model';
+import { type GrpcField, type GrpcTabState, tokenize } from '$shared/model';
 import { t, ru, en } from '$shared/i18n';
 
 export function methodShort(symbol: string): string {
@@ -75,11 +75,6 @@ export function stripsAuthorization(g: Pick<GrpcTabState, 'keepAuthOnPlaintext'>
   return plaintext && !g.keepAuthOnPlaintext;
 }
 
-export function outgoingGrpcMetadata(metadata: Record<string, string>, stripAuth: boolean): Record<string, string> {
-  if (!stripAuth) return metadata;
-  return Object.fromEntries(Object.entries(metadata).filter(([k]) => k.toLowerCase() !== 'authorization'));
-}
-
 /** S25: waits between dial attempts when Invoke can't reach the server (3 attempts). */
 export const GRPC_DIAL_BACKOFF_MS = [500, 2000];
 
@@ -112,22 +107,6 @@ export function grpcMethodKind(m: { clientStreaming?: boolean; serverStreaming?:
   if (m.clientStreaming) return 'client stream';
   if (m.serverStreaming) return 'server stream';
   return 'unary';
-}
-
-/**
- * Metadata an auth config adds to a gRPC call. `resolve` expands `{{vars}}`
- * first so Basic credentials are encoded from real values.
- */
-export function grpcAuthMetadata(auth: AuthConfig, resolve: (v: string) => string): Record<string, string> {
-  if (auth.type === 'bearer' && auth.bearerToken?.trim())
-    return { authorization: `Bearer ${resolve(auth.bearerToken.trim())}` };
-  if (auth.type === 'basic' && (auth.basicUsername || auth.basicPassword)) {
-    const raw = `${resolve(auth.basicUsername ?? '')}:${resolve(auth.basicPassword ?? '')}`;
-    return { authorization: `Basic ${btoa(String.fromCharCode(...new TextEncoder().encode(raw)))}` };
-  }
-  if (auth.type === 'apiKey' && auth.apiKeyName?.trim())
-    return { [auth.apiKeyName.trim().toLowerCase()]: resolve(auth.apiKeyValue ?? '') };
-  return {};
 }
 
 /** G1: what a pasted `grpcurl …` command sets on the request. */
