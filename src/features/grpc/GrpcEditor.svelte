@@ -34,6 +34,8 @@
     type GrpcConnectStage,
     requestRuntime,
     grpcEditorUi,
+    openGrpcEditorSection,
+    scriptUi,
   } from '$entities/request';
   import {
     cancelRequest,
@@ -49,14 +51,14 @@
     runScript,
   } from '$shared/ipc';
   import { currentVarScope, environments, requestVariableHighlight } from '$entities/environment';
-  import { CodeEditor, ScriptsEditor } from '$shared/editor/components';
+  import { CodeEditor } from '$shared/editor/components';
   import GrpcErrorAlert from './GrpcErrorAlert.svelte';
   import GrpcTlsPopover from './GrpcTlsPopover.svelte';
   import GrpcMethodPicker from './GrpcMethodPicker.svelte';
   import GrpcMessagePanel from './GrpcMessagePanel.svelte';
   import GrpcRequestTabs from './GrpcRequestTabs.svelte';
   import GrpcMetadataEditor from './GrpcMetadataEditor.svelte';
-  import { HttpAuthEditor } from '$entities/request/components';
+  import { HttpAuthEditor, RequestScripts } from '$entities/request/components';
   import ProtoImportDialog from './ProtoImportDialog.svelte';
   import GrpcProtoPanel from './GrpcProtoPanel.svelte';
   import { isLargeBody, textStats } from '$shared/editor';
@@ -167,6 +169,11 @@
     await tick();
     if (tab.grpc?.endpoint.trim()) await grpcDoConnect();
   }
+  // «Перейти к строке» from the response opens the Scripts section; RequestScripts then reveals the line.
+  $effect(() => {
+    if (scriptUi.jump?.tabId === tab.id) untrack(() => openGrpcEditorSection(tab.id, 'scripts'));
+  });
+
   // «Повторить» / TLS from the response pane's unreachable state (S25).
   $effect(() => {
     const action = grpcEditorUi.action;
@@ -402,7 +409,8 @@
       applyScriptVars(pre);
       if (pre.error) {
         const testResults = collectScriptRun({ pre, at: Date.now() });
-        tabs.updateById(tabId, (x) => ({ ...x, testResults }));
+        // Nothing was sent: drop the previous call's result so it doesn't read as this one's (SC6).
+        tabs.updateById(tabId, (x) => ({ ...x, testResults, grpcResult: undefined, grpcStream: undefined }));
         addAppConsoleEntry({
           protocol: 'grpc',
           method: methodShort(g.method ?? '') || 'gRPC',
@@ -642,12 +650,12 @@
   {:else if gTab === 'auth'}
     <HttpAuthEditor {tab} />
   {:else if gTab === 'scripts'}
-    <ScriptsEditor
+    <RequestScripts
+      {tab}
       preRequestScript={tab.grpc?.preRequestScript ?? ''}
       testScript={tab.grpc?.testScript ?? ''}
       onPreRequestChange={(v) => setGrpcScript('preRequestScript', v)}
       onTestChange={(v) => setGrpcScript('testScript', v)}
-      docId={tab.id}
     />
   {:else}
     <div class="bs-http-body"><GrpcProtoPanel {tab} onSetSource={setSource} onAddProto={importProto} /></div>

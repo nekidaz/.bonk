@@ -4,3 +4,6 @@
 export { default as CodeEditor, type CodeEditorLang } from './CodeEditor.svelte';
 export { default as EditorTools } from './EditorTools.svelte';
 export { default as ScriptsEditor } from './ScriptsEditor.svelte';
+export { default as ScriptConsole } from './ScriptConsole.svelte';
+export { default as ScriptStageSwitch } from './ScriptStageSwitch.svelte';
+export { default as ScriptTests } from './ScriptTests.svelte';

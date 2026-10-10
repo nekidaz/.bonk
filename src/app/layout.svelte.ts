@@ -152,10 +152,19 @@ class Layout {
     void saveState('sidebarWidths', this.sidebarWidths);
   };
 
-  /** Auto-focus: the pane being worked in fills, the other folds into its strip. */
+  /**
+   * Auto-focus: the pane being worked in fills, the other folds into its strip.
+   * Flow · Скрипты SC7: a big script does this in every stacked layout.
+   */
   autoFocusIn = (e: FocusEvent): void => {
-    if (requestLayout.current !== 'focus' || this.sideBySide || focusMode.current) return;
     const el = e.target instanceof Element ? e.target : null;
+    if (this.sideBySide || focusMode.current) return;
+    if (el?.closest('.bs-scripts[data-big]')) {
+      this.requestHidden = false;
+      this.responseHidden = true;
+      return;
+    }
+    if (requestLayout.current !== 'focus') return;
     if (el?.closest('.bs-reqpane')) {
       this.requestHidden = false;
       this.responseHidden = true;

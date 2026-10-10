@@ -20,3 +20,5 @@ export {
 } from './largeBody';
 export { countLabel } from './largeFold';
 export { urlHighlight } from './urlHighlight';
+export { scriptSnippetsExpanded, scriptSnippetsOpen } from './scriptPrefs.svelte';
+export { consoleRows } from './scriptRun';

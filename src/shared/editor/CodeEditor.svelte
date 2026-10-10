@@ -56,6 +56,7 @@
   import { foldLargeArrays, largeFolding } from './largeFold';
   import { jsonProblem } from './jsonLint';
   import { jsonErrorMessage } from './jsonEditor';
+  import { revealLine } from './scriptMarks';
 
   let {
     value,
@@ -81,6 +82,7 @@
     autoFold = false,
     lintJson = false,
     wrap = false,
+    extensions,
   }: {
     value: string;
     onChange: (value: string) => void;
@@ -136,6 +138,8 @@
     lintJson?: boolean;
     /** Soft-wrap long lines. */
     wrap?: boolean;
+    /** Host-specific extensions (script run marks, keys), live-reconfigured like `varHighlight`. */
+    extensions?: Extension;
   } = $props();
 
   let host: HTMLDivElement | undefined = $state();
@@ -148,6 +152,7 @@
   const placeholderCompartment = new Compartment();
   const varCompartment = new Compartment();
   const wrapCompartment = new Compartment();
+  const extraCompartment = new Compartment();
   /** Language the lint source checks against (kept in sync by the reconfigure effect). */
   let currentLang = untrack(() => lang);
 
@@ -520,6 +525,21 @@
         fontSize: '10.5px',
       },
       '.cm-tooltip.bs-ac-rich > ul > li.bs-ac-set': { opacity: '0.45' },
+      // SC2: the selected option's signature + description sit under the list, not beside it.
+      '.cm-tooltip.bs-ac-rich > .cm-completionInfo': {
+        position: 'static !important',
+        maxWidth: 'none',
+        padding: '8px 10px 6px',
+        borderTop: '0.5px solid var(--sepsoft)',
+      },
+      '.cm-tooltip.bs-ac-rich .bs-ac-info code': {
+        display: 'block',
+        color: 'var(--text)',
+        fontFamily: 'var(--mono)',
+        fontSize: '11px',
+        fontWeight: '600',
+      },
+      '.cm-tooltip.bs-ac-rich .bs-ac-info p': { margin: '3px 0 0', maxWidth: '340px', lineHeight: '1.45' },
       '.cm-tooltip.bs-ac-rich > ul > li.bs-ac-set .cm-completionDetail::after': { content: '"  ✓"' },
       '.cm-tooltip.bs-ac-rich::after': {
         content: completionFooter ? JSON.stringify(completionFooter) : 'none',
@@ -531,6 +551,21 @@
         whiteSpace: 'pre',
       },
     });
+  }
+
+  /**
+   * Out-of-pane home for rich completion tooltips. CodeMirror wraps them in a container carrying the
+   * editor theme (`height: 100%`); straight in the flex-column body it would take half the window from #app.
+   */
+  function tooltipHost(): HTMLElement {
+    let el = document.getElementById('bs-cm-tooltips');
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'bs-cm-tooltips';
+      el.style.cssText = 'position:fixed;top:0;left:0;width:0;height:0;z-index:1000';
+      document.body.append(el);
+    }
+    return el;
   }
 
   function renderDoc(c: Completion): Node | null {
@@ -566,7 +601,7 @@
             highlightActiveLine(),
             highlightActiveLineGutter(),
             // Rich completions outgrow the editor; the request pane clips (contain: paint).
-            completionSource ? tooltips({ parent: document.body }) : [],
+            completionSource ? tooltips({ parent: tooltipHost() }) : [],
             autocompletion(
               completionSource
                 ? {
@@ -607,6 +642,7 @@
       langCompartment.of(langExtension(lang)),
       placeholderCompartment.of(cmPlaceholder(placeholder)),
       varCompartment.of(varHighlight ?? []),
+      extraCompartment.of(extensions ?? []),
       syntaxHighlighting(highlight),
       themeExtension(),
       ...(ariaLabel ? [EditorView.contentAttributes.of({ 'aria-label': ariaLabel })] : []),
@@ -738,6 +774,17 @@
     if (!view) return;
     view.dispatch({ effects: varCompartment.reconfigure(ext) });
   });
+
+  $effect(() => {
+    const ext = extensions ?? [];
+    if (!view) return;
+    view.dispatch({ effects: extraCompartment.reconfigure(ext) });
+  });
+
+  /** Caret to `line`, scrolled to the middle, editor focused (a test or error «строка N» link). */
+  export function reveal(line: number): void {
+    if (view) revealLine(view, line);
+  }
 
   /**
    * Insert `text` at the cursor (replacing any selection) and focus the

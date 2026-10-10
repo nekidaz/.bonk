@@ -44,7 +44,9 @@ export async function sendHttpTab(tab: Tab, opts: { skipScripts?: boolean } = {}
   try {
     await sendHttpRequest(id, req, requestId, opts);
   } catch (e) {
-    const cancelled = String(e).toLowerCase().includes('cancel');
+    // A pre-request script error is never a cancel, whatever its message says.
+    const scriptFailed = tabs.list.find((x) => x.id === id)?.testResults?.errorPhase === 'pre';
+    const cancelled = !scriptFailed && String(e).toLowerCase().includes('cancel');
     const res: HttpResponse = {
       status: 0,
       headers: {},

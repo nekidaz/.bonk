@@ -4,3 +4,4 @@
 export { default as HttpAuthEditor } from './HttpAuthEditor.svelte';
 export { default as ProductionGuard } from './ProductionGuard.svelte';
 export { default as SaveRequestDialog } from './SaveRequestDialog.svelte';
+export { default as RequestScripts } from './RequestScripts.svelte';

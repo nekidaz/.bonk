@@ -7,12 +7,12 @@
    * and store writes. This component keeps only cross-pane UI state.
    */
   import { t } from '$shared/i18n';
-  import { HttpAuthEditor } from '$entities/request/components';
+  import { HttpAuthEditor, RequestScripts } from '$entities/request/components';
+  import { scriptUi } from '$entities/request';
   import HttpBodyEditor from './HttpBodyEditor.svelte';
   import HttpHeadersEditor from './HttpHeadersEditor.svelte';
   import HttpParamsEditor from './HttpParamsEditor.svelte';
   import HttpRequestTabs from './HttpRequestTabs.svelte';
-  import { ScriptsEditor } from '$shared/editor/components';
   import HttpUrlBar from './HttpUrlBar.svelte';
   import { tabs } from '$entities/tab';
   import type { HttpEditorTab } from './httpEditor';
@@ -26,6 +26,10 @@
   }
 
   let uiTab = $state<HttpEditorTab>('params');
+  // «Перейти к строке» from the response opens the Scripts tab; RequestScripts then reveals the line.
+  $effect(() => {
+    if (scriptUi.jump?.tabId === tab.id) uiTab = 'scripts';
+  });
 </script>
 
 <HttpUrlBar {tab} bind:methodOpen />
@@ -41,12 +45,12 @@
   {:else if uiTab === 'params'}
     <HttpParamsEditor {tab} />
   {:else if uiTab === 'scripts'}
-    <ScriptsEditor
+    <RequestScripts
+      {tab}
       preRequestScript={tab.request.preRequestScript ?? ''}
       testScript={tab.request.testScript ?? ''}
       onPreRequestChange={(v) => setHttpScript('preRequestScript', v)}
       onTestChange={(v) => setHttpScript('testScript', v)}
-      docId={tab.id}
     />
   {:else}
     <div class="bs-pwrap">

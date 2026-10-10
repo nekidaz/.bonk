@@ -47,14 +47,14 @@ globalThis.__msg=function(e){if(!e||typeof e!=='object')return String(e);var n=e
   function log(){var s=Array.prototype.map.call(arguments,function(v){return typeof v==='object'&&v!==null?fmt(v):String(v);}).join(' ');__out.logs.push(s);ev({kind:'log',text:s});}
   globalThis.console={log:log,warn:log,error:log,info:log,debug:log};
   function fmt(v){try{var s=JSON.stringify(v);return s===undefined?String(v):s;}catch(e){return String(v);}}
-  function setHeader(k,v){req.headers=req.headers||{};req.headers[k]=String(v);reqPatch.headers=req.headers;ev({kind:'hdr',op:'add',key:k,value:String(v)});}
+  function setHeader(k,v,op){var h=req.headers||{},l=String(k).toLowerCase();for(var n in h)if(n.toLowerCase()===l)delete h[n];h[k]=String(v);req.headers=h;reqPatch.headers=h;ev({kind:'hdr',op:op,key:k,value:String(v)});}
   function getHeader(o,k){if(!o)return undefined;var l=String(k).toLowerCase();for(var n in o)if(n.toLowerCase()===l)return o[n];return undefined;}
   var request={method:req.method,
     get url(){return req.url;},
     set url(v){if(req.readonlyUrl)throw new TypeError('pm.request.url is read-only in gRPC requests');req.url=v;reqPatch.url=v;},
     get body(){return req.body;}, set body(v){req.body=v;reqPatch.body=v;},
-    headers:{add:function(k,v){if(k&&typeof k==='object'){v=k.value;k=k.key;}setHeader(k,v);},
-             upsert:function(k,v){if(k&&typeof k==='object'){v=k.value;k=k.key;}setHeader(k,v);},
+    headers:{add:function(k,v){if(k&&typeof k==='object'){v=k.value;k=k.key;}setHeader(k,v,'add');},
+             upsert:function(k,v){if(k&&typeof k==='object'){v=k.value;k=k.key;}setHeader(k,v,'upsert');},
              remove:function(k){var h=req.headers||{},l=String(k).toLowerCase();for(var n in h)if(n.toLowerCase()===l)delete h[n];req.headers=h;reqPatch.headers=h;ev({kind:'hdr',op:'remove',key:k});},
              get:function(k){return getHeader(req.headers,k);},
              has:function(k){return getHeader(req.headers,k)!==undefined;},
@@ -80,40 +80,41 @@ globalThis.__msg=function(e){if(!e||typeof e!=='object')return String(e);var n=e
   AssertionError.prototype.name='AssertionError';
   AssertionError.prototype.constructor=AssertionError;
   function typeOf(v){if(v===null)return 'null';if(Array.isArray(v))return 'array';return typeof v;}
-  function Assertion(a,neg){this.a=a;this.neg=neg;}
+  function Assertion(v,neg,deep){this.v=v;this.neg=neg;this.dp=!!deep;}
   var P=Assertion.prototype;
-  P.check=function(ok,what){if(!!ok===this.neg)throw new AssertionError('expected '+fmt(this.a)+(this.neg?' not ':' ')+what);return this;};
-  ['to','be','been','is','that','which','and','has','have','with','at','of','same','deep','does','still'].forEach(function(w){Object.defineProperty(P,w,{get:function(){return this;}});});
-  Object.defineProperty(P,'not',{get:function(){return new Assertion(this.a,!this.neg);}});
-  Object.defineProperty(P,'ok',{get:function(){return this.check(this.a,'to be ok');}});
-  Object.defineProperty(P,'true',{get:function(){return this.check(this.a===true,'to be true');}});
-  Object.defineProperty(P,'false',{get:function(){return this.check(this.a===false,'to be false');}});
-  Object.defineProperty(P,'null',{get:function(){return this.check(this.a===null,'to be null');}});
-  Object.defineProperty(P,'undefined',{get:function(){return this.check(this.a===undefined,'to be undefined');}});
-  Object.defineProperty(P,'empty',{get:function(){var a=this.a,n=a==null?0:typeof a==='object'&&!Array.isArray(a)?Object.keys(a).length:a.length;return this.check(n===0,'to be empty');}});
-  P.equal=P.equals=P.eq=function(x){return this.check(this.a===x,'to equal '+fmt(x));};
-  P.eql=function(x){return this.check(fmt(this.a)===fmt(x),'to eql '+fmt(x));};
-  P.above=P.gt=P.greaterThan=function(n){return this.check(this.a>n,'to be above '+fmt(n));};
-  P.below=P.lt=P.lessThan=function(n){return this.check(this.a<n,'to be below '+fmt(n));};
-  P.least=P.gte=function(n){return this.check(this.a>=n,'to be at least '+fmt(n));};
-  P.most=P.lte=function(n){return this.check(this.a<=n,'to be at most '+fmt(n));};
-  P.a=P.an=function(t){return this.check(typeOf(this.a)===String(t).toLowerCase(),'to be a '+t);};
-  P.include=P.includes=P.contain=P.contains=function(x){var a=this.a,ok;
+  P.check=function(ok,what){if(!!ok===this.neg)throw new AssertionError('expected '+fmt(this.v)+(this.neg?' not ':' ')+what);return this;};
+  ['to','be','been','is','that','which','and','has','have','with','at','of','same','does','still'].forEach(function(w){Object.defineProperty(P,w,{get:function(){return this;}});});
+  Object.defineProperty(P,'not',{get:function(){return new Assertion(this.v,!this.neg,this.dp);}});
+  Object.defineProperty(P,'deep',{get:function(){return new Assertion(this.v,this.neg,true);}});
+  Object.defineProperty(P,'ok',{get:function(){return this.check(this.v,'to be ok');}});
+  Object.defineProperty(P,'true',{get:function(){return this.check(this.v===true,'to be true');}});
+  Object.defineProperty(P,'false',{get:function(){return this.check(this.v===false,'to be false');}});
+  Object.defineProperty(P,'null',{get:function(){return this.check(this.v===null,'to be null');}});
+  Object.defineProperty(P,'undefined',{get:function(){return this.check(this.v===undefined,'to be undefined');}});
+  Object.defineProperty(P,'empty',{get:function(){var a=this.v,n=a==null?0:typeof a==='object'&&!Array.isArray(a)?Object.keys(a).length:a.length;return this.check(n===0,'to be empty');}});
+  P.equal=P.equals=P.eq=function(x){return this.dp?this.eql(x):this.check(this.v===x,'to equal '+fmt(x));};
+  P.eql=function(x){return this.check(fmt(this.v)===fmt(x),'to eql '+fmt(x));};
+  P.above=P.gt=P.greaterThan=function(n){return this.check(this.v>n,'to be above '+fmt(n));};
+  P.below=P.lt=P.lessThan=function(n){return this.check(this.v<n,'to be below '+fmt(n));};
+  P.least=P.gte=function(n){return this.check(this.v>=n,'to be at least '+fmt(n));};
+  P.most=P.lte=function(n){return this.check(this.v<=n,'to be at most '+fmt(n));};
+  P.a=P.an=function(t){return this.check(typeOf(this.v)===String(t).toLowerCase(),'to be a '+t);};
+  P.include=P.includes=P.contain=P.contains=function(x){var a=this.v,ok;
     if(typeof a==='string'||Array.isArray(a))ok=a.indexOf(x)>=0;
     else if(a&&typeof a==='object'&&x&&typeof x==='object'){ok=true;for(var k in x)if(fmt(a[k])!==fmt(x[k]))ok=false;}
     else ok=false;
     return this.check(ok,'to include '+fmt(x));};
-  P.match=function(re){return this.check(re.test(String(this.a)),'to match '+String(re));};
-  P.keys=function(){var ks=Array.isArray(arguments[0])?arguments[0]:Array.prototype.slice.call(arguments),a=this.a||{};
+  P.match=function(re){return this.check(re.test(String(this.v)),'to match '+String(re));};
+  P.keys=function(){var ks=Array.isArray(arguments[0])?arguments[0]:Array.prototype.slice.call(arguments),a=this.v||{};
     return this.check(ks.every(function(k){return Object.prototype.hasOwnProperty.call(a,k);}),'to have keys '+fmt(ks));};
-  P.property=function(k,v){var a=this.a,has=a!=null&&(typeof a==='object'||typeof a==='function')&&k in a;
+  P.property=function(k,v){var a=this.v,has=a!=null&&(typeof a==='object'||typeof a==='function')&&k in a;
     if(arguments.length<2)return this.check(has,'to have property '+fmt(k));
     return this.check(has&&a[k]===v,'to have property '+fmt(k)+' of '+fmt(v));};
-  P.lengthOf=P.length=function(n){return this.check(this.a!=null&&this.a.length===n,'to have length '+n);};
-  P.oneOf=function(list){return this.check(list.indexOf(this.a)>=0,'to be one of '+fmt(list));};
-  P.status=function(n){var code=this.a&&this.a.code;if((code===n)===this.neg)throw new AssertionError('expected status '+n+(this.neg?' not':'')+' but got '+code);return this;};
-  P.header=function(k){var h=this.a&&this.a.headers;return this.check(h&&getHeader(h,k)!==undefined,'to have header '+fmt(k));};
-  P.jsonBody=function(){var ok=true;try{this.a.json();}catch(e){ok=false;}return this.check(ok,'to have a JSON body');};
+  P.lengthOf=P.length=function(n){return this.check(this.v!=null&&this.v.length===n,'to have length '+n);};
+  P.oneOf=function(list){return this.check(list.indexOf(this.v)>=0,'to be one of '+fmt(list));};
+  P.status=function(n){var code=this.v&&this.v.code;if((code===n)===this.neg)throw new AssertionError('expected status '+n+(this.neg?' not':'')+' but got '+code);return this;};
+  P.header=function(k){var h=this.v&&this.v.headers;return this.check(h&&getHeader(h,k)!==undefined,'to have header '+fmt(k));};
+  P.jsonBody=function(){var ok=true;try{this.v.json();}catch(e){ok=false;}return this.check(ok,'to have a JSON body');};
   globalThis.pm={
     environment:scope('env',env,__out.envSet,__out.envUnset),
     globals:scope('glob',glob,__out.globalsSet,__out.globalsUnset),
@@ -454,15 +455,17 @@ mod tests {
             pm.test('property', function(){ pm.expect(d).to.have.property('next', 'n'); });
             pm.test('header', function(){ pm.expect(pm.response.headers.get('content-type')).to.equal('application/json'); });
             pm.test('status', function(){ pm.response.to.have.status(200); });
+            pm.test('a', function(){ pm.expect('x').to.be.a('string'); });
+            pm.test('deep', function(){ pm.expect({a:[1]}).to.deep.equal({a:[1]}); });
             pm.test('below', function(){ pm.expect(pm.response.responseTime).to.be.below(200); });
         "#;
         let out = run(code, ctx);
         let tests = out["tests"].as_array().unwrap();
-        for t in &tests[..9] {
+        for t in &tests[..11] {
             assert_eq!(t["passed"], true, "{t}");
         }
         assert_eq!(
-            tests[9]["error"],
+            tests[11]["error"],
             "AssertionError: expected 340 to be below 200"
         );
     }
@@ -482,6 +485,16 @@ mod tests {
         assert_eq!(out["events"][0]["text"], "ts 1");
         assert_eq!(out["events"][1]["value"], "1");
         assert!(out["events"][0]["t"].as_f64().unwrap() > 0.0);
+    }
+
+    #[test]
+    fn header_upsert_replaces_any_case() {
+        let ctx = r#"{"request":{"method":"GET","url":"u","headers":{"Content-Type":"a"}}}"#;
+        let out = run("pm.request.headers.upsert('content-type', 'b');", ctx);
+        assert_eq!(
+            out["requestPatch"]["headers"],
+            serde_json::json!({"content-type": "b"})
+        );
     }
 
     #[test]

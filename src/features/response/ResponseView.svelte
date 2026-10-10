@@ -13,7 +13,7 @@
    * everything else from `tab`.
    */
   import { t, tp, uiLanguage } from '$shared/i18n';
-  import { formatBytes, type Tab } from '$shared/model';
+  import { formatBytes, type Tab, type TabTestResults } from '$shared/model';
   import { presentGrpcError, grpcErrorNote } from './grpcError';
   import {
     methodShort,
@@ -23,14 +23,17 @@
     openGrpcEditorSection,
     requestGrpcEditorAction,
     requestRuntime,
+    revealScriptLine,
+    sendHttpTab,
   } from '$entities/request';
+  import { environments, openEnvironmentsTab } from '$entities/environment';
   import { responseFormat } from './responseRender';
   import { GRPC_CODES, HTTP_STATUS_TEXT, grpcStatusLabel } from './statusLabel';
   import { requestPrefs } from '$shared/settings';
   import { tabs } from '$entities/tab';
   import ResponseBody, { type BodyInfo } from './ResponseBody.svelte';
-  import { EditorTools } from '$shared/editor/components';
-  import { countLabel } from '$shared/editor';
+  import { EditorTools, ScriptConsole, ScriptTests } from '$shared/editor/components';
+  import { consoleRows, countLabel } from '$shared/editor';
   import { focusMode, toggleFocus, tablist } from '$shared/ui';
   import { responseFileName, saveResponseBody } from './saveResponse';
   import type { Snippet } from 'svelte';
@@ -38,7 +41,7 @@
 
   const { tab, onSettings = () => {} }: { tab: Tab | undefined; onSettings?: () => void } = $props();
 
-  let respTab = $state<'body' | 'headers' | 'trailers' | 'cookies' | 'timeline' | 'tests'>('body');
+  let respTab = $state<'body' | 'headers' | 'trailers' | 'cookies' | 'timeline' | 'tests' | 'console'>('body');
   let respMode = $state<'pretty' | 'raw' | 'preview'>(requestPrefs.responsePrettyDefault ? 'pretty' : 'raw');
   /** gRPC responses get the same Pretty / Raw switch (E5). */
   let grpcMode = $state<'pretty' | 'raw'>(requestPrefs.responsePrettyDefault ? 'pretty' : 'raw');
@@ -60,10 +63,23 @@
   const passedCount = $derived(testResults?.tests.filter((t) => t.passed).length ?? 0);
   const testCount = $derived(testResults?.tests.length ?? 0);
 
-  // If the visible sub-tab is Tests but a new response has no script output,
-  // fall back to Body so the panel never shows an empty Tests view.
+  // If the visible sub-tab is Tests / Console but a new response has no script output,
+  // fall back to Body so the panel never shows an empty view.
   $effect(() => {
-    if (respTab === 'tests' && !testResults) respTab = 'body';
+    if ((respTab === 'tests' || respTab === 'console') && !testResults) respTab = 'body';
+  });
+  /** SC6: the pre-request script threw, so nothing was sent. */
+  const preFailed = $derived(
+    testResults?.errorPhase === 'pre' &&
+      (tab?.protocol === 'grpc' ? !tab.grpcResult : !!tab?.response && tab.response.status === 0),
+  );
+  /** SC4: the last value each variable got from the scripts, for «Скрипт обновил окружение». */
+  const varWrites = $derived.by(() => {
+    const last = new Map<string, { key: string; value: string; globals: boolean }>();
+    for (const e of testResults?.events ?? [])
+      if ((e.kind === 'env' || e.kind === 'glob') && e.op === 'set' && e.key)
+        last.set(`${e.kind}:${e.key}`, { key: e.key, value: e.value ?? '', globals: e.kind === 'glob' });
+    return [...last.values()];
   });
 
   const STATUS_TEXT = HTTP_STATUS_TEXT;
@@ -210,7 +226,7 @@
 </script>
 
 {#snippet rtab(
-  id: 'body' | 'headers' | 'trailers' | 'cookies' | 'timeline' | 'tests',
+  id: 'body' | 'headers' | 'trailers' | 'cookies' | 'timeline' | 'tests' | 'console',
   label: string,
   count?: number,
   disabled = false,
@@ -347,6 +363,73 @@
   </div>
 {/snippet}
 
+{#snippet scriptTestsView(results: TabTestResults)}
+  {@const envName = environments.active?.name}
+  <div class="bs-rbody bs-tests">
+    {#if results.error}
+      <div class="bs-test-error">
+        <span class="material-symbols-outlined" aria-hidden="true">error</span><span
+          >{t('response.script_error', { error: results.error })}</span
+        >{#if results.errorLine && tab}<button
+            type="button"
+            onclick={() => revealScriptLine(tab.id, results.errorPhase ?? 'post', results.errorLine)}
+            >{t('script.line', { n: results.errorLine })}</button
+          >{/if}
+      </div>
+    {/if}
+    {#if results.tests.length > 0}
+      <ScriptTests {results} onLine={(test, line) => tab && revealScriptLine(tab.id, test.stage ?? 'post', line)} />
+    {:else if !results.error}
+      <div class="bs-tests-none">{t('response.tests.none_a')}<code>pm.test(...)</code>{t('response.tests.none_b')}</div>
+    {/if}
+    {#if varWrites.length}
+      {@const env = varWrites.some((w) => !w.globals)}
+      <div class="bs-env-written">
+        <span class="material-symbols-outlined" aria-hidden="true">database</span>
+        <span>{env ? t('response.env.updated') : t('response.env.updatedGlobals')}</span>
+        {#each varWrites.slice(0, 3) as w (w.key + w.globals)}<code title={w.value}>{`${w.key} = ${w.value}`}</code
+          >{/each}
+        {#if varWrites.length > 3}<span class="more">+{varWrites.length - 3}</span>{/if}
+        {#if env && envName}<span class="in">{t('response.env.in', { env: envName })}</span>{/if}
+        <span class="spacer"></span>
+        <button type="button" onclick={openEnvironmentsTab}>{t('response.env.open')}</button>
+      </div>
+    {/if}
+  </div>
+{/snippet}
+
+{#snippet scriptConsoleView(results: TabTestResults)}
+  <div class="bs-rbody">
+    <ScriptConsole
+      events={results.events ?? []}
+      onClear={() =>
+        tab &&
+        tabs.updateById(tab.id, (x) => (x.testResults ? { ...x, testResults: { ...x.testResults, events: [] } } : x))}
+      onTests={() => (respTab = 'tests')}
+    />
+  </div>
+{/snippet}
+
+{#snippet preFailedView(results: TabTestResults, canSendWithout: boolean)}
+  <div class="bs-net-error bs-pre-failed">
+    <span class="mark" aria-hidden="true"><span class="material-symbols-outlined">link_off</span></span>
+    <strong>{t('response.pre.failed')}</strong>
+    <p class="err">
+      {`${results.error ?? ''}${results.errorLine ? `  ·  ${t('script.line', { n: results.errorLine })}` : ''}`}
+    </p>
+    <div class="actions">
+      <button type="button" onclick={() => tab && revealScriptLine(tab.id, 'pre', results.errorLine)}
+        >{results.errorLine ? t('response.pre.goto', { n: results.errorLine }) : t('response.pre.open')}</button
+      >
+      {#if canSendWithout && tab}<button
+          type="button"
+          class="quiet"
+          onclick={() => void sendHttpTab(tab, { skipScripts: true })}>{t('response.pre.withoutScripts')}</button
+        >{/if}
+    </div>
+  </div>
+{/snippet}
+
 {#if tab?.protocol === 'grpc'}
   {#if tab.grpcResult || sending || tab.grpcStream}
     <div class="bs-resph">
@@ -373,7 +456,11 @@
           !Object.keys(grpcTrailers).length,
         )}
         {@render rtab('timeline', t('response.tab.timeline'))}
-        {#if testResults}{@render rtab('tests', t('response.tab.tests'))}{/if}
+        {#if testResults}{@render rtab('tests', t('response.tab.tests'))}{@render rtab(
+            'console',
+            t('response.tab.console'),
+            consoleRows(testResults.events ?? []).length,
+          )}{/if}
       </div>
       {#if sending && tab.grpcStream}
         <div class="bs-meta">
@@ -507,6 +594,8 @@
           </div>
         {/if}
       </div>
+    {:else if !tab.grpcResult && preFailed && testResults && !sending}
+      {@render preFailedView(testResults, false)}
     {:else if !tab.grpcResult}
       {#if connectFailed}
         {@render unreachable(
@@ -516,40 +605,9 @@
         )}
       {:else if !sending}{@render waitingForResponse(true)}{/if}
     {:else if respTab === 'tests' && testResults}
-      <div class="bs-rbody bs-tests">
-        {#if testResults.error}
-          <div class="bs-test-error">
-            <span class="material-symbols-outlined" style="font-size:15px">error</span>{t('response.script_error', {
-              error: testResults.error,
-            })}
-          </div>
-        {/if}
-        {#if testResults.tests.length > 0}
-          <div class="bs-test-list">
-            {#each testResults.tests as t, i (i)}
-              <div class="bs-test-row" class:fail={!t.passed}>
-                <span class="material-symbols-outlined ic" style="font-size:16px"
-                  >{t.passed ? 'check_circle' : 'cancel'}</span
-                >
-                <span class="nm">{t.name}</span>
-                {#if !t.passed && t.error}<span class="er">{t.error}</span>{/if}
-              </div>
-            {/each}
-          </div>
-        {:else if !testResults.error}
-          <div style="color:var(--t3);padding:4px 0">
-            {t('response.tests.none_a')}<code>pm.test(...)</code>{t('response.tests.none_b')}
-          </div>
-        {/if}
-        {#if testResults.logs.length > 0}
-          <div class="bs-test-console">
-            <div class="hd">{t('response.console')}</div>
-            {#each testResults.logs as line, i (i)}
-              <div class="ln">{line}</div>
-            {/each}
-          </div>
-        {/if}
-      </div>
+      {@render scriptTestsView(testResults)}
+    {:else if respTab === 'console' && testResults}
+      {@render scriptConsoleView(testResults)}
     {:else if respTab === 'timeline'}
       <!-- prettier-ignore -->
       <div class="bs-rbody"><div class="bs-code bs-timeline">
@@ -614,7 +672,11 @@
         {@render rtab('headers', t('response.tab.headers'), responseHeaderEntries.length, tab.response?.status === 0)}
         {@render rtab('cookies', t('response.tab.cookies'), responseCookies.length, tab.response?.status === 0)}
         {@render rtab('timeline', t('response.tab.timeline'))}
-        {#if testResults}{@render rtab('tests', t('response.tab.tests'))}{/if}
+        {#if testResults}{@render rtab('tests', t('response.tab.tests'))}{@render rtab(
+            'console',
+            t('response.tab.console'),
+            consoleRows(testResults.events ?? []).length,
+          )}{/if}
       </div>
       {#if sending}
         {@render sendingMeta()}
@@ -627,18 +689,22 @@
             ><span class="g" aria-hidden="true">{tone === 'success' ? '✓' : tab.response.status ? '!' : '×'}</span
             >{#if tab.response.status}<span
                 >{tab.response.status}<span class="lb-reason">{` ${statusText(tab.response.status)}`}</span></span
-              >{:else}{isCancelled(tab.response)
-                ? t('response.status.cancelled')
-                : t('response.status.none')}{/if}</span
+              >{:else}{preFailed
+                ? t('response.status.notSent')
+                : isCancelled(tab.response)
+                  ? t('response.status.cancelled')
+                  : t('response.status.none')}{/if}</span
           >
-          <span class="mo lb-time" title={t('response.time')}
-            >{tab.response.elapsed_ms >= 1000
-              ? `${(tab.response.elapsed_ms / 1000).toFixed(tab.response.elapsed_ms >= 10_000 ? 1 : 2)} s`
-              : `${tab.response.elapsed_ms} ms`}</span
-          >
-          <span class="mo lb-size" title={t('response.size')}
-            >{tab.response.status ? formatBytes(tab.response.size_bytes) : '—'}</span
-          >
+          {#if !preFailed}
+            <span class="mo lb-time" title={t('response.time')}
+              >{tab.response.elapsed_ms >= 1000
+                ? `${(tab.response.elapsed_ms / 1000).toFixed(tab.response.elapsed_ms >= 10_000 ? 1 : 2)} s`
+                : `${tab.response.elapsed_ms} ms`}</span
+            >
+            <span class="mo lb-size" title={t('response.size')}
+              >{tab.response.status ? formatBytes(tab.response.size_bytes) : '—'}</span
+            >
+          {/if}
           {#if linesLabel}<span class="mo lb-lines">{linesLabel}</span>{/if}
           {#if tab.response.body_truncated}
             <span class="bs-format-pill warn">{t('response.truncated')}</span>
@@ -662,41 +728,12 @@
   >
     {#if !tab.response}
       {#if !sending}{@render waitingForResponse(false)}{/if}
+    {:else if preFailed && testResults && (respTab === 'body' || respTab === 'headers' || respTab === 'cookies')}
+      {@render preFailedView(testResults, true)}
     {:else if respTab === 'tests' && testResults}
-      <div class="bs-rbody bs-tests">
-        {#if testResults.error}
-          <div class="bs-test-error">
-            <span class="material-symbols-outlined" style="font-size:15px">error</span>{t('response.script_error', {
-              error: testResults.error,
-            })}
-          </div>
-        {/if}
-        {#if testResults.tests.length > 0}
-          <div class="bs-test-list">
-            {#each testResults.tests as t, i (i)}
-              <div class="bs-test-row" class:fail={!t.passed}>
-                <span class="material-symbols-outlined ic" style="font-size:16px"
-                  >{t.passed ? 'check_circle' : 'cancel'}</span
-                >
-                <span class="nm">{t.name}</span>
-                {#if !t.passed && t.error}<span class="er">{t.error}</span>{/if}
-              </div>
-            {/each}
-          </div>
-        {:else if !testResults.error}
-          <div style="color:var(--t3);padding:4px 0">
-            {t('response.tests.none_a')}<code>pm.test(...)</code>{t('response.tests.none_b')}
-          </div>
-        {/if}
-        {#if testResults.logs.length > 0}
-          <div class="bs-test-console">
-            <div class="hd">{t('response.console')}</div>
-            {#each testResults.logs as line, i (i)}
-              <div class="ln">{line}</div>
-            {/each}
-          </div>
-        {/if}
-      </div>
+      {@render scriptTestsView(testResults)}
+    {:else if respTab === 'console' && testResults}
+      {@render scriptConsoleView(testResults)}
     {:else if tab.response.status === 0 && !isCancelled(tab.response) && respTab !== 'timeline' && respTab !== 'tests'}
       {@const timeout = isTimeout(tab.response)}
       <div class="bs-net-error">
@@ -820,35 +857,6 @@
     padding: 12px 14px;
     overflow: auto;
   }
-  .bs-test-list {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-  }
-  .bs-test-row {
-    display: flex;
-    align-items: baseline;
-    gap: 8px;
-    padding: 5px 8px;
-    border-radius: 7px;
-    font-size: 12.5px;
-    color: var(--text);
-  }
-  .bs-test-row .ic {
-    align-self: center;
-    color: var(--green);
-  }
-  .bs-test-row.fail .ic {
-    color: var(--red);
-  }
-  .bs-test-row .nm {
-    font-weight: 500;
-  }
-  .bs-test-row .er {
-    font-family: var(--mono);
-    font-size: 11px;
-    color: var(--red);
-  }
   .bs-test-error {
     display: flex;
     align-items: center;
@@ -857,23 +865,79 @@
     color: var(--red);
     font-family: var(--mono);
   }
-  .bs-test-console {
-    border-top: 0.5px solid var(--sep);
-    padding-top: 8px;
+  .bs-test-error .material-symbols-outlined {
+    font-size: 15px;
   }
-  .bs-test-console .hd {
-    font-size: 10.5px;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
+  .bs-test-error button {
+    margin-left: auto;
     color: var(--t3);
-    margin-bottom: 4px;
+    font: inherit;
+    font-size: var(--font-size-micro);
   }
-  .bs-test-console .ln {
-    font-family: var(--mono);
-    font-size: 12px;
+  .bs-test-error button:hover {
+    color: var(--text);
+    text-decoration: underline;
+  }
+  .bs-tests-none {
+    padding: 4px 0;
+    color: var(--t3);
+  }
+  /* SC4: «Скрипт обновил окружение» pinned under the checks. */
+  .bs-env-written {
+    flex: none;
+    margin-top: auto;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+    padding: 10px 14px;
     color: var(--t2);
-    white-space: pre-wrap;
-    word-break: break-word;
+    border: 1px solid var(--color-border-subtle);
+    border-radius: var(--radius-card);
+    font-size: var(--font-size-caption);
+  }
+  .bs-env-written > span:not(.spacer) {
+    flex: none;
+    white-space: nowrap;
+  }
+  .bs-env-written > .material-symbols-outlined {
+    font-size: 16px;
+    color: var(--t3);
+  }
+  .bs-tests .bs-env-written code {
+    min-width: 0;
+    max-width: 220px;
+    overflow: hidden;
+    padding: 2px 8px;
+    color: var(--var, var(--accent));
+    background: var(--var-soft, var(--accentsoft));
+    border-radius: 999px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .bs-env-written .in,
+  .bs-env-written .more {
+    color: var(--t3);
+  }
+  .bs-env-written .spacer {
+    flex: 1;
+  }
+  .bs-env-written button {
+    color: var(--text);
+    font-weight: 500;
+  }
+  .bs-env-written button:hover {
+    text-decoration: underline;
+  }
+  /* SC6: the pre-request script threw. */
+  .bs-pre-failed .err {
+    color: var(--color-danger);
+    font-family: var(--mono);
+    white-space: pre;
+  }
+  .bs-pre-failed .actions .quiet {
+    background: transparent;
+    border-color: transparent;
   }
   .bs-tests code {
     font-family: var(--mono);

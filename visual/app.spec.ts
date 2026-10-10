@@ -52,6 +52,7 @@ const SCENARIOS: Scenario[] = [
   { name: 'http-auth', steps: (p) => rtab(p, 'auth') },
   { name: 'http-headers', steps: (p) => rtab(p, 'headers') },
   { name: 'http-body-none', steps: (p) => rtab(p, 'body') },
+  { name: 'http-scripts', steps: (p) => rtab(p, 'scripts') },
   {
     name: 'http-post-body',
     steps: async (p) => {

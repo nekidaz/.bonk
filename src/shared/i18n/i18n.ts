@@ -7,9 +7,10 @@ import * as grpcgit from './grpcgit';
 import * as flow from './flow';
 import * as shell from './shell';
 import * as largebody from './largebody';
+import * as scripts from './scripts';
 // Each area owns a part file in ./i18n/ exporting `ru` and `en: Record<keyof typeof ru, string>`
 // (so a missing key is a type error); they are merged below.
-const parts = [common, app, nav, request, grpcgit, flow, shell, largebody];
+const parts = [common, app, nav, request, grpcgit, flow, shell, largebody, scripts];
 
 export const ru = Object.assign({}, ...parts.map((p) => p.ru)) as Record<string, string> & (typeof common)['ru'];
 export const en = Object.assign({}, ...parts.map((p) => p.en)) as Record<string, string> & (typeof common)['en'];

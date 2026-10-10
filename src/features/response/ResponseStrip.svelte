@@ -45,6 +45,10 @@
     };
   });
   const preview = $derived(info ? oneLinePreview(info.body) : '');
+  // SC7: with scripts, the strip reports the checks and the first failure instead of the body.
+  const tests = $derived(tab.testResults?.tests ?? []);
+  const failed = $derived(tests.filter((x) => !x.passed));
+  const firstFailure = $derived(failed[0] ? `${failed[0].name} — ${failed[0].error ?? ''}` : '');
 </script>
 
 <div class="lb-strip" role="group" aria-label={t('lb.strip.response')}>
@@ -54,7 +58,19 @@
   {:else if info}
     <span class="bs-stpill {info.tone}"><span class="g" aria-hidden="true">{info.glyph}</span>{info.status}</span>
     <span class="meta">{`${elapsedLabel(info.ms)}  ·  ${info.size}`}</span>
-    <span class="preview" title={preview}>{preview}</span>
+    {#if tests.length}
+      <span class="tests"
+        >{t('response.tab.tests')}<span class="ok">{`✓ ${tests.length - failed.length}`}</span>{#if failed.length}<span
+            class="bad">{`× ${failed.length}`}</span
+          >{/if}</span
+      >
+      {#if firstFailure}<span class="preview fail" title={firstFailure}>{`× ${firstFailure}`}</span>{:else}<span
+          class="preview"
+          title={preview}>{preview}</span
+        >{/if}
+    {:else}
+      <span class="preview" title={preview}>{preview}</span>
+    {/if}
   {:else}
     <span class="preview">{t('lb.strip.noResponse')}</span>
   {/if}
@@ -64,3 +80,27 @@
     >
   </button>
 </div>
+
+<style>
+  .tests {
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 24px;
+    padding: 0 10px;
+    color: var(--t2);
+    border: 1px solid var(--color-border-subtle);
+    border-radius: 999px;
+    font-size: var(--font-size-caption);
+  }
+  .tests .ok {
+    color: var(--color-success);
+  }
+  .tests .bad {
+    color: var(--color-danger);
+  }
+  .preview.fail {
+    color: var(--t2);
+  }
+</style>
