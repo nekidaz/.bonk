@@ -804,6 +804,10 @@
   :root .bs-meta {
     margin-left: auto;
   }
+
+  :root .bs-stpill .lb-reason {
+    display: none;
+  }
 }
 
 /* E3 / E6 · expanded mode: one bar, no sidebar / header / address / request tabs */

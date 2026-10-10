@@ -70,9 +70,14 @@
   let overflowIds = $state.raw<string[]>([]);
   let overflowMenu = $state<{ x: number; y: number } | null>(null);
   const overflowTabs = $derived(tabs.list.filter((tb) => overflowIds.includes(tb.id)));
+  // A tab cut by the strip edge fades out instead of ending in a hard cut.
+  let fadeL = $state(false);
+  let fadeR = $state(false);
   function measureOverflow(): void {
     const el = tabsScrollEl;
     if (!el) return;
+    fadeL = el.scrollLeft > 1;
+    fadeR = el.scrollLeft + el.clientWidth < el.scrollWidth - 1;
     const box = el.getBoundingClientRect();
     overflowIds = [...el.querySelectorAll<HTMLElement>('.bs-tab')]
       .filter((tab) => {
@@ -117,7 +122,14 @@
     if (e.target === e.currentTarget || e.target === tabsScrollEl) newTab();
   }}
 >
-  <div class="bs-tabs-scroll" bind:this={tabsScrollEl} role="presentation" onscroll={measureOverflow}>
+  <div
+    class="bs-tabs-scroll"
+    class:fade-l={fadeL}
+    class:fade-r={fadeR}
+    bind:this={tabsScrollEl}
+    role="presentation"
+    onscroll={measureOverflow}
+  >
     {#each tabs.list as tb, i (tb.id)}
       <div
         class="bs-tab"
@@ -244,6 +256,20 @@
   /* «+N»: the strip hugs its tabs, so «+N» and «+» sit right after the last visible one. */
   .bs-tabs-scroll {
     flex: 0 1 auto;
+  }
+  .bs-tabs-scroll {
+    --fade-l: 0px;
+    --fade-r: 0px;
+  }
+  .bs-tabs-scroll.fade-l {
+    --fade-l: 32px;
+  }
+  .bs-tabs-scroll.fade-r {
+    --fade-r: 32px;
+  }
+  .bs-tabs-scroll:is(.fade-l, .fade-r) {
+    -webkit-mask: linear-gradient(90deg, transparent, #000 var(--fade-l), #000 calc(100% - var(--fade-r)), transparent);
+    mask: linear-gradient(90deg, transparent, #000 var(--fade-l), #000 calc(100% - var(--fade-r)), transparent);
   }
   .bs-tabs-scroll:not(:has(.bs-tab)) {
     display: none;
