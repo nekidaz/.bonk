@@ -83,7 +83,8 @@ fn load_dir(root: &Path, dir: &Path) -> Result<Vec<TreeNode>, String> {
             folders.push(TreeNode::Folder(FolderNode {
                 id: rel_id(root, &path)?,
                 name: file_name(&path),
-                expanded: true,
+                // Collapsed: a big collection would otherwise render every row at once.
+                expanded: false,
                 auth: read_folder_file(&path).auth.map(Box::new),
                 children,
             }));
