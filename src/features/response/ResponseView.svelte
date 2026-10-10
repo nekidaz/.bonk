@@ -620,13 +620,16 @@
         {@render sendingMeta()}
       {:else if tab.response}
         <div class="bs-meta">
-          <span class="bs-stpill {tone}"
-            ><span class="g" aria-hidden="true">{tone === 'success' ? '✓' : tab.response.status ? '!' : '×'}</span>{tab
-              .response.status
-              ? `${tab.response.status} ${statusText(tab.response.status)}`
-              : isCancelled(tab.response)
+          <!-- The reason phrase hides on a narrow panel; the title keeps it. -->
+          <span
+            class="bs-stpill {tone}"
+            title={tab.response.status ? `${tab.response.status} ${statusText(tab.response.status)}` : undefined}
+            ><span class="g" aria-hidden="true">{tone === 'success' ? '✓' : tab.response.status ? '!' : '×'}</span
+            >{#if tab.response.status}<span
+                >{tab.response.status}<span class="lb-reason">{` ${statusText(tab.response.status)}`}</span></span
+              >{:else}{isCancelled(tab.response)
                 ? t('response.status.cancelled')
-                : t('response.status.none')}</span
+                : t('response.status.none')}{/if}</span
           >
           <span class="mo lb-time" title={t('response.time')}
             >{tab.response.elapsed_ms >= 1000
