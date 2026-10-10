@@ -54,6 +54,7 @@ pub fn run() {
             commands::grpc::proto_read,
             commands::workspace::workspace_pick_folder,
             commands::app::file_pick,
+            commands::app::traffic_lights_right,
             commands::app::openapi_import_pick,
             commands::app::openapi_export_save,
             commands::app::app_data_dir,

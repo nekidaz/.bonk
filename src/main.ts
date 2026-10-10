@@ -16,15 +16,20 @@ import '@fontsource/jetbrains-mono/600.css';
 import '@fontsource/material-symbols-outlined/300.css';
 import './styles/index.css';
 import { applyStoredTheme } from '$shared/settings';
+import { trafficLightsRight } from '$shared/ipc';
 import App from './app/App.svelte';
 
 // Native macOS title bars overlay their traffic lights on our toolbar — except in full screen, where macOS hides them.
+// Their real right edge (it varies across macOS versions) goes to --traffic-lights-right for the toolbar's left inset.
 const nativeMacos = isTauri() && /Mac/i.test(navigator.platform);
 document.documentElement.dataset.nativeMacos = String(nativeMacos);
 if (nativeMacos) {
   const win = getCurrentWindow();
+  const root = document.documentElement;
   const sync = async () => {
-    document.documentElement.dataset.nativeMacos = String(!(await win.isFullscreen()));
+    root.dataset.nativeMacos = String(!(await win.isFullscreen()));
+    const right = await trafficLightsRight().catch(() => null);
+    if (right) root.style.setProperty('--traffic-lights-right', `${right}px`);
   };
   void sync();
   void win.onResized(sync);

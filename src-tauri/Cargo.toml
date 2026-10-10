@@ -30,3 +30,8 @@ reqwest = { version = "0.13.4", default-features = false, features = ["json", "m
 tokio = { version = "1", features = ["process", "sync", "time"] }
 keyring = { version = "3", features = ["apple-native", "windows-native", "sync-secret-service"] }
 trash = "5"
+
+# Reading the native traffic-light buttons (commands::app::traffic_lights_right); already in the tree via tao.
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2 = "0.6"
+objc2-app-kit = { version = "0.3", features = ["NSWindow", "NSButton", "NSControl", "NSView", "NSResponder"] }

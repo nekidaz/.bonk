@@ -257,6 +257,8 @@ export const protoRead = (path: string) => invoke<string>('proto_read', { path }
 
 export const workspacePickFolder = () => invoke<string | null>('workspace_pick_folder');
 export const filePick = () => invoke<string | null>('file_pick');
+/** macOS: right edge (px) of the window's traffic lights; null elsewhere or in full screen. */
+export const trafficLightsRight = () => invoke<number | null>('traffic_lights_right');
 export const workspaceLoad = (path: string) => invoke<TreeNode[]>('workspace_load', { path });
 /** Children of folder `dir` ('' = root); subfolders listed in `keep` come back without their children. */
 export const workspaceLoadChildren = (root: string, dir: string, keep: string[]) =>

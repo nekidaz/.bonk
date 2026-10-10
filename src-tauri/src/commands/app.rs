@@ -116,3 +116,30 @@ pub fn app_state_set(
 ) -> Result<(), String> {
     bonk_core::application::app_state::set_key(&state_path(&app)?, &key, value)
 }
+
+/// Right edge, in CSS px from the window's left, of the macOS traffic lights, so the
+/// toolbar can start right after them whatever their size on this macOS version.
+/// `None` off macOS or while they are hidden (full screen).
+#[tauri::command]
+pub fn traffic_lights_right(window: tauri::WebviewWindow) -> Option<f64> {
+    #[cfg(target_os = "macos")]
+    {
+        use objc2_app_kit::{NSWindow, NSWindowButton};
+        // Sync commands run on the main thread, which AppKit requires.
+        objc2::MainThreadMarker::new()?;
+        let ptr = window.ns_window().ok()? as *const NSWindow;
+        // SAFETY: Tauri hands out its live NSWindow; we only read button frames on the main thread.
+        let ns_window = unsafe { ptr.as_ref() }?;
+        let zoom = ns_window.standardWindowButton(NSWindowButton::ZoomButton)?;
+        if zoom.isHidden() {
+            return None;
+        }
+        let frame = zoom.frame();
+        Some(frame.origin.x + frame.size.width)
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = window;
+        None
+    }
+}
