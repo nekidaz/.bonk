@@ -13,7 +13,7 @@
 //! reported as `Err(String)`; a thrown error inside the user script is captured
 //! into `__out.error` instead (so tests/logs collected before the throw survive).
 
-use rquickjs::{CatchResultExt, Context, Runtime};
+use rquickjs::{context::EvalOptions, CatchResultExt, Context, Runtime};
 use std::time::{Duration, Instant};
 
 /// Wall-clock budget for a single script. An interrupt handler trips once the
@@ -21,44 +21,113 @@ use std::time::{Duration, Instant};
 /// running script (including a `while(true){}` busy loop).
 pub const SCRIPT_TIMEOUT_MS: u64 = 2000;
 
+/// File name the user code is evaluated under. Stack frames from it are the
+/// user's own lines (the prelude runs as `eval_script`), which is how a test,
+/// an assertion or a thrown error is pinned to a line of the editor.
+const USER_FILE: &str = "script.js";
+
 /// Injected before the user code. Defines the `pm` API, a `console` that
 /// captures logs, the `__out` accumulator, and `__finish` (which folds the
 /// mutated request into `__out.requestPatch`). Kept as ES5-ish so it parses on
 /// any QuickJS build without relying on newer syntax.
+///
+/// `__out.events` is the console feed (SC5): every log, variable write and
+/// header change with a `Date.now()` stamp. `tests[].line` is the line of the
+/// `pm.test` call, `tests[].errorLine` the line of the failed assertion.
 const PRELUDE: &str = r#"
-globalThis.__out={logs:[],tests:[],envSet:{},envUnset:[],globalsSet:{},globalsUnset:[],requestPatch:null,error:null};
+globalThis.__out={logs:[],events:[],tests:[],envSet:{},envUnset:[],globalsSet:{},globalsUnset:[],requestPatch:null,error:null,errorLine:null};
+globalThis.__line=function(stack){var m=/script\.js:(\d+)/.exec(String(stack||''));return m?Math.max(1,Number(m[1])-1):null;};
+globalThis.__msg=function(e){if(!e||typeof e!=='object')return String(e);var n=e.name&&e.name!=='Error'?e.name+': ':'';return n+String(e.message);};
 (function(){
   var c=globalThis.__ctx||{};
-  var env=Object.assign({},c.environment||{}), glob=Object.assign({},c.globals||{});
+  var env=Object.assign({},c.environment||{}), glob=Object.assign({},c.globals||{}), locals={};
   var iterData=Object.assign({},c.iterationData||{});
   var req=c.request||{}, reqPatch={__t:1};
-  function log(){__out.logs.push(Array.prototype.map.call(arguments,String).join(' '));}
-  globalThis.console={log:log,warn:log,error:log,info:log};
+  function ev(o){o.t=Date.now();__out.events.push(o);}
+  function log(){var s=Array.prototype.map.call(arguments,function(v){return typeof v==='object'&&v!==null?fmt(v):String(v);}).join(' ');__out.logs.push(s);ev({kind:'log',text:s});}
+  globalThis.console={log:log,warn:log,error:log,info:log,debug:log};
+  function fmt(v){try{var s=JSON.stringify(v);return s===undefined?String(v):s;}catch(e){return String(v);}}
+  function setHeader(k,v){req.headers=req.headers||{};req.headers[k]=String(v);reqPatch.headers=req.headers;ev({kind:'hdr',op:'add',key:k,value:String(v)});}
+  function getHeader(o,k){if(!o)return undefined;var l=String(k).toLowerCase();for(var n in o)if(n.toLowerCase()===l)return o[n];return undefined;}
   var request={method:req.method,
-    get url(){return req.url;}, set url(v){req.url=v;reqPatch.url=v;},
+    get url(){return req.url;},
+    set url(v){if(req.readonlyUrl)throw new TypeError('pm.request.url is read-only in gRPC requests');req.url=v;reqPatch.url=v;},
     get body(){return req.body;}, set body(v){req.body=v;reqPatch.body=v;},
-    headers:{add:function(k,v){req.headers=req.headers||{};req.headers[k]=v;reqPatch.headers=req.headers;},
-             get:function(k){return (req.headers||{})[k];}}};
-  var resp=c.response?{code:c.response.code,responseTime:c.response.responseTime,headers:c.response.headers||{},
-    text:function(){return c.response.body||'';},json:function(){return JSON.parse(c.response.body||'null');}}:undefined;
-  function scope(store,setB,unsetA){return {get:function(k){return store[k];},
-    set:function(k,v){store[k]=String(v);setB[k]=String(v);},
-    unset:function(k){delete store[k];unsetA.push(k);}};}
+    headers:{add:function(k,v){if(k&&typeof k==='object'){v=k.value;k=k.key;}setHeader(k,v);},
+             upsert:function(k,v){if(k&&typeof k==='object'){v=k.value;k=k.key;}setHeader(k,v);},
+             remove:function(k){var h=req.headers||{},l=String(k).toLowerCase();for(var n in h)if(n.toLowerCase()===l)delete h[n];req.headers=h;reqPatch.headers=h;ev({kind:'hdr',op:'remove',key:k});},
+             get:function(k){return getHeader(req.headers,k);},
+             has:function(k){return getHeader(req.headers,k)!==undefined;},
+             toObject:function(){return Object.assign({},req.headers||{});}}};
+  var resp;
+  if(c.response){
+    var rh=Object.assign({},c.response.headers||{});
+    Object.defineProperty(rh,'get',{value:function(k){return getHeader(rh,k);}});
+    Object.defineProperty(rh,'has',{value:function(k){return getHeader(rh,k)!==undefined;}});
+    resp={code:c.response.code,status:c.response.status||'',responseTime:c.response.responseTime,headers:rh,
+      text:function(){return c.response.body||'';},json:function(){return JSON.parse(c.response.body||'null');}};
+    Object.defineProperty(resp,'to',{get:function(){return new Assertion(resp,false).to;}});
+  }
+  function scope(name,store,setB,unsetA){return {
+    get:function(k){return store[k];},
+    has:function(k){return Object.prototype.hasOwnProperty.call(store,k);},
+    toObject:function(){return Object.assign({},store);},
+    set:function(k,v){var s=typeof v==='object'&&v!==null?fmt(v):String(v);store[k]=s;setB[k]=s;ev({kind:name,op:'set',key:k,value:s});},
+    unset:function(k){delete store[k];delete setB[k];unsetA.push(k);ev({kind:name,op:'unset',key:k});}};}
+  function lookup(k){return (k in locals)?locals[k]:(k in iterData)?iterData[k]:(k in env)?env[k]:glob[k];}
+  function AssertionError(m){this.message=m;var e=new Error(m);this.stack=e.stack;}
+  AssertionError.prototype=Object.create(Error.prototype);
+  AssertionError.prototype.name='AssertionError';
+  AssertionError.prototype.constructor=AssertionError;
+  function typeOf(v){if(v===null)return 'null';if(Array.isArray(v))return 'array';return typeof v;}
+  function Assertion(a,neg){this.a=a;this.neg=neg;}
+  var P=Assertion.prototype;
+  P.check=function(ok,what){if(!!ok===this.neg)throw new AssertionError('expected '+fmt(this.a)+(this.neg?' not ':' ')+what);return this;};
+  ['to','be','been','is','that','which','and','has','have','with','at','of','same','deep','does','still'].forEach(function(w){Object.defineProperty(P,w,{get:function(){return this;}});});
+  Object.defineProperty(P,'not',{get:function(){return new Assertion(this.a,!this.neg);}});
+  Object.defineProperty(P,'ok',{get:function(){return this.check(this.a,'to be ok');}});
+  Object.defineProperty(P,'true',{get:function(){return this.check(this.a===true,'to be true');}});
+  Object.defineProperty(P,'false',{get:function(){return this.check(this.a===false,'to be false');}});
+  Object.defineProperty(P,'null',{get:function(){return this.check(this.a===null,'to be null');}});
+  Object.defineProperty(P,'undefined',{get:function(){return this.check(this.a===undefined,'to be undefined');}});
+  Object.defineProperty(P,'empty',{get:function(){var a=this.a,n=a==null?0:typeof a==='object'&&!Array.isArray(a)?Object.keys(a).length:a.length;return this.check(n===0,'to be empty');}});
+  P.equal=P.equals=P.eq=function(x){return this.check(this.a===x,'to equal '+fmt(x));};
+  P.eql=function(x){return this.check(fmt(this.a)===fmt(x),'to eql '+fmt(x));};
+  P.above=P.gt=P.greaterThan=function(n){return this.check(this.a>n,'to be above '+fmt(n));};
+  P.below=P.lt=P.lessThan=function(n){return this.check(this.a<n,'to be below '+fmt(n));};
+  P.least=P.gte=function(n){return this.check(this.a>=n,'to be at least '+fmt(n));};
+  P.most=P.lte=function(n){return this.check(this.a<=n,'to be at most '+fmt(n));};
+  P.a=P.an=function(t){return this.check(typeOf(this.a)===String(t).toLowerCase(),'to be a '+t);};
+  P.include=P.includes=P.contain=P.contains=function(x){var a=this.a,ok;
+    if(typeof a==='string'||Array.isArray(a))ok=a.indexOf(x)>=0;
+    else if(a&&typeof a==='object'&&x&&typeof x==='object'){ok=true;for(var k in x)if(fmt(a[k])!==fmt(x[k]))ok=false;}
+    else ok=false;
+    return this.check(ok,'to include '+fmt(x));};
+  P.match=function(re){return this.check(re.test(String(this.a)),'to match '+String(re));};
+  P.keys=function(){var ks=Array.isArray(arguments[0])?arguments[0]:Array.prototype.slice.call(arguments),a=this.a||{};
+    return this.check(ks.every(function(k){return Object.prototype.hasOwnProperty.call(a,k);}),'to have keys '+fmt(ks));};
+  P.property=function(k,v){var a=this.a,has=a!=null&&(typeof a==='object'||typeof a==='function')&&k in a;
+    if(arguments.length<2)return this.check(has,'to have property '+fmt(k));
+    return this.check(has&&a[k]===v,'to have property '+fmt(k)+' of '+fmt(v));};
+  P.lengthOf=P.length=function(n){return this.check(this.a!=null&&this.a.length===n,'to have length '+n);};
+  P.oneOf=function(list){return this.check(list.indexOf(this.a)>=0,'to be one of '+fmt(list));};
+  P.status=function(n){var code=this.a&&this.a.code;if((code===n)===this.neg)throw new AssertionError('expected status '+n+(this.neg?' not':'')+' but got '+code);return this;};
+  P.header=function(k){var h=this.a&&this.a.headers;return this.check(h&&getHeader(h,k)!==undefined,'to have header '+fmt(k));};
+  P.jsonBody=function(){var ok=true;try{this.a.json();}catch(e){ok=false;}return this.check(ok,'to have a JSON body');};
   globalThis.pm={
-    environment:scope(env,__out.envSet,__out.envUnset),
-    globals:scope(glob,__out.globalsSet,__out.globalsUnset),
-    iterationData:{get:function(k){return iterData[k];}},
-    variables:{get:function(k){return (k in iterData)?iterData[k]:(k in env)?env[k]:glob[k];}},
+    environment:scope('env',env,__out.envSet,__out.envUnset),
+    globals:scope('glob',glob,__out.globalsSet,__out.globalsUnset),
+    iterationData:{get:function(k){return iterData[k];},has:function(k){return k in iterData;},toObject:function(){return Object.assign({},iterData);}},
+    variables:{get:lookup,has:function(k){return lookup(k)!==undefined;},set:function(k,v){locals[k]=String(v);},
+      toObject:function(){return Object.assign({},glob,env,iterData,locals);},
+      replaceIn:function(s){return String(s).replace(/\{\{([^{}]+)\}\}/g,function(m,k){var v=lookup(k.trim());return v===undefined?m:v;});}},
     request:request, response:resp,
-    test:function(name,fn){try{fn();__out.tests.push({name:name,passed:true});}
-      catch(e){__out.tests.push({name:name,passed:false,error:String((e&&e.message)||e)});}},
-    expect:function(a){return {to:{
-      equal:function(x){if(a!==x)throw new Error('expected '+JSON.stringify(a)+' to equal '+JSON.stringify(x));},
-      eql:function(x){if(JSON.stringify(a)!==JSON.stringify(x))throw new Error('expected '+JSON.stringify(a)+' to eql '+JSON.stringify(x));},
-      be:{get ok(){if(!a)throw new Error('expected '+JSON.stringify(a)+' to be ok');return true;}},
-      have:{status:function(n){var code=a&&a.code;if(code!==n)throw new Error('expected status '+n+' but got '+code);}}
-    }};}
+    test:function(name,fn){var line=__line(new Error().stack),t={name:String(name),passed:true};if(line)t.line=line;
+      try{fn();}catch(e){t.passed=false;t.error=__msg(e);var el=__line(e&&e.stack);if(el)t.errorLine=el;}
+      __out.tests.push(t);ev({kind:'test',name:t.name,passed:t.passed});},
+    expect:function(a){return new Assertion(a,false);}
   };
+  pm.expect.fail=function(m){throw new AssertionError(m||'expect.fail()');};
   globalThis.__finish=function(){var k=Object.keys(reqPatch);if(k.length>1){delete reqPatch.__t;__out.requestPatch=reqPatch;}};
   globalThis.payload=c.payload;
 })();
@@ -70,10 +139,11 @@ globalThis.__out={logs:[],tests:[],envSet:{},envUnset:[],globalsSet:{},globalsUn
 /// an *uncatchable* exception. The wrapper function's return value (a top-level
 /// `return X` in user code) is captured into `__out.returnValue` — Flow blocks
 /// use it to pass data to the next block; `JSON.stringify` drops it when the
-/// script returns nothing.
+/// script returns nothing. The user code starts on line 2, which `__line`
+/// subtracts back out.
 fn wrap_user_code(code: &str) -> String {
     format!(
-        ";globalThis.__out.returnValue=(function(){{try{{\n{code}\n}}catch(e){{globalThis.__out.error=String((e&&e.message)||e);}}}})();"
+        ";globalThis.__out.returnValue=(function(){{try{{\n{code}\n}}catch(e){{globalThis.__out.error=__msg(e);globalThis.__out.errorLine=__line(e&&e.stack);}}}})();"
     )
 }
 
@@ -125,10 +195,34 @@ fn run_script_with_timeout(
             .map_err(|e| timeout_or(&deadline, format!("script prelude failed: {e}")))?;
 
         // 3. Run the user code (its own throws are caught into __out.error;
-        //    only an interrupt/parse error surfaces here).
-        ctx.eval::<(), _>(user.as_bytes())
+        //    only an interrupt or a syntax error surfaces here). A syntax error
+        //    becomes `__out.error` + `errorLine` too, so the editor can mark it.
+        let mut options = EvalOptions::default();
+        options.filename = Some(USER_FILE.to_string());
+        if let Err(e) = ctx
+            .eval_with_options::<(), _>(user.as_bytes(), options)
             .catch(&ctx)
-            .map_err(|e| timeout_or(&deadline, format!("script error: {e}")))?;
+        {
+            if Instant::now() >= deadline {
+                return Err(timeout_or(&deadline, String::new()));
+            }
+            let text = e.to_string();
+            // Runtime throws are caught by the wrapper, so what reaches here is a
+            // parse failure; rquickjs prints it as a plain `Error: …`.
+            let first = text.lines().next().unwrap_or("script error").trim();
+            let message = match first.strip_prefix("Error: ") {
+                Some(rest) => format!("SyntaxError: {rest}"),
+                None => first.to_string(),
+            };
+            let set = format!(
+                "__out.error={};__out.errorLine=__line({});",
+                serde_json::to_string(&message).map_err(|e| e.to_string())?,
+                serde_json::to_string(&text).map_err(|e| e.to_string())?,
+            );
+            ctx.eval::<(), _>(set)
+                .catch(&ctx)
+                .map_err(|e| format!("failed to record script error: {e}"))?;
+        }
 
         // 4. Fold the request mutation into __out and serialize it.
         let out: String = ctx
@@ -312,6 +406,101 @@ mod tests {
         let out = run("return payload.body.token;", ctx);
         assert_eq!(out["returnValue"], "abc");
         assert!(out["error"].is_null());
+    }
+
+    #[test]
+    fn tests_and_failed_assertions_carry_user_lines() {
+        let code = "pm.test('a', function () {\n  pm.expect(1).to.equal(1);\n});\npm.test('b', function () {\n  var x = 2;\n  pm.expect(x).to.equal(3);\n});";
+        let out = run(code, "{}");
+        let tests = out["tests"].as_array().unwrap();
+        assert_eq!(tests[0]["line"], 1);
+        assert!(tests[0].get("errorLine").is_none());
+        assert_eq!(tests[1]["line"], 4);
+        assert_eq!(tests[1]["errorLine"], 6);
+        assert_eq!(tests[1]["error"], "AssertionError: expected 2 to equal 3");
+    }
+
+    #[test]
+    fn runtime_error_reports_name_and_line() {
+        let out = run(
+            "const ts = 1;\n\npm.request.headers.add('X', sign(ts));",
+            "{}",
+        );
+        assert_eq!(out["error"], "ReferenceError: sign is not defined");
+        assert_eq!(out["errorLine"], 3);
+    }
+
+    #[test]
+    fn syntax_error_is_captured_with_its_line() {
+        let out = run("const a = 1;\nconst b = ;\n", "{}");
+        assert!(
+            out["error"].as_str().unwrap().contains("SyntaxError"),
+            "{out}"
+        );
+        assert_eq!(out["errorLine"], 2);
+    }
+
+    #[test]
+    fn chai_style_matchers() {
+        let ctx = r#"{"response":{"code":200,"body":"{\"items\":[1],\"next\":\"n\",\"total\":1}","responseTime":340,"headers":{"Content-Type":"application/json"}}}"#;
+        let code = r#"
+            var d = pm.response.json();
+            pm.test('keys', function(){ pm.expect(d).to.have.keys('items', 'next', 'total'); });
+            pm.test('array', function(){ pm.expect(d.items).to.be.an('array'); });
+            pm.test('match', function(){ pm.expect('pay_1').to.match(/^pay_/); });
+            pm.test('true', function(){ pm.expect(true).to.be.true; });
+            pm.test('not', function(){ pm.expect(1).to.not.equal(2); });
+            pm.test('include', function(){ pm.expect('abc').to.include('b'); });
+            pm.test('property', function(){ pm.expect(d).to.have.property('next', 'n'); });
+            pm.test('header', function(){ pm.expect(pm.response.headers.get('content-type')).to.equal('application/json'); });
+            pm.test('status', function(){ pm.response.to.have.status(200); });
+            pm.test('below', function(){ pm.expect(pm.response.responseTime).to.be.below(200); });
+        "#;
+        let out = run(code, ctx);
+        let tests = out["tests"].as_array().unwrap();
+        for t in &tests[..9] {
+            assert_eq!(t["passed"], true, "{t}");
+        }
+        assert_eq!(
+            tests[9]["error"],
+            "AssertionError: expected 340 to be below 200"
+        );
+    }
+
+    #[test]
+    fn events_record_logs_vars_and_headers_in_order() {
+        let ctx = r#"{"request":{"method":"GET","url":"u","headers":{}}}"#;
+        let code = "console.log('ts', 1); pm.environment.set('ts', 1); pm.request.headers.add('X-Ts', 1); pm.globals.unset('g');";
+        let out = run(code, ctx);
+        let kinds: Vec<&str> = out["events"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|e| e["kind"].as_str().unwrap())
+            .collect();
+        assert_eq!(kinds, ["log", "env", "hdr", "glob"]);
+        assert_eq!(out["events"][0]["text"], "ts 1");
+        assert_eq!(out["events"][1]["value"], "1");
+        assert!(out["events"][0]["t"].as_f64().unwrap() > 0.0);
+    }
+
+    #[test]
+    fn scopes_have_has_and_to_object() {
+        let ctx = r#"{"environment":{"a":"1"}}"#;
+        let code = "return [pm.environment.has('a'), pm.environment.has('b'), pm.environment.toObject().a, pm.variables.replaceIn('x{{a}}y')];";
+        let out = run(code, ctx);
+        assert_eq!(
+            out["returnValue"],
+            serde_json::json!([true, false, "1", "x1y"])
+        );
+    }
+
+    #[test]
+    fn grpc_url_is_read_only() {
+        let ctx = r#"{"request":{"method":"m","url":"host:443","headers":{},"readonlyUrl":true}}"#;
+        let out = run("pm.request.url = 'other';", ctx);
+        assert!(out["error"].as_str().unwrap().contains("read-only"));
+        assert!(out["requestPatch"].is_null());
     }
 
     #[test]

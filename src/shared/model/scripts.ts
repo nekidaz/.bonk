@@ -7,13 +7,22 @@
  * `parseScriptResult` to turn the raw QuickJS output string into a typed value.
  */
 import { t as tr } from '$shared/i18n';
-import type { GrpcResult, HttpRequest, HttpResponse, ScriptTestResult, VarRow } from './types';
+import type {
+  GrpcResult,
+  HttpRequest,
+  HttpResponse,
+  ScriptEvent,
+  ScriptStage,
+  ScriptTestResult,
+  TabTestResults,
+  VarRow,
+} from './types';
 
 /**
  * Master switch for the Scripts tab (HTTP + gRPC). When false the editor tab is hidden; scripts already saved in
  * requests still run on send / in the runner / in flows. Flip to `true` to bring the tab back.
  */
-export const SCRIPTS_ENABLED = false;
+export const SCRIPTS_ENABLED = true;
 
 export type ScriptPhase = 'pre-request' | 'test' | 'flow';
 
@@ -33,6 +42,10 @@ export interface ScriptResult {
   requestPatch?: RequestPatch | null;
   /** Fatal error (thrown/timeout) captured from the script, if any. */
   error?: string | null;
+  /** Editor line of `error` (1-based), when the sandbox could pin it. */
+  errorLine?: number | null;
+  /** Console feed rows in run order (stage is filled in by `collectScriptRun`). */
+  events?: Omit<ScriptEvent, 'stage'>[];
   /** The script's top-level `return` value (Flow blocks); undefined when none. */
   returnValue?: unknown;
 }
@@ -59,6 +72,8 @@ export interface ScriptContext {
     url: string;
     headers: Record<string, string>;
     body?: string;
+    /** gRPC: the endpoint is dialed before the script runs, so `pm.request.url` can't be set. */
+    readonlyUrl?: boolean;
   };
   response: ScriptResponseContext | null;
   environment: Record<string, string>;
@@ -154,6 +169,7 @@ export function buildGrpcScriptContext(
       url: grpc.endpoint,
       headers: { ...grpc.metadata },
       body: grpc.message,
+      readonlyUrl: true,
     },
     response: result
       ? { code: result.ok ? 0 : 2, responseTime: result.elapsed_ms, headers: {}, body: result.body }
@@ -242,6 +258,8 @@ export function parseScriptResult(raw: string): ScriptResult {
             name: typeof row.name === 'string' ? row.name : tr('script.unnamed'),
             passed: row.passed === true,
             error: typeof row.error === 'string' ? row.error : undefined,
+            line: typeof row.line === 'number' ? row.line : undefined,
+            errorLine: typeof row.errorLine === 'number' ? row.errorLine : undefined,
           },
         ];
       })
@@ -267,8 +285,36 @@ export function parseScriptResult(raw: string): ScriptResult {
           }
         : null,
     error: typeof data.error === 'string' ? data.error : null,
+    errorLine: typeof data.errorLine === 'number' ? data.errorLine : null,
+    events: Array.isArray(data.events) ? data.events.flatMap(parseEvent) : [],
     returnValue: data.returnValue,
   };
+}
+
+const EVENT_KINDS = new Set(['log', 'env', 'glob', 'hdr', 'test']);
+
+function parseEvent(raw: unknown): Omit<ScriptEvent, 'stage'>[] {
+  if (!raw || typeof raw !== 'object') return [];
+  const e = raw as Record<string, unknown>;
+  if (typeof e.kind !== 'string' || !EVENT_KINDS.has(e.kind)) return [];
+  const str = (v: unknown) => (typeof v === 'string' ? v : undefined);
+  return [
+    {
+      t: typeof e.t === 'number' ? e.t : 0,
+      kind: e.kind as ScriptEvent['kind'],
+      text: str(e.text),
+      op: str(e.op),
+      key: str(e.key),
+      value: str(e.value),
+      name: str(e.name),
+      passed: typeof e.passed === 'boolean' ? e.passed : undefined,
+    },
+  ];
+}
+
+/** A script run that never produced output (runner threw / timed out), shaped like a failed result. */
+export function scriptFailure(error: string): ScriptResult {
+  return emptyResult(error);
 }
 
 function emptyResult(error: string): ScriptResult {
@@ -287,4 +333,41 @@ function emptyResult(error: string): ScriptResult {
 /** True when every recorded test passed (vacuously true with no tests). */
 export function allTestsPassed(tests: ScriptTestResult[]): boolean {
   return tests.every((t) => t.passed);
+}
+
+/**
+ * Fold one request's script runs into what its tab shows (SC4–SC6): tests of both stages tagged with
+ * their stage, one console feed (pre rows, the send row, post rows), and the first fatal error with
+ * its stage and line. `undefined` when neither stage had a script.
+ */
+export function collectScriptRun(run: {
+  pre?: ScriptResult;
+  post?: ScriptResult;
+  send?: Omit<ScriptEvent, 'stage' | 'kind'>;
+  postMs?: number;
+  at?: number;
+}): TabTestResults | undefined {
+  const { pre, post } = run;
+  if (!pre && !post) return undefined;
+  const stage = (r: ScriptResult | undefined, s: ScriptStage) => ({
+    tests: (r?.tests ?? []).map((t) => ({ ...t, stage: s })),
+    events: (r?.events ?? []).map((e) => ({ ...e, stage: s })),
+  });
+  const a = stage(pre, 'pre');
+  const b = stage(post, 'post');
+  const failed = pre?.error ? pre : post?.error ? post : undefined;
+  return {
+    tests: [...a.tests, ...b.tests],
+    logs: [...(pre?.logs ?? []), ...(post?.logs ?? [])],
+    error: failed?.error ?? undefined,
+    errorLine: failed?.errorLine ?? undefined,
+    errorPhase: failed ? (failed === pre ? 'pre' : 'post') : undefined,
+    events: [
+      ...a.events,
+      ...(run.send ? [{ ...run.send, stage: 'send' as const, kind: 'send' as const }] : []),
+      ...b.events,
+    ],
+    postMs: run.postMs,
+    at: run.at,
+  };
 }

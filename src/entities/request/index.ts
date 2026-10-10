@@ -37,6 +37,7 @@ export {
   requestGrpcEditorAction,
 } from './grpcEditorUi.svelte';
 export { type GrpcTabError, requestRuntime } from './requestRuntime.svelte';
+export { sendHttpTab } from './sendTab';
 export {
   addRequestToFolder,
   applyCurlToActiveTab,

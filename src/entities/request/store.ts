@@ -21,6 +21,8 @@ import {
   applyEnvPatch,
   applyRequestPatch,
   buildScriptContext,
+  collectScriptRun,
+  scriptFailure,
   type ScriptResult,
 } from '$shared/model';
 import { withOverrides } from './requestSettings';
@@ -252,6 +254,17 @@ export function applyScriptVars(result: ScriptResult): void {
   }
 }
 
+/** Run one stage's script; an IPC failure (timeout, bad output) becomes a failed result, never a throw. */
+async function runStage(phase: 'pre-request' | 'test', code: string, context: unknown): Promise<ScriptResult> {
+  try {
+    return await runScript(phase, code, context);
+  } catch (error) {
+    return scriptFailure(String(error));
+  }
+}
+
+const hasScript = (code: string | undefined): code is string => !!code && code.trim() !== '';
+
 /**
  * Send an HTTP request and write the result back to the tab it was started from,
  * captured via `tabId` — NOT whichever tab happens to be active when the response
@@ -265,32 +278,45 @@ export function applyScriptVars(result: ScriptResult): void {
  *      the {{var}} resolution below.
  *   2. {{var}} placeholders are resolved.
  *   3. the request is sent.
- *   4. the test script (if any) runs against the response; its env/globals
- *      writes are applied and its tests/logs attach to the tab.
+ *   4. the post-response script (if any) runs against the response; its env/globals
+ *      writes are applied and its tests/console rows attach to the tab.
+ *
+ * `skipScripts` sends the request as-is («Отправить без скриптов», SC6).
  *
  * On success the response is stored on the originating tab and the call is logged
  * to history. On failure the error is rethrown so the caller can decide how to
  * surface it (e.g. an error "response" scoped to that tab) — we don't write a
  * response here so the caller controls cancelled-vs-failed rendering. A fatal
- * pre-request script error is likewise thrown before any send happens.
+ * pre-request script error is likewise thrown before any send happens; the tab's
+ * `testResults.errorPhase === 'pre'` tells the response pane it was never sent.
  */
-export async function sendHttpRequest(tabId: string, req: HttpRequest, requestId: string): Promise<void> {
+export async function sendHttpRequest(
+  tabId: string,
+  req: HttpRequest,
+  requestId: string,
+  opts: { skipScripts?: boolean } = {},
+): Promise<void> {
   const startedAt = Date.now();
+  if (opts.skipScripts) req = { ...req, preRequestScript: undefined, testScript: undefined };
   let outgoing = req;
-  const tests: ScriptResult['tests'] = [];
-  const logs: string[] = [];
+  let pre: ScriptResult | undefined;
+  let post: ScriptResult | undefined;
+  const logs = () => [...(pre?.logs ?? []), ...(post?.logs ?? [])];
+  const keepResults = () =>
+    tabs.updateById(tabId, (t) => ({ ...t, testResults: collectScriptRun({ pre, post, at: Date.now() }) }));
 
   // 1. Pre-request script — runs before {{var}} resolution, against the raw
   //    request. Applies its request patch + env/globals writes; a fatal error
   //    aborts the send.
-  if (req.preRequestScript && req.preRequestScript.trim() !== '') {
-    const context = buildScriptContext(req, undefined, activeEnvMap(), globalsMap());
-    const pre = await runScript('pre-request', req.preRequestScript, context);
+  if (hasScript(req.preRequestScript)) {
+    pre = await runStage(
+      'pre-request',
+      req.preRequestScript,
+      buildScriptContext(req, undefined, activeEnvMap(), globalsMap()),
+    );
     applyScriptVars(pre);
-    logs.push(...pre.logs);
-    tests.push(...pre.tests);
     if (pre.error) {
-      tabs.updateById(tabId, (t) => ({ ...t, testResults: { tests, logs, error: pre.error ?? undefined } }));
+      keepResults();
       addAppConsoleEntry({
         protocol: 'http',
         method: outgoing.method || 'HTTP',
@@ -299,7 +325,7 @@ export async function sendHttpRequest(tabId: string, req: HttpRequest, requestId
         status: 'SCRIPT ERROR',
         elapsedMs: Date.now() - startedAt,
         message: pre.error,
-        logs,
+        logs: logs(),
       });
       throw new Error(pre.error);
     }
@@ -312,6 +338,7 @@ export async function sendHttpRequest(tabId: string, req: HttpRequest, requestId
 
   // 3. Send. History records the resolved request so replay/inspection shows the
   //    values actually sent, not the templates.
+  const sentAt = Date.now();
   let res: HttpResponse;
   try {
     res = await httpSend(
@@ -320,6 +347,7 @@ export async function sendHttpRequest(tabId: string, req: HttpRequest, requestId
       withOverrides(currentRequestSettings(), tabs.list.find((t) => t.id === tabId)?.settings),
     );
   } catch (error) {
+    keepResults();
     addAppConsoleEntry({
       protocol: 'http',
       method: resolved.method || 'HTTP',
@@ -328,39 +356,28 @@ export async function sendHttpRequest(tabId: string, req: HttpRequest, requestId
       status: 'ERROR',
       elapsedMs: Date.now() - startedAt,
       message: String(error),
-      logs,
+      logs: logs(),
     });
     throw error;
   }
 
-  // 4. Test script — runs against the response. Its env/globals writes are
-  //    applied; its tests/logs (plus any pre-request ones) attach to the tab.
-  let testError: string | undefined;
-  if (req.testScript && req.testScript.trim() !== '') {
-    const context = buildScriptContext(resolved, res, activeEnvMap(), globalsMap());
-    let post: ScriptResult;
-    try {
-      post = await runScript('test', req.testScript, context);
-    } catch (error) {
-      addAppConsoleEntry({
-        protocol: 'http',
-        method: resolved.method || 'HTTP',
-        url: resolved.url,
-        ok: false,
-        status: `${res.status} · SCRIPT ERROR`,
-        elapsedMs: res.elapsed_ms,
-        message: String(error),
-        logs,
-      });
-      throw error;
-    }
+  // 4. Post-response script — runs against the response. Its env/globals writes
+  //    are applied; its tests/console rows (plus the pre-request ones) attach to the tab.
+  let postMs: number | undefined;
+  if (hasScript(req.testScript)) {
+    const t0 = performance.now();
+    post = await runStage('test', req.testScript, buildScriptContext(resolved, res, activeEnvMap(), globalsMap()));
+    postMs = Math.round(performance.now() - t0);
     applyScriptVars(post);
-    logs.push(...post.logs);
-    tests.push(...post.tests);
-    testError = post.error ?? undefined;
   }
-
-  const testResults = tests.length > 0 || logs.length > 0 || testError ? { tests, logs, error: testError } : undefined;
+  const testError = post?.error ?? undefined;
+  const send = {
+    t: sentAt,
+    text: `${resolved.method} ${resolved.url}`,
+    status: String(res.status),
+    ms: res.elapsed_ms,
+  };
+  const testResults = collectScriptRun({ pre, post, send, postMs, at: Date.now() });
   tabs.updateById(tabId, (t) => ({ ...t, response: res, testResults }));
   addAppConsoleEntry({
     protocol: 'http',
@@ -370,7 +387,7 @@ export async function sendHttpRequest(tabId: string, req: HttpRequest, requestId
     status: String(res.status),
     elapsedMs: res.elapsed_ms,
     message: testError,
-    logs,
+    logs: logs(),
   });
   const src = tabs.list.find((t) => t.id === tabId);
   addHistory({
