@@ -3,7 +3,7 @@
   import { environments } from '$entities/environment';
   import { hotkeys, formatBinding } from '$shared/settings';
   import { mcpIntegrationStatus, revealPath } from '$shared/ipc';
-  import { mcpConnected, recentWorkspaceChoices, workspaceInitials, workspaceName } from '$shared/ui';
+  import { mcpConnected, pathParts, recentWorkspaceChoices, workspaceInitials, workspaceName } from '$shared/ui';
   import type { TreeNode } from '$shared/model';
   import { t, tp } from '$shared/i18n';
 
@@ -77,13 +77,20 @@
   }
 </script>
 
+<!-- Rule 04: when the path doesn't fit, its start is cut and the last folder stays visible. -->
+{#snippet pathLine(full: string)}
+  {@const parts = pathParts(full)}
+  <span class="sub"><span class="dir">{parts.dir}</span><span class="leaf">{parts.leaf}</span></span>
+{/snippet}
+
 <div class="bs-work-wrap" role="presentation" onpointerdown={(e) => e.stopPropagation()}>
   <button
     class="bs-work"
     class:open
     aria-haspopup="menu"
     aria-expanded={open}
-    title={workspace.path || t('workspace.local')}
+    aria-label={title}
+    title={`${title}\n${workspace.path || t('workspace.local')}`}
     onclick={() => (open = !open)}
   >
     <span class="bs-work-avatar" aria-hidden="true">{workspaceInitials(title)}</span>
@@ -117,7 +124,7 @@
           <span class="bs-work-avatar" aria-hidden="true">{workspaceInitials(nameOf(workspace.path))}</span>
           <span class="text">
             <span class="main">{nameOf(workspace.path)}</span>
-            <span class="sub">{workspace.path}</span>
+            {@render pathLine(workspace.path)}
             <span class="meta">
               <span>{requestCount} {tp(requestCount, ['запрос', 'запроса', 'запросов'], ['request', 'requests'])}</span>
               <span
@@ -139,7 +146,7 @@
             <span class="bs-work-avatar muted" aria-hidden="true">{workspaceInitials(nameOf(path))}</span>
             <span class="text">
               <span class="main">{nameOf(path)}</span>
-              <span class="sub">{path}</span>
+              {@render pathLine(path)}
             </span>
             <kbd>{formatBinding(`Mod+Alt+${recents.indexOf(path) + 2}`).join('')}</kbd>
           </button>

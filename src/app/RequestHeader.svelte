@@ -142,9 +142,12 @@
       class:saved={savedFlash}
       class:primary={dirtyTabIds.current.has(tab.id)}
       title={tab.savedPath ? t('nav.header.saveTip') : t('nav.header.saveToTip')}
+      aria-label={t('nav.header.save')}
       onclick={onSmartSave}
     >
-      <span class="material-symbols-outlined" aria-hidden="true">save</span>{t('nav.header.save')}<kbd>⌘S</kbd>
+      <span class="material-symbols-outlined" aria-hidden="true">save</span><span class="lbl"
+        >{t('nav.header.save')}</span
+      ><kbd>⌘S</kbd>
     </button>
     <button
       class="bs-hb"

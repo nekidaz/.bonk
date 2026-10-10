@@ -1137,12 +1137,6 @@
   min-height: 26px;
 }
 
-@media (max-width: 760px) {
-  :root .bs-ri .bs-ri-label {
-    display: none;
-  }
-}
-
 /* S21: history list and the "snapshot from history" banner. */
 :root .bs .bs-history-day {
   display: flex;

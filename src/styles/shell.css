@@ -398,17 +398,6 @@
   font-size: 11px;
 }
 
-@media (max-width: 760px) {
-  :root .bs-side {
-    max-width: 80px;
-  }
-
-  :root .bs-resizer-col,
-  :root .bs-toolbar-search kbd {
-    display: none;
-  }
-}
-
 @media (max-width: 480px) {
   :root .bs-side {
     display: none;
@@ -1200,21 +1189,69 @@
   height: 26px;
 }
 
+/* Flow · Размеры окна: from 1920 down to the 720 × 520 minimum (tauri.conf.json). The sidebar never
+   covers the content (layout.svelte.ts squeezes it to 220 first), then secondary labels and columns hide.
+   Window widths in the mock map to: ≤ 1100 = 1024, ≤ 900 = 800, ≤ 760 = 720. The response's own items
+   follow its container (response.css), so they also react to the side-by-side layout. */
+:root .bs-tb .bs-work {
+  max-width: min(100%, 220px);
+}
+
+:root .bs-toolbar-search .short {
+  display: none;
+}
+
 @media (max-width: 1100px) {
   :root .bs-tb {
-    grid-template-columns: minmax(120px, 1fr) minmax(180px, 320px) minmax(80px, 1fr);
+    grid-template-columns: minmax(120px, 1fr) minmax(180px, 360px) minmax(80px, 1fr);
     gap: 12px;
+  }
+
+  :root .bs-tb .bs-work {
+    max-width: min(100%, 160px);
+  }
+}
+
+@media (max-width: 900px) {
+  :root .bs-tb {
+    grid-template-columns: minmax(0, 1fr) 150px minmax(0, 1fr);
+  }
+
+  /* Only the avatar; the full name stays in the chip's tooltip. */
+  :root .bs-work-title,
+  :root .bs-toolbar-search .bs-toolbar-search-input,
+  :root .bs-status-link .lbl,
+  :root .bs .bs-savegrp .bs-save-main :is(.lbl, kbd) {
+    display: none;
+  }
+
+  :root .bs-toolbar-search .short {
+    display: block;
+  }
+
+  :root .bs .bs-savegrp button.bs-save-main {
+    width: 30px;
+    padding: 0;
+    justify-content: center;
   }
 }
 
 @media (max-width: 760px) {
   :root .bs-tb {
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr) auto;
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   }
 
-  :root .bs-tab {
-    min-width: 96px;
-    max-width: 180px;
+  :root .bs-toolbar-search .short,
+  :root .bs-reqhead .bs-crumb {
+    display: none;
+  }
+
+  :root .bs-toolbar-env-name {
+    max-width: 48px;
+  }
+
+  :root .bs .bs-reqhead .nm {
+    font-size: 17px;
   }
 }
 
@@ -1784,6 +1821,28 @@ html[data-native-macos='true'] .bs-tb-left {
 :root .bs .bs-work-menu .bs-work-item .sub {
   color: var(--color-text-muted);
   font: var(--font-size-micro) var(--font-code);
+}
+
+/* Flow · Размеры окна, rules 04: the name wraps to at most two lines; the path's start gives way first. */
+:root .bs .bs-work-menu .bs-work-item .main {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  white-space: normal;
+}
+
+:root .bs .bs-work-menu .bs-work-item .sub {
+  display: flex;
+}
+
+:root .bs-work-item .sub > * {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+:root .bs-work-item .sub .leaf {
+  flex: none;
+  max-width: 100%;
 }
 
 :root .bs .bs-work-menu .bs-work-item .meta {

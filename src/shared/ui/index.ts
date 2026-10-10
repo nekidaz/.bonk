@@ -10,6 +10,7 @@ export {
   snapPanelSize,
   type UtilityMode,
   workspaceInitials,
+  pathParts,
   workspaceName,
 } from './appShell';
 export { confirmState, requestChoice, requestConfirm } from './confirm.svelte';

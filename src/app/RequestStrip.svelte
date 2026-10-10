@@ -52,9 +52,15 @@
     <button type="button" class="chip" onclick={() => open(c.id)}>{c.label}<b>{c.value}</b></button>
   {/each}
   <span class="preview" title={preview}>{preview}</span>
-  <button type="button" class="act" onclick={() => open(grpc ? 'message' : 'body')}>
-    <span class="material-symbols-outlined" aria-hidden="true">expand_more</span>{t('lb.strip.showBody')}<kbd
-      >{formatBinding(hotkeys.current.toggleRequest ?? '').join('')}</kbd
-    >
+  <button
+    type="button"
+    class="act"
+    aria-label={t('lb.strip.showBody')}
+    title={t('lb.strip.showBody')}
+    onclick={() => open(grpc ? 'message' : 'body')}
+  >
+    <span class="material-symbols-outlined" aria-hidden="true">expand_more</span><span class="lbl"
+      >{t('lb.strip.showBody')}</span
+    ><kbd>{formatBinding(hotkeys.current.toggleRequest ?? '').join('')}</kbd>
   </button>
 </div>

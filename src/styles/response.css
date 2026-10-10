@@ -231,12 +231,6 @@
   color: var(--sep);
 }
 
-@media (max-width: 760px) {
-  :root .bs-meta .mo {
-    display: none;
-  }
-}
-
 :root .bs-timeline > div {
   display: flex;
   gap: 16px;
@@ -778,6 +772,21 @@
   :root .bs-resph,
   :root .bs-meta {
     gap: 8px;
+  }
+}
+
+/* Flow · Размеры окна: a 800 px window drops the size, the 720 px minimum also the time, Cookies and Timeline. */
+@container response (max-width: 560px) {
+  :root .bs-meta .lb-size {
+    display: none;
+  }
+}
+
+@container response (max-width: 480px) {
+  :root .bs-meta .lb-time,
+  :root #bs-resptab-cookies,
+  :root #bs-resptab-timeline {
+    display: none;
   }
 }
 

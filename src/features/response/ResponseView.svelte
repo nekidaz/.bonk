@@ -306,7 +306,7 @@
   <div class="bs-meta">
     <span class="bs-stpill sending"><span class="g" aria-hidden="true">◌</span>{t('response.sending')}</span>
     <span class="mo now" title={t('response.time')}>{((now - (busy?.startedAt ?? now)) / 1000).toFixed(1)} s</span>
-    <span class="mo" title={t('response.size')}>—</span>
+    <span class="mo lb-size" title={t('response.size')}>—</span>
     <button class="bs-ric" aria-label={t('response.copy')} title={t('response.copy')} disabled
       ><span class="material-symbols-outlined">content_copy</span></button
     >
@@ -382,8 +382,10 @@
               n: tab.grpcStream.messages.filter((m) => !m.sent).length,
             })}</span
           >
-          <span class="mo" title={t('response.time')}>{((now - tab.grpcStream.startedAt) / 1000).toFixed(1)} s</span>
-          <span class="mo" title={t('response.size')}
+          <span class="mo lb-time" title={t('response.time')}
+            >{((now - tab.grpcStream.startedAt) / 1000).toFixed(1)} s</span
+          >
+          <span class="mo lb-size" title={t('response.size')}
             >{formatBytes(tab.grpcStream.messages.reduce((n, m) => n + m.sizeBytes, 0))}</span
           >
           <button
@@ -409,8 +411,9 @@
               >{grpcTone === 'success' ? '✓' : grpcTone === 'warning' ? '!' : '×'}</span
             >{grpcStatusLabel(grpcCode)}</span
           >
-          <span class="mo" title={t('response.time')}>{grpcElapsed(tab.grpcResult.elapsed_ms)}</span>
-          <span class="mo" title={t('response.size')}>{grpcNoReply ? '—' : formatBytes(tab.grpcResult.size_bytes)}</span
+          <span class="mo lb-time" title={t('response.time')}>{grpcElapsed(tab.grpcResult.elapsed_ms)}</span>
+          <span class="mo lb-size" title={t('response.size')}
+            >{grpcNoReply ? '—' : formatBytes(tab.grpcResult.size_bytes)}</span
           >
           {#if linesLabel}<span class="mo lb-lines">{linesLabel}</span>{/if}
           {#if grpcBodyShown && bodyInfo?.capped}
@@ -625,12 +628,12 @@
                 ? t('response.status.cancelled')
                 : t('response.status.none')}</span
           >
-          <span class="mo" title={t('response.time')}
+          <span class="mo lb-time" title={t('response.time')}
             >{tab.response.elapsed_ms >= 1000
               ? `${(tab.response.elapsed_ms / 1000).toFixed(tab.response.elapsed_ms >= 10_000 ? 1 : 2)} s`
               : `${tab.response.elapsed_ms} ms`}</span
           >
-          <span class="mo" title={t('response.size')}
+          <span class="mo lb-size" title={t('response.size')}
             >{tab.response.status ? formatBytes(tab.response.size_bytes) : '—'}</span
           >
           {#if linesLabel}<span class="mo lb-lines">{linesLabel}</span>{/if}

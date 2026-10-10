@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { mcpConnected, recentWorkspaceChoices, snapPanelSize, workspaceInitials, workspaceName } from './appShell';
+import {
+  mcpConnected,
+  pathParts,
+  recentWorkspaceChoices,
+  snapPanelSize,
+  workspaceInitials,
+  workspaceName,
+} from './appShell';
 
 describe('snapPanelSize', () => {
   it('collapses after the snap threshold', () => {
@@ -43,5 +50,16 @@ describe('mcpConnected', () => {
       mcpConnected(clients, '/c'),
       mcpConnected(clients, ''),
     ]).toEqual([true, false, false, false]);
+  });
+});
+
+describe('pathParts', () => {
+  it('shortens home and splits off the last folder', () => {
+    expect(pathParts('/Users/aru/Documents/bonk/acme-payments')).toEqual({
+      dir: '~/Documents/bonk/',
+      leaf: 'acme-payments',
+    });
+    expect(pathParts('/home/aru')).toEqual({ dir: '', leaf: '~' });
+    expect(pathParts('C:\\work\\bonk')).toEqual({ dir: 'C:\\work\\', leaf: 'bonk' });
   });
 });
