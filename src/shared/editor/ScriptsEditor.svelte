@@ -1,8 +1,26 @@
 <script lang="ts">
-  /** Full-height Postman-style workspace for pre-request and post-response JS. */
-  import { t, tp } from '$shared/i18n';
+  /**
+   * The request's Scripts tab (Flow · Скрипты). Pre-request | Post-response segments with snippets on the
+   * right (SC1–SC3); the last run marks `pm.test` lines green/red and bands a failing line with its message
+   * (SC6, SC7). `expanded` (⌥⌘F, SC8) swaps the top row for the FocusBar, adds «Структура» on the left and,
+   * after a run, the results panel at the bottom (SC9).
+   */
+  import { tick, untrack } from 'svelte';
+  import { Prec } from '@codemirror/state';
+  import { EditorView, keymap } from '@codemirror/view';
+  import { t } from '$shared/i18n';
+  import type { ScriptStage, ScriptTestResult, TabTestResults } from '$shared/model';
   import CodeEditor from './CodeEditor.svelte';
-  import { PM_COMPLETIONS, PRE_REQUEST_SNIPPETS, TEST_SNIPPETS, type ScriptSnippet } from './scriptCompletions';
+  import EditorTools from './EditorTools.svelte';
+  import ScriptConsole from './ScriptConsole.svelte';
+  import ScriptOutline from './ScriptOutline.svelte';
+  import ScriptStageSwitch from './ScriptStageSwitch.svelte';
+  import ScriptTests from './ScriptTests.svelte';
+  import { countLabel } from './largeFold';
+  import { PRE_REQUEST_SNIPPETS, TEST_SNIPPETS, scriptCompletionSource, type ScriptSnippet } from './scriptCompletions';
+  import { scriptMarks } from './scriptMarks';
+  import { scriptSnippetsExpanded, scriptSnippetsOpen } from './scriptPrefs.svelte';
+  import { consoleRows, stageTests } from './scriptRun';
 
   let {
     preRequestScript,
@@ -10,451 +28,567 @@
     onPreRequestChange,
     onTestChange,
     docId,
+    stage,
+    onStage,
+    results,
+    expanded = false,
+    onExpand,
+    onClearConsole,
   }: {
     preRequestScript: string;
     testScript: string;
     onPreRequestChange: (value: string) => void;
     onTestChange: (value: string) => void;
     docId: string;
+    stage: ScriptStage;
+    onStage: (stage: ScriptStage) => void;
+    /** The tab's last run. */
+    results?: TabTestResults;
+    expanded?: boolean;
+    onExpand?: () => void;
+    onClearConsole?: () => void;
   } = $props();
 
-  type ScriptStage = 'pre-request' | 'post-response';
-  let stage = $state<ScriptStage>('pre-request');
-  let editor = $state<ReturnType<typeof CodeEditor>>();
-  let snippetsOpen = $state(true);
-  let snippetSearch = $state('');
+  /** SC7: from this many lines the editor takes the height and the response folds into its strip. */
+  const BIG_SCRIPT_LINES = 40;
 
-  const currentValue = $derived(stage === 'pre-request' ? preRequestScript : testScript);
-  const currentSnippets = $derived(stage === 'pre-request' ? PRE_REQUEST_SNIPPETS : TEST_SNIPPETS);
-  const currentTitle = $derived(stage === 'pre-request' ? t('script.pre.title') : t('script.post.title'));
-  const currentDescription = $derived(stage === 'pre-request' ? t('script.pre.desc') : t('script.post.desc'));
-  const currentPlaceholder = $derived(
-    stage === 'pre-request' ? t('script.pre.placeholder') : t('script.post.placeholder'),
-  );
-  const currentDocId = $derived(`${docId}:${stage}`);
-  const lineCount = $derived((currentValue.match(/\n/g)?.length ?? 0) + 1);
+  let editor = $state<ReturnType<typeof CodeEditor>>();
+  let outline = $state<ReturnType<typeof ScriptOutline>>();
+  let snippetSearch = $state('');
+  let currentLine = $state(1);
+  let runOpen = $state(false);
+  let runTab = $state<'tests' | 'console'>('tests');
+
+  const value = $derived(stage === 'pre' ? preRequestScript : testScript);
+  const lineCount = $derived((value.match(/\n/g)?.length ?? 0) + 1);
+  const big = $derived(lineCount >= BIG_SCRIPT_LINES);
+  const snippets = $derived(stage === 'pre' ? PRE_REQUEST_SNIPPETS : TEST_SNIPPETS);
+  const tests = $derived(stageTests(results, stage));
+  const failedHere = $derived(results?.errorPhase === stage && !!results.error);
+  const has = $derived({ pre: !!preRequestScript.trim(), post: !!testScript.trim() });
   const filteredSnippets = $derived.by(() => {
-    const query = snippetSearch.trim().toLowerCase();
-    if (!query) return currentSnippets;
-    return currentSnippets.filter(
-      (snippet) => t(snippet.label).toLowerCase().includes(query) || snippet.code.toLowerCase().includes(query),
-    );
+    const q = snippetSearch.trim().toLowerCase();
+    return q
+      ? snippets.filter((s) => t(s.label).toLowerCase().includes(q) || s.code.toLowerCase().includes(q))
+      : snippets;
   });
 
-  function changeCurrent(value: string): void {
-    if (stage === 'pre-request') onPreRequestChange(value);
-    else onTestChange(value);
+  const extensions = $derived([
+    scriptMarks({
+      tests: tests.flatMap((x) => (x.line ? [{ line: x.line, ok: x.passed }] : [])),
+      errors: [
+        ...(failedHere && results?.errorLine ? [{ line: results.errorLine, message: results.error ?? '' }] : []),
+        // SC9: failed assertions get their note only in the expanded editor; inline they'd overflow the card.
+        ...(expanded
+          ? tests.flatMap((x) => (!x.passed && x.errorLine ? [{ line: x.errorLine, message: x.error ?? '' }] : []))
+          : []),
+      ],
+    }),
+    // ⌘↵ sends (the window hotkey) instead of inserting a blank line.
+    Prec.highest(keymap.of([{ key: 'Mod-Enter', run: () => true }])),
+    EditorView.updateListener.of((u) => {
+      if (u.selectionSet || u.docChanged) currentLine = u.state.doc.lineAt(u.state.selection.main.head).number;
+    }),
+  ]);
+
+  // SC9: a run finishing while expanded slides the results panel up (failures first).
+  let seenRun = untrack(() => results?.at);
+  $effect(() => {
+    const at = results?.at;
+    if (at === seenRun) return;
+    seenRun = at;
+    if (expanded && at) {
+      runOpen = true;
+      runTab = 'tests';
+    }
+  });
+
+  function change(next: string): void {
+    if (stage === 'pre') onPreRequestChange(next);
+    else onTestChange(next);
   }
 
   function selectStage(next: ScriptStage): void {
-    stage = next;
+    onStage(next);
     snippetSearch = '';
   }
+  // A stage switch loads another document: its caret starts at the top.
+  $effect(() => {
+    void stage;
+    currentLine = 1;
+  });
 
   function insertSnippet(snippet: ScriptSnippet): void {
     editor?.insertText(snippet.code);
   }
+
+  /** Open `stage` (if given) and put the caret on `line`. */
+  export async function reveal(line: number, inStage: ScriptStage = stage): Promise<void> {
+    if (inStage !== stage) {
+      onStage(inStage);
+      await tick();
+    }
+    editor?.reveal(line);
+  }
+
+  function gotoTest(test: ScriptTestResult, line: number): void {
+    void reveal(line, test.stage ?? 'post');
+  }
+
+  function keydown(e: KeyboardEvent): void {
+    if (!expanded || !(e.metaKey || e.ctrlKey) || e.code !== 'KeyO') return;
+    if (e.altKey) outline?.toggle();
+    else if (e.shiftKey) outline?.focusSearch();
+    else return;
+    e.preventDefault();
+    e.stopPropagation();
+  }
 </script>
 
-<div class="bs-scripts-workspace">
-  <nav class="bs-script-nav" aria-label={t('script.stage_aria')}>
-    <div class="bs-script-nav-label">{t('script.lifecycle')}</div>
-    <button class:on={stage === 'pre-request'} type="button" onclick={() => selectStage('pre-request')}>
-      <span class="material-symbols-outlined">play_circle</span>
-      <span><b>{t('script.pre.name')}</b><small>{t('script.pre.when')}</small></span>
-    </button>
-    <button class:on={stage === 'post-response'} type="button" onclick={() => selectStage('post-response')}>
-      <span class="material-symbols-outlined">fact_check</span>
-      <span><b>{t('script.post.name')}</b><small>{t('script.post.when')}</small></span>
-    </button>
-    <div class="bs-script-nav-note">
-      <span class="material-symbols-outlined">shield_lock</span>
-      <span>{t('script.sandbox_a')}<br />{t('script.sandbox_b')}</span>
-    </div>
-  </nav>
-
-  <section class="bs-script-main">
-    <header class="bs-script-toolbar">
-      <div class="bs-script-heading">
-        <span class="material-symbols-outlined">javascript</span>
-        <div><b>{currentTitle}</b><small>{currentDescription}</small></div>
-      </div>
+<!-- svelte-ignore a11y_no_static_element_interactions -->
+<div class="bs-scripts" class:expanded data-big={big || undefined} onkeydown={keydown}>
+  {#if !expanded}
+    <div class="bar">
+      <ScriptStageSwitch {stage} onStage={selectStage} {has} failed={results?.error ? results.errorPhase : undefined} />
+      <span class="hint">{stage === 'pre' ? t('script.pre.hint') : t('script.post.hint')}</span>
+      <span class="spacer"></span>
+      <span class="meta">{`JavaScript · ${countLabel(lineCount, 'lines')}`}</span>
+      {#if big}<EditorTools scope=".bs-script-editor" {onExpand} {expanded} />{/if}
       <button
-        class:on={snippetsOpen}
         type="button"
-        onclick={() => (snippetsOpen = !snippetsOpen)}
+        class="snip-toggle"
+        class:on={scriptSnippetsOpen.current}
+        aria-pressed={scriptSnippetsOpen.current}
         title={t('script.toggle_snippets')}
+        onclick={() => (scriptSnippetsOpen.current = !scriptSnippetsOpen.current)}
       >
-        <span class="material-symbols-outlined">data_object</span>
-        {t('script.snippets')}
+        <span class="material-symbols-outlined" aria-hidden="true">data_object</span>{t('script.snippets')}
       </button>
-    </header>
+    </div>
+  {/if}
 
-    <div class="bs-script-editor">
-      {#key currentDocId}
+  <div class="body">
+    {#if expanded}
+      <ScriptOutline
+        bind:this={outline}
+        code={value}
+        {tests}
+        lastRunAt={results?.at}
+        {currentLine}
+        onGoto={(line) => editor?.reveal(line)}
+      />
+    {/if}
+    <div class="card" class:failed={failedHere}>
+      <div class="bs-script-editor">
         <CodeEditor
           bind:this={editor}
-          value={currentValue}
-          onChange={changeCurrent}
+          {value}
+          onChange={change}
           lang="javascript"
-          completions={PM_COMPLETIONS}
-          placeholder={currentPlaceholder}
+          completionSource={scriptCompletionSource}
+          completionFooter={t('script.ac.footer')}
+          placeholder={stage === 'pre' ? t('script.pre.placeholder') : t('script.post.placeholder')}
           fill
-          docId={currentDocId}
-          ariaLabel={currentTitle}
+          bare
+          folding
+          docId={`${docId}:${stage}`}
+          ariaLabel={stage === 'pre' ? t('script.pre.name') : t('script.post.name')}
+          {extensions}
         />
-      {/key}
+      </div>
+      <footer>
+        <span class="material-symbols-outlined" aria-hidden="true">shield</span>{t('script.sandbox')}
+        <span class="spacer"></span>
+        <code>pm.</code>{t('script.autocomplete')}
+      </footer>
     </div>
 
-    <footer class="bs-script-status">
-      <span>JavaScript</span>
-      <span>{lineCount} {tp(lineCount, ['строка', 'строки', 'строк'], ['line', 'lines'])}</span>
-      <span class="bs-spacer"></span>
-      <span>{t('script.autocomplete_a')}<code>pm.</code>{t('script.autocomplete_b')}</span>
-    </footer>
-  </section>
+    {#if expanded ? scriptSnippetsExpanded.current : scriptSnippetsOpen.current}
+      <aside class="snippets" aria-label={t('script.snippets_aria')}>
+        <header>
+          <span>{t('script.snippets')}</span>
+          <button
+            type="button"
+            aria-label={t('script.close_snippets')}
+            onclick={() => (expanded ? (scriptSnippetsExpanded.current = false) : (scriptSnippetsOpen.current = false))}
+          >
+            <span class="material-symbols-outlined" aria-hidden="true">close</span>
+          </button>
+        </header>
+        <label class="search">
+          <span class="material-symbols-outlined" aria-hidden="true">search</span>
+          <input
+            bind:value={snippetSearch}
+            placeholder={t('script.search_snippets')}
+            aria-label={t('script.search_snippets')}
+          />
+        </label>
+        <div class="group">{stage === 'pre' ? t('script.group.pre') : t('script.group.post')}</div>
+        <div class="list">
+          {#each filteredSnippets as snippet (snippet.label)}
+            <button type="button" onclick={() => insertSnippet(snippet)}>
+              <span>{t(snippet.label)}</span>
+              <span class="material-symbols-outlined" aria-hidden="true">add</span>
+            </button>
+          {:else}
+            <div class="none">{t('script.no_snippets')}</div>
+          {/each}
+        </div>
+        <footer>{t('script.snippets_hint')}</footer>
+      </aside>
+    {/if}
+  </div>
 
-  {#if snippetsOpen}
-    <aside class="bs-script-snippets" aria-label={t('script.snippets_aria')}>
-      <div class="bs-script-snippets-head">
-        <div><b>{t('script.snippets')}</b><small>{t('script.insert_at_cursor')}</small></div>
-        <button type="button" aria-label={t('script.close_snippets')} onclick={() => (snippetsOpen = false)}>
-          <span class="material-symbols-outlined">close</span>
+  {#if expanded && runOpen && results}
+    {@const passed = results.tests.filter((x) => x.passed).length}
+    <section class="run" aria-label={t('response.tab.tests')}>
+      <div class="run-head">
+        <div class="bs-seg" role="tablist">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={runTab === 'tests'}
+            class:on={runTab === 'tests'}
+            onclick={() => (runTab = 'tests')}
+            >{t('response.tab.tests')}<span class="n" class:bad={passed < results.tests.length}
+              >{`${passed}/${results.tests.length}`}</span
+            ></button
+          >
+          <button
+            type="button"
+            role="tab"
+            aria-selected={runTab === 'console'}
+            class:on={runTab === 'console'}
+            onclick={() => (runTab = 'console')}
+            >{t('response.tab.console')}<span class="n">{consoleRows(results.events ?? []).length}</span></button
+          >
+        </div>
+        <span class="spacer"></span>
+        {#if results.at}<span class="meta">{new Date(results.at).toTimeString().slice(0, 5)}</span>{/if}
+        <button type="button" class="run-collapse" onclick={() => (runOpen = false)}>
+          <span class="material-symbols-outlined" aria-hidden="true">expand_more</span>{t('lb.collapse')}
         </button>
       </div>
-      <label class="bs-script-search">
-        <span class="material-symbols-outlined">search</span>
-        <input
-          bind:value={snippetSearch}
-          placeholder={t('script.search_snippets')}
-          aria-label={t('script.search_snippets')}
-        />
-      </label>
-      <div class="bs-script-snippet-group">
-        <div class="label">{stage === 'pre-request' ? t('script.group.pre') : t('script.group.post')}</div>
-        {#each filteredSnippets as snippet (snippet.label)}
-          <button type="button" onclick={() => insertSnippet(snippet)}>
-            <span>{t(snippet.label)}</span>
-            <span class="material-symbols-outlined">add</span>
-          </button>
+      <div class="run-body">
+        {#if runTab === 'tests'}
+          {#if results.error}<p class="run-error">
+              <span class="material-symbols-outlined" aria-hidden="true">error</span>{results.error}
+            </p>{/if}
+          <ScriptTests {results} compact onLine={gotoTest} />
         {:else}
-          <div class="bs-script-no-snippets">{t('script.no_snippets')}</div>
-        {/each}
+          <ScriptConsole events={results.events ?? []} onClear={onClearConsole} onTests={() => (runTab = 'tests')} />
+        {/if}
       </div>
-    </aside>
+    </section>
   {/if}
 </div>
 
 <style>
-  .bs-scripts-workspace {
+  .bs-scripts {
     flex: 1;
     min-height: 0;
     min-width: 0;
     display: flex;
-    background: var(--canvas);
-  }
-  .bs-script-nav {
-    width: 154px;
-    flex: none;
-    display: flex;
     flex-direction: column;
-    gap: 3px;
-    padding: 12px 8px;
-    background: color-mix(in srgb, var(--surface) 84%, var(--canvas));
-    border-right: 1px solid var(--sepsoft);
+    gap: 10px;
+    padding: 10px 0 0;
   }
-  .bs-script-nav-label {
-    padding: 0 8px 7px;
-    color: var(--t3);
-    font-size: 9.5px;
-    font-weight: 700;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-  }
-  .bs-script-nav > button {
-    width: 100%;
+  .bar {
     display: flex;
     align-items: center;
-    gap: 8px;
-    padding: 8px;
-    color: var(--t2);
-    border-radius: 7px;
-    text-align: left;
-  }
-  .bs-script-nav > button:hover {
-    color: var(--text);
-    background: var(--hover);
-  }
-  .bs-script-nav > button.on {
-    color: var(--text);
-    background: var(--surface);
-    box-shadow:
-      inset 2px 0 var(--accent),
-      0 0 0 1px var(--sepsoft);
-  }
-  .bs-script-nav > button > .material-symbols-outlined {
-    flex: none;
-    font-size: 16px;
-    color: var(--t3);
-  }
-  .bs-script-nav > button.on > .material-symbols-outlined {
-    color: var(--accent);
-  }
-  .bs-script-nav b,
-  .bs-script-nav small {
-    display: block;
-  }
-  .bs-script-nav b {
-    font-size: 11.5px;
-    font-weight: 600;
-  }
-  .bs-script-nav small {
-    margin-top: 1px;
-    color: var(--t3);
-    font-size: 9.5px;
-  }
-  .bs-script-nav-note {
-    display: flex;
-    align-items: flex-start;
-    gap: 7px;
-    margin-top: auto;
-    padding: 9px 7px 2px;
-    color: var(--t3);
-    font-size: 9.5px;
-    line-height: 1.45;
-  }
-  .bs-script-nav-note .material-symbols-outlined {
-    flex: none;
-    font-size: 14px;
-  }
-  .bs-script-main {
-    flex: 1;
-    min-width: 0;
-    min-height: 0;
-    display: flex;
-    flex-direction: column;
-  }
-  .bs-script-toolbar {
-    min-height: 48px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
     gap: 12px;
-    padding: 7px 12px;
-    background: var(--surface);
-    border-bottom: 1px solid var(--sepsoft);
-  }
-  .bs-script-heading {
     min-width: 0;
-    display: flex;
-    align-items: center;
-    gap: 8px;
   }
-  .bs-script-heading > .material-symbols-outlined {
-    color: var(--accent);
-    font-size: 19px;
-  }
-  .bs-script-heading b,
-  .bs-script-heading small {
-    display: block;
-  }
-  .bs-script-heading b {
-    color: var(--text);
-    font-size: 11.5px;
-    font-weight: 600;
-  }
-  .bs-script-heading small {
-    max-width: 520px;
-    margin-top: 1px;
+  .hint {
+    min-width: 0;
     overflow: hidden;
     color: var(--t3);
-    font-size: 9.5px;
+    font-size: var(--font-size-caption);
     text-overflow: ellipsis;
     white-space: nowrap;
   }
-  .bs-script-toolbar > button {
-    height: 28px;
+  .spacer {
+    flex: 1;
+  }
+  .meta {
+    flex: none;
+    color: var(--t3);
+    font: 500 var(--font-size-micro) var(--mono);
+    letter-spacing: var(--tracking-eyebrow);
+    text-transform: uppercase;
+  }
+  .snip-toggle {
+    flex: none;
+    height: 30px;
     display: inline-flex;
     align-items: center;
-    gap: 5px;
-    flex: none;
-    padding: 0 8px;
+    gap: 6px;
+    padding: 0 12px;
     color: var(--t2);
+    background: var(--color-field);
+    border: 1px solid var(--color-border-subtle);
+    border-radius: var(--radius-control);
+    font: 500 var(--font-size-caption) var(--font-ui);
+  }
+  .snip-toggle.on {
+    color: var(--text);
+  }
+  .snip-toggle .material-symbols-outlined {
+    font-size: 15px;
+  }
+  .body {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    gap: 10px;
+  }
+  .card {
+    flex: 1;
+    min-width: 0;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
     background: var(--inset);
-    border: 1px solid var(--sep);
-    border-radius: 6px;
-    font-size: 10.5px;
+    border: 1px solid var(--color-border-subtle);
+    border-radius: var(--radius-card);
   }
-  .bs-script-toolbar > button.on {
-    color: var(--accent);
-    background: var(--accentsoft);
+  .card:focus-within {
+    border-color: color-mix(in srgb, var(--accent) 50%, var(--sep));
   }
-  .bs-script-toolbar > button .material-symbols-outlined {
-    font-size: 14px;
+  .card.failed {
+    border-color: var(--color-danger);
   }
   .bs-script-editor {
     flex: 1;
     min-height: 0;
-    min-width: 0;
     display: flex;
     overflow: hidden;
-  }
-  .bs-script-editor > :global(.bs-code-editor) {
-    flex: 1;
-    min-height: 0;
   }
   .bs-script-editor :global(.cm-editor) {
     height: 100%;
   }
-  .bs-script-editor :global(.cm-scroller) {
-    padding-top: 5px;
+  /* SC7: last run's result on the line numbers of pm.test calls. */
+  .bs-script-editor :global(.cm-lineNumbers .cm-gutterElement.bs-ln-ok),
+  .bs-script-editor :global(.cm-lineNumbers .cm-gutterElement.bs-ln-fail) {
+    border-radius: 6px;
+    font-weight: 600;
   }
-  .bs-script-status {
-    height: 26px;
+  .bs-script-editor :global(.cm-lineNumbers .cm-gutterElement.bs-ln-ok) {
+    color: var(--color-success);
+    background: var(--color-success-soft);
+  }
+  .bs-script-editor :global(.cm-lineNumbers .cm-gutterElement.bs-ln-fail) {
+    color: var(--color-danger);
+    background: var(--color-danger-soft);
+  }
+  /* SC6 / SC9: the failing line and its message. */
+  .bs-script-editor :global(.cm-line.bs-err-line) {
+    background: var(--color-danger-soft);
+  }
+  .bs-script-editor :global(.bs-err-note) {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin-left: 18px;
+    padding: 0 8px;
+    color: var(--color-danger);
+    background: var(--color-danger-soft);
+    border-radius: 999px;
+    font-size: 0.92em;
+    font-style: normal;
+    vertical-align: 1px;
+  }
+  .bs-script-editor :global(.bs-err-note .material-symbols-outlined) {
+    font-size: 13px;
+  }
+  .card > footer {
+    height: 30px;
+    flex: none;
     display: flex;
     align-items: center;
-    gap: 12px;
-    flex: none;
-    padding: 0 10px;
+    gap: 6px;
+    padding: 0 12px;
     color: var(--t3);
-    background: var(--surface);
     border-top: 1px solid var(--sepsoft);
-    font-size: 9.5px;
+    font-size: var(--font-size-micro);
   }
-  .bs-script-status code {
+  .card > footer .material-symbols-outlined {
+    font-size: 13px;
+  }
+  .card > footer code {
     color: var(--t2);
     font-family: var(--mono);
   }
-  .bs-script-snippets {
-    width: 236px;
+  .snippets {
+    width: 264px;
     flex: none;
+    min-height: 0;
     display: flex;
     flex-direction: column;
-    min-height: 0;
     background: var(--surface);
-    border-left: 1px solid var(--sepsoft);
+    border: 1px solid var(--color-border-subtle);
+    border-radius: var(--radius-card);
   }
-  .bs-script-snippets-head {
-    height: 48px;
+  .snippets header {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 0 10px 0 12px;
-    border-bottom: 1px solid var(--sepsoft);
-  }
-  .bs-script-snippets-head b,
-  .bs-script-snippets-head small {
-    display: block;
-  }
-  .bs-script-snippets-head b {
-    color: var(--text);
-    font-size: 11.5px;
-  }
-  .bs-script-snippets-head small {
+    padding: 10px 10px 4px 14px;
     color: var(--t3);
-    font-size: 9.5px;
+    font: 600 var(--font-size-micro) var(--mono);
+    letter-spacing: var(--tracking-eyebrow);
+    text-transform: uppercase;
   }
-  .bs-script-snippets-head button {
-    width: 26px;
-    height: 26px;
+  .snippets header button {
+    width: 22px;
+    height: 22px;
     display: flex;
     align-items: center;
     justify-content: center;
     color: var(--t3);
-    border-radius: 6px;
+    border-radius: var(--radius-sm);
   }
-  .bs-script-snippets-head button:hover {
+  .snippets header button:hover {
     color: var(--text);
     background: var(--hover);
   }
-  .bs-script-snippets-head .material-symbols-outlined {
+  .snippets header .material-symbols-outlined {
     font-size: 15px;
   }
-  .bs-script-search {
+  .search {
     height: 30px;
+    flex: none;
     display: flex;
     align-items: center;
     gap: 6px;
-    flex: none;
-    margin: 9px;
-    padding: 0 8px;
+    margin: 6px 10px 10px;
+    padding: 0 10px;
     color: var(--t3);
-    background: var(--inset);
-    border: 1px solid var(--sep);
-    border-radius: 7px;
+    background: var(--color-field);
+    border: 1px solid var(--color-border-subtle);
+    border-radius: var(--radius-control);
   }
-  .bs-script-search:focus-within {
+  .search:focus-within {
     border-color: color-mix(in srgb, var(--accent) 56%, var(--sep));
   }
-  .bs-script-search .material-symbols-outlined {
-    font-size: 14px;
+  .search .material-symbols-outlined {
+    font-size: 15px;
   }
-  .bs-script-search input {
-    min-width: 0;
+  .search input {
     flex: 1;
+    min-width: 0;
     color: var(--text);
     background: transparent;
     border: 0;
     outline: 0;
-    font-size: 10.5px;
+    font-size: var(--font-size-caption);
   }
-  .bs-script-snippet-group {
-    min-height: 0;
-    overflow: auto;
-    padding: 0 7px 10px;
-  }
-  .bs-script-snippet-group .label {
-    padding: 4px 5px 6px;
+  .group {
+    padding: 0 14px 6px;
     color: var(--t3);
-    font-size: 9px;
-    font-weight: 700;
-    letter-spacing: 0.06em;
+    font: 600 var(--font-size-micro) var(--mono);
+    letter-spacing: var(--tracking-eyebrow);
     text-transform: uppercase;
   }
-  .bs-script-snippet-group > button {
+  .list {
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
+    padding: 0 6px;
+  }
+  .list button {
     width: 100%;
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 8px;
-    padding: 7px 6px;
+    padding: 8px 10px;
     color: var(--t2);
-    border-radius: 6px;
-    font-size: 10.5px;
-    line-height: 1.35;
+    border-radius: var(--radius-control);
+    font-size: var(--font-size-caption);
     text-align: left;
   }
-  .bs-script-snippet-group > button:hover {
+  .list button:hover {
     color: var(--text);
     background: var(--hover);
   }
-  .bs-script-snippet-group > button .material-symbols-outlined {
+  .list button .material-symbols-outlined {
     flex: none;
     color: var(--t3);
-    font-size: 14px;
+    font-size: 15px;
   }
-  .bs-script-no-snippets {
-    padding: 14px 6px;
+  .none {
+    padding: 14px 8px;
     color: var(--t3);
-    font-size: 10.5px;
+    font-size: var(--font-size-caption);
     text-align: center;
   }
-  @media (max-width: 820px) {
-    .bs-script-nav {
-      width: 48px;
-      padding: 8px 5px;
-    }
-    .bs-script-nav-label,
-    .bs-script-nav > button > span:last-child,
-    .bs-script-nav-note {
-      display: none;
-    }
-    .bs-script-nav > button {
-      justify-content: center;
-      padding: 9px 0;
-    }
-    .bs-script-snippets {
-      width: 210px;
-    }
+  .snippets > footer {
+    padding: 8px 12px 10px;
+    color: var(--t3);
+    font-size: var(--font-size-micro);
+  }
+  /* SC8: expanded — the FocusBar above supplies the stage switch and tools. */
+  .expanded {
+    padding: 10px 0 0;
+  }
+  /* SC9: results under the editor after a run. */
+  .run {
+    flex: none;
+    max-height: 42%;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    background: var(--surface);
+    border: 1px solid var(--color-border-subtle);
+    border-radius: var(--radius-card);
+  }
+  .run-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 10px;
+  }
+  .run-head .n {
+    margin-left: 6px;
+    color: var(--t3);
+    font: 500 var(--font-size-micro) var(--mono);
+  }
+  .run-head .n.bad {
+    color: var(--color-danger);
+  }
+  .run-collapse {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    height: 28px;
+    padding: 0 10px;
+    color: var(--t2);
+    border: 1px solid var(--color-border-subtle);
+    border-radius: var(--radius-control);
+    font-size: var(--font-size-caption);
+  }
+  .run-collapse:hover {
+    color: var(--text);
+  }
+  .run-collapse .material-symbols-outlined {
+    font-size: 15px;
+  }
+  .run-body {
+    min-height: 0;
+    overflow: auto;
+    padding: 0 10px 10px;
+  }
+  .run-error {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin: 0 0 8px;
+    color: var(--color-danger);
+    font: var(--font-size-caption) var(--mono);
+  }
+  .run-error .material-symbols-outlined {
+    font-size: 15px;
   }
 </style>

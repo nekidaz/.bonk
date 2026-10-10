@@ -28,7 +28,7 @@
   } = $props();
 </script>
 
-{#snippet gtab(id: GrpcEditorSection, label: string, count = 0)}
+{#snippet gtab(id: GrpcEditorSection, label: string, count = 0, bad = false)}
   <button
     class="bs-rtab"
     class:on={section === id}
@@ -38,7 +38,7 @@
     aria-controls="bs-grpcpanel"
     tabindex={section === id ? 0 : -1}
     onclick={() => openGrpcEditorSection(tab.id, id)}
-    >{label}{#if count}<span class="bs-tab-count">{count}</span>{/if}</button
+    >{label}{#if count}<span class="bs-tab-count" class:bad>{count}</span>{/if}</button
   >
 {/snippet}
 <div class="lb-tabrow">
@@ -47,10 +47,12 @@
     {@render gtab('metadata', t('grpc.tab.metadata'), metadataCount)}
     {@render gtab('auth', t('grpc.tab.auth'))}
     {@render gtab('proto', t('grpc.tab.proto'))}
-    <!-- Not in the S19 mock: kept only for requests that already carry scripts. -->
-    {#if SCRIPTS_ENABLED && (tab.grpc?.preRequestScript || tab.grpc?.testScript || section === 'scripts')}{@render gtab(
+    <!-- Flow · Скрипты: gRPC requests run the same scripts (pm.request.url is read-only there). -->
+    {#if SCRIPTS_ENABLED}{@render gtab(
         'scripts',
         t('grpc.tab.scripts'),
+        (tab.grpc?.preRequestScript?.trim() ? 1 : 0) + (tab.grpc?.testScript?.trim() ? 1 : 0),
+        !!tab.testResults?.error,
       )}{/if}
   </div>
   {#if messageStats}

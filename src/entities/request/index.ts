@@ -38,6 +38,15 @@ export {
 } from './grpcEditorUi.svelte';
 export { type GrpcTabError, requestRuntime } from './requestRuntime.svelte';
 export {
+  revealScriptLine,
+  type ScriptJump,
+  scriptStage,
+  scriptUi,
+  setScriptsOpen,
+  setScriptStage,
+} from './scriptUi.svelte';
+export { sendHttpTab } from './sendTab';
+export {
   addRequestToFolder,
   applyCurlToActiveTab,
   applyScriptVars,

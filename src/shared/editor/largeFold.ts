@@ -4,7 +4,15 @@
  */
 import type { EditorState, Extension } from '@codemirror/state';
 import type { EditorView } from '@codemirror/view';
-import { codeFolding, foldEffect, foldGutter, foldedRanges, unfoldAll as cmUnfoldAll } from '@codemirror/language';
+import {
+  codeFolding,
+  foldAll as cmFoldAll,
+  foldEffect,
+  foldGutter,
+  foldedRanges,
+  language,
+  unfoldAll as cmUnfoldAll,
+} from '@codemirror/language';
 import { describeSlice, scanFolds, type ItemKind } from './jsonFold';
 import { plural, t, uiLanguage } from '$shared/i18n';
 import { foldArraysOver } from '$shared/settings';
@@ -98,8 +106,12 @@ export function foldLargeArrays(view: EditorView, text?: string): number {
   return large.length;
 }
 
-/** Fold every multi-line object/array except the root. */
+/** Fold every multi-line object/array except the root; in a script, every top-level block. */
 export function foldEverything(view: EditorView): void {
+  if (view.state.facet(language)?.name === 'javascript') {
+    cmFoldAll(view);
+    return;
+  }
   const { containers } = scanFolds(view.state.doc.toString(), { containers: true });
   if (containers.length) view.dispatch({ effects: containers.map((f) => foldEffect.of({ from: f.from, to: f.to })) });
 }

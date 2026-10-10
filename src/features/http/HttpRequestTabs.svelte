@@ -70,7 +70,7 @@
   }
 </script>
 
-{#snippet rtab(id: HttpEditorTab, label: string, count?: number)}
+{#snippet rtab(id: HttpEditorTab, label: string, count?: number, bad = false)}
   <button
     class="bs-rtab"
     class:on={uiTab === id}
@@ -81,7 +81,7 @@
     tabindex={uiTab === id ? 0 : -1}
     onclick={() => (uiTab = id)}
   >
-    {label}{#if count !== undefined}<span class="bs-tab-count">{count}</span>{/if}
+    {label}{#if count !== undefined}<span class="bs-tab-count" class:bad>{count}</span>{/if}
   </button>
 {/snippet}
 
@@ -92,7 +92,12 @@
       {@render rtab('auth', t('http.tabs.auth'))}
       {@render rtab('headers', t('http.tabs.headers'), headerCount || undefined)}
       {@render rtab('body', t('http.tabs.body'))}
-      {#if SCRIPTS_ENABLED}{@render rtab('scripts', t('http.tabs.scripts'), scriptCount || undefined)}{/if}
+      {#if SCRIPTS_ENABLED}{@render rtab(
+          'scripts',
+          t('http.tabs.scripts'),
+          scriptCount || undefined,
+          !!tab.testResults?.error,
+        )}{/if}
     </div>
   </div>
   {#if large && stats}

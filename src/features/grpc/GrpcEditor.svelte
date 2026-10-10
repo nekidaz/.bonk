@@ -34,6 +34,8 @@
     type GrpcConnectStage,
     requestRuntime,
     grpcEditorUi,
+    openGrpcEditorSection,
+    scriptUi,
   } from '$entities/request';
   import {
     cancelRequest,
@@ -49,14 +51,14 @@
     runScript,
   } from '$shared/ipc';
   import { currentVarScope, environments, requestVariableHighlight } from '$entities/environment';
-  import { CodeEditor, ScriptsEditor } from '$shared/editor/components';
+  import { CodeEditor } from '$shared/editor/components';
   import GrpcErrorAlert from './GrpcErrorAlert.svelte';
   import GrpcTlsPopover from './GrpcTlsPopover.svelte';
   import GrpcMethodPicker from './GrpcMethodPicker.svelte';
   import GrpcMessagePanel from './GrpcMessagePanel.svelte';
   import GrpcRequestTabs from './GrpcRequestTabs.svelte';
   import GrpcMetadataEditor from './GrpcMetadataEditor.svelte';
-  import { HttpAuthEditor } from '$entities/request/components';
+  import { HttpAuthEditor, RequestScripts } from '$entities/request/components';
   import ProtoImportDialog from './ProtoImportDialog.svelte';
   import GrpcProtoPanel from './GrpcProtoPanel.svelte';
   import { isLargeBody, textStats } from '$shared/editor';
@@ -65,6 +67,8 @@
     resolveVars,
     mergeScope,
     buildGrpcScriptContext,
+    collectScriptRun,
+    scriptFailure,
     applyGrpcRequestPatch,
     type ScriptResult,
     type Tab,
@@ -165,6 +169,11 @@
     await tick();
     if (tab.grpc?.endpoint.trim()) await grpcDoConnect();
   }
+  // «Перейти к строке» from the response opens the Scripts section; RequestScripts then reveals the line.
+  $effect(() => {
+    if (scriptUi.jump?.tabId === tab.id) untrack(() => openGrpcEditorSection(tab.id, 'scripts'));
+  });
+
   // «Повторить» / TLS from the response pane's unreachable state (S25).
   $effect(() => {
     const action = grpcEditorUi.action;
@@ -378,8 +387,9 @@
     requestRuntime.clearGrpcError(tabId);
     requestRuntime.updateBusy((m) => ({ ...m, [tabId]: { kind: 'invoke', requestId } }));
 
-    const tests: ScriptResult['tests'] = [];
-    const logs: string[] = [];
+    let pre: ScriptResult | undefined;
+    let post: ScriptResult | undefined;
+    const logs = () => [...(pre?.logs ?? []), ...(post?.logs ?? [])];
     let message = g.message;
     let metadata = g.metadata;
 
@@ -395,12 +405,12 @@
         activeEnvMap(),
         globalsMap(),
       );
-      const pre = await runScript('pre-request', g.preRequestScript, context);
+      pre = await runScript('pre-request', g.preRequestScript, context).catch((e) => scriptFailure(String(e)));
       applyScriptVars(pre);
-      logs.push(...pre.logs);
-      tests.push(...pre.tests);
       if (pre.error) {
-        tabs.updateById(tabId, (x) => ({ ...x, testResults: { tests, logs, error: pre.error ?? undefined } }));
+        const testResults = collectScriptRun({ pre, at: Date.now() });
+        // Nothing was sent: drop the previous call's result so it doesn't read as this one's (SC6).
+        tabs.updateById(tabId, (x) => ({ ...x, testResults, grpcResult: undefined, grpcStream: undefined }));
         addAppConsoleEntry({
           protocol: 'grpc',
           method: methodShort(g.method ?? '') || 'gRPC',
@@ -409,7 +419,7 @@
           status: 'SCRIPT ERROR',
           elapsedMs: 0,
           message: pre.error,
-          logs,
+          logs: logs(),
         });
         requestRuntime.setGrpcError(tabId, t('grpc.err.preRequest', { err: pre.error ?? '' }));
         requestRuntime.updateBusy((m) => (m[tabId]?.requestId === requestId ? omitKey(m, tabId) : m));
@@ -424,6 +434,7 @@
     }
 
     let result: GrpcResult = { ok: false, status: 'ERROR', body: '', elapsed_ms: 0, size_bytes: 0 };
+    const sentAt = Date.now();
     // Interpolate {{var}} placeholders (globals + active environment, now
     // including anything the pre-request script set) into the message JSON
     // and metadata values just before dispatch.
@@ -483,7 +494,7 @@
 
     // Test script — runs against the result; its env/globals writes are
     // applied and its tests/logs (plus any pre-request ones) attach to the tab.
-    let testError: string | undefined;
+    let postMs: number | undefined;
     if (g.testScript && g.testScript.trim() !== '') {
       const context = buildGrpcScriptContext(
         { method: g.method, endpoint: g.endpoint, message: resolvedMessage, metadata: resolvedMetadata },
@@ -491,14 +502,19 @@
         activeEnvMap(),
         globalsMap(),
       );
-      const post = await runScript('test', g.testScript, context);
+      const t0 = performance.now();
+      post = await runScript('test', g.testScript, context).catch((e) => scriptFailure(String(e)));
+      postMs = Math.round(performance.now() - t0);
       applyScriptVars(post);
-      logs.push(...post.logs);
-      tests.push(...post.tests);
-      testError = post.error ?? undefined;
     }
-    const testResults =
-      tests.length > 0 || logs.length > 0 || testError ? { tests, logs, error: testError } : undefined;
+    const testError = post?.error ?? undefined;
+    const send = {
+      t: sentAt,
+      text: `${methodShort(g.method)} ${g.endpoint}`,
+      status: result.status,
+      ms: result.elapsed_ms,
+    };
+    const testResults = collectScriptRun({ pre, post, send, postMs, at: Date.now() });
 
     tabs.updateById(tabId, (x) => ({
       ...x,
@@ -514,7 +530,7 @@
       status: result.status,
       elapsedMs: result.elapsed_ms,
       message: testError || (!result.ok ? result.body : undefined),
-      logs,
+      logs: logs(),
     });
     addHistory({
       id: crypto.randomUUID(),
@@ -634,12 +650,12 @@
   {:else if gTab === 'auth'}
     <HttpAuthEditor {tab} />
   {:else if gTab === 'scripts'}
-    <ScriptsEditor
+    <RequestScripts
+      {tab}
       preRequestScript={tab.grpc?.preRequestScript ?? ''}
       testScript={tab.grpc?.testScript ?? ''}
       onPreRequestChange={(v) => setGrpcScript('preRequestScript', v)}
       onTestChange={(v) => setGrpcScript('testScript', v)}
-      docId={tab.id}
     />
   {:else}
     <div class="bs-http-body"><GrpcProtoPanel {tab} onSetSource={setSource} onAddProto={importProto} /></div>

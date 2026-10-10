@@ -107,6 +107,7 @@ describe('buildGrpcScriptContext', () => {
       url: 'localhost:50051',
       headers: { authorization: 'Bearer x' },
       body: '{"a":1}',
+      readonlyUrl: true,
     });
     expect(ctx.response).toBeNull();
     expect(ctx.environment).toEqual({ host: 'h' });

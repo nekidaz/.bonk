@@ -156,13 +156,51 @@ export interface TabTestResults {
   logs: string[];
   /** Fatal script error (thrown/timeout), if any, from either phase. */
   error?: string;
+  /** Editor line of `error` (1-based), when the sandbox could pin it. */
+  errorLine?: number;
+  /** Stage whose script failed with `error`. 'pre' means the request was never sent (SC6). */
+  errorPhase?: ScriptStage;
+  /** SC5 console feed: both stages' logs, variable and header writes, and the send itself, in order. */
+  events?: ScriptEvent[];
+  /** Wall-clock time the post-response script took, ms (SC4 header). */
+  postMs?: number;
+  /** When the run finished (epoch ms): «Прошлый прогон 12:04». */
+  at?: number;
 }
+
+/** The two script stages of a request. */
+export type ScriptStage = 'pre' | 'post';
 
 /** One `pm.test(...)` outcome. */
 export interface ScriptTestResult {
   name: string;
   passed: boolean;
   error?: string;
+  /** Line of the `pm.test(` call (1-based). */
+  line?: number;
+  /** Line of the assertion that failed. */
+  errorLine?: number;
+  /** Stage that ran the test (tabs only; the runner leaves it unset). */
+  stage?: ScriptStage;
+}
+
+/**
+ * One row of the script console (SC5). `kind` picks the row shape: `log` has `text`; `env`/`glob` are
+ * variable writes (`op` set/unset, `key`, `value`); `hdr` a header change; `test` one `pm.test` outcome;
+ * `send` the request itself (`text` = «GET url», `status`, `ms`).
+ */
+export interface ScriptEvent {
+  t: number;
+  stage: ScriptStage | 'send';
+  kind: 'log' | 'env' | 'glob' | 'hdr' | 'test' | 'send';
+  text?: string;
+  op?: string;
+  key?: string;
+  value?: string;
+  name?: string;
+  passed?: boolean;
+  status?: string;
+  ms?: number;
 }
 
 export interface RequestNode {

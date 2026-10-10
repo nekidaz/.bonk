@@ -1,27 +1,17 @@
 <script lang="ts">
   import { t, tp } from '$shared/i18n';
   import { cancelRequest } from '$shared/ipc';
-  import { sendHttpRequest, applyCurlToActiveTab, requestProductionSend, requestRuntime } from '$entities/request';
+  import { sendHttpTab, applyCurlToActiveTab, requestRuntime } from '$entities/request';
   import { tabs } from '$entities/tab';
-  import { environments, currentVarScope, requestVariableHighlight, needsProductionGuard } from '$entities/environment';
-  import { withInheritedAuth } from '$entities/workspace';
+  import { environments, requestVariableHighlight } from '$entities/environment';
   import { urlHighlight } from '$shared/editor';
   import { EditorView } from '@codemirror/view';
   import { CodeEditor } from '$shared/editor/components';
-  import {
-    buildUrl,
-    mergeParamsFromUrl,
-    buildRequestForSend,
-    methodColor,
-    resolveVars,
-    type HttpResponse,
-    type Tab,
-  } from '$shared/model';
+  import { mergeParamsFromUrl, methodColor, type Tab } from '$shared/model';
   import { titleFor } from './httpHeaders';
 
   let { tab, methodOpen = $bindable() }: { tab: Tab; methodOpen: boolean } = $props();
 
-  const cancelledMsg = $derived(t('http.url.cancelled'));
   const activeBusy = $derived(requestRuntime.busy[tab.id]);
   // S38: everyday methods first, service ones (muted) below a divider.
   const methodGroups = [
@@ -120,56 +110,7 @@
     return () => observer.disconnect();
   });
 
-  async function send(): Promise<void> {
-    const t = tab;
-    if (!t || t.protocol !== 'http') return;
-
-    const inFlight = requestRuntime.busy[t.id];
-    if (inFlight?.kind === 'http' && inFlight.requestId) {
-      await cancelRequest(inFlight.requestId);
-      return;
-    }
-
-    const finalUrl = buildUrl(t.request.url, t.params);
-    const env = environments.active;
-    const envName = env?.name;
-    if (env && envName && needsProductionGuard(t.request.method, env)) {
-      const url = resolveVars(finalUrl, currentVarScope());
-      let host = '';
-      try {
-        host = new URL(url).host;
-      } catch {
-        /* relative or unresolved URL: no host to show */
-      }
-      if (!(await requestProductionSend({ method: t.request.method.toUpperCase(), url, envName, host }))) return;
-    }
-
-    const id = t.id;
-    const requestId = crypto.randomUUID();
-    requestRuntime.updateBusy((m) => ({ ...m, [id]: { kind: 'http', requestId, startedAt: Date.now() } }));
-    const req = buildRequestForSend(withInheritedAuth(t, t.savedPath), finalUrl);
-
-    try {
-      await sendHttpRequest(id, req, requestId);
-    } catch (e) {
-      const cancelled = String(e).toLowerCase().includes('cancel');
-      const res: HttpResponse = {
-        status: 0,
-        headers: {},
-        body: cancelled ? cancelledMsg : String(e),
-        final_url: finalUrl,
-        elapsed_ms: 0,
-        size_bytes: 0,
-      };
-      tabs.updateById(id, (x) => ({ ...x, response: res }));
-    } finally {
-      requestRuntime.updateBusy((m) => {
-        if (m[id]?.requestId !== requestId) return m;
-        const { [id]: _done, ...rest } = m;
-        return rest;
-      });
-    }
-  }
+  const send = () => sendHttpTab(tab);
 </script>
 
 <svelte:window
