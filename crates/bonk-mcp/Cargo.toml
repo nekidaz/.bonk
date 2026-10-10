@@ -12,7 +12,6 @@ path = "src/main.rs"
 [dependencies]
 anyhow = "1"
 axum = "0.8"
-base64 = "0.22"
 bonk-core = { path = "../bonk-core" }
 clap = { version = "4", features = ["derive"] }
 keyring = { version = "3", features = ["apple-native", "windows-native", "sync-secret-service"] }

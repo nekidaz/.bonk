@@ -626,6 +626,7 @@ dependencies = [
  "prost-reflect",
  "prost-types",
  "protox",
+ "regex",
  "reqwest",
  "rquickjs",
  "rustls",
@@ -647,7 +648,6 @@ version = "0.1.9"
 dependencies = [
  "anyhow",
  "axum",
- "base64 0.22.1",
  "bonk-core",
  "clap",
  "keyring",

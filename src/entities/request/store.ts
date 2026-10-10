@@ -20,7 +20,6 @@ import {
   type HttpResponse,
   parseCurl,
   paramsFromUrl,
-  resolveRequestVars,
   mergeScope,
   applyEnvPatch,
   applyRequestPatch,
@@ -30,7 +29,7 @@ import {
   type ScriptResult,
 } from '$shared/model';
 import { withOverrides } from './requestSettings';
-import { httpSend, workspaceSaveRequest, runScript } from '$shared/ipc';
+import { httpResolve, httpSend, workspaceSaveRequest, runScript } from '$shared/ipc';
 import {
   idToRel,
   findNode,
@@ -329,7 +328,7 @@ export async function sendHttpRequest(
         activeEnvMap(),
         globalsMap(),
         {},
-        cookieJar.scriptCookies(resolveRequestVars(req, currentVarScope()).url),
+        cookieJar.scriptCookies((await httpResolve(req, currentVarScope())).url),
       ),
     );
     applyScriptVars(pre);
@@ -352,7 +351,7 @@ export async function sendHttpRequest(
 
   // 2. Interpolate {{var}} placeholders (globals + active environment, now
   //    including anything the pre-request script set) just before sending.
-  const resolved = resolveRequestVars(outgoing, currentVarScope());
+  const resolved = await httpResolve(outgoing, currentVarScope());
 
   // 3. Send. History records the resolved request so replay/inspection shows the
   //    values actually sent, not the templates.

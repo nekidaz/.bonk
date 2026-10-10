@@ -9,7 +9,8 @@ use bonk_core::{
     application::{grpc_native, http, workspace},
     conn::GrpcDescriptorCache,
     domain::{
-        http::{HttpRequest, RequestSettings},
+        http::{AuthConfig, HttpRequest, RequestSettings},
+        request_prep::{self, resolve_text},
         workspace::{GrpcTabState, Param, RequestNode, TreeNode},
     },
     infra::cookie_jar::{jar_path, CookieJar, JarProvider},
@@ -21,10 +22,7 @@ use crate::{
         redact_node, redact_sensitive_url, redact_tree, redact_url, sanitize_error,
         sanitize_http_response, sanitize_tests, sanitize_text,
     },
-    request_prep::{
-        apply_auth, build_http_client, collect_requests, count_tree, materialize_body_and_params,
-        target_host_allowed,
-    },
+    request_prep::{build_http_client, collect_requests, count_tree, target_host_allowed},
     scripts::{
         apply_request_patch, grpc_script_context, http_script_context, run_script, ScriptState,
     },
@@ -34,8 +32,7 @@ use crate::{
     },
     vars::{
         app_scopes, keychain_secret, load_app_vars, merged_scope, reject_unresolved,
-        reject_unresolved_grpc, resolve_http_request, resolve_text, state_field,
-        unresolved_in_request, Scopes, VariableMap,
+        reject_unresolved_grpc, state_field, unresolved_in_request, Scopes, VariableMap,
     },
 };
 
@@ -401,11 +398,10 @@ impl BonkRuntime {
         variables: BTreeMap<String, String>,
         environment: Option<&str>,
     ) -> Result<ValidationResult, String> {
-        materialize_body_and_params(&mut request, params.as_deref());
+        request_prep::materialize(&mut request, params.as_deref());
         let (environment, globals, secrets) = self.scopes(variables, environment)?;
         let scope = merged_scope(&globals, &environment);
-        resolve_http_request(&mut request, &scope)?;
-        apply_auth(&mut request)?;
+        request_prep::resolve(&mut request, &scope)?;
         self.normalize_file_paths(&mut request)
             .map_err(|error| sanitize_error(&error, &secrets))?;
 
@@ -463,7 +459,7 @@ impl BonkRuntime {
         body_limit: usize,
     ) -> Result<HttpRunOutput, String> {
         self.require_network()?;
-        materialize_body_and_params(&mut request, params.as_deref());
+        request_prep::materialize(&mut request, params.as_deref());
         let (mut environment, mut globals, secrets) = self.scopes(variables, environment)?;
         let mut state = ScriptState::default();
 
@@ -484,8 +480,7 @@ impl BonkRuntime {
         }
 
         let scope = merged_scope(&globals, &environment);
-        resolve_http_request(&mut request, &scope)?;
-        apply_auth(&mut request)?;
+        request_prep::resolve(&mut request, &scope)?;
         self.normalize_file_paths(&mut request)
             .map_err(|error| sanitize_error(&error, &secrets))?;
         let unresolved = unresolved_in_request(&request);
@@ -542,17 +537,25 @@ impl BonkRuntime {
         settings: RequestSettings,
         body_limit: usize,
     ) -> Result<Value, String> {
-        let node = self.find_request(id)?;
+        let tree = self.tree()?;
+        let mut node = self.find_request(id)?;
         if node.protocol == "grpc" {
             let grpc = node
                 .grpc
                 .ok_or_else(|| "saved gRPC request has no grpc configuration".to_string())?;
+            let auth = request_prep::effective_auth(&tree, id, grpc.auth.as_ref());
             serde_json::to_value(
-                self.execute_saved_grpc(grpc, variables, environment)
+                self.execute_saved_grpc(grpc, auth, variables, environment)
                     .await?,
             )
             .map_err(|error| error.to_string())
         } else {
+            // A request set to `inherit` sends its folder's auth, as in the app.
+            node.request.auth = Some(request_prep::effective_auth(
+                &tree,
+                id,
+                node.request.auth.as_ref(),
+            ));
             serde_json::to_value(
                 self.execute_http(
                     node.request,
@@ -658,6 +661,7 @@ impl BonkRuntime {
     async fn execute_saved_grpc(
         &self,
         grpc: GrpcTabState,
+        auth: AuthConfig,
         variables: BTreeMap<String, String>,
         environment: Option<&str>,
     ) -> Result<GrpcCallOutput, String> {
@@ -709,10 +713,8 @@ impl BonkRuntime {
         let scope = merged_scope(&globals, &environment);
         endpoint = resolve_text(&endpoint, &scope);
         message = resolve_text(&message, &scope);
-        metadata = metadata
-            .into_iter()
-            .map(|(key, value)| (resolve_text(&key, &scope), resolve_text(&value, &scope)))
-            .collect();
+        let strip_authorization = grpc.plaintext && !grpc.keep_auth_on_plaintext.unwrap_or(false);
+        metadata = request_prep::grpc_metadata(&auth, &metadata, &scope, strip_authorization);
         let method = resolve_text(&method, &scope);
         reject_unresolved_grpc(&endpoint, &method, &message, metadata.iter())?;
         self.check_grpc_target(&endpoint)

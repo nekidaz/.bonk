@@ -1,13 +1,11 @@
+use bonk_core::domain::request_prep::encode_uri_component;
 use bonk_core::domain::{
     http::HttpResponse,
     workspace::{RequestNode, TreeNode},
 };
 use regex::Regex;
 
-use crate::{
-    request_prep::percent_encode,
-    types::{HttpResponseOutput, ScriptTest},
-};
+use crate::types::{HttpResponseOutput, ScriptTest};
 
 pub(crate) fn redact_tree(nodes: &mut [TreeNode]) {
     for node in nodes {
@@ -112,7 +110,7 @@ pub(crate) fn sanitize_text(value: &str, secrets: &[String]) -> String {
         .iter()
         .filter(|secret| !secret.is_empty())
         .fold(value.to_string(), |text, secret| {
-            let encoded = percent_encode(secret, false);
+            let encoded = encode_uri_component(secret);
             text.replace(secret, "<redacted>")
                 .replace(&encoded, "<redacted>")
         })

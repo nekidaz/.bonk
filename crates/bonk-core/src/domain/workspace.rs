@@ -6,6 +6,7 @@ use std::collections::BTreeMap;
 pub struct Param {
     pub key: String,
     pub value: String,
+    #[serde(default)]
     pub description: String,
     pub enabled: bool,
 }

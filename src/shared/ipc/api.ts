@@ -4,6 +4,7 @@ import {
   type HttpResponse,
   type CookieInfo,
   type RequestSettings,
+  type Param,
   type ServiceTree,
   type GrpcResult,
   type GrpcStreamMessage,
@@ -132,6 +133,17 @@ export const runScript = async (phase: ScriptPhase, code: string, context: unkno
   });
   return parseScriptResult(out);
 };
+
+// Rust sends `body: null`; the TS model (and script contexts) use "absent".
+const fromRust = (req: HttpRequest): HttpRequest => ({ ...req, body: req.body ?? undefined });
+
+/** Request preparation lives in bonk-core (shared with bonk-mcp): see request_prep.rs. */
+export const httpPrepare = async (req: HttpRequest, params?: Param[]): Promise<HttpRequest> =>
+  fromRust(await invoke<HttpRequest>('http_prepare', { req, params: params ?? null }));
+
+/** `{{vars}}` from `scope`, then auth. Throws on invalid GraphQL variables. */
+export const httpResolve = async (req: HttpRequest, scope: Record<string, string>): Promise<HttpRequest> =>
+  fromRust(await invoke<HttpRequest>('http_resolve', { req, scope }));
 
 export const httpSend = (req: HttpRequest, requestId?: string, settings?: RequestSettings): Promise<HttpResponse> =>
   invoke<HttpResponse>('http_send', { req, requestId: requestId ?? null, settings: settings ?? null });
