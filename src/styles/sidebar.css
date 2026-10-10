@@ -164,8 +164,8 @@
   color: var(--color-text);
 }
 
-.bs-tree .bs-trow .bs-tcount-drop {
-  display: inline-flex !important;
+:root .bs-tree .bs-trow .bs-tcount-drop {
+  display: inline-flex;
   color: var(--color-text);
 }
 
@@ -719,7 +719,7 @@
 }
 
 :root .bs-ri .material-symbols-outlined {
-  font-size: 22px !important;
+  font-size: 22px;
 }
 
 :root .bs-ri.on {
@@ -794,7 +794,7 @@
 }
 
 :root .bs .bs-ri .material-symbols-outlined {
-  font-size: 16px !important;
+  font-size: 16px;
 }
 
 :root .bs .bs-ri:hover {
@@ -986,7 +986,7 @@
   height: 16px;
   display: grid;
   place-items: center;
-  font-size: 14px !important;
+  font-size: 14px;
   color: var(--color-text-muted);
 }
 
@@ -996,7 +996,7 @@
   height: 16px;
   display: grid;
   place-items: center;
-  font-size: 16px !important;
+  font-size: 16px;
   color: var(--color-text-muted);
 }
 

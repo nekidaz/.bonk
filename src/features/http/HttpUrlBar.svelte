@@ -215,7 +215,7 @@
         onclick={() => (methodOpen = !methodOpen)}
       >
         <span>{tab.request.method}</span>
-        <span class="material-symbols-outlined" style="font-size:15px">expand_more</span>
+        <span class="material-symbols-outlined">expand_more</span>
       </button>
       {#if methodOpen}
         <div

@@ -353,6 +353,7 @@
     border-top: 1px solid var(--sep);
   }
   .bs-utility-panel.collapsing {
+    /* Beats the inline `height` the resizer sets. */
     height: 0 !important;
     min-height: 0;
     border-top-color: var(--accent);
@@ -439,21 +440,21 @@
   .bs-utility-action {
     height: 22px;
     padding: 0 7px;
-    color: var(--t2) !important;
+    color: var(--t2);
     border-radius: 3px;
-    font-size: 10.5px !important;
+    font-size: 10.5px;
   }
   .bs-utility-icon {
     width: 22px;
     height: 22px;
     display: grid;
     place-items: center;
-    color: var(--t3) !important;
+    color: var(--t3);
     border-radius: 3px;
   }
   .bs-utility-action:hover,
   .bs-utility-icon:hover {
-    color: var(--text) !important;
+    color: var(--text);
     background: var(--hover);
   }
   .bs-utility-icon .material-symbols-outlined {

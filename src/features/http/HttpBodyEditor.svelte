@@ -448,15 +448,15 @@
     align-items: center;
     gap: 6px;
     padding: 6px 9px;
-    border: 1px solid var(--sep) !important;
+    border: 1px solid var(--sep);
     border-radius: 5px;
-    background: var(--surface) !important;
-    color: var(--text) !important;
+    background: var(--surface);
+    color: var(--text);
     white-space: nowrap;
   }
   .bs-binary-picker button:hover,
   .bs-binary-file button:hover {
-    background: var(--hover) !important;
+    background: var(--hover);
   }
   .bs-binary-picker .material-symbols-outlined {
     font-size: 15px;
