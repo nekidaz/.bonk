@@ -1,6 +1,13 @@
 import { describe, it, expect } from 'vitest';
 import { stringify as stringifyYaml, parse as parseYaml } from 'yaml';
-import { parseOpenApi, buildOpenApi, serializeSpec, exampleFromSchema, type ExportFolder } from './openapi';
+import {
+  parseOpenApi,
+  OPENAPI_DEFAULTS,
+  buildOpenApi,
+  serializeSpec,
+  exampleFromSchema,
+  type ExportFolder,
+} from './openapi';
 import type { RequestNode } from '$shared/model';
 
 // A small OAS3 spec: a GET with a query param + path param, and a POST with a
@@ -77,10 +84,76 @@ describe('parseOpenApi — OpenAPI 3', () => {
     expect(JSON.parse(post.request.body!)).toEqual({ name: 'Ada', age: 0, admin: false });
   });
 
-  it('resolves bearer security into auth', () => {
-    const all = spec.folders.flatMap((f) => f.requests);
-    const post = all.find((r) => r.request.method === 'POST')!;
-    expect(post.request.auth).toEqual({ type: 'bearer', bearerToken: '' });
+  it('moves the scheme to the collection; with that off the request carries it', () => {
+    const post = spec.ops.find((o) => o.method === 'POST')!;
+    expect(spec.collectionAuth).toEqual({ scheme: 'bearerAuth', auth: { type: 'bearer', bearerToken: '{{token}}' } });
+    expect(post.node.request.auth).toBeUndefined();
+    const own = parseOpenApi(JSON.stringify(oas3), 'demo.json', { ...OPENAPI_DEFAULTS, collectionAuth: false });
+    expect(own.ops.find((o) => o.method === 'POST')!.node.request.auth).toEqual({
+      type: 'bearer',
+      bearerToken: '{{token}}',
+    });
+  });
+
+  it('keys operations by operationId, else by method and path', () => {
+    expect(spec.ops.map((o) => o.key)).toEqual(['GET /users/{id}', 'createUser']);
+    expect(spec.format).toBe('OpenAPI 3.0');
+    expect(spec.version).toBe('1.0.0');
+    expect(spec.schemas).toBe(1);
+  });
+
+  it('can keep {id} and drop example bodies', () => {
+    const plain = parseOpenApi(JSON.stringify(oas3), 'demo.json', {
+      ...OPENAPI_DEFAULTS,
+      pathVars: false,
+      bodies: false,
+    });
+    expect(plain.ops[0].node.request.url).toBe('{{baseUrl}}/users/{id}');
+    expect(plain.ops[1].node.request.body).toBe('');
+  });
+});
+
+describe('parseOpenApi — warnings', () => {
+  const spec = parseOpenApi(
+    JSON.stringify({
+      openapi: '3.1.0',
+      info: { title: 'W', version: '2' },
+      servers: [
+        { url: 'https://{region}.x.test', variables: { region: { default: 'eu', enum: ['eu', 'us'] } } },
+        { url: 'https://{env}.x.test', variables: { env: { default: 'v1' } } },
+      ],
+      components: {
+        schemas: { Capture: { oneOf: [{ type: 'object' }, { type: 'string' }] } },
+      },
+      paths: {
+        '/refunds': {
+          post: {
+            operationId: 'refund',
+            requestBody: { content: { 'application/json': { schema: { $ref: '#/components/schemas/RefundV2' } } } },
+          },
+        },
+        '/capture': {
+          post: {
+            operationId: 'capture',
+            requestBody: { content: { 'application/json': { schema: { $ref: '#/components/schemas/Capture' } } } },
+          },
+        },
+      },
+    }),
+    'w.json',
+  );
+
+  it('reports a missing $ref, a oneOf choice and a server variable with a choice', () => {
+    expect(spec.warnings).toEqual([
+      { kind: 'server', variable: 'region', server: 'https://eu.x.test', value: 'eu' },
+      { kind: 'ref', ref: '#/components/schemas/RefundV2', ops: ['refund'] },
+      { kind: 'variants', schema: 'Capture', count: 2, ops: ['capture'] },
+    ]);
+    expect(spec.ops.map((o) => [o.missingRef, o.variants])).toEqual([
+      [true, undefined],
+      [undefined, 2],
+    ]);
+    expect(spec.servers.map((s) => s.url)).toEqual(['https://eu.x.test', 'https://v1.x.test']);
   });
 });
 
@@ -134,12 +207,11 @@ describe('parseOpenApi — Swagger 2.0', () => {
   });
 
   it('resolves an apiKey security definition', () => {
-    const post = spec.folders.flatMap((f) => f.requests)[0];
-    expect(post.request.auth).toEqual({
+    expect(spec.collectionAuth?.auth).toEqual({
       type: 'apiKey',
       apiKeyName: 'X-Token',
       apiKeyIn: 'header',
-      apiKeyValue: '',
+      apiKeyValue: '{{apiKey}}',
     });
   });
 });

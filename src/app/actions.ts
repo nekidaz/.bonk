@@ -7,7 +7,7 @@ import {
   duplicateNode,
   exportOpenApiFolder,
   findNode,
-  importApiFile,
+  importWindow,
   parentId,
   removeNode,
   renameNode,
@@ -25,7 +25,8 @@ import {
 } from '$entities/request';
 import { currentVarScope } from '$entities/environment';
 import { duplicateTab, newTab, setActiveProtocol } from '$features/tabs';
-import { t } from '$shared/i18n';
+import { t, tp } from '$shared/i18n';
+import type { ImportResult } from '$features/import';
 import { methodColor, toCurl, type RequestProtocol } from '$shared/model';
 import { requestConfirm, type UtilityMode } from '$shared/ui';
 import { layout } from './layout.svelte';
@@ -144,15 +145,33 @@ export function newRequestHere(kind: RequestProtocol = 'http'): void {
 export function newFolderHere(): void {
   void addFolder(shell.activeFolderId);
 }
+// One import window for every format (IM1): the format is sniffed from the content, not the menu item.
 export function importOpenApi(): void {
   shell.closeMenu();
-  shell.importOpen = true;
+  importWindow.open();
 }
-// Welcome chips: OpenAPI keeps the paste/file dialog; file formats go straight to the picker (format is sniffed, then the matching importer runs).
-export function importFrom(source?: string): void {
-  if (!source || source === 'openapi') return importOpenApi();
+export const importFrom = (): void => importOpenApi();
+// «Обновить из спецификации» on a collection made by import (IM8).
+export function updateFromSpec(folderId: string): void {
   shell.closeMenu();
-  importApiFile().catch((err) => shell.showToast({ text: err instanceof Error ? err.message : String(err) }));
+  importWindow.open({ update: folderId });
+}
+// IM7: the toast with the result; «Открыть» opens the first imported request.
+export function importDone(r: ImportResult): void {
+  const env = r.envs.created.length ? ` · ${t('import.done.env', { names: r.envs.created.join(', ') })}` : '';
+  const first = r.first;
+  shell.showToast({
+    text: `${t('import.done', { n: `${r.requests} ${tp(r.requests, ['запрос', 'запроса', 'запросов'], ['request', 'requests'])}`, name: r.name })}${env}`,
+    ...(first ? { action: { label: t('import.done.open'), run: () => openSavedRequest(first) } } : {}),
+  });
+}
+export function importUpdated(name: string, n: number): void {
+  shell.showToast({
+    text: t('import.done.upd', {
+      n: `${n} ${tp(n, ['запрос', 'запроса', 'запросов'], ['request', 'requests'])}`,
+      name,
+    }),
+  });
 }
 // cURL import = paste into the URL bar of a fresh request (HttpUrlBar turns `curl …` into a request).
 export async function pasteCurl(): Promise<void> {

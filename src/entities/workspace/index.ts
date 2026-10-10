@@ -2,8 +2,24 @@
 // Code outside src/entities/workspace/ imports only from here; files inside use relative paths.
 
 export { authFolderFor, effectiveAuth } from './authInherit';
-export { exportOpenApiFolder, importApiFile, importApiText } from './importExport';
-export { buildPostmanCollection } from './postman';
+export { exportOpenApiFolder } from './importExport';
+export { importWindow, type ImportWindowRequest } from './importWindow.svelte';
+export { parseCurlFile, parseInsomniaExport } from './importers';
+export {
+  isOpenApiDoc,
+  OPENAPI_DEFAULTS,
+  readOpenApi,
+  type OpenApiOptions,
+  type ParsedSpec,
+  type SpecOperation,
+  type SpecWarning,
+} from './openapi';
+export {
+  buildPostmanCollection,
+  parsePostmanCollection,
+  type ImportedPostmanItem,
+  type ParsedPostmanCollection,
+} from './postman';
 export {
   addFolder,
   collectExpanded,

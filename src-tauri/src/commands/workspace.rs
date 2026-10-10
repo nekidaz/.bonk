@@ -72,6 +72,16 @@ pub fn workspace_create_folder(
 }
 
 #[tauri::command]
+pub fn workspace_save_folder_source(
+    root: String,
+    dir: String,
+    source: Option<serde_json::Value>,
+) -> Result<(), String> {
+    require_absolute_root(&root)?;
+    bonk_core::application::workspace::save_folder_source(&root, &dir, source)
+}
+
+#[tauri::command]
 pub fn workspace_save_folder_auth(
     root: String,
     dir: String,

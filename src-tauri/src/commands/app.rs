@@ -8,13 +8,39 @@ pub fn file_pick() -> Option<String> {
         .map(|p| p.to_string_lossy().to_string())
 }
 
-/// A spec file the user picked for OpenAPI/Swagger import: its base name plus
-/// the full text. Pick + read are atomic (one dialog, one read) so no generic
-/// arbitrary-path read primitive is exposed to the frontend.
+/// A file to import (spec, collection, HAR, cURL): base name, full path, size
+/// and text. The path is kept so the import can be repeated from the same file.
 #[derive(serde::Serialize)]
 pub struct ImportedFile {
     name: String,
+    path: String,
+    size: u64,
     text: String,
+}
+
+/// Import files above this size are refused instead of freezing the webview.
+const IMPORT_MAX_BYTES: u64 = 50 * 1024 * 1024;
+
+fn read_import_file(path: &std::path::Path) -> Result<ImportedFile, String> {
+    let size = std::fs::metadata(path).map_err(|e| e.to_string())?.len();
+    if size > IMPORT_MAX_BYTES {
+        return Err(format!("{}: файл больше 50 МБ", path.display()));
+    }
+    Ok(ImportedFile {
+        name: path
+            .file_name()
+            .map(|n| n.to_string_lossy().into_owned())
+            .unwrap_or_default(),
+        path: path.to_string_lossy().into_owned(),
+        size,
+        text: std::fs::read_to_string(path).map_err(|e| format!("{}: {e}", path.display()))?,
+    })
+}
+
+/// Read a file the user dropped on the window or picked earlier (recent sources).
+#[tauri::command]
+pub fn import_read_file(path: String) -> Result<ImportedFile, String> {
+    read_import_file(std::path::Path::new(&path))
 }
 
 /// Prompt for a Postman Collection or OpenAPI / Swagger file and return its
@@ -31,12 +57,7 @@ pub fn openapi_import_pick() -> Result<Option<ImportedFile>, String> {
     else {
         return Ok(None);
     };
-    let name = path
-        .file_name()
-        .map(|n| n.to_string_lossy().into_owned())
-        .unwrap_or_default();
-    let text = std::fs::read_to_string(&path).map_err(|e| e.to_string())?;
-    Ok(Some(ImportedFile { name, text }))
+    read_import_file(&path).map(Some)
 }
 
 /// Prompt for a save location and write `contents` there. `Ok(None)` when the

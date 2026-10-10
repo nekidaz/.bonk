@@ -12,6 +12,7 @@ import {
   type GrpcCertInfo,
   type GrpcPrefs,
   type AuthConfig,
+  type ImportSource,
   type TreeNode,
   type RequestNode,
   type GitStatus,
@@ -278,6 +279,8 @@ export const workspaceLoadChildren = (root: string, dir: string, keep: string[])
   invoke<TreeNode[]>('workspace_load_children', { root, dir, keep });
 export const workspaceCreateFolder = (root: string, parent: string, name: string) =>
   invoke<string>('workspace_create_folder', { root, parent, name });
+export const workspaceSaveFolderSource = (root: string, dir: string, source: ImportSource | null) =>
+  invoke<void>('workspace_save_folder_source', { root, dir, source });
 export const workspaceSaveFolderAuth = (root: string, dir: string, auth: AuthConfig | null) =>
   invoke<void>('workspace_save_folder_auth', { root, dir, auth });
 export const workspaceSaveRequest = (root: string, dir: string, existing: string | null, node: RequestNode) =>
@@ -293,7 +296,16 @@ export const workspaceReorder = (root: string, dir: string, names: string[]) =>
 
 // ---------- OpenAPI / Swagger import & export ----------
 /** Prompt for a spec file (JSON/YAML) and return its base name + text, or null if cancelled. */
-export const openapiImportPick = () => invoke<{ name: string; text: string } | null>('openapi_import_pick');
+/** A file to import: base name, absolute path, size in bytes, text. */
+export interface ImportFile {
+  name: string;
+  path: string;
+  size: number;
+  text: string;
+}
+export const openapiImportPick = () => invoke<ImportFile | null>('openapi_import_pick');
+/** Read a dropped file or a recent source for import. */
+export const importReadFile = (path: string) => invoke<ImportFile>('import_read_file', { path });
 /** Prompt for a save location, write `contents` there, and return the path (or null if cancelled). */
 export const openapiExportSave = (defaultName: string, contents: string, title?: string) =>
   invoke<string | null>('openapi_export_save', { defaultName, contents, title: title ?? null });

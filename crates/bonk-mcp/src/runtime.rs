@@ -1200,6 +1200,9 @@ mod tests {
             request: request("https://example.com/health?api_key=literal"),
             params: None,
             grpc: None,
+            spec: Some(
+                serde_json::json!({ "op": "health", "base": { "headers": { "Authorization": "Bearer literal" } } }),
+            ),
         };
         node.request
             .headers
@@ -1218,6 +1221,10 @@ mod tests {
             Some("<redacted>")
         );
         assert!(!loaded.request.url.contains("literal"));
+        assert!(
+            loaded.spec.is_none(),
+            "the import link copies headers: never shown"
+        );
         assert!(runtime.get_request(&id, true).is_err());
 
         let read_only = workspace.runtime(true, false);
@@ -1241,6 +1248,7 @@ mod tests {
             request: request("https://example.com/charge?api_key=literal"),
             params: None,
             grpc: None,
+            spec: None,
         };
         node.request.method = "POST".into();
         node.request.body = Some("{\"amount\": 12900}".into());

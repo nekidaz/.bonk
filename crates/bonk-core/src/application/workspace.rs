@@ -95,12 +95,14 @@ fn load_dir(root: &Path, dir: &Path, keep: &[String]) -> Result<Vec<TreeNode>, S
                 load_dir(root, &path, &[])?
             };
 
+            let settings = read_folder_file(&path);
             folders.push(TreeNode::Folder(FolderNode {
                 id,
                 name: file_name(&path),
                 // Collapsed: a big collection would otherwise render every row at once.
                 expanded: false,
-                auth: read_folder_file(&path).auth.map(Box::new),
+                auth: settings.auth.map(Box::new),
+                source: settings.source,
                 children,
             }));
 
@@ -172,6 +174,21 @@ pub fn save_folder_auth(root: &str, dir_rel: &str, auth: Option<AuthConfig>) -> 
     write_folder_file(&directory, &file)
 }
 
+/// Set (or clear, with `None`) where folder `dir_rel` was imported from.
+pub fn save_folder_source(
+    root: &str,
+    dir_rel: &str,
+    source: Option<serde_json::Value>,
+) -> Result<(), String> {
+    let directory = resolve(root, dir_rel)?;
+
+    ensure_directory(&directory)?;
+
+    let mut file = read_folder_file(&directory);
+    file.source = source;
+    write_folder_file(&directory, &file)
+}
+
 /// Persist the manual order of folder `dir_rel`'s entries (file/dir names, top to bottom).
 pub fn reorder(root: &str, dir_rel: &str, names: Vec<String>) -> Result<(), String> {
     let directory = resolve(root, dir_rel)?;
@@ -189,7 +206,7 @@ pub fn reorder(root: &str, dir_rel: &str, names: Vec<String>) -> Result<(), Stri
 fn write_folder_file(directory: &Path, file: &FolderFile) -> Result<(), String> {
     let path = directory.join(FOLDER_FILE);
 
-    if file.auth.is_none() && file.order.is_empty() {
+    if file.auth.is_none() && file.order.is_empty() && file.source.is_none() {
         return match fs::remove_file(&path) {
             Err(e) if e.kind() != std::io::ErrorKind::NotFound => {
                 Err(format!("failed to remove {}: {e}", path.display()))
@@ -454,7 +471,17 @@ pub fn save_request(
         None => unique_path(&directory, &stem, &suffix)?,
     };
 
-    let file = RequestFile::from_node(&node);
+    let mut file = RequestFile::from_node(&node);
+    // A tab save doesn't carry the spec link; keep the one already on disk so
+    // re-import still finds the request.
+    if file.spec.is_none() {
+        if let Some(relative) = existing_rel {
+            file.spec = fs::read_to_string(resolve(root, relative)?)
+                .ok()
+                .and_then(|raw| serde_json::from_str::<RequestFile>(&raw).ok())
+                .and_then(|old| old.spec);
+        }
+    }
     let raw = serde_json::to_string_pretty(&file)
         .map_err(|e| format!("failed to serialize request: {e}"))?;
 
@@ -789,7 +816,44 @@ mod tests {
             },
             params: None,
             grpc: None,
+            spec: None,
         }
+    }
+
+    #[test]
+    fn resave_without_spec_keeps_the_link_and_folder_source_round_trips() {
+        let root = temp_root();
+        let root_s = root.to_str().unwrap();
+        create_folder(root_s, "fs:", "api").unwrap();
+        let mut node = request_node("List");
+        node.spec = Some(serde_json::json!({ "op": "listPayments" }));
+        let id = save_request(root_s, "fs:api", None, node).unwrap();
+
+        // A save from a tab has no link: the one on disk stays.
+        let id = save_request(root_s, "fs:api", Some(&id), request_node("List")).unwrap();
+        save_folder_source(
+            root_s,
+            "fs:api",
+            Some(serde_json::json!({ "url": "https://x/openapi.yaml" })),
+        )
+        .unwrap();
+
+        let TreeNode::Folder(folder) = &load(root_s).unwrap()[0] else {
+            panic!("expected folder");
+        };
+        assert_eq!(
+            folder.source,
+            Some(serde_json::json!({ "url": "https://x/openapi.yaml" }))
+        );
+        let TreeNode::Request(request) = &folder.children[0] else {
+            panic!("expected request");
+        };
+        assert_eq!(request.id, id);
+        assert_eq!(
+            request.spec,
+            Some(serde_json::json!({ "op": "listPayments" }))
+        );
+        fs::remove_dir_all(root).ok();
     }
 
     #[test]

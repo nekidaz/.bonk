@@ -11,7 +11,7 @@
   import { EnvironmentsSheet } from '$features/environments/components';
   import { CookieJarSheet } from '$features/cookie-jar/components';
   import { cookieJar } from '$entities/cookies';
-  import { OpenApiImportDialog } from '$features/import/components';
+  import { ImportDialog, ImportDropZone } from '$features/import/components';
   import { UpdateBanner } from '$features/updater/components';
   import { CommandPalette, type PaletteCommand } from '$features/command-palette/components';
   import { ConfirmDialog } from '$shared/ui/components';
@@ -24,7 +24,9 @@
     exportOpenApi,
     importCurlFromClipboard,
     importFrom,
+    importDone,
     importOpenApi,
+    importUpdated,
     newFolderHere,
     newRequestHere,
     nodeAuth,
@@ -42,6 +44,7 @@
     tabRename,
     tabReveal,
     toggleCodePanel,
+    updateFromSpec,
   } from './actions';
   import { layout } from './layout.svelte';
   import { shell } from './shell.svelte';
@@ -117,6 +120,7 @@
   onCopyCurl={nodeCopyCurl}
   onImportCurl={() => void importCurlFromClipboard()}
   onImport={importFrom}
+  onUpdateFromSpec={updateFromSpec}
   onExportOpenApi={exportOpenApi}
   onRenameTab={tabRename}
   onCopyCurlTab={tabCopyCurl}
@@ -126,8 +130,6 @@
 />
 
 <SaveRequestDialog onSaved={shell.flashSaved} />
-
-<OpenApiImportDialog bind:open={shell.importOpen} />
 
 <EnvironmentsSheet />
 
@@ -143,6 +145,7 @@
       >{shell.toast.icon ?? 'check_circle'}</span
     >
     <span class="text">{shell.toast.text}</span>
+    {#if shell.toast.action}<button type="button" onclick={shell.toastAction}>{shell.toast.action.label}</button>{/if}
     {#if shell.toast.undo}<button type="button" onclick={shell.undoToast}
         >{shell.toast.undoLabel ?? t('app.toast.undo')} ⌘Z</button
       >{/if}
@@ -155,4 +158,6 @@
 <FolderAuthDialog bind:folderId={shell.authFolderId} />
 
 <SettingsModal bind:open={shell.settingsOpen} />
+<ImportDialog onImported={importDone} onUpdated={importUpdated} />
+<ImportDropZone />
 <UpdateBanner />

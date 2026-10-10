@@ -37,6 +37,9 @@ pub(crate) fn redact_node(mut node: RequestNode) -> RequestNode {
             }
         }
     }
+    // The import link keeps a copy of the imported headers (a HAR's Authorization, say);
+    // it is bookkeeping for re-import, so it is dropped rather than redacted field by field.
+    node.spec = None;
     node
 }
 

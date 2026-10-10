@@ -56,6 +56,10 @@ pub struct RequestFile {
     pub params: Option<Vec<Param>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub grpc: Option<GrpcTabState>,
+    /// Link to the spec operation this request was imported from (re-import, IM8).
+    /// Opaque to Rust: the frontend owns its shape.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub spec: Option<serde_json::Value>,
 }
 
 /// A request node in the in-memory / IPC tree (id = `fs:<relpath>`).
@@ -70,6 +74,10 @@ pub struct RequestNode {
     pub params: Option<Vec<Param>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub grpc: Option<GrpcTabState>,
+    /// Link to the spec operation this request was imported from (re-import, IM8).
+    /// Opaque to Rust: the frontend owns its shape.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub spec: Option<serde_json::Value>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -81,6 +89,9 @@ pub struct FolderNode {
     /// Collection-level auth from `.folder.bonk.json`; requests set to `inherit` use it.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub auth: Option<Box<AuthConfig>>,
+    /// Where the collection was imported from (`.folder.bonk.json` `source`); opaque to Rust.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub source: Option<serde_json::Value>,
     pub children: Vec<TreeNode>,
 }
 
@@ -92,6 +103,9 @@ pub struct FolderFile {
     /// Manual sort order of this folder's entries (file/dir names); unlisted ones follow alphabetically.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub order: Vec<String>,
+    /// Where the collection was imported from, for re-import (IM8). Opaque to Rust.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub source: Option<serde_json::Value>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -110,6 +124,7 @@ impl RequestFile {
             request: self.request,
             params: self.params,
             grpc: self.grpc,
+            spec: self.spec,
         }
     }
     pub fn from_node(n: &RequestNode) -> RequestFile {
@@ -119,6 +134,7 @@ impl RequestFile {
             request: n.request.clone(),
             params: n.params.clone(),
             grpc: n.grpc.clone(),
+            spec: n.spec.clone(),
         }
     }
 }

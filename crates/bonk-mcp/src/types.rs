@@ -292,6 +292,7 @@ impl SaveRequestArgs {
                 .params
                 .map(|rows| rows.into_iter().map(Into::into).collect()),
             grpc: self.grpc.map(Into::into),
+            spec: None,
         };
         Ok((self.id, directory, node))
     }
