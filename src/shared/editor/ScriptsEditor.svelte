@@ -34,6 +34,8 @@
     expanded = false,
     onExpand,
     onClearConsole,
+    response,
+    onRunPanel,
   }: {
     preRequestScript: string;
     testScript: string;
@@ -47,6 +49,10 @@
     expanded?: boolean;
     onExpand?: () => void;
     onClearConsole?: () => void;
+    /** SC9: the response summary shown in the results panel, which stands in for the response strip. */
+    response?: { tone: 'success' | 'warning' | 'danger'; status: string; detail: string };
+    /** Reports whether the results panel is up, so the host can drop the response strip under it. */
+    onRunPanel?: (open: boolean) => void;
   } = $props();
 
   /** SC7: from this many lines the editor takes the height and the response folds into its strip. */
@@ -90,6 +96,9 @@
       if (u.selectionSet || u.docChanged) currentLine = u.state.doc.lineAt(u.state.selection.main.head).number;
     }),
   ]);
+
+  const runShown = $derived(expanded && runOpen && !!results);
+  $effect(() => onRunPanel?.(runShown));
 
   // SC9: a run finishing while expanded slides the results panel up (failures first).
   let seenRun = untrack(() => results?.at);
@@ -239,7 +248,7 @@
     {/if}
   </div>
 
-  {#if expanded && runOpen && results}
+  {#if runShown && results}
     {@const passed = results.tests.filter((x) => x.passed).length}
     <section class="run" aria-label={t('response.tab.tests')}>
       <div class="run-head">
@@ -264,6 +273,12 @@
           >
         </div>
         <span class="spacer"></span>
+        {#if response}
+          <span class="bs-stpill {response.tone}"
+            ><span class="g" aria-hidden="true">{response.tone === 'success' ? '✓' : '!'}</span>{response.status}</span
+          >
+          <span class="detail">{response.detail}</span>
+        {/if}
         {#if results.at}<span class="meta">{new Date(results.at).toTimeString().slice(0, 5)}</span>{/if}
         <button type="button" class="run-collapse" onclick={() => (runOpen = false)}>
           <span class="material-symbols-outlined" aria-hidden="true">expand_more</span>{t('lb.collapse')}
@@ -549,6 +564,11 @@
     align-items: center;
     gap: 10px;
     padding: 8px 10px;
+  }
+  .run-head .detail {
+    color: var(--t3);
+    font: var(--font-size-micro) var(--mono);
+    white-space: pre;
   }
   .run-head .n {
     margin-left: 6px;

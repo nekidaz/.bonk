@@ -14,6 +14,8 @@ class ScriptUi {
   /** Tab ids whose request pane shows the Scripts tab right now. */
   open = $state.raw<Record<string, boolean>>({});
   jump = $state.raw<ScriptJump | null>(null);
+  /** Tab ids whose expanded editor shows the results panel (SC9): it replaces the response strip. */
+  runPanel = $state.raw<Record<string, boolean>>({});
 }
 export const scriptUi = new ScriptUi();
 
@@ -32,4 +34,11 @@ export function setScriptsOpen(tabId: string, open: boolean): void {
 
 export function revealScriptLine(tabId: string, stage: ScriptStage, line?: number): void {
   scriptUi.jump = { tabId, stage, line };
+}
+
+export function setScriptRunPanel(tabId: string, open: boolean): void {
+  const cur = untrack(() => scriptUi.runPanel);
+  if (!!cur[tabId] === open) return;
+  const { [tabId]: _old, ...rest } = cur;
+  scriptUi.runPanel = open ? { ...rest, [tabId]: true } : rest;
 }

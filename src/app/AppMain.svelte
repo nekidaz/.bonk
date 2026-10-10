@@ -5,7 +5,7 @@
   import { slide } from 'svelte/transition';
   import { tabs } from '$entities/tab';
   import { workspace } from '$entities/workspace';
-  import { applyCurlToActiveTab, openSavedRequest, requestGrpcEditorAction } from '$entities/request';
+  import { applyCurlToActiveTab, openSavedRequest, requestGrpcEditorAction, scriptUi } from '$entities/request';
   import { clock, historyDay, matchSaved, searchRequests } from '$entities/environment';
   import { history } from '$entities/history';
   import { newTab } from '$features/tabs';
@@ -138,7 +138,11 @@
                 active.protocol === 'grpc' ? requestGrpcEditorAction(active.id, 'tls') : (shell.settingsOpen = true)}
             />
           </div>
-          {#if layout.respStrip}<ResponseStrip tab={active} onShow={layout.showResponse} />{/if}
+          <!-- SC9: in the expanded script editor the results panel stands in for the strip. -->
+          {#if layout.respStrip && !(focusMode.current === 'request' && scriptUi.runPanel[active.id])}<ResponseStrip
+              tab={active}
+              onShow={layout.showResponse}
+            />{/if}
         {/if}
       {:else}
         <WelcomeView
