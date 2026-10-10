@@ -25,6 +25,9 @@ export default defineConfig({
   define: { __APP_VERSION__: JSON.stringify(version) },
   // visual/ holds Playwright specs (`make visual`); vitest must not try to run them.
   test: { exclude: [...configDefaults.exclude, 'visual/**'] },
+  // Desktop app: the bundle is read from local disk, so one big chunk costs no network time.
+  // The limit only keeps the warning meaningful (it fires again past 2 MB).
+  build: { chunkSizeWarningLimit: 2000 },
   clearScreen: false,
   server: {
     port: 1420,
