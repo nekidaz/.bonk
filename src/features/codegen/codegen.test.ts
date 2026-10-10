@@ -62,3 +62,15 @@ describe('generateSnippet with unresolved variables', () => {
     expect(code).not.toContain('bonkvar');
   });
 });
+
+describe('generateSnippet with a scheme-less URL', () => {
+  it('prepends a scheme like a send does instead of failing', async () => {
+    const { generateSnippet } = await import('./codegen');
+    const tab = (url: string) =>
+      ({ id: 't', protocol: 'http', title: 'x', request: { method: 'POST', url, headers: {} } }) as Tab;
+    expect(await generateSnippet(tab('api.example.com/v1/accounts'), 'curl')).toContain(
+      'https://api.example.com/v1/accounts',
+    );
+    expect(await generateSnippet(tab('localhost:8080/health'), 'curl')).toContain('http://localhost:8080/health');
+  });
+});
