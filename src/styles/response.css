@@ -805,7 +805,9 @@
     margin-left: auto;
   }
 
-  :root .bs-stpill .lb-reason {
+  /* One line, as in Flow · Размеры окна: of the body controls only Copy stays; expanding is still on its hotkey. */
+  :root .bs-stpill .lb-reason,
+  :root .bs-meta :is(.lb-mode, .lb-save, .lb-expand) {
     display: none;
   }
 }
