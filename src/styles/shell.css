@@ -1229,6 +1229,10 @@
     display: block;
   }
 
+  :root .bs button.bs-send kbd {
+    display: none;
+  }
+
   :root .bs .bs-savegrp button.bs-save-main {
     width: 30px;
     padding: 0;
