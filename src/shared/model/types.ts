@@ -62,7 +62,33 @@ export interface HttpResponse {
   elapsed_ms: number;
   size_bytes: number;
   body_truncated?: boolean;
+  /** The response's Set-Cookies with their effect on the jar (absent in old history entries). */
+  cookies?: ResponseCookie[];
+  /** How many jar cookies the next request to `final_url` carries; absent when sending is off. */
+  jar_sends?: number;
 }
+
+/** One cookie of a workspace jar (bonk-core `CookieInfo`). */
+export interface CookieInfo {
+  name: string;
+  value: string;
+  /** Host (host-only cookie) or the Domain attribute without a leading dot. */
+  domain: string;
+  hostOnly: boolean;
+  path: string;
+  /** Unix ms; null = session cookie. */
+  expiresMs: number | null;
+  expired: boolean;
+  httpOnly: boolean;
+  secure: boolean;
+  sameSite: string | null;
+  /** The cookie as a Set-Cookie value. */
+  raw: string;
+}
+
+/** `null` = saving to the jar is off. */
+export type CookieChange = 'new' | 'updated' | 'deleted' | 'rejected';
+export type ResponseCookie = CookieInfo & { change: CookieChange | null };
 
 export type ProxyMode = 'system' | 'none' | 'manual';
 

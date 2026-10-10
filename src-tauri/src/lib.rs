@@ -39,6 +39,7 @@ pub fn run() {
             commands::http::http_send,
             commands::http::run_script,
             commands::cookies::cookies_list,
+            commands::cookies::cookies_jar_path,
             commands::cookies::cookies_add,
             commands::cookies::cookies_remove,
             commands::cookies::cookies_clear,

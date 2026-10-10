@@ -2,6 +2,7 @@ import { Channel, invoke } from '@tauri-apps/api/core';
 import {
   type HttpRequest,
   type HttpResponse,
+  type CookieInfo,
   type RequestSettings,
   type ServiceTree,
   type GrpcResult,
@@ -287,6 +288,18 @@ export const openapiExportSave = (defaultName: string, contents: string, title?:
 
 // ---------- Data & workspace settings ----------
 export const appDataDir = () => invoke<string>('app_data_dir');
+
+// Cookie jar of workspace root `workspace` ('' = the app-wide jar).
+export const cookiesList = (workspace: string) => invoke<CookieInfo[]>('cookies_list', { workspace });
+export const cookiesJarPath = (workspace: string) => invoke<string>('cookies_jar_path', { workspace });
+/** Add or replace (same name, domain, path) a cookie, as if `url` had sent `setCookie`. */
+export const cookiesAdd = (workspace: string, url: string, setCookie: string) =>
+  invoke<void>('cookies_add', { workspace, url, setCookie });
+export const cookiesRemove = (workspace: string, domain: string, path: string, name: string) =>
+  invoke<boolean>('cookies_remove', { workspace, domain, path, name });
+/** Remove every cookie of `domain`, or the whole jar when null. */
+export const cookiesClear = (workspace: string, domain: string | null) =>
+  invoke<void>('cookies_clear', { workspace, domain });
 export const revealPath = (path: string) => invoke<void>('reveal_path', { path });
 export const openReleases = () => invoke<void>('open_releases');
 export const workspaceRenameRoot = (root: string, name: string) =>

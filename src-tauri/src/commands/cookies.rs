@@ -23,6 +23,19 @@ pub fn cookies_list(
     Ok(jar(&app, &state, &workspace)?.list())
 }
 
+/// Where the jar file lives (shown in the jar window's footer).
+#[tauri::command]
+pub fn cookies_jar_path(
+    workspace: String,
+    app: tauri::AppHandle,
+    state: State<'_, AppState>,
+) -> Result<String, String> {
+    Ok(jar(&app, &state, &workspace)?
+        .path()
+        .to_string_lossy()
+        .into_owned())
+}
+
 /// Add or replace a cookie from a `Set-Cookie` value, as if `url` had sent it.
 #[tauri::command]
 pub fn cookies_add(

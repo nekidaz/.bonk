@@ -2,6 +2,7 @@
   import type { UtilityMode } from '$shared/ui';
   import { tabs } from '$entities/tab';
   import { runner } from '$features/runner';
+  import { cookieJar } from '$entities/cookies';
   import { t } from '$shared/i18n';
 
   let {
@@ -17,6 +18,7 @@
   } = $props();
 
   const runnerOn = $derived(tabs.active?.protocol === 'runner');
+  const cookieCount = $derived(cookieJar.list.length);
 </script>
 
 <div class="bs-status">
@@ -43,6 +45,17 @@
     ></button
   >
   <div class="bs-spacer"></div>
+  <!-- Flow · Cookies: the jar's size; opens the jar window. -->
+  <button
+    class="bs-status-link"
+    class:on={cookieJar.sheetOpen}
+    type="button"
+    aria-label={t('cookies.chip_aria', { cookies: cookieCount })}
+    onclick={() => cookieJar.open()}
+    ><span class="material-symbols-outlined" aria-hidden="true">cookie</span><span class="lbl"
+      >{cookieCount ? `${t('cookies.chip')} · ${cookieCount}` : t('cookies.chip')}</span
+    ></button
+  >
   <button
     class="bs-status-link runner"
     class:on={runnerOn}
