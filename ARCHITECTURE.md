@@ -5,7 +5,7 @@ layers with a deliberately thin boundary between them:
 
 - **`src/`** — Svelte 5 UI (view + thin view-state).
 - **`src-tauri/`** — Tauri shell: `#[tauri::command]` wrappers grouped per area in
-  `commands/` (`http`, `grpc`, `workspace`, `git`, `terminal`, `secrets`, `app`),
+  `commands/` (`http`, `grpc`, `workspace`, `git`, `terminal`, `secrets`, `mcp`, `app`),
   app state, native dialogs. Owns no business logic.
 - **`crates/bonk-core/`** — Tauri-independent Rust core: all HTTP/gRPC/workspace/
   state logic. Buildable and testable without a webview (`cargo test -p bonk-core`).
@@ -52,14 +52,14 @@ layers with a deliberately thin boundary between them:
 process. Local AI clients spawn it over STDIO. Remote clients connect to its
 single `/mcp` Streamable HTTP endpoint. In both modes it receives one canonical
 workspace root at startup and delegates request persistence and protocol work to
-`bonk-core`. Desktop bundles include it as a Tauri sidecar; `mcp_install.rs`
-copies that sidecar to a stable per-user path and safely adds/removes the `bonk`
+`bonk-core`. Desktop bundles include it as a Tauri sidecar;
+`bonk-core/src/application/mcp_install.rs` copies that sidecar to a stable per-user path and safely adds/removes the `bonk`
 entry in supported local client configurations.
 
 ## Tauri commands (the IPC surface)
 
 `src-tauri/src/lib.rs` registers these groups. Most commands are thin wrappers
-over `bonk-core`; folder/file dialogs and MCP client setup are shell-owned:
+over `bonk-core`; folder/file dialogs are shell-owned:
 
 | Area | Commands |
 | --- | --- |

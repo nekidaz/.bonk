@@ -606,7 +606,6 @@ dependencies = [
  "tauri-plugin-process",
  "tauri-plugin-updater",
  "tokio",
- "toml_edit 0.25.12+spec-1.1.0",
  "trash",
 ]
 
@@ -633,6 +632,7 @@ dependencies = [
  "tokio",
  "tokio-rustls",
  "tokio-stream",
+ "toml_edit 0.25.12+spec-1.1.0",
  "tonic",
  "tonic-reflection",
  "tower",

@@ -21,6 +21,7 @@ bytes = "1"
 http = "1"
 tokio = { version = "1", features = ["sync", "rt", "rt-multi-thread", "time", "process", "io-util", "net"] }
 tokio-stream = "0.1"
+toml_edit = "0.25.12"
 # Already in the tree via tonic; used directly for the gRPC TLS probe / insecure connector.
 rustls = { version = "0.23", default-features = false, features = ["aws_lc_rs", "std", "tls12"] }
 tokio-rustls = { version = "0.26", default-features = false }
