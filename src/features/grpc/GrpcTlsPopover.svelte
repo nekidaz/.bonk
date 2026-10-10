@@ -85,11 +85,12 @@
     aria-haspopup="dialog"
     aria-expanded={open}
     title={t('grpc.conn.title')}
+    aria-label={plaintext ? 'Plaintext' : 'TLS'}
     onclick={toggle}
   >
-    <span class="material-symbols-outlined">{plaintext ? 'lock_open_right' : 'lock'}</span>{plaintext
-      ? 'Plaintext'
-      : 'TLS'}
+    <span class="material-symbols-outlined" aria-hidden="true">{plaintext ? 'lock_open_right' : 'lock'}</span><span
+      class="lbl">{plaintext ? 'Plaintext' : 'TLS'}</span
+    >
   </button>
   {#if open}
     <div class="bs-conn-pop" role="dialog" aria-label={t('grpc.conn.title')}>

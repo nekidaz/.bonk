@@ -1187,14 +1187,15 @@
     margin-left: 12px;
     margin-right: 12px;
   }
-}
 
-@media (max-width: 480px) {
+  /* The 720 px minimum: Send gives the gRPC method picker its room. */
   :root .bs button.bs-send {
     min-width: 70px;
     padding: 0 14px;
   }
+}
 
+@media (max-width: 480px) {
   :root .bs-urlbar:has(.bs-grpc-picker) {
     flex-wrap: wrap;
   }
