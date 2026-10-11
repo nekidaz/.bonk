@@ -28,6 +28,11 @@ export interface Field {
   theirs: Node;
   /** Who changed it against the base: nobody, one side, both the same way, or both differently. */
   kind: 'same' | 'mine' | 'theirs' | 'both' | 'conflict';
+  /**
+   * Set when the field belongs to an array element matched only by place (every field changed):
+   * the pairings it rests on. Passing them to `fields` as splits makes it a removal + addition.
+   */
+  guess?: string[];
 }
 
 /** A side, a value typed by hand (`undefined` removes the field), or null while undecided. */
@@ -100,14 +105,35 @@ function likeness(a: Json, b: Json): number {
 }
 
 /**
+ * Whether two elements are built alike enough to be one element edited rather than one replaced
+ * by another: both objects whose field names mostly agree (at least half of them, Jaccard).
+ */
+function builtAlike(a: Json, b: Json): boolean {
+  if (!isObj(a) || !isObj(b)) return false;
+  const ka = Object.keys(a);
+  const kb = Object.keys(b);
+  const shared = ka.filter((k) => Object.hasOwn(b, k)).length;
+  const union = ka.length + kb.length - shared;
+  return union === 0 || shared / union >= 0.5;
+}
+
+/**
  * Identities for an array of objects without a natural key, relative to the base: an element
  * unchanged since the base keeps the base element's identity (found by a common subsequence, as
  * lines are); inside a changed stretch each base element pairs, in order, with the most alike
  * element left on that side, so an edit stays an edit even next to an insertion; what is left
- * between matched neighbours on both sides pairs in place, so even an element changed in every
- * field stays the same element. What finds no pair is new on its side (or gone from it).
+ * between matched neighbours on both sides pairs in place when built alike, so even an element
+ * changed in every field stays the same element, while one replaced by something else does not.
+ * Pairs made in place are guesses: `guesses` maps each base identity to the keys of its guessed
+ * pairings, and a key in `splits` (the user said «Это замена») is not paired. What finds no pair
+ * is new on its side (or gone from it).
  */
-function pairedIdentities(arrs: [Json[], Json[], Json[]]): [string[], string[], string[]] {
+function pairedIdentities(
+  arrs: [Json[], Json[], Json[]],
+  arrayId: string,
+  splits: ReadonlySet<string>,
+  guesses: Map<string, string[]>,
+): [string[], string[], string[]] {
   const [base] = arrs;
   const baseIds = base.map((_, i) => `@b${i}`);
   const str = (e: Json) => JSON.stringify(e);
@@ -141,7 +167,13 @@ function pairedIdentities(arrs: [Json[], Json[], Json[]]): [string[], string[], 
       for (let f = 0; f + 1 < fences.length; f++) {
         const [i0, k0] = fences[f];
         const [i1, k1] = fences[f + 1];
-        for (let n = 0; i0 + 1 + n < i1 && k0 + 1 + n < k1; n++) pairs.push([i0 + 1 + n, k0 + 1 + n]);
+        for (let n = 0; i0 + 1 + n < i1 && k0 + 1 + n < k1; n++) {
+          const [i, k] = [i0 + 1 + n, k0 + 1 + n];
+          const key = `${arrayId}|${baseIds[i]}|${tag}${k}`;
+          if (splits.has(key) || !builtAlike(base[i], arr[k])) continue;
+          pairs.push([i, k]);
+          guesses.set(baseIds[i], [...(guesses.get(baseIds[i]) ?? []), key]);
+        }
       }
       for (const [i, k] of pairs) out[k] = baseIds[i];
       a = h.aEnd;
@@ -180,7 +212,7 @@ function order(base: string[], mine: string[], theirs: string[]): string[] {
   return out;
 }
 
-type Child = { id: string; label: string; vals: [Node, Node, Node]; inArray: boolean };
+type Child = { id: string; label: string; vals: [Node, Node, Node]; inArray: boolean; guess?: string[] };
 
 /**
  * What a node is across the three sides. An array element a side lacks is one field (added or
@@ -195,7 +227,7 @@ function shape(vals: [Node, Node, Node], inArray: boolean): 'obj' | 'arr' | 'lea
   return 'leaf';
 }
 
-function children(vals: [Node, Node, Node], kind: 'obj' | 'arr', id: string, label: string): Child[] {
+function children({ vals, id, label, guess }: Child, kind: 'obj' | 'arr', splits: ReadonlySet<string>): Child[] {
   if (kind === 'obj') {
     const keys = vals.map((v) => (isObj(v) ? Object.keys(v) : [])) as [string[], string[], string[]];
     return order(...keys).map((k) => ({
@@ -203,6 +235,7 @@ function children(vals: [Node, Node, Node], kind: 'obj' | 'arr', id: string, lab
       label: label ? `${label}.${k}` : k,
       vals: vals.map((v) => (isObj(v) ? own(v, k) : undefined)) as [Node, Node, Node],
       inArray: false,
+      guess,
     }));
   }
   const arrs = vals.map((v) => (Array.isArray(v) ? v : [])) as [Json[], Json[], Json[]];
@@ -210,7 +243,10 @@ function children(vals: [Node, Node, Node], kind: 'obj' | 'arr', id: string, lab
   // relative to the base, labelled by where they end up.
   const all = arrs.flat();
   const byPosition = all.some(isObj) && !all.every((e) => naturalKey(e) !== undefined);
-  const ids = byPosition ? pairedIdentities(arrs) : (arrs.map(identities) as [string[], string[], string[]]);
+  const guesses = new Map<string, string[]>();
+  const ids = byPosition
+    ? pairedIdentities(arrs, id, splits, guesses)
+    : (arrs.map(identities) as [string[], string[], string[]]);
   return order(...ids).map((el, at) => ({
     id: `${id}[${JSON.stringify(el)}]`,
     label: `${label}${byPosition ? `[${at}]` : elementLabel(el)}`,
@@ -219,15 +255,16 @@ function children(vals: [Node, Node, Node], kind: 'obj' | 'arr', id: string, lab
       return at === -1 ? undefined : a[at];
     }) as [Node, Node, Node],
     inArray: true,
+    guess: guesses.get(el),
   }));
 }
 
-/** Leaf fields of the three objects, in merged order. */
-export function fields(base: Obj, mine: Obj, theirs: Obj): Field[] {
+/** Leaf fields of the three objects, in merged order. `splits`: guessed pairings turned down. */
+export function fields(base: Obj, mine: Obj, theirs: Obj, splits: ReadonlySet<string> = new Set()): Field[] {
   const out: Field[] = [];
   const walk = (c: Child) => {
     const kind = shape(c.vals, c.inArray);
-    if (kind !== 'leaf') return children(c.vals, kind, c.id, c.label).forEach(walk);
+    if (kind !== 'leaf') return children(c, kind, splits).forEach(walk);
     const [b, m, t] = c.vals;
     out.push({
       id: c.id,
@@ -236,9 +273,10 @@ export function fields(base: Obj, mine: Obj, theirs: Obj): Field[] {
       mine: m,
       theirs: t,
       kind: eq(m, b) && eq(t, b) ? 'same' : eq(t, b) ? 'mine' : eq(m, b) ? 'theirs' : eq(m, t) ? 'both' : 'conflict',
+      ...(c.guess ? { guess: c.guess } : {}),
     });
   };
-  children([base, mine, theirs], 'obj', '', '').forEach(walk);
+  children({ id: '', label: '', vals: [base, mine, theirs], inArray: false }, 'obj', splits).forEach(walk);
   return out;
 }
 
@@ -264,13 +302,14 @@ export function mergeFields(
   fs: Field[],
   choices: FieldChoice[],
   trailingNewline: boolean,
+  splits: ReadonlySet<string> = new Set(),
 ): string | null {
   if (choices.some((c) => c === null)) return null;
   const byId = new Map(fs.map((f, i) => [f.id, chosenValue(f, choices[i])]));
   const build = (c: Child): Node => {
     const kind = shape(c.vals, c.inArray);
     if (kind === 'leaf') return byId.get(c.id);
-    const parts = children(c.vals, kind, c.id, c.label)
+    const parts = children(c, kind, splits)
       .map((ch) => [ch, build(ch)] as const)
       .filter(([, v]) => v !== undefined);
     if (!parts.length && c.vals.some((v) => v === undefined)) return undefined;
