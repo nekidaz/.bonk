@@ -6,8 +6,12 @@ tests. No login, no cloud: it reads the workspace folder directly.
 
 ## Install
 
-Each release ([nekidaz/.bonk](https://github.com/nekidaz/.bonk/releases)) has an archive per
-platform with a single `bonk` binary (`bonk.exe` on Windows):
+```bash
+brew install nekidaz/tap/bonk   # macOS arm64, Linux x64 (the app is `--cask nekidaz/tap/bonk`)
+```
+
+Or from a release ([nekidaz/.bonk](https://github.com/nekidaz/.bonk/releases)): an archive
+per platform with a single `bonk` binary (`bonk.exe` on Windows):
 
 ```bash
 curl -L https://github.com/nekidaz/.bonk/releases/latest/download/bonk-aarch64-apple-darwin.tar.gz | tar -xz
