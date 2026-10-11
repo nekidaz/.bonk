@@ -1,8 +1,9 @@
 name: Homebrew
 
 # When a GitHub Release is published (i.e. you publish the draft created by the
-# Release workflow), regenerate the Homebrew Cask in the tap repo so
-# `brew install --cask bonk` picks up the new version.
+# Release workflow), regenerate the Homebrew Cask (the app) and Formula (the `bonk`
+# CLI) in the tap repo so `brew install --cask nekidaz/tap/bonk` and
+# `brew install nekidaz/tap/bonk` pick up the new version.
 #
 # Required:
 #   - a tap repo `nekidaz/homebrew-tap`
@@ -30,6 +31,23 @@ jobs:
           SHA="$(shasum -a 256 "$DMG" | awk '{print $1}')"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "sha=$SHA" >> "$GITHUB_OUTPUT"
+
+      # The CLI archives (bonk-<target>.tar.gz, one `bonk` binary each). A release
+      # made before the CLI shipped has none: then only the cask is updated.
+      - name: CLI archives and sha256
+        id: cli
+        env:
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          for target in aarch64-apple-darwin x86_64-unknown-linux-gnu; do
+            file="bonk-${target}.tar.gz"
+            if ! curl -fL -o "$file" "https://github.com/nekidaz/.bonk/releases/download/${TAG}/${file}"; then
+              echo "no ${file} in ${TAG}: skipping the CLI formula"
+              echo "skip=true" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            echo "sha_${target//-/_}=$(shasum -a 256 "$file" | awk '{print $1}')" >> "$GITHUB_OUTPUT"
+          done
 
       - name: Checkout tap
         uses: actions/checkout@v4
@@ -69,6 +87,43 @@ jobs:
           end
           EOF
 
+      - name: Write CLI formula
+        if: steps.cli.outputs.skip != 'true'
+        env:
+          VERSION: ${{ steps.info.outputs.version }}
+          SHA_MAC: ${{ steps.cli.outputs.sha_aarch64_apple_darwin }}
+          SHA_LINUX: ${{ steps.cli.outputs.sha_x86_64_unknown_linux_gnu }}
+        run: |
+          mkdir -p tap/Formula
+          cat > tap/Formula/bonk.rb <<EOF
+          class Bonk < Formula
+            desc "Run Bonk API collections from the terminal and CI"
+            homepage "https://github.com/nekidaz/.bonk"
+            version "${VERSION}"
+            license "MIT"
+
+            on_macos do
+              depends_on arch: :arm64
+              url "https://github.com/nekidaz/.bonk/releases/download/v#{version}/bonk-aarch64-apple-darwin.tar.gz"
+              sha256 "${SHA_MAC}"
+            end
+
+            on_linux do
+              depends_on arch: :x86_64
+              url "https://github.com/nekidaz/.bonk/releases/download/v#{version}/bonk-x86_64-unknown-linux-gnu.tar.gz"
+              sha256 "${SHA_LINUX}"
+            end
+
+            def install
+              bin.install "bonk"
+            end
+
+            test do
+              assert_match version.to_s, shell_output("#{bin}/bonk --version")
+            end
+          end
+          EOF
+
       - name: Commit and push
         env:
           VERSION: ${{ steps.info.outputs.version }}
@@ -76,6 +131,6 @@ jobs:
           cd tap
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add Casks/bonk.rb
+          git add -A .
           git commit -m "bonk ${VERSION}" || { echo "no changes"; exit 0; }
           git push
