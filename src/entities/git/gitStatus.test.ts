@@ -22,6 +22,8 @@ describe('gitStatus helpers', () => {
     expect(statusLetter(f('e', 'D', ' '))).toBe('D');
     expect(statusLetter(f('g', 'R', ' '))).toBe('R');
     expect(statusLetter(f('h', 'A', 'M'))).toBe('A'); // divergent: staged index wins over worktree
+    expect(statusLetter(f('i', 'U', 'U'))).toBe('!'); // unmerged after a stopped cherry-pick
+    expect(statusLetter(f('j', 'A', 'A'))).toBe('!'); // both added
   });
 
   it('maps paths to letters', () => {

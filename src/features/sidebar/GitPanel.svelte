@@ -15,6 +15,10 @@
     messageParts,
     openCommitEditorTab,
     openGitDiffTab,
+    openGraphTab,
+    isConflict,
+    abortOperation,
+    continueOperation,
     openProjectDiffTab,
     openStashTab,
     shortAgo,
@@ -32,8 +36,10 @@
   const status = $derived(git.status);
   const files = $derived(status?.files ?? []);
   // Staged = the index slot holds a real change; changes = a worktree change or an untracked file.
-  const staged = $derived(files.filter((f) => f.index !== ' ' && f.index !== '?'));
-  const changes = $derived(files.filter((f) => f.worktree !== ' ' || f.index === '?'));
+  // A conflicted file (after a stopped cherry-pick / merge) is in neither list but its own.
+  const conflicts = $derived(files.filter(isConflict));
+  const staged = $derived(files.filter((f) => !isConflict(f) && f.index !== ' ' && f.index !== '?'));
+  const changes = $derived(files.filter((f) => !isConflict(f) && (f.worktree !== ' ' || f.index === '?')));
   const activeGit = $derived(tabs.active?.protocol === 'git' ? tabs.active.git : undefined);
   const info = (f: GitFile) => describeFile(f.path, git.prefix, (id) => findNode(workspace.tree, id));
   // Ages in the lists recount on every refresh.
@@ -252,6 +258,35 @@
     </div>
 
     <div class="scroll">
+      {#if status.operation}
+        <div class="op">
+          <div class="oph">
+            <span class="material-symbols-outlined">warning</span>{status.operation}
+          </div>
+          <p>
+            {conflicts.length
+              ? t('git.op.conflicts', {
+                  n: conflicts.length,
+                  files: tp(conflicts.length, ['конфликт', 'конфликта', 'конфликтов'], ['conflict', 'conflicts']),
+                })
+              : t('git.op.ready')}
+          </p>
+          <div class="opb">
+            <button class="bs-gbtn sm" disabled={git.busy} onclick={abortOperation}
+              ><span class="material-symbols-outlined">close</span>{t('git.op.abort')}</button
+            >
+            <button class="bs-gbtn sm inv" disabled={git.busy || conflicts.length > 0} onclick={continueOperation}
+              >{t('git.op.continue')}<span class="material-symbols-outlined">arrow_forward</span></button
+            >
+          </div>
+        </div>
+      {/if}
+      {#if conflicts.length}
+        <div class="sec conflicts">
+          <span class="eb">{t('git.conflicts')}</span><span class="n">{conflicts.length}</span>
+        </div>
+        {#each conflicts as f (f.path)}{@render fileRow(f, false)}{/each}
+      {/if}
       {#if staged.length}
         <div class="sec">
           <span class="eb">{t('git.staged')}</span><span class="n">{staged.length}</span>
@@ -310,15 +345,24 @@
       {/if}
 
       {#if git.log.length}
-        <div class="sec"><span class="eb">{t('git.log')}</span></div>
+        <div class="sec">
+          <span class="eb">{t('git.log')}</span><span class="n"></span>
+          <button class="graphlink" onclick={() => openGraphTab()}
+            >{t('git.graph.link')}<span class="material-symbols-outlined">north_east</span></button
+          >
+        </div>
         {#each git.log as c, i (c.hash)}
-          <div class="commitrow" title={`${c.subject}\n${c.author} · ${c.date}`}>
+          <button
+            class="commitrow"
+            title={`${c.subject}\n${c.author} · ${c.date}`}
+            onclick={() => openGraphTab(c.hash)}
+          >
             <span class="dot" class:head={i === 0} aria-hidden="true"></span>
             <span class="two">
               <span class="nm">{c.subject}</span>
               <span class="meta">{`${c.short} · ${shortAgo(c.time, now, uiLanguage.current)}`}</span>
             </span>
-          </div>
+          </button>
         {/each}
       {/if}
     </div>
@@ -643,6 +687,61 @@
   .meta {
     color: var(--color-text-muted);
     font: var(--font-size-micro) var(--font-code);
+  }
+  .op {
+    margin: 4px 0 6px;
+    padding: 12px;
+    border-radius: 16px;
+    background: var(--color-warning-soft);
+  }
+  .oph {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--color-warning);
+    font: 600 var(--font-size-micro) var(--font-code);
+    letter-spacing: var(--tracking-eyebrow);
+    text-transform: uppercase;
+  }
+  .oph .material-symbols-outlined {
+    font-size: 14px;
+  }
+  .op p {
+    margin: 6px 0 10px;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-caption);
+    line-height: 1.4;
+  }
+  .opb {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+  }
+  .conflicts .eb {
+    color: var(--color-danger);
+  }
+  .graphlink {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    height: 20px;
+    padding: 0 8px;
+    border-radius: var(--radius-control);
+    background: var(--color-raised);
+    color: var(--color-text);
+    font: 500 var(--font-size-caption) var(--font-ui);
+    letter-spacing: 0;
+  }
+  .graphlink .material-symbols-outlined {
+    font-size: 12px;
+  }
+  .commitrow {
+    width: 100%;
+    text-align: left;
+    border-radius: 14px;
+  }
+  .commitrow:hover {
+    background: var(--color-hover);
   }
   .commitrow {
     position: relative;

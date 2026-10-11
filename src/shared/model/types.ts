@@ -399,7 +399,57 @@ export interface GitStatus {
    * workspace-relative node id to its status key as `prefix + wsRel`.
    */
   prefix: string;
+  /** A cherry-pick / merge / rebase / revert stopped on conflicts, or '' when none is in progress. */
+  operation: '' | 'merge' | 'rebase' | 'cherry-pick' | 'revert';
 }
+
+/** A ref pointing at a commit: `head` is the checked-out branch (or a detached `HEAD`). */
+export interface GitRef {
+  name: string;
+  kind: 'head' | 'branch' | 'remote' | 'tag';
+}
+
+/** One commit of the G5 graph, newest first in topological order. */
+export interface GraphCommit {
+  hash: string;
+  short: string;
+  parents: string[];
+  author: string;
+  email: string;
+  time: number;
+  subject: string;
+  refs: GitRef[];
+}
+
+export interface GraphPage {
+  commits: GraphCommit[];
+  /** Commits in the whole range, for «Ещё N». */
+  total: number;
+  branches: number;
+}
+
+export interface CommitFile {
+  path: string;
+  status: string;
+  additions: number;
+  deletions: number;
+}
+
+export interface CommitDetail {
+  hash: string;
+  short: string;
+  parents: string[];
+  author: string;
+  email: string;
+  time: number;
+  subject: string;
+  body: string;
+  /** Local and remote branches that contain the commit. */
+  branches: string[];
+  files: CommitFile[];
+}
+
+export type ResetMode = 'soft' | 'mixed' | 'hard';
 
 export interface GitCommit {
   hash: string;
@@ -444,8 +494,10 @@ export interface GitTabState {
   /** The file (view 'file'), or the stash commit hash (view 'stash'). */
   path: string;
   mode: GitDiffMode;
-  /** 'file' = single-file diff (default); 'project' = the aggregate Project Diff; 'stash' = one stash; 'commit' = the commit-message editor. */
-  view?: 'file' | 'project' | 'stash' | 'commit';
+  /** 'file' = single-file diff (default); 'project' = the aggregate Project Diff; 'stash' = one stash; 'commit' = the commit-message editor; 'graph' = the commit graph. */
+  view?: 'file' | 'project' | 'stash' | 'commit' | 'graph';
+  /** View 'file' of a past commit: its hash (the diff is against its first parent). View 'graph': the commit to select. */
+  rev?: string;
 }
 
 export interface FileDiff {

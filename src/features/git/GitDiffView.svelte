@@ -2,12 +2,13 @@
   /**
    * G1 / G1b: the diff of one changed file as a tab. Header: the request's name and status,
    * Inline | Side-by-side, Working tree | Staged, Discard (asks first) and Stage / Unstage.
-   * Reloads whenever a git op bumps `git.version`.
+   * Reloads whenever a git op bumps `git.version`. With `rev` (opened from the G5 graph) it is the
+   * file as that commit changed it: read-only, against the commit's first parent.
    */
   import { findNode, workspace } from '$entities/workspace';
   import { describeFile, discardPaths, git, stagePaths, statusColor, statusLetter, unstagePaths } from '$entities/git';
   import { tabs } from '$entities/tab';
-  import { gitDiff } from '$shared/ipc';
+  import { gitCommitFileDiff, gitDiff } from '$shared/ipc';
   import { requestConfirm } from '$shared/ui';
   import type { GitDiffMode, Tab } from '$shared/model';
   import { t } from '$shared/i18n';
@@ -23,8 +24,9 @@
 
   const path = $derived(tab.git?.path ?? '');
   const mode = $derived((tab.git?.mode ?? 'working') as GitDiffMode);
+  const rev = $derived(tab.git?.rev ?? '');
   const info = $derived(describeFile(path, git.prefix, (id) => findNode(workspace.tree, id)));
-  const file = $derived(git.status?.files.find((f) => f.path === path));
+  const file = $derived(rev ? undefined : git.status?.files.find((f) => f.path === path));
   const letter = $derived(file ? statusLetter(file) : '');
   const hasStaged = $derived(!!file && file.index !== ' ' && file.index !== '?');
   const hasUnstaged = $derived(!!file && (file.worktree !== ' ' || file.index === '?'));
@@ -32,16 +34,18 @@
   $effect(() => {
     const root = workspace.path;
     void git.version;
-    if (root && path) void load(root, path, mode);
+    if (root && path) void load(root, path, mode, rev);
   });
 
-  async function load(root: string, filePath: string, diffMode: GitDiffMode): Promise<void> {
+  async function load(root: string, filePath: string, diffMode: GitDiffMode, at: string): Promise<void> {
     // Concurrent loads (a fast tab switch, a refresh) race on the shared state; only the latest may write.
     const seq = ++loadSeq;
     loading = !diffText;
     error = '';
     try {
-      const text = await gitDiff(root, filePath, diffMode === 'staged');
+      const text = at
+        ? await gitCommitFileDiff(root, at, filePath)
+        : await gitDiff(root, filePath, diffMode === 'staged');
       if (seq !== loadSeq) return;
       diffText = text;
     } catch (err) {
@@ -73,7 +77,9 @@
 <div class="bs-gview">
   <div class="bs-ghead">
     <div class="ttl">
-      <span class="crumb">{`${t('git.title')}  /  ${mode === 'staged' ? t('git.staged') : t('git.changes')}`}</span>
+      <span class="crumb"
+        >{`${t('git.title')}  /  ${rev ? `${t('git.graph.commit')} ${rev.slice(0, 7)}` : mode === 'staged' ? t('git.staged') : t('git.changes')}`}</span
+      >
       <div class="row">
         <h2 title={path}>{info.name}</h2>
         {#if letter}
@@ -101,25 +107,27 @@
         ><span class="material-symbols-outlined">vertical_split</span></button
       >
     </div>
-    <div class="bs-gseg" role="group" aria-label={t('git.diff.mode')}>
-      <button class:on={mode === 'working'} aria-pressed={mode === 'working'} onclick={() => setMode('working')}
-        >{t('git.diff.working')}</button
+    {#if !rev}
+      <div class="bs-gseg" role="group" aria-label={t('git.diff.mode')}>
+        <button class:on={mode === 'working'} aria-pressed={mode === 'working'} onclick={() => setMode('working')}
+          >{t('git.diff.working')}</button
+        >
+        <button class:on={mode === 'staged'} aria-pressed={mode === 'staged'} onclick={() => setMode('staged')}
+          >{t('git.diff.staged')}</button
+        >
+      </div>
+      <button class="bs-gbtn danger" disabled={!file} onclick={discard}
+        ><span class="material-symbols-outlined">undo</span>{t('git.discard')}</button
       >
-      <button class:on={mode === 'staged'} aria-pressed={mode === 'staged'} onclick={() => setMode('staged')}
-        >{t('git.diff.staged')}</button
-      >
-    </div>
-    <button class="bs-gbtn danger" disabled={!file} onclick={discard}
-      ><span class="material-symbols-outlined">undo</span>{t('git.discard')}</button
-    >
-    {#if mode === 'staged'}
-      <button class="bs-gbtn inv" disabled={!hasStaged} onclick={() => unstagePaths([path])}
-        ><span class="material-symbols-outlined">remove</span>{t('git.unstageFile')}</button
-      >
-    {:else}
-      <button class="bs-gbtn inv" disabled={!hasUnstaged} onclick={() => stagePaths([path])}
-        ><span class="material-symbols-outlined">add</span>{t('git.stageFile')}</button
-      >
+      {#if mode === 'staged'}
+        <button class="bs-gbtn inv" disabled={!hasStaged} onclick={() => unstagePaths([path])}
+          ><span class="material-symbols-outlined">remove</span>{t('git.unstageFile')}</button
+        >
+      {:else}
+        <button class="bs-gbtn inv" disabled={!hasUnstaged} onclick={() => stagePaths([path])}
+          ><span class="material-symbols-outlined">add</span>{t('git.stageFile')}</button
+        >
+      {/if}
     {/if}
   </div>
 
@@ -135,8 +143,8 @@
         {path}
         text={diffText}
         layout={diffLayout.current}
-        leftLabel={`HEAD  ${git.log[0]?.short ?? ''}`}
-        rightLabel={mode === 'staged' ? t('git.diff.staged') : t('git.diff.working')}
+        leftLabel={rev ? `${rev.slice(0, 7)}^` : `HEAD  ${git.log[0]?.short ?? ''}`}
+        rightLabel={rev ? rev.slice(0, 7) : mode === 'staged' ? t('git.diff.staged') : t('git.diff.working')}
       />
     {/if}
   </div>

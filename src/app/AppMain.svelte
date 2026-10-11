@@ -15,7 +15,7 @@
   import { ResponseStrip, ResponsePane } from '$features/response/components';
   import { GrpcEditor } from '$features/grpc/components';
   import { HttpRequestEditor } from '$features/http/components';
-  import { CommitEditor, GitDiffView, ProjectDiffView, StashView } from '$features/git/components';
+  import { CommitEditor, GitDiffView, GraphView, ProjectDiffView, StashView } from '$features/git/components';
   import { EnvironmentsSheet } from '$features/environments/components';
   import { RunnerView } from '$features/runner/components';
   import { FlowView } from '$features/flow/components';
@@ -75,6 +75,8 @@
         {#if active.protocol === 'git'}
           {#if active.git?.view === 'project'}
             <ProjectDiffView />
+          {:else if active.git?.view === 'graph'}
+            <GraphView tab={active} />
           {:else if active.git?.view === 'stash'}
             <StashView tab={active} />
           {:else if active.git?.view === 'commit'}

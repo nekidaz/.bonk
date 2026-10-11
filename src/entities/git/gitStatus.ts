@@ -6,9 +6,15 @@ import { methodLabel, type GitFile, type TreeNode } from '$shared/model';
  * worktree change. Falls back to 'M'.
  */
 export function statusLetter(f: GitFile): string {
+  if (isConflict(f)) return '!';
   if (f.index === '?' || f.worktree === '?') return 'U';
   const c = (f.index !== ' ' ? f.index : f.worktree).trim();
   return c || 'M';
+}
+
+/** Unmerged after a stopped merge / cherry-pick / rebase: porcelain `UU`, `AA`, `DD`, `AU`… */
+export function isConflict(f: GitFile): boolean {
+  return f.index === 'U' || f.worktree === 'U' || (f.index === f.worktree && (f.index === 'A' || f.index === 'D'));
 }
 
 /** Map of repo-relative path -> effective status letter. */
@@ -31,7 +37,7 @@ export function folderChangeCount(folderRel: string, files: GitFile[]): number {
 /** CSS color for a status letter, matching the Git panel badge palette. */
 export function statusColor(letter: string): string {
   if (letter === 'A' || letter === 'U') return 'var(--color-success)';
-  if (letter === 'D') return 'var(--color-danger)';
+  if (letter === 'D' || letter === '!') return 'var(--color-danger)';
   if (letter === 'R') return 'var(--method-patch)';
   return 'var(--color-warning)';
 }

@@ -44,6 +44,9 @@ pub struct GitStatus {
     /// workspace *is* the toplevel. File paths in `files` are toplevel-relative,
     /// so the frontend maps a workspace-relative node id by prefixing it.
     pub prefix: String,
+    /// In-progress operation stopped on conflicts: "" | "merge" | "rebase" |
+    /// "cherry-pick" | "revert".
+    pub operation: String,
 }
 
 /// One entry from `git log`.
@@ -229,10 +232,12 @@ pub fn status(root: &str) -> Result<GitStatus, String> {
                 behind: 0,
                 files: vec![],
                 prefix: String::new(),
+                operation: String::new(),
             });
         }
     };
     let prefix = show_prefix(root);
+    let operation = operation_at(&top);
 
     // `--untracked-files=all` expands a new directory into its individual files
     // instead of collapsing it to one `dir/` entry — so the panel shows every
@@ -291,6 +296,7 @@ pub fn status(root: &str) -> Result<GitStatus, String> {
         behind,
         files,
         prefix,
+        operation,
     })
 }
 
@@ -1064,6 +1070,461 @@ pub fn graph(root: &str, limit: u32) -> Result<Vec<String>, String> {
     Ok(out.lines().map(|line| line.to_string()).collect())
 }
 
+// ---- graph, commit detail, history actions --------------------------------
+
+/// A ref pointing at a commit. `kind`: "head" | "branch" | "remote" | "tag".
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GitRef {
+    pub name: String,
+    pub kind: String,
+}
+
+/// One commit in the graph view.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GraphCommit {
+    pub hash: String,
+    pub short: String,
+    /// Full parent hashes.
+    pub parents: Vec<String>,
+    pub author: String,
+    pub email: String,
+    /// Author time, unix seconds.
+    pub time: i64,
+    pub subject: String,
+    pub refs: Vec<GitRef>,
+}
+
+/// A page of the graph plus the totals the UI needs for paging and the header.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GraphPage {
+    pub commits: Vec<GraphCommit>,
+    pub total: u32,
+    pub branches: u32,
+}
+
+/// One file changed by a commit (against its first parent).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CommitFile {
+    /// Toplevel-relative; the new path for a rename.
+    pub path: String,
+    /// "A" | "M" | "D" | "R"
+    pub status: String,
+    pub additions: u32,
+    pub deletions: u32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CommitDetail {
+    pub hash: String,
+    pub short: String,
+    pub parents: Vec<String>,
+    pub author: String,
+    pub email: String,
+    pub time: i64,
+    pub subject: String,
+    pub body: String,
+    /// Short names of local + remote branches that contain the commit.
+    pub branches: Vec<String>,
+    pub files: Vec<CommitFile>,
+}
+
+/// Hashes come from the UI: only 4..40 hex chars may reach git's argv.
+fn check_hash(h: &str) -> Result<(), String> {
+    if (4..=40).contains(&h.len()) && h.bytes().all(|b| b.is_ascii_hexdigit()) {
+        Ok(())
+    } else {
+        Err(format!("invalid commit hash: {h}"))
+    }
+}
+
+fn check_hashes(hashes: &[String]) -> Result<(), String> {
+    if hashes.is_empty() {
+        return Err("no commits given".to_string());
+    }
+    hashes.iter().try_for_each(|h| check_hash(h))
+}
+
+/// Branch/tag names must not be empty or look like a flag.
+fn check_name(n: &str) -> Result<(), String> {
+    if n.is_empty() || n.starts_with('-') {
+        Err(format!("invalid name: {n:?}"))
+    } else {
+        Ok(())
+    }
+}
+
+/// Parse `%D` (with `--decorate=full`) into refs.
+fn parse_refs(decor: &str) -> Vec<GitRef> {
+    let mut out = Vec::new();
+    for part in decor.split(", ").map(str::trim).filter(|p| !p.is_empty()) {
+        let (name, kind) = if let Some(b) = part.strip_prefix("HEAD -> refs/heads/") {
+            (b, "head")
+        } else if part == "HEAD" {
+            ("HEAD", "head")
+        } else if let Some(t) = part.strip_prefix("tag: refs/tags/") {
+            (t, "tag")
+        } else if let Some(b) = part.strip_prefix("refs/heads/") {
+            (b, "branch")
+        } else if let Some(r) = part.strip_prefix("refs/remotes/") {
+            if r.ends_with("/HEAD") {
+                continue;
+            }
+            (r, "remote")
+        } else {
+            continue;
+        };
+        out.push(GitRef {
+            name: name.to_string(),
+            kind: kind.to_string(),
+        });
+    }
+    out
+}
+
+/// One page of history for the graph: 3 git processes regardless of size.
+pub fn graph_log(root: &str, all: bool, skip: u32, limit: u32) -> Result<GraphPage, String> {
+    let top = toplevel(root)?;
+    let range = if all { "--all" } else { "HEAD" };
+    let skip_arg = format!("--skip={skip}");
+    let limit_arg = format!("-n{limit}");
+    let out = match git(
+        &top,
+        &[
+            "log",
+            "--topo-order",
+            "--decorate=full",
+            "--format=%H%x1f%P%x1f%an%x1f%ae%x1f%at%x1f%s%x1f%D%x1e",
+            &skip_arg,
+            &limit_arg,
+            range,
+        ],
+    ) {
+        Ok(o) => o,
+        // Unborn branch: `log HEAD` fails, that is an empty history, not an error.
+        Err(e) => {
+            if git(&top, &["rev-parse", "--verify", "-q", "HEAD"]).is_err() && !all {
+                return Ok(GraphPage {
+                    commits: vec![],
+                    total: 0,
+                    branches: 0,
+                });
+            }
+            return Err(e);
+        }
+    };
+
+    let mut commits = Vec::new();
+    for rec in out.split('\x1e') {
+        let rec = rec.trim_start_matches('\n');
+        let f: Vec<&str> = rec.split('\x1f').collect();
+        if f.len() < 7 {
+            continue;
+        }
+        commits.push(GraphCommit {
+            hash: f[0].to_string(),
+            short: f[0].chars().take(7).collect(),
+            parents: f[1].split_whitespace().map(str::to_string).collect(),
+            author: f[2].to_string(),
+            email: f[3].to_string(),
+            time: f[4].parse().unwrap_or(0),
+            subject: f[5].to_string(),
+            refs: parse_refs(f[6]),
+        });
+    }
+
+    let total = git(&top, &["rev-list", "--count", range])
+        .ok()
+        .and_then(|s| s.trim().parse().ok())
+        .unwrap_or(0);
+    let branches = git(&top, &["for-each-ref", "--format=x", "refs/heads/"])
+        .map(|s| s.lines().count() as u32)
+        .unwrap_or(0);
+    Ok(GraphPage {
+        commits,
+        total,
+        branches,
+    })
+}
+
+/// Diff-tree args that compare `hash` with its first parent (or the empty tree).
+fn diff_tree_args<'a>(parent: Option<&'a str>, hash: &'a str, flags: &[&'a str]) -> Vec<&'a str> {
+    let mut a = vec!["diff-tree", "-r", "-M", "-z"];
+    a.extend_from_slice(flags);
+    match parent {
+        Some(p) => a.extend([p, hash]),
+        None => a.extend(["--root", hash]),
+    }
+    a
+}
+
+/// Metadata, changed files (vs first parent) and containing branches: 4 processes.
+pub fn commit_detail(root: &str, hash: &str) -> Result<CommitDetail, String> {
+    check_hash(hash)?;
+    let top = toplevel(root)?;
+    let meta = git(
+        &top,
+        &[
+            "show",
+            "-s",
+            "--format=%H%x1f%P%x1f%an%x1f%ae%x1f%at%x1f%s%x1f%b",
+            hash,
+        ],
+    )?;
+    let f: Vec<&str> = meta.splitn(7, '\x1f').collect();
+    if f.len() < 7 {
+        return Err("unexpected git output".to_string());
+    }
+    let full = f[0].to_string();
+    let parents: Vec<String> = f[1].split_whitespace().map(str::to_string).collect();
+    let first_parent = parents.first().map(String::as_str);
+
+    // name-status gives the letter, numstat the counts; both list files in the
+    // same order, joined here by (new) path.
+    let ns = git(
+        &top,
+        &diff_tree_args(first_parent, &full, &["--name-status"]),
+    )?;
+    let nu = git(&top, &diff_tree_args(first_parent, &full, &["--numstat"]))?;
+
+    let mut counts: HashMap<String, (u32, u32)> = HashMap::new();
+    let mut recs = nu.split('\0').filter(|r| !r.is_empty());
+    // With `--root`/a single tree git prints a leading hash line; skip non-numstat records.
+    while let Some(rec) = recs.next() {
+        let mut p = rec.splitn(3, '\t');
+        let (Some(a), Some(d), Some(path)) = (p.next(), p.next(), p.next()) else {
+            continue;
+        };
+        let path = if path.is_empty() {
+            // Rename: the next two records are old, new.
+            recs.next();
+            recs.next().unwrap_or("")
+        } else {
+            path
+        };
+        counts.insert(
+            path.to_string(),
+            (a.parse().unwrap_or(0), d.parse().unwrap_or(0)),
+        );
+    }
+
+    let mut files = Vec::new();
+    let mut recs = ns.split('\0').filter(|r| !r.is_empty());
+    while let Some(st) = recs.next() {
+        // `--root` prefixes the commit hash as its own record.
+        if st.len() > 3 && st.bytes().all(|b| b.is_ascii_hexdigit()) {
+            continue;
+        }
+        let Some(first) = st.chars().next() else {
+            continue;
+        };
+        let mut path = recs.next().unwrap_or("");
+        if first == 'R' || first == 'C' {
+            path = recs.next().unwrap_or(path);
+        }
+        let status = match first {
+            'A' | 'C' => "A",
+            'D' => "D",
+            'R' => "R",
+            _ => "M",
+        };
+        let (additions, deletions) = counts.get(path).copied().unwrap_or((0, 0));
+        files.push(CommitFile {
+            path: path.to_string(),
+            status: status.to_string(),
+            additions,
+            deletions,
+        });
+    }
+
+    let refs = git(
+        &top,
+        &[
+            "for-each-ref",
+            "--contains",
+            &full,
+            "--format=%(refname)",
+            "refs/heads",
+            "refs/remotes",
+        ],
+    )?;
+    let branches = refs
+        .lines()
+        .filter_map(|r| {
+            r.strip_prefix("refs/heads/")
+                .or_else(|| r.strip_prefix("refs/remotes/"))
+        })
+        .filter(|n| *n != "HEAD" && !n.ends_with("/HEAD"))
+        .map(str::to_string)
+        .collect();
+
+    Ok(CommitDetail {
+        short: full.chars().take(7).collect(),
+        hash: full,
+        parents,
+        author: f[2].to_string(),
+        email: f[3].to_string(),
+        time: f[4].parse().unwrap_or(0),
+        subject: f[5].to_string(),
+        body: f[6].trim().to_string(),
+        branches,
+        files,
+    })
+}
+
+/// Full-file diff of `path` in commit `hash` against its first parent (root
+/// commit: against nothing). `-m --first-parent` makes merges diff vs parent 1.
+pub fn commit_file_diff(root: &str, hash: &str, path: &str) -> Result<String, String> {
+    check_hash(hash)?;
+    let top = toplevel(root)?;
+    git(
+        &top,
+        &[
+            "show",
+            "--format=",
+            "-m",
+            "--first-parent",
+            FULL,
+            hash,
+            "--",
+            path,
+        ],
+    )
+}
+
+/// Run `git -c core.editor=true <args>` at the toplevel so git never waits for
+/// an editor (a GUI has no terminal to give it).
+fn git_noedit(root: &str, args: &[&str]) -> Result<(), String> {
+    let top = toplevel(root)?;
+    let mut a = vec!["-c", "core.editor=true"];
+    a.extend_from_slice(args);
+    git(&top, &a).map(|_| ())
+}
+
+/// `git <cmd> [flags] <hashes...>` in the given order.
+fn git_hashes(root: &str, cmd: &str, flags: &[&str], hashes: &[String]) -> Result<(), String> {
+    check_hashes(hashes)?;
+    let mut a = vec![cmd];
+    a.extend_from_slice(flags);
+    a.extend(hashes.iter().map(String::as_str));
+    git_noedit(root, &a)
+}
+
+/// Apply commits onto HEAD, in the given order (oldest first).
+pub fn cherry_pick(root: &str, hashes: &[String]) -> Result<(), String> {
+    git_hashes(root, "cherry-pick", &[], hashes)
+}
+
+/// Revert commits, in the given order (newest first).
+pub fn revert(root: &str, hashes: &[String]) -> Result<(), String> {
+    git_hashes(root, "revert", &["--no-edit"], hashes)
+}
+
+pub fn merge(root: &str, branch: &str) -> Result<(), String> {
+    check_name(branch)?;
+    git_noedit(root, &["merge", "--autostash", "--no-edit", branch])
+}
+
+pub fn rebase(root: &str, onto: &str) -> Result<(), String> {
+    check_name(onto)?;
+    git_noedit(root, &["rebase", "--autostash", onto])
+}
+
+pub fn checkout_detached(root: &str, hash: &str) -> Result<(), String> {
+    check_hash(hash)?;
+    git_noedit(root, &["switch", "--detach", hash])
+}
+
+pub fn reset(root: &str, hash: &str, mode: &str) -> Result<(), String> {
+    check_hash(hash)?;
+    let flag = match mode {
+        "soft" => "--soft",
+        "mixed" => "--mixed",
+        "hard" => "--hard",
+        _ => return Err(format!("invalid reset mode: {mode}")),
+    };
+    git_noedit(root, &["reset", flag, hash])
+}
+
+pub fn create_tag(root: &str, name: &str, hash: &str) -> Result<(), String> {
+    check_name(name)?;
+    check_hash(hash)?;
+    git_noedit(root, &["tag", name, hash])
+}
+
+pub fn create_branch_at(root: &str, name: &str, hash: &str) -> Result<(), String> {
+    check_name(name)?;
+    check_hash(hash)?;
+    git_noedit(root, &["switch", "-c", name, hash])
+}
+
+/// mbox text for the commits, in the given order (one process).
+pub fn format_patch(root: &str, hashes: &[String]) -> Result<String, String> {
+    check_hashes(hashes)?;
+    let top = toplevel(root)?;
+    let mut a = vec!["format-patch", "--stdout", "--no-walk=unsorted"];
+    // format-patch emits its walk list reversed, so feed it reversed to get
+    // the caller's order back.
+    a.extend(hashes.iter().rev().map(String::as_str));
+    git(&top, &a)
+}
+
+/// `fetch --all --prune`, with the network timeout.
+pub fn fetch(root: &str) -> Result<String, String> {
+    let top = toplevel(root)?;
+    run_combined(&top, &["fetch", "--all", "--prune"])
+}
+
+/// Which operation is stopped mid-way ("" when none), from marker files in the
+/// git dir.
+fn operation_at(top: &str) -> String {
+    let Ok(dir) = git(top, &["rev-parse", "--absolute-git-dir"]) else {
+        return String::new();
+    };
+    let dir = std::path::Path::new(dir.trim());
+    let has = |n: &str| dir.join(n).exists();
+    let op = if has("rebase-merge") || has("rebase-apply") {
+        "rebase"
+    } else if has("MERGE_HEAD") {
+        "merge"
+    } else if has("CHERRY_PICK_HEAD") {
+        "cherry-pick"
+    } else if has("REVERT_HEAD") {
+        "revert"
+    } else {
+        ""
+    };
+    op.to_string()
+}
+
+fn current_operation(root: &str) -> Result<(String, String), String> {
+    let top = toplevel(root)?;
+    let op = operation_at(&top);
+    if op.is_empty() {
+        Err("no operation in progress".to_string())
+    } else {
+        Ok((top, op))
+    }
+}
+
+pub fn operation_abort(root: &str) -> Result<(), String> {
+    let (top, op) = current_operation(root)?;
+    git_noedit(&top, &[&op, "--abort"])
+}
+
+pub fn operation_continue(root: &str) -> Result<(), String> {
+    let (top, op) = current_operation(root)?;
+    if op == "merge" {
+        git_noedit(&top, &["commit", "--no-edit"])
+    } else {
+        git_noedit(&top, &[&op, "--continue"])
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1687,6 +2148,208 @@ mod tests {
         assert!(dir.join("new.txt").exists());
         assert!(stash_list(root).unwrap().is_empty());
         assert!(stash_branch(root, "-x", 0).is_err());
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    fn commit_file(root: &str, name: &str, content: &str, msg: &str) {
+        fs::write(std::path::Path::new(root).join(name), content).unwrap();
+        git(root, &["add", "-A"]).unwrap();
+        git(root, &["commit", "-m", msg]).unwrap();
+    }
+
+    fn rev(root: &str, r: &str) -> String {
+        git(root, &["rev-parse", r]).unwrap().trim().to_string()
+    }
+
+    /// main: a -> b -> M(merge of feat); feat: a -> f1. Tag v1 on a.
+    fn merge_repo() -> std::path::PathBuf {
+        let dir = init_repo();
+        let r = dir.to_str().unwrap();
+        commit_file(r, "a.txt", "a\n", "a");
+        git(r, &["branch", "-M", "main"]).unwrap();
+        git(r, &["tag", "v1"]).unwrap();
+        git(r, &["switch", "-c", "feat"]).unwrap();
+        commit_file(r, "f.txt", "f\n", "f1");
+        git(r, &["switch", "main"]).unwrap();
+        commit_file(r, "b.txt", "b\n", "b");
+        git(r, &["merge", "--no-ff", "-m", "M", "feat"]).unwrap();
+        dir
+    }
+
+    #[test]
+    fn check_hash_rejects_bad_input() {
+        assert!(check_hash("-x").is_err());
+        assert!(check_hash("zz").is_err());
+        assert!(check_hash("abc").is_err());
+        assert!(check_hash("abcd1234").is_ok());
+        assert!(check_name("-x").is_err());
+        assert!(check_name("").is_err());
+    }
+
+    #[test]
+    fn graph_log_merge_refs_total_skip() {
+        let dir = merge_repo();
+        let r = dir.to_str().unwrap();
+        let p = graph_log(r, true, 0, 50).unwrap();
+        assert_eq!(p.total, 4);
+        assert_eq!(p.branches, 2);
+        assert_eq!(p.commits.len(), 4);
+        let m = &p.commits[0];
+        assert_eq!(m.subject, "M");
+        assert_eq!(m.parents.len(), 2);
+        assert!(m.refs.iter().any(|x| x.kind == "head" && x.name == "main"));
+        assert!(p.commits.iter().any(|c| c
+            .refs
+            .iter()
+            .any(|x| x.kind == "branch" && x.name == "feat")));
+        assert!(p
+            .commits
+            .iter()
+            .any(|c| c.refs.iter().any(|x| x.kind == "tag" && x.name == "v1")));
+        let p2 = graph_log(r, false, 3, 50).unwrap();
+        assert_eq!(p2.commits.len(), 1);
+        assert_eq!(p2.total, 4);
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn graph_log_unborn_is_empty() {
+        let dir = init_repo();
+        let p = graph_log(dir.to_str().unwrap(), false, 0, 10).unwrap();
+        assert!(p.commits.is_empty());
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn commit_detail_files_and_branches() {
+        let dir = init_repo();
+        let r = dir.to_str().unwrap();
+        commit_file(r, "a.txt", "1\n2\n", "first");
+        commit_file(r, "keep.txt", "k\n", "second");
+        fs::write(dir.join("a.txt"), "1\n2\n3\n").unwrap();
+        fs::write(dir.join("new.txt"), "n\n").unwrap();
+        fs::remove_file(dir.join("keep.txt")).unwrap();
+        git(r, &["add", "-A"]).unwrap();
+        git(r, &["commit", "-m", "third", "-m", "body text"]).unwrap();
+        let d = commit_detail(r, &rev(r, "HEAD")).unwrap();
+        assert_eq!(d.subject, "third");
+        assert_eq!(d.body, "body text");
+        assert_eq!(d.parents.len(), 1);
+        assert!(!d.branches.is_empty());
+        let get = |p: &str| d.files.iter().find(|f| f.path == p).unwrap();
+        assert_eq!(get("a.txt").status, "M");
+        assert_eq!(get("a.txt").additions, 1);
+        assert_eq!(get("new.txt").status, "A");
+        assert_eq!(get("keep.txt").status, "D");
+        assert_eq!(get("keep.txt").deletions, 1);
+        // Root commit diffs against the empty tree.
+        let root_c = commit_detail(r, &rev(r, "HEAD~2")).unwrap();
+        assert_eq!(root_c.files.len(), 1);
+        assert_eq!(root_c.files[0].status, "A");
+        assert_eq!(root_c.files[0].additions, 2);
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn commit_detail_rename() {
+        let dir = init_repo();
+        let r = dir.to_str().unwrap();
+        commit_file(r, "old.txt", "same\ncontent\nhere\n", "add");
+        git(r, &["mv", "old.txt", "new.txt"]).unwrap();
+        git(r, &["commit", "-m", "mv"]).unwrap();
+        let d = commit_detail(r, &rev(r, "HEAD")).unwrap();
+        assert_eq!(d.files.len(), 1);
+        assert_eq!(d.files[0].path, "new.txt");
+        assert_eq!(d.files[0].status, "R");
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn commit_file_diff_is_full_file() {
+        let dir = init_repo();
+        let r = dir.to_str().unwrap();
+        commit_file(r, "big.txt", &big_file("x"), "base");
+        commit_file(r, "big.txt", &big_file("CHANGED"), "edit");
+        let out = commit_file_diff(r, &rev(r, "HEAD"), "big.txt").unwrap();
+        assert!(out.contains("CHANGED"));
+        assert!(out.contains("line 1\n"), "far lines present: {out}");
+        let root_out = commit_file_diff(r, &rev(r, "HEAD~1"), "big.txt").unwrap();
+        assert!(root_out.contains("+line 1"));
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn cherry_pick_and_revert() {
+        let dir = init_repo();
+        let r = dir.to_str().unwrap();
+        commit_file(r, "a.txt", "a\n", "a");
+        git(r, &["branch", "-M", "main"]).unwrap();
+        git(r, &["switch", "-c", "other"]).unwrap();
+        commit_file(r, "x.txt", "x\n", "px");
+        commit_file(r, "y.txt", "y\n", "py");
+        let (h1, h2) = (rev(r, "HEAD~1"), rev(r, "HEAD"));
+        git(r, &["switch", "main"]).unwrap();
+        cherry_pick(r, &[h1, h2]).unwrap();
+        assert!(dir.join("x.txt").exists() && dir.join("y.txt").exists());
+        revert(r, &[rev(r, "HEAD")]).unwrap();
+        assert!(!dir.join("y.txt").exists());
+        assert!(dir.join("x.txt").exists());
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn reset_tag_branch_detach() {
+        let dir = init_repo();
+        let r = dir.to_str().unwrap();
+        commit_file(r, "a.txt", "1\n", "one");
+        let first = rev(r, "HEAD");
+        commit_file(r, "a.txt", "2\n", "two");
+        create_tag(r, "t1", &first).unwrap();
+        assert_eq!(rev(r, "t1"), first);
+        reset(r, &first, "soft").unwrap();
+        assert_eq!(rev(r, "HEAD"), first);
+        assert_eq!(fs::read_to_string(dir.join("a.txt")).unwrap(), "2\n");
+        reset(r, &first, "hard").unwrap();
+        assert_eq!(fs::read_to_string(dir.join("a.txt")).unwrap(), "1\n");
+        assert!(reset(r, &first, "bogus").is_err());
+        create_branch_at(r, "nb", &first).unwrap();
+        assert_eq!(current_branch(r).unwrap(), "nb");
+        checkout_detached(r, &first).unwrap();
+        assert_eq!(status(r).unwrap().branch, "");
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn format_patch_two_commits() {
+        let dir = init_repo();
+        let r = dir.to_str().unwrap();
+        commit_file(r, "a.txt", "1\n", "subject one");
+        commit_file(r, "b.txt", "2\n", "subject two");
+        let out = format_patch(r, &[rev(r, "HEAD~1"), rev(r, "HEAD")]).unwrap();
+        let (i1, i2) = (
+            out.find("subject one").unwrap(),
+            out.find("subject two").unwrap(),
+        );
+        assert!(i1 < i2);
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn conflicting_cherry_pick_sets_operation_then_abort() {
+        let dir = init_repo();
+        let r = dir.to_str().unwrap();
+        commit_file(r, "a.txt", "base\n", "base");
+        git(r, &["branch", "-M", "main"]).unwrap();
+        git(r, &["switch", "-c", "other"]).unwrap();
+        commit_file(r, "a.txt", "other\n", "other change");
+        let h = rev(r, "HEAD");
+        git(r, &["switch", "main"]).unwrap();
+        commit_file(r, "a.txt", "main\n", "main change");
+        assert!(cherry_pick(r, &[h]).is_err());
+        assert_eq!(status(r).unwrap().operation, "cherry-pick");
+        operation_abort(r).unwrap();
+        assert_eq!(status(r).unwrap().operation, "");
+        assert!(operation_abort(r).is_err());
         let _ = fs::remove_dir_all(dir);
     }
 }
