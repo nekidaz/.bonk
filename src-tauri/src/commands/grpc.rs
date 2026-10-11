@@ -72,9 +72,20 @@ pub async fn grpc_connect(
     timeout_ms: Option<u64>,
     state: State<'_, AppState>,
 ) -> Result<String, GrpcError> {
-    let tls = tls.unwrap_or_default();
-    let prefs = prefs.unwrap_or_default();
-    // Distinct TLS options / limits get distinct connections.
+    let (tls, prefs) = (tls.unwrap_or_default(), prefs.unwrap_or_default());
+    open(&state, endpoint, plaintext, tls, prefs, timeout_ms).await
+}
+
+/// Dial and register a connection; returns its id. Distinct TLS options / limits get
+/// distinct connections.
+pub(crate) async fn open(
+    state: &AppState,
+    endpoint: String,
+    plaintext: bool,
+    tls: GrpcTls,
+    prefs: GrpcPrefs,
+    timeout_ms: Option<u64>,
+) -> Result<String, GrpcError> {
     let id = format!(
         "{endpoint}|{plaintext}|{}|{}",
         serde_json::to_string(&tls).map_err(|e| e.to_string())?,
@@ -107,7 +118,7 @@ fn cancelled() -> GrpcError {
     GrpcError::new(GrpcErrorCode::Cancelled, "request cancelled")
 }
 
-fn conn(state: &State<AppState>, id: &str) -> Result<GrpcConn, String> {
+fn conn(state: &AppState, id: &str) -> Result<GrpcConn, String> {
     state
         .conns
         .lock()
@@ -123,7 +134,15 @@ pub async fn grpc_reflect(
     timeout_ms: Option<u64>,
     state: State<'_, AppState>,
 ) -> Result<ServiceTree, GrpcError> {
-    let conn = conn(&state, &connection_id)?;
+    reflect(&state, &connection_id, timeout_ms).await
+}
+
+pub(crate) async fn reflect(
+    state: &AppState,
+    connection_id: &str,
+    timeout_ms: Option<u64>,
+) -> Result<ServiceTree, GrpcError> {
+    let conn = conn(state, connection_id)?;
     if let Some(cache) = conn.cache {
         return Ok(cache.tree);
     }
@@ -144,7 +163,7 @@ pub async fn grpc_reflect(
         .conns
         .lock()
         .map_err(|_| "grpc state lock poisoned".to_string())?
-        .get_mut(&connection_id)
+        .get_mut(connection_id)
     {
         conn.cache = Some(cache);
     }
@@ -158,6 +177,15 @@ pub async fn grpc_load_proto(
     import_paths: Vec<String>,
     state: State<'_, AppState>,
 ) -> Result<ServiceTree, String> {
+    load_proto(&state, &connection_id, proto_paths, import_paths).await
+}
+
+pub(crate) async fn load_proto(
+    state: &AppState,
+    connection_id: &str,
+    proto_paths: Vec<String>,
+    import_paths: Vec<String>,
+) -> Result<ServiceTree, String> {
     // The channel must already be open (grpc_connect). Compiling is sync CPU
     // work, so run it off the async runtime.
     if proto_paths.is_empty() {
@@ -165,7 +193,7 @@ pub async fn grpc_load_proto(
     }
     // Validate the connection exists *before* the heavy compile so we fail fast
     // (and don't burn a blocking-pool thread compiling for a dead connection).
-    conn(&state, &connection_id)?;
+    conn(state, connection_id)?;
     let cache = tokio::task::spawn_blocking(move || {
         bonk_core::application::grpc_native::compile_protos(&proto_paths, &import_paths)
     })
@@ -176,7 +204,7 @@ pub async fn grpc_load_proto(
         .conns
         .lock()
         .map_err(|_| "grpc state lock poisoned".to_string())?
-        .get_mut(&connection_id)
+        .get_mut(connection_id)
     {
         conn.cache = Some(cache);
     } else {
@@ -352,14 +380,35 @@ pub async fn grpc_call(
     timeout_ms: Option<u64>,
     state: State<'_, AppState>,
 ) -> Result<GrpcResult, GrpcError> {
-    let conn = conn(&state, &connection_id)?;
+    call(
+        &state,
+        &connection_id,
+        &method,
+        &json_body,
+        &metadata,
+        &request_id,
+        timeout_ms,
+    )
+    .await
+}
+
+pub(crate) async fn call(
+    state: &AppState,
+    connection_id: &str,
+    method: &str,
+    json_body: &str,
+    metadata: &HashMap<String, String>,
+    request_id: &Option<String>,
+    timeout_ms: Option<u64>,
+) -> Result<GrpcResult, GrpcError> {
+    let conn = conn(state, connection_id)?;
     let channel = conn
         .channel
         .ok_or_else(|| "connection has no channel".to_string())?;
     let cache = conn
         .cache
         .ok_or_else(|| "reflection cache is not loaded".to_string())?;
-    let cancel = register_cancel(&state, &request_id)?;
+    let cancel = register_cancel(state, request_id)?;
     // Prefer grpcurl (fresh connection per call); the long-lived tonic channel
     // is only the fallback when grpcurl isn't installed.
     let call = async {
@@ -371,9 +420,9 @@ pub async fn grpc_call(
                     conn.plaintext,
                     &conn.tls,
                     cache,
-                    &method,
-                    &json_body,
-                    &metadata,
+                    method,
+                    json_body,
+                    metadata,
                     &conn.prefs,
                 )
                 .await
@@ -382,9 +431,9 @@ pub async fn grpc_call(
                 bonk_core::application::grpc_native::call_with(
                     channel,
                     cache,
-                    &method,
-                    &json_body,
-                    &metadata,
+                    method,
+                    json_body,
+                    metadata,
                     &conn.prefs,
                 )
                 .await
@@ -399,6 +448,6 @@ pub async fn grpc_call(
     } else {
         timeout_result(timeout_ms, call).await
     };
-    finish_cancel(&state, &request_id);
+    finish_cancel(state, request_id);
     result
 }

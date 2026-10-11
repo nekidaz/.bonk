@@ -91,6 +91,49 @@ impl CookieJar {
         out
     }
 
+    /// What a script sees as `pm.cookies` for `url`: the jar as `response` left it,
+    /// cookies that would go to that URL. Mirrors `cookiesFor` in entities/cookies.
+    pub fn script_cookies(&self, url: &str, response: &[ResponseCookie]) -> Vec<(String, String)> {
+        let Ok(url) = Url::parse(url) else {
+            return Vec::new();
+        };
+        let host = url.host_str().unwrap_or_default().to_ascii_lowercase();
+        let same = |a: &CookieInfo, b: &CookieInfo| {
+            a.name == b.name && a.domain == b.domain && a.path == b.path
+        };
+        let mut jar = self.list();
+        for r in response {
+            if let Some(
+                change @ (CookieChange::New | CookieChange::Updated | CookieChange::Deleted),
+            ) = r.change
+            {
+                jar.retain(|c| !same(c, &r.cookie));
+                if change != CookieChange::Deleted {
+                    jar.push(r.cookie.clone());
+                }
+            }
+        }
+        let path_fits = |p: &str| {
+            let dir = if p.ends_with('/') {
+                p.to_string()
+            } else {
+                format!("{p}/")
+            };
+            p == "/" || url.path() == p || url.path().starts_with(&dir)
+        };
+        jar.into_iter()
+            .filter(|c| {
+                let domain_fits =
+                    host == c.domain || (!c.host_only && host.ends_with(&format!(".{}", c.domain)));
+                !c.expired
+                    && domain_fits
+                    && path_fits(&c.path)
+                    && (!c.secure || url.scheme() == "https")
+            })
+            .map(|c| (c.name, c.value))
+            .collect()
+    }
+
     /// Add (or replace: same name, domain and path) a cookie from a `Set-Cookie` value,
     /// as if `url` had answered with it.
     pub fn add(&self, set_cookie: &str, url: &str) -> Result<(), String> {
@@ -349,6 +392,28 @@ mod tests {
 
     fn url(s: &str) -> Url {
         Url::parse(s).unwrap()
+    }
+
+    #[test]
+    fn script_cookies_follow_domain_path_and_secure() {
+        let dir = tmp_dir("script");
+        let jar = jar_in(&dir);
+        jar.add("sid=1; Path=/api", "https://a.test/").unwrap();
+        jar.add("wide=2; Domain=a.test", "https://a.test/").unwrap();
+        jar.add("tls=3; Secure", "https://a.test/").unwrap();
+        let names = |url: &str| -> Vec<String> {
+            let mut n: Vec<_> = jar
+                .script_cookies(url, &[])
+                .into_iter()
+                .map(|c| c.0)
+                .collect();
+            n.sort();
+            n
+        };
+        assert_eq!(names("https://a.test/api/x"), ["sid", "tls", "wide"]);
+        assert_eq!(names("http://sub.a.test/"), ["wide"]);
+        assert_eq!(names("https://a.test/apix"), ["tls", "wide"]);
+        std::fs::remove_dir_all(dir).ok();
     }
 
     fn provider(jar: &Arc<CookieJar>, save: bool, send: bool) -> JarProvider {

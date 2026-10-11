@@ -15,6 +15,7 @@ import {
   type ImportSource,
   type TreeNode,
   type RequestNode,
+  type RunResultRow,
   type GitStatus,
   type GitCommit,
   type FileDiff,
@@ -247,6 +248,48 @@ export function grpcStream(
     onMessage: channel,
   });
 }
+/** What a Collection Runner run sends (bonk-core `runner::RunPlan`); request auth already effective. */
+export interface RunPlan {
+  requests: RequestNode[];
+  iterations: number;
+  dataRows: Record<string, string>[];
+  delayMs: number;
+  stopOnFailure: boolean;
+  workspaceRoot: string;
+  globalImportPaths: string[];
+}
+
+/** Script writes of a run, for the env/globals stores (and cookie clears). */
+export interface RunVarWrites {
+  envSet: Record<string, string>;
+  envUnset: string[];
+  globalsSet: Record<string, string>;
+  globalsUnset: string[];
+  cookieClears: string[];
+}
+
+export type RunEvent =
+  | { kind: 'iteration'; index: number; atMs: number }
+  | { kind: 'call'; nodeId: string; name: string; method: string }
+  | ({ kind: 'vars' } & RunVarWrites)
+  | ({ kind: 'row' } & RunResultRow);
+
+/** Run `plan` in bonk-core (the same runner a CLI uses); events stream as it goes. */
+export function runnerRun(
+  runId: string,
+  plan: RunPlan,
+  vars: { environment: Record<string, string>; globals: Record<string, string> },
+  settings: RequestSettings,
+  grpc: { prefs: GrpcPrefs; connectTimeoutMs?: number; deadlineMs?: number },
+  onEvent: (event: RunEvent) => void,
+): Promise<'done' | 'stopped'> {
+  const channel = new Channel<RunEvent>();
+  channel.onmessage = onEvent;
+  return invoke('runner_run', { runId, plan, vars, settings, grpc, onEvent: channel });
+}
+export const runnerPause = (runId: string, paused: boolean) => invoke<void>('runner_pause', { runId, paused });
+export const runnerStop = (runId: string) => invoke<void>('runner_stop', { runId });
+
 /** Client/bidi: send more messages (an object or an array) into the open stream `requestId`. */
 export const grpcStreamSend = (requestId: string, jsonBody: string) =>
   invoke<number>('grpc_stream_send', { requestId, jsonBody });

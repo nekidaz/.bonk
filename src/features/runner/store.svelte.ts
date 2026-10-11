@@ -1,7 +1,7 @@
 import { untrack } from 'svelte';
 import { t } from '$shared/i18n';
 import type { Tab, RunResultRow, RunStatus } from '$shared/model';
-import { workspaceSaveRequest } from '$shared/ipc';
+import { runnerPause, runnerStop, workspaceSaveRequest } from '$shared/ipc';
 import { findNode, idToRel, parentId, ROOT, refreshDirs, workspace } from '$entities/workspace';
 import {
   pushHistory,
@@ -39,22 +39,20 @@ import {
 import { isArrayOf, loadState, saveState, saveStateDebounced } from '$shared/persist';
 import { tabs } from '$entities/tab';
 import { environments, setActiveEnvironment } from '$entities/environment';
-import { runNode } from '$entities/request';
+import { runOne, runRequests } from '$entities/request';
 
 /**
  * The Collection Runner: runs a whole folder of saved requests (HTTP + gRPC) in
  * sequence, optionally over multiple iterations and/or a CSV/JSON data file,
- * streaming results live. It reuses the interactive send + script pipeline
- * (mirroring `sendHttpRequest`) but returns data rather than writing to a tab.
+ * streaming results live. The run itself happens in bonk-core's runner (via
+ * `runRequests`); this store keeps its setup, live state and history.
  *
  * Layering: this module depends on `entities/request` (the shared `applyScriptVars`
  * fold + `execute.ts`), `shared/ipc` and pure model helpers only — never the other
  * way round — so the slice graph stays acyclic.
  *
- * Env/globals writes made by scripts persist across the WHOLE run: each request
- * folds its writes into the real stores via `applyScriptVars`, and every request
- * recomputes its env/globals maps FRESH (read at that moment) so a later request
- * sees an earlier one's writes.
+ * Env/globals writes made by scripts persist across the WHOLE run: the runner keeps
+ * them for later requests and streams them back into the real stores.
  */
 
 const PRESETS_KEY = 'runnerPresets';
@@ -262,11 +260,6 @@ export function clearData(): void {
   runner.updateConfig((c) => ({ ...c, dataFileName: null, dataRows: [] }));
 }
 
-/** Sleep helper for the inter-request delay. */
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
 /** Append a streamed result row (new array so Svelte reactivity fires). */
 function pushRow(row: RunResultRow): void {
   runner.updateRun((r) => ({ ...r, results: [...r.results, row], completed: r.completed + 1, current: null }));
@@ -337,36 +330,31 @@ export function viewRun(n: number): void {
   setRunnerStage('run');
 }
 
-/**
- * Run the configured folders. Determines the iteration count (data rows when a
- * file is loaded, else the numeric setting), streams a row per executed request,
- * and honours stop-on-failure + the inter-request delay. Never throws: a bad
- * request becomes an `ok:false` row. Each row's `startOffsetMs` is measured
- * from its iteration start minus the configured delays (the waterfall).
- */
-let stopRequested = false;
+/** The live run's id in the Rust runner (pause / stop). */
+let runId = '';
 
 /** R3 "Пауза" / "Продолжить": the run halts before its next call. */
 export function togglePause(): void {
-  runner.updateRun((r) => (r.status === 'running' ? { ...r, paused: !r.paused } : r));
+  if (runner.run.status !== 'running') return;
+  runner.updateRun((r) => ({ ...r, paused: !r.paused }));
+  void runnerPause(runId, runner.run.paused);
 }
 
 /** R3 "Остановить": the call in flight finishes, nothing after it is sent. */
 export function stopRun(): void {
-  if (runner.run.status === 'running') stopRequested = true;
+  if (runner.run.status === 'running') void runnerStop(runId);
 }
 
-/** Wait out a pause; true when the run should stop instead. */
-async function holdOrStop(): Promise<boolean> {
-  while (runner.run.paused && !stopRequested) await sleep(100);
-  return stopRequested;
-}
-
+/**
+ * Run the configured folders: the iteration count (data rows when a file is loaded,
+ * else the numeric setting), stop-on-failure and the delay go to the runner, which
+ * streams a row per executed request (`startOffsetMs` = the waterfall slot). Never
+ * throws: a bad request is an `ok:false` row.
+ */
 export async function runCollection(): Promise<void> {
   if (runner.run.status === 'running') return;
   await loadRunnerState();
   setRunnerStage('run');
-  stopRequested = false;
   runner.viewing = null;
   const config = runner.config;
   const requests = plannedRequests(config, workspace.tree);
@@ -377,7 +365,6 @@ export async function runCollection(): Promise<void> {
     return;
   }
 
-  const dataDriven = config.dataRows.length > 0;
   const iterations = iterationCount(config);
 
   const startedAt = Date.now();
@@ -391,35 +378,36 @@ export async function runCollection(): Promise<void> {
     iterations,
   };
 
-  for (let i = 1; i <= iterations; i++) {
-    const iterationData = dataDriven ? (config.dataRows[i - 1] ?? {}) : {};
-    const iterStart = performance.now();
-    runner.updateRun((r) => ({ ...r, iterStarts: [...r.iterStarts, Date.now() - startedAt] }));
-    let paused = 0;
-    for (let j = 0; j < requests.length; j++) {
-      const t0 = performance.now();
-      if (await holdOrStop()) return finishRun('stopped');
-      paused += performance.now() - t0;
-      const node = requests[j];
-      const method = node.protocol === 'grpc' ? 'gRPC' : node.request.method;
-      runner.updateRun((r) => ({ ...r, current: { nodeId: node.id, name: node.name, method, startedAt: Date.now() } }));
-      const startOffsetMs = Math.round(performance.now() - iterStart - paused);
-      const row = { ...(await runNode(node, i, iterationData)), startOffsetMs, endMs: Date.now() - startedAt };
-      pushRow(row);
-
-      if (stopRequested || (config.stopOnFailure && !row.ok)) return finishRun('stopped');
-
-      // Delay before the next request; skip after the very last one of the run.
-      const isLast = i === iterations && j === requests.length - 1;
-      if (config.delayMs > 0 && !isLast) {
-        const t = performance.now();
-        await sleep(config.delayMs);
-        paused += performance.now() - t;
-      }
-    }
+  runId = crypto.randomUUID();
+  let status: 'done' | 'stopped' = 'done';
+  try {
+    status = await runRequests(
+      requests,
+      {
+        runId,
+        iterations: config.iterations,
+        dataRows: config.dataRows,
+        delayMs: config.delayMs,
+        stopOnFailure: config.stopOnFailure,
+      },
+      (e) => {
+        if (e.kind === 'iteration') runner.updateRun((r) => ({ ...r, iterStarts: [...r.iterStarts, e.atMs] }));
+        else if (e.kind === 'call')
+          runner.updateRun((r) => ({
+            ...r,
+            current: { nodeId: e.nodeId, name: e.name, method: e.method, startedAt: Date.now() },
+          }));
+        else if (e.kind === 'row') {
+          const { kind: _kind, ...row } = e;
+          pushRow(row);
+        }
+      },
+    );
+  } catch (e) {
+    console.error('runner: run failed', e);
+    status = 'stopped';
   }
-
-  finishRun('done');
+  finishRun(status);
 }
 
 /** Re-run `rows` in place (same iteration data, same waterfall slot). */
@@ -431,10 +419,10 @@ async function rerunRows(rows: RunResultRow[]): Promise<void> {
   for (const [k, old] of rows.entries()) {
     const node = old.nodeId ? findNode(workspace.tree, old.nodeId) : undefined;
     if (node?.kind !== 'request') continue;
-    const fresh = await runNode(node, old.iteration, config.dataRows[old.iteration - 1] ?? {});
-    const row = { ...fresh, id: old.id, startOffsetMs: old.startOffsetMs };
+    const fresh = await runOne(node, old.iteration, config.dataRows[old.iteration - 1] ?? {});
+    const row = { ...fresh, id: old.id, startOffsetMs: old.startOffsetMs, endMs: old.endMs };
     runner.updateRun((r) => ({ ...r, results: r.results.map((x) => (x.id === old.id ? row : x)) }));
-    if (config.delayMs > 0 && k < rows.length - 1) await sleep(config.delayMs);
+    if (config.delayMs > 0 && k < rows.length - 1) await new Promise((done) => setTimeout(done, config.delayMs));
   }
   runner.updateRun((r) => ({ ...r, status: prevStatus }));
   persistRecord();

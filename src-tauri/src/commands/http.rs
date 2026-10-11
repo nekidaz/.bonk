@@ -10,7 +10,7 @@ use tauri::State;
 use tokio::sync::oneshot;
 
 pub(super) fn register_cancel(
-    state: &State<'_, AppState>,
+    state: &AppState,
     request_id: &Option<String>,
 ) -> Result<Option<oneshot::Receiver<()>>, String> {
     let Some(request_id) = request_id.as_deref().filter(|id| !id.is_empty()) else {
@@ -28,7 +28,7 @@ pub(super) fn register_cancel(
     Ok(Some(rx))
 }
 
-pub(super) fn finish_cancel(state: &State<'_, AppState>, request_id: &Option<String>) {
+pub(super) fn finish_cancel(state: &AppState, request_id: &Option<String>) {
     if let Some(request_id) = request_id.as_deref().filter(|id| !id.is_empty()) {
         if let Ok(mut cancels) = state.cancels.lock() {
             cancels.remove(request_id);
