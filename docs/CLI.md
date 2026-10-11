@@ -4,18 +4,34 @@ Runs Bonk collections from a terminal or CI on the same engine as the app's Runn
 (bonk-core's runner): the same pre-request/test scripts, `{{vars}}`, folder auth and
 tests. No login, no cloud: it reads the workspace folder directly.
 
+## Install
+
+Each release ([nekidaz/.bonk](https://github.com/nekidaz/.bonk/releases)) has an archive per
+platform with a single `bonk` binary (`bonk.exe` on Windows):
+
+```bash
+curl -L https://github.com/nekidaz/.bonk/releases/latest/download/bonk-aarch64-apple-darwin.tar.gz | tar -xz
+sudo mv bonk /usr/local/bin/
+```
+
+Linux: `bonk-x86_64-unknown-linux-gnu.tar.gz`; Windows: `bonk-x86_64-pc-windows-msvc.zip`. In
+this repo the binary is `bonk-cli` (`make cli ARGS="run ./api"`): the desktop app already
+builds as `bonk`. The examples below say `bonk`.
+
+## Use
+
 ```bash
 # the whole workspace (run from its root)
-bonk-cli run
+bonk run
 
 # a folder and one request, with an environment saved in the Bonk app
-bonk-cli run api/users api/health.bonk.json --env Staging
+bonk run api/users api/health.bonk.json --env Staging
 
 # CI: variables from the pipeline, stop at the first failure, a JUnit report
-BONK_VAR_TOKEN=$TOKEN bonk-cli run api --var base=https://staging.example.com --bail --junit report.xml
+BONK_VAR_TOKEN=$TOKEN bonk run api --var base=https://staging.example.com --bail --junit report.xml
 
 # data-driven: one iteration per CSV/JSON row (pm.iterationData)
-bonk-cli run checkout --data users.csv
+bonk run checkout --data users.csv
 ```
 
 Exit code: `0` every request passed, `1` something failed (status, test or script),
