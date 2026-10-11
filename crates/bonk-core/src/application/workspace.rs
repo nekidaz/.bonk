@@ -1368,11 +1368,7 @@ mod tests {
         let auth = AuthConfig {
             auth_type: "bearer".into(),
             bearer_token: Some("{{token}}".into()),
-            basic_username: None,
-            basic_password: None,
-            api_key_name: None,
-            api_key_value: None,
-            api_key_in: None,
+            ..AuthConfig::default()
         };
         let root_s = root.to_str().unwrap();
 

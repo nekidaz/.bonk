@@ -54,6 +54,8 @@ export function generatedAuthHeaders(t: Tab): HeaderPreview[] {
   if (auth.type === 'bearer' && auth.bearerToken?.trim()) {
     return [{ key: 'Authorization', value: `Bearer ${auth.bearerToken.trim()}`, source: 'Auth' }];
   }
+  // The token comes from the keychain at send time.
+  if (auth.type === 'oauth2') return [{ key: 'Authorization', value: 'Bearer <OAuth 2.0>', source: 'Auth' }];
   if (auth.type === 'basic' && ((auth.basicUsername ?? '') || (auth.basicPassword ?? ''))) {
     return [{ key: 'Authorization', value: 'Basic <generated>', source: 'Auth' }];
   }

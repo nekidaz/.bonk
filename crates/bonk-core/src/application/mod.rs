@@ -7,6 +7,7 @@ pub mod grpcurl;
 pub mod http;
 pub mod import_file;
 pub mod mcp_install;
+pub mod oauth;
 pub mod proto_inspect;
 pub mod run_data;
 pub mod runner;

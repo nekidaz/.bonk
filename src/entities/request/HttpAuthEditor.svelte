@@ -4,9 +4,23 @@
   import { resolveVars, type ApiKeyLocation, type AuthConfig, type AuthType, type Tab } from '$shared/model';
   import { envToneOf, currentVarScope, environments } from '$entities/environment';
   import { tabs } from '$entities/tab';
+  import OAuthPanel from './OAuthPanel.svelte';
+  import OAuthInheritedRows from './OAuthInheritedRows.svelte';
+  import { oauthSummary } from './oauthFormat';
 
   // Edits the request's auth (`tab`; gRPC tabs keep it on `tab.grpc`) or, in the folder dialog, a draft `value` (`onChange`).
-  let { tab, value, onChange }: { tab?: Tab; value?: AuthConfig; onChange?: (a: AuthConfig) => void } = $props();
+  let {
+    tab,
+    value,
+    onChange,
+    where,
+  }: {
+    tab?: Tab;
+    value?: AuthConfig;
+    onChange?: (a: AuthConfig) => void;
+    /** Where `value` is set (the folder dialog's collection), for OAuth's «Все токены». */
+    where?: string;
+  } = $props();
   const isGrpc = $derived(tab?.protocol === 'grpc');
 
   // S11: a label column + controls, with what the secret resolves to in the active environment.
@@ -14,6 +28,7 @@
     { key: 'bearer', label: 'http.auth.bearer', hint: 'http.auth.bearer.hint' },
     { key: 'basic', label: 'http.auth.basic', hint: 'http.auth.basic.hint' },
     { key: 'apiKey', label: 'http.auth.apikey', hint: 'http.auth.apikey.hint' },
+    { key: 'oauth2', label: 'http.auth.oauth2', hint: 'http.auth.oauth2.hint' },
     { key: 'none', label: 'http.auth.none', hint: 'http.auth.none.hint' },
   ];
   type AuthStringField = 'bearerToken' | 'basicUsername' | 'basicPassword' | 'apiKeyName' | 'apiKeyValue';
@@ -27,7 +42,16 @@
   const auth = $derived<AuthConfig>(inheriting ? parent!.auth! : ownType === 'inherit' ? none : ownAuth!);
   const selectValue = $derived(ownType === 'inherit' && !inheriting && tab ? 'none' : inheriting ? auth.type : ownType);
   const inheritLabel = $derived(tab ? t('http.auth.inherit') : t('http.auth.unset'));
-  const current = $derived(authTypes.find((a) => a.key === auth.type) ?? authTypes[3]);
+  const current = $derived(authTypes.find((a) => a.key === auth.type) ?? authTypes[4]);
+  // OAuth: with a token the settings fold into a summary on the Type row (OA4/OA5).
+  let oauthConfigOpen = $state(false);
+  let oauthFolded = $state(false);
+  const oauthLine = $derived.by(() => {
+    if (auth.type !== 'oauth2') return '';
+    void environments.activeId;
+    const scope = currentVarScope();
+    return oauthSummary(auth.oauth, (s) => resolveVars(s, scope));
+  });
   const secretField = $derived<AuthStringField | null>(
     auth.type === 'bearer'
       ? 'bearerToken'
@@ -122,8 +146,24 @@
         </select>
         <span class="material-symbols-outlined" aria-hidden="true">keyboard_arrow_down</span>
       </span>
-      <span class="hint">{selectValue === 'inherit' ? '' : t(current.hint)}</span>
+      {#if auth.type === 'oauth2' && (oauthFolded || inheriting)}
+        <span class="hint grow">{oauthLine}</span>
+        {#if !inheriting}
+          <button
+            class="bs-oa-settings"
+            type="button"
+            aria-expanded={oauthConfigOpen}
+            onclick={() => (oauthConfigOpen = !oauthConfigOpen)}
+            ><span class="material-symbols-outlined" aria-hidden="true">tune</span>{t('oauth.settings')}</button
+          >
+        {/if}
+      {:else}
+        <span class="hint">{selectValue === 'inherit' ? '' : t(current.hint)}</span>
+      {/if}
     </div>
+    {#if auth.type === 'oauth2' && inheriting}
+      <OAuthInheritedRows {auth} folder={parent} />
+    {/if}
     {#if auth.type === 'bearer'}
       {@render field(t('http.auth.token'), 'bearerToken', true)}
     {:else if auth.type === 'basic'}
@@ -148,7 +188,7 @@
       {@render field(t('http.auth.key'), 'apiKeyName')}
       {@render field(t('http.auth.value'), 'apiKeyValue', true)}
     {/if}
-    {#if resolved}
+    {#if resolved && auth.type !== 'oauth2'}
       <div class="row resolves">
         <span class="lbl">{t('http.auth.resolves')}</span>
         <span class="secret">{reveal ? resolved : mask(resolved)}</span>
@@ -162,4 +202,14 @@
       </div>
     {/if}
   </div>
+  {#if auth.type === 'oauth2' && !inheriting}
+    <OAuthPanel
+      {auth}
+      onChange={write}
+      tabId={tab?.id}
+      where={where ?? tab?.title ?? ''}
+      bind:configOpen={oauthConfigOpen}
+      bind:folded={oauthFolded}
+    />
+  {/if}
 </div>

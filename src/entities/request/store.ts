@@ -45,6 +45,7 @@ import { GRPC_DEFAULT_TITLE, HTTP_DEFAULT_TITLE, grpcSnapshot, titleFromUrl, tab
 import { environments, currentVarScope, setEnvVars, setGlobalVars } from '$entities/environment';
 import { addHistory } from '$entities/history';
 import { addAppConsoleEntry } from './console.svelte';
+import { oauthCardKey, oauthRuntime, withOAuthToken } from './oauth.svelte';
 import { cookieJar, cookieJarKey } from '$entities/cookies';
 
 function clampInt(value: number, min: number, max: number, fallback: number): number {
@@ -351,20 +352,57 @@ export async function sendHttpRequest(
     outgoing = applyRequestPatch(outgoing, pre.requestPatch);
   }
 
-  // 2. Interpolate {{var}} placeholders (globals + active environment, now
-  //    including anything the pre-request script set) just before sending.
-  const resolved = await httpResolve(outgoing, currentVarScope());
+  // 2. OAuth: the keychain token goes into the outgoing copy (refreshed or re-fetched
+  //    when it expired). Then {{var}} placeholders (globals + active environment, now
+  //    including anything the pre-request script set) are resolved just before sending.
+  const settings = withOverrides(currentRequestSettings(), tabs.list.find((t) => t.id === tabId)?.settings);
+  const scope = currentVarScope();
+  const oauthKey = outgoing.auth?.type === 'oauth2' ? oauthCardKey(outgoing.auth, environments.activeId) : '';
+  const withToken = async (force: boolean): Promise<HttpRequest> => {
+    const { auth, ensured } = await withOAuthToken(outgoing.auth, scope, settings, force);
+    if (ensured?.renewed) {
+      oauthRuntime.setRenewal(tabId, {
+        key: oauthKey,
+        at: Date.now(),
+        previousExpiresAt: ensured.previousExpiresAt,
+        byRefresh: ensured.token.hasRefresh && ensured.previousExpiresAt !== null,
+        tokenUrl: outgoing.auth?.oauth?.tokenUrl ?? '',
+      });
+    } else if (ensured && !force) oauthRuntime.setRenewal(tabId, undefined);
+    return httpResolve({ ...outgoing, auth }, scope);
+  };
+  let resolved: HttpRequest;
+  try {
+    resolved = await withToken(false);
+  } catch (error) {
+    keepResults();
+    addAppConsoleEntry({
+      protocol: 'http',
+      method: outgoing.method || 'HTTP',
+      url: outgoing.url,
+      ok: false,
+      status: 'ERROR',
+      elapsedMs: Date.now() - startedAt,
+      message: String(error instanceof Error ? error.message : error),
+      logs: logs(),
+    });
+    throw error;
+  }
 
   // 3. Send. History records the resolved request so replay/inspection shows the
-  //    values actually sent, not the templates.
+  //    values actually sent, not the templates. A 401 with an OAuth token renews it
+  //    once and resends (the server may have revoked it early).
   const sentAt = Date.now();
   let res: HttpResponse;
   try {
-    res = await httpSend(
-      resolved,
-      requestId,
-      withOverrides(currentRequestSettings(), tabs.list.find((t) => t.id === tabId)?.settings),
-    );
+    res = await httpSend(resolved, requestId, settings);
+    if (res.status === 401 && oauthKey) {
+      const retry = await withToken(true).catch(() => undefined);
+      if (retry) {
+        resolved = retry;
+        res = await httpSend(resolved, requestId, settings);
+      }
+    }
   } catch (error) {
     keepResults();
     addAppConsoleEntry({
@@ -402,6 +440,10 @@ export async function sendHttpRequest(
     ms: res.elapsed_ms,
   };
   const testResults = collectScriptRun({ pre, post, send, postMs, at: Date.now() });
+  const renewal = oauthKey ? oauthRuntime.renewals[tabId] : undefined;
+  if (renewal && !renewal.sent) {
+    oauthRuntime.setRenewal(tabId, { ...renewal, sent: { text: send.text, status: res.status, ms: res.elapsed_ms } });
+  }
   tabs.updateById(tabId, (t) => ({ ...t, response: res, testResults }));
   addAppConsoleEntry({
     protocol: 'http',

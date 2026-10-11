@@ -29,7 +29,7 @@
         >
       </div>
       <div class="bs-modal-b">
-        <HttpAuthEditor value={draft} onChange={(a) => (draft = a)} />
+        <HttpAuthEditor value={draft} onChange={(a) => (draft = a)} where={folder.name} />
       </div>
       <div class="bs-modal-f">
         <div class="grow"></div>
