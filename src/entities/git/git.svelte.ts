@@ -69,8 +69,9 @@ class Git {
    * toplevel-relative status keys.
    */
   prefix = $derived(this.status?.prefix ?? '');
-  /** True while a push/pull (or other long op) is in flight — disables buttons. */
-  busy = $state(false);
+  /** Git ops in flight; while any runs `busy` is true and the action buttons are disabled. */
+  pending = $state(0);
+  busy = $derived(this.pending > 0);
   /** Last failed git op's message (git's own stderr), '' when the last op succeeded. */
   error = $state('');
   /** The commit message, shared by the sidebar box and the commit-editor tab (G4b). */
@@ -121,6 +122,7 @@ async function runGit(name: string, fn: (root: string) => Promise<unknown>): Pro
   if (!root) return false;
   let ok = true;
   git.error = '';
+  git.pending++;
   try {
     await fn(root);
   } catch (err) {
@@ -128,7 +130,11 @@ async function runGit(name: string, fn: (root: string) => Promise<unknown>): Pro
     git.error = String(err);
     ok = false;
   }
-  await refreshGit();
+  try {
+    await refreshGit();
+  } finally {
+    git.pending--;
+  }
   return ok;
 }
 
@@ -246,7 +252,7 @@ export async function stashBranch(name: string, index: number): Promise<boolean>
 async function sync(name: string, fn: (root: string) => Promise<string>): Promise<string> {
   const root = workspace.path;
   if (!root) return '';
-  git.busy = true;
+  git.pending++;
   git.error = '';
   try {
     const out = await fn(root);
@@ -257,7 +263,7 @@ async function sync(name: string, fn: (root: string) => Promise<string>): Promis
     git.error = String(err);
     return String(err);
   } finally {
-    git.busy = false;
+    git.pending--;
   }
 }
 

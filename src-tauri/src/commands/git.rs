@@ -1,131 +1,150 @@
 use bonk_core::application::git;
 
-#[tauri::command]
-pub fn git_status(root: String) -> Result<git::GitStatus, String> {
-    git::status(&root)
+/// Run a git call on the blocking pool. Every command shells out to `git`, and a
+/// sync Tauri command runs on the main thread, freezing the window until git
+/// returns (a slow push held it for up to two minutes).
+async fn off_main<T: Send + 'static>(
+    f: impl FnOnce() -> Result<T, String> + Send + 'static,
+) -> Result<T, String> {
+    tauri::async_runtime::spawn_blocking(f)
+        .await
+        .map_err(|e| format!("git task failed: {e}"))?
 }
 
 #[tauri::command]
-pub fn git_stage(root: String, paths: Vec<String>) -> Result<(), String> {
-    git::stage(&root, &paths)
+pub async fn git_status(root: String) -> Result<git::GitStatus, String> {
+    off_main(move || git::status(&root)).await
 }
 
 #[tauri::command]
-pub fn git_unstage(root: String, paths: Vec<String>) -> Result<(), String> {
-    git::unstage(&root, &paths)
+pub async fn git_stage(root: String, paths: Vec<String>) -> Result<(), String> {
+    off_main(move || git::stage(&root, &paths)).await
 }
 
 #[tauri::command]
-pub fn git_commit(root: String, message: String, amend: Option<bool>) -> Result<String, String> {
-    git::commit(&root, &message, amend.unwrap_or(false))
+pub async fn git_unstage(root: String, paths: Vec<String>) -> Result<(), String> {
+    off_main(move || git::unstage(&root, &paths)).await
 }
 
 #[tauri::command]
-pub fn git_init(root: String) -> Result<(), String> {
-    git::init(&root)
+pub async fn git_commit(
+    root: String,
+    message: String,
+    amend: Option<bool>,
+) -> Result<String, String> {
+    off_main(move || git::commit(&root, &message, amend.unwrap_or(false))).await
 }
 
 #[tauri::command]
-pub fn git_branches(root: String) -> Result<Vec<String>, String> {
-    git::branches(&root)
+pub async fn git_init(root: String) -> Result<(), String> {
+    off_main(move || git::init(&root)).await
 }
 
 #[tauri::command]
-pub fn git_checkout(root: String, name: String) -> Result<(), String> {
-    git::checkout(&root, &name)
+pub async fn git_branches(root: String) -> Result<Vec<String>, String> {
+    off_main(move || git::branches(&root)).await
 }
 
 #[tauri::command]
-pub fn git_create_branch(root: String, name: String) -> Result<(), String> {
-    git::create_branch(&root, &name)
+pub async fn git_checkout(root: String, name: String) -> Result<(), String> {
+    off_main(move || git::checkout(&root, &name)).await
 }
 
 #[tauri::command]
-pub fn git_push(root: String) -> Result<String, String> {
-    git::push(&root)
+pub async fn git_create_branch(root: String, name: String) -> Result<(), String> {
+    off_main(move || git::create_branch(&root, &name)).await
 }
 
 #[tauri::command]
-pub fn git_pull(root: String) -> Result<String, String> {
-    git::pull(&root)
+pub async fn git_push(root: String) -> Result<String, String> {
+    off_main(move || git::push(&root)).await
 }
 
 #[tauri::command]
-pub fn git_diff(root: String, path: String, cached: Option<bool>) -> Result<String, String> {
-    if cached.unwrap_or(false) {
-        git::diff_staged(&root, &path)
-    } else {
-        git::diff(&root, &path)
-    }
+pub async fn git_pull(root: String) -> Result<String, String> {
+    off_main(move || git::pull(&root)).await
 }
 
 #[tauri::command]
-pub fn git_log(root: String, limit: u32) -> Result<Vec<git::GitCommit>, String> {
-    git::log(&root, limit)
+pub async fn git_diff(root: String, path: String, cached: Option<bool>) -> Result<String, String> {
+    off_main(move || {
+        if cached.unwrap_or(false) {
+            git::diff_staged(&root, &path)
+        } else {
+            git::diff(&root, &path)
+        }
+    })
+    .await
 }
 
 #[tauri::command]
-pub fn git_status_diffs(root: String) -> Result<Vec<git::FileDiff>, String> {
-    git::status_diffs(&root)
+pub async fn git_log(root: String, limit: u32) -> Result<Vec<git::GitCommit>, String> {
+    off_main(move || git::log(&root, limit)).await
 }
 
 #[tauri::command]
-pub fn git_discard(root: String, paths: Vec<String>) -> Result<(), String> {
-    git::discard(&root, &paths)
+pub async fn git_status_diffs(root: String) -> Result<Vec<git::FileDiff>, String> {
+    off_main(move || git::status_diffs(&root)).await
 }
 
 #[tauri::command]
-pub fn git_graph(root: String, limit: u32) -> Result<Vec<String>, String> {
-    git::graph(&root, limit)
+pub async fn git_discard(root: String, paths: Vec<String>) -> Result<(), String> {
+    off_main(move || git::discard(&root, &paths)).await
 }
 
 #[tauri::command]
-pub fn git_branch_list(root: String) -> Result<Vec<git::GitBranch>, String> {
-    git::branch_list(&root)
+pub async fn git_graph(root: String, limit: u32) -> Result<Vec<String>, String> {
+    off_main(move || git::graph(&root, limit)).await
 }
 
 #[tauri::command]
-pub fn git_checkout_remote(root: String, name: String) -> Result<(), String> {
-    git::checkout_remote(&root, &name)
+pub async fn git_branch_list(root: String) -> Result<Vec<git::GitBranch>, String> {
+    off_main(move || git::branch_list(&root)).await
 }
 
 #[tauri::command]
-pub fn git_stash_list(root: String) -> Result<Vec<git::GitStash>, String> {
-    git::stash_list(&root)
+pub async fn git_checkout_remote(root: String, name: String) -> Result<(), String> {
+    off_main(move || git::checkout_remote(&root, &name)).await
 }
 
 #[tauri::command]
-pub fn git_stash_push(
+pub async fn git_stash_list(root: String) -> Result<Vec<git::GitStash>, String> {
+    off_main(move || git::stash_list(&root)).await
+}
+
+#[tauri::command]
+pub async fn git_stash_push(
     root: String,
     message: String,
     include_untracked: bool,
     staged_only: bool,
     keep_index: bool,
 ) -> Result<(), String> {
-    git::stash_push(&root, &message, include_untracked, staged_only, keep_index)
+    off_main(move || git::stash_push(&root, &message, include_untracked, staged_only, keep_index))
+        .await
 }
 
 #[tauri::command]
-pub fn git_stash_apply(root: String, index: u32) -> Result<(), String> {
-    git::stash_apply(&root, index)
+pub async fn git_stash_apply(root: String, index: u32) -> Result<(), String> {
+    off_main(move || git::stash_apply(&root, index)).await
 }
 
 #[tauri::command]
-pub fn git_stash_pop(root: String, index: u32) -> Result<(), String> {
-    git::stash_pop(&root, index)
+pub async fn git_stash_pop(root: String, index: u32) -> Result<(), String> {
+    off_main(move || git::stash_pop(&root, index)).await
 }
 
 #[tauri::command]
-pub fn git_stash_drop(root: String, index: u32) -> Result<(), String> {
-    git::stash_drop(&root, index)
+pub async fn git_stash_drop(root: String, index: u32) -> Result<(), String> {
+    off_main(move || git::stash_drop(&root, index)).await
 }
 
 #[tauri::command]
-pub fn git_stash_branch(root: String, name: String, index: u32) -> Result<(), String> {
-    git::stash_branch(&root, &name, index)
+pub async fn git_stash_branch(root: String, name: String, index: u32) -> Result<(), String> {
+    off_main(move || git::stash_branch(&root, &name, index)).await
 }
 
 #[tauri::command]
-pub fn git_stash_show(root: String, index: u32) -> Result<Vec<git::StashFile>, String> {
-    git::stash_show(&root, index)
+pub async fn git_stash_show(root: String, index: u32) -> Result<Vec<git::StashFile>, String> {
+    off_main(move || git::stash_show(&root, index)).await
 }
