@@ -32,6 +32,8 @@ import {
   type FileCommit,
   type CommitFile,
   type BlameLine,
+  type GitRemote,
+  type ReflogEntry,
   type ResetMode,
   type ConflictFile,
   type OperationInfo,
@@ -509,7 +511,8 @@ export const gitCheckout = (root: string, name: string) => invoke<void>('git_che
 export const gitCreateBranch = (root: string, name: string) => invoke<void>('git_create_branch', { root, name });
 /** `force` = `--force-with-lease`, for a branch rewritten after it was pushed. */
 export const gitPush = (root: string, force = false) => invoke<string>('git_push', { root, force });
-export const gitPull = (root: string) => invoke<string>('git_pull', { root });
+export type PullMode = 'auto' | 'merge' | 'rebase' | 'ff-only';
+export const gitPull = (root: string, mode: PullMode = 'auto') => invoke<string>('git_pull', { root, mode });
 export const gitDiff = (root: string, path: string, cached = false) =>
   invoke<string>('git_diff', { root, path, cached });
 export const gitLog = (root: string, limit: number) => invoke<GitCommit[]>('git_log', { root, limit });
@@ -517,6 +520,19 @@ export const gitGraph = (root: string, limit: number) => invoke<string[]>('git_g
 export const gitStatusDiffs = (root: string) => invoke<FileDiff[]>('git_status_diffs', { root });
 /** Returns a snapshot of what was thrown away ('' if none could be taken), for gitRestoreSnapshot. */
 export const gitDiscard = (root: string, paths: string[]) => invoke<string>('git_discard', { root, paths });
+export const gitRemoteList = (root: string) => invoke<GitRemote[]>('git_remote_list', { root });
+export const gitRemoteAdd = (root: string, name: string, url: string) =>
+  invoke<void>('git_remote_add', { root, name, url });
+export const gitRemoteRemove = (root: string, name: string) => invoke<void>('git_remote_remove', { root, name });
+/** Clone into a new folder under `parent`; returns its path. */
+export const gitClone = (url: string, parent: string) => invoke<string>('git_clone', { url, parent });
+export const gitReflog = (root: string, limit: number) => invoke<ReflogEntry[]>('git_reflog', { root, limit });
+/** Hashes of commits that touched a file whose path contains `query`, or one of `paths`. */
+export const gitCommitsTouching = (root: string, query: string, paths: string[], all: boolean) =>
+  invoke<string[]>('git_commits_touching', { root, query, paths, all });
+/** `cached`: to the index (stage; with `reverse` unstage). Else to the files (with `reverse`: discard). */
+export const gitApplyPatch = (root: string, patch: string, cached: boolean, reverse: boolean) =>
+  invoke<void>('git_apply_patch', { root, patch, cached, reverse });
 export const gitRestoreSnapshot = (root: string, snapshot: string, paths: string[]) =>
   invoke<void>('git_restore_snapshot', { root, snapshot, paths });
 /** The full HEAD hash, '' on an unborn branch. */
@@ -536,7 +552,9 @@ export const gitStashPush = (
   root: string,
   message: string,
   o: { includeUntracked: boolean; stagedOnly: boolean; keepIndex: boolean },
-) => invoke<void>('git_stash_push', { root, message, ...o });
+  /** Only these files (toplevel-relative); none = everything. */
+  paths: string[] = [],
+) => invoke<void>('git_stash_push', { root, message, ...o, paths });
 export const gitStashApply = (root: string, index: number) => invoke<void>('git_stash_apply', { root, index });
 export const gitStashPop = (root: string, index: number) => invoke<void>('git_stash_pop', { root, index });
 export const gitStashDrop = (root: string, index: number) => invoke<void>('git_stash_drop', { root, index });
@@ -559,8 +577,9 @@ export const gitReset = (root: string, hash: string, mode: ResetMode) =>
   invoke<void>('git_reset', { root, hash, mode });
 export const gitCreateTag = (root: string, name: string, hash: string) =>
   invoke<void>('git_create_tag', { root, name, hash });
-export const gitCreateBranchAt = (root: string, name: string, hash: string) =>
-  invoke<void>('git_create_branch_at', { root, name, hash });
+/** `checkout`: also switch to it; without, only the branch appears. */
+export const gitCreateBranchAt = (root: string, name: string, hash: string, checkout = true) =>
+  invoke<void>('git_create_branch_at', { root, name, hash, checkout });
 export const gitFormatPatch = (root: string, hashes: string[]) => invoke<string>('git_format_patch', { root, hashes });
 export const gitFetch = (root: string) => invoke<string>('git_fetch', { root });
 export const gitOperationAbort = (root: string) => invoke<void>('git_operation_abort', { root });

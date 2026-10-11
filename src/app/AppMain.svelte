@@ -24,6 +24,7 @@
     GraphView,
     MergeEditor,
     ProjectDiffView,
+    ReflogView,
     StashView,
   } from '$features/git/components';
   import { EnvironmentsSheet } from '$features/environments/components';
@@ -90,6 +91,8 @@
             <ConflictsView />
           {:else if active.git?.view === 'merge'}
             {#key active.git.path}<MergeEditor tab={active} onClose={() => requestCloseTab(active.id)} />{/key}
+          {:else if active.git?.view === 'reflog'}
+            <ReflogView />
           {:else if active.git?.view === 'compare'}
             {#key `${active.git.path}..${active.git.rev}`}<CompareView tab={active} />{/key}
           {:else if active.git?.view === 'history'}

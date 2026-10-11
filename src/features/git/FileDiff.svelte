@@ -3,9 +3,18 @@
    * G1 / G1b: one file's full-context diff as the whole file with line numbers, either inline
    * (removed and added lines stacked) or side by side (HEAD left, the new side right, fillers
    * keeping blocks aligned, the changed middle of a replaced line marked). Presentational.
+   * With `actions` (inline layout) each change block gets a bar of them (stage / unstage / discard
+   * it); clicking changed lines' numbers picks lines, and the actions then take only those.
    */
   import { t } from '$shared/i18n';
-  import { changedSpan, diffStats, fileLines, splitRows, type FileLine } from './diff';
+  import { changeBlocks, changedSpan, diffStats, fileLines, splitRows, type Block, type FileLine } from './diff';
+
+  export interface BlockAction {
+    label: string;
+    icon: string;
+    /** `picked`: the chosen lines of the block, undefined = the whole block. */
+    run: (lines: FileLine[], block: Block, picked: Set<number> | undefined) => void;
+  }
 
   let {
     path,
@@ -13,11 +22,39 @@
     layout,
     leftLabel,
     rightLabel,
-  }: { path: string; text: string; layout: 'inline' | 'split'; leftLabel: string; rightLabel: string } = $props();
+    actions = [],
+  }: {
+    path: string;
+    text: string;
+    layout: 'inline' | 'split';
+    leftLabel: string;
+    rightLabel: string;
+    actions?: BlockAction[];
+  } = $props();
 
   const lines = $derived(fileLines(text));
   const rows = $derived(layout === 'split' ? splitRows(lines) : []);
   const stats = $derived(diffStats(text));
+  const blocks = $derived(actions.length ? changeBlocks(lines) : []);
+  const blockAt = $derived(new Map(blocks.map((b) => [b.start, b])));
+  /** Picked changed lines (indices into `lines`); a new diff starts with none. */
+  let picked = $state.raw<Set<number>>(new Set());
+  $effect(() => {
+    void text;
+    picked = new Set();
+  });
+
+  function toggle(i: number): void {
+    const next = new Set(picked);
+    if (!next.delete(i)) next.add(i);
+    picked = next;
+  }
+
+  function runAction(a: BlockAction, b: Block): void {
+    const mine = new Set([...picked].filter((i) => i >= b.start && i < b.end));
+    a.run(lines, b, mine.size ? mine : undefined);
+    picked = new Set();
+  }
   const sign = (l: FileLine) => (l.kind === 'add' ? '+' : l.kind === 'del' ? '-' : '');
   /** The changed middle of `line` against the other side of its row, or null when nothing to mark. */
   function mark(line: FileLine, other: FileLine | undefined): [string, string, string] | null {
@@ -51,6 +88,7 @@
   <header class="bar">
     <span class="material-symbols-outlined" aria-hidden="true">draft</span>
     <span class="path">{path}</span>
+    {#if actions.length && layout === 'split'}<span class="note">{t('git.hunk.inlineOnly')}</span>{/if}
     <span class="plus">+{stats.additions}</span>
     <span class="minus">-{stats.deletions}</span>
   </header>
@@ -67,7 +105,27 @@
     </div>
   {:else}
     <div class="body">
-      {#each lines as l, i (i)}{@render cell(l, undefined, l.kind === 'del' ? 'old' : 'new')}{/each}
+      {#each lines as l, i (i)}
+        {@const b = blockAt.get(i)}
+        {#if b}
+          {@const n = [...picked].filter((k) => k >= b.start && k < b.end).length}
+          <div class="blockbar">
+            {#each actions as a (a.label)}
+              <button onclick={() => runAction(a, b)}
+                ><span class="material-symbols-outlined">{a.icon}</span>{n ? `${a.label} · ${n}` : a.label}</button
+              >
+            {/each}
+          </div>
+        {/if}
+        {#if actions.length && l.kind !== 'ctx'}
+          <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
+          <div class="pickable" class:picked={picked.has(i)} onclick={() => toggle(i)}>
+            {@render cell(l, undefined, l.kind === 'del' ? 'old' : 'new')}
+          </div>
+        {:else}
+          {@render cell(l, undefined, l.kind === 'del' ? 'old' : 'new')}
+        {/if}
+      {/each}
     </div>
   {/if}
 </section>
@@ -183,6 +241,42 @@
   .ln.del .no {
     color: inherit;
     opacity: 0.7;
+  }
+  .blockbar {
+    display: flex;
+    justify-content: flex-end;
+    gap: 6px;
+    padding: 6px 12px 4px;
+    border-top: 1px solid var(--color-border-subtle);
+  }
+  .blockbar button {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    height: 24px;
+    padding: 0 10px;
+    border: 1px solid var(--color-border-subtle);
+    border-radius: var(--radius-control);
+    background: var(--color-raised);
+    color: var(--color-text-secondary);
+    font: var(--font-size-caption) var(--font-ui);
+  }
+  .blockbar button:hover {
+    color: var(--color-text);
+    border-color: var(--color-border);
+  }
+  .blockbar .material-symbols-outlined {
+    font-size: 14px;
+  }
+  .pickable {
+    cursor: pointer;
+  }
+  .pickable.picked .ln {
+    box-shadow: inset 3px 0 0 var(--method-patch);
+  }
+  .note {
+    color: var(--color-text-muted);
+    font: var(--font-size-micro) var(--font-ui);
   }
   .fill {
     background: var(--color-hover);

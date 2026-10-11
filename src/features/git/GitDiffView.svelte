@@ -7,6 +7,7 @@
    */
   import { findNode, workspace } from '$entities/workspace';
   import {
+    applyPatch,
     describeFile,
     discardPaths,
     git,
@@ -21,7 +22,8 @@
   import { requestConfirm } from '$shared/ui';
   import type { GitDiffMode, Tab } from '$shared/model';
   import { t } from '$shared/i18n';
-  import FileDiff from './FileDiff.svelte';
+  import FileDiff, { type BlockAction } from './FileDiff.svelte';
+  import { blockPatch } from './diff';
   import { diffLayout } from './store.svelte';
 
   let { tab }: { tab: Tab } = $props();
@@ -68,6 +70,38 @@
   function setMode(m: GitDiffMode): void {
     tabs.updateById(tab.id, (x) => (x.git ? { ...x, git: { ...x.git, mode: m } } : x));
   }
+
+  // Block / line actions, on a tracked file changed in place (a new, deleted or conflicted file goes
+  // whole: its patch would need a file header of its own).
+  const blockActions = $derived.by((): BlockAction[] => {
+    if (rev || !file) return [];
+    if (mode === 'staged')
+      return file.index === 'M'
+        ? [
+            {
+              label: t('git.hunk.unstage'),
+              icon: 'remove',
+              run: (lines, b, picked) => void applyPatch(blockPatch(path, lines, b, picked, true), true, true),
+            },
+          ]
+        : [];
+    if (file.worktree !== 'M' || file.index === 'U') return [];
+    return [
+      {
+        label: t('git.hunk.discard'),
+        icon: 'undo',
+        run: async (lines, b, picked) => {
+          if (await requestConfirm(t('git.hunk.discardConfirm'), t('git.discard')))
+            await applyPatch(blockPatch(path, lines, b, picked, true), false, true);
+        },
+      },
+      {
+        label: t('git.hunk.stage'),
+        icon: 'add',
+        run: (lines, b, picked) => void applyPatch(blockPatch(path, lines, b, picked), true, false),
+      },
+    ];
+  });
 
   async function discard(): Promise<void> {
     if (await requestConfirm(t('git.discard.confirm', { name: info.name }), t('git.discard')))
@@ -156,8 +190,13 @@
         {path}
         text={diffText}
         layout={diffLayout.current}
-        leftLabel={rev ? `${rev.slice(0, 7)}^` : `HEAD  ${git.log[0]?.short ?? ''}`}
+        leftLabel={rev
+          ? `${rev.slice(0, 7)}^`
+          : mode === 'working' && hasStaged && hasUnstaged
+            ? t('git.diff.staged')
+            : `HEAD  ${git.log[0]?.short ?? ''}`}
         rightLabel={rev ? rev.slice(0, 7) : mode === 'staged' ? t('git.diff.staged') : t('git.diff.working')}
+        actions={blockActions}
       />
     {/if}
   </div>

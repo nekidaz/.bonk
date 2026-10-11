@@ -62,6 +62,7 @@
     merge: 'merge',
     history: 'history',
     compare: 'compare_arrows',
+    reflog: 'manage_history',
   };
   const tabIcon = (tb: Tab): string | undefined => GIT_VIEW_ICON[tb.git?.view ?? ''] ?? TAB_ICON[tb.protocol];
 

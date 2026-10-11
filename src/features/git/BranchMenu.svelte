@@ -166,6 +166,8 @@
         bind:value={query}
         placeholder={t('git.branch.search')}
         aria-label={t('git.branch.search')}
+        autocomplete="off"
+        spellcheck="false"
         onkeydown={onKey}
       />
     </label>

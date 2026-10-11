@@ -91,6 +91,11 @@ export function openCompareTab(base: string, target: string): void {
   );
 }
 
+/** Open (or focus) HEAD's reflog. */
+export function openReflogTab(): void {
+  openGitTab((g) => g.view === 'reflog', { path: '', mode: 'working', view: 'reflog' }, 'Reflog');
+}
+
 /** G4b·E: open (or focus) the commit-message editor tab. */
 export function openCommitEditorTab(): void {
   openGitTab((g) => g.view === 'commit', { path: '', mode: 'working', view: 'commit' }, t('git.tab.commit'));
