@@ -103,8 +103,9 @@ function likeness(a: Json, b: Json): number {
  * Identities for an array of objects without a natural key, relative to the base: an element
  * unchanged since the base keeps the base element's identity (found by a common subsequence, as
  * lines are); inside a changed stretch each base element pairs, in order, with the most alike
- * element left on that side, so an edit stays an edit even next to an insertion. What finds no
- * pair is new on its side (or gone from it).
+ * element left on that side, so an edit stays an edit even next to an insertion; what is left
+ * between matched neighbours on both sides pairs in place, so even an element changed in every
+ * field stays the same element. What finds no pair is new on its side (or gone from it).
  */
 function pairedIdentities(arrs: [Json[], Json[], Json[]]): [string[], string[], string[]] {
   const [base] = arrs;
@@ -118,6 +119,8 @@ function pairedIdentities(arrs: [Json[], Json[], Json[]]): [string[], string[], 
     for (const h of [...lineHunks(base.map(str), arr.map(str)), end]) {
       // Between changed stretches the two arrays run in step.
       for (; a < h.aStart; a++, b++) out[b] = baseIds[a];
+      // First by likeness: each base element takes the most alike element still ahead.
+      const pairs: [number, number][] = [];
       let from = h.bStart;
       for (let i = h.aStart; i < h.aEnd; i++) {
         let best = -1;
@@ -127,10 +130,20 @@ function pairedIdentities(arrs: [Json[], Json[], Json[]]): [string[], string[], 
           if (sc > score) [best, score] = [k, sc];
         }
         if (best !== -1) {
-          out[best] = baseIds[i];
+          pairs.push([i, best]);
           from = best + 1;
         }
       }
+      // Then in place: between two matched neighbours, what is left on both sides was replaced
+      // there — an element changed in every field — so they pair in order, as a diff pairs a
+      // removed line with the added one. The surplus on either side stays new or gone.
+      const fences: [number, number][] = [[h.aStart - 1, h.bStart - 1], ...pairs, [h.aEnd, h.bEnd]];
+      for (let f = 0; f + 1 < fences.length; f++) {
+        const [i0, k0] = fences[f];
+        const [i1, k1] = fences[f + 1];
+        for (let n = 0; i0 + 1 + n < i1 && k0 + 1 + n < k1; n++) pairs.push([i0 + 1 + n, k0 + 1 + n]);
+      }
+      for (const [i, k] of pairs) out[k] = baseIds[i];
       a = h.aEnd;
       b = h.bEnd;
     }
