@@ -6,11 +6,37 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-11
+
 ### Added
+- **Git.** A Source Control tab in the sidebar: stage and commit, diffs (inline
+  or side by side), stage or discard picked lines, stashes, branches with
+  ahead/behind, Pull / Push / publish, auto-fetch. A commit graph with
+  cherry-pick, revert, reset, tags, compare and Undo. Conflicts open in a
+  three-way merge that can merge a request field by field. Interactive rebase,
+  reflog, clone, and the git history of a single request.
+- **OAuth 2.0** auth type: authorization code + PKCE, client credentials and
+  password. Tokens live in the keychain, are renewed before send and retried
+  once on 401, in the app, Runner, CLI and MCP.
+- **Scripts** tab: pre-request and test scripts with a Tests / Console results
+  panel, an outline, Find, folding and Format; chai matchers and `pm.cookies`.
+- **Dynamic variables** like `{{$guid}}`, `{{$randomEmail}}`: a fresh value on
+  every send, completion after `{{$`, a reference dialog and Settings →
+  Variables.
+- **Cookie jar** per workspace: a cookie window, a response Cookies tab, a
+  footer chip and Settings → Cookies.
+- **Themes:** Gruvbox Dark, Catppuccin Mocha, Nord and Solarized Light next to
+  Bonk Dark / Light, shape and UI font options, a ⌘K theme picker, and import
+  of Zed / VS Code themes.
+- **Console, terminal and Issues** panel (⌘J): filtered request log with retry
+  and copy cURL, a terminal that streams output, failures grouped by cause.
+- **`bonk` CLI** runs collections from the terminal and CI (`bonk run`, JUnit /
+  JSON reports, secrets redacted), with the app's proxy and TLS settings.
+- One import window with preview and warnings, and update from spec.
+- gRPC streams in one feed for server, client and bidi calls.
 - Portable workspace scenarios shared by Runner, `bonk run --scenario` and MCP
   `run_scenario`, with public defaults, required secret names and data rows.
 - CLI import of Bonk JSON request definitions through the desktop's core importer.
-- A real importer → auth → run → Git commit → clean clone → CLI/MCP integration check.
 
 ### Changed
 - HTTP Send and unary gRPC Invoke now use the same execution pipeline as collections,

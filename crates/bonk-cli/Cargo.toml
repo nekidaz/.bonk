@@ -1,6 +1,6 @@
 [package]
 name = "bonk-cli"
-version = "0.1.9"
+version = "0.2.0"
 description = "Run Bonk API collections from the terminal and CI."
 authors = ["Bonk contributors"]
 license = "MIT"
