@@ -483,7 +483,8 @@ export const gitInit = (root: string) => invoke<void>('git_init', { root });
 export const gitBranches = (root: string) => invoke<string[]>('git_branches', { root });
 export const gitCheckout = (root: string, name: string) => invoke<void>('git_checkout', { root, name });
 export const gitCreateBranch = (root: string, name: string) => invoke<void>('git_create_branch', { root, name });
-export const gitPush = (root: string) => invoke<string>('git_push', { root });
+/** `force` = `--force-with-lease`, for a branch rewritten after it was pushed. */
+export const gitPush = (root: string, force = false) => invoke<string>('git_push', { root, force });
 export const gitPull = (root: string) => invoke<string>('git_pull', { root });
 export const gitDiff = (root: string, path: string, cached = false) =>
   invoke<string>('git_diff', { root, path, cached });

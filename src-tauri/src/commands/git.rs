@@ -56,8 +56,8 @@ pub async fn git_create_branch(root: String, name: String) -> Result<(), String>
 }
 
 #[tauri::command]
-pub async fn git_push(root: String) -> Result<String, String> {
-    off_main(move || git::push(&root)).await
+pub async fn git_push(root: String, force: bool) -> Result<String, String> {
+    off_main(move || git::push(&root, force)).await
 }
 
 #[tauri::command]

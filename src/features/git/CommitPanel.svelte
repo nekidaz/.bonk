@@ -28,6 +28,8 @@
   const one = $derived(commits.length === 1);
   const d = $derived(one ? details[commits[0].hash] : undefined);
   const loaded = $derived(commits.map((c) => details[c.hash]).filter((x): x is CommitDetail => !!x));
+  // Until the details arrive the count would read «0 changed»; GraphView fetches at most 30.
+  const ready = $derived(loaded.length >= Math.min(commits.length, 30));
   const current = $derived(git.status?.branch ?? '');
 
   // Changed files of the whole selection: summed counts, the newest commit's status and hash.
@@ -120,8 +122,8 @@
 
   <div class="files">
     <div class="eb">
-      <span>{`${t('git.graph.changed')}  ·  ${files.length}`}</span>
-      <span class="stat"><i class="plus">+{plus}</i> <i class="minus">-{minus}</i></span>
+      <span>{ready ? `${t('git.graph.changed')}  ·  ${files.length}` : t('git.graph.changed')}</span>
+      {#if ready}<span class="stat"><i class="plus">+{plus}</i> <i class="minus">-{minus}</i></span>{/if}
     </div>
     {#each files as f (f.path)}
       {@const i = info(f.path)}

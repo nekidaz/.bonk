@@ -135,7 +135,15 @@
     const root = workspace.path;
     const want = selected.slice(0, 30).filter((h) => !untrack(() => details[h]));
     if (!root || !want.length) return;
-    void Promise.all(want.map((h) => gitCommitDetail(root, h).catch(() => undefined))).then((got) => {
+    void Promise.all(
+      want.map((h) =>
+        gitCommitDetail(root, h).catch((err) => {
+          // Say why the panel stays empty instead of showing «0 files».
+          git.error = String(err);
+          return undefined;
+        }),
+      ),
+    ).then((got) => {
       const next = { ...details };
       for (const d of got) if (d) next[d.hash] = d;
       details = next;
@@ -555,7 +563,8 @@
   }
   .subj {
     flex: 0 1 auto;
-    min-width: 40px;
+    /* The message keeps room; branch labels give way first. */
+    min-width: min(60%, 220px);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -575,7 +584,10 @@
     white-space: nowrap;
   }
   .ref {
-    flex: none;
+    flex: 0 1 auto;
+    min-width: 28px;
+    overflow: hidden;
+    text-overflow: ellipsis;
     display: inline-flex;
     align-items: center;
     gap: 4px;

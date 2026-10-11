@@ -563,8 +563,16 @@ pub fn create_branch(root: &str, name: &str) -> Result<(), String> {
 /// Run `git push`. git prints progress/results to stderr, so we return the
 /// combined stdout+stderr for the UI to display verbatim. Failure → `Err` with
 /// the same combined output.
-pub fn push(root: &str) -> Result<String, String> {
-    run_combined(root, &["push"])
+///
+/// `force` is for a branch rewritten after it was pushed (rebase, amend):
+/// `--force-with-lease` overwrites the remote only if it still is where we last
+/// fetched it, so commits pushed by someone else since then are never lost.
+pub fn push(root: &str, force: bool) -> Result<String, String> {
+    if force {
+        run_combined(root, &["push", "--force-with-lease"])
+    } else {
+        run_combined(root, &["push"])
+    }
 }
 
 /// Run `git pull` (see [`push`] for the combined-output rationale).
@@ -2884,6 +2892,28 @@ mod tests {
         if !configured {
             assert_eq!(parents.split_whitespace().count(), 2, "a merge commit");
         }
+        for d in [dir, remote, other] {
+            let _ = fs::remove_dir_all(d);
+        }
+    }
+
+    #[test]
+    fn force_push_overwrites_only_what_we_have_seen() {
+        let (dir, remote, other) = diverged_clone();
+        let r = dir.to_str().unwrap();
+        // The remote got «theirs» after our last fetch: the lease refuses.
+        assert!(push(r, false).is_err());
+        assert!(push(r, true).is_err());
+        // Once fetched, the overwrite is deliberate and goes through.
+        git(r, &["fetch", "-q"]).unwrap();
+        push(r, true).unwrap();
+        let rs = remote.to_str().unwrap();
+        assert_eq!(
+            git(rs, &["log", "-1", "--format=%s", "main"])
+                .unwrap()
+                .trim(),
+            "mine"
+        );
         for d in [dir, remote, other] {
             let _ = fs::remove_dir_all(d);
         }

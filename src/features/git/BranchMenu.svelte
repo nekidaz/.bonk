@@ -10,7 +10,8 @@
   import { createBranch, git, pull, push, requestCheckout } from '$entities/git';
   import { gitBranchList } from '$shared/ipc';
   import type { GitBranch } from '$shared/model';
-  import { t } from '$shared/i18n';
+  import { t, tp } from '$shared/i18n';
+  import { requestConfirm } from '$shared/ui';
 
   let branches = $state.raw<GitBranch[]>([]);
   let query = $state('');
@@ -25,6 +26,22 @@
     branches.filter((b) => b.remote && !tracked.has(b.name) && b.name.toLowerCase().includes(q)),
   );
   const remoteName = $derived(remotes[0]?.name.split('/')[0] ?? 'origin');
+  // Diverged (after a rebase / amend of pushed commits): a plain push is refused, so offer the lease.
+  const diverged = $derived(!!git.status?.ahead && !!git.status?.behind);
+
+  async function pushNow(): Promise<void> {
+    close();
+    if (!diverged) return void push();
+    const n = git.status?.behind ?? 0;
+    const ok = await requestConfirm(
+      t('git.branch.forceConfirm', {
+        upstream: git.status?.upstream ?? remoteName,
+        n: `${n} ${tp(n, ['коммит', 'коммита', 'коммитов'], ['commit', 'commits'])}`,
+      }),
+      'Force push',
+    );
+    if (ok) void push(true);
+  }
 
   $effect(() => {
     if (!at) return;
@@ -149,13 +166,11 @@
       <button
         class="bs-gbtn"
         disabled={git.busy}
-        onclick={() => {
-          close();
-          void push();
-        }}
-        ><span class="material-symbols-outlined">arrow_upward</span>Push{#if git.status?.ahead}<span class="n"
-            >{git.status.ahead}</span
-          >{/if}</button
+        title={diverged ? 'git push --force-with-lease' : undefined}
+        onclick={pushNow}
+        ><span class="material-symbols-outlined">arrow_upward</span>{diverged
+          ? 'Force push'
+          : 'Push'}{#if git.status?.ahead}<span class="n">{git.status.ahead}</span>{/if}</button
       >
     </div>
   </div>

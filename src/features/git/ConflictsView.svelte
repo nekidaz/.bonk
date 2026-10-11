@@ -97,7 +97,7 @@
       <div class="row">
         <h2>{t('git.conflicts')}</h2>
         {#if rows.length}
-          <span class="bs-gtag bad"
+          <span class="bs-gtag" class:bad={files.length > 0}
             >{t('git.cf.left', {
               n: files.length,
               total: rows.length,

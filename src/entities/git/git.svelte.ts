@@ -150,26 +150,30 @@ export async function refreshGit(): Promise<void> {
   }
 }
 
-/** Run `fn(root)` against the workspace path, then refresh. Failures land in `git.error`; returns success. */
-async function runGit(name: string, fn: (root: string) => Promise<unknown>): Promise<boolean> {
+/**
+ * Run `fn(root)` against the workspace path, then refresh. Failures land in `git.error` (after the
+ * refresh, so `quiet` can look at the new status); returns success. `quiet(err)` true keeps a
+ * failure out of `git.error` — a replay that stopped on conflicts is not an error to toast.
+ */
+async function runGit(name: string, fn: (root: string) => Promise<unknown>, quiet?: () => boolean): Promise<boolean> {
   const root = workspace.path;
   if (!root) return false;
-  let ok = true;
+  let failure: unknown = null;
   git.error = '';
   git.pending++;
   try {
     await fn(root);
   } catch (err) {
     console.error(`git: ${name} failed`, err);
-    git.error = String(err);
-    ok = false;
+    failure = err ?? 'failed';
   }
   try {
     await refreshGit();
   } finally {
     git.pending--;
   }
-  return ok;
+  if (failure !== null && !quiet?.()) git.error = String(failure);
+  return failure === null;
 }
 
 export async function stagePaths(paths: string[]): Promise<void> {
@@ -297,11 +301,9 @@ export const rebaseInteractive = (onto: string, steps: RebaseAction[]) =>
  * news: the conflicts are, so their tab opens instead of a toast.
  */
 async function replay(name: string, fn: (root: string) => Promise<unknown>): Promise<boolean> {
-  const ok = await runGit(name, fn);
-  if (!ok && git.status?.operation) {
-    git.error = '';
-    openConflictsTab();
-  }
+  const stopped = () => !!git.status?.operation;
+  const ok = await runGit(name, fn, stopped);
+  if (!ok && stopped()) openConflictsTab();
   return ok;
 }
 export const checkoutCommit = (hash: string) => runGit('checkout', (root) => gitCheckoutDetached(root, hash));
@@ -346,7 +348,7 @@ async function sync(name: string, fn: (root: string) => Promise<string>): Promis
 
 export const pull = (): Promise<string> => sync('pull', gitPull);
 export const fetchAll = (): Promise<string> => sync('fetch', gitFetch);
-export const push = (): Promise<string> => sync('push', gitPush);
+export const push = (force = false): Promise<string> => sync('push', (root) => gitPush(root, force));
 
 /**
  * Keep git status in sync with the workspace: opening, switching or closing it re-reads (or clears) the
