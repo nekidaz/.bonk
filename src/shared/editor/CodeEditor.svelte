@@ -57,6 +57,7 @@
   import { jsonProblem } from './jsonLint';
   import { jsonErrorMessage } from './jsonEditor';
   import { revealLine } from './scriptMarks';
+  import { extraCompletionSource, tooltipHost, trackFocus } from './editorRegistry';
 
   let {
     value,
@@ -553,21 +554,6 @@
     });
   }
 
-  /**
-   * Out-of-pane home for rich completion tooltips. CodeMirror wraps them in a container carrying the
-   * editor theme (`height: 100%`); straight in the flex-column body it would take half the window from #app.
-   */
-  function tooltipHost(): HTMLElement {
-    let el = document.getElementById('bs-cm-tooltips');
-    if (!el) {
-      el = document.createElement('div');
-      el.id = 'bs-cm-tooltips';
-      el.style.cssText = 'position:fixed;top:0;left:0;width:0;height:0;z-index:1000';
-      document.body.append(el);
-    }
-    return el;
-  }
-
   function renderDoc(c: Completion): Node | null {
     const doc = (c as Completion & { doc?: string }).doc;
     if (!doc) return null;
@@ -605,14 +591,14 @@
             autocompletion(
               completionSource
                 ? {
-                    override: [(ctx) => completionSource?.(ctx) ?? null],
+                    override: [(ctx) => completionSource?.(ctx) ?? null, extraCompletionSource],
                     icons: false,
                     tooltipClass: () => 'bs-ac-rich',
                     optionClass: (c) => ((c as Completion & { set?: boolean }).set ? 'bs-ac-set' : ''),
                     addToOptions: [{ position: 90, render: renderDoc }],
                   }
                 : completions && completions.length > 0
-                  ? { override: [dictionaryCompletions(completions)] }
+                  ? { override: [dictionaryCompletions(completions), extraCompletionSource] }
                   : {},
             ),
           ];
@@ -642,6 +628,7 @@
       langCompartment.of(langExtension(lang)),
       placeholderCompartment.of(cmPlaceholder(placeholder)),
       varCompartment.of(varHighlight ?? []),
+      readOnly ? [] : trackFocus,
       extraCompartment.of(extensions ?? []),
       syntaxHighlighting(highlight),
       themeExtension(),

@@ -15,6 +15,7 @@
   import SettingsHotkeys from './SettingsHotkeys.svelte';
   import SettingsData from './SettingsData.svelte';
   import SettingsMcp from './SettingsMcp.svelte';
+  import SettingsVariables from './SettingsVariables.svelte';
 
   // Two-way bound from the parent (app/ `shell.settingsOpen` is the source of truth).
   let { open = $bindable() }: { open: boolean } = $props();
@@ -39,6 +40,13 @@
       icon: 'send',
       sub: 'settings.page.requests.sub',
       view: SettingsRequests,
+    },
+    {
+      id: 'variables',
+      label: 'settings.page.variables',
+      icon: 'data_object',
+      sub: 'settings.page.variables.sub',
+      view: SettingsVariables,
     },
     {
       id: 'cookies',

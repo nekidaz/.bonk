@@ -1,6 +1,6 @@
 import type { RequestNode, RunResultRow } from '$shared/model';
 import { mergeScope } from '$shared/model';
-import { currentGrpcPrefs, withGlobalImports, requestPrefs } from '$shared/settings';
+import { currentGrpcPrefs, dynamicOptions, withGlobalImports, requestPrefs } from '$shared/settings';
 import { runnerRun, type RunEvent, type RunPlan } from '$shared/ipc';
 import { effectiveAuth, workspace } from '$entities/workspace';
 import { environments } from '$entities/environment';
@@ -60,6 +60,7 @@ export function runRequests(
     stopOnFailure: opts.stopOnFailure ?? false,
     workspaceRoot: workspace.path ?? '',
     globalImportPaths: withGlobalImports([]),
+    dynamic: dynamicOptions(),
   };
   const grpc = {
     prefs: currentGrpcPrefs(),

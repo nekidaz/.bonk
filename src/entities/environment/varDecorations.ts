@@ -21,7 +21,8 @@ import {
   type ViewUpdate,
 } from '@codemirror/view';
 import { t } from '$shared/i18n';
-import { findVariables } from '$shared/model';
+import { findVariables, isDynamicName, isKnownDynamic } from '$shared/model';
+import { type DynamicUiOptions, dynamicTipDom, dynamicVarExtensions, unknownDynamicTipDom } from './dynamicVarUi';
 
 /** Where a variable lives: an environment (name + CSS colour of its dot) or Globals. */
 export interface VarSource {
@@ -53,10 +54,14 @@ export interface VariableHighlightOptions {
   /** Overwrite the value of an already-resolved variable in its owning scope. */
   onUpdate(name: string, value: string): void;
   onOpenEnvs(): void;
+  /** `{{$dynamic}}`: examples and the reference dialog. */
+  dynamic: DynamicUiOptions;
 }
 
 const okDeco = Decoration.mark({ class: 'cm-var-ok' });
 const missingDeco = Decoration.mark({ class: 'cm-var-missing' });
+const dynDeco = Decoration.mark({ class: 'cm-var-dyn' });
+const dynBadDeco = Decoration.mark({ class: 'cm-var-dyn-bad' });
 
 /** Same pattern as `resolveVars` (shared/model/vars.ts) so highlight == resolution. */
 const VAR_PATTERN = /\{\{\s*([^{}]*?)\s*\}\}/g;
@@ -64,7 +69,11 @@ const VAR_PATTERN = /\{\{\s*([^{}]*?)\s*\}\}/g;
 function highlightPlugin(opts: VariableHighlightOptions): Extension {
   const decorator = new MatchDecorator({
     regexp: new RegExp(VAR_PATTERN.source, 'g'),
-    decoration: (match) => (opts.getScopeInfo(match[1].trim()) ? okDeco : missingDeco),
+    decoration: (match) => {
+      const name = match[1].trim();
+      if (isDynamicName(name)) return isKnownDynamic(name) ? dynDeco : dynBadDeco;
+      return opts.getScopeInfo(name) ? okDeco : missingDeco;
+    },
   });
   return ViewPlugin.fromClass(
     class {
@@ -333,6 +342,16 @@ function varHover(opts: VariableHighlightOptions): Extension {
         .map((m) => ({ name: m.name, from: m.from + line.from, to: m.to + line.from }))
         .find((m) => m.from <= pos && pos <= m.to);
       if (!hit) return null;
+      if (isDynamicName(hit.name)) {
+        const known = isKnownDynamic(hit.name);
+        return {
+          pos: hit.from,
+          end: hit.to,
+          create: (v) => ({
+            dom: known ? dynamicTipDom(v, hit.name, opts.dynamic) : unknownDynamicTipDom(v, hit.name, hit.from, hit.to),
+          }),
+        };
+      }
       const info = opts.getScopeInfo(hit.name);
       return {
         pos: hit.from,
@@ -510,5 +529,5 @@ const varTheme = EditorView.baseTheme({
  * quick-set popover. Rebuild (via a compartment) whenever the scope changes.
  */
 export function variableHighlight(opts: VariableHighlightOptions): Extension[] {
-  return [highlightPlugin(opts), varHover(opts), varTheme];
+  return [highlightPlugin(opts), varHover(opts), varTheme, dynamicVarExtensions(opts.dynamic)];
 }

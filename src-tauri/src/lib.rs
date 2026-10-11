@@ -38,6 +38,7 @@ pub fn run() {
             commands::terminal::terminal_run,
             commands::http::http_prepare,
             commands::http::http_resolve,
+            commands::http::dynamic_samples,
             commands::http::http_send,
             commands::http::run_script,
             commands::runner::runner_run,

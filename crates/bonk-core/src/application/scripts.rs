@@ -13,6 +13,7 @@
 //! reported as `Err(String)`; a thrown error inside the user script is captured
 //! into `__out.error` instead (so tests/logs collected before the throw survive).
 
+use crate::domain::dynamic_vars::{self, DynamicOptions};
 use rquickjs::{context::EvalOptions, CatchResultExt, Context, Runtime};
 use std::time::{Duration, Instant};
 
@@ -126,7 +127,7 @@ globalThis.__msg=function(e){if(!e||typeof e!=='object')return String(e);var n=e
     iterationData:{get:function(k){return iterData[k];},has:function(k){return k in iterData;},toObject:function(){return Object.assign({},iterData);}},
     variables:{get:lookup,has:function(k){return lookup(k)!==undefined;},set:function(k,v){locals[k]=String(v);},
       toObject:function(){return Object.assign({},glob,env,iterData,locals);},
-      replaceIn:function(s){return String(s).replace(/\{\{([^{}]+)\}\}/g,function(m,k){var v=lookup(k.trim());return v===undefined?m:v;});}},
+      replaceIn:function(s){return String(s).replace(/\{\{([^{}]+)\}\}/g,function(m,k){k=k.trim();var v=k.charAt(0)==='$'?__dyn[k]:lookup(k);return v===undefined?m:v;});}},
     request:request, response:resp, cookies:cookies,
     test:function(name,fn){var line=__line(new Error().stack),t={name:String(name),passed:true};if(line)t.line=line;
       try{fn();}catch(e){t.passed=false;t.error=__msg(e);var el=__line(e&&e.stack);if(el)t.errorLine=el;}
@@ -191,7 +192,13 @@ fn run_script_with_timeout(
             .map_err(|e| format!("invalid script context JSON: {e}"))?;
         let ctx_literal = serde_json::to_string(context_json)
             .map_err(|e| format!("failed to encode script context: {e}"))?;
-        ctx.eval::<(), _>(format!("globalThis.__ctx = JSON.parse({ctx_literal});"))
+        // `{{$dynamic}}` values for `pm.variables.replaceIn`: one per name per script run.
+        let samples = dynamic_vars::samples(&DynamicOptions::default());
+        let dyn_literal = serde_json::to_string(&serde_json::to_string(&samples).unwrap_or_default())
+            .map_err(|e| format!("failed to encode script context: {e}"))?;
+        ctx.eval::<(), _>(format!(
+            "globalThis.__ctx = JSON.parse({ctx_literal}); globalThis.__dyn = JSON.parse({dyn_literal});"
+        ))
             .catch(&ctx)
             .map_err(|e| timeout_or(&deadline, format!("failed to load script context: {e}")))?;
 
@@ -540,6 +547,16 @@ mod tests {
         assert_eq!(
             out["returnValue"],
             serde_json::json!([true, false, "1", "x1y"])
+        );
+    }
+
+    #[test]
+    fn replace_in_generates_dynamic_values() {
+        let code = "var s = pm.variables.replaceIn('{{$guid}}|{{$guid}}|{{$nope}}').split('|'); return [s[0].length, s[0] === s[1], s[2]];";
+        let out = run(code, "{}");
+        assert_eq!(
+            out["returnValue"],
+            serde_json::json!([36, true, "{{$nope}}"])
         );
     }
 

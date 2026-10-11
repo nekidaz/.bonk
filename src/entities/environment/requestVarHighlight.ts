@@ -11,6 +11,7 @@ import { type Environment, type VarRow, lookupVar } from '$shared/model';
 import { ENV_COLOR_VAR, envColor } from './palette';
 import { environments, openEnvironmentsSheet, setEnvVars, setGlobalVars } from './store.svelte';
 import { variableHighlight } from './varDecorations';
+import { dynamicSample, dynamicSamplesLoaded, openDynamicCatalog, refreshDynamicSamples } from './dynamic.svelte';
 
 /**
  * Build the `{{var}}` highlight extension for the given scope snapshot. Pass
@@ -48,6 +49,12 @@ export function requestVariableHighlight(
     addTarget: () => (active ? source(active) : globalsSource),
     envsWith: (name) => envs.filter((e) => e !== active && findRow(e.vars, name.trim())).map(source),
     onOpenEnvs: openEnvironmentsSheet,
+    dynamic: {
+      sample: dynamicSample,
+      samplesLoaded: dynamicSamplesLoaded,
+      refreshSamples: refreshDynamicSamples,
+      onOpenCatalog: openDynamicCatalog,
+    },
     onAdd(name, value) {
       const key = name.trim();
       if (key === '') return;

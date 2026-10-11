@@ -19,7 +19,7 @@
   import { tabs, grpcSnapshot, titleFromUrl, GRPC_DEFAULT_TITLE } from '$entities/tab';
   import { effectiveAuth, workspace } from '$entities/workspace';
   import { addHistory } from '$entities/history';
-  import { grpcTlsFor, currentGrpcPrefs, withGlobalImports, requestPrefs } from '$shared/settings';
+  import { grpcTlsFor, currentGrpcPrefs, dynamicOptions, withGlobalImports, requestPrefs } from '$shared/settings';
   import {
     applyScriptVars,
     addAppConsoleEntry,
@@ -328,7 +328,11 @@
     const g = tabs.list.find((t) => t.id === tabId)?.grpc;
     if (!busy?.writable || !busy.requestId || !g) return;
     try {
-      const { message: body } = await grpcPrepare({ message: g.message, scope: currentVarScope() });
+      const { message: body } = await grpcPrepare({
+        message: g.message,
+        scope: currentVarScope(),
+        dynamic: dynamicOptions(),
+      });
       await grpcStreamSend(busy.requestId, body);
       requestRuntime.clearGrpcError(tabId);
       tabs.updateById(tabId, (x) => {
@@ -467,6 +471,7 @@
         metadata,
         scope: currentVarScope(),
         stripAuthorization: stripAuth,
+        dynamic: dynamicOptions(),
       }));
       if (streaming) {
         const sent = method?.clientStreaming ? sentEntries(resolvedMessage, 0) : [];

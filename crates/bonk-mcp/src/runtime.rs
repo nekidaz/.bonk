@@ -16,6 +16,7 @@ use bonk_core::{
     },
     conn::GrpcDescriptorCache,
     domain::{
+        dynamic_vars::Dynamic,
         grpc::GrpcResult,
         http::{HttpRequest, HttpResponse, RequestSettings},
         request_prep::{self, resolve_text},
@@ -406,7 +407,7 @@ impl BonkRuntime {
         request_prep::materialize(&mut request, params.as_deref());
         let (environment, globals, secrets) = self.scopes(variables, environment)?;
         let scope = merged_scope(&globals, &environment);
-        request_prep::resolve(&mut request, &scope)?;
+        request_prep::resolve(&mut request, &scope, &mut Dynamic::default())?;
         self.normalize_file_paths(&mut request)
             .map_err(|error| sanitize_error(&error, &secrets))?;
 

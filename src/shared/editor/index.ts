@@ -22,3 +22,4 @@ export { countLabel } from './largeFold';
 export { urlHighlight } from './urlHighlight';
 export { scriptSnippetsExpanded, scriptSnippetsOpen } from './scriptPrefs.svelte';
 export { consoleRows } from './scriptRun';
+export { completionExtras, insertAtLastCursor, tooltipHost } from './editorRegistry';

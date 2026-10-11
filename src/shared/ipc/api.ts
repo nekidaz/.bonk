@@ -1,5 +1,7 @@
 import { Channel, invoke } from '@tauri-apps/api/core';
 import {
+  type DynamicOptions,
+  type DynamicValue,
   type HttpRequest,
   type HttpResponse,
   type CookieInfo,
@@ -157,8 +159,23 @@ export const httpPrepare = async (req: HttpRequest, params?: Param[]): Promise<H
   fromRust(await invoke<HttpRequest>('http_prepare', { req, params: params ?? null }));
 
 /** `{{vars}}` from `scope`, then auth. Throws on invalid GraphQL variables. */
-export const httpResolve = async (req: HttpRequest, scope: Record<string, string>): Promise<HttpRequest> =>
-  fromRust(await invoke<HttpRequest>('http_resolve', { req, scope }));
+/** After the pre-request script: the request as it goes on the wire + the `{{$dynamic}}` values in it. */
+export const httpResolve = async (
+  req: HttpRequest,
+  scope: Record<string, string>,
+  dynamic?: DynamicOptions,
+): Promise<{ request: HttpRequest; dynamic: DynamicValue[] }> => {
+  const out = await invoke<{ request: HttpRequest; dynamic: DynamicValue[] }>('http_resolve', {
+    req,
+    scope,
+    dynamic: dynamic ?? null,
+  });
+  return { request: fromRust(out.request), dynamic: out.dynamic };
+};
+
+/** One example value per `{{$name}}` (autocomplete, reference, settings preview). */
+export const dynamicSamples = (options: DynamicOptions) =>
+  invoke<Record<string, string>>('dynamic_samples', { options });
 
 export const httpSend = (req: HttpRequest, requestId?: string, settings?: RequestSettings): Promise<HttpResponse> =>
   invoke<HttpResponse>('http_send', { req, requestId: requestId ?? null, settings: settings ?? null });
@@ -216,6 +233,8 @@ export const grpcPrepare = (p: {
   scope: Record<string, string>;
   /** Plaintext without the S30 opt-in: don't send `authorization`. */
   stripAuthorization?: boolean;
+  /** How `{{$dynamic}}` values are generated (Settings → Variables). */
+  dynamic?: DynamicOptions;
 }) =>
   invoke<{ message: string; metadata: Record<string, string> }>('grpc_prepare', {
     auth: p.auth ?? null,
@@ -223,6 +242,7 @@ export const grpcPrepare = (p: {
     metadata: p.metadata ?? {},
     scope: p.scope,
     stripAuthorization: p.stripAuthorization ?? false,
+    dynamic: p.dynamic ?? null,
   });
 
 export const grpcCall = (
@@ -270,6 +290,8 @@ export interface RunPlan {
   stopOnFailure: boolean;
   workspaceRoot: string;
   globalImportPaths: string[];
+  /** How `{{$dynamic}}` values are generated (Settings → Variables). */
+  dynamic?: DynamicOptions;
 }
 
 /** Script writes of a run, for the env/globals stores (and cookie clears). */

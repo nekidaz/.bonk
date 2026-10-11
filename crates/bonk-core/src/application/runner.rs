@@ -20,6 +20,7 @@ use super::oauth::{self, Keychain, TokenStore};
 use super::{grpc_native, scripts};
 use crate::conn::GrpcDescriptorCache;
 use crate::domain::{
+    dynamic_vars::{Dynamic, DynamicOptions},
     grpc::{GrpcPrefs, GrpcResult, GrpcTls},
     http::{pick_client_cert, ClientCert, HttpRequest, HttpResponse},
     request_prep::{self, Scope},
@@ -68,6 +69,9 @@ pub struct RunPlan {
     /// Settings client identities: a gRPC request without its own takes the one for its host.
     #[serde(default)]
     pub client_certs: Vec<ClientCert>,
+    /// How `{{$dynamic}}` values are generated (Settings → Variables).
+    #[serde(default)]
+    pub dynamic: DynamicOptions,
 }
 
 impl RunPlan {
@@ -418,12 +422,23 @@ pub async fn run_node<T: Transport>(
     transport: &T,
     emit: &(dyn Fn(RunEvent) + Sync),
 ) -> RunResultRow {
+    // A fixed seed makes the whole run repeatable, yet every request of every iteration
+    // still gets its own values.
+    let mut dynamic = plan.dynamic.clone();
+    dynamic.seed = dynamic.seed.map(|seed| {
+        node.id
+            .bytes()
+            .fold(seed ^ u64::from(iteration), |hash, byte| {
+                hash.wrapping_mul(31).wrapping_add(u64::from(byte))
+            })
+    });
     let mut ctx = NodeRun {
         data,
         vars,
         emit,
         tests: Vec::new(),
         logs: Vec::new(),
+        dynamic: Dynamic::new(&dynamic),
     };
     if node.protocol == "grpc" {
         ctx.grpc(plan, node, iteration, transport).await
@@ -478,6 +493,8 @@ struct NodeRun<'a> {
     data: &'a Scope,
     vars: &'a mut RunVars,
     emit: &'a (dyn Fn(RunEvent) + Sync),
+    /// `{{$dynamic}}` values of this request: one per name, shared by the row and the send.
+    dynamic: Dynamic,
     tests: Vec<ScriptTest>,
     logs: Vec<String>,
 }
@@ -495,7 +512,8 @@ impl NodeRun<'_> {
             }
             _ => node.request.url.clone(),
         };
-        let target = request_prep::resolve_text(&url, &self.vars.scope(self.data));
+        let target =
+            request_prep::resolve_text_with(&url, &self.vars.scope(self.data), &mut self.dynamic);
         let outcome = self.http_pipeline(node, transport).await;
         self.row(node, iteration, target, outcome, |o| match o.status {
             RowStatus::Code(code) => o.ok && (200..300).contains(&code),
@@ -512,7 +530,11 @@ impl NodeRun<'_> {
         request_prep::materialize(&mut request, node.params.as_deref());
         if let Some(code) = script(&request.pre_request_script) {
             let mut probe = request.clone();
-            request_prep::resolve(&mut probe, &self.vars.scope(self.data))?;
+            request_prep::resolve(
+                &mut probe,
+                &self.vars.scope(self.data),
+                &mut Dynamic::default(),
+            )?;
             let cookies = transport.script_cookies(&probe.url, None);
             let context = self.http_context(&request, None, &cookies);
             let pre = self.run_script("pre-request", code, context).await?;
@@ -523,13 +545,13 @@ impl NodeRun<'_> {
         }
         let scope = self.vars.scope(self.data);
         let mut resolved = self.with_oauth(&request, &scope, transport, false).await?;
-        request_prep::resolve(&mut resolved, &scope)?;
+        request_prep::resolve(&mut resolved, &scope, &mut self.dynamic)?;
         let mut response = transport.send_http(resolved.clone()).await?;
         // A 401 with an OAuth token: renew it once and resend (the server may have revoked it).
         if response.status == 401 && is_oauth(request.auth.as_ref()) {
             match self.with_oauth(&request, &scope, transport, true).await {
                 Ok(mut retry) => {
-                    request_prep::resolve(&mut retry, &scope)?;
+                    request_prep::resolve(&mut retry, &scope, &mut self.dynamic)?;
                     response = transport.send_http(retry.clone()).await?;
                     resolved = retry;
                 }
@@ -679,6 +701,7 @@ impl NodeRun<'_> {
             &metadata,
             &self.vars.scope(self.data),
             strip_authorization,
+            &mut self.dynamic,
         );
         let result = transport
             .grpc_call(&conn, method, &outgoing.message, &outgoing.metadata)
