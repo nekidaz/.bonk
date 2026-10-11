@@ -34,6 +34,7 @@
     type Field,
     type FieldChoice,
     type Obj,
+    type Pairing,
   } from './mergeFields';
   import { mergeMode } from './store.svelte';
 
@@ -55,7 +56,7 @@
   let ffocus = $state(0);
   let sides: [Obj, Obj, Obj] = [{}, {}, {}];
   /** Pairings by place the user turned down («Это замена»). */
-  let splits = $state.raw<ReadonlySet<string>>(new Set());
+  let pairing = $state.raw<Pairing>({ splits: new Set(), joins: new Set() });
   let trailing = false;
   const fieldsMode = $derived(fieldsOk && mergeMode.current === 'fields');
 
@@ -93,7 +94,7 @@
       if (b && m && th) {
         sides = [b, m, th];
         trailing = (f.mine ?? '').endsWith('\n');
-        splits = new Set();
+        pairing = { splits: new Set(), joins: new Set() };
         fs = fieldsOf(b, m, th);
         choices = initialChoices(fs);
         fAuto = fs.map(() => false);
@@ -117,20 +118,36 @@
   const fConflicts = $derived(fChanged.filter((i) => fs[i].kind === 'conflict'));
   const fLeft = $derived(fChanged.filter((i) => choices[i] === null).length);
   const sameCount = $derived(fs.length - fChanged.length);
-  const fResult = $derived(fieldsOk ? mergeFields(...sides, fs, choices, trailing, splits) : null);
+  const fResult = $derived(fieldsOk ? mergeFields(...sides, fs, choices, trailing, pairing) : null);
   // The first row of each element matched only by place carries «≈ по месту» and «Это замена».
   const guessHead = $derived(
     new Set(fs.map((f, i) => (f.guess && fs.findIndex((g) => g.guess?.[0] === f.guess?.[0]) === i ? i : -1))),
   );
 
   /**
-   * «Это замена»: the element wasn't edited, it was swapped for another. Re-read the fields with
-   * that pairing turned down; every field that keeps its identity keeps its choice.
+   * «Это замена»: the element wasn't edited, it was swapped for another — turn its pairing down
+   * (or undo a «Это правка» that made it).
    */
   function splitGuess(keys: string[]): void {
-    splits = new Set([...splits, ...keys]);
+    const splits = new Set(pairing.splits);
+    const joins = new Set(pairing.joins);
+    for (const k of keys) if (!joins.delete(k)) splits.add(k);
+    reread({ splits, joins });
+  }
+
+  /** «Это правка»: a removed and an added element are one element edited — pair them. */
+  function joinPair(key: string): void {
+    const splits = new Set(pairing.splits);
+    const joins = new Set(pairing.joins);
+    if (!splits.delete(key)) joins.add(key);
+    reread({ splits, joins });
+  }
+
+  /** Re-read the fields under new pairings; every field that keeps its identity keeps its choice. */
+  function reread(next: Pairing): void {
+    pairing = next;
     const before = new Map(fs.map((f, i) => [f.id, { c: choices[i], a: fAuto[i] }]));
-    fs = fieldsOf(...sides, splits);
+    fs = fieldsOf(...sides, pairing);
     const fresh = initialChoices(fs);
     choices = fs.map((f, i) => (before.has(f.id) ? before.get(f.id)!.c : fresh[i]));
     fAuto = fs.map((f) => before.get(f.id)?.a ?? false);
@@ -491,6 +508,11 @@
                   >{t('git.mg.split')}</button
                 >
               {/if}
+              {#each f.join ?? [] as j (j.key)}
+                <button class="split" title={t('git.mg.joinHint', { label: j.label })} onclick={() => joinPair(j.key)}
+                  >{t('git.mg.join', { label: j.label })}</button
+                >
+              {/each}
             </div>
             <div class="fv {fieldState(f, c, 'mine')}{hot}">{@render val(f.mine)}</div>
             <div class="g">
