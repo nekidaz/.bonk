@@ -1,0 +1,2 @@
+# LF everywhere, incl. Windows checkouts: prettier and rustfmt --check expect it.
+* text=auto eol=lf

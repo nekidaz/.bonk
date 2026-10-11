@@ -3908,7 +3908,11 @@ mod tests {
         commit_file(r, "f1.txt", "1\n", "c1");
         let remote = temp_dir();
         fs::create_dir_all(&remote).unwrap();
-        git(remote.to_str().unwrap(), &["init", "-q", "--bare"]).unwrap();
+        git(
+            remote.to_str().unwrap(),
+            &["init", "-q", "--bare", "-b", "main"],
+        )
+        .unwrap();
         git(r, &["remote", "add", "origin", remote.to_str().unwrap()]).unwrap();
         git(r, &["push", "-q", "origin", "main"]).unwrap();
         git(r, &["fetch", "-q", "origin"]).unwrap();
