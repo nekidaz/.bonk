@@ -110,6 +110,7 @@ export {
   importReadFile,
   type ImportFile,
   openapiImportPick,
+  themeDelete,
   type ThemeFile,
   themeImportPick,
   themeSave,

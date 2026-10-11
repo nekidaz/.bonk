@@ -41,6 +41,7 @@ export {
   SIDE_BY_SIDE_MIN,
   sideOnWide,
   startupOpen,
+  deleteCustomTheme,
   pickTheme,
   systemDarkTheme,
   systemLightTheme,

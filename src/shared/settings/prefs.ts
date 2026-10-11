@@ -1,5 +1,7 @@
 import { persisted } from '$shared/persist';
-import { isDarkTheme, isTheme, theme, type Theme } from './theme.svelte';
+import { themeDelete } from '$shared/ipc';
+import { customThemes } from './customThemes.svelte';
+import { isDarkTheme, isTheme, theme, themeInfo, type Theme } from './theme.svelte';
 
 /** App preferences from Settings → Общие / Внешний вид (S32.1, S32.5). Self-persisting. */
 
@@ -37,6 +39,16 @@ export const systemDarkTheme = persisted<Theme>(
 export function pickTheme(t: Theme): void {
   themeFollowSystem.current = false;
   theme.current = t;
+}
+/** Delete a user theme's file. Whatever used it falls back to Bonk Dark / Light. */
+export async function deleteCustomTheme(slug: string): Promise<void> {
+  await themeDelete(slug);
+  const id: Theme = `custom:${slug}`;
+  const base = themeInfo(id).base;
+  customThemes.list = customThemes.list.filter((x) => x.slug !== slug);
+  if (theme.current === id) theme.current = base;
+  if (systemLightTheme.current === id) systemLightTheme.current = 'smooth-light';
+  if (systemDarkTheme.current === id) systemDarkTheme.current = 'smooth-dark';
 }
 
 // Settings → Внешний вид → «Раскладка запроса и ответа» (S32.5b, E1–E7).

@@ -8,6 +8,8 @@
     themeCssText,
     themeInfo,
     pickTheme,
+    deleteCustomTheme,
+    type ThemeInfo,
     themeFollowSystem,
     systemLightTheme,
     systemDarkTheme,
@@ -80,6 +82,21 @@
     };
   });
 
+  let armed = $state('');
+  async function removeTheme(slug: string): Promise<void> {
+    if (armed !== slug) {
+      armed = slug;
+      return;
+    }
+    armed = '';
+    pickError = '';
+    try {
+      await deleteCustomTheme(slug);
+    } catch (e) {
+      pickError = String(e);
+    }
+  }
+
   const pairOptions = (dark: boolean) =>
     allThemes()
       .filter((x) => x.dark === dark)
@@ -92,7 +109,7 @@
 <!-- data-theme-drop: a dropped .json comes here, not to the collection import (features/import/DropZone). -->
 <div class="st-card st-pad" data-theme-drop>
   <div class="st-themes" role="radiogroup" aria-label={t('settings.appearance.theme')}>
-    {#each allThemes() as th (th.id)}
+    {#snippet card(th: ThemeInfo)}
       <button
         type="button"
         class="st-theme"
@@ -104,6 +121,31 @@
         {@render themePic(th.base, th.colors && themeCssText(th.colors))}
         <span class="st-mode-label"><span class="radio"></span>{th.name}</span>
       </button>
+    {/snippet}
+    {#each allThemes() as th (th.id)}
+      {#if th.colors}
+        {@const slug = th.id.slice('custom:'.length)}
+        <!-- A user theme can be deleted: the first click arms the button, the second deletes the file. -->
+        <div class="st-theme-cell">
+          {@render card(th)}
+          <button
+            type="button"
+            class="st-theme-del"
+            class:armed={armed === slug}
+            aria-label={t('settings.themes.delete', { name: th.name })}
+            title={t('settings.themes.delete', { name: th.name })}
+            onclick={() => removeTheme(slug)}
+            onblur={() => (armed = '')}
+          >
+            {#if armed === slug}{t('settings.themes.deleteConfirm')}{:else}<span
+                class="material-symbols-outlined"
+                aria-hidden="true">delete</span
+              >{/if}
+          </button>
+        </div>
+      {:else}
+        {@render card(th)}
+      {/if}
     {/each}
   </div>
   <div class="st-theme-tools">

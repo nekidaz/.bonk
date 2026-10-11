@@ -77,6 +77,7 @@ pub fn run() {
             commands::app::import_read_file,
             commands::themes::themes_list,
             commands::themes::theme_save,
+            commands::themes::theme_delete,
             commands::themes::theme_import_pick,
             commands::app::openapi_export_save,
             commands::app::app_data_dir,

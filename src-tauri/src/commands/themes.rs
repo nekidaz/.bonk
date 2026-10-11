@@ -22,6 +22,11 @@ pub fn theme_save(app: AppHandle, slug: String, text: String) -> Result<String, 
     themes::save(&themes_dir(&app)?, &slug, &text)
 }
 
+#[tauri::command]
+pub fn theme_delete(app: AppHandle, slug: String) -> Result<(), String> {
+    themes::remove(&themes_dir(&app)?, &slug)
+}
+
 /// Prompt for a Zed / VS Code theme file. `Ok(None)` when the user cancels.
 #[tauri::command]
 pub fn theme_import_pick() -> Result<Option<ImportedFile>, String> {

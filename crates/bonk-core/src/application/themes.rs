@@ -72,6 +72,20 @@ pub fn save(dir: &Path, slug: &str, text: &str) -> Result<String, String> {
     Ok(path.to_string_lossy().into_owned())
 }
 
+/// Delete `<slug>.json`. A theme already gone is not an error.
+pub fn remove(dir: &Path, slug: &str) -> Result<(), String> {
+    if !valid_slug(slug) {
+        return Err(format!("Недопустимое имя темы: {slug}"));
+    }
+    let path = dir.join(format!("{slug}.json"));
+    match std::fs::remove_file(&path) {
+        Err(e) if e.kind() != std::io::ErrorKind::NotFound => {
+            Err(format!("{}: {e}", path.display()))
+        }
+        _ => Ok(()),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -105,7 +119,13 @@ mod tests {
         );
         for bad in ["", "../x", "a/b", "Up"] {
             assert!(save(&dir, bad, "{}").is_err(), "{bad}");
+            assert!(remove(&dir, bad).is_err(), "{bad}");
         }
+
+        remove(&dir, "nord-2").unwrap();
+        remove(&dir, "nord-2").unwrap();
+        let left: Vec<_> = list(&dir).unwrap().into_iter().map(|t| t.slug).collect();
+        assert_eq!(left, ["rose-pine"]);
         std::fs::remove_dir_all(home).ok();
     }
 }

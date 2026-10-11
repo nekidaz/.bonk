@@ -1219,6 +1219,53 @@
   color: var(--color-text-muted);
 }
 
+/* A user theme's card with its delete button in the picture's corner (shown on hover / focus, red once armed). */
+.st-theme-cell {
+  position: relative;
+  display: flex;
+  min-width: 0;
+}
+.st-theme-cell > .st-theme {
+  flex: 1;
+}
+.st-theme-del {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  display: inline-flex;
+  align-items: center;
+  height: 24px;
+  min-width: 24px;
+  justify-content: center;
+  padding: 0 6px;
+  border: 0;
+  border-radius: var(--radius-control);
+  background: var(--color-raised);
+  box-shadow: 0 0 0 1px var(--color-border-subtle);
+  color: var(--color-text-secondary);
+  font: 500 var(--font-size-caption) var(--font-ui);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity var(--duration-hover);
+}
+.st-theme-del .material-symbols-outlined {
+  font-size: 15px;
+}
+.st-theme-cell:hover .st-theme-del,
+.st-theme-del:focus-visible,
+.st-theme-del.armed {
+  opacity: 1;
+}
+.st-theme-del:hover,
+.st-theme-del.armed {
+  color: var(--color-danger);
+}
+.st-theme-del.armed {
+  background: var(--color-danger-soft);
+  box-shadow: none;
+  padding: 0 10px;
+}
+
 /* Flow · Темы: «Импорт темы…» in the gallery's tools row. */
 .st-link {
   display: inline-flex;

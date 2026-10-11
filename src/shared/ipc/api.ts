@@ -484,6 +484,8 @@ export interface ThemeFile {
 export const themesList = () => invoke<ThemeFile[]>('themes_list');
 /** Write `<slug>.json`, return its path. */
 export const themeSave = (slug: string, text: string) => invoke<string>('theme_save', { slug, text });
+/** Delete `<slug>.json` (already gone is fine). */
+export const themeDelete = (slug: string) => invoke<void>('theme_delete', { slug });
 /** Prompt for a Zed / VS Code theme file, or null if cancelled. */
 export const themeImportPick = () => invoke<ImportFile | null>('theme_import_pick');
 
