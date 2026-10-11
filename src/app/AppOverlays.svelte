@@ -15,7 +15,7 @@
   import { ImportDialog, ImportDropZone } from '$features/import/components';
   import { UpdateBanner } from '$features/updater/components';
   import { CommandPalette, type PaletteCommand } from '$features/command-palette/components';
-  import { BranchMenu, StashMenu, SwitchDialog } from '$features/git/components';
+  import { BranchMenu, CloneDialog, StashMenu, SwitchDialog } from '$features/git/components';
   import { ConfirmDialog } from '$shared/ui/components';
   import { t } from '$shared/i18n';
   import { formatBinding, hotkeys } from '$shared/settings';
@@ -140,6 +140,7 @@
 <BranchMenu />
 <StashMenu />
 <SwitchDialog />
+<CloneDialog />
 
 <ConfirmDialog />
 

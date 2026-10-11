@@ -61,8 +61,8 @@ pub async fn git_push(root: String, force: bool) -> Result<String, String> {
 }
 
 #[tauri::command]
-pub async fn git_pull(root: String) -> Result<String, String> {
-    off_main(move || git::pull(&root)).await
+pub async fn git_pull(root: String, mode: String) -> Result<String, String> {
+    off_main(move || git::pull(&root, &mode)).await
 }
 
 #[tauri::command]
@@ -119,9 +119,19 @@ pub async fn git_stash_push(
     include_untracked: bool,
     staged_only: bool,
     keep_index: bool,
+    paths: Vec<String>,
 ) -> Result<(), String> {
-    off_main(move || git::stash_push(&root, &message, include_untracked, staged_only, keep_index))
-        .await
+    off_main(move || {
+        git::stash_push(
+            &root,
+            &message,
+            include_untracked,
+            staged_only,
+            keep_index,
+            &paths,
+        )
+    })
+    .await
 }
 
 #[tauri::command]
@@ -209,8 +219,13 @@ pub async fn git_create_tag(root: String, name: String, hash: String) -> Result<
 }
 
 #[tauri::command]
-pub async fn git_create_branch_at(root: String, name: String, hash: String) -> Result<(), String> {
-    off_main(move || git::create_branch_at(&root, &name, &hash)).await
+pub async fn git_create_branch_at(
+    root: String,
+    name: String,
+    hash: String,
+    checkout: bool,
+) -> Result<(), String> {
+    off_main(move || git::create_branch_at(&root, &name, &hash, checkout)).await
 }
 
 #[tauri::command]
@@ -362,6 +377,51 @@ pub async fn git_compare_file_diff(
     path: String,
 ) -> Result<String, String> {
     off_main(move || git::compare_file_diff(&root, &base, &target, &path)).await
+}
+
+#[tauri::command]
+pub async fn git_remote_list(root: String) -> Result<Vec<git::GitRemote>, String> {
+    off_main(move || git::remote_list(&root)).await
+}
+
+#[tauri::command]
+pub async fn git_remote_add(root: String, name: String, url: String) -> Result<(), String> {
+    off_main(move || git::remote_add(&root, &name, &url)).await
+}
+
+#[tauri::command]
+pub async fn git_remote_remove(root: String, name: String) -> Result<(), String> {
+    off_main(move || git::remote_remove(&root, &name)).await
+}
+
+#[tauri::command]
+pub async fn git_clone(url: String, parent: String) -> Result<String, String> {
+    off_main(move || git::clone(&url, &parent)).await
+}
+
+#[tauri::command]
+pub async fn git_reflog(root: String, limit: u32) -> Result<Vec<git::ReflogEntry>, String> {
+    off_main(move || git::reflog(&root, limit)).await
+}
+
+#[tauri::command]
+pub async fn git_commits_touching(
+    root: String,
+    query: String,
+    paths: Vec<String>,
+    all: bool,
+) -> Result<Vec<String>, String> {
+    off_main(move || git::commits_touching(&root, &query, &paths, all)).await
+}
+
+#[tauri::command]
+pub async fn git_apply_patch(
+    root: String,
+    patch: String,
+    cached: bool,
+    reverse: bool,
+) -> Result<(), String> {
+    off_main(move || git::apply_patch(&root, &patch, cached, reverse)).await
 }
 
 #[tauri::command]

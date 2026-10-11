@@ -47,6 +47,7 @@ import {
   gitUnresolve,
   gitRebaseInteractive,
   gitRebaseUndo,
+  gitApplyPatch,
   gitRestoreSnapshot,
   gitHead,
   gitMoveHead,
@@ -55,6 +56,7 @@ import {
   gitRenameBranch,
   gitDeleteTag,
   gitPushTag,
+  type PullMode,
 } from '$shared/ipc';
 import { isConflict, statusByPath } from './gitStatus';
 import { openConflictsTab } from './diffTabs';
@@ -122,6 +124,8 @@ class Git {
    * clears it, so «Отменить» is always about the action just done.
    */
   undo = $state.raw<{ label: string; run: () => Promise<boolean> } | null>(null);
+  /** The «Clone repository» dialog is open. */
+  cloneOpen = $state(false);
   /** News for a toast (the app shows it, then clears this): a rebase that finished or paused. */
   notice = $state.raw<{ text: string; undo?: () => void } | null>(null);
   /** G11: the switch dialog's target, null when closed. */
@@ -348,6 +352,17 @@ export async function stashPush(message: string, o: StashOptions): Promise<boole
   return runGit('stash', (root) => gitStashPush(root, message.trim(), o));
 }
 
+/** Apply a patch from the diff view: `cached` to the index (stage; `reverse` unstage), else to the files (`reverse`: discard). */
+export const applyPatch = (patch: string, cached: boolean, reverse: boolean) =>
+  runGit('apply', (root) => gitApplyPatch(root, patch, cached, reverse));
+
+/** Stash just these files (untracked ones too), named `message`. */
+export async function stashFiles(paths: string[], message: string): Promise<boolean> {
+  return runGit('stash', (root) =>
+    gitStashPush(root, message.trim(), { includeUntracked: true, stagedOnly: false, keepIndex: false }, paths),
+  );
+}
+
 export async function stashApply(index: number): Promise<boolean> {
   return runGit('stash-apply', (root) => gitStashApply(root, index));
 }
@@ -410,7 +425,7 @@ export async function deleteBranch(name: string, force: boolean, quiet = false):
   if (ok && tip)
     offerUndo(
       t('git.undo.deleteBranch', { name }),
-      () => runGit('restore branch', (root) => gitCreateBranchAt(root, name, tip)),
+      () => runGit('restore branch', (root) => gitCreateBranchAt(root, name, tip, false)),
       t('git.undo.branchDeleted', { name }),
     );
   return ok;
@@ -448,13 +463,19 @@ export async function resetTo(hash: string, mode: ResetMode): Promise<boolean> {
   return ok;
 }
 export const createTag = (name: string, hash: string) => runGit('tag', (root) => gitCreateTag(root, name.trim(), hash));
-export async function createBranchAt(name: string, hash: string): Promise<boolean> {
+/** A branch at `hash`, switched to unless `checkout` is false (then local changes can't block it). */
+export async function createBranchAt(name: string, hash: string, checkout = true): Promise<boolean> {
   const clean = name.trim();
-  const ok = await runGit('branch', (root) => gitCreateBranchAt(root, clean, hash));
-  // It points at a commit the graph already showed, so forcing the delete loses nothing.
+  const from = git.status?.branch ?? '';
+  const fromHead = from ? '' : await headNow();
+  const ok = await runGit('branch', (root) => gitCreateBranchAt(root, clean, hash, checkout));
+  // It points at a commit already there, so forcing the delete loses nothing; a switch is undone first.
   if (ok)
     offerUndo(t('git.undo.branch', { name: clean }), () =>
-      runGit('undo branch', (root) => gitDeleteBranch(root, clean, true)),
+      runGit('undo branch', async (root) => {
+        if (checkout) await (from ? gitCheckout(root, from) : gitCheckoutDetached(root, fromHead));
+        await gitDeleteBranch(root, clean, true);
+      }),
     );
   return ok;
 }
@@ -494,7 +515,12 @@ async function sync(name: string, fn: (root: string) => Promise<string>): Promis
   }
 }
 
-export const pull = (): Promise<string> => sync('pull', gitPull);
+/** How Pull joins a diverged branch: the repo's own setting (else merge), merge, rebase or fast-forward only. */
+export const PULL_MODES = ['auto', 'merge', 'rebase', 'ff-only'] as const;
+export const gitPullMode = persisted<PullMode>('gitPullMode', 'auto', (v): v is PullMode =>
+  (PULL_MODES as readonly unknown[]).includes(v),
+);
+export const pull = (): Promise<string> => sync('pull', (root) => gitPull(root, gitPullMode.current));
 export const fetchAll = (): Promise<string> => sync('fetch', gitFetch);
 export const push = (force = false): Promise<string> => sync('push', (root) => gitPush(root, force));
 

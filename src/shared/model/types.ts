@@ -465,6 +465,20 @@ export interface FileCommit {
   status: 'A' | 'M' | 'D' | 'R';
 }
 
+export interface GitRemote {
+  name: string;
+  url: string;
+}
+
+/** One entry of HEAD's reflog, newest first. */
+export interface ReflogEntry {
+  hash: string;
+  short: string;
+  /** «commit: …», «checkout: moving from a to b», «reset: moving to …» */
+  action: string;
+  time: number;
+}
+
 /** One line of blame: the commit that last changed it (all zeros = not committed yet). */
 export interface BlameLine {
   hash: string;
@@ -566,7 +580,7 @@ export interface GitTabState {
   path: string;
   mode: GitDiffMode;
   /** 'file' = single-file diff (default); 'project' = the aggregate Project Diff; 'stash' = one stash; 'commit' = the commit-message editor; 'graph' = the commit graph; 'history' = one file's commits and blame. */
-  view?: 'file' | 'project' | 'stash' | 'commit' | 'graph' | 'conflicts' | 'merge' | 'history' | 'compare';
+  view?: 'file' | 'project' | 'stash' | 'commit' | 'graph' | 'conflicts' | 'merge' | 'history' | 'compare' | 'reflog';
   /**
    * View 'file' of a past commit: its hash (the diff is against its first parent). View 'graph': the
    * commit to select. View 'compare': the target, compared against `path` (both commits or branches).

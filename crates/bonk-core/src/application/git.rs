@@ -768,6 +768,203 @@ pub fn push(root: &str, force: bool) -> Result<String, String> {
     }
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GitRemote {
+    pub name: String,
+    pub url: String,
+}
+
+/// The remotes and their fetch URLs.
+pub fn remote_list(root: &str) -> Result<Vec<GitRemote>, String> {
+    let top = toplevel(root)?;
+    Ok(git(&top, &["remote", "-v"])?
+        .lines()
+        .filter(|l| l.ends_with("(fetch)"))
+        .filter_map(|l| {
+            let mut f = l.split_whitespace();
+            Some(GitRemote {
+                name: f.next()?.to_string(),
+                url: f.next()?.to_string(),
+            })
+        })
+        .collect())
+}
+
+/// A URL from the UI: no option smuggling, no `ext::` command transport.
+fn check_url(url: &str) -> Result<(), String> {
+    let u = url.trim();
+    if u.is_empty()
+        || u.starts_with('-')
+        || u.contains(char::is_whitespace)
+        || u.starts_with("ext::")
+    {
+        return Err(format!("invalid URL: {url:?}"));
+    }
+    Ok(())
+}
+
+pub fn remote_add(root: &str, name: &str, url: &str) -> Result<(), String> {
+    check_name(name)?;
+    check_url(url)?;
+    git_noedit(root, &["remote", "add", "--", name, url.trim()])
+}
+
+pub fn remote_remove(root: &str, name: &str) -> Result<(), String> {
+    check_name(name)?;
+    git_noedit(root, &["remote", "remove", name])
+}
+
+/// Clone `url` into a new folder under `parent`, named after the repo.
+/// Returns the new folder's path.
+pub fn clone(url: &str, parent: &str) -> Result<String, String> {
+    check_url(url)?;
+    let url = url.trim();
+    let name = url
+        .trim_end_matches('/')
+        .rsplit(['/', ':'])
+        .next()
+        .unwrap_or("")
+        .trim_end_matches(".git")
+        .to_string();
+    if name.is_empty() || name.starts_with('.') || name.starts_with('-') {
+        return Err(format!("can't name a folder after {url:?}"));
+    }
+    let dest = std::path::Path::new(parent).join(&name);
+    if dest.exists() {
+        return Err(format!("{} already exists", dest.display()));
+    }
+    let d = dest.display().to_string();
+    run_combined(
+        parent,
+        &["-c", "protocol.ext.allow=never", "clone", "--", url, &d],
+    )?;
+    Ok(d)
+}
+
+/// One entry of HEAD's reflog: where HEAD went and why (newest first).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ReflogEntry {
+    pub hash: String,
+    pub short: String,
+    /// "commit: …", "checkout: moving from a to b", "reset: moving to …"
+    pub action: String,
+    pub time: i64,
+}
+
+pub fn reflog(root: &str, limit: u32) -> Result<Vec<ReflogEntry>, String> {
+    let top = toplevel(root)?;
+    let n = format!("-n{limit}");
+    // An unborn branch has no reflog yet: that's an empty list.
+    let out = git(
+        &top,
+        &[
+            "reflog",
+            &n,
+            "--date=unix",
+            "--format=%H%x1f%h%x1f%gd%x1f%gs",
+        ],
+    )
+    .unwrap_or_default();
+    Ok(out
+        .lines()
+        .filter_map(|l| {
+            let f: Vec<&str> = l.splitn(4, '\x1f').collect();
+            if f.len() < 4 {
+                return None;
+            }
+            // %gd with --date=unix is "HEAD@{1700000000}".
+            let time = f[2]
+                .split_once('{')
+                .and_then(|(_, t)| t.trim_end_matches('}').parse().ok())
+                .unwrap_or(0);
+            Some(ReflogEntry {
+                hash: f[0].to_string(),
+                short: f[1].to_string(),
+                action: f[3].to_string(),
+                time,
+            })
+        })
+        .collect())
+}
+
+/// Hashes of the commits (in the graph's range) that touched a file whose
+/// path contains `query` (any case) or is one of `paths`: the graph's search
+/// by file. One process.
+pub fn commits_touching(
+    root: &str,
+    query: &str,
+    paths: &[String],
+    all: bool,
+) -> Result<Vec<String>, String> {
+    let top = toplevel(root)?;
+    // Glob characters in the query are taken literally by dropping them.
+    let q: String = query.chars().filter(|c| !"*?[]\\".contains(*c)).collect();
+    let glob = format!(":(icase,glob)**/*{}*", q.trim());
+    let mut args: Vec<String> = ["log", "--format=%H", "-n2000"]
+        .map(str::to_string)
+        .to_vec();
+    if all {
+        args.extend(["--exclude=refs/stash", "--all"].map(str::to_string));
+    } else {
+        args.push("HEAD".to_string());
+    }
+    args.push("--".to_string());
+    if !q.trim().is_empty() {
+        args.push(glob);
+    }
+    args.extend(paths.iter().map(|p| format!(":(literal){p}")));
+    if args.last().is_some_and(|a| a == "--") {
+        return Ok(vec![]);
+    }
+    let refs: Vec<&str> = args.iter().map(String::as_str).collect();
+    Ok(git(&top, &refs)
+        .unwrap_or_default()
+        .lines()
+        .map(str::to_string)
+        .collect())
+}
+
+/// Apply a patch the UI built from a diff (one block, or chosen lines of it):
+/// to the index (`cached`: stage, or unstage with `reverse`) or to the working
+/// files (`reverse` alone: discard). The patch goes in on stdin.
+pub fn apply_patch(root: &str, patch: &str, cached: bool, reverse: bool) -> Result<(), String> {
+    use std::io::Write;
+    let top = toplevel(root)?;
+    let mut args = vec!["apply", "--recount", "--whitespace=nowarn"];
+    if cached {
+        args.push("--cached");
+    }
+    if reverse {
+        args.push("-R");
+    }
+    args.push("-");
+    let mut child = Command::new("git")
+        .arg("-C")
+        .arg(&top)
+        .args(&args)
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .map_err(|e| format!("failed to run git: {e}"))?;
+    let mut stdin = child.stdin.take().ok_or("no stdin")?;
+    let input = patch.to_string();
+    let writer = std::thread::spawn(move || {
+        let _ = stdin.write_all(input.as_bytes());
+    });
+    let out = child
+        .wait_with_output()
+        .map_err(|e| format!("failed to run git: {e}"))?;
+    let _ = writer.join();
+    if out.status.success() {
+        Ok(())
+    } else {
+        Err(String::from_utf8_lossy(&out.stderr).trim().to_string())
+    }
+}
+
 /// The remote a new branch or a tag goes to: `remote.pushDefault`, else
 /// `origin`, else the only remote there is.
 fn push_remote(top: &str) -> Result<String, String> {
@@ -956,17 +1153,28 @@ pub fn blame(root: &str, path: &str) -> Result<Vec<BlameLine>, String> {
 }
 
 /// Run `git pull` (see [`push`] for the combined-output rationale).
-pub fn pull(root: &str) -> Result<String, String> {
+///
+/// `mode` is the UI's choice: "merge", "rebase", "ff-only", or "auto" (the
+/// repo's own pull.rebase / pull.ff, else merge).
+pub fn pull(root: &str, mode: &str) -> Result<String, String> {
     // With no pull strategy configured, git refuses a diverged branch («You have divergent
     // branches…») and the UI has nowhere to go: merge then, as git did by default before. A
     // configured pull.rebase / pull.ff is the user's choice and wins. Uncommitted changes
     // ride along either way (autostash).
-    let configured = ["pull.rebase", "pull.ff"]
-        .iter()
-        .any(|k| git(root, &["config", "--get", k]).is_ok());
     let mut args = vec!["pull", "--autostash"];
-    if !configured {
-        args.extend(["--no-rebase", "--no-edit"]);
+    match mode {
+        "merge" => args.extend(["--no-rebase", "--no-edit"]),
+        "rebase" => args.push("--rebase"),
+        "ff-only" => args.push("--ff-only"),
+        "auto" => {
+            let configured = ["pull.rebase", "pull.ff"]
+                .iter()
+                .any(|k| git(root, &["config", "--get", k]).is_ok());
+            if !configured {
+                args.extend(["--no-rebase", "--no-edit"]);
+            }
+        }
+        m => return Err(format!("invalid pull mode: {m}")),
     }
     run_combined(root, &args)
 }
@@ -1059,8 +1267,10 @@ fn run_combined(root: &str, args: &[&str]) -> Result<String, String> {
 // files are small JSON. Revisit if big files ever go through here.
 const FULL: &str = "--unified=100000";
 
-/// Full-file diff of `path` against HEAD (staged or not), so the UI can render
-/// the whole file with line numbers. An untracked file shows as all additions.
+/// Full-file diff of `path`'s working copy, so the UI can render the whole file
+/// with line numbers: against the index while it has unstaged changes (what is
+/// left to stage — the base the diff view's block patches apply to), else
+/// against HEAD. An untracked file shows as all additions.
 ///
 /// `path` is toplevel-relative (what [`status`] emits), so we resolve and run
 /// against the toplevel — see [`toplevel`].
@@ -1072,6 +1282,10 @@ pub fn diff(root: &str, path: &str) -> Result<String, String> {
     let tracked = git(&top, &["ls-files", "--error-unmatch", "--", path]).is_ok();
     if !tracked && std::path::Path::new(&top).join(path).exists() {
         return diff_untracked_at(&top, path);
+    }
+    let unstaged = git(&top, &["diff", FULL, "--", path])?;
+    if !unstaged.trim().is_empty() {
+        return Ok(unstaged);
     }
     git(&top, &["diff", FULL, "HEAD", "--", path])
 }
@@ -1365,6 +1579,7 @@ pub fn stash_push(
     include_untracked: bool,
     staged_only: bool,
     keep_index: bool,
+    paths: &[String],
 ) -> Result<(), String> {
     let top = toplevel(root)?;
     let mut args = vec!["stash", "push"];
@@ -1379,6 +1594,11 @@ pub fn stash_push(
     }
     if !message.is_empty() {
         args.extend(["-m", message]);
+    }
+    // Only these files (toplevel-relative); none = everything.
+    if !paths.is_empty() {
+        args.push("--");
+        args.extend(paths.iter().map(String::as_str));
     }
     git(&top, &args)?;
     Ok(())
@@ -1869,10 +2089,17 @@ pub fn create_tag(root: &str, name: &str, hash: &str) -> Result<(), String> {
     git_noedit(root, &["tag", name, hash])
 }
 
-pub fn create_branch_at(root: &str, name: &str, hash: &str) -> Result<(), String> {
+/// A branch at `hash`; `checkout` also switches to it (the graph's «Ветка»),
+/// without it only the ref appears (restoring a deleted branch, rescuing a
+/// reflog entry) and local changes can't get in the way.
+pub fn create_branch_at(root: &str, name: &str, hash: &str, checkout: bool) -> Result<(), String> {
     check_name(name)?;
     check_hash(hash)?;
-    git_noedit(root, &["switch", "-c", name, hash])
+    if checkout {
+        git_noedit(root, &["switch", "-c", name, hash])
+    } else {
+        git_noedit(root, &["branch", name, hash])
+    }
 }
 
 /// mbox text for the commits, in the given order (one process).
@@ -2766,6 +2993,10 @@ mod tests {
             working.contains("+{\"v\":3}"),
             "working diff should show worktree version"
         );
+        assert!(
+            working.contains("-{\"v\":2}"),
+            "against the index while there are unstaged changes"
+        );
         let _ = fs::remove_dir_all(dir);
     }
 
@@ -3169,7 +3400,7 @@ mod tests {
 
         fs::write(dir.join("a.txt"), "two\n").unwrap();
         fs::write(dir.join("new.txt"), "fresh\n").unwrap();
-        stash_push(root, "my work", true, false, false).unwrap();
+        stash_push(root, "my work", true, false, false, &[]).unwrap();
         assert!(!dir.join("new.txt").exists());
 
         let list = stash_list(root).unwrap();
@@ -3260,7 +3491,7 @@ mod tests {
         let r = dir.to_str().unwrap();
         commit_file(r, "a.txt", "1\n", "base");
         fs::write(dir.join("a.txt"), "2\n").unwrap();
-        stash_push(r, "wip", false, false, false).unwrap();
+        stash_push(r, "wip", false, false, false, &[]).unwrap();
         let page = graph_log(r, true, 0, 50).unwrap();
         // A stash is two commits git keeps under refs/stash; they aren't history.
         assert_eq!(
@@ -3305,7 +3536,7 @@ mod tests {
         let r = dir.to_str().unwrap();
         // An uncommitted change elsewhere rides along (autostash).
         fs::write(dir.join("base.txt"), "dirty\n").unwrap();
-        pull(r).unwrap();
+        pull(r, "auto").unwrap();
         let s = subjects(r);
         assert!(s.contains(&"mine".to_string()) && s.contains(&"theirs".to_string()));
         assert_eq!(fs::read_to_string(dir.join("base.txt")).unwrap(), "dirty\n");
@@ -3346,7 +3577,7 @@ mod tests {
         let (dir, remote, other) = diverged_clone();
         let r = dir.to_str().unwrap();
         git(r, &["config", "pull.rebase", "true"]).unwrap();
-        pull(r).unwrap();
+        pull(r, "auto").unwrap();
         // Rebased: mine on top of theirs, no merge commit.
         let s = subjects(r);
         assert_eq!(&s[s.len() - 2..], ["theirs", "mine"]);
@@ -3462,7 +3693,10 @@ mod tests {
         reset(r, &first, "hard").unwrap();
         assert_eq!(fs::read_to_string(dir.join("a.txt")).unwrap(), "1\n");
         assert!(reset(r, &first, "bogus").is_err());
-        create_branch_at(r, "nb", &first).unwrap();
+        create_branch_at(r, "kept", &first, false).unwrap();
+        assert_eq!(rev(r, "kept"), first);
+        assert_ne!(current_branch(r).unwrap(), "kept", "no switch");
+        create_branch_at(r, "nb", &first, true).unwrap();
         assert_eq!(current_branch(r).unwrap(), "nb");
         checkout_detached(r, &first).unwrap();
         assert_eq!(status(r).unwrap().branch, "");
@@ -3982,6 +4216,124 @@ mod tests {
             .contains("+2"));
         assert!(compare(r, "main", "nope").is_err());
         assert!(compare(r, "--all", "topic").is_err());
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn pull_modes_and_remotes() {
+        let (dir, remote, other) = diverged_clone();
+        let r = dir.to_str().unwrap();
+        // Diverged: ff-only refuses, rebase puts ours on top.
+        assert!(pull(r, "ff-only").is_err());
+        assert!(pull(r, "bogus").is_err());
+        pull(r, "rebase").unwrap();
+        let s = subjects(r);
+        assert_eq!(&s[s.len() - 2..], ["theirs", "mine"]);
+        let names: Vec<_> = remote_list(r)
+            .unwrap()
+            .into_iter()
+            .map(|x| x.name)
+            .collect();
+        assert_eq!(names, ["origin"]);
+        remote_add(r, "backup", remote.to_str().unwrap()).unwrap();
+        assert!(remote_add(r, "x", "--upload-pack=evil").is_err());
+        assert!(remote_add(r, "x", "ext::sh -c evil").is_err());
+        assert_eq!(remote_list(r).unwrap().len(), 2);
+        remote_remove(r, "backup").unwrap();
+        assert_eq!(remote_list(r).unwrap().len(), 1);
+        for d in [dir, remote, other] {
+            let _ = fs::remove_dir_all(d);
+        }
+    }
+
+    #[test]
+    fn clone_makes_a_folder_named_after_the_repo() {
+        let (dir, remote) = plan_repo();
+        let parent = temp_dir();
+        fs::create_dir_all(&parent).unwrap();
+        let url = remote.to_str().unwrap();
+        let got = clone(url, parent.to_str().unwrap()).unwrap();
+        let name = remote
+            .file_name()
+            .unwrap()
+            .to_str()
+            .unwrap()
+            .trim_end_matches(".git");
+        assert_eq!(got, parent.join(name).display().to_string());
+        assert!(std::path::Path::new(&got).join("base.txt").exists());
+        assert!(
+            clone(url, parent.to_str().unwrap()).is_err(),
+            "already there"
+        );
+        assert!(clone("-oops", parent.to_str().unwrap()).is_err());
+        for d in [dir, remote, parent] {
+            let _ = fs::remove_dir_all(d);
+        }
+    }
+
+    #[test]
+    fn stash_of_one_file_reflog_and_search_by_file() {
+        let dir = init_repo();
+        let r = dir.to_str().unwrap();
+        fs::create_dir_all(dir.join("payments")).unwrap();
+        fs::create_dir_all(dir.join("auth")).unwrap();
+        commit_file(r, "payments/list.json", "1\n", "add list");
+        commit_file(r, "auth/token.json", "t\n", "add token");
+        fs::write(dir.join("payments/list.json"), "2\n").unwrap();
+        fs::write(dir.join("auth/token.json"), "u\n").unwrap();
+        stash_push(
+            r,
+            "only list",
+            false,
+            false,
+            false,
+            &["payments/list.json".to_string()],
+        )
+        .unwrap();
+        let left: Vec<_> = status(r)
+            .unwrap()
+            .files
+            .into_iter()
+            .map(|f| f.path)
+            .collect();
+        assert_eq!(left, ["auth/token.json"]);
+        // Search by part of a path, any case; or by an exact path.
+        let hits = commits_touching(r, "LIST", &[], false).unwrap();
+        assert_eq!(hits, [rev(r, "HEAD~1")]);
+        let hits = commits_touching(r, "", &["auth/token.json".to_string()], false).unwrap();
+        assert_eq!(hits, [rev(r, "HEAD")]);
+        assert!(commits_touching(r, "  ", &[], false).unwrap().is_empty());
+        let log = reflog(r, 10).unwrap();
+        assert_eq!(log[0].hash, rev(r, "HEAD"));
+        assert!(log[0].action.starts_with("commit"));
+        assert!(log[0].time > 0);
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn apply_patch_stages_unstages_and_discards_a_block() {
+        let dir = init_repo();
+        let r = dir.to_str().unwrap();
+        commit_file(r, "a.txt", "1\n2\n3\n4\n5\n6\n7\n8\n", "base");
+        fs::write(
+            dir.join("a.txt"),
+            "1 changed\n2\n3\n4\n5\n6\n7\n8 changed\n",
+        )
+        .unwrap();
+        // Stage only the first block.
+        let first = "diff --git a/a.txt b/a.txt\n--- a/a.txt\n+++ b/a.txt\n@@ -1,2 +1,2 @@\n-1\n+1 changed\n 2\n";
+        apply_patch(r, first, true, false).unwrap();
+        let staged = git(r, &["diff", "--cached"]).unwrap();
+        assert!(staged.contains("+1 changed") && !staged.contains("+8 changed"));
+        // Unstage it again, then discard it from the working file.
+        apply_patch(r, first, true, true).unwrap();
+        assert!(git(r, &["diff", "--cached"]).unwrap().is_empty());
+        apply_patch(r, first, false, true).unwrap();
+        assert_eq!(
+            fs::read_to_string(dir.join("a.txt")).unwrap(),
+            "1\n2\n3\n4\n5\n6\n7\n8 changed\n"
+        );
+        assert!(apply_patch(r, "garbage", true, false).is_err());
         let _ = fs::remove_dir_all(dir);
     }
 

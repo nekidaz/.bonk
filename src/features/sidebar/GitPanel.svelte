@@ -17,6 +17,7 @@
     openGitDiffTab,
     openGraphTab,
     undoLast,
+    stashFiles,
     isConflict,
     abortOperation,
     continueOperation,
@@ -173,6 +174,18 @@
           }}
           onkeydown={(e) => actKey(e, () => void discardOne(f))}
           ><span class="material-symbols-outlined">undo</span></span
+        >
+        <span
+          class="act"
+          role="button"
+          tabindex="0"
+          title={t('git.stashFile')}
+          onclick={(e) => {
+            e.stopPropagation();
+            void stashFiles([f.path], info(f).name);
+          }}
+          onkeydown={(e) => actKey(e, () => void stashFiles([f.path], info(f).name))}
+          ><span class="material-symbols-outlined">inventory_2</span></span
         >
         <span
           class="act"

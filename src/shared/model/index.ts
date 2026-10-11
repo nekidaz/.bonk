@@ -44,6 +44,8 @@ export {
   type CommitDetail,
   type FileCommit,
   type BlameLine,
+  type GitRemote,
+  type ReflogEntry,
   type ConflictFile,
   type OperationInfo,
   type RebaseAction,
