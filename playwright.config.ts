@@ -10,8 +10,8 @@ export default defineConfig({
   outputDir: 'test-results',
   reporter: [['list'], ['html', { outputFolder: 'visual/report', open: 'never' }]],
   fullyParallel: true,
-  // 4 browsers at a time (each is 3-4 processes); the default (half the cores) floods the machine.
-  workers: 4,
+  // Keep browser concurrency bounded, including computed-style checks.
+  workers: 2,
   retries: 0,
   expect: {
     toHaveScreenshot: {

@@ -125,13 +125,6 @@
   white-space: nowrap;
 }
 
-.bs-dock-empty {
-  padding: 5px 12px 10px 26px;
-  color: var(--t3);
-  font-size: 10.5px;
-  line-height: 1.4;
-}
-
 /* Drag & drop — Pencil «Flow · Drag & drop запросов» (D1–D5). */
 .bs .bs-tree .bs-trow {
   cursor: grab;
@@ -690,15 +683,6 @@
   box-shadow: inset 2px 0 var(--accent);
 }
 
-.bs-tree.bs-flows-selected,
-.bs-side-dock.bs-flows-selected .bs-dock-section:first-child {
-  display: none;
-}
-
-.bs-side-dock.bs-flows-selected .bs-dock-body {
-  max-height: none;
-}
-
 :root .bs-ri {
   align-items: center;
   transition:
@@ -741,11 +725,6 @@
   border-top: 1px solid var(--sepsoft);
   background: var(--side);
   display: none;
-}
-
-:root .bs-side-dock.bs-flows-selected .bs-dock-toggle {
-  font-size: 12px;
-  text-transform: none;
 }
 
 @media (max-width: 480px) {
@@ -1032,13 +1011,6 @@
 
 :root .bs-trow:hover .bs-tcount {
   display: none;
-}
-
-:root .bs-side-dock.bs-flows-selected {
-  flex: 1;
-  display: block;
-  border-top: 0;
-  background: transparent;
 }
 
 :root .bs-collection-empty {

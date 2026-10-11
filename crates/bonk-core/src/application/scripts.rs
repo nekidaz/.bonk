@@ -136,7 +136,6 @@ globalThis.__msg=function(e){if(!e||typeof e!=='object')return String(e);var n=e
   };
   pm.expect.fail=function(m){throw new AssertionError(m||'expect.fail()');};
   globalThis.__finish=function(){var k=Object.keys(reqPatch);if(k.length>1){delete reqPatch.__t;__out.requestPatch=reqPatch;}};
-  globalThis.payload=c.payload;
 })();
 "#;
 
@@ -144,10 +143,9 @@ globalThis.__msg=function(e){if(!e||typeof e!=='object')return String(e);var n=e
 /// than aborting the whole evaluation (letting logs/tests recorded before the
 /// throw survive). An interrupt (timeout) still unwinds this because it raises
 /// an *uncatchable* exception. The wrapper function's return value (a top-level
-/// `return X` in user code) is captured into `__out.returnValue` — Flow blocks
-/// use it to pass data to the next block; `JSON.stringify` drops it when the
-/// script returns nothing. The user code starts on line 2, which `__line`
-/// subtracts back out.
+/// `return X` in user code) is captured into `__out.returnValue`;
+/// `JSON.stringify` drops it when the script returns nothing. The user code
+/// starts on line 2, which `__line` subtracts back out.
 fn wrap_user_code(code: &str) -> String {
     format!(
         ";globalThis.__out.returnValue=(function(){{try{{\n{code}\n}}catch(e){{globalThis.__out.error=__msg(e);globalThis.__out.errorLine=__line(e&&e.stack);}}}})();"
@@ -441,14 +439,6 @@ mod tests {
         let out = run("console.log('hi');", "{}");
         assert!(out.get("returnValue").is_none() || out["returnValue"].is_null());
         assert_eq!(out["logs"][0], "hi");
-    }
-
-    #[test]
-    fn payload_is_exposed_to_flow_scripts() {
-        let ctx = r#"{"payload":{"status":200,"body":{"token":"abc"}}}"#;
-        let out = run("return payload.body.token;", ctx);
-        assert_eq!(out["returnValue"], "abc");
-        assert!(out["error"].is_null());
     }
 
     #[test]

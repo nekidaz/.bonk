@@ -65,7 +65,6 @@ Use **Settings → Check for updates** for signed in-app updates, or
 | **Environments** | Reuse `{{variables}}`, globals, and named environments. Edit values inline, mark secrets, and require confirmation before requests to protected environments. |
 | **Scripts & tests** | Sandboxed JavaScript pre-request and response scripts with familiar `pm.*` helpers, assertions, console output, and variable updates for HTTP and gRPC. |
 | **Collection Runner** | Select and order requests, run iterations with CSV/JSON data, add delays, and stop on failure. Save presets, inspect run history, and export JSON reports. |
-| **Flows** | Connect request, script, condition, loop, and delay blocks on a canvas. Pass payloads between steps and follow live status and output. |
 | **Files & Git** | Organize nested request folders. Review diffs, stage files, commit, switch branches, and pull or push through system Git. |
 | **Import & export** | Import OpenAPI/Swagger, Postman, Insomnia, HAR or cURL from a file, a link, a paste or a drop, with a preview first; re-import updates the collection and keeps your edits. Export collections and generate language-specific request snippets. |
 | **Desktop workflow** | Command palette, configurable shortcuts, history, terminal, console, resizable panes, themes, and English/Russian UI. |

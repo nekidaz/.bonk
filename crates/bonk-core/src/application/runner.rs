@@ -1,7 +1,6 @@
 //! Collection Runner: saved requests (HTTP + gRPC) through pre-request script, `{{vars}}`,
 //! the network and the test script, iteration after iteration. Script writes to the
-//! environment/globals carry over to the next request. The app runs collections and Flow
-//! request blocks through this (src-tauri `runner_run`); a CLI can do the same.
+//! environment/globals carry over to the next request. The app runs collections through this (src-tauri `runner_run`); a CLI can do the same.
 //!
 //! The network comes in through `Transport`, the way a Go function takes an interface:
 //! the app's sends through its proxy/mTLS/cookie settings and gRPC connection cache.

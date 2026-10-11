@@ -53,7 +53,6 @@
     git: 'difference',
     env: 'layers',
     runner: 'play_arrow',
-    flow: 'account_tree',
   };
   const GIT_VIEW_ICON: Record<string, string> = {
     stash: 'inventory_2',

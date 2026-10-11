@@ -1,6 +1,5 @@
 import { untrack } from 'svelte';
 import type { ProxyMode, Tab, HistoryEntry, TreeNode, Environment, VarRow } from '$shared/model';
-import { type Flow, flows } from '$entities/flow';
 import { loadState, saveState, saveStateDebounced } from '$shared/persist';
 import { startupOpen, requestPrefs } from '$shared/settings';
 import { workspaceLoad, secretGet, secretSet, secretDelete } from '$shared/ipc';
@@ -123,7 +122,6 @@ async function restoreState(): Promise<void> {
   environments.globals = loaded.globals;
   environments.list = loaded.envs;
   environments.activeId = await loadState<string | null>('activeEnvironmentId', null);
-  flows.list = await loadState<Flow[]>('flows', []);
   Object.assign(expandedFolders, await loadState<Record<string, string[]>>('expandedFolders', {}));
   Object.assign(legacyCollapsedFolders, await loadState<Record<string, string[]>>('collapsedFolders', {}));
   let nextTree: TreeNode[] = [];
@@ -162,7 +160,7 @@ function wirePersistence(): () => void {
       saveStateDebounced(
         'tabs',
         tabs.list
-          .filter((tab) => tab.protocol !== 'git' && tab.protocol !== 'runner' && tab.protocol !== 'flow')
+          .filter((tab) => tab.protocol === 'http' || tab.protocol === 'grpc' || tab.protocol === 'env')
           .map(stripRuntimeTab),
       ),
     );
@@ -207,7 +205,6 @@ function wirePersistence(): () => void {
     $effect(() => saveStateDebounced('trustedCaPaths', requestPrefs.trustedCaPaths));
     $effect(() => saveStateDebounced('grpcDeadlineMs', requestPrefs.grpcDeadlineMs));
     $effect(() => saveStateDebounced('grpcAutoReflect', requestPrefs.grpcAutoReflect));
-    $effect(() => saveStateDebounced('flows', flows.list));
   });
 }
 

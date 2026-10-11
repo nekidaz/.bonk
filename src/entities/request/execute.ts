@@ -10,18 +10,18 @@ import { currentRequestSettings, applyScriptVars } from './store';
  * Collection Runner execution: saved requests (HTTP + gRPC) run in bonk-core's runner
  * (`application/runner.rs`, the engine a CLI shares), which streams rows back. Script
  * env/globals writes arrive as `vars` events and fold into the real stores here, so the
- * UI sees them live and they persist. Used by features/runner and entities/flow.
+ * UI sees them live and they persist. Used by features/runner.
  */
 
 /** The active environment's `name → value` map, or `{}` when none is selected. */
-export function activeEnvMap(): Record<string, string> {
+function activeEnvMap(): Record<string, string> {
   const id = environments.activeId;
   const env = id ? environments.list.find((e) => e.id === id) : undefined;
   return mergeScope([], env);
 }
 
 /** The globals `name → value` map. */
-export function globalsMap(): Record<string, string> {
+function globalsMap(): Record<string, string> {
   return mergeScope(environments.globals, undefined);
 }
 
@@ -81,7 +81,7 @@ export function runRequests(
 }
 
 /**
- * Run one saved request with `data` as its iteration data (Flow blocks, runner re-runs).
+ * Run one saved request with `data` as its iteration data (runner re-runs).
  * Never throws: a failure is an `ok: false` row.
  */
 export async function runOne(

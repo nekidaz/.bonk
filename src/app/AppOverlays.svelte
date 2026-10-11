@@ -74,7 +74,6 @@
       shortcut: keys('workspaceMenu'),
       run: () => (shell.workspaceMenuOpen = true),
     },
-    { label: 'Flows', icon: 'account_tree', run: () => layout.showSidebar('flows') },
     { label: t('palette.cmd.runner'), icon: 'play_arrow', run: openRunnerTab },
     { label: t('cookies.title'), icon: 'cookie', run: () => cookieJar.open() },
     { label: t('palette.cmd.sidebar'), icon: 'left_panel_open', shortcut: keys('sidebar'), run: layout.toggleSidebar },
