@@ -1,0 +1,19 @@
+[package]
+name = "bonk-cli"
+version = "0.1.9"
+description = "Run Bonk API collections from the terminal and CI."
+authors = ["Bonk contributors"]
+license = "MIT"
+edition = "2021"
+
+# `bonk-cli`, not `bonk`: src-tauri's app binary is already `target/*/bonk`.
+[[bin]]
+name = "bonk-cli"
+path = "src/main.rs"
+
+[dependencies]
+bonk-core = { path = "../bonk-core" }
+clap = { version = "4", features = ["derive"] }
+reqwest = { version = "0.13.4", default-features = false, features = ["rustls", "system-proxy", "cookies"] }
+serde_json = "1"
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "net", "io-util"] }

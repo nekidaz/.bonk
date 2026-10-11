@@ -19,6 +19,7 @@ protox = "0.9"
 fastrand = "2"
 rquickjs = "0.12"
 base64 = "0.22"
+keyring = { version = "3", features = ["apple-native", "windows-native", "sync-secret-service"] }
 regex = "1"
 bytes = "1"
 http = "1"

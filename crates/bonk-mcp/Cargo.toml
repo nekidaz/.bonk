@@ -14,7 +14,6 @@ anyhow = "1"
 axum = "0.8"
 bonk-core = { path = "../bonk-core" }
 clap = { version = "4", features = ["derive"] }
-keyring = { version = "3", features = ["apple-native", "windows-native", "sync-secret-service"] }
 regex = "1"
 reqwest = { version = "0.13.4", default-features = false, features = ["rustls", "system-proxy"] }
 rmcp = { version = "3.1.2", features = ["transport-io", "transport-streamable-http-server", "elicitation"] }
