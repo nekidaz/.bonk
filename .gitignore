@@ -13,6 +13,7 @@ test-results/
 !/README.md
 !/ARCHITECTURE.md
 !/docs/MCP.md
+!/docs/CLI.md
 !/docs/GUIDE.md
 !/CLAUDE.md
 !/AGENTS.md

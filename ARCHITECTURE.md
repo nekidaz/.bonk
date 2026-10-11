@@ -26,7 +26,7 @@ layers with a deliberately thin boundary between them:
   or CI on bonk-core's runner (`CliTransport`: one reqwest client with a session cookie
   jar). Variables come from the app's state.json + keychain (`application/app_vars.rs`),
   `BONK_VAR_*` and `--var`; `--data` files parse in `application/run_data.rs`. Exit 0 / 1
-  (failures) / 2 (couldn't run); `--junit` / `--json` reports. See crates/bonk-cli/README.md.
+  (failures) / 2 (couldn't run); `--junit` / `--json` reports. See docs/CLI.md.
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
