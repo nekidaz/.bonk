@@ -828,6 +828,21 @@
   background: var(--color-hover);
 }
 
+:root .bs .bs-stream-btn:not(.stop) {
+  gap: 6px;
+}
+
+:root .bs .bs-stream-btn .material-symbols-outlined,
+:root .bs .bs-send .go .material-symbols-outlined.up {
+  display: inline;
+  font-size: 16px;
+}
+
+:root .bs .bs-stream-btn kbd {
+  color: var(--color-text-muted);
+  font: var(--font-size-micro) var(--font-code);
+}
+
 :root .bs .bs-stream-btn.stop {
   padding: 0;
   outline: 0;

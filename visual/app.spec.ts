@@ -213,6 +213,18 @@ const SCENARIOS: Scenario[] = [
       await p.getByText('INTERNAL').first().waitFor();
     },
   },
+  {
+    // Flow · gRPC Stream ST6: bidi open — ↑ sent and ↓ received in one feed, Send / Завершить / ■.
+    name: 'grpc-stream-bidi',
+    query: '&grpc=streams',
+    steps: async (p) => {
+      await row(p, 'Greeter').click();
+      await openRequest(p, 'Chat');
+      await p.locator('.bs-grpc-trigger').waitFor();
+      await p.locator('button.bs-send').click();
+      await p.getByText('"echo: Aru"').waitFor();
+    },
+  },
   // sidebar
   {
     name: 'sidebar-all-expanded',
