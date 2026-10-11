@@ -1,6 +1,6 @@
 <div align="center">
 
-[![Bonk — API requests, right next to your code](docs/landing/screenshots/social.png)](https://nekidaz.github.io/.bonk/)
+[![bonk — The API client for you and your AI.](docs/landing/screenshots/social.png)](https://nekidaz.github.io/.bonk/)
 
 [![Release](https://img.shields.io/github/v/release/nekidaz/.bonk?style=flat-square&color=5eead4&label=release)](https://github.com/nekidaz/.bonk/releases/latest)
 [![Downloads](https://img.shields.io/github/downloads/nekidaz/.bonk/total?style=flat-square&color=5eead4)](https://github.com/nekidaz/.bonk/releases)

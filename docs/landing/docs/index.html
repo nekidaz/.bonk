@@ -2,105 +2,192 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="theme-color" content="#f0f0f0" />
-    <title>Documentation — Bonk</title>
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Docs — bonk</title>
     <meta
       name="description"
-      content="Get started with Bonk: install the app, create an HTTP or gRPC request, use environments and scripts, run collections, and connect an MCP client."
+      content="bonk documentation: install, send HTTP and gRPC requests, variables, scripts, the Runner, the CLI and the MCP server for AI agents."
     />
+    <meta name="theme-color" content="#0a0a0a" />
     <link rel="canonical" href="https://nekidaz.github.io/.bonk/docs/" />
     <link rel="icon" href="../favicon.svg" />
     <link rel="stylesheet" href="../landing.css" />
+    <link rel="stylesheet" href="docs.css" />
+    <script src="docs.js" defer></script>
   </head>
-  <body class="docs-page">
-    <a class="skip-link" href="#main">Skip to content</a>
-    <header class="site-header">
-      <div class="shell header-inner">
-        <a class="brand" href="../" aria-label="Bonk home"
-          ><span class="brand-mark" aria-hidden="true">↗</span><span>bonk</span></a
-        >
-        <nav class="site-nav" aria-label="Main navigation">
-          <a href="../#workflow">How it works</a><a href="../#features">Features</a><a href="../#mcp">AI / MCP</a
-          ><a href="./" aria-current="page">Docs</a>
-        </nav>
-        <a class="header-download" href="https://github.com/nekidaz/.bonk/releases/latest"
-          >Download <span aria-hidden="true">↗</span></a
-        >
-      </div>
-    </header>
-    <main class="shell docs-layout" id="main">
-      <nav class="docs-sidebar" aria-label="Documentation sections">
-        <p class="sidebar-heading">DOCUMENTATION</p>
-        <a href="#quick-start">Quick start</a>
-        <a href="#workspace-files">Workspace files</a>
-        <a href="#http-grpc">HTTP &amp; gRPC</a>
-        <a href="#variables-scripts">Variables &amp; scripts</a>
-        <a href="#runner-cli">Runner &amp; CLI</a>
-        <a href="#ai-mcp">AI / MCP</a>
-        <a href="#import-export">Import &amp; export</a>
-        <span class="sidebar-divider" aria-hidden="true"></span>
-        <a href="https://github.com/nekidaz/.bonk">Source on GitHub ↗</a>
-      </nav>
-      <div class="docs-content">
-        <div class="docs-intro">
-          <p class="eyebrow">BONK / DOCUMENTATION</p>
-          <h1>From first request to shared workflow.</h1>
-          <p>
-            Open a local folder, send an API call, and save the request as a file. These guides cover the desktop app,
-            CLI, and MCP server.
-          </p>
-          <div class="docs-quick-links">
-            <a class="button button-primary" href="#quick-start">Get started <span aria-hidden="true">↓</span></a
-            ><a class="button button-secondary" href="https://github.com/nekidaz/.bonk/releases/latest"
-              >Download Bonk <span aria-hidden="true">↗</span></a
+  <body>
+    <div class="landing docs">
+      <a class="skip-link" href="#doc">Skip to content</a>
+      <header class="site-nav pen-nav-2" data-design-id="akuax">
+        <a class="brand pen-brand-3" href="../" data-design-id="uMhvX">
+          <div class="pen-mark-4" data-design-id="F6tn1">
+            <svg
+              data-icon-name="lightning-fill"
+              data-icon-set="phosphor"
+              viewBox="0 0 14 14"
+              preserveAspectRatio="xMidYMid meet"
+              xmlns="http://www.w3.org/2000/svg"
+              aria-hidden="true"
+              focusable="false"
+              class="pen-bolt-5"
+              data-design-id="fh6uH"
             >
+              <path
+                d="M11.70313 6.83594l-6.125 6.5625q-0.16406 0.16406-0.30079 0.16406-0.13672 0-0.24609-0.05469-0.10938-0.05469-0.16406-0.1914-0.05469-0.13672-0.05469-0.30078l0.82031-3.99219-3.17187-1.20313q-0.21875-0.05469-0.27344-0.27343-0.05469-0.21875 0.10938-0.4375l6.125-6.5625q0.10938-0.05469 0.24609-0.08204 0.13672-0.02734 0.27344 0.02735 0.13672 0.05469 0.1914 0.1914 0.05469 0.13672 0.05469 0.30079l-0.82031 3.99218 3.17187 1.14844q0.21875 0.10938 0.27344 0.32813 0.05469 0.21875-0.10938 0.38281z"
+                fill="#151515"
+              ></path>
+            </svg>
           </div>
+          <div class="pen-wordmark-6" data-design-id="CLj6R">bonk</div>
+        </a>
+        <nav
+          class="nav-links pen-links-7"
+          aria-label="Main navigation"
+          data-design-id="p6EOv"
+        >
+          <a href="../#features" class="pen-features-8" data-design-id="uFrr3">
+            <div class="pen-label-9" data-design-id="vaK5f">Features</div>
+          </a>
+          <a href="../#ai" class="pen-features-8" data-design-id="pMRVG">
+            <div class="pen-label-9" data-design-id="U7cPq8">AI / MCP</div>
+          </a>
+          <a href="../#runner" class="pen-features-8" data-design-id="iao7p">
+            <div class="pen-label-9" data-design-id="CSCPa">Runner</div>
+          </a>
+          <a href="../#compare" class="pen-features-8" data-design-id="c3Gsz">
+            <div class="pen-label-9" data-design-id="O9FVE">Compare</div>
+          </a>
+          <a
+            href="https://github.com/nekidaz/.bonk/blob/main/CHANGELOG.md"
+            class="pen-features-8"
+            data-design-id="p2e1h"
+          >
+            <div class="pen-label-9" data-design-id="cx7rv">Changelog</div>
+          </a>
+          <a href="./" class="pen-features-8 is-active" aria-current="page" data-design-id="GhcSC">
+            <div class="pen-label-9" data-design-id="GmXcV">Docs</div>
+          </a>
+        </nav>
+        <div class="nav-actions pen-actions-10" data-design-id="fzLWH">
+          <a
+            href="https://github.com/nekidaz/.bonk"
+            class="pen-github-11"
+            data-design-id="qULSQ"
+          >
+            <svg
+              data-icon-name="github-logo"
+              data-icon-set="phosphor"
+              viewBox="0 0 14 14"
+              preserveAspectRatio="xMidYMid meet"
+              xmlns="http://www.w3.org/2000/svg"
+              aria-hidden="true"
+              focusable="false"
+              class="pen-bolt-5"
+              data-design-id="TZweu"
+            >
+              <path
+                d="M11.8125 11.8125q-0.38281 0-0.62891-0.24609-0.24609-0.24609-0.24609-0.62891l0-0.4375q0-0.4375-0.21875-0.84766-0.21875-0.41016-0.60156-0.6289 0.60156-0.4375 0.92968-1.09375 0.32813-0.65625 0.32813-1.36719l0-0.4375q0-0.82031-0.4375-1.53125 0.21875-0.65625 0.13672-1.33984-0.08203-0.68359-0.41016-1.28516-0.10937-0.21875-0.38281-0.21875-0.76563 0-1.47656 0.35547-0.71094 0.35547-1.14844 0.95703l-1.3125 0q-0.4375-0.60156-1.14844-0.95703-0.71094-0.35547-1.47656-0.35547-0.27344 0-0.38281 0.21875-0.32813 0.60156-0.41016 1.28516-0.08203 0.68359 0.13672 1.33984-0.4375 0.71094-0.4375 1.53125l0 0.4375q0 0.71094 0.32813 1.36719 0.32813 0.65625 0.92968 1.09375-0.38281 0.21875-0.60156 0.6289-0.21875 0.41016-0.21875 0.84766l0 0.4375q0 0.38281-0.24609 0.62891-0.24609 0.24609-0.62891 0.24609-0.16406 0-0.30078 0.13672-0.13672 0.13672-0.13672 0.30078 0 0.16406 0.13672 0.30078 0.13672 0.13672 0.30078 0.13672 0.71094 0 1.23047-0.51953 0.51953-0.51953 0.51953-1.23047l0-0.4375q0-0.38281 0.24609-0.62891 0.24609-0.24609 0.62891-0.24609l0.65625 0 0 2.1875q0 0.38281-0.24609 0.62891-0.24609 0.24609-0.62891 0.24609-0.16406 0-0.30078 0.13672-0.13672 0.13672-0.13672 0.30078 0 0.16406 0.13672 0.30078 0.13672 0.13672 0.30078 0.13672 0.71094 0 1.23047-0.51953 0.51953-0.51953 0.51953-1.23047l0-2.1875 1.3125 0 0 2.1875q0 0.71094 0.51953 1.23047 0.51953 0.51953 1.23047 0.51953 0.16406 0 0.30078-0.13672 0.13672-0.13672 0.13672-0.30078 0-0.16406-0.13672-0.30078-0.13672-0.13672-0.30078-0.13672-0.38281 0-0.62891-0.24609-0.24609-0.24609-0.24609-0.62891l0-2.1875 0.65625 0q0.38281 0 0.62891 0.24609 0.24609 0.24609 0.24609 0.62891l0 0.4375q0 0.71094 0.51953 1.23047 0.51953 0.51953 1.23047 0.51953 0.16406 0 0.30078-0.13672 0.13672-0.13672 0.13672-0.30078 0-0.16406-0.13672-0.30078-0.13672-0.13672-0.30078-0.13672z m-8.3125-5.25l0-0.4375q0-0.65625 0.38281-1.25781 0.16406-0.16406 0.05469-0.38281-0.38281-0.92969 0.05469-1.85938 0.54688 0.05469 1.01172 0.35547 0.46484 0.30078 0.73828 0.73828 0.10938 0.21875 0.38281 0.21875l1.75 0q0.27344 0 0.38281-0.21875 0.27344-0.4375 0.73828-0.73828 0.46484-0.30078 1.01172-0.35547 0.4375 0.92969 0.05469 1.85938-0.10938 0.21875 0.05469 0.38281 0.38281 0.60156 0.38281 1.25781l0 0.4375q0 0.92969-0.62891 1.55859-0.62891 0.62891-1.55859 0.62891l-2.625 0q-0.92969 0-1.55859-0.62891-0.62891-0.62891-0.62891-1.55859z"
+                fill="#aaaaaa"
+              ></path>
+            </svg>
+            <div class="pen-label-9" data-design-id="tr8qF">GitHub</div>
+          </a>
+          <a href="../#download" class="pen-download-12" data-design-id="z2G7P">
+            <div class="pen-label-13" data-design-id="MUKiV">Download</div>
+          </a>
         </div>
+      </header>
 
-        <section class="docs-section" id="quick-start" aria-labelledby="quick-start-title">
-          <p class="eyebrow">01 / START HERE</p>
-          <h2 id="quick-start-title">Your first request</h2>
-          <p>
-            Download Bonk for <a href="https://github.com/nekidaz/.bonk/releases/latest">macOS, Windows, or Linux</a>.
-            On Apple Silicon macOS you can also install it with Homebrew:
-          </p>
-          <pre><code>brew install --cask nekidaz/tap/bonk</code></pre>
-          <ol>
-            <li><strong>Open a folder.</strong> Any empty directory can become a workspace.</li>
-            <li>
-              <strong>Create an HTTP request.</strong> Enter an address such as
-              <code>http://localhost:8080/health</code>.
-            </li>
-            <li><strong>Send it.</strong> Read the status, body, headers, and timing in the response pane.</li>
-            <li>
-              <strong>Save it.</strong> Press <code>⌘S</code> on macOS or <code>Ctrl+S</code> on Windows and Linux, then
-              choose a folder.
-            </li>
-          </ol>
-          <div class="docs-note">
-            <p>
-              Editing and organizing a workspace works offline. Sending requests and checking for updates use the
-              network.
-            </p>
-          </div>
-        </section>
+      <div class="docs-body">
+        <details class="docs-nav" open>
+          <summary>Menu</summary>
+          <label class="docs-search">
+            <svg viewBox="0 0 13.99993896484375 14" aria-hidden="true" focusable="false"><path d="M6.00537 1.17578q-0.04102 0.01367-0.23584 0.02734-0.57422 0.07178-1.16211 0.29053-0.58789 0.21533-1.09375 0.5503-0.39307 0.2666-0.74853 0.61181-0.35547 0.3418-0.62207 0.7041-0.646 0.92285-0.86817 2.03028-0.05811 0.28027-0.07861 0.46142-0.02051 0.18115-0.02051 0.57422 0 0.43408 0.02734 0.68018 0.02734 0.24268 0.12647 0.59472 0.19482 0.75537 0.60156 1.43555 0.40674 0.67676 0.96729 1.18262 0.40674 0.3623 0.81689 0.60156 0.41357 0.23926 0.91944 0.43408 1.06299 0.39307 2.21826 0.29395 1.15527-0.09912 2.1499-0.65967 0.12646-0.06836 0.33496-0.2085 0.2085-0.14014 0.29395-0.21191l0.05468-0.05469 1.10743 1.10742q1.12109 1.104 1.20312 1.15528 0.08545 0.04785 0.23926 0.04785 0.15381 0 0.23584-0.03418 0.08545-0.0376 0.18115-0.1333 0.09912-0.09912 0.1333-0.18115 0.0376-0.08545 0.0376-0.23926 0-0.15381-0.05127-0.23584-0.04785-0.08545-1.15186-1.20654l-1.10742-1.10743 0.05469-0.06836q0.05811-0.05469 0.19824-0.25293 0.82373-1.23047 0.89209-2.70703 0.07178-1.47656-0.63916-2.76513-0.5332-0.96729-1.42187-1.64405-0.88867-0.68018-1.95508-0.9331-0.29395-0.06836-0.54004-0.09571-0.24268-0.03076-0.60498-0.04443-0.43408 0-0.49219 0z m0.7417 1.17578q0.37939 0.01367 0.79297 0.14014 0.41357 0.12646 0.78955 0.32129 0.7417 0.39307 1.28857 1.08008 0.54687 0.68359 0.75538 1.49707 0.07178 0.28027 0.09228 0.49902 0.02051 0.21533 0.02051 0.50928 0 0.70068-0.19483 1.30224-0.39307 1.16211-1.33984 1.91065-0.94336 0.74853-2.16016 0.875-0.19824 0.01367-0.49218 0.00683-0.29395-0.00684-0.48877-0.03418-0.5332-0.08545-1.03907-0.30761-0.50244-0.22559-0.93652-0.56055-0.14014-0.12646-0.35205-0.3418-0.2085-0.21875-0.33154-0.37256-0.57422-0.76904-0.7417-1.69531-0.08545-0.43408-0.06494-0.90918 0.02051-0.4751 0.11963-0.89551 0.29395-1.14844 1.18945-1.95849 0.89551-0.81348 2.05762-1.02539 0.18115-0.02734 0.42041-0.04102 0.23926-0.01367 0.34863-0.01367l0.2666 0.01367z" fill="currentColor" ></path></svg>
+            <input type="search" placeholder="Search docs" aria-label="Search docs" />
+            <kbd>⌘K</kbd>
+          </label>
+          <nav aria-label="Documentation"></nav>
+        </details>
+        <main id="doc" class="docs-main">
+          <!-- One <article> per page. data-* feed the sidebar, header and pager (docs.js). -->
+<article id="introduction" data-title="Introduction" data-group="Get started" data-lede="bonk is a native HTTP and gRPC client where requests are plain files next to your code. No account, no cloud." data-meta="macOS · Windows · Linux|3 min read">
+  <h2 id="what-it-is">What bonk is</h2>
+  <p>bonk is a local-first desktop API client for HTTP and gRPC, built with Tauri, Svelte and Rust. You open a folder, send requests, and save them as readable <code>*.bonk.json</code> files. Review them in Git like any other source file.</p>
+  <h2 id="whats-inside">What's inside</h2>
+  <ul>
+    <li><strong>HTTP</strong>: query parameters, headers, auth, JSON, text, form, multipart, binary and GraphQL bodies, formatted responses.</li>
+    <li><strong>gRPC</strong>: server reflection or local <code>.proto</code> files, unary and streaming calls, metadata, deadlines, TLS and mTLS.</li>
+    <li><strong>Environments and variables</strong>: <code>{{variables}}</code>, globals, named environments, secrets in the OS keychain.</li>
+    <li><strong>Scripts and tests</strong>: sandboxed JavaScript with <code>pm.*</code> helpers.</li>
+    <li><strong>Runner and CLI</strong>: run a collection in the app, in a terminal or in CI, on the same engine.</li>
+    <li><strong>MCP server</strong>: let an AI agent browse, edit and run your workspace.</li>
+    <li><strong>Git</strong>: a Source Control tab built into the sidebar.</li>
+  </ul>
+  <h2 id="offline">Offline by default</h2>
+  <p>Editing and organizing a workspace works offline. Sending requests, checking for updates and Git remotes use the network.</p>
+  <aside class="callout">Postman import and the <code>pm.*</code> helpers cover supported workflows. They do not provide every Postman feature or script API.</aside>
+  <h2 id="where-next">Where to go next</h2>
+  <p><a href="#install">Install bonk</a>, then <a href="#first-request">send your first request</a>. To see how files are laid out, read <a href="#workspaces">Workspaces as files</a>.</p>
+</article>
 
-        <section class="docs-section" id="workspace-files" aria-labelledby="workspace-files-title">
-          <p class="eyebrow">02 / LOCAL WORKSPACE</p>
-          <h2 id="workspace-files-title">Collections are folders. Requests are files.</h2>
-          <p>
-            A saved request is a readable <code>.bonk.json</code> file. Bonk uses the directory as the source of truth,
-            so the workspace can live beside your code and be reviewed in Git.
-          </p>
-          <pre><code>payments-api/
+<article id="install" data-title="Install" data-group="Get started" data-lede="Download bonk for macOS, Windows or Linux, or install it with Homebrew." data-meta="macOS · Windows · Linux|2 min read">
+  <h2 id="macos">macOS</h2>
+  <p>On Apple Silicon, install with Homebrew:</p>
+  <pre data-lang="bash"><code>brew install --cask nekidaz/tap/bonk</code></pre>
+  <p>Or download the <code>.dmg</code> from <a href="https://github.com/nekidaz/.bonk/releases/latest">GitHub Releases</a>.</p>
+  <aside class="callout">The app is not notarized by Apple. If Gatekeeper blocks the first launch, see the macOS installation notes on the release page.</aside>
+  <h2 id="windows">Windows</h2>
+  <p>Download the Windows installer (x64) from <a href="https://github.com/nekidaz/.bonk/releases/latest">GitHub Releases</a> and run the setup wizard.</p>
+  <h2 id="linux">Linux</h2>
+  <p>Download an <code>.AppImage</code>, <code>.deb</code> or <code>.rpm</code> (x64) from <a href="https://github.com/nekidaz/.bonk/releases/latest">GitHub Releases</a>.</p>
+  <pre data-lang="bash"><code># AppImage, from the download directory
+chmod +x bonk_*.AppImage
+./bonk_*.AppImage
+
+# Debian / Ubuntu
+sudo apt install ./bonk_*.deb</code></pre>
+  <h2 id="updates">Updates</h2>
+  <p>Use <strong>Settings → General → Check for updates</strong> for signed in-app updates. When an update is available, the update pill lists what's new. Homebrew installs can also use:</p>
+  <pre data-lang="bash"><code>brew upgrade --cask bonk</code></pre>
+  <h2 id="command-line">Command line</h2>
+  <p>The <a href="#cli">bonk CLI</a> is a separate binary for terminals and CI:</p>
+  <pre data-lang="bash"><code>brew install nekidaz/tap/bonk</code></pre>
+</article>
+
+<article id="first-request" data-title="Your first request" data-group="Get started" data-lede="Send a request, save it as a file, then make it reusable with an environment." data-meta="Hands-on|4 min read">
+  <h2 id="send">Send and save</h2>
+  <ol>
+    <li><strong>Open a folder.</strong> An empty directory is enough.</li>
+    <li><strong>Create an HTTP request.</strong> Enter your API URL, for example <code>http://localhost:8080/health</code>.</li>
+    <li><strong>Send it.</strong> Read the status, body, headers and timing in the response pane.</li>
+    <li><strong>Save it.</strong> Press <code>⌘S</code> on macOS or <code>Ctrl+S</code> on Windows and Linux, then choose a collection folder.</li>
+  </ol>
+  <p>Already have a cURL command? Paste it into the URL bar. Have a collection? Use the <a href="#import-export">import window</a>.</p>
+  <h2 id="environment">Reuse it with an environment</h2>
+  <p>Add an environment with <code>baseUrl = http://localhost:8080</code>, then change the URL to:</p>
+  <pre data-lang="text"><code>{{baseUrl}}/health</code></pre>
+  <p>See <a href="#variables">Variables</a> for globals, secrets and protected environments.</p>
+  <h2 id="check">Turn the response into a check</h2>
+  <p>Open <strong>Scripts → Tests</strong> and add:</p>
+  <pre data-lang="js"><code>pm.test("Service is healthy", () => {
+  pm.expect(pm.response).to.have.status(200);
+});</code></pre>
+  <p>Send again and open the <strong>Tests</strong> response tab. To check a whole collection, open the <a href="#runner">Runner</a>, choose requests and an environment, and start a run.</p>
+</article>
+
+<article id="workspaces" data-title="Workspaces as files" data-group="Get started" data-lede="A workspace is a folder. Folders are collections, requests are files, and there is no manifest to keep in sync." data-meta="Filesystem as truth|3 min read">
+  <h2 id="layout">Layout</h2>
+  <p>The directory is the source of truth. A folder is a directory, and a request is a <code>&lt;name&gt;.bonk.json</code> file.</p>
+  <pre data-lang="text"><code>payments-api/
 ├── payments/
 │   ├── list-payments.bonk.json
 │   └── create-payment.bonk.json
+├── auth/
+│   └── issue-token.bonk.json
 └── grpc/
     └── say-hello.bonk.json</code></pre>
-          <p>A minimal HTTP request looks like this:</p>
-          <pre><code>{
+  <h2 id="request-file">A request file</h2>
+  <pre data-lang="json"><code>{
   "name": "List payments",
   "protocol": "http",
   "request": {
@@ -109,146 +196,386 @@
     "headers": {}
   }
 }</code></pre>
-          <p>
-            Folder auth can be saved in <code>.folder.bonk.json</code>. App preferences and history live separately in
-            the OS application-data directory. Review request files before committing them if you entered credentials
-            directly.
-          </p>
-        </section>
+  <h2 id="folder-file">Folder settings</h2>
+  <p>Collection-level auth lives in <code>.folder.bonk.json</code>. Requests set to inherit use the nearest folder that sets auth. Manual order after drag and drop is saved in the same file. Portable Runner setups go to <code>.bonk/scenarios.json</code>, see <a href="#runner">Runner</a>.</p>
+  <h2 id="git-friendly">Git-friendly</h2>
+  <p>Keep requests in the same repository as the API, review changes in a pull request and share the directory with your team. Preferences, history and session state live separately in the platform application-data directory.</p>
+  <aside class="callout">Variables marked as secret use the OS keychain when available. Credentials typed directly into a request can still be saved in its file, so review files before committing.</aside>
+</article>
 
-        <section class="docs-section" id="http-grpc" aria-labelledby="http-grpc-title">
-          <p class="eyebrow">03 / PROTOCOLS</p>
-          <h2 id="http-grpc-title">HTTP and gRPC in one app</h2>
-          <h3>HTTP</h3>
-          <p>
-            Set query parameters, headers, auth, and a body. Bonk supports JSON, text, forms, multipart, binary data,
-            and GraphQL. The response view includes formatted content, cookies, status, size, and timing. You can search
-            JSON responses and use JSONPath filters.
-          </p>
-          <h3>gRPC</h3>
-          <p>
-            Connect to a server with reflection or load local <code>.proto</code> files. Pick a service and method, edit
-            a message template, and invoke it. Bonk also supports metadata, deadlines, TLS/mTLS, and streaming calls in
-            the desktop app.
-          </p>
-          <p>
-            <a class="text-link" href="../screenshots/grpc.jpg"
-              >See the gRPC editor <span aria-hidden="true">↗</span></a
-            >
-          </p>
-        </section>
+<article id="http" data-title="HTTP" data-group="Send requests" data-lede="Build a request, send it, and inspect the formatted response." data-meta="Requests|4 min read">
+  <h2 id="build">Build a request</h2>
+  <p>Set the method and URL, then add query parameters, headers, auth and a body. Supported bodies are JSON, text, form, multipart, binary and GraphQL. The JSON body editor flags syntax errors as you type. Per-request timeout, redirect and TLS overrides are available from the request's actions menu.</p>
+  <p>Paste a cURL command into the URL bar to turn it into a request. Press <code>⌘↵</code> (<code>Ctrl+Enter</code>) to send.</p>
+  <h2 id="response">Read the response</h2>
+  <p>The response view shows status, size and timing, formatted JSON, headers and cookies. Search a JSON body or filter it with JSONPath. Large responses open in a read-only viewer with search, folding, line count and Save to file. 4xx and 5xx responses show a hint with quick actions.</p>
+  <h2 id="settings">Defaults</h2>
+  <p><strong>Settings → Requests</strong> applies to every request in the workspace: request timeout, follow redirects, verify SSL certificates (turn off only for local self-signed servers), JSON formatting and response preview size. Proxy and client certificates have their own pages, see <a href="#settings">Settings</a>.</p>
+  <h2 id="snippets">Code snippets</h2>
+  <p>Generate the request as code in cURL, HTTPie, raw HTTP, C, C#, Go, Java, JavaScript, Node.js, Kotlin, PHP, Python, Ruby, Swift or PowerShell. Open the code panel with <code>⌘⌥E</code> (<code>Ctrl+Alt+E</code>).</p>
+  <aside class="callout">Sending to a protected environment asks for confirmation first.</aside>
+</article>
 
-        <section class="docs-section" id="variables-scripts" aria-labelledby="variables-scripts-title">
-          <p class="eyebrow">04 / REUSE</p>
-          <h2 id="variables-scripts-title">Variables, environments, and tests</h2>
-          <p>
-            Create a named environment with <code>baseUrl = http://localhost:8080</code>, then use
-            <code>{{baseUrl}}/health</code> in a request. Globals and environment variables can be edited in the app.
-            Secret variables use the OS keychain when available.
-          </p>
-          <p>Use <strong>Scripts → Tests</strong> to add an assertion after a response:</p>
-          <pre><code>pm.test("Service is healthy", () => {
-  pm.expect(pm.response).to.have.status(200);
-});</code></pre>
-          <p>
-            Send the request again and open the <strong>Tests</strong> response tab. Pre-request scripts can prepare
-            values before a call; response scripts can inspect results and update variables.
-          </p>
-          <div class="docs-note">
-            <p>
-              Scripts run in a sandbox with supported <code>pm.*</code> helpers. Bonk does not implement every Postman
-              script API.
-            </p>
-          </div>
-        </section>
+<article id="grpc" data-title="gRPC &amp; streams" data-group="Send requests" data-lede="Discover services with reflection or load .proto files, then call unary and streaming methods." data-meta="gRPC|3 min read">
+  <h2 id="schema">Find the schema</h2>
+  <p>Connect to a server and use reflection, or load local <code>.proto</code> files. In <strong>Settings → gRPC</strong> you can turn automatic reflection on or off and add <code>.proto</code> import paths (<code>-I</code>). Pick a service and method, and bonk fills in a message template for you to edit.</p>
+  <h2 id="calls">Make a call</h2>
+  <p>Unary, server-streaming, client-streaming and bidirectional calls are supported. Streams from all four kinds appear in one feed. Set metadata and a deadline per request. The default deadline, maximum message size and default-field display live in <strong>Settings → gRPC</strong>.</p>
+  <h2 id="tls">TLS and mTLS</h2>
+  <p>gRPC supports TLS and client certificates, including PKCS#12 (<code>.p12</code>) bundles. Errors are shown in readable form.</p>
+  <h2 id="automation">Scripts, Runner, CLI, MCP</h2>
+  <p>gRPC requests accept the same <a href="#scripts">scripts</a> as HTTP, and run in the <a href="#runner">Runner</a> with a gRPC deadline. The <a href="#cli">CLI</a> and <a href="#mcp">MCP server</a> execute unary calls; streaming keeps its interactive controls in the desktop app.</p>
+  <aside class="callout">Proxy settings apply to HTTP only. gRPC connects directly.</aside>
+</article>
 
-        <section class="docs-section" id="runner-cli" aria-labelledby="runner-cli-title">
-          <p class="eyebrow">05 / REPEAT</p>
-          <h2 id="runner-cli-title">Run a collection in the app or CI</h2>
-          <p>
-            In <strong>Runner</strong>, select requests, put them in order, choose an environment, and set iterations,
-            CSV/JSON data, delays, and stop-on-failure behavior. Inspect results and export a report. You can save a
-            portable workspace scenario in <code>.bonk/scenarios.json</code>.
-          </p>
-          <p>
-            The Bonk CLI uses the same request engine. Install it separately, then run a workspace or a saved scenario:
-          </p>
-          <pre><code>brew install nekidaz/tap/bonk
-bonk run --workspace ./api
-BONK_VAR_TOKEN="$TOKEN" bonk run --workspace ./api --scenario smoke --junit report.xml</code></pre>
-          <p>
-            Use <code>BONK_VAR_*</code> for secrets in CI. See the
-            <a href="https://github.com/nekidaz/.bonk/blob/main/docs/CLI.md">CLI reference</a> for flags, network
-            settings, exit codes, and scenario behavior.
-          </p>
-        </section>
+<article id="auth" data-title="Authorization" data-group="Send requests" data-lede="Set auth on a request or once on a folder, and let requests inherit it." data-meta="Auth|3 min read">
+  <h2 id="types">Auth types</h2>
+  <table><thead><tr><th>Type</th><th>What bonk sends</th></tr></thead><tbody>
+    <tr><td>None</td><td>No auth is added.</td></tr>
+    <tr><td>Bearer</td><td><code>Authorization: Bearer &lt;token&gt;</code></td></tr>
+    <tr><td>Basic</td><td><code>Authorization: Basic</code> with base64 of <code>username:password</code>.</td></tr>
+    <tr><td>API key</td><td>A named key, sent as a header or as a query parameter.</td></tr>
+    <tr><td><a href="#oauth">OAuth 2.0</a></td><td>A token from the keychain, sent as a Bearer token.</td></tr>
+  </tbody></table>
+  <p>An <code>Authorization</code> header you set yourself on the request is not overwritten.</p>
+  <h2 id="inherit">Folder auth and inheritance</h2>
+  <p>A request set to <strong>inherit</strong> uses the nearest ancestor folder that sets auth, saved in <code>.folder.bonk.json</code>. With no auth anywhere, nothing is sent.</p>
+  <h2 id="variables">Variables in auth</h2>
+  <p><code>{{vars}}</code> are resolved before auth is applied, so tokens can come from an environment:</p>
+  <pre data-lang="text"><code>Bearer token: {{token}}</code></pre>
+  <aside class="callout">Credentials typed directly into a request are saved in its file. Prefer <code>{{placeholders}}</code> and secret variables, and review files before committing.</aside>
+</article>
 
-        <section class="docs-section" id="ai-mcp" aria-labelledby="ai-mcp-title">
-          <p class="eyebrow">06 / AI TOOLS</p>
-          <h2 id="ai-mcp-title">Connect a client through MCP</h2>
-          <p>
-            Bonk ships a headless MCP server. Compatible clients can browse saved requests, edit the workspace, explore
-            gRPC schemas, and execute API calls. The desktop app does not need to stay open for a configured headless
-            server.
-          </p>
-          <ol>
-            <li>Open the workspace the client should use.</li>
-            <li>Go to <strong>Settings → AI / MCP</strong>.</li>
-            <li>Choose whether to allow workspace edits and API calls. Add a target-host allowlist if needed.</li>
-            <li>Select <strong>Install for all clients</strong>, then restart the configured apps.</li>
-          </ol>
-          <p>
-            The installer supports Claude Desktop, Claude Code, and ChatGPT/Codex local clients. For manual STDIO or
-            Streamable HTTP setup, variables, redaction, and permission details, read the
-            <a href="https://github.com/nekidaz/.bonk/blob/main/docs/MCP.md">MCP reference</a>.
-          </p>
-          <div class="docs-note">
-            <p>
-              ChatGPT web does not read your local MCP configuration. A local desktop client or separately hosted
-              connection is required.
-            </p>
-          </div>
-        </section>
+<article id="oauth" data-title="OAuth 2.0" data-group="Send requests" data-lede="Get, refresh and reuse access tokens without leaving the request." data-meta="Since 0.2.0|macOS · Windows · Linux|3 min read">
+  <h2 id="grants">Grants</h2>
+  <p>Choose <strong>OAuth 2.0</strong> as the auth type, then one of three grants:</p>
+  <ul>
+    <li><strong>Authorization code</strong>, with PKCE (S256) on by default.</li>
+    <li><strong>Client credentials</strong>.</li>
+    <li><strong>Password</strong>.</li>
+  </ul>
+  <h2 id="settings">Settings</h2>
+  <table><thead><tr><th>Field</th><th>Notes</th></tr></thead><tbody>
+    <tr><td>Auth URL, token URL, revoke URL</td><td>The auth URL is used by the code grant.</td></tr>
+    <tr><td>Client ID and secret</td><td>Sent in a Basic header by default, or in the form body.</td></tr>
+    <tr><td>Scope, audience</td><td>Scope is space-separated.</td></tr>
+    <tr><td>Redirect URI</td><td>Empty means <code>http://127.0.0.1:&lt;free port&gt;/callback</code>.</td></tr>
+    <tr><td>Username, password</td><td>For the password grant.</td></tr>
+    <tr><td>Auto refresh</td><td>On by default.</td></tr>
+  </tbody></table>
+  <p>Every field accepts <code>{{vars}}</code>, so one request can work across environments.</p>
+  <h2 id="tokens">Tokens</h2>
+  <p>Tokens live in the OS keychain, never in workspace files. The token key is a hash of the resolved settings (grant, token URL, client, scope, audience, user), so an environment with its own client gets its own token. bonk renews an expired token before sending and retries once on a 401. The same applies in the app, the <a href="#runner">Runner</a>, the <a href="#cli">CLI</a> and <a href="#mcp">MCP</a>.</p>
+  <aside class="callout">For a code grant, bonk listens on a loopback address for the redirect. If the redirect URI is not a loopback address, paste the code or the whole redirect URL by hand.</aside>
+</article>
 
-        <section class="docs-section" id="import-export" aria-labelledby="import-export-title">
-          <p class="eyebrow">07 / BRING YOUR WORK</p>
-          <h2 id="import-export-title">Import existing requests</h2>
-          <p>
-            Import OpenAPI/Swagger, Postman, Insomnia, HAR, or cURL through the desktop app. You can provide a file,
-            link, paste, or drop and preview the result before importing. Re-import can update a collection while
-            preserving your edits.
-          </p>
-          <p>
-            Bonk can export collections and generate language-specific snippets for individual requests. The CLI can
-            import a Bonk workspace export; other import formats use the desktop app.
-          </p>
-        </section>
+<article id="variables" data-title="Variables" data-group="Send requests" data-lede="Reuse values with {{name}} in URLs, headers, bodies, auth and scripts." data-meta="Environments|3 min read">
+  <h2 id="syntax">Using variables</h2>
+  <p>Write <code>{{name}}</code> anywhere in a request:</p>
+  <pre data-lang="text"><code>{{baseUrl}}/v1/payments/{{paymentId}}</code></pre>
+  <h2 id="sources">Globals and environments</h2>
+  <p>Variables come from <strong>globals</strong> and from <strong>named environments</strong>. Edit values inline in the environments sheet (<code>⌘E</code> / <code>Ctrl+E</code>). Mark a variable as secret to keep its value in the OS keychain. Environment names are unique.</p>
+  <p>A protected environment asks for confirmation before a request is sent to it.</p>
+  <h2 id="more">Other sources</h2>
+  <ul>
+    <li><a href="#dynamic-variables">Dynamic variables</a> such as <code>{{$guid}}</code> give a fresh value on every send.</li>
+    <li><a href="#scripts">Scripts</a> read and write variables with <code>pm.environment</code>, <code>pm.globals</code> and <code>pm.variables</code>.</li>
+    <li>The <a href="#runner">Runner</a> turns CSV or JSON rows into variables, one iteration per row.</li>
+    <li>The <a href="#cli">CLI</a> reads <code>BONK_VAR_&lt;NAME&gt;</code> and <code>--var NAME=VALUE</code>.</li>
+  </ul>
+  <h2 id="order">CLI precedence</h2>
+  <p>In the CLI, later wins: the app's globals, scenario globals, scenario environment, the <code>--env</code> environment, <code>BONK_VAR_&lt;NAME&gt;</code>, <code>--var</code>, then the data row.</p>
+  <aside class="callout">Variables are resolved before auth is applied, so auth values can use them.</aside>
+</article>
 
-        <div class="docs-end">
-          <p>
-            Need implementation details? Read the
-            <a href="https://github.com/nekidaz/.bonk/blob/main/README.md">project README</a>,
-            <a href="https://github.com/nekidaz/.bonk/blob/main/docs/CLI.md">CLI reference</a>, or
-            <a href="https://github.com/nekidaz/.bonk/blob/main/docs/MCP.md">MCP reference</a>.
-          </p>
-        </div>
+<article id="dynamic-variables" data-title="Dynamic variables" data-group="Send requests" data-lede="Generate a fresh value on every send with names like {{$guid}} and {{$randomEmail}}." data-meta="Since 0.2.0|macOS · Windows · Linux|3 min read">
+  <h2 id="usage">Using them</h2>
+  <p>Type <code>{{$</code> in a URL, header, body or script editor to get completion, or open the reference dialog and click <strong>Insert</strong>. The values are generated in Rust at send time.</p>
+  <pre data-lang="json"><code>{
+  "id": "{{$guid}}",
+  "email": "{{$randomEmail}}",
+  "createdAt": "{{$isoTimestamp}}"
+}</code></pre>
+  <h2 id="catalog">Catalog</h2>
+  <table><thead><tr><th>Group</th><th>Names</th></tr></thead><tbody>
+    <tr><td>Time</td><td><code>$timestamp</code> (Unix seconds), <code>$isoTimestamp</code> (UTC), <code>$randomDateRecent</code>, <code>$randomDatePast</code>, <code>$randomDateFuture</code>, <code>$randomWeekday</code>, <code>$randomMonth</code></td></tr>
+    <tr><td>IDs</td><td><code>$guid</code>, <code>$uuid</code>, <code>$randomUUID</code>, <code>$randomAlphaNumeric</code></td></tr>
+    <tr><td>Numbers</td><td><code>$randomInt</code> (0 to 1000), <code>$randomBoolean</code>, <code>$randomSemver</code>, <code>$randomHexColor</code></td></tr>
+    <tr><td>Text</td><td><code>$randomWord</code>, <code>$randomWords</code>, <code>$randomLoremWord</code>, <code>$randomLoremWords</code>, <code>$randomLoremSentence</code>, <code>$randomLoremParagraph</code>, <code>$randomLoremSlug</code>, <code>$randomColor</code></td></tr>
+    <tr><td>People</td><td><code>$randomFullName</code>, <code>$randomFirstName</code>, <code>$randomLastName</code>, <code>$randomUserName</code>, <code>$randomPhoneNumber</code>, <code>$randomJobTitle</code>, <code>$randomCompanyName</code></td></tr>
+    <tr><td>Internet</td><td><code>$randomEmail</code>, <code>$randomExampleEmail</code>, <code>$randomUrl</code>, <code>$randomDomainName</code>, <code>$randomIP</code>, <code>$randomIPV6</code>, <code>$randomUserAgent</code>, <code>$randomPassword</code></td></tr>
+    <tr><td>Finance, address, files</td><td><code>$randomPrice</code>, <code>$randomCurrencyCode</code>, <code>$randomBankAccountIban</code>, <code>$randomCity</code>, <code>$randomCountry</code>, <code>$randomLatitude</code>, <code>$randomFileName</code>, <code>$randomMimeType</code> and more</td></tr>
+  </tbody></table>
+  <p>The full list is in the reference dialog. <code>$uuid</code> is a synonym of <code>$guid</code>.</p>
+  <h2 id="settings">Settings → Variables</h2>
+  <ul>
+    <li><strong>Test data language</strong>: English (US) or Russian (KZ) names, addresses and phones.</li>
+    <li><strong>One value per request</strong>: <code>{{$guid}}</code> in a header and in the body match. Off gives a new value at every occurrence.</li>
+    <li><strong>Keep substituted values</strong>: shown in the response Timeline tab.</li>
+    <li><strong>Repeatable values (seed)</strong>: the same seed gives the same data on every send and Runner run.</li>
+  </ul>
+</article>
+
+<article id="cookies" data-title="Cookies" data-group="Send requests" data-lede="A cookie jar like a browser's: responses fill it, requests take from it." data-meta="Since 0.2.0|macOS · Windows · Linux|2 min read">
+  <h2 id="jar">The jar</h2>
+  <p><code>Set-Cookie</code> headers from responses go into the jar automatically. On the next request, cookies matching the domain and path are added to the <code>Cookie</code> header. Open the jar from the cookie window or the footer chip, and see each response's cookies in the response <strong>Cookies</strong> tab.</p>
+  <h2 id="settings">Settings → Cookies</h2>
+  <table><thead><tr><th>Setting</th><th>Effect</th></tr></thead><tbody>
+    <tr><td>Store cookies from responses</td><td>Put <code>Set-Cookie</code> into the jar.</td></tr>
+    <tr><td>Send cookies with requests</td><td>Add matching cookies to the <code>Cookie</code> header.</td></tr>
+    <tr><td>Keep across restarts</td><td>On: session cookies survive a restart. Off: they live until bonk closes.</td></tr>
+    <tr><td>Whose jar</td><td>Per workspace (a file for each) or shared by the whole app.</td></tr>
+    <tr><td>Never store for domains</td><td>Cookies of these domains and their subdomains are neither stored nor sent.</td></tr>
+  </tbody></table>
+  <h2 id="scripts">In scripts</h2>
+  <p>Scripts can read cookies with <code>pm.cookies.get()</code>, <code>has()</code> and <code>toObject()</code>, and clear a URL's cookies with <code>pm.cookies.jar().clear(url)</code>.</p>
+  <aside class="callout">In the CLI, each run has an isolated in-memory jar. No desktop cookie file is changed.</aside>
+</article>
+
+<article id="scripts" data-title="Scripts" data-group="Test &amp; automate" data-lede="Sandboxed JavaScript before a request and after the response, with a familiar pm.* API." data-meta="Since 0.2.0|macOS · Windows · Linux|4 min read">
+  <h2 id="editor">The Scripts tab</h2>
+  <p>Each HTTP or gRPC request has a <strong>Scripts</strong> tab with two parts: <strong>Pre-request</strong> runs before sending, <strong>Tests</strong> runs after the response. The editor has completion, an outline, Find, folding and Format. Results appear in a Tests / Console panel. Scripts run in an embedded JavaScript sandbox (QuickJS) in the Rust engine, so they behave the same in the app, Runner, CLI and MCP.</p>
+  <h2 id="api">API</h2>
+  <table><thead><tr><th>Object</th><th>Members</th></tr></thead><tbody>
+    <tr><td><code>pm.environment</code>, <code>pm.globals</code></td><td><code>get</code>, <code>set</code>, <code>unset</code>, <code>has</code>, <code>toObject</code></td></tr>
+    <tr><td><code>pm.variables</code></td><td><code>get</code>, <code>set</code>, <code>has</code>, <code>replaceIn</code>, <code>toObject</code></td></tr>
+    <tr><td><code>pm.iterationData</code></td><td><code>get</code>, <code>has</code>, <code>toObject</code> (Runner data rows)</td></tr>
+    <tr><td><code>pm.cookies</code></td><td><code>get</code>, <code>has</code>, <code>toObject</code>, <code>jar().clear(url)</code></td></tr>
+    <tr><td><code>pm.request</code></td><td><code>url</code>, <code>method</code>, <code>body</code>, <code>headers.add/upsert/get/remove</code></td></tr>
+    <tr><td><code>pm.response</code></td><td><code>json()</code>, <code>text()</code>, <code>code</code>, <code>responseTime</code>, <code>headers.get</code></td></tr>
+    <tr><td><code>pm.test(name, fn)</code>, <code>pm.expect(value)</code></td><td>chai-style matchers: <code>equal</code>, <code>eql</code>, <code>ok</code>, <code>above</code>, <code>below</code>, <code>include</code>, <code>match</code>, <code>property</code>, <code>lengthOf</code>, <code>status</code> and more</td></tr>
+    <tr><td><code>console.log</code>, <code>JSON</code></td><td>Output goes to the Console panel.</td></tr>
+  </tbody></table>
+  <h2 id="examples">Examples</h2>
+  <pre data-lang="js"><code>// Pre-request: add a header
+pm.request.headers.add('X-Request-Id', pm.variables.get('requestId'));
+
+// Tests: check and save a field for the next request
+pm.test('created', () => pm.expect(pm.response).to.have.status(201));
+pm.environment.set('paymentId', pm.response.json().id);</code></pre>
+  <aside class="callout">A pre-request script can change the outgoing URL, body and headers. <code>pm.*</code> covers supported Postman workflows, not every Postman script API.</aside>
+</article>
+
+<article id="runner" data-title="Runner" data-group="Test &amp; automate" data-lede="Send a collection's requests one by one and check each one's tests." data-meta="Runner|4 min read">
+  <h2 id="start">Start a run</h2>
+  <p>Open <strong>Runner</strong>, pick a collection or folder (or right-click one in the tree and choose <strong>Run in Runner</strong>), and set up the run. You can select and drag to reorder requests, choose an environment and set the delay between requests. Pause, resume or stop a run in progress.</p>
+  <h2 id="data">Data-driven runs</h2>
+  <p>Attach a CSV or JSON file: each row is an iteration and each column is a variable, readable with <code>{{column}}</code> or <code>pm.iterationData</code>. A JSON file must be an array of objects. The row count sets the number of iterations.</p>
+  <h2 id="settings">Run settings</h2>
+  <ul>
+    <li><strong>Stop on first failure</strong>.</li>
+    <li><strong>Save responses</strong>: for the report and for comparing runs.</li>
+    <li>A gRPC deadline for gRPC requests.</li>
+  </ul>
+  <h2 id="results">Results</h2>
+  <p>Results show per-iteration status, timing, a waterfall and test details. Rerun only the failed requests, reopen past runs from history and export a JSON report.</p>
+  <h2 id="scenarios">Scenarios</h2>
+  <p>Choose <strong>Save to workspace</strong> to store the setup in <code>.bonk/scenarios.json</code>: relative request paths, public variable defaults, iterations, delay and stop-on-failure. Secret values and secret-named data columns are omitted, only the required names are kept. Commit the file, then repeat the same run in the <a href="#cli">CLI</a> or from <a href="#mcp">MCP</a>:</p>
+  <pre data-lang="bash"><code>BONK_VAR_TOKEN="$TOKEN" bonk run --workspace ./api --scenario smoke</code></pre>
+</article>
+
+<article id="cli" data-title="CLI"
+            data-h1="bonk CLI" data-group="Test &amp; automate" data-lede="Run your collections from a terminal or CI on the same engine as the app’s Send and Runner: the same scripts, {{vars}}, folder auth and tests. No login, no cloud — it reads the workspace folder directly." data-meta="Since 0.2.0|macOS · Windows · Linux|5 min read">
+  <h2 id="install">Install</h2>
+  <p>Homebrew on macOS and Linux, or a single binary from GitHub Releases on any platform.</p>
+  <pre data-lang="bash"><code>brew install nekidaz/tap/bonk
+
+# or a release archive (bonk.exe on Windows)
+curl -L https://github.com/nekidaz/.bonk/releases/latest/download/bonk-aarch64-apple-darwin.tar.gz | tar -xz</code></pre>
+  <h2 id="run">Run a collection</h2>
+  <p>Point it at the whole workspace, a folder or a single request. Environments are the ones saved in the app.</p>
+  <pre data-lang="bash"><code># the whole workspace (run from its root)
+bonk run
+
+# a folder and one request, with an environment
+bonk run api/users api/health.bonk.json --env Staging
+
+# CI: stop at the first failure, write a JUnit report
+BONK_VAR_TOKEN=$TOKEN bonk run api --bail --junit report.xml</code></pre>
+  <h2 id="exit-codes">Exit codes</h2>
+  <table><thead><tr><th>Code</th><th>Meaning</th></tr></thead><tbody>
+    <tr><td><code>0</code></td><td>Every request passed</td></tr>
+    <tr><td><code>1</code></td><td>Something failed: status, test or script</td></tr>
+    <tr><td><code>2</code></td><td>The run couldn’t start: bad path, unknown environment, invalid data file</td></tr>
+  </tbody></table>
+  <h2 id="secrets">Secrets</h2>
+  <aside class="callout">Put secrets in <code>BONK_VAR_&lt;NAME&gt;</code>, not <code>--var</code>. Their values — and the app’s secret variables — are printed as <code>&lt;redacted&gt;</code> in logs and in <code>--junit</code> / <code>--json</code> reports.</aside>
+  <h2 id="more-flags">Data, scenarios and network</h2>
+  <ul>
+    <li><code>--data users.csv</code> runs one iteration per CSV or JSON row.</li>
+    <li><code>--var NAME=VALUE</code> sets a variable. <code>--json report.json</code> writes a JSON report.</li>
+    <li><code>--workspace DIR --scenario NAME</code> repeats a <a href="#runner">scenario</a> saved in the workspace from any directory.</li>
+    <li><code>--app-state FILE</code> reads the app's globals and environments from another <code>state.json</code>.</li>
+    <li>Proxy and TLS: <code>--proxy</code>, <code>--no-proxy</code>, <code>--cacert</code>, <code>--cert</code> / <code>--key</code>, <code>--p12</code> and <code>-k</code>.</li>
+  </ul>
+  <p>See <code>docs/CLI.md</code> in the repository for precedence rules and full examples.</p>
+</article>
+
+<article id="mcp" data-title="MCP for AI agents" data-group="Test &amp; automate" data-lede="bonk ships an MCP server so Claude, ChatGPT, Codex and other clients can browse your workspace, build requests and run them." data-meta="MCP|5 min read">
+  <h2 id="setup">One-click setup</h2>
+  <ol>
+    <li>Open the workspace the AI should use, then <strong>Settings → AI / MCP</strong>.</li>
+    <li>Choose whether to allow workspace edits and API calls, an environment, and an optional host allowlist.</li>
+    <li>Click <strong>Install for all clients</strong> and restart the configured apps.</li>
+  </ol>
+  <p>bonk configures Claude Desktop, Claude Code and ChatGPT/Codex. Existing client settings are preserved, and a <code>*.bonk-backup</code> is made before the first change. <strong>Remove from clients</strong> removes only the <code>bonk</code> entry. The desktop app does not need to stay open.</p>
+  <h2 id="capabilities">What the agent can do</h2>
+  <ul>
+    <li>List, read, create, update, rename, move, duplicate and delete requests and folders.</li>
+    <li>Validate, send or run saved HTTP requests, with scripts and tests.</li>
+    <li>Reflect gRPC schemas, compile local <code>.proto</code> files, generate examples and make unary calls.</li>
+    <li>Run a saved scenario with <code>run_scenario</code>.</li>
+  </ul>
+  <h2 id="permissions">Permissions</h2>
+  <table><thead><tr><th>Option</th><th>Effect</th></tr></thead><tbody>
+    <tr><td><code>--read-only</code></td><td>Disable every filesystem mutation tool.</td></tr>
+    <tr><td><code>--no-network</code></td><td>Disable HTTP calls, gRPC calls and reflection.</td></tr>
+    <tr><td><code>--target-host HOST</code></td><td>Outbound host allowlist, repeatable, supports <code>*.domain</code>.</td></tr>
+    <tr><td><code>--mutating-methods allow|ask|deny</code></td><td>Policy for POST, PUT, PATCH and DELETE. <code>ask</code> is the default.</td></tr>
+    <tr><td><code>--environment NAME</code></td><td>App environment the model may use, repeatable.</td></tr>
+  </tbody></table>
+  <p>Secrets provided as <code>BONK_VAR_TOKEN</code> resolve <code>{{TOKEN}}</code> without being shown to the model. Stored credentials are redacted from results by default.</p>
+  <h2 id="manual">Manual and remote use</h2>
+  <pre data-lang="bash"><code># STDIO, restricted
+bonk-mcp --workspace /path/to/workspace --read-only --no-network
+
+# Streamable HTTP on loopback, endpoint /mcp
+BONK_MCP_TOKEN='long-random-token' \
+bonk-mcp --workspace /path/to/workspace http --bind 127.0.0.1:8000</code></pre>
+  <p>A non-loopback bind needs a token, at least one <code>--mcp-host</code>, and either <code>--target-host</code> or <code>--allow-all-targets</code>. Terminate TLS at a reverse proxy. Full options and client examples are in <code>docs/MCP.md</code> in the repository.</p>
+</article>
+
+<article id="git" data-title="Git" data-group="Collaborate" data-lede="A Source Control tab in the sidebar, backed by your system Git." data-meta="Since 0.2.0|macOS · Windows · Linux|3 min read">
+  <h2 id="basics">Everyday work</h2>
+  <p>Open the <strong>Source Control</strong> tab to see changed requests. Stage and commit, view diffs inline or side by side, stage or discard individual lines, and use stashes. Branches show ahead and behind counts, and Pull, Push and publish are available. Auto-fetch keeps the status current. Remotes are managed in settings.</p>
+  <h2 id="history">History and graph</h2>
+  <p>A commit graph supports cherry-pick, revert, reset, tags, compare and Undo. You can also see the Git history of a single request, use interactive rebase and the reflog, and clone a repository.</p>
+  <h2 id="conflicts">Conflicts</h2>
+  <p>Conflicts open in a three-way merge that can merge a request field by field.</p>
+  <aside class="callout">Credentials typed into a request are saved in its file. Check diffs before you commit or push.</aside>
+</article>
+
+<article id="import-export" data-title="Import &amp; export" data-group="Collaborate" data-lede="Bring in collections and schemas with a preview first, and take your work out as files or code." data-meta="Import|3 min read">
+  <h2 id="import">Import</h2>
+  <p>One import window handles everything. Bring a source from a file, a link, a paste or a drop, and the format is detected from the content.</p>
+  <table><thead><tr><th>Format</th><th>Notes</th></tr></thead><tbody>
+    <tr><td>OpenAPI 3.x, Swagger 2.0</td><td>Group by tags, paths or flat. Servers become environments, body examples come from the schema.</td></tr>
+    <tr><td>Postman v2.1</td><td>Collections and variables.</td></tr>
+    <tr><td>Insomnia v4</td><td>Export files.</td></tr>
+    <tr><td>HAR</td><td>Choose which request types to take.</td></tr>
+    <tr><td>cURL</td><td>One or more commands, also pasteable into the URL bar.</td></tr>
+  </tbody></table>
+  <p>A preview with warnings comes before anything is written. Re-importing a source offers <strong>update from spec</strong>, which updates the collection and keeps your edits. For gRPC, load <code>.proto</code> files in the gRPC editor.</p>
+  <h2 id="export">Export</h2>
+  <p>In <strong>Settings → Data and import</strong>, export the workspace as <strong>Bonk JSON</strong> or <strong>Postman Collection v2.1</strong>. Keychain secret values are not exported unless you turn on <strong>Include secrets</strong>.</p>
+  <p>The CLI can import a version-1 Bonk JSON export:</p>
+  <pre data-lang="bash"><code>bonk import export.json --workspace ./api</code></pre>
+  <h2 id="snippets">Code snippets</h2>
+  <p>Any request can be copied as cURL or generated as code. See <a href="#http">HTTP</a>.</p>
+</article>
+
+<article id="shortcuts" data-title="Keyboard shortcuts" data-group="Reference" data-lede="Default shortcuts. Every one can be rebound in Settings → Hotkeys." data-meta="Reference|2 min read">
+  <h2 id="request">Request</h2>
+  <table><thead><tr><th>Action</th><th>macOS</th><th>Windows/Linux</th></tr></thead><tbody>
+    <tr><td>Send request</td><td><code>⌘↵</code></td><td><code>Ctrl+Enter</code></td></tr>
+    <tr><td>Save</td><td><code>⌘S</code></td><td><code>Ctrl+S</code></td></tr>
+    <tr><td>Save As</td><td><code>⇧⌘S</code></td><td><code>Ctrl+Shift+S</code></td></tr>
+    <tr><td>Request code</td><td><code>⌥⌘E</code></td><td><code>Ctrl+Alt+E</code></td></tr>
+    <tr><td>New request</td><td><code>⌘N</code></td><td><code>Ctrl+N</code></td></tr>
+    <tr><td>New gRPC request</td><td><code>⌥⌘N</code></td><td><code>Ctrl+Alt+N</code></td></tr>
+    <tr><td>New collection</td><td><code>⇧⌘N</code></td><td><code>Ctrl+Shift+N</code></td></tr>
+    <tr><td>New folder</td><td><code>⇧⌘F</code></td><td><code>Ctrl+Shift+F</code></td></tr>
+    <tr><td>Expand editor or response</td><td><code>⌥⌘F</code></td><td><code>Ctrl+Alt+F</code></td></tr>
+    <tr><td>Show / collapse response</td><td><code>⇧⌘R</code></td><td><code>Ctrl+Shift+R</code></td></tr>
+    <tr><td>Show / collapse request body</td><td><code>⇧⌘E</code></td><td><code>Ctrl+Shift+E</code></td></tr>
+  </tbody></table>
+  <h2 id="navigation">Navigation</h2>
+  <table><thead><tr><th>Action</th><th>macOS</th><th>Windows/Linux</th></tr></thead><tbody>
+    <tr><td>Command palette</td><td><code>⌘K</code></td><td><code>Ctrl+K</code></td></tr>
+    <tr><td>Environment</td><td><code>⌘E</code></td><td><code>Ctrl+E</code></td></tr>
+    <tr><td>Show / hide sidebar</td><td><code>⌘\</code> or <code>⌘B</code></td><td><code>Ctrl+\</code> or <code>Ctrl+B</code></td></tr>
+    <tr><td>Collections</td><td><code>⌘1</code></td><td><code>Ctrl+1</code></td></tr>
+    <tr><td>History</td><td><code>⌘2</code></td><td><code>Ctrl+2</code></td></tr>
+    <tr><td>Bottom panel</td><td><code>⌘J</code></td><td><code>Ctrl+J</code></td></tr>
+    <tr><td>Terminal</td><td><code>⌃`</code></td><td><code>Ctrl+`</code></td></tr>
+    <tr><td>Issues</td><td><code>⇧⌘M</code></td><td><code>Ctrl+Shift+M</code></td></tr>
+    <tr><td>Issues full height</td><td><code>⇧⌘J</code></td><td><code>Ctrl+Shift+J</code></td></tr>
+    <tr><td>Switch workspace</td><td><code>⇧⌘O</code></td><td><code>Ctrl+Shift+O</code></td></tr>
+    <tr><td>Open workspace folder</td><td><code>⌘O</code></td><td><code>Ctrl+O</code></td></tr>
+    <tr><td>Settings</td><td><code>⌘,</code></td><td><code>Ctrl+,</code></td></tr>
+  </tbody></table>
+  <h2 id="tabs">Tabs</h2>
+  <table><thead><tr><th>Action</th><th>macOS</th><th>Windows/Linux</th></tr></thead><tbody>
+    <tr><td>New tab</td><td><code>⌘T</code></td><td><code>Ctrl+T</code></td></tr>
+    <tr><td>Close tab</td><td><code>⌘W</code></td><td><code>Ctrl+W</code></td></tr>
+    <tr><td>Close all tabs</td><td><code>⌥⌘W</code></td><td><code>Ctrl+Alt+W</code></td></tr>
+    <tr><td>Reopen closed tab</td><td><code>⇧⌘T</code></td><td><code>Ctrl+Shift+T</code></td></tr>
+    <tr><td>Next tab</td><td><code>⌃Tab</code></td><td><code>Ctrl+Tab</code></td></tr>
+    <tr><td>Previous tab</td><td><code>⌃⇧Tab</code></td><td><code>Ctrl+Shift+Tab</code></td></tr>
+  </tbody></table>
+</article>
+
+<article id="settings" data-title="Settings" data-group="Reference" data-lede="Where each setting lives. Open Settings with the gear or the Settings shortcut." data-meta="Reference|3 min read">
+  <h2 id="pages">Pages</h2>
+  <table><thead><tr><th>Page</th><th>What it controls</th></tr></thead><tbody>
+    <tr><td>General</td><td>Interface language (English or Russian), what opens on startup (empty window or last tabs), tab behavior, confirm closing unsaved tabs, check for updates.</td></tr>
+    <tr><td>Requests</td><td>Request timeout, follow redirects, verify SSL certificates, format JSON, response preview size, wrap long lines.</td></tr>
+    <tr><td>Variables</td><td><a href="#dynamic-variables">Dynamic variable</a> language, one value per request, keep values, seed.</td></tr>
+    <tr><td>Cookies</td><td>The <a href="#cookies">cookie jar</a>.</td></tr>
+    <tr><td>Proxy</td><td>System, manual or no proxy, with address, login and exceptions.</td></tr>
+    <tr><td>Certificates</td><td>Trusted CAs, trust system CAs, client certificates per host (mTLS).</td></tr>
+    <tr><td>gRPC</td><td>Reflection, <code>.proto</code> import paths, default deadline, max message size, default fields.</td></tr>
+    <tr><td>AI / MCP</td><td>Client install, permissions, environments, allowed hosts and the call log. See <a href="#mcp">MCP</a>.</td></tr>
+    <tr><td>Appearance</td><td>Theme, text size, density, shape and fonts, request/response layout.</td></tr>
+    <tr><td>Hotkeys</td><td>Rebind any <a href="#shortcuts">shortcut</a>. Conflicts are highlighted.</td></tr>
+    <tr><td>Data and import</td><td>Import, export, history retention and the data folder.</td></tr>
+  </tbody></table>
+  <h2 id="themes">Themes</h2>
+  <p>Bonk Dark, Bonk Light, Gruvbox Dark, Catppuccin Mocha, Nord and Solarized Light ship with the app. You can follow the system appearance, pick a theme with <code>⌘K</code>, and import Zed or VS Code themes.</p>
+  <h2 id="storage">Where data lives</h2>
+  <p>Requests are in the workspace folder. Preferences, history and session state are in the platform application-data directory, shown under <strong>Data and import</strong>. Secret variables use the OS keychain.</p>
+</article>
+
+<article id="changelog" data-title="Changelog" data-group="Reference" data-lede="A short summary of recent releases. The full history is on GitHub." data-meta="Reference|2 min read">
+  <h2 id="v0-2-0">0.2.0</h2>
+  <p>Released 2026-10-11.</p>
+  <ul>
+    <li>Git: a Source Control tab with staging, diffs, branches, a commit graph and three-way merge.</li>
+    <li>OAuth 2.0 auth: authorization code with PKCE, client credentials and password.</li>
+    <li>A Scripts tab with a results panel, dynamic variables, and a per-workspace cookie jar.</li>
+    <li>The <code>bonk</code> CLI with JUnit and JSON reports, and portable workspace scenarios.</li>
+    <li>New themes, a Console, terminal and Issues panel, and one import window with preview.</li>
+    <li>HTTP Send and unary gRPC use the same execution pipeline as collections, CLI and MCP. The Flows canvas was removed.</li>
+  </ul>
+  <h2 id="v0-1-9">0.1.9</h2>
+  <p>Released 2026-10-10.</p>
+  <ul>
+    <li>The window adapts down to 720×520, and large workspaces open with folders collapsed.</li>
+    <li><code>{{vars}}</code> resolve before auth, and MCP sends HTTP requests like the app does.</li>
+  </ul>
+  <h2 id="v0-1-8">0.1.8</h2>
+  <p>Released 2026-10-09.</p>
+  <ul>
+    <li>Drag and drop in the sidebar tree, a large-response viewer, Save As, and PKCS#12 client certificates.</li>
+    <li>Runner presets, Postman export, and folder-level auth.</li>
+  </ul>
+  <p>Full history: <a href="https://github.com/nekidaz/.bonk/blob/main/CHANGELOG.md">CHANGELOG.md on GitHub</a>.</p>
+</article>
+        </main>
+        <aside class="docs-toc" aria-label="On this page">
+          <p class="docs-eyebrow">On this page</p>
+          <nav></nav>
+          <a class="docs-rail-link" href="https://github.com/nekidaz/.bonk/blob/main/docs/landing/docs/index.html"><svg viewBox="0 0 13.99993896484375 14" aria-hidden="true" focusable="false"><path d="M2.82666 0.60156q-0.12305 0.01367-0.24268 0.09912-0.11963 0.08203-0.17431 0.19483-0.08545 0.15381-0.15723 0.6289-0.05469 0.29395-0.04785 0.71436 0.00684 0.42041 0.06494 0.72803l0.02735 0.12646-0.07178 0.12647q-0.30762 0.54688-0.43408 1.23388-0.02734 0.13672-0.03418 0.54346-0.00684 0.40674 0.00683 0.61865 0.12646 1.34326 1.07666 2.26612 0.59131 0.54688 1.33301 0.84082 0.15381 0.05469 0.38281 0.12646 0.23242 0.06836 0.27344 0.06836 0.04102 0 0.04102 0.03076 0 0.02734-0.04102 0.12305-0.05469 0.19824-0.11279 0.48535-0.05469 0.28369-0.05469 0.45459l0 0.0957-0.14014 0.04444q-0.33496 0.0957-0.65967 0.08203-0.18115-0.01367-0.29394-0.04102-0.10938-0.02734-0.24951-0.0957-0.14014-0.07178-0.2666-0.17773-0.12646-0.10596-0.3794-0.3418-0.51611-0.47852-0.72803-0.60156-0.37598-0.21191-0.74169-0.21192-0.11279 0-0.16065 0.00684-0.04785 0.00684-0.11963 0.03418-0.28027 0.12646-0.32812 0.42041-0.04785 0.29395 0.16064 0.51953 0.12646 0.12646 0.3794 0.16748 0.15381 0.02734 0.24267 0.08545 0.09229 0.05469 0.44092 0.37598 0.31104 0.29394 0.43408 0.3999 0.12646 0.10596 0.28027 0.20166 0.42041 0.28027 0.89893 0.37939 0.19482 0.04102 0.49561 0.04102 0.30078 0 0.52636-0.02735l0.2085-0.04101q0.01367 0 0.01367 0.81006 0 0.57422 0 0.70752 0 0.1333 0.03418 0.21875 0.0376 0.08203 0.11963 0.16748 0.08545 0.08203 0.18799 0.1333 0.10596 0.04785 0.23242 0.04785 0.12646 0 0.229-0.04785 0.10596-0.05127 0.18799-0.1333 0.08545-0.08545 0.11963-0.16748 0.0376-0.08545 0.0376-0.28028l0-2.68994q0.01367-0.64258 0.42041-1.20312 0.08203-0.12646 0.10937-0.18799 0.03076-0.06494 0.05127-0.14697 0.02051-0.08545 0-0.18799-0.02051-0.10596-0.0581-0.17432-0.03418-0.07178-0.1128-0.14697-0.0752-0.07861-0.16748-0.11963-0.08887-0.04443-0.32812-0.05811-0.40332-0.01367-0.72803-0.09912-0.72803-0.18115-1.24414-0.64258-0.30762-0.25293-0.51953-0.60839-0.2085-0.35889-0.28027-0.74854-0.02734-0.12646-0.04102-0.44775-0.01367-0.32471 0-0.49219 0.04102-0.62891 0.42041-1.20313 0.12646-0.19482 0.14697-0.31445 0.02051-0.11963-0.03418-0.33154-0.08545-0.37598-0.08544-0.78272 0-0.2666 0.01367-0.2666l0.18115 0.09912q0.23926 0.12646 0.72803 0.46143 0.19824 0.12646 0.36572 0.14014 0.06836-0.01367 0.32129-0.05469 0.96729-0.16748 2.0166-0.16748 1.04932 0 2.0166 0.16748 0.25293 0.05469 0.32129 0.05469 0.16748-0.01367 0.34863-0.14014 0.49219-0.32129 0.70069-0.44092 0.21191-0.11963 0.22558-0.11279 0.01367 0.00684 0.01367 0.22558 0 0.21533-0.0205 0.39307-0.02051 0.17432-0.06494 0.39307-0.04102 0.21533-0.04102 0.27002 0 0.15381 0.15381 0.40673 0.30762 0.4751 0.40674 0.99463 0.01367 0.14014 0.0205 0.46827 0.00684 0.32813-0.0205 0.4956-0.14014 1.12109-1.1211 1.77734-0.42041 0.2666-0.95019 0.40674-0.32471 0.08545-0.72803 0.09912-0.15381 0.01367-0.21875 0.02735-0.06152 0.01367-0.11963 0.04101-0.26318 0.12646-0.33496 0.43409-0.04102 0.21191 0.12647 0.44775 0.37598 0.54688 0.44775 1.03906 0.01367 0.12305 0.01367 1.60987l0 1.30224q0 0.2085 0.03418 0.29395 0.0376 0.08203 0.11963 0.16748 0.08545 0.08203 0.18799 0.1333 0.10596 0.04785 0.23242 0.04785 0.12646 0 0.229-0.04785 0.10596-0.05127 0.18799-0.1333 0.08545-0.08545 0.1128-0.16748 0.03076-0.08545 0.04443-0.31104l0.01367-1.32959q0-1.52441-0.01367-1.67822-0.05469-0.33496-0.15381-0.646-0.04102-0.10938-0.04102-0.13672 0-0.03076 0.04102-0.03076 0.04102 0 0.27002-0.07519 0.23242-0.07861 0.38623-0.1333 0.57422-0.22559 1.05615-0.6084 0.48535-0.38623 0.79297-0.875 0.16748-0.25293 0.30078-0.57422 0.1333-0.32471 0.18799-0.63233 0.09912-0.43408 0.09229-0.96386-0.00684-0.5332-0.10596-0.90918-0.14014-0.50586-0.36231-0.92627l-0.08544-0.14014 0.02734-0.16748q0.11279-0.67334 0.01709-1.34326-0.05811-0.51953-0.15039-0.68701-0.08887-0.16748-0.28369-0.2666-0.3794-0.16748-1.26123 0.28027-0.30762 0.14014-0.65967 0.37939l-0.2085 0.14014-0.18115-0.02734q-0.92627-0.15381-1.98926-0.15381-1.06299 0-2.07129 0.15381l-0.14013 0.02734-0.14014-0.09912q-0.51953-0.3623-1.03223-0.56396-0.50928-0.20508-0.80322-0.16407z" fill="currentColor" ></path></svg>Edit on GitHub</a>
+          <a class="docs-rail-link" href="https://github.com/nekidaz/.bonk/issues/new"><svg viewBox="0 0 13.99993896484375 14" aria-hidden="true" focusable="false"><path d="M1.97559 1.20313q-0.39307 0.08545-0.71778 0.33837-0.32129 0.24951-0.50244 0.61524-0.12646 0.28027-0.16748 0.58789-0.01367 0.16748 0 5.01074l0 4.17334q0.01367 0.68359 0.02734 0.75537 0.11279 0.33496 0.37256 0.5332 0.25977 0.19482 0.58106 0.19483 0.23584 0 0.46142-0.11279 0.09912-0.04101 0.22217-0.16065 0.12646-0.11963 0.65967-0.63574 0.7417-0.7417 0.82715-0.78613l0.08203-0.04102 8.09375-0.01367 0.16748-0.04102q0.25293-0.07178 0.44092-0.18115 0.18799-0.11279 0.36914-0.29394 0.18457-0.18457 0.29394-0.37256 0.11279-0.18799 0.18457-0.44092l0.04102-0.16748 0.01367-6.29932q-0.01367-0.81348-0.02734-1.08008-0.01367-0.19482-0.04102-0.33496-0.14014-0.4751-0.50586-0.81006-0.3623-0.33838-0.84082-0.4375-0.10938-0.02734-0.81006-0.02734l-4.21435 0-4.17334 0q-0.72803 0.01367-0.8374 0.02734z m9.78564 1.14843q0.30762 0.04102 0.43408 0.32129l0.04102 0.09912 0 7.28028-0.02735 0.08544q-0.12646 0.24951-0.35205 0.33497-0.05469 0.01367-4.10156 0.02734l-4.02978 0.01367-0.15723 0.02735q-0.13672 0.04443-0.26318 0.09912-0.21191 0.08545-0.36573 0.21191-0.15381 0.12305-0.60156 0.58447l-0.58789 0.57422 0.01367-9.23877 0.04102-0.09912q0.05811-0.12646 0.16748-0.21533 0.11279-0.09229 0.23242-0.11279 0.11963-0.02051 4.78174-0.02051 4.66211 0 4.7749 0.02734z" fill="currentColor" ></path></svg>Report an issue</a>
+        </aside>
       </div>
-    </main>
-    <footer class="site-footer">
-      <div class="shell footer-main">
-        <div>
-          <a class="brand" href="../"><span class="brand-mark" aria-hidden="true">↗</span><span>bonk</span></a>
-          <p>API requests, right next to your code.</p>
-        </div>
-        <nav aria-label="Footer navigation">
-          <a href="../">Home</a><a href="https://github.com/nekidaz/.bonk/releases/latest">Downloads</a
-          ><a href="https://github.com/nekidaz/.bonk/blob/main/CHANGELOG.md">Changelog</a
-          ><a href="https://github.com/nekidaz/.bonk">GitHub</a>
-        </nav>
-      </div>
-      <div class="shell footer-bottom">
-        <span>Open source under the MIT license.</span><span>Built for local work.</span>
-      </div>
-    </footer>
+    </div>
+    <template id="docs-icons">
+      <span data-icon="chevron"><svg viewBox="0 0 13.99993896484375 14" aria-hidden="true" focusable="false"><path d="M5.09619 2.93945q-0.25293 0.08545-0.37939 0.30762-0.04102 0.08545-0.04102 0.25293 0 0.16748 0.04102 0.25293 0.04443 0.08203 1.62353 1.66455l1.58252 1.58252-1.58252 1.58252q-1.5791 1.58252-1.62353 1.66797-0.04102 0.08203-0.04102 0.23584 0 0.15381 0.03418 0.23926 0.0376 0.08203 0.1333 0.18115 0.09912 0.0957 0.18115 0.1333 0.08545 0.03418 0.23926 0.03418 0.15381 0 0.24268-0.04785 0.09229-0.05127 1.90381-1.8628 1.81494-1.81494 1.86279-1.9038 0.05127-0.09229 0.05127-0.25977 0-0.16748-0.04443-0.24951-0.04102-0.08545-1.85938-1.90723l-1.44238-1.42871q-0.33496-0.33496-0.46143-0.41699-0.09912-0.07178-0.19824-0.07178l-0.04102 0q-0.14014 0-0.18115 0.01367z" fill="currentColor" ></path></svg></span>
+      <span data-icon="copy"><svg viewBox="0 0 13.99993896484375 14" aria-hidden="true" focusable="false"><path d="M2.15674 0.60156q-0.29395 0.02734-0.58789 0.16748-0.29395 0.14014-0.50586 0.36573-0.30762 0.32129-0.43408 0.78271l-0.04102 0.16748 0 6.33008 0.04102 0.16748q0.22559 0.78271 0.91259 1.13477 0.2085 0.10938 0.46827 0.16748 0.25977 0.05469 0.41357 0.02734 0.24951-0.05469 0.38965-0.24268 0.14014-0.19141 0.08545-0.44433-0.02734-0.16748-0.16065-0.30762-0.1333-0.14014-0.3999-0.16748-0.39307-0.04102-0.5332-0.34863l-0.04102-0.09912 0-6.1045 0.04102-0.09912q0.09912-0.19482 0.29394-0.29394l0.09912-0.04102 6.1045 0 0.09912 0.04102q0.30762 0.14014 0.34863 0.51953 0.02734 0.2666 0.18115 0.42041 0.12646 0.12646 0.30762 0.15381 0.29395 0.05469 0.50586-0.15381 0.11279-0.11279 0.14697-0.24609 0.03418-0.1333 0.02051-0.32813-0.08545-0.646-0.52637-1.07666-0.44092-0.43408-1.08349-0.49219-0.16748-0.02734-3.06592-0.02734-2.89844 0-3.07959 0.02734z m3.5 3.5q-0.29395 0.02734-0.58789 0.16748-0.29395 0.14014-0.50586 0.3794-0.30762 0.32129-0.43408 0.79638l-0.04102 0.1709 0 6.29932 0.04102 0.16748q0.07178 0.25293 0.18115 0.44092 0.11279 0.18799 0.29394 0.37256 0.18457 0.18115 0.37256 0.29394 0.18799 0.10938 0.44092 0.18115l0.16748 0.04102 6.33008 0 0.16748-0.04102q0.25293-0.07178 0.44092-0.18115 0.18799-0.11279 0.36914-0.29394 0.18457-0.18457 0.29394-0.37256 0.11279-0.18799 0.18457-0.44092l0.04102-0.16748 0-6.33008-0.04102-0.16748q-0.12646-0.46143-0.43408-0.78271-0.44775-0.4751-1.13476-0.54688-0.16748-0.01367-3.06592-0.01367-2.89844 0-3.07959 0.02734z m6.24463 1.20313q0.19482 0.09912 0.29394 0.29394l0.04102 0.09912 0 6.1045-0.02735 0.08545q-0.12646 0.26318-0.37939 0.33496-0.08203 0.02734-3.07959 0.02734-2.99756 0-3.07959-0.02734-0.25293-0.07178-0.37939-0.33496l-0.02735-0.08545 0-6.1045 0.04102-0.09912q0.11279-0.24951 0.37939-0.32129 0.08545-0.02734 3.10694-0.02734l3.01123 0.01367 0.09912 0.04102z" fill="currentColor" ></path></svg></span>
+      <span data-icon="shield"><svg viewBox="0 0 13.99993896484375 14" aria-hidden="true" focusable="false"><path d="M6.84619 0.60156q-0.34863 0.02734-0.68701 0.30762-0.51611 0.42041-1.00147 0.70068-0.48193 0.28027-1.01513 0.4751-0.30762 0.11279-0.58789 0.1709-0.28027 0.05469-0.66992 0.08203-0.23926 0.01367-0.36573 0.07178-0.19482 0.06836-0.37939 0.22217-0.18115 0.15381-0.26319 0.34863l-0.01367 0.03076q-0.07178 0.12646-0.08545 0.22217-0.01367 0.15381-0.02734 0.60156l0 1.78076q0 2.25244 0.01367 2.46094 0.14014 1.6543 1.10742 2.88477 0.14014 0.16748 0.43409 0.46142 0.29395 0.29394 0.48877 0.44775 0.92285 0.7417 2.2832 1.27491 0.46143 0.18115 0.65625 0.23926 0.23926 0.05469 0.43408 0.01367 0.16748-0.02734 0.5332-0.15381 1.35693-0.51953 2.27979-1.20313 0.37939-0.2666 0.71435-0.60498 1.37402-1.3706 1.54151-3.37353 0.01367-0.23584 0.01367-2.46094 0-2.22852-0.02734-2.35498-0.07178-0.32129-0.31787-0.56396-0.24268-0.24609-0.5503-0.31788-0.09912-0.02734-0.37939-0.04101-0.48877-0.02734-0.96387-0.18115-0.81348-0.2666-1.55518-0.77246-0.2666-0.18115-0.64257-0.48877-0.42041-0.33496-0.96729-0.28028z m0.43408 1.34326q0.64258 0.51953 1.32959 0.86817 1.2168 0.61865 2.25244 0.68701l0.21192 0-0.01367 4.31348q0 0.33496-0.02735 0.50244-0.22559 1.34326-1.1416 2.27637-0.91602 0.92969-2.66601 1.57226l-0.21192 0.08545-0.18115-0.05469q-2.32422-0.85449-3.2334-2.22851-0.47852-0.71436-0.63232-1.63721-0.02734-0.18115-0.02735-0.50244l-0.01367-4.32715 0.19483 0q0.86816-0.05469 1.84912-0.48193 0.98096-0.42725 1.83545-1.12793 0.16748-0.14014 0.19482-0.14014 0.02734 0 0.28027 0.19482z m1.32959 3.31885q-0.06836 0.02734-0.12646 0.05127-0.05469 0.02051-1.06299 1.02539l-0.99463 0.99463-0.40674-0.40332q-0.2666-0.2666-0.3623-0.33838-0.12646-0.11279-0.19824-0.14013-0.06836-0.02734-0.19483-0.02735-0.12646 0-0.16748 0.01367-0.04102 0.01367-0.09912 0.04102-0.18115 0.09912-0.28027 0.2666-0.04102 0.08545-0.04102 0.25293l0 0.01367q0 0.14014 0.03418 0.21192 0.0376 0.06836 0.17774 0.22216 0.0957 0.11279 0.48876 0.50586l0.04102 0.04102q0.42041 0.42041 0.55371 0.54687 0.1333 0.12305 0.20166 0.15381 0.14014 0.06836 0.29395 0.05469 0.15381-0.01367 0.28027-0.09912 0.07178-0.05469 1.28857-1.27149 0.86816-0.86816 1.04932-1.06298 0.18457-0.19824 0.21192-0.27002 0.0957-0.27686-0.05811-0.52295-0.15381-0.24609-0.44775-0.25977-0.12646-0.01367-0.18116 0z" fill="currentColor" ></path></svg></span>
+      <span data-icon="up"><svg viewBox="0 0 13.99993896484375 14" aria-hidden="true" focusable="false"><path d="M6.90088 0.60156q-0.08203 0-0.17432 0.05811-0.08887 0.05469-0.15381 0.11963-0.06152 0.06152-1.09716 2.13281l-0.81348 1.60986q-0.2085 0.42041-0.29395 0.53321-0.07178 0.08203-0.16748 0.12646l-0.11279 0.05469-1.0083 0.01367q-1.0083 0.01367-1.09033 0.02734-0.46484 0.11279-0.79981 0.39991-0.33496 0.28711-0.50244 0.72119l-0.01367 0.02734q-0.04443 0.14014-0.05811 0.2666-0.02734 0.16748-0.02734 0.65625l0 4.56641 0.04102 0.16748q0.07178 0.25293 0.18115 0.44092 0.11279 0.18799 0.29394 0.37256 0.18457 0.18115 0.37256 0.29394 0.18799 0.10938 0.44092 0.18115l0.16748 0.04102 4.15967 0q4.15625 0 4.26904-0.02734 0.46143-0.08545 0.81006-0.37256 0.35205-0.28711 0.50586-0.69385 0.02734-0.08203 0.71435-2.41992 0.68701-2.33789 0.72803-2.53614 0.04102-0.10938 0.04102-0.36914 0-0.25977-0.04102-0.38623-0.16748-0.62891-0.64258-0.99121-0.11279-0.08545-0.29736-0.17431-0.18115-0.09229-0.30762-0.12305-0.15381-0.05469-0.44091-0.06152-0.28711-0.00684-1.32276-0.00684l-1.16211 0q-0.19482-0.01367-0.18115-0.02734 0.02734-0.08545 0.22217-0.91602 0.19824-0.83398 0.21191-0.9331 0.02734-0.15381 0.02051-0.43409-0.00684-0.28027-0.03418-0.43408-0.12646-0.54688-0.45459-0.9707-0.32813-0.42725-0.82031-0.68018-0.19482-0.09912-0.34863-0.15381-0.21191-0.05811-0.4375-0.09228-0.22217-0.03418-0.37598-0.00684z m0.67334 1.30225q0.14014 0.08545 0.28711 0.22558 0.14697 0.14014 0.22217 0.29395 0.07861 0.15381 0.11279 0.34863 0.03418 0.19482 0.00684 0.36573-0.01367 0.12305-0.30762 1.35693l-0.23584 0.96387q-0.07178 0.31104-0.07178 0.41015 0 0.0957 0.04102 0.19483 0.11279 0.22217 0.35205 0.32129 0.05469 0.02734 1.90381 0.04101l1.8457 0 0.08545 0.04102q0.18115 0.09912 0.28027 0.28027 0.04102 0.08545 0.04102 0.23926 0 0.12646-0.09229 0.44775-0.08887 0.32129-0.59131 2.07129-0.70068 2.35156-0.72802 2.42334-0.08545 0.18115-0.28028 0.2666l-0.09912 0.04102-5.67041 0.01367 0-5.9917 0.05469-0.02734q0.07178-0.02734 0.19824-0.11963 0.12646-0.09229 0.2085-0.16065 0.12646-0.11279 0.19824-0.23925 0.10938-0.15381 0.33496-0.58789l1.66455-3.31885 0.07178 0.03076q0.06836 0.02734 0.16748 0.06836z m-4.07422 7.43408l0 2.91211-0.62891 0q-0.50586 0-0.63232-0.01367-0.12646-0.01367-0.24609-0.0957-0.11621-0.08545-0.20166-0.25293l-0.02735-0.08545 0-4.95606 0.04102-0.09912q0.04443-0.08203 0.1333-0.16406 0.09229-0.08545 0.1914-0.12989 0.05469-0.01367 0.16748-0.02734l1.20313 0 0 2.91211z" fill="currentColor" ></path></svg></span>
+      <span data-icon="down"><svg viewBox="0 0 13.99993896484375 14" aria-hidden="true" focusable="false"><path d="M3.69482 0.58789q-0.66992 0.04102-1.14843 0.51953-0.15381 0.15381-0.25977 0.33496-0.10254 0.18115-0.18799 0.43408-0.16748 0.56055-0.76904 2.6626-0.60156 2.09863-0.62891 2.19434-0.02734 0.15381-0.01367 0.35205 0.04102 0.61523 0.4375 1.06982 0.3999 0.45459 1.01856 0.56739 0.14014 0.02734 1.55175 0.02734l1.19288 0q0.2085 0.01367 0.19482 0.02734-0.02734 0.08545-0.22559 0.91944-0.19482 0.83057-0.20849 0.92968-0.02734 0.15381-0.02051 0.43409 0.00684 0.28027 0.03418 0.43408 0.16748 0.72803 0.67676 1.23389 0.5127 0.50244 1.22705 0.64257 0.18115 0.04101 0.37939 0.04102 0.14014 0 0.18115-0.00684 0.04102-0.00683 0.12647-0.04785 0.10938-0.05811 0.1709-0.1333 0.06494-0.07861 1.10058-2.1499l0.81348-1.59619q0.2085-0.42041 0.29395-0.53321 0.07178-0.08203 0.16748-0.12646l0.11279-0.05469 1.02197-0.01367q0.78271-0.01367 0.94336-0.02051 0.16406-0.00684 0.33154-0.06494l0.01368 0q0.3623-0.12305 0.65625-0.40332 0.29395-0.28027 0.43408-0.65967l0.01367-0.02734q0.04443-0.14014 0.05811-0.2666 0.02734-0.16748 0.02734-0.65625l0-4.56641-0.04102-0.16748q-0.12646-0.46143-0.43408-0.78271-0.44775-0.4751-1.13476-0.54688-0.12646 0-4.04004-0.00684-3.91357-0.00684-4.06739 0.00684z m5.6294 4.15967l0 2.99414-0.12647 0.07178q-0.29395 0.16748-0.50244 0.43408-0.08545 0.0957-0.2666 0.44092-0.18115 0.3418-0.81348 1.60302-0.66992 1.34326-0.81689 1.62354-0.14697 0.28027-0.17773 0.28027-0.14014-0.0581-0.30079-0.16748-0.16064-0.11279-0.27343-0.25293-0.15381-0.18457-0.21534-0.42724-0.06152-0.24609-0.03418-0.48536 0.01367-0.12305 0.30762-1.35693l0.23584-0.96387q0.07178-0.31104 0.07178-0.40673 0-0.09912-0.04102-0.19825-0.09912-0.2085-0.30761-0.29394l-0.09912-0.05469-3.69483-0.01367-0.08545-0.04102q-0.07178-0.04443-0.15722-0.11963-0.08203-0.07861-0.12305-0.16064-0.04102-0.08545-0.04102-0.23926 0-0.12646 0.08203-0.43408 0.08545-0.30762 0.57422-1.98926l0.71436-2.40625q0.09912-0.30762 0.37939-0.40674 0.05469-0.01367 0.48877-0.02734l5.22266 0 0 2.99756z m2.57715-2.94287q0.19482 0.09912 0.29394 0.29394l0.04102 0.09912 0 4.95606-0.04102 0.09912q-0.11279 0.2085-0.32471 0.29395-0.06836 0.01367-0.17431 0.0205-0.10596 0.00684-0.55371 0.00684l-0.64258 0 0-5.82422 1.30225 0.01367 0.09912 0.04102z" fill="currentColor" ></path></svg></span>
+    </template>
   </body>
 </html>
