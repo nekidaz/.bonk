@@ -21,10 +21,13 @@
   position: sticky;
   top: 0;
   align-self: start;
-  max-height: 100vh;
+  /* 106px: the site nav + body padding above it, so the whole list fits the first screen too. */
+  max-height: calc(100vh - 106px);
   overflow-y: auto;
   padding: 24px 0 24px;
-  scrollbar-width: none;
+  /* Taller than most windows: keep a thin scrollbar so the last groups are reachable. */
+  scrollbar-width: thin;
+  scrollbar-color: #272727 transparent;
 }
 .docs-nav > summary {
   display: none;
@@ -110,8 +113,9 @@
   font-size: 14px;
 }
 
-/* Article */
-.docs-main {
+/* Article. `.landing main` is display: contents on the landing — the docs' main is a real grid column. */
+.landing .docs-main {
+  display: block;
   min-width: 0;
   padding-top: 40px;
 }
@@ -215,6 +219,10 @@
   margin-top: 0;
 }
 
+.docs-main article > :is(ul, ol, table, aside, .docs-code) + p {
+  margin-top: 16px;
+}
+
 /* Code */
 .docs-code {
   overflow: hidden;
@@ -278,6 +286,13 @@
 }
 .docs-main article tr:last-child td {
   border-bottom: 0;
+}
+/* Several tables on a page (shortcuts): same column widths in each. */
+.docs-main article table:has(th:nth-child(3)) {
+  table-layout: fixed;
+}
+.docs-main article table:has(th:nth-child(3)) th:first-child {
+  width: 46%;
 }
 .docs-main article td:first-child:has(> code:only-child) code {
   padding: 0;
@@ -445,7 +460,7 @@
   .docs-nav[open] > summary {
     margin-bottom: 12px;
   }
-  .docs-main {
+  .landing .docs-main {
     padding-top: 28px;
   }
   .docs-main h1 {

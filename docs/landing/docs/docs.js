@@ -123,6 +123,12 @@ function route() {
     headings = [...article.querySelectorAll('h2[id]')];
     toc.replaceChildren(...headings.map((h) => el('a', { href: `#${h.id}` }, h.textContent)));
   }
+  // Keep the current page's link visible in the (scrollable) sidebar.
+  const link = links.get(article).getBoundingClientRect();
+  const box = sidebar.getBoundingClientRect();
+  if (link.top < box.top || link.bottom > Math.min(box.bottom, innerHeight)) {
+    sidebar.scrollTop += link.top - box.top - box.height / 3;
+  }
   if (target && target !== article) target.scrollIntoView();
   else scrollTo(0, 0);
   if (mobile.matches) sidebar.open = false;

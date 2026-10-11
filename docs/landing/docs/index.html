@@ -337,7 +337,7 @@ sudo apt install ./bonk_*.deb</code></pre>
 
 <article id="scripts" data-title="Scripts" data-group="Test &amp; automate" data-lede="Sandboxed JavaScript before a request and after the response, with a familiar pm.* API." data-meta="Since 0.2.0|macOS · Windows · Linux|4 min read">
   <h2 id="editor">The Scripts tab</h2>
-  <p>Each HTTP or gRPC request has a <strong>Scripts</strong> tab with two parts: <strong>Pre-request</strong> runs before sending, <strong>Tests</strong> runs after the response. The editor has completion, an outline, Find, folding and Format. Results appear in a Tests / Console panel. Scripts run in an embedded JavaScript sandbox (QuickJS) in the Rust engine, so they behave the same in the app, Runner, CLI and MCP.</p>
+  <p>Each HTTP or gRPC request has a <strong>Scripts</strong> tab with two parts: <strong>Pre-request</strong> runs before sending, <strong>Post-response</strong> runs after the response. The editor has completion, an outline, Find, folding and Format. Results appear in a Tests / Console panel. Scripts run in an embedded JavaScript sandbox (QuickJS) in the Rust engine, so they behave the same in the app, Runner, CLI and MCP.</p>
   <h2 id="api">API</h2>
   <table><thead><tr><th>Object</th><th>Members</th></tr></thead><tbody>
     <tr><td><code>pm.environment</code>, <code>pm.globals</code></td><td><code>get</code>, <code>set</code>, <code>unset</code>, <code>has</code>, <code>toObject</code></td></tr>
@@ -411,7 +411,7 @@ BONK_VAR_TOKEN=$TOKEN bonk run api --bail --junit report.xml</code></pre>
     <li><code>--app-state FILE</code> reads the app's globals and environments from another <code>state.json</code>.</li>
     <li>Proxy and TLS: <code>--proxy</code>, <code>--no-proxy</code>, <code>--cacert</code>, <code>--cert</code> / <code>--key</code>, <code>--p12</code> and <code>-k</code>.</li>
   </ul>
-  <p>See <code>docs/CLI.md</code> in the repository for precedence rules and full examples.</p>
+  <p>Run <code>bonk run --help</code> for every flag.</p>
 </article>
 
 <article id="mcp" data-title="MCP for AI agents" data-group="Test &amp; automate" data-lede="bonk ships an MCP server so Claude, ChatGPT, Codex and other clients can browse your workspace, build requests and run them." data-meta="MCP|5 min read">
@@ -445,7 +445,7 @@ bonk-mcp --workspace /path/to/workspace --read-only --no-network
 # Streamable HTTP on loopback, endpoint /mcp
 BONK_MCP_TOKEN='long-random-token' \
 bonk-mcp --workspace /path/to/workspace http --bind 127.0.0.1:8000</code></pre>
-  <p>A non-loopback bind needs a token, at least one <code>--mcp-host</code>, and either <code>--target-host</code> or <code>--allow-all-targets</code>. Terminate TLS at a reverse proxy. Full options and client examples are in <code>docs/MCP.md</code> in the repository.</p>
+  <p>A non-loopback bind needs a token, at least one <code>--mcp-host</code>, and either <code>--target-host</code> or <code>--allow-all-targets</code>. Terminate TLS at a reverse proxy. Run <code>bonk-mcp --help</code> for every option.</p>
 </article>
 
 <article id="git" data-title="Git" data-group="Collaborate" data-lede="A Source Control tab in the sidebar, backed by your system Git." data-meta="Since 0.2.0|macOS · Windows · Linux|3 min read">
