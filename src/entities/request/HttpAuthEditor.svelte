@@ -4,6 +4,7 @@
   import { resolveVars, type ApiKeyLocation, type AuthConfig, type AuthType, type Tab } from '$shared/model';
   import { envToneOf, currentVarScope, environments } from '$entities/environment';
   import { tabs } from '$entities/tab';
+  import AuthTypeMenu from './AuthTypeMenu.svelte';
   import OAuthPanel from './OAuthPanel.svelte';
   import OAuthInheritedRows from './OAuthInheritedRows.svelte';
   import { oauthSummary } from './oauthFormat';
@@ -42,6 +43,29 @@
   const auth = $derived<AuthConfig>(inheriting ? parent!.auth! : ownType === 'inherit' ? none : ownAuth!);
   const selectValue = $derived(ownType === 'inherit' && !inheriting && tab ? 'none' : inheriting ? auth.type : ownType);
   const inheritLabel = $derived(tab ? t('http.auth.inherit') : t('http.auth.unset'));
+  // OA1: the menu's order and icons.
+  const typeIcons: Record<AuthType, string> = {
+    inherit: 'account_tree',
+    none: 'block',
+    bearer: 'key',
+    basic: 'badge',
+    apiKey: 'vpn_key',
+    oauth2: 'shield_person',
+  };
+  const typeLabel = (key: AuthType) =>
+    key === 'inherit' ? inheritLabel : t(authTypes.find((a) => a.key === key)?.label ?? 'http.auth.none');
+  const typeOptions = $derived(
+    (
+      [
+        ...(!tab || (parent && !inheriting) ? ['inherit'] : []),
+        'none',
+        'bearer',
+        'basic',
+        'apiKey',
+        'oauth2',
+      ] as AuthType[]
+    ).map((key) => ({ key, label: typeLabel(key), icon: typeIcons[key] })),
+  );
   const current = $derived(authTypes.find((a) => a.key === auth.type) ?? authTypes[4]);
   // OAuth: with a token the settings fold into a summary on the Type row (OA4/OA5).
   let oauthConfigOpen = $state(false);
@@ -135,17 +159,7 @@
   <div class="bs-auth-card">
     <div class="row">
       <span class="lbl">{t('http.auth.type')}</span>
-      <span class="bs-auth-select">
-        <select
-          aria-label={t('http.auth.type_aria')}
-          value={selectValue}
-          onchange={(e) => setAuthType(e.currentTarget.value as AuthType)}
-        >
-          {#if !tab || (parent && !inheriting)}<option value="inherit">{inheritLabel}</option>{/if}
-          {#each authTypes as item (item.key)}<option value={item.key}>{t(item.label)}</option>{/each}
-        </select>
-        <span class="material-symbols-outlined" aria-hidden="true">keyboard_arrow_down</span>
-      </span>
+      <AuthTypeMenu options={typeOptions} value={selectValue} label={typeLabel(selectValue)} onSelect={setAuthType} />
       {#if auth.type === 'oauth2' && (oauthFolded || inheriting)}
         <span class="hint grow">{oauthLine}</span>
         {#if !inheriting}
