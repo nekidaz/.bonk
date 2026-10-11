@@ -69,6 +69,8 @@ describe('runnerStats', () => {
   it('summary, history cap and deltas', () => {
     const s = summarizeRun(42, 1000, 4200, [row({ elapsedMs: 212 }), row({ ok: false, elapsedMs: 88 })]);
     expect(s).toMatchObject({ n: 42, passed: 1, total: 2, durationMs: 3200, p95Ms: 212 });
+    // The runner's own clock wins over wall time (which can jump, or be frozen in the visual suite).
+    expect(summarizeRun(42, 1000, 1000, [row({ endMs: 2900 }), row({ endMs: 3150 })]).durationMs).toBe(3150);
     const prev = sum({ n: 41 });
     const cur = sum({ n: 42, passed: 14, durationMs: 3200, p95Ms: 212 });
     expect(passedDelta(cur, prev)).toEqual({ text: '−2 к #41', tone: 'danger' });

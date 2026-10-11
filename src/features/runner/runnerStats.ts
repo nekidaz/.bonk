@@ -49,13 +49,15 @@ export function p95(values: number[]): number {
   return sorted[Math.ceil(0.95 * sorted.length) - 1];
 }
 
+/** Duration is the runner's own monotonic clock (the last row's `endMs`, like the waterfall); wall time only for rows without it. */
 export function summarizeRun(n: number, startedAt: number, finishedAt: number, rows: RunResultRow[]): RunSummary {
+  const ends = rows.flatMap((r) => (r.endMs === undefined ? [] : [r.endMs]));
   return {
     n,
     startedAt,
     passed: rows.filter((r) => r.ok).length,
     total: rows.length,
-    durationMs: Math.max(0, finishedAt - startedAt),
+    durationMs: ends.length > 0 ? Math.max(...ends) : Math.max(0, finishedAt - startedAt),
     p95Ms: p95(rows.map((r) => r.elapsedMs)),
   };
 }
