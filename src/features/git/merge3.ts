@@ -130,6 +130,8 @@ export interface Resolution {
   theirs: SideState;
   /** Taken by «Слить непересекающиеся», not by hand. */
   auto?: boolean;
+  /** Typed into the result by hand: these lines replace whatever the sides would give. */
+  edited?: string[];
 }
 
 /** A side that didn't change the stretch has nothing to offer: it starts rejected. */
@@ -142,10 +144,11 @@ export function initialResolution(c: Chunk): Resolution {
   };
 }
 
-export const isPending = (r: Resolution) => r.mine === 'pending' || r.theirs === 'pending';
+export const isPending = (r: Resolution) => !r.edited && (r.mine === 'pending' || r.theirs === 'pending');
 
 /** The result lines of a chunk, or null while a side is pending. Both rejected keeps the base. */
 export function resolvedLines(c: Chunk, r: Resolution): string[] | null {
+  if (r.edited) return r.edited;
   if (c.kind === 'same') return c.lines;
   if (isPending(r)) return null;
   if (r.mine === 'rejected' && r.theirs === 'rejected') return c.base;

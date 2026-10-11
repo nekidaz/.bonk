@@ -5,7 +5,7 @@
  * next to each other — a line conflict in JSON mode — is no conflict here.
  */
 
-type Json = null | boolean | number | string | Json[] | { [k: string]: Json };
+export type Json = null | boolean | number | string | Json[] | { [k: string]: Json };
 export type Obj = { [k: string]: Json };
 
 /** One field across the three versions; `undefined` = the field isn't there. */
@@ -18,7 +18,22 @@ export interface Field {
   kind: 'same' | 'mine' | 'theirs' | 'both' | 'conflict';
 }
 
-export type FieldChoice = 'mine' | 'theirs' | null;
+/** A side, a value typed by hand (`undefined` removes the field), or null while undecided. */
+export type FieldChoice = 'mine' | 'theirs' | { value: Json | undefined } | null;
+
+/** The value a field gets under `c`. */
+export function chosenValue(f: Field, c: FieldChoice): Json | undefined {
+  if (c && typeof c === 'object') return c.value;
+  return c === 'theirs' ? f.theirs : f.mine;
+}
+
+/**
+ * A value typed into the result: JSON (`5`, `"text"`, `{"a": 1}`), or empty to remove the field.
+ * Throws on anything else so the editor can say so.
+ */
+export function parseValue(text: string): Json | undefined {
+  return text.trim() === '' ? undefined : (JSON.parse(text) as Json);
+}
 
 const isObj = (v: Json | undefined): v is Obj => typeof v === 'object' && v !== null && !Array.isArray(v);
 const eq = (a: Json | undefined, b: Json | undefined) => JSON.stringify(a) === JSON.stringify(b);
@@ -97,6 +112,6 @@ function setPath(obj: Obj, path: string[], value: Json | undefined): void {
 export function mergeFields(mine: Obj, fs: Field[], choices: FieldChoice[], trailingNewline: boolean): string | null {
   if (choices.some((c) => c === null)) return null;
   const out = structuredClone(mine);
-  fs.forEach((f, i) => setPath(out, f.path, choices[i] === 'theirs' ? f.theirs : f.mine));
+  fs.forEach((f, i) => setPath(out, f.path, chosenValue(f, choices[i])));
   return JSON.stringify(out, null, 2) + (trailingNewline ? '\n' : '');
 }

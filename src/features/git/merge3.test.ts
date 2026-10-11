@@ -59,4 +59,16 @@ describe('merge3', () => {
     const res = autoResolve(chunks, chunks.map(initialResolution));
     expect(mergedText(chunks, res)).toBe('a\nB');
   });
+
+  it('takes lines typed by hand over the sides, even for an open conflict', () => {
+    const chunks = merge3(L('x\nv=1\ny'), L('x\nv=2\ny'), L('x\nv=3\ny'));
+    const res = chunks.map(initialResolution);
+    const i = chunks.findIndex((c) => c.kind === 'change');
+    expect(mergedText(chunks, res)).toBeNull();
+    res[i] = { ...res[i], edited: ['v=23'] };
+    expect(mergedText(chunks, res)).toBe('x\nv=23\ny');
+    // A plain stretch can be edited too, and an empty edit removes its lines.
+    res[0] = { ...res[0], edited: [] };
+    expect(mergedText(chunks, res)).toBe('v=23\ny');
+  });
 });
