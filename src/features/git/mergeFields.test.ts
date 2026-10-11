@@ -196,6 +196,24 @@ describe('field merge of arrays', () => {
       expect(kinds(b, { items: [e(1, 1)] }, { items: [e(1, 1), e(2, 9)] })['items[1]']).toBe('conflict');
     });
 
+    it('pairs an element changed in every field with the one it replaced in place', () => {
+      const b = { items: [e(1, 1), e(2, 2), e(3, 3)] };
+      const m = { items: [e(1, 1), e(2, 2), e(3, 3)] };
+      const t = { items: [e(1, 1), e(8, 9), e(3, 3)] };
+      expect(kinds(b, m, t)).toMatchObject({ 'items[1].a': 'theirs', 'items[1].b': 'theirs' });
+      // So an edit on the other side meets it field by field.
+      const m2 = { items: [e(1, 1), e(2, 5), e(3, 3)] };
+      expect(kinds(b, m2, t)).toMatchObject({ 'items[1].a': 'theirs', 'items[1].b': 'conflict' });
+      expect(merge(b, m2, t, { 'items[1].b': 'mine' }).items).toEqual([e(1, 1), e(8, 5), e(3, 3)]);
+    });
+
+    it('pairs in place only between matched neighbours, leaving the extra one new', () => {
+      const b = { items: [e(1, 1), e(2, 2)] };
+      const t = { items: [e(1, 1), e(8, 8), e(9, 9)] };
+      expect(kinds(b, b, t)).toMatchObject({ 'items[1].a': 'theirs', 'items[2]': 'theirs' });
+      expect(merge(b, b, t).items).toEqual([e(1, 1), e(8, 8), e(9, 9)]);
+    });
+
     it("keeps both sides' additions at the same spot, mine first", () => {
       const b = { items: [e(1, 1)] };
       const out = merge(b, { items: [e(1, 1), e(5, 5)] }, { items: [e(1, 1), e(6, 6)] });
