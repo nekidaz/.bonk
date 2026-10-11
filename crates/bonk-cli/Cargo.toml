@@ -13,7 +13,13 @@ path = "src/main.rs"
 
 [dependencies]
 bonk-core = { path = "../bonk-core" }
-clap = { version = "4", features = ["derive"] }
+base64 = "0.22"
+clap = { version = "4", features = ["derive", "env"] }
+percent-encoding = "2"
 reqwest = { version = "0.13.4", default-features = false, features = ["rustls", "system-proxy", "cookies"] }
 serde_json = "1"
 tokio = { version = "1", features = ["macros", "rt-multi-thread", "net", "io-util"] }
+
+[dev-dependencies]
+rustls = { version = "0.23", default-features = false, features = ["aws_lc_rs", "std", "tls12"] }
+tokio-rustls = { version = "0.26", default-features = false }

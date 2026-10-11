@@ -49,8 +49,64 @@ Secrets: put them in `BONK_VAR_<NAME>`, not `--var`. Their values, and the app's
 variables, are replaced by `<redacted>` in everything bonk-cli prints and in the
 `--junit` / `--json` reports (CI logs and artifacts are widely readable).
 
-Not yet: the app's proxy / CA / client-certificate settings (the system proxy is used;
-`-k` skips TLS checks).
+## Proxy, CA and client certificates
+
+HTTP uses the same network configuration as the desktop app. By default the
+system proxy and trusted roots are used; `--no-proxy` disables proxy discovery.
+Network settings are loaded only when explicitly supplied, including for a
+scenario. Precedence: defaults → `--app-state FILE` → `--network-settings FILE`
+(replaces the settings) → individual flags and `BONK_PROXY_*` / `BONK_P12_PASSWORD`.
+An explicit flag wins over its environment variable; `--no-proxy` wins over a
+configured proxy. `--cacert` replaces the configured CA list; an explicit client
+identity takes priority for matching hosts.
+
+```bash
+# Corporate proxy + private CA, with the password supplied by CI.
+BONK_PROXY_PASSWORD="$PROXY_PASSWORD" bonk run --workspace ./api --scenario smoke \
+  --proxy http://proxy.corp:3128 --proxy-user ci --proxy-bypass 'localhost,.internal' \
+  --cacert /run/secrets/corp-ca.pem
+
+# mTLS: PEM pair or a password-protected PKCS#12 bundle.
+bonk run --workspace ./api --cacert ca.pem --no-system-ca \
+  --cert client.pem --key client.key --cert-host '*.corp.example'
+BONK_P12_PASSWORD="$CERT_PASSWORD" bonk run --workspace ./api --p12 client.p12
+
+# Explicitly reuse local desktop network settings (keychain passwords included).
+bonk run --workspace ./api --app-state /path/to/state.json
+
+# CI can supply its own file, with the same RequestSettings fields as desktop IPC.
+bonk run --workspace ./api --scenario smoke --network-settings ./network.json
+```
+
+Example `network.json`:
+
+```json
+{
+  "proxy": { "mode": "manual", "url": "http://proxy.corp:3128", "bypass": "localhost,.internal" },
+  "caPaths": ["certs/corp-ca.pem"],
+  "trustSystemCas": false,
+  "clientCerts": [{ "host": "api.corp", "certPath": "certs/client.pem", "keyPath": "certs/client.key" }]
+}
+```
+
+Paths in this file resolve relative to the file's directory. Paths passed as flags
+resolve from the shell's working directory. Certificate host matching is the same
+as desktop: exact host, `*.domain` for subdomains, or empty for any host; the first
+match wins. HTTP redirects outside a selected identity’s host pattern stop at
+the redirect response, so the certificate is not sent to another host. Proxy URLs accept HTTP, HTTPS, SOCKS5 and SOCKS5H (bare `host:port`
+means HTTP). `BONK_PROXY_URL` and `BONK_PROXY_USER` are also supported.
+
+CA bundles, `--no-system-ca`, client identities and `-k` apply to HTTP and unary
+gRPC, including reflection. Request-specific gRPC identities take priority over
+global ones; request-specific CAs are added to the configured CA bundles.
+Proxy settings apply to HTTP, matching desktop; gRPC connects directly.
+`-k` skips server verification and still sends the selected client identity.
+Invalid global network settings, including missing/malformed certificate files,
+refuse the run before network traffic (exit 2).
+An untrusted server or rejected client identity fails the request (exit 1).
+Network passwords join variable secrets in console/JSON/JUnit redaction.
+Supply passwords through environment variables or the keychain; keep private keys
+and password-bearing settings files out of Git.
 
 
 ## Portable workspace scenarios
@@ -95,8 +151,8 @@ new folder if the name exists, and removes a partial import on error. Environmen
 values from the export stay local; put public defaults in a scenario. Postman,
 OpenAPI, HAR and cURL parsing remains in the desktop import window.
 
-The scenario format stores execution intent, not machine-specific proxy, CA or
-client-certificate settings. Desktop streaming gRPC retains its interactive
+The scenario format stores execution intent. Machine-specific proxy, CA and
+client-certificate settings come from the explicit network options above. Desktop streaming gRPC retains its interactive
 session controls; CLI and MCP execute unary calls.
 
 ## Verified import-to-CI journey
@@ -108,3 +164,10 @@ the workspace in a temporary Git repository, clones it, and repeats the scenario
 through the real CLI and MCP binaries from another working directory. It checks
 request order, script patches/writes, cookies, data rows, relative uploads, equal
 tests/statuses, fixed-seed dynamic values, exit codes, secret redaction and the MCP no-network policy.
+
+## CI platforms
+
+The CI gate runs on macOS, Ubuntu 22.04 and Windows with UTC tests and the same
+format, type, Clippy, Rust/TypeScript test and frontend build checks. The real
+import-to-CI journey runs on every platform, including CLI/MCP binaries and Git.
+Linux installs the Tauri 2 WebKit/GTK build dependencies before compiling the shell.

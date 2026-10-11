@@ -40,8 +40,10 @@ pub(crate) fn host_port(endpoint: &str) -> (String, u16) {
 
 fn roots(tls: &GrpcTls) -> Result<RootCertStore, String> {
     let mut store = RootCertStore::empty();
-    store.add_parsable_certificates(rustls_native_certs::load_native_certs().certs);
-    if let Some(ca) = &tls.ca_cert {
+    if !tls.disable_system_cas {
+        store.add_parsable_certificates(rustls_native_certs::load_native_certs().certs);
+    }
+    for ca in tls.ca_cert.iter().chain(tls.ca_paths.iter()) {
         for cert in CertificateDer::pem_file_iter(ca).map_err(|e| format!("CA {ca}: {e}"))? {
             store
                 .add(cert.map_err(|e| format!("CA {ca}: {e}"))?)

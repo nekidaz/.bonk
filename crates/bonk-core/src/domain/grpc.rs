@@ -98,6 +98,12 @@ pub struct GrpcTls {
     /// PEM file with extra trusted CA certificates.
     #[serde(default)]
     pub ca_cert: Option<String>,
+    /// Additional PEM bundles supplied by headless network settings.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub ca_paths: Vec<String>,
+    /// Trust only explicitly configured CA certificates.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub disable_system_cas: bool,
     /// PEM client certificate + key for mTLS.
     #[serde(default)]
     pub client_cert: Option<String>,

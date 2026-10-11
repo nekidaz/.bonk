@@ -25,8 +25,9 @@ layers with a deliberately thin boundary between them:
   (HTTP client, target-host policy) and `redact.rs` (secret scrubbing). Requests run
   through bonk-core's runner; `runtime.rs`'s `McpTransport` adds the server's policy.
 - **`crates/bonk-cli/`** — `bonk-cli run`: runs workspace folders/requests from a terminal
-  or CI on bonk-core's runner (`CliTransport`: one reqwest client with a session cookie
-  jar). Variables come from the app's state.json + keychain (`application/app_vars.rs`),
+  or CI on bonk-core's runner (`CliTransport`: a pool per client identity, sharing an
+  in-memory session cookie jar). Desktop and CLI use `application/http_client.rs`
+  for proxy, custom roots, TLS validation, redirects and PEM/PKCS#12 identities. Variables come from the app's state.json + keychain (`application/app_vars.rs`),
   `BONK_VAR_*` and `--var`; named scenarios load public defaults and run intent from
   `.bonk/scenarios.json` without implicit desktop state. `--data` files parse in `application/run_data.rs`. Exit 0 / 1
   (failures) / 2 (couldn't run); `--junit` / `--json` reports. See docs/CLI.md.

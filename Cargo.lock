@@ -615,11 +615,15 @@ dependencies = [
 name = "bonk-cli"
 version = "0.1.9"
 dependencies = [
+ "base64 0.22.1",
  "bonk-core",
  "clap",
+ "percent-encoding",
  "reqwest",
+ "rustls",
  "serde_json",
  "tokio",
+ "tokio-rustls",
 ]
 
 [[package]]

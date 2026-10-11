@@ -77,10 +77,11 @@ pub async fn connect_with(
             .keep_alive_while_idle(true);
     }
     if !plaintext {
-        let mut config = ClientTlsConfig::new()
-            .domain_name(tls_domain(endpoint))
-            .with_enabled_roots();
-        if let Some(ca) = &tls.ca_cert {
+        let mut config = ClientTlsConfig::new().domain_name(tls_domain(endpoint));
+        if !tls.disable_system_cas {
+            config = config.with_enabled_roots();
+        }
+        for ca in tls.ca_cert.iter().chain(tls.ca_paths.iter()) {
             let pem = std::fs::read(ca).map_err(|e| format!("CA {ca}: {e}"))?;
             config = config.ca_certificate(Certificate::from_pem(pem));
         }

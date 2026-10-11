@@ -2,13 +2,10 @@ use reqwest::header::{HeaderMap, HeaderValue, ACCEPT, USER_AGENT};
 use std::collections::HashMap;
 use std::path::Path;
 use std::sync::{Arc, Mutex};
-use std::time::Duration;
 use tokio::sync::oneshot;
 
 use bonk_core::conn::GrpcConn;
-use bonk_core::domain::http::{
-    pick_client_cert, ClientCert, ProxyMode, ProxySettings, RequestSettings,
-};
+use bonk_core::domain::http::{pick_client_cert, ClientCert, ProxySettings, RequestSettings};
 use bonk_core::infra::cookie_jar::{jar_path, CookieJar, JarProvider};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -77,83 +74,6 @@ fn default_headers() -> HeaderMap {
     headers
 }
 
-fn apply_proxy(
-    builder: reqwest::ClientBuilder,
-    proxy: &ProxySettings,
-) -> Result<reqwest::ClientBuilder, String> {
-    match proxy.mode {
-        ProxyMode::System => Ok(builder),
-        ProxyMode::None => Ok(builder.no_proxy()),
-        ProxyMode::Manual => {
-            let url = proxy.url.trim();
-            if url.is_empty() {
-                return Err("proxy: URL is empty".to_string());
-            }
-            // Bare `host:port` (what the settings field suggests) means http://.
-            let url = if url.contains("://") {
-                url.to_string()
-            } else {
-                format!("http://{url}")
-            };
-            let mut p = reqwest::Proxy::all(&url)
-                .map_err(|e| format!("proxy: invalid URL «{url}»: {e}"))?;
-            if !proxy.username.is_empty() {
-                p = p.basic_auth(&proxy.username, &proxy.password);
-            }
-            Ok(builder.proxy(p.no_proxy(reqwest::NoProxy::from_string(proxy.bypass.trim()))))
-        }
-    }
-}
-
-fn read_pem(path: &str, what: &str) -> Result<Vec<u8>, String> {
-    std::fs::read(path).map_err(|e| format!("{what} «{path}»: {e}"))
-}
-
-fn apply_tls_files(
-    mut builder: reqwest::ClientBuilder,
-    ca_paths: &[String],
-    trust_system_cas: bool,
-    client_cert: Option<&ClientCert>,
-) -> Result<reqwest::ClientBuilder, String> {
-    let mut roots = Vec::new();
-    for path in ca_paths {
-        let pem = read_pem(path, "CA certificate")?;
-        roots.extend(
-            reqwest::Certificate::from_pem_bundle(&pem)
-                .map_err(|e| format!("CA certificate «{path}»: {e}"))?,
-        );
-    }
-    // `merge` adds to the system roots, `only` replaces them.
-    if trust_system_cas {
-        if !roots.is_empty() {
-            builder = builder.tls_certs_merge(roots);
-        }
-    } else {
-        builder = builder.tls_certs_only(roots);
-    }
-    if let Some(c) = client_cert {
-        let (pem, what) = match c.p12_path.as_deref().filter(|p| !p.is_empty()) {
-            Some(p12) => {
-                let (cert, key) = bonk_core::infra::pkcs12::p12_to_pem(
-                    p12,
-                    c.p12_password.as_deref().unwrap_or_default(),
-                )?;
-                ([cert, b"\n".to_vec(), key].concat(), p12)
-            }
-            None => {
-                let mut pem = read_pem(&c.cert_path, "client certificate")?;
-                pem.push(b'\n');
-                pem.extend(read_pem(&c.key_path, "client key")?);
-                (pem, c.cert_path.as_str())
-            }
-        };
-        let id = reqwest::Identity::from_pem(&pem)
-            .map_err(|e| format!("client certificate «{what}»: {e}"))?;
-        builder = builder.identity(id);
-    }
-    Ok(builder)
-}
-
 fn build_http_client(
     key: &HttpClientKey,
     settings: &RequestSettings,
@@ -162,14 +82,7 @@ fn build_http_client(
     let mut builder = reqwest::Client::builder()
         .default_headers(default_headers())
         .pool_max_idle_per_host(16)
-        .tcp_nodelay(true)
-        .danger_accept_invalid_certs(!settings.validate_tls);
-    if settings.timeout_ms > 0 {
-        builder = builder.timeout(Duration::from_millis(settings.timeout_ms));
-    }
-    if !settings.follow_redirects {
-        builder = builder.redirect(reqwest::redirect::Policy::none());
-    }
+        .tcp_nodelay(true);
     if let Some(jar) = jar.filter(|_| settings.cookies_save || settings.cookies_send) {
         builder = builder.cookie_provider(Arc::new(JarProvider {
             jar,
@@ -178,11 +91,9 @@ fn build_http_client(
             exclude: settings.cookies_exclude.clone(),
         }));
     }
-    builder = apply_proxy(builder, &settings.proxy)?;
-    builder = apply_tls_files(
+    builder = bonk_core::application::http_client::configure(
         builder,
-        &settings.ca_paths,
-        settings.trust_system_cas,
+        settings,
         key.client_cert.as_ref(),
     )?;
     builder
@@ -213,7 +124,7 @@ impl AppState {
         url: &str,
         jar: Option<Arc<CookieJar>>,
     ) -> Result<reqwest::Client, String> {
-        let host = reqwest::Url::parse(url)
+        let host = reqwest::Url::parse(&bonk_core::domain::url::normalize_url(url))
             .ok()
             .and_then(|u| u.host_str().map(str::to_string))
             .unwrap_or_default();
@@ -248,6 +159,7 @@ impl Default for AppState {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use bonk_core::domain::http::ProxyMode;
 
     fn build(s: &RequestSettings) -> Result<reqwest::Client, String> {
         build_http_client(&HttpClientKey::new(s, ""), s, None)
