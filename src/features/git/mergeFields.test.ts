@@ -158,4 +158,48 @@ describe('field merge of arrays', () => {
     const b = { params: [p('a', '1')] };
     expect(kinds(b, { params: [p('a', '2')] }, { params: [] })['params[a]']).toBe('conflict');
   });
+
+  describe('objects without a key', () => {
+    const e = (a: number, b: number) => ({ a, b });
+
+    it('matches elements by position, so edits to different ones never collide', () => {
+      const b = { items: [e(1, 1), e(2, 2)] };
+      const m = { items: [e(9, 1), e(2, 2)] };
+      const t = { items: [e(1, 1), e(2, 8)] };
+      expect(kinds(b, m, t)).toMatchObject({ 'items[0].a': 'mine', 'items[1].b': 'theirs' });
+      expect(merge(b, m, t).items).toEqual([e(9, 1), e(2, 8)]);
+    });
+
+    it('keeps an edit on the right element when the other side inserts before it', () => {
+      const b = { items: [e(1, 1), e(2, 2)] };
+      const m = { items: [e(1, 1), e(2, 5)] };
+      const t = { items: [e(0, 0), e(1, 1), e(2, 2)] };
+      expect(merge(b, m, t).items).toEqual([e(0, 0), e(1, 1), e(2, 5)]);
+    });
+
+    it('pairs an edited element with the most alike one when an insertion sits next to it', () => {
+      // Theirs added {a: 7, b: 7} right before editing {a: 2, b: 2} into {a: 2, b: 3}.
+      const b = { items: [e(1, 1), e(2, 2)] };
+      const m = { items: [e(1, 1), e(2, 2)] };
+      const t = { items: [e(1, 1), e(7, 7), e(2, 3)] };
+      expect(kinds(b, m, t)).toMatchObject({ 'items[1]': 'theirs', 'items[2].b': 'theirs' });
+      expect(merge(b, m, t).items).toEqual([e(1, 1), e(7, 7), e(2, 3)]);
+    });
+
+    it('is a conflict when both sides change the same field of one element', () => {
+      const b = { items: [e(1, 1)] };
+      expect(kinds(b, { items: [e(2, 1)] }, { items: [e(3, 1)] })['items[0].a']).toBe('conflict');
+    });
+
+    it('is a conflict when one side edits an element the other removed', () => {
+      const b = { items: [e(1, 1), e(2, 2)] };
+      expect(kinds(b, { items: [e(1, 1)] }, { items: [e(1, 1), e(2, 9)] })['items[1]']).toBe('conflict');
+    });
+
+    it("keeps both sides' additions at the same spot, mine first", () => {
+      const b = { items: [e(1, 1)] };
+      const out = merge(b, { items: [e(1, 1), e(5, 5)] }, { items: [e(1, 1), e(6, 6)] });
+      expect(out.items).toEqual([e(1, 1), e(5, 5), e(6, 6)]);
+    });
+  });
 });
