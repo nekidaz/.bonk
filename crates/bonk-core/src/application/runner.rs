@@ -1118,6 +1118,14 @@ fn to_abs(path: &str, root: &str) -> String {
     if root.is_empty() || absolute {
         return path.to_string();
     }
+    // A canonicalized Windows root is verbatim (`\\?\C:\ws`), where `/` is not a separator.
+    if root.starts_with(r"\\?\") {
+        return format!(
+            "{}\\{}",
+            root.trim_end_matches('\\'),
+            path.replace('/', "\\")
+        );
+    }
     format!("{}/{path}", root.trim_end_matches('/'))
 }
 
@@ -1628,5 +1636,6 @@ mod tests {
         assert_eq!(endpoint_host("[::1]:50051"), "::1");
         assert_eq!(to_abs("C:\\p.proto", "/ws"), "C:\\p.proto");
         assert_eq!(to_abs("a.proto", "/ws/"), "/ws/a.proto");
+        assert_eq!(to_abs("d/a.bin", r"\\?\C:\ws"), r"\\?\C:\ws\d\a.bin");
     }
 }
