@@ -6,7 +6,16 @@
    * file as that commit changed it: read-only, against the commit's first parent.
    */
   import { findNode, workspace } from '$entities/workspace';
-  import { describeFile, discardPaths, git, stagePaths, statusColor, statusLetter, unstagePaths } from '$entities/git';
+  import {
+    describeFile,
+    discardPaths,
+    git,
+    openFileHistoryTab,
+    stagePaths,
+    statusColor,
+    statusLetter,
+    unstagePaths,
+  } from '$entities/git';
   import { tabs } from '$entities/tab';
   import { gitCommitFileDiff, gitDiff } from '$shared/ipc';
   import { requestConfirm } from '$shared/ui';
@@ -89,6 +98,9 @@
         {/if}
       </div>
     </div>
+    <button class="bs-gbtn" title={t('git.history.open')} onclick={() => openFileHistoryTab(path, info.name)}
+      ><span class="material-symbols-outlined">history</span>{t('git.history.title')}</button
+    >
     <div class="bs-gseg" role="group" aria-label={t('git.diff.layout')}>
       <button
         class="icon"

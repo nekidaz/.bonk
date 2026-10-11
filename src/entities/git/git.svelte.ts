@@ -47,6 +47,11 @@ import {
   gitUnresolve,
   gitRebaseInteractive,
   gitRebaseUndo,
+  gitDeleteBranch,
+  gitDeleteRemoteBranch,
+  gitRenameBranch,
+  gitDeleteTag,
+  gitPushTag,
 } from '$shared/ipc';
 import { isConflict, statusByPath } from './gitStatus';
 import { openConflictsTab } from './diffTabs';
@@ -314,6 +319,26 @@ async function replay(name: string, fn: (root: string) => Promise<unknown>): Pro
     git.notice = { text: t('git.rb.done'), undo: () => void undoRebase() };
   return ok;
 }
+
+/**
+ * Delete a local branch. One whose commits aren't merged anywhere is refused unless `force`;
+ * `quiet` keeps that refusal out of the toast (the caller asks and retries).
+ */
+export const deleteBranch = (name: string, force: boolean, quiet = false) =>
+  runGit(
+    'delete branch',
+    (root) => gitDeleteBranch(root, name, force),
+    () => quiet,
+  );
+/** Delete `origin/x` on its remote. */
+export const deleteRemoteBranch = (name: string) =>
+  runGit('delete remote branch', (root) => gitDeleteRemoteBranch(root, name));
+export const renameBranch = (old: string, name: string) =>
+  runGit('rename branch', (root) => gitRenameBranch(root, old, name.trim()));
+/** Delete a tag here, and with `remote` on the push remote too. */
+export const deleteTag = (name: string, remote: boolean) =>
+  runGit('delete tag', (root) => gitDeleteTag(root, name, remote));
+export const pushTag = (name: string): Promise<string> => sync('push tag', (root) => gitPushTag(root, name));
 
 /** Put the branch back where it was before the last rebase (while that is still undoable). */
 export function undoRebase(): Promise<boolean> {

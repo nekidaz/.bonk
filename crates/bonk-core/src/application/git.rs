@@ -609,12 +609,205 @@ pub fn create_branch(root: &str, name: &str) -> Result<(), String> {
 /// `force` is for a branch rewritten after it was pushed (rebase, amend):
 /// `--force-with-lease` overwrites the remote only if it still is where we last
 /// fetched it, so commits pushed by someone else since then are never lost.
+///
+/// A branch that was never pushed (no upstream) is published: `push -u` to
+/// the push remote, creating the branch there and tracking it.
 pub fn push(root: &str, force: bool) -> Result<String, String> {
+    let top = toplevel(root)?;
+    let tracked = git(
+        &top,
+        &["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}"],
+    )
+    .is_ok();
+    if !tracked {
+        let remote = push_remote(&top)?;
+        return run_combined(root, &["push", "-u", &remote, "HEAD"]);
+    }
     if force {
         run_combined(root, &["push", "--force-with-lease"])
     } else {
         run_combined(root, &["push"])
     }
+}
+
+/// The remote a new branch or a tag goes to: `remote.pushDefault`, else
+/// `origin`, else the only remote there is.
+fn push_remote(top: &str) -> Result<String, String> {
+    if let Ok(r) = git(top, &["config", "--get", "remote.pushDefault"]) {
+        return Ok(r.trim().to_string());
+    }
+    let remotes: Vec<String> = git(top, &["remote"])?.lines().map(str::to_string).collect();
+    match remotes.as_slice() {
+        [] => Err("This repository has no remote to push to.".to_string()),
+        [only] => Ok(only.clone()),
+        _ if remotes.iter().any(|r| r == "origin") => Ok("origin".to_string()),
+        _ => Err("Several remotes and none is origin: set remote.pushDefault.".to_string()),
+    }
+}
+
+/// Delete a local branch. Without `force` git refuses one whose commits
+/// aren't merged anywhere (the UI then asks and retries with `force`).
+pub fn delete_branch(root: &str, name: &str, force: bool) -> Result<(), String> {
+    check_name(name)?;
+    git_noedit(root, &["branch", if force { "-D" } else { "-d" }, name])
+}
+
+/// Delete a branch on its remote: `remote_branch` is `origin/x`.
+pub fn delete_remote_branch(root: &str, remote_branch: &str) -> Result<String, String> {
+    let top = toplevel(root)?;
+    let (remote, branch) = split_remote(&top, remote_branch)?;
+    run_combined(&top, &["push", &remote, "--delete", &branch])
+}
+
+/// `origin/feature/x` → (`origin`, `feature/x`), the remote checked to exist.
+fn split_remote(top: &str, remote_branch: &str) -> Result<(String, String), String> {
+    let (remote, branch) = remote_branch
+        .split_once('/')
+        .filter(|(r, b)| !r.is_empty() && !b.is_empty())
+        .ok_or_else(|| format!("not a remote branch: {remote_branch:?}"))?;
+    check_name(branch)?;
+    if !git(top, &["remote"])?.lines().any(|r| r == remote) {
+        return Err(format!("no remote named {remote:?}"));
+    }
+    Ok((remote.to_string(), branch.to_string()))
+}
+
+/// Rename a local branch (its upstream, if any, keeps the old name).
+pub fn rename_branch(root: &str, old: &str, new: &str) -> Result<(), String> {
+    check_name(old)?;
+    check_name(new)?;
+    git(root, &["check-ref-format", "--branch", new])
+        .map_err(|_| format!("{new:?} is not a valid branch name"))?;
+    git_noedit(root, &["branch", "-m", old, new])
+}
+
+/// Delete a tag here and, with `remote`, on the push remote as well.
+pub fn delete_tag(root: &str, name: &str, remote: bool) -> Result<(), String> {
+    check_name(name)?;
+    let top = toplevel(root)?;
+    if remote {
+        let r = push_remote(&top)?;
+        run_combined(
+            &top,
+            &["push", &r, "--delete", &format!("refs/tags/{name}")],
+        )?;
+    }
+    git_noedit(&top, &["tag", "-d", name])
+}
+
+/// Push one tag to the push remote.
+pub fn push_tag(root: &str, name: &str) -> Result<String, String> {
+    check_name(name)?;
+    let top = toplevel(root)?;
+    let r = push_remote(&top)?;
+    run_combined(&top, &["push", &r, &format!("refs/tags/{name}")])
+}
+
+/// One commit in a file's history: `path` is where the file was in it
+/// (renames followed), `status` "A" | "M" | "D" | "R".
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FileCommit {
+    pub hash: String,
+    pub short: String,
+    pub subject: String,
+    pub author: String,
+    pub time: i64,
+    pub path: String,
+    pub status: String,
+}
+
+/// The commits that changed `path` (toplevel-relative), newest first, across
+/// renames. One process.
+pub fn file_log(root: &str, path: &str, skip: u32, limit: u32) -> Result<Vec<FileCommit>, String> {
+    let top = toplevel(root)?;
+    let (skip, limit) = (format!("--skip={skip}"), format!("-n{limit}"));
+    let out = git(
+        &top,
+        &[
+            "-c",
+            "core.quotePath=false",
+            "log",
+            "--follow",
+            "--name-status",
+            "--format=%x1e%H%x1f%h%x1f%s%x1f%an%x1f%at",
+            &skip,
+            &limit,
+            "--",
+            path,
+        ],
+    )?;
+    Ok(out
+        .split('\x1e')
+        .filter_map(|rec| {
+            let mut lines = rec.lines();
+            let f: Vec<&str> = lines.next()?.split('\x1f').collect();
+            if f.len() < 5 {
+                return None;
+            }
+            // "M\tpath" or "R100\told\tnew": the letter, then the path in this commit.
+            let change = lines.find(|l| l.contains('\t'))?;
+            let status = match change.chars().next() {
+                Some('A') | Some('C') => "A",
+                Some('D') => "D",
+                Some('R') => "R",
+                _ => "M",
+            };
+            Some(FileCommit {
+                hash: f[0].to_string(),
+                short: f[1].to_string(),
+                subject: f[2].to_string(),
+                author: f[3].to_string(),
+                time: f[4].parse().unwrap_or(0),
+                path: change.rsplit('\t').next().unwrap_or(path).to_string(),
+                status: status.to_string(),
+            })
+        })
+        .collect())
+}
+
+/// One line of `git blame` on the working file: the commit that last
+/// changed it (all zeros = not committed yet).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BlameLine {
+    pub hash: String,
+    pub author: String,
+    pub time: i64,
+    pub summary: String,
+    pub text: String,
+}
+
+pub fn blame(root: &str, path: &str) -> Result<Vec<BlameLine>, String> {
+    let top = toplevel(root)?;
+    let out = git(&top, &["blame", "--line-porcelain", "--", path])?;
+    let mut lines = Vec::new();
+    let mut cur = BlameLine {
+        hash: String::new(),
+        author: String::new(),
+        time: 0,
+        summary: String::new(),
+        text: String::new(),
+    };
+    for l in out.lines() {
+        if let Some(text) = l.strip_prefix('\t') {
+            cur.text = text.to_string();
+            lines.push(cur.clone());
+        } else if let Some(a) = l.strip_prefix("author ") {
+            cur.author = a.to_string();
+        } else if let Some(t) = l.strip_prefix("author-time ") {
+            cur.time = t.parse().unwrap_or(0);
+        } else if let Some(sm) = l.strip_prefix("summary ") {
+            cur.summary = sm.to_string();
+        } else if let Some(h) = l
+            .split(' ')
+            .next()
+            .filter(|h| h.len() == 40 && h.bytes().all(|b| b.is_ascii_hexdigit()))
+        {
+            cur.hash = h.to_string();
+        }
+    }
+    Ok(lines)
 }
 
 /// Run `git pull` (see [`push`] for the combined-output rationale).
@@ -3475,6 +3668,94 @@ mod tests {
         assert_eq!(rev(r, "HEAD"), before);
         assert_eq!(status(r).unwrap().undo_rebase, "");
         assert!(rebase_undo(r, &before).is_err(), "only once");
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn push_publishes_a_new_branch_and_tags_go_and_come() {
+        let (dir, remote) = plan_repo();
+        let r = dir.to_str().unwrap();
+        let rs = remote.to_str().unwrap();
+        git(r, &["switch", "-q", "-c", "feature/new"]).unwrap();
+        push(r, false).unwrap();
+        assert!(git(rs, &["rev-parse", "--verify", "-q", "feature/new"]).is_ok());
+        assert_eq!(
+            status(r).unwrap().upstream.as_deref(),
+            Some("origin/feature/new")
+        );
+        // Tags: pushed one by one, deleted here and there.
+        git(r, &["tag", "v1"]).unwrap();
+        push_tag(r, "v1").unwrap();
+        assert!(git(rs, &["rev-parse", "--verify", "-q", "refs/tags/v1"]).is_ok());
+        delete_tag(r, "v1", true).unwrap();
+        assert!(git(rs, &["rev-parse", "--verify", "-q", "refs/tags/v1"]).is_err());
+        assert!(git(r, &["rev-parse", "--verify", "-q", "refs/tags/v1"]).is_err());
+        // The remote branch goes too; a bogus remote is refused.
+        delete_remote_branch(r, "origin/feature/new").unwrap();
+        assert!(git(rs, &["rev-parse", "--verify", "-q", "feature/new"]).is_err());
+        assert!(delete_remote_branch(r, "nope/feature/new").is_err());
+        let _ = fs::remove_dir_all(dir);
+        let _ = fs::remove_dir_all(remote);
+    }
+
+    #[test]
+    fn delete_and_rename_branches() {
+        let dir = init_repo();
+        let r = dir.to_str().unwrap();
+        commit_file(r, "a.txt", "a\n", "a");
+        git(r, &["branch", "-M", "main"]).unwrap();
+        git(r, &["switch", "-q", "-c", "wip"]).unwrap();
+        commit_file(r, "b.txt", "b\n", "b");
+        git(r, &["switch", "-q", "main"]).unwrap();
+        rename_branch(r, "wip", "feature/wip").unwrap();
+        assert!(rename_branch(r, "feature/wip", "bad..name").is_err());
+        // Unmerged: refused unless forced.
+        assert!(delete_branch(r, "feature/wip", false).is_err());
+        delete_branch(r, "feature/wip", true).unwrap();
+        assert!(git(r, &["rev-parse", "--verify", "-q", "feature/wip"]).is_err());
+        assert!(
+            delete_branch(r, "main", true).is_err(),
+            "the current branch stays"
+        );
+        assert!(delete_branch(r, "-D", true).is_err());
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn file_log_follows_renames_and_blame_names_each_line() {
+        let dir = init_repo();
+        let r = dir.to_str().unwrap();
+        commit_file(r, "old name.json", "1\n", "add");
+        commit_file(r, "other.txt", "x\n", "unrelated");
+        git(r, &["mv", "old name.json", "new name.json"]).unwrap();
+        git(r, &["commit", "-q", "-m", "rename"]).unwrap();
+        commit_file(r, "new name.json", "1\n2\n", "edit");
+        let log = file_log(r, "new name.json", 0, 50).unwrap();
+        let got: Vec<_> = log
+            .iter()
+            .map(|c| (c.subject.as_str(), c.status.as_str(), c.path.as_str()))
+            .collect();
+        assert_eq!(
+            got,
+            [
+                ("edit", "M", "new name.json"),
+                ("rename", "R", "new name.json"),
+                ("add", "A", "old name.json"),
+            ]
+        );
+        assert_eq!(
+            file_log(r, "new name.json", 1, 1).unwrap()[0].subject,
+            "rename"
+        );
+        fs::write(dir.join("new name.json"), "1\n2\n3\n").unwrap();
+        let b = blame(r, "new name.json").unwrap();
+        let who: Vec<_> = b
+            .iter()
+            .map(|l| (l.text.as_str(), l.summary.as_str()))
+            .collect();
+        assert_eq!(who[..2], [("1", "add"), ("2", "edit")]);
+        assert_eq!(b[2].text, "3");
+        assert!(b[2].hash.bytes().all(|c| c == b'0'), "not committed yet");
         let _ = fs::remove_dir_all(dir);
     }
 

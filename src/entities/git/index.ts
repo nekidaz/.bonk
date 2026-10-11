@@ -3,6 +3,7 @@
 
 export {
   openCommitEditorTab,
+  openFileHistoryTab,
   openConflictsTab,
   openGitDiffTab,
   openGraphTab,
@@ -16,6 +17,11 @@ export {
   cherryPick,
   continueOperation,
   undoRebase,
+  deleteBranch,
+  deleteRemoteBranch,
+  renameBranch,
+  deleteTag,
+  pushTag,
   createBranchAt,
   createTag,
   fetchAll,

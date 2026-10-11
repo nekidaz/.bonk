@@ -18,6 +18,7 @@
   import {
     CommitEditor,
     ConflictsView,
+    FileHistoryView,
     GitDiffView,
     GraphView,
     MergeEditor,
@@ -86,6 +87,8 @@
             <ConflictsView />
           {:else if active.git?.view === 'merge'}
             {#key active.git.path}<MergeEditor tab={active} onClose={() => requestCloseTab(active.id)} />{/key}
+          {:else if active.git?.view === 'history'}
+            {#key active.git.path}<FileHistoryView tab={active} />{/key}
           {:else if active.git?.view === 'graph'}
             <GraphView tab={active} />
           {:else if active.git?.view === 'stash'}

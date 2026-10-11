@@ -6,6 +6,7 @@ export { default as CommitEditor } from './CommitEditor.svelte';
 export { default as ConflictsView } from './ConflictsView.svelte';
 export { default as MergeEditor } from './MergeEditor.svelte';
 export { default as GraphView } from './GraphView.svelte';
+export { default as FileHistoryView } from './FileHistoryView.svelte';
 export { default as GitDiffView } from './GitDiffView.svelte';
 export { default as ProjectDiffView } from './ProjectDiffView.svelte';
 export { default as StashMenu } from './StashMenu.svelte';

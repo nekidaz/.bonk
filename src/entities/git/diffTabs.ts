@@ -72,6 +72,15 @@ export function openMergeTab(path: string, name: string): void {
   );
 }
 
+/** Open (or focus) one file's git history and blame; `path` is toplevel-relative, `name` the request's. */
+export function openFileHistoryTab(path: string, name: string): void {
+  openGitTab(
+    (g) => g.view === 'history' && g.path === path,
+    { path, mode: 'working', view: 'history' },
+    t('git.tab.history', { name }),
+  );
+}
+
 /** G4b·E: open (or focus) the commit-message editor tab. */
 export function openCommitEditorTab(): void {
   openGitTab((g) => g.view === 'commit', { path: '', mode: 'working', view: 'commit' }, t('git.tab.commit'));

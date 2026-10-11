@@ -29,6 +29,8 @@ import {
   type StashFile,
   type GraphPage,
   type CommitDetail,
+  type FileCommit,
+  type BlameLine,
   type ResetMode,
   type ConflictFile,
   type OperationInfo,
@@ -541,6 +543,22 @@ export const gitRebaseInteractive = (root: string, onto: string, steps: RebaseAc
   invoke<void>('git_rebase_interactive', { root, onto, steps });
 /** Put the branch back where it was before the last rebase (`before` = GitStatus.undoRebase). */
 export const gitRebaseUndo = (root: string, before: string) => invoke<void>('git_rebase_undo', { root, before });
+/** `force` deletes a branch whose commits aren't merged anywhere. */
+export const gitDeleteBranch = (root: string, name: string, force: boolean) =>
+  invoke<void>('git_delete_branch', { root, name, force });
+/** `name` is `origin/x`. */
+export const gitDeleteRemoteBranch = (root: string, name: string) =>
+  invoke<string>('git_delete_remote_branch', { root, name });
+export const gitRenameBranch = (root: string, old: string, name: string) =>
+  invoke<void>('git_rename_branch', { root, old, new: name });
+/** `remote`: also on the push remote. */
+export const gitDeleteTag = (root: string, name: string, remote: boolean) =>
+  invoke<void>('git_delete_tag', { root, name, remote });
+export const gitPushTag = (root: string, name: string) => invoke<string>('git_push_tag', { root, name });
+/** The commits that changed `path` (toplevel-relative), newest first, renames followed. */
+export const gitFileLog = (root: string, path: string, skip: number, limit: number) =>
+  invoke<FileCommit[]>('git_file_log', { root, path, skip, limit });
+export const gitBlame = (root: string, path: string) => invoke<BlameLine[]>('git_blame', { root, path });
 
 // OS keychain (secret env vars)
 export const secretGet = (key: string) => invoke<string | null>('secret_get', { key });

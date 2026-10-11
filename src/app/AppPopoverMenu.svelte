@@ -8,7 +8,8 @@
     requestCloseTab,
     togglePinTab,
   } from '$features/tabs';
-  import { findNode, workspace } from '$entities/workspace';
+  import { findNode, idToRel, workspace } from '$entities/workspace';
+  import { git, openFileHistoryTab } from '$entities/git';
   import { openSavedRequest } from '$entities/request';
   import { runInRunner } from '$features/runner';
   import { appMenuWidth, type AppMenuState } from '$shared/ui';
@@ -125,6 +126,12 @@
     e.preventDefault();
     const i = items.indexOf(document.activeElement as HTMLButtonElement);
     items[(i + (e.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length].focus();
+  }
+
+  function openHistory(): void {
+    const n = node; // read before closeMenu() clears it
+    closeMenu();
+    if (n) openFileHistoryTab(git.prefix + idToRel(n.id), n.name);
   }
 
   function openRequest(): void {
@@ -283,6 +290,7 @@
           '⌥⌘C',
         )}{/if}
       {@render item('drive_file_move', t('nav.menu.moveTo'), onMove, '›')}
+      {#if git.status?.isRepo && node}{@render item('history', t('git.history.open'), openHistory)}{/if}
       <div class="dv"></div>
       {@render item('delete', t('nav.menu.delete'), onDelete, '⌫', 'danger')}
     {:else if menu.kind === 'tab' && tab}
