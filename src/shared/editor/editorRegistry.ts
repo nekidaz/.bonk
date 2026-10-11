@@ -23,15 +23,15 @@ export const extraCompletionSource: CompletionSource = (ctx) => {
 /**
  * Out-of-pane home for tooltips: the request pane clips (`contain: paint`). CodeMirror wraps them in a
  * container carrying the editor theme (`height: 100%`); straight in the flex-column body it would take
- * half the window from #app. `overflow: hidden` hides that empty themed box (a 1px border at 0,0); tooltips
- * are `position: fixed`, so it doesn't clip them.
+ * half the window from #app. No `overflow: hidden` here: in WebKit (the Tauri webview) CodeMirror may place
+ * tooltips `absolute`, and the 0×0 host would clip them away. The box's own border is reset in editor.css.
  */
 export function tooltipHost(): HTMLElement {
   let el = document.getElementById('bs-cm-tooltips');
   if (!el) {
     el = document.createElement('div');
     el.id = 'bs-cm-tooltips';
-    el.style.cssText = 'position:fixed;top:0;left:0;width:0;height:0;overflow:hidden;z-index:1000';
+    el.style.cssText = 'position:fixed;top:0;left:0;width:0;height:0;z-index:1000';
     document.body.append(el);
   }
   return el;

@@ -56,6 +56,11 @@ export const ru = {
   'git.log': 'Recent commits',
   'git.log.none': 'Коммитов пока нет.',
   'git.tab.staged': '{name} (в индексе)',
+  'git.mg.guess': '≈ по месту',
+  'git.mg.guessHint':
+    'Все поля элемента изменились — он сопоставлен с прежним по месту в массиве. Это может быть и замена.',
+  'git.mg.split': 'Это замена',
+  'git.mg.splitHint': 'Не правка, а другой элемент на этом месте: показать как «удалён + добавлен»',
   'git.mg.edit': 'Править результат',
   'git.mg.undoEdit': 'Убрать правку — вернуть стороны',
   'git.mg.save': 'Готово',
@@ -462,6 +467,11 @@ export const en: Record<keyof typeof ru, string> = {
   'git.log': 'Recent commits',
   'git.log.none': 'No commits yet.',
   'git.tab.staged': '{name} (staged)',
+  'git.mg.guess': '≈ by place',
+  'git.mg.guessHint':
+    'Every field of this element changed — it was matched with the old one by its place in the array. It may be a replacement.',
+  'git.mg.split': 'It’s a replacement',
+  'git.mg.splitHint': 'Not an edit but another element in its place: show it as removed + added',
   'git.mg.edit': 'Edit the result',
   'git.mg.undoEdit': 'Drop the edit — back to the sides',
   'git.mg.save': 'Done',

@@ -137,3 +137,10 @@
     display: none;
   }
 }
+
+/* Tooltip host (shared/editor/editorRegistry.ts): CodeMirror wraps each editor's tooltips in an empty box that
+   carries the editor theme; at 0×0 its border would still paint a 1px dot in the corner. */
+#bs-cm-tooltips > div {
+  border: 0;
+  background: none;
+}
