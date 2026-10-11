@@ -21,6 +21,7 @@ struct SecretDir(PathBuf);
 impl SecretDir {
     fn create() -> Result<Self, String> {
         let path = std::env::temp_dir().join(format!("bonk-{:016x}", fastrand::u64(..)));
+        #[cfg_attr(not(unix), allow(unused_mut))] // only the unix mode() below mutates it
         let mut builder = std::fs::DirBuilder::new();
         #[cfg(unix)]
         std::os::unix::fs::DirBuilderExt::mode(&mut builder, 0o700);
