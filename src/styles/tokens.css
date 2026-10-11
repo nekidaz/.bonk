@@ -1,30 +1,10 @@
-/* Design tokens: every colour, radius, shadow, font and size the app uses, for both themes.
+/* Design tokens: every colour, radius, shadow, font and size the app uses, for every theme.
    Change a colour here, not in the area files. */
 
-/* Only reaches the Settings → Appearance theme preview (.st-mode-pic.dark): on <html> the smooth-dark palette below overrides every one of these. */
-.dark {
-  --on-accent: #ffffff;
-  --error: #ef6a6a;
-  --error-c: #4a2929;
-  --success: #4db875;
-  --warning: #e6a34a;
-  color-scheme: dark;
-  --bg: #282c34;
-  --surface: #2c313a;
-  --s1: #24282f;
-  --s2: #21252b;
-  --s3: #333842;
-  --s4: #3c424d;
-  --sdim: #181a1f;
-  --text: #d7dae0;
-  --text2: #9da5b4;
-  --accent: #6f9bd6;
-  --border: #181a1f;
-  --border2: #323842;
-}
-
-/* Light palette. theme.ts sets data-theme on <html>; the App root .bs repeats the palette so values resolved on .bs use it too. */
-html[data-theme='smooth-light'],
+/* Palettes (Flow · Темы): theme.svelte.ts sets data-theme on <html>; the App root .bs repeats the palette so values
+   resolved on .bs use it too. Any element with data-theme (theme swatches, gallery cards) gets that palette.
+   Bonk Light (smooth-light) is the default. */
+[data-theme='smooth-light'],
 [data-theme='smooth-light'] .bs {
   --bg: #f0f0f0;
   --surface: #ffffff;
@@ -97,8 +77,8 @@ html[data-theme='smooth-light'],
   color-scheme: light;
 }
 
-/* Dark palette (html.dark is set together with data-theme=smooth-dark). */
-html[data-theme='smooth-dark'],
+/* Bonk Dark. html.dark is set together with every dark palette. */
+[data-theme='smooth-dark'],
 [data-theme='smooth-dark'] .bs {
   --bg: #111111;
   --surface: #1b1b1b;
@@ -171,6 +151,299 @@ html[data-theme='smooth-dark'],
   color-scheme: dark;
 }
 
+/* Gruvbox Dark, Catppuccin Mocha, Nord, Solarized Light: the Pencil «mode» variables mapped onto the same names. */
+[data-theme='gruvbox-dark'],
+[data-theme='gruvbox-dark'] .bs {
+  --bg: #1d2021;
+  --surface: #282828;
+  --surface-solid: #32302f;
+  --canvas: #282828;
+  --response: #252423;
+  --side: #252423;
+  --tb: #1d2021;
+  --inset: #1d2021;
+  --s1: #32302f;
+  --s2: #3c3836;
+  --s3: #45403d;
+  --s4: #504945;
+  --sdim: #141617;
+  --sep: #45403d;
+  --sepsoft: #32302f;
+  --border: #45403d;
+  --border2: #32302f;
+  --text: #ebdbb2;
+  --text2: #bdae93;
+  --t2: #bdae93;
+  --t3: #928374;
+  --accent: #ebdbb2;
+  --accent-press: #d5c4a1;
+  --accentsoft: #3c3836;
+  --primary: #ebdbb2;
+  --primary-hover: #fbf1c7;
+  --primary-press: #d5c4a1;
+  --primary-text: #1d2021;
+  --on-accent: #1d2021;
+  --green: #b8bb26;
+  --orange: #fabd2f;
+  --red: #fb4934;
+  --purple: #d3869b;
+  --error: #fb4934;
+  --error-c: #fb493422;
+  --success: #b8bb26;
+  --warning: #fabd2f;
+  --method-get: #83a598;
+  --method-post: #b8bb26;
+  --method-put: #fabd2f;
+  --method-patch: #d3869b;
+  --method-delete: #fb4934;
+  --method-query: #8ec07c;
+  --method-grpc: #fe8019;
+  --sk: #83a598;
+  --ss: #b8bb26;
+  --sn: #d3869b;
+  --sb: #83a598;
+  --syntax-punct: #7c6f64;
+  --sp: #7c6f64;
+  --hover: #ebdbb214;
+  --hover2: #ebdbb208;
+  --shadow-sm: 0 1px 4px rgba(0, 0, 0, 0.12);
+  --shadow-panel: 0 16px 44px #00000059, 0 2px 8px rgba(0, 0, 0, 0.1);
+  --focus-ring: 0 0 0 3px #fabd2f40;
+  --color-focus: #fabd2f40;
+  --color-shadow: #00000059;
+  --canvas-app: #141617;
+  --hover-strong: #ebdbb224;
+  --scrim: #00000080;
+  --inverse: #ebdbb2;
+  --on-inverse: #1d2021;
+  --success-soft: #b8bb2622;
+  --warning-soft: #fabd2f22;
+  --danger: #fb4934;
+  --danger-soft: #fb493422;
+  --var: #8ec07c;
+  --var-soft: #8ec07c22;
+  color-scheme: dark;
+}
+
+[data-theme='catppuccin-mocha'],
+[data-theme='catppuccin-mocha'] .bs {
+  --bg: #11111b;
+  --surface: #1e1e2e;
+  --surface-solid: #313244;
+  --canvas: #1e1e2e;
+  --response: #181825;
+  --side: #181825;
+  --tb: #11111b;
+  --inset: #181825;
+  --s1: #313244;
+  --s2: #313244;
+  --s3: #45475a;
+  --s4: #585b70;
+  --sdim: #0b0b12;
+  --sep: #45475a;
+  --sepsoft: #313244;
+  --border: #45475a;
+  --border2: #313244;
+  --text: #cdd6f4;
+  --text2: #bac2de;
+  --t2: #bac2de;
+  --t3: #7f849c;
+  --accent: #cba6f7;
+  --accent-press: #b48ef0;
+  --accentsoft: #313244;
+  --primary: #cba6f7;
+  --primary-hover: #d6bbfa;
+  --primary-press: #b48ef0;
+  --primary-text: #11111b;
+  --on-accent: #11111b;
+  --green: #a6e3a1;
+  --orange: #f9e2af;
+  --red: #f38ba8;
+  --purple: #cba6f7;
+  --error: #f38ba8;
+  --error-c: #f38ba822;
+  --success: #a6e3a1;
+  --warning: #f9e2af;
+  --method-get: #89b4fa;
+  --method-post: #a6e3a1;
+  --method-put: #f9e2af;
+  --method-patch: #cba6f7;
+  --method-delete: #f38ba8;
+  --method-query: #94e2d5;
+  --method-grpc: #f5c2e7;
+  --sk: #89b4fa;
+  --ss: #a6e3a1;
+  --sn: #fab387;
+  --sb: #89b4fa;
+  --syntax-punct: #6c7086;
+  --sp: #6c7086;
+  --hover: #cdd6f412;
+  --hover2: #cdd6f408;
+  --shadow-sm: 0 1px 4px rgba(0, 0, 0, 0.12);
+  --shadow-panel: 0 16px 44px #00000066, 0 2px 8px rgba(0, 0, 0, 0.1);
+  --focus-ring: 0 0 0 3px #cba6f740;
+  --color-focus: #cba6f740;
+  --color-shadow: #00000066;
+  --canvas-app: #0b0b12;
+  --hover-strong: #cdd6f421;
+  --scrim: #11111b99;
+  --inverse: #cba6f7;
+  --on-inverse: #11111b;
+  --success-soft: #a6e3a122;
+  --warning-soft: #f9e2af22;
+  --danger: #f38ba8;
+  --danger-soft: #f38ba822;
+  --var: #94e2d5;
+  --var-soft: #94e2d522;
+  color-scheme: dark;
+}
+
+[data-theme='nord'],
+[data-theme='nord'] .bs {
+  --bg: #242933;
+  --surface: #2e3440;
+  --surface-solid: #3b4252;
+  --canvas: #2e3440;
+  --response: #2b303b;
+  --side: #2b303b;
+  --tb: #242933;
+  --inset: #292e39;
+  --s1: #3b4252;
+  --s2: #3b4252;
+  --s3: #434c5e;
+  --s4: #4c566a;
+  --sdim: #1f232b;
+  --sep: #434c5e;
+  --sepsoft: #3b4252;
+  --border: #434c5e;
+  --border2: #3b4252;
+  --text: #eceff4;
+  --text2: #d8dee9;
+  --t2: #d8dee9;
+  --t3: #8a93a5;
+  --accent: #88c0d0;
+  --accent-press: #81a1c1;
+  --accentsoft: #3b4252;
+  --primary: #88c0d0;
+  --primary-hover: #8fbcbb;
+  --primary-press: #81a1c1;
+  --primary-text: #2e3440;
+  --on-accent: #2e3440;
+  --green: #a3be8c;
+  --orange: #ebcb8b;
+  --red: #bf616a;
+  --purple: #b48ead;
+  --error: #bf616a;
+  --error-c: #bf616a2b;
+  --success: #a3be8c;
+  --warning: #ebcb8b;
+  --method-get: #81a1c1;
+  --method-post: #a3be8c;
+  --method-put: #ebcb8b;
+  --method-patch: #b48ead;
+  --method-delete: #bf616a;
+  --method-query: #8fbcbb;
+  --method-grpc: #d08770;
+  --sk: #81a1c1;
+  --ss: #a3be8c;
+  --sn: #b48ead;
+  --sb: #81a1c1;
+  --syntax-punct: #616e88;
+  --sp: #616e88;
+  --hover: #eceff410;
+  --hover2: #eceff408;
+  --shadow-sm: 0 1px 4px rgba(0, 0, 0, 0.12);
+  --shadow-panel: 0 16px 44px #00000059, 0 2px 8px rgba(0, 0, 0, 0.1);
+  --focus-ring: 0 0 0 3px #88c0d040;
+  --color-focus: #88c0d040;
+  --color-shadow: #00000059;
+  --canvas-app: #1f232b;
+  --hover-strong: #eceff41f;
+  --scrim: #1f232b99;
+  --inverse: #88c0d0;
+  --on-inverse: #2e3440;
+  --success-soft: #a3be8c22;
+  --warning-soft: #ebcb8b22;
+  --danger: #bf616a;
+  --danger-soft: #bf616a2b;
+  --var: #8fbcbb;
+  --var-soft: #8fbcbb22;
+  color-scheme: dark;
+}
+
+[data-theme='solarized-light'],
+[data-theme='solarized-light'] .bs {
+  --bg: #eee8d5;
+  --surface: #fdf6e3;
+  --surface-solid: #fffbf0;
+  --canvas: #fdf6e3;
+  --response: #faf4e0;
+  --side: #f7f1de;
+  --tb: #eee8d5;
+  --inset: #f5efdc;
+  --s1: #fffbf0;
+  --s2: #e9e2cc;
+  --s3: #dcd4bc;
+  --s4: #d3cbb3;
+  --sdim: #e4ddc8;
+  --sep: #dcd4bc;
+  --sepsoft: #e9e2cc;
+  --border: #dcd4bc;
+  --border2: #e9e2cc;
+  --text: #073642;
+  --text2: #586e75;
+  --t2: #586e75;
+  --t3: #7d8b8c;
+  --accent: #268bd2;
+  --accent-press: #1f74b0;
+  --accentsoft: #e9e2cc;
+  --primary: #268bd2;
+  --primary-hover: #2a95e0;
+  --primary-press: #1f74b0;
+  --primary-text: #fdf6e3;
+  --on-accent: #fdf6e3;
+  --green: #859900;
+  --orange: #b58900;
+  --red: #dc322f;
+  --purple: #6c71c4;
+  --error: #dc322f;
+  --error-c: #dc322f1a;
+  --success: #859900;
+  --warning: #b58900;
+  --method-get: #268bd2;
+  --method-post: #859900;
+  --method-put: #b58900;
+  --method-patch: #6c71c4;
+  --method-delete: #dc322f;
+  --method-query: #2aa198;
+  --method-grpc: #d33682;
+  --sk: #268bd2;
+  --ss: #2aa198;
+  --sn: #d33682;
+  --sb: #268bd2;
+  --syntax-punct: #93a1a1;
+  --sp: #93a1a1;
+  --hover: #07364210;
+  --hover2: #07364208;
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.04);
+  --shadow-panel: 0 16px 44px #5a4a1a1f, 0 2px 8px rgba(0, 0, 0, 0.04);
+  --focus-ring: 0 0 0 3px #268bd233;
+  --color-focus: #268bd233;
+  --color-shadow: #5a4a1a1f;
+  --canvas-app: #e4ddc8;
+  --hover-strong: #0736421c;
+  --scrim: #00283633;
+  --inverse: #073642;
+  --on-inverse: #fdf6e3;
+  --success-soft: #8599001f;
+  --warning-soft: #b589001f;
+  --danger: #dc322f;
+  --danger-soft: #dc322f1a;
+  --var: #2aa198;
+  --var-soft: #2aa1981f;
+  color-scheme: light;
+}
+
 /* Theme-independent tokens: fonts and type scale (Settings → Appearance overrides --font-size-* / --font-code / --code-font-size inline on <html>), spacing, radii, control heights, motion, and colour roles that point at the palette. */
 :root {
   --font-ui: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
@@ -241,8 +514,9 @@ html[data-theme='smooth-dark'],
   --color-var-soft: var(--var-soft, var(--hover));
 }
 
-/* The colour roles again on .bs, so they resolve against the palette declared on .bs itself. */
-:root .bs {
+/* The colour roles again on .bs and on every [data-theme] element, so they resolve against the palette declared there. */
+:root .bs,
+[data-theme] {
   --color-app: var(--bg);
   --color-panel: var(--surface);
   --color-sidebar: var(--side);
@@ -270,5 +544,33 @@ html[data-theme='smooth-dark'],
   --color-danger-soft: var(--danger-soft, var(--hover));
   --color-var: var(--var, var(--orange));
   --color-var-soft: var(--var-soft, var(--hover));
+}
+:root .bs {
   --mono: var(--font-code);
+}
+
+/* Shape (Flow · Темы F1–F3): soft is the :root default above; theme.svelte.ts sets data-shape on <html>. */
+[data-shape='sharp'] {
+  --radius-xs: 3px;
+  --radius-sm: 4px;
+  --radius-md: 5px;
+  --radius-control: 5px;
+  --radius-card: 6px;
+  --radius-panel: 8px;
+  --radius-dialog: 10px;
+  --radius-window: 12px;
+}
+[data-shape='square'] {
+  --radius-xs: 0;
+  --radius-sm: 0;
+  --radius-md: 0;
+  --radius-control: 0;
+  --radius-card: 0;
+  --radius-panel: 0;
+  --radius-dialog: 0;
+  --radius-window: 10px;
+}
+/* UI font: Inter (:root) or a monospaced interface. */
+[data-font='mono'] {
+  --font-ui: 'JetBrains Mono', 'SF Mono', ui-monospace, Menlo, monospace;
 }

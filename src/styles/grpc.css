@@ -157,7 +157,7 @@
   }
 }
 
-:is([data-theme='smooth-light'], [data-theme='smooth-dark']) .bs .bs-grpc-connect-actions button.primary {
+[data-theme] .bs .bs-grpc-connect-actions button.primary {
   color: var(--on-accent);
 }
 

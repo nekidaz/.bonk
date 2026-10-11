@@ -1207,11 +1207,11 @@
   }
 }
 
-:is([data-theme='smooth-light'], [data-theme='smooth-dark']) .bs .bs-body-empty {
+[data-theme] .bs .bs-body-empty {
   background: var(--canvas);
 }
 
-:is([data-theme='smooth-light'], [data-theme='smooth-dark']) .bs .bs-body-kv-row select:focus {
+[data-theme] .bs .bs-body-kv-row select:focus {
   border-color: var(--accent);
 }
 

@@ -46,24 +46,15 @@
 }
 
 /* Mono 3.0: booleans/null share the number colour (design syntax-number); --sb is the key colour. */
-:is([data-theme='smooth-light'], [data-theme='smooth-dark']) .bs .bs-code .b2 {
+[data-theme] .bs .bs-code .b2 {
   color: var(--sn);
 }
 
-:is([data-theme='smooth-light'], [data-theme='smooth-dark'])
-  .bs
-  .cm-tooltip.cm-tooltip-autocomplete
-  > ul
-  > li[aria-selected] {
+[data-theme] .bs .cm-tooltip.cm-tooltip-autocomplete > ul > li[aria-selected] {
   color: var(--on-accent);
 }
 
-:is([data-theme='smooth-light'], [data-theme='smooth-dark'])
-  .bs
-  .cm-tooltip.cm-tooltip-autocomplete
-  > ul
-  > li[aria-selected]
-  .cm-completionDetail {
+[data-theme] .bs .cm-tooltip.cm-tooltip-autocomplete > ul > li[aria-selected] .cm-completionDetail {
   color: var(--on-accent);
   opacity: 0.78;
 }

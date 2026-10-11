@@ -1,4 +1,5 @@
 import { persisted } from '$shared/persist';
+import { isDarkTheme, isTheme, theme, type Theme } from './theme.svelte';
 
 /** App preferences from Settings → Общие / Внешний вид (S32.1, S32.5). Self-persisting. */
 
@@ -20,8 +21,23 @@ export const codeFont = persisted<string>('codeFont', 'JetBrains Mono');
 export const codeFontSize = persisted<number>('codeFontSize', 12);
 export type Density = 'compact' | 'normal';
 export const density = persisted<Density>('density', 'compact', (v): v is Density => v === 'compact' || v === 'normal');
-/** «Как в системе»: follow the OS light/dark appearance with the Bonk palettes. */
+/** «Как в системе»: follow the OS light/dark appearance with the pair below (app/lifecycle.svelte.ts). */
 export const themeFollowSystem = persisted('themeFollowSystem', false);
+export const systemLightTheme = persisted<Theme>(
+  'themeLight',
+  'smooth-light',
+  (v): v is Theme => isTheme(v) && !isDarkTheme(v),
+);
+export const systemDarkTheme = persisted<Theme>(
+  'themeDark',
+  'smooth-dark',
+  (v): v is Theme => isTheme(v) && isDarkTheme(v),
+);
+/** An explicit pick (gallery, ⌘K) wins over «Как в системе». */
+export function pickTheme(t: Theme): void {
+  themeFollowSystem.current = false;
+  theme.current = t;
+}
 
 // Settings → Внешний вид → «Раскладка запроса и ответа» (S32.5b, E1–E7).
 /** stack: request above, response below · side: side by side · focus: the pane in use fills, the other folds into a strip. */

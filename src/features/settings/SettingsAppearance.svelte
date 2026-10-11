@@ -2,9 +2,18 @@
   import { t } from '$shared/i18n';
   import {
     theme,
-    setTheme,
-    isDarkTheme,
+    THEMES,
+    themeInfo,
+    pickTheme,
     themeFollowSystem,
+    systemLightTheme,
+    systemDarkTheme,
+    SHAPES,
+    shapeOf,
+    shapePref,
+    fontOf,
+    fontPref,
+    type Theme,
     uiFontSize,
     codeFont,
     codeFontSize,
@@ -25,36 +34,94 @@
 
   const LAYOUTS: RequestLayout[] = ['stack', 'side', 'focus'];
 
-  const mode = $derived(themeFollowSystem.current ? 'system' : isDarkTheme(theme.current) ? 'dark' : 'light');
-  function setMode(m: string): void {
-    themeFollowSystem.current = m === 'system';
-    if (m === 'light' && isDarkTheme(theme.current)) setTheme('smooth-light');
-    if (m === 'dark' && !isDarkTheme(theme.current)) setTheme('smooth-dark');
-  }
-  const MODES = ['light', 'dark', 'system'] as const;
+  const shape = $derived(shapeOf(theme.current));
+  const font = $derived(fontOf(theme.current));
+  // Picking the theme's own shape goes back to following the theme.
+  const setShape = (v: string) =>
+    (shapePref.current = v === themeInfo(theme.current).shape ? 'theme' : (v as typeof shape));
+  const pairOptions = (dark: boolean) =>
+    THEMES.filter((x) => x.dark === dark).map((x) => ({ label: x.name, value: x.id }));
 </script>
 
 <div class="st-group">{t('settings.appearance.theme')}</div>
-<!-- S32.5: three cards with a mini app preview; «Как в системе» follows the OS (app/lifecycle.svelte.ts). -->
+<!-- Flow · Темы TH1: every card is a mini app in its own palette (data-theme on the card); «Как в системе» picks a
+     light and a dark theme (app/lifecycle.svelte.ts). -->
 <div class="st-card st-pad">
-  <div class="st-modes" role="radiogroup" aria-label={t('settings.appearance.theme')}>
-    {#each MODES as m (m)}
+  <div class="st-themes" role="radiogroup" aria-label={t('settings.appearance.theme')}>
+    {#each THEMES as th (th.id)}
       <button
         type="button"
-        class="st-mode"
+        class="st-theme"
         role="radio"
-        aria-checked={mode === m}
-        class:on={mode === m}
-        onclick={() => setMode(m)}
+        aria-checked={theme.current === th.id}
+        class:on={theme.current === th.id}
+        onclick={() => pickTheme(th.id)}
       >
-        <span class="st-mode-pic {m}" aria-hidden="true">
-          {#if m !== 'system'}<i class="side"><b></b><b></b><b></b></i><i class="main"
-              ><b class="title"></b><b class="url"><b></b></b><b></b><b></b></i
-            >{/if}
+        <span class="st-theme-pic" data-theme={th.id} aria-hidden="true">
+          <i class="side"><b></b><b></b><b></b><b></b></i>
+          <i class="main"
+            ><b class="title"></b><span class="url"><i><b></b><b></b></i><b></b></span><span class="code"
+              ><b></b><b></b></span
+            ><span class="code"><b></b><b></b></span><span class="status"><b></b><b></b></span></i
+          >
         </span>
-        <span class="st-mode-label"><span class="radio"></span>{t(`settings.appearance.${m}`)}</span>
+        <span class="st-mode-label"><span class="radio"></span>{th.name}</span>
       </button>
     {/each}
+  </div>
+  <div class="st-theme-tools">
+    <label class="st-inline">
+      {@render sw(t('settings.appearance.system'), themeFollowSystem.current, (v) => (themeFollowSystem.current = v))}
+      {t('settings.appearance.system')}:
+    </label>
+    {@render select(t('settings.appearance.systemLight'), systemLightTheme.current, pairOptions(false), (v) => {
+      systemLightTheme.current = v as Theme;
+    })}
+    {@render select(t('settings.appearance.systemDark'), systemDarkTheme.current, pairOptions(true), (v) => {
+      systemDarkTheme.current = v as Theme;
+    })}
+  </div>
+</div>
+
+<div class="st-group">{t('settings.appearance.shape')}</div>
+<div class="st-card st-pad">
+  <div class="st-themes" role="radiogroup" aria-label={t('settings.appearance.shape')}>
+    {#each SHAPES as s (s)}
+      <button
+        type="button"
+        class="st-theme"
+        role="radio"
+        aria-checked={shape === s}
+        class:on={shape === s}
+        onclick={() => setShape(s)}
+      >
+        <span class="st-shape-pic {s}" aria-hidden="true"><i><b></b><b></b></i></span>
+        <span class="st-mode-label"
+          ><span class="radio"></span>{t(`settings.appearance.shape.${s}`)}<span class="st-hint"
+            >{t(`settings.appearance.shape.${s}.hint`)}</span
+          ></span
+        >
+      </button>
+    {/each}
+  </div>
+  <div class="st-theme-tools">
+    <span class="st-name">{t('settings.appearance.uiFont')}</span>
+    <span class="st-spacer"></span>
+    {@render seg(
+      t('settings.appearance.uiFont'),
+      font,
+      [
+        { label: 'Inter', value: 'sans' },
+        { label: 'JetBrains Mono', value: 'mono' },
+      ],
+      (v) => (fontPref.current = v as typeof font),
+    )}
+    <label class="st-inline">
+      {@render sw(t('settings.appearance.fontFromTheme'), fontPref.current === 'theme', (v) => {
+        fontPref.current = v ? 'theme' : font;
+      })}
+      {t('settings.appearance.fontFromTheme')}
+    </label>
   </div>
 </div>
 

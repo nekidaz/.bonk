@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { theme, setTheme, isDarkTheme, DEFAULT_THEME } from './theme.svelte';
+import { theme, setTheme, isDarkTheme, DEFAULT_THEME, shapeOf, fontOf, shapePref, fontPref } from './theme.svelte';
 
 describe('theme', () => {
   beforeEach(() => setTheme(DEFAULT_THEME));
@@ -14,6 +14,16 @@ describe('theme', () => {
     expect(theme.current).toBe('smooth-dark');
     expect(isDarkTheme('smooth-dark')).toBe(true);
     expect(isDarkTheme('smooth-light')).toBe(false);
+  });
+
+  it('shape and UI font follow the theme until picked', () => {
+    shapePref.current = 'theme';
+    fontPref.current = 'theme';
+    expect([shapeOf('gruvbox-dark'), fontOf('gruvbox-dark')]).toEqual(['square', 'mono']);
+    expect([shapeOf('nord'), fontOf('nord')]).toEqual(['sharp', 'sans']);
+    shapePref.current = 'soft';
+    fontPref.current = 'sans';
+    expect([shapeOf('gruvbox-dark'), fontOf('gruvbox-dark')]).toEqual(['soft', 'sans']);
   });
 });
 
@@ -41,7 +51,8 @@ describe('persisted theme', () => {
     ['nope', 'smooth-light'],
     ['dark', 'smooth-dark'],
     ['postman-dark', 'smooth-dark'],
-    ['nord', 'smooth-dark'],
+    ['nord', 'nord'],
+    ['gruvbox-dark', 'gruvbox-dark'],
     ['tokyo-night', 'smooth-dark'],
     ['ayu-mirage', 'smooth-dark'],
     ['rose-pine', 'smooth-dark'],

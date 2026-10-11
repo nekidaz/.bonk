@@ -10,6 +10,8 @@ import {
   codeFontSize,
   density,
   setTheme,
+  systemDarkTheme,
+  systemLightTheme,
   themeFollowSystem,
   uiFontSize,
 } from '$shared/settings';
@@ -84,7 +86,7 @@ export function startApp(): void {
   $effect(() => {
     if (!themeFollowSystem.current) return;
     const mq = matchMedia('(prefers-color-scheme: dark)');
-    const sync = () => setTheme(mq.matches ? 'smooth-dark' : 'smooth-light');
+    const sync = () => setTheme(mq.matches ? systemDarkTheme.current : systemLightTheme.current);
     sync();
     mq.addEventListener('change', sync);
     return () => mq.removeEventListener('change', sync);

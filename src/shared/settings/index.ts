@@ -41,6 +41,9 @@ export {
   SIDE_BY_SIDE_MIN,
   sideOnWide,
   startupOpen,
+  pickTheme,
+  systemDarkTheme,
+  systemLightTheme,
   themeFollowSystem,
   UI_FONT_SIZES,
   uiFontSize,
@@ -55,5 +58,21 @@ export {
   cookiesSend,
 } from './cookiePrefs.svelte';
 export { requestPrefs } from './requestPrefs.svelte';
-export { applyStoredTheme, isDarkTheme, setTheme, theme } from './theme.svelte';
+export {
+  applyAppearance,
+  applyStoredTheme,
+  fontOf,
+  fontPref,
+  isDarkTheme,
+  setTheme,
+  shapeOf,
+  shapePref,
+  SHAPES,
+  type Shape,
+  theme,
+  type Theme,
+  themeInfo,
+  THEMES,
+  type UiFont,
+} from './theme.svelte';
 export { dynamicOptions, dynKeepSent, dynLocale, dynPerRequest, dynSeed, dynSeedOn } from './dynamicPrefs.svelte';

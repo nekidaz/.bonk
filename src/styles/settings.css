@@ -357,14 +357,15 @@
   gap: 8px;
   flex: 0 0 auto;
 }
-/* S32.5 theme: three cards, each a mini app in its own palette (fixed colours — the card previews that theme). */
-:root .st-modes {
+/* Flow · Темы TH1: theme and shape cards, three per row. A theme card's picture carries data-theme, so every
+   var() inside it resolves to that theme's palette (tokens.css). */
+:root .st-themes {
   width: 100%;
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 12px;
 }
-:root .st-mode {
+:root .st-theme {
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -377,102 +378,167 @@
   text-align: left;
   cursor: pointer;
 }
-:root .st-mode:focus-visible {
+:root .st-theme:focus-visible {
   outline: 0;
 }
-:root .st-mode:focus-visible .st-mode-pic {
+:root .st-theme:focus-visible > :first-child {
   box-shadow: var(--focus-ring);
 }
-.st-mode-pic {
-  --chrome: #f0f0f0;
-  --panel: #ffffff;
-  --ink: #202020;
+.st-theme-pic,
+.st-shape-pic {
   display: flex;
-  gap: 6px;
-  height: 96px;
-  padding: 8px;
+  gap: 5px;
+  height: 86px;
+  padding: 6px;
   box-sizing: border-box;
   overflow: hidden;
-  border-radius: 16px;
-  outline: 1px solid var(--color-border-subtle);
+  border-radius: 14px;
+  outline: 1px solid var(--color-border);
   outline-offset: -1px;
-  background: var(--chrome);
+  background: var(--color-app);
 }
-.st-mode-pic.dark {
-  --chrome: #111111;
-  --panel: #1b1b1b;
-  --ink: #eeeeee;
-}
-.st-mode-pic.system {
-  background: linear-gradient(90deg, #f0f0f0 50%, #111111 50%);
-}
-.st-mode.on .st-mode-pic {
+.st-theme.on > :first-child {
   outline: 2px solid var(--color-text);
   outline-offset: -2px;
 }
-.st-mode-pic i {
+.st-theme-pic > i {
   display: flex;
   flex-direction: column;
-  border-radius: 10px;
-  background: var(--panel);
+  gap: 4px;
+  border-radius: 6px;
 }
-.st-mode-pic .side {
-  flex: 0 0 40px;
-  gap: 5px;
-  padding: 7px;
+.st-theme-pic .side {
+  flex: 0 0 46px;
+  padding: 7px 6px;
   box-sizing: border-box;
+  background: var(--color-sidebar);
 }
-.st-mode-pic .main {
+.st-theme-pic .main {
   flex: 1;
   min-width: 0;
-  gap: 6px;
-  padding: 8px;
+  gap: 5px;
+  padding: 7px;
+  background: var(--color-panel);
 }
-.st-mode-pic b {
+.st-theme-pic b {
   display: block;
-  height: 4px;
+  height: 3px;
   border-radius: 2px;
-  background: var(--ink);
-  opacity: 0.35;
 }
-.st-mode-pic .side b:nth-child(1) {
-  width: 18px;
+.st-theme-pic span {
+  display: flex;
+  gap: 3px;
 }
-.st-mode-pic .side b:nth-child(2) {
-  width: 24px;
+.st-theme-pic .side b:nth-child(1) {
+  width: 26px;
+  background: var(--method-get);
 }
-.st-mode-pic .side b:nth-child(3) {
-  width: 14px;
+.st-theme-pic .side b:nth-child(2) {
+  width: 30px;
+  background: var(--method-post);
 }
-.st-mode-pic .main > b:nth-child(3) {
-  width: 60px;
-  opacity: 0.3;
+.st-theme-pic .side b:nth-child(3) {
+  width: 22px;
+  background: var(--method-delete);
 }
-.st-mode-pic .main > b:nth-child(4) {
-  width: 44px;
-  opacity: 0.3;
+.st-theme-pic .side b:nth-child(4) {
+  width: 28px;
+  background: var(--color-text-muted);
 }
-.st-mode-pic .title {
-  width: 50px;
-  height: 6px;
-  border-radius: 3px;
-  opacity: 1;
+.st-theme-pic .title {
+  width: 56px;
+  height: 5px;
+  background: var(--color-text);
 }
-.st-mode-pic .url {
+.st-theme-pic .url {
+  gap: 4px;
+  height: 11px;
+  margin: 1px 0;
+}
+.st-theme-pic .url i {
+  flex: 1;
   display: flex;
   align-items: center;
-  justify-content: flex-end;
-  height: 14px;
-  padding: 0 3px;
+  gap: 3px;
+  padding: 0 4px;
   border-radius: 999px;
-  background: var(--chrome);
-  opacity: 1;
+  background: var(--color-field);
 }
-.st-mode-pic .url b {
-  width: 22px;
-  height: 9px;
+.st-theme-pic .url i b:first-child {
+  width: 16px;
+  height: 4px;
+  background: var(--color-var);
+}
+.st-theme-pic .url i b:last-child {
+  width: 30px;
+  background: var(--color-text-secondary);
+}
+.st-theme-pic .url > b {
+  width: 18px;
+  height: 11px;
   border-radius: 999px;
-  opacity: 1;
+  background: var(--color-action);
+}
+.st-theme-pic .code b:first-child {
+  width: 18px;
+  background: var(--sk);
+}
+.st-theme-pic .code b:last-child {
+  width: 26px;
+  background: var(--ss);
+}
+.st-theme-pic .code + .code b:last-child {
+  background: var(--sn);
+}
+.st-theme-pic .status b {
+  height: 6px;
+  border-radius: 3px;
+}
+.st-theme-pic .status b:first-child {
+  width: 16px;
+  background: var(--color-success);
+}
+.st-theme-pic .status b:last-child {
+  width: 10px;
+  background: var(--color-danger);
+}
+/* Shape cards: a raised card with a field and a button, each at that shape's radii (tokens.css [data-shape]). */
+.st-shape-pic {
+  height: 58px;
+  align-items: center;
+  padding: 10px;
+  background: var(--color-panel);
+}
+.st-shape-pic i {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px;
+  border-radius: 20px;
+  background: var(--color-raised);
+}
+.st-shape-pic b {
+  height: 14px;
+  border-radius: 999px;
+  background: var(--color-field);
+}
+.st-shape-pic b:first-child {
+  flex: 1;
+}
+.st-shape-pic b:last-child {
+  width: 24px;
+  background: var(--color-action);
+}
+.st-shape-pic.sharp i {
+  border-radius: 6px;
+}
+.st-shape-pic.sharp b {
+  border-radius: 5px;
+}
+.st-shape-pic.square i,
+.st-shape-pic.square b {
+  border-radius: 0;
 }
 .st-mode-label {
   display: flex;
@@ -487,12 +553,40 @@
   border: 1.5px solid var(--color-border);
   border-radius: 50%;
 }
-.st-mode.on .st-mode-label {
+.st-theme.on .st-mode-label {
   font-weight: 600;
 }
-.st-mode.on .st-mode-label .radio {
+.st-theme.on .st-mode-label .radio {
   border-color: var(--color-text);
   background: var(--color-text);
+}
+.st-hint {
+  color: var(--color-text-muted);
+  font-weight: 400;
+}
+/* The row under the cards: «Как в системе» with its light/dark pair, the UI font. */
+.st-theme-tools {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 14px -16px -16px;
+  padding: 8px 16px;
+  border-top: 1px solid var(--color-border-subtle);
+}
+.st-theme-tools .st-select {
+  min-width: 0;
+  height: 26px;
+}
+.st-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--color-text-secondary);
+  font: var(--font-size-body) var(--font-ui);
+  cursor: pointer;
+}
+.st-spacer {
+  flex: 1;
 }
 @media (prefers-reduced-motion: reduce) {
   .st-item {
