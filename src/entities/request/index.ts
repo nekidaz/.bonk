@@ -34,6 +34,18 @@ export {
   openGrpcEditorSection,
   requestGrpcEditorAction,
 } from './grpcEditorUi.svelte';
+export {
+  cancelOAuthLogin,
+  forgetOAuthToken,
+  getOAuthToken,
+  oauthCardKey,
+  type OAuthRenewal,
+  oauthRuntime,
+  pasteOAuthCode,
+  refreshOAuthToken,
+  revokeOAuthToken,
+  withOAuthToken,
+} from './oauth.svelte';
 export { type GrpcTabError, requestRuntime } from './requestRuntime.svelte';
 export {
   revealScriptLine,

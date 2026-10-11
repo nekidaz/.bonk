@@ -146,7 +146,8 @@ export function applyAuth(req: HttpRequest): HttpRequest {
   const auth = req.auth;
   let headers = req.headers ?? {};
   let url = req.url;
-  if (auth?.type === 'bearer' && auth.bearerToken?.trim()) {
+  // oauth2: the send path puts the keychain token into `bearerToken` (see oauth.svelte.ts).
+  if ((auth?.type === 'bearer' || auth?.type === 'oauth2') && auth.bearerToken?.trim()) {
     headers = setHeaderIfMissing(headers, 'Authorization', `Bearer ${auth.bearerToken.trim()}`);
   } else if (auth?.type === 'basic') {
     const username = auth.basicUsername ?? '';

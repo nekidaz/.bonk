@@ -162,6 +162,18 @@
     "expected": { "url": "https://api.test/items?page=2&api%20key=a%26b#top", "headers": {}, "body": null }
   },
   {
+    "name": "oauth2 sends the token the send path put in, as Bearer",
+    "request": {
+      "method": "GET",
+      "url": "https://api.test",
+      "headers": {},
+      "body": null,
+      "auth": { "type": "oauth2", "bearerToken": "tok", "oauth": { "tokenUrl": "{{auth}}/token" } }
+    },
+    "scope": { "auth": "https://auth.test" },
+    "expected": { "url": "https://api.test", "headers": { "Authorization": "Bearer tok" }, "body": null }
+  },
+  {
     "name": "api key in a header",
     "request": {
       "method": "GET",

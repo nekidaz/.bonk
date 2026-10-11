@@ -9,7 +9,7 @@ export type Protocol = RequestProtocol | 'git' | 'env' | 'runner' | 'flow';
 export type BodyMode = 'none' | 'form-data' | 'urlencoded' | 'raw' | 'binary' | 'graphql';
 export type RawBodyFormat = 'JSON' | 'Text' | 'JavaScript' | 'HTML' | 'XML';
 export type BodyParamKind = 'text' | 'file';
-export type AuthType = 'inherit' | 'none' | 'bearer' | 'basic' | 'apiKey';
+export type AuthType = 'inherit' | 'none' | 'bearer' | 'basic' | 'apiKey' | 'oauth2';
 export type ApiKeyLocation = 'header' | 'query';
 
 export interface HttpRequest {
@@ -52,6 +52,65 @@ export interface AuthConfig {
   apiKeyName?: string;
   apiKeyValue?: string;
   apiKeyIn?: ApiKeyLocation;
+  /** `type: 'oauth2'`. The token is never saved here: it lives in the keychain. */
+  oauth?: OAuthConfig;
+}
+
+export type OAuthGrant = 'authorization_code' | 'client_credentials' | 'password';
+
+/** OAuth 2.0 client settings (`{{vars}}` allowed). Mirrors `OAuthConfig` in http.rs. */
+export interface OAuthConfig {
+  /** Empty means `authorization_code`. */
+  grant?: OAuthGrant | '';
+  authUrl?: string;
+  tokenUrl?: string;
+  revokeUrl?: string;
+  clientId?: string;
+  clientSecret?: string;
+  /** `basic` (default): an Authorization header; `body`: in the form. */
+  clientAuth?: 'basic' | 'body' | '';
+  /** Space-separated. */
+  scope?: string;
+  audience?: string;
+  /** Empty: `http://127.0.0.1:<free port>/callback`. */
+  redirectUri?: string;
+  /** PKCE S256, on unless false. */
+  pkce?: boolean;
+  username?: string;
+  password?: string;
+  /** Get a new token by itself when the old one expired; on unless false. */
+  autoRefresh?: boolean;
+}
+
+/** A stored OAuth token as the UI sees it (no refresh token). Times are unix seconds. */
+export interface OAuthTokenInfo {
+  accessToken: string;
+  tokenType: string;
+  hasRefresh: boolean;
+  expiresAt: number | null;
+  scope: string;
+  obtainedAt: number;
+}
+
+export interface OAuthEnsured {
+  token: OAuthTokenInfo;
+  /** Just obtained for this send (the old one had expired, or it was forced). */
+  renewed: boolean;
+  previousExpiresAt: number | null;
+}
+
+/** What an OAuth command rejects with (`OAuthError` in oauth.rs). */
+export type OAuthFailure =
+  | { kind: 'provider'; status: number; url: string; error: string; description: string; body: string }
+  | { kind: 'login'; reason: string }
+  | { kind: 'other'; message: string };
+
+export interface OAuthLoginStarted {
+  flowId: string;
+  url: string;
+  redirectUri: string;
+  /** False: the redirect URI is not a loopback address, the code must be pasted. */
+  listens: boolean;
 }
 
 export interface HttpResponse {

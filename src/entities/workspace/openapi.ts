@@ -12,7 +12,16 @@ import { t } from '$shared/i18n';
  * method; it is intentionally lossy on everything the client doesn't model
  * (schemas, responses, examples beyond a single one).
  */
-import type { AuthConfig, BodyParam, Param, RequestNode, RawBodyFormat } from '$shared/model';
+import {
+  oauthGrant,
+  oauthScopes,
+  type AuthConfig,
+  type BodyParam,
+  type OAuthGrant,
+  type Param,
+  type RequestNode,
+  type RawBodyFormat,
+} from '$shared/model';
 import { parse as parseYaml, stringify as stringifyYaml } from 'yaml';
 
 // ---------- Import ----------
@@ -307,8 +316,8 @@ function schemeAuth(scheme: Obj): AuthConfig | undefined {
   if ((type === 'http' && flavor === 'basic') || type === 'basic') {
     return { type: 'basic', basicUsername: '{{username}}', basicPassword: '{{password}}' };
   }
-  if (type === 'http' || type === 'oauth2' || type === 'openIdConnect')
-    return { type: 'bearer', bearerToken: '{{token}}' };
+  if (type === 'oauth2') return oauthSchemeAuth(scheme);
+  if (type === 'http' || type === 'openIdConnect') return { type: 'bearer', bearerToken: '{{token}}' };
   if (type === 'apiKey') {
     return {
       type: 'apiKey',
@@ -318,6 +327,44 @@ function schemeAuth(scheme: Obj): AuthConfig | undefined {
     };
   }
   return undefined;
+}
+
+/**
+ * An `oauth2` scheme as OAuth on the collection: URLs and scopes from its flow (OpenAPI 3
+ * `flows`, Swagger 2 `flow`), the client as `{{client_id}}` / `{{client_secret}}`. The
+ * implicit flow has no token endpoint bonk could use: it stays a Bearer `{{token}}`.
+ */
+function oauthSchemeAuth(scheme: Obj): AuthConfig {
+  const text = (o: Obj | undefined, key: string) => (o && typeof o[key] === 'string' ? (o[key] as string) : '');
+  const flows = isObject(scheme.flows) ? scheme.flows : undefined;
+  const v2: Record<string, OAuthGrant> = {
+    accessCode: 'authorization_code',
+    application: 'client_credentials',
+    password: 'password',
+  };
+  const pick: [OAuthGrant, Obj | undefined][] = flows
+    ? [
+        ['authorization_code', isObject(flows.authorizationCode) ? flows.authorizationCode : undefined],
+        ['client_credentials', isObject(flows.clientCredentials) ? flows.clientCredentials : undefined],
+        ['password', isObject(flows.password) ? flows.password : undefined],
+      ]
+    : [[v2[text(scheme, 'flow')], v2[text(scheme, 'flow')] ? scheme : undefined]];
+  const found = pick.find(([, flow]) => flow);
+  if (!found) return { type: 'bearer', bearerToken: '{{token}}' };
+  const [grant, flow] = found as [OAuthGrant, Obj];
+  const scopes = isObject(flow.scopes) ? Object.keys(flow.scopes) : [];
+  return {
+    type: 'oauth2',
+    oauth: {
+      grant,
+      ...(grant === 'authorization_code' ? { authUrl: text(flow, 'authorizationUrl') } : {}),
+      tokenUrl: text(flow, 'tokenUrl'),
+      clientId: '{{client_id}}',
+      ...(grant === 'authorization_code' ? {} : { clientSecret: '{{client_secret}}' }),
+      ...(grant === 'password' ? { username: '{{username}}', password: '{{password}}' } : {}),
+      scope: scopes.join(' '),
+    },
+  };
 }
 
 /**
@@ -625,12 +672,28 @@ function pathVarNames(path: string): string[] {
   return [...path.matchAll(/\{([^{}]+)\}/g)].map((m) => m[1]);
 }
 
-type SecuritySchemeName = 'bearerAuth' | 'basicAuth' | 'apiKeyAuth';
+type SecuritySchemeName = 'bearerAuth' | 'basicAuth' | 'apiKeyAuth' | 'oauth2';
 
 /** The securityScheme definition + requirement key for an AuthConfig, or null. */
 function authToScheme(auth: AuthConfig): { name: SecuritySchemeName; scheme: Obj } | null {
   if (auth.type === 'bearer') return { name: 'bearerAuth', scheme: { type: 'http', scheme: 'bearer' } };
   if (auth.type === 'basic') return { name: 'basicAuth', scheme: { type: 'http', scheme: 'basic' } };
+  if (auth.type === 'oauth2') {
+    const o = auth.oauth ?? {};
+    const grant = oauthGrant(o);
+    const key = {
+      authorization_code: 'authorizationCode',
+      client_credentials: 'clientCredentials',
+      password: 'password',
+    }[grant];
+    const scopes = Object.fromEntries(oauthScopes(o).map((s) => [s, '']));
+    const flow = {
+      ...(grant === 'authorization_code' ? { authorizationUrl: o.authUrl ?? '' } : {}),
+      tokenUrl: o.tokenUrl ?? '',
+      scopes,
+    };
+    return { name: 'oauth2', scheme: { type: 'oauth2', flows: { [key]: flow } } };
+  }
   if (auth.type === 'apiKey') {
     return {
       name: 'apiKeyAuth',
@@ -720,7 +783,7 @@ export function buildOpenApi(collectionName: string, folders: ExportFolder[], op
       const mapped = authToScheme(req.auth);
       if (mapped) {
         usedSchemes.set(mapped.name, mapped.scheme);
-        security = [{ [mapped.name]: [] }];
+        security = [{ [mapped.name]: mapped.name === 'oauth2' ? oauthScopes(req.auth.oauth) : [] }];
       }
     }
 

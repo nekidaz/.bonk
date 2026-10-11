@@ -16,6 +16,7 @@ use std::{
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Map, Value};
 
+use super::oauth::{self, Keychain, TokenStore};
 use super::{grpc_native, scripts};
 use crate::conn::GrpcDescriptorCache;
 use crate::domain::{
@@ -248,6 +249,11 @@ pub trait Transport: Sync {
         metadata: &BTreeMap<String, String>,
     ) -> impl Future<Output = Result<GrpcResult, String>> + Send;
 
+    /// Where OAuth tokens are kept (the keychain; memory in tests).
+    fn token_store(&self) -> &dyn TokenStore {
+        &Keychain
+    }
+
     /// `pm.cookies` for `url`, as `(name, value)`; none without a cookie jar.
     fn script_cookies(
         &self,
@@ -426,6 +432,10 @@ pub async fn run_node<T: Transport>(
     }
 }
 
+fn is_oauth(auth: Option<&crate::domain::http::AuthConfig>) -> bool {
+    auth.is_some_and(|auth| auth.auth_type == "oauth2")
+}
+
 fn display_method(node: &RequestNode) -> String {
     if node.protocol == "grpc" {
         "gRPC".into()
@@ -511,9 +521,23 @@ impl NodeRun<'_> {
             }
             pre.request_patch.unwrap_or_default().apply(&mut request);
         }
-        let mut resolved = request.clone();
-        request_prep::resolve(&mut resolved, &self.vars.scope(self.data))?;
-        let response = transport.send_http(resolved.clone()).await?;
+        let scope = self.vars.scope(self.data);
+        let mut resolved = self.with_oauth(&request, &scope, transport, false).await?;
+        request_prep::resolve(&mut resolved, &scope)?;
+        let mut response = transport.send_http(resolved.clone()).await?;
+        // A 401 with an OAuth token: renew it once and resend (the server may have revoked it).
+        if response.status == 401 && is_oauth(request.auth.as_ref()) {
+            match self.with_oauth(&request, &scope, transport, true).await {
+                Ok(mut retry) => {
+                    request_prep::resolve(&mut retry, &scope)?;
+                    response = transport.send_http(retry.clone()).await?;
+                    resolved = retry;
+                }
+                Err(e) => self
+                    .logs
+                    .push(format!("401, and the token was not renewed: {e}")),
+            }
+        }
         let mut error = None;
         if let Some(code) = script(&request.test_script) {
             let cookies = transport.script_cookies(&resolved.url, Some(&response));
@@ -528,6 +552,37 @@ impl NodeRun<'_> {
             body: Some(response.body),
             size: Some(response.size_bytes),
         })
+    }
+
+    /// `request` with a valid OAuth token in its auth, when it uses OAuth.
+    async fn with_oauth<T: Transport>(
+        &mut self,
+        request: &HttpRequest,
+        scope: &Scope,
+        transport: &T,
+        force: bool,
+    ) -> Result<HttpRequest, String> {
+        let mut out = request.clone();
+        let send = |request| transport.send_http(request);
+        let got = oauth::prepare_auth(
+            out.auth.as_mut(),
+            scope,
+            transport.token_store(),
+            send,
+            force,
+        )
+        .await
+        .map_err(|e| e.to_string())?;
+        if let Some(got) = got {
+            self.note_oauth(&got);
+        }
+        Ok(out)
+    }
+
+    fn note_oauth(&mut self, got: &oauth::Ensured) {
+        if got.renewed {
+            self.logs.push("OAuth: got a new access token".into());
+        }
     }
 
     async fn grpc<T: Transport>(
@@ -608,8 +663,18 @@ impl NodeRun<'_> {
             }
         }
         let strip_authorization = g.plaintext && !g.keep_auth_on_plaintext.unwrap_or(false);
+        let mut auth = g.auth.clone();
+        let scope = self.vars.scope(self.data);
+        let send = |request| transport.send_http(request);
+        if let Some(got) =
+            oauth::prepare_auth(auth.as_mut(), &scope, transport.token_store(), send, false)
+                .await
+                .map_err(|e| e.to_string())?
+        {
+            self.note_oauth(&got);
+        }
         let outgoing = request_prep::grpc_prepare(
-            g.auth.as_ref(),
+            auth.as_ref(),
             &message,
             &metadata,
             &self.vars.scope(self.data),
@@ -887,10 +952,15 @@ mod tests {
         opened: Mutex<Vec<GrpcTarget>>,
         /// (method, message, metadata) per call.
         calls: Mutex<Vec<GrpcCallSeen>>,
+        tokens: oauth::MemoryStore,
     }
 
     impl Transport for Fake {
         type Grpc = ();
+
+        fn token_store(&self) -> &dyn TokenStore {
+            &self.tokens
+        }
 
         fn send_http(
             &self,
@@ -1022,6 +1092,56 @@ mod tests {
         assert!(rows.iter().all(|r| r.ok));
         assert_eq!(rows[0].tests.len(), 1);
         assert_eq!(rows[0].target, "https://api.test/login");
+    }
+
+    #[tokio::test]
+    async fn oauth_gets_a_token_and_renews_it_once_on_401() {
+        let me = http(
+            "me",
+            json!({
+                "method": "GET", "url": "https://api.test/me",
+                "auth": {"type": "oauth2", "oauth": {
+                    "grant": "client_credentials", "tokenUrl": "{{auth}}/token",
+                    "clientId": "c", "clientSecret": "s",
+                }},
+            }),
+        );
+        let plan = RunPlan {
+            requests: vec![me],
+            ..RunPlan::default()
+        };
+        let fake = Fake::default();
+        fake.responses.lock().unwrap().extend([
+            (200, r#"{"access_token":"t1"}"#.to_string()),
+            (401, String::new()),
+            (200, r#"{"access_token":"t2"}"#.to_string()),
+            (200, "{}".to_string()),
+        ]);
+        let mut vars = RunVars {
+            environment: Scope::from([("auth".into(), "https://auth.test".into())]),
+            globals: Scope::new(),
+        };
+        let (_, events) = run(&plan, &mut vars, &fake).await;
+        let sent = fake.sent.lock().unwrap();
+        let seen: Vec<_> = sent
+            .iter()
+            .map(|r| {
+                (
+                    r.url.as_str(),
+                    r.headers.get("Authorization").map(String::as_str),
+                )
+            })
+            .collect();
+        assert_eq!(
+            seen,
+            [
+                ("https://auth.test/token", Some("Basic Yzpz")),
+                ("https://api.test/me", Some("Bearer t1")),
+                ("https://auth.test/token", Some("Basic Yzpz")),
+                ("https://api.test/me", Some("Bearer t2")),
+            ]
+        );
+        assert_eq!(rows(&events)[0].status, RowStatus::Code(200));
     }
 
     #[tokio::test]
