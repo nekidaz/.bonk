@@ -17,3 +17,4 @@ export { confirmState, requestChoice, requestConfirm } from './confirm.svelte';
 export { expandTarget, oneLinePreview, toggleFocus } from './focusMode';
 export { focusMode } from './focusModeStore.svelte';
 export { nextTabIndex, tablist } from './tablist';
+export { portal } from './portal';
