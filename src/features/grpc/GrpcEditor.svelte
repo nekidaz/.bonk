@@ -276,11 +276,14 @@
   // S29/S30: connection popover (GrpcTlsPopover) — open state lives here so the response pane can open it.
   let tlsOpen = $state(false);
   const stripAuth = $derived(stripsAuthorization(tab.grpc ?? {}, grpcPlaintext));
-  /** G4: ⌘I fills the whole message with an example. (⌘P lives in GrpcMethodPicker.) */
+  /** G4: ⌘I fills the whole message with an example. (⌘P lives in GrpcMethodPicker.) ⇧⌘↵ ends an open stream. */
   function onKeydown(e: KeyboardEvent): void {
     if ((e.metaKey || e.ctrlKey) && e.code === 'KeyI' && !e.shiftKey && !e.altKey) {
       e.preventDefault();
       void grpcLoadExample();
+    } else if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key === 'Enter' && streamWritable) {
+      e.preventDefault();
+      void grpcEndStream();
     }
   }
   function dismissGrpcError(): void {
@@ -348,6 +351,9 @@
     if (!requestId) return;
     requestRuntime.updateBusy((m) =>
       m[tabId]?.requestId === requestId ? { ...m, [tabId]: { ...m[tabId], writable: false } } : m,
+    );
+    tabs.updateById(tabId, (x) =>
+      x.grpcStream ? { ...x, grpcStream: { ...x.grpcStream, halfClosedAt: Date.now() } } : x,
     );
     await grpcStreamEnd(requestId);
   }
@@ -463,7 +469,12 @@
         tabs.updateById(tabId, (x) => ({
           ...x,
           grpcResult: undefined,
-          grpcStream: { messages: sent, done: false, startedAt: Date.now() },
+          grpcStream: {
+            messages: sent,
+            done: false,
+            startedAt: Date.now(),
+            kind: method?.clientStreaming ? (method.serverStreaming ? 'bidi' : 'client') : 'server',
+          },
         }));
         result = await grpcStream(g.connectionId, g.method, resolvedMessage, resolvedMetadata, requestId, (msg) =>
           tabs.updateById(tabId, (x) => {
@@ -589,18 +600,6 @@
       onImportProto={importProto}
     />
   </div>
-  {#if streamWritable}
-    <button class="bs-stream-btn" type="button" title={t('grpc.endStreamTitle')} onclick={grpcEndStream}
-      >{t('grpc.endStream')}</button
-    >
-    <button
-      class="bs-stream-btn stop"
-      type="button"
-      aria-label={t('grpc.stop')}
-      title={t('grpc.stop')}
-      onclick={grpcStop}><span class="stop-square" aria-hidden="true"></span></button
-    >
-  {/if}
   <button
     class="bs-send"
     disabled={noAddress && !grpcInvoking}
@@ -611,14 +610,28 @@
     onclick={grpcDoInvoke}
   >
     <span class="go">
-      {#if streamWritable}<span>{t('grpc.send')}</span>{:else if grpcInvoking && streamMethod}<span
-          class="stop-square"
-          aria-hidden="true"
-        ></span><span>{t('grpc.stop')}</span><kbd>⌘↵</kbd>{:else if grpcInvoking}<span>{t('common.cancel')}</span><kbd
-          >Esc</kbd
-        >{:else}<span>{t('grpc.invoke')}</span><kbd>⌘↵</kbd>{/if}
+      {#if streamWritable}<span class="material-symbols-outlined up" aria-hidden="true">arrow_upward</span><span
+          >{t('grpc.send')}</span
+        ><kbd>⌘↵</kbd>{:else if grpcInvoking && streamMethod}<span class="stop-square" aria-hidden="true"></span><span
+          >{t('grpc.stop')}</span
+        >{:else if grpcInvoking}<span>{t('common.cancel')}</span><kbd>Esc</kbd>{:else}<span>{t('grpc.invoke')}</span
+        ><kbd>⌘↵</kbd>{/if}
     </span>
   </button>
+  <!-- Client/bidi open: Send stays the main button; «Завершить» half-closes, ■ cancels. -->
+  {#if streamWritable}
+    <button class="bs-stream-btn" type="button" title={t('grpc.endStreamTitle')} onclick={grpcEndStream}
+      ><span class="material-symbols-outlined" aria-hidden="true">keyboard_tab</span>{t('grpc.endStream')}<kbd>⇧⌘↵</kbd
+      ></button
+    >
+    <button
+      class="bs-stream-btn stop"
+      type="button"
+      aria-label={t('grpc.stop')}
+      title={t('grpc.stop')}
+      onclick={grpcStop}><span class="stop-square" aria-hidden="true"></span></button
+    >
+  {/if}
 </div>
 
 <!-- Connection failures render in the response pane as S25 «Сервер недоступен»; this strip is for the rest. -->

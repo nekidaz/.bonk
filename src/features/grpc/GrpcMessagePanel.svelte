@@ -9,7 +9,7 @@
   import type { CompletionContext, CompletionResult } from '@codemirror/autocomplete';
   import { t, tp } from '$shared/i18n';
   import { errorFieldLines } from '$shared/editor';
-  import { checkGrpcMessage, atTopLevelKey, type GrpcMessageIssue } from '$entities/request';
+  import { checkGrpcMessage, atTopLevelKey, requestRuntime, type GrpcMessageIssue } from '$entities/request';
   import { fieldCompletionOptions } from './grpcEditor';
   import type { Tab, GrpcMethod } from '$shared/model';
   import { CodeEditor } from '$shared/editor/components';
@@ -51,6 +51,10 @@
   // G4: the request schema drives field completions and pre-send checks.
   const schemaFields = $derived(selectedMethod?.inputSchema ?? []);
   const inputShort = $derived(selectedMethod?.inputType?.split('.').pop() ?? '');
+  // Flow · gRPC Stream: while a client/bidi stream is open the editor holds the next message to send.
+  const nextSent = $derived(
+    requestRuntime.busy[tab.id]?.writable ? (tab.grpcStream?.messages.filter((m) => m.sent).length ?? 0) + 1 : 0,
+  );
   const issues = $derived(checkGrpcMessage(tab.grpc?.message ?? '', schemaFields));
   const issueText = (i: GrpcMessageIssue): string =>
     i.kind === 'unknown'
@@ -141,7 +145,11 @@
     {#if !largeMessage}
       <div class="bs-body-head">
         <span class="bs-body-caption"
-          >{t('grpc.tab.message')}{#if selectedMethod?.inputType}&nbsp;&nbsp;·&nbsp;&nbsp;{selectedMethod.inputType
+          >{#if nextSent}{t('grpc.msg.next')}&nbsp;&nbsp;·&nbsp;&nbsp;{tab.grpcStream?.kind === 'bidi'
+              ? '↑ '
+              : ''}#{nextSent}{:else}{t(
+              'grpc.tab.message',
+            )}{/if}{#if selectedMethod?.inputType}&nbsp;&nbsp;·&nbsp;&nbsp;{selectedMethod.inputType
               .split('.')
               .pop()}{/if}</span
         >

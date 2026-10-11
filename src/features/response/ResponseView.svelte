@@ -45,6 +45,8 @@
   import { responseFileName, saveResponseBody } from './saveResponse';
   import type { Snippet } from 'svelte';
   import { isCancelled, isTimeout, responseTone } from './responseHint';
+  import StreamFeed from './StreamFeed.svelte';
+  import { formatCount, streamCount } from './streamFeed';
 
   const { tab, onSettings = () => {} }: { tab: Tab | undefined; onSettings?: () => void } = $props();
 
@@ -100,39 +102,6 @@
   };
   const statusText = (s: number) => STATUS_TEXT[s] ?? t(STATUS_CLASS[Math.floor(s / 100)] ?? 'response.status.network');
   const ok = (s: number) => s >= 200 && s < 300;
-  /** HH:MM:SS.mmm for stream messages. */
-  const streamClock = (ms: number) => {
-    const d = new Date(ms);
-    const p = (n: number, w = 2) => String(n).padStart(w, '0');
-    return `${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}.${p(d.getMilliseconds(), 3)}`;
-  };
-  /** One stream message as a spaced single line (`{ "k": v }`), split into syntax tokens. */
-  function inlineJson(body: string): { text: string; kind: string }[] {
-    let text = body;
-    try {
-      const v = JSON.parse(body);
-      text =
-        v && typeof v === 'object' && !Array.isArray(v)
-          ? `{ ${Object.entries(v)
-              .map(([k, x]) => `${JSON.stringify(k)}: ${JSON.stringify(x)}`)
-              .join(', ')} }`
-          : JSON.stringify(v);
-    } catch {
-      /* not JSON: show as is */
-    }
-    const out: { text: string; kind: string }[] = [];
-    for (const m of text.matchAll(
-      /("(?:\\.|[^"\\])*")(\s*:)?|(-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?|true|false|null)|([^"\d\-tfn]+|.)/g,
-    )) {
-      if (m[1]) {
-        out.push({ text: m[1], kind: m[2] ? 'k' : 's' });
-        if (m[2]) out.push({ text: m[2], kind: 'p' });
-      } else if (m[3]) out.push({ text: m[3], kind: 'n' });
-      else out.push({ text: m[0], kind: 'p' });
-    }
-    return out;
-  }
-
   function headerValue(headers: Record<string, string> | undefined, name: string): string {
     const lower = name.toLowerCase();
     const found = Object.entries(headers ?? {}).find(([k]) => k.toLowerCase() === lower);
@@ -166,6 +135,14 @@
         .map((m) => m.body)
         .join(',') ?? ''
     }]`;
+  /** Feed pause (Flow · gRPC Stream ST7), tied to the stream it was set on; StreamFeed owns the logic. */
+  let streamPause = $state<{ startedAt: number; at: number }>();
+  const feedPaused = $derived(!!streamPause && streamPause.startedAt === tab?.grpcStream?.startedAt);
+  const streamCountLabel = $derived(
+    tab?.grpcStream
+      ? streamCount(tab.grpcStream.kind ?? 'server', tab.grpcStream.messages, (n) => formatCount(n, uiLanguage.current))
+      : '',
+  );
   function clearFeed(): void {
     if (tab)
       tabs.updateById(tab.id, (x) => (x.grpcStream ? { ...x, grpcStream: { ...x.grpcStream, messages: [] } } : x));
@@ -471,11 +448,23 @@
       </div>
       {#if sending && tab.grpcStream}
         <div class="bs-meta">
-          <span class="bs-stpill success"
-            ><span class="g" aria-hidden="true">●</span>{t('response.streaming', {
-              n: tab.grpcStream.messages.filter((m) => !m.sent).length,
-            })}</span
-          >
+          {#if feedPaused}
+            <span class="bs-stpill warning"
+              ><span class="g" aria-hidden="true">‖</span>{t('response.stream.paused_pill', {
+                n: formatCount(tab.grpcStream.messages.filter((m) => !m.sent).length, uiLanguage.current),
+              })}</span
+            >
+          {:else if busy?.writable}
+            <span class="bs-stpill open"
+              ><span class="g" aria-hidden="true">●</span>{t('response.stream.open_pill', {
+                n: streamCountLabel,
+              })}</span
+            >
+          {:else}
+            <span class="bs-stpill success"
+              ><span class="g" aria-hidden="true">●</span>{t('response.streaming', { n: streamCountLabel })}</span
+            >
+          {/if}
           <span class="mo lb-time" title={t('response.time')}
             >{((now - tab.grpcStream.startedAt) / 1000).toFixed(1)} s</span
           >
@@ -503,7 +492,7 @@
           <span class="bs-stpill {grpcTone}"
             ><span class="g" aria-hidden="true"
               >{grpcTone === 'success' ? '✓' : grpcTone === 'warning' ? '!' : '×'}</span
-            >{grpcStatusLabel(grpcCode)}</span
+            >{grpcStatusLabel(grpcCode)}{tab.grpcStream?.messages.length ? ` · ${streamCountLabel}` : ''}</span
           >
           <span class="mo lb-time" title={t('response.time')}>{grpcElapsed(tab.grpcResult.elapsed_ms)}</span>
           <span class="mo lb-size" title={t('response.size')}
@@ -562,45 +551,7 @@
     {:else if respTab === 'trailers' && Object.keys(grpcTrailers).length}
       {@render mdList(grpcTrailers)}
     {:else if tab.grpcStream && respTab !== 'timeline' && respTab !== 'tests' && !(tab.grpcResult && !tab.grpcResult.ok && !tab.grpcStream.messages.length)}
-      <div class="bs-rbody bs-stream-feed">
-        {#each tab.grpcStream.messages as m, i ((m.sent ? 's' : 'r') + m.index)}
-          <div
-            class="msg"
-            class:sent={m.sent}
-            class:last={i === tab.grpcStream.messages.length - 1 && !(tab.grpcResult && !tab.grpcResult.ok)}
-          >
-            <span class="no">{m.sent ? '↑' : '#'}{m.index}</span>
-            <span class="at">{streamClock(m.atMs)}</span>
-            <code
-              >{#each inlineJson(m.body) as t}<span class={t.kind}>{t.text}</span>{/each}</code
-            >
-          </div>
-        {/each}
-        {#if sending}<div class="waiting">
-            <span class="dot" aria-hidden="true"></span>{t('response.waiting_next')}
-          </div>{/if}
-        {#if tab.grpcResult && !tab.grpcResult.ok}
-          {@const n = tab.grpcStream.messages.length}
-          {@const saved = t('response.stream.saved', {
-            n,
-            msgs: tp(n, ['сообщение', 'сообщения', 'сообщений'], ['message', 'messages']),
-            recv: tp(n, ['полученное', 'полученные', 'полученных'], ['', '']),
-            until: t(grpcCode === 'CANCELLED' ? 'response.stream.until_stop' : 'response.stream.until_error'),
-            saved: tp(n, ['сохранено', 'сохранены', 'сохранены'], ['', '']),
-          })}
-          {#if grpcCode !== 'CANCELLED'}
-            <div class="msg err" role="alert">
-              <span class="no">×</span>
-              <span class="at">{streamClock(tab.grpcStream.startedAt + tab.grpcResult.elapsed_ms)}</span>
-              <code>{grpcStatusLabel(grpcCode)} · {tab.grpcResult.body}</code>
-            </div>
-          {/if}
-          <div class="waiting ended">
-            <span class="dot" aria-hidden="true"
-            ></span>{`${t(grpcCode === 'CANCELLED' ? 'response.stream.stopped' : 'response.stream.closed')} ${saved}`}
-          </div>
-        {/if}
-      </div>
+      <StreamFeed {tab} {sending} writable={!!busy?.writable} code={grpcCode} bind:pause={streamPause} />
     {:else if !tab.grpcResult && preFailed && testResults && !sending}
       {@render preFailedView(testResults, false)}
     {:else if !tab.grpcResult}
