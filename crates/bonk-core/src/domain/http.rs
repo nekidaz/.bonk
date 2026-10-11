@@ -49,7 +49,7 @@ pub struct BodyParam {
     pub file_path: Option<String>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AuthConfig {
     #[serde(rename = "type")]
@@ -66,6 +66,38 @@ pub struct AuthConfig {
     pub api_key_value: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub api_key_in: Option<String>,
+    /// Settings for `type: "oauth2"`. The token itself is never saved here: it lives in
+    /// the keychain and is put into `bearer_token` of the outgoing copy only.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub oauth: Option<OAuthConfig>,
+}
+
+/// OAuth 2.0 client settings (`{{vars}}` allowed everywhere). Empty strings mean "unset".
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct OAuthConfig {
+    /// `authorization_code` (default), `client_credentials` or `password`.
+    pub grant: String,
+    pub auth_url: String,
+    pub token_url: String,
+    pub revoke_url: String,
+    pub client_id: String,
+    pub client_secret: String,
+    /// `basic` (default): client id/secret in an `Authorization: Basic` header; `body`: in the form.
+    pub client_auth: String,
+    /// Space-separated, as on the wire.
+    pub scope: String,
+    pub audience: String,
+    /// Empty: `http://127.0.0.1:<free port>/callback`.
+    pub redirect_uri: String,
+    /// PKCE S256 for the code grant; on unless set to `false`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub pkce: Option<bool>,
+    pub username: String,
+    pub password: String,
+    /// Get a new token by itself when the old one expired; on unless set to `false`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub auto_refresh: Option<bool>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

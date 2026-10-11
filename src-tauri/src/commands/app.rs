@@ -77,13 +77,25 @@ pub fn reveal_path(path: String) -> Result<(), String> {
 /// Open the public release notes (the in-app update popover's "All changes").
 #[tauri::command]
 pub fn open_releases() -> Result<(), String> {
-    const URL: &str = "https://github.com/nekidaz/.bonk/releases";
+    open_in_browser("https://github.com/nekidaz/.bonk/releases")
+}
+
+/// Open an http(s) link in the system browser (an OAuth login page, say).
+#[tauri::command]
+pub fn open_url(url: String) -> Result<(), String> {
+    if !(url.starts_with("https://") || url.starts_with("http://")) {
+        return Err("only http(s) links can be opened".into());
+    }
+    open_in_browser(&url)
+}
+
+pub(crate) fn open_in_browser(url: &str) -> Result<(), String> {
     let status = if cfg!(target_os = "macos") {
-        std::process::Command::new("open").arg(URL).status()
+        std::process::Command::new("open").arg(url).status()
     } else if cfg!(target_os = "windows") {
-        std::process::Command::new("explorer").arg(URL).status()
+        std::process::Command::new("explorer").arg(url).status()
     } else {
-        std::process::Command::new("xdg-open").arg(URL).status()
+        std::process::Command::new("xdg-open").arg(url).status()
     };
     status.map(|_| ()).map_err(|e| e.to_string())
 }

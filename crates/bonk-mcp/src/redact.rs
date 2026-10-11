@@ -29,6 +29,13 @@ pub(crate) fn redact_node(mut node: RequestNode) -> RequestNode {
         redact_option(&mut auth.bearer_token);
         redact_option(&mut auth.basic_password);
         redact_option(&mut auth.api_key_value);
+        if let Some(oauth) = auth.oauth.as_mut() {
+            for value in [&mut oauth.client_secret, &mut oauth.password] {
+                if !value.is_empty() {
+                    *value = "<redacted>".into();
+                }
+            }
+        }
     }
     if let Some(grpc) = node.grpc.as_mut() {
         for (name, value) in &mut grpc.metadata {

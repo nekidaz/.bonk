@@ -13,7 +13,7 @@ use serde::Serialize;
 use serde_json::Value;
 
 use super::{
-    http::{AuthConfig, BodyParam, HttpRequest},
+    http::{AuthConfig, BodyParam, HttpRequest, OAuthConfig},
     workspace::{Param, TreeNode},
 };
 
@@ -117,6 +117,9 @@ pub fn resolve(request: &mut HttpRequest, scope: &Scope) -> Result<(), String> {
         ] {
             *value = value.as_deref().map(text);
         }
+        if let Some(oauth) = auth.oauth.as_mut() {
+            resolve_oauth(oauth, scope);
+        }
     }
     if request.body_mode.as_deref() == Some("graphql") {
         if let Some(query) = request.body.take() {
@@ -128,6 +131,24 @@ pub fn resolve(request: &mut HttpRequest, scope: &Scope) -> Result<(), String> {
         }
     }
     apply_auth(request)
+}
+
+/// `{{vars}}` resolved in every OAuth setting.
+pub fn resolve_oauth(oauth: &mut OAuthConfig, scope: &Scope) {
+    for value in [
+        &mut oauth.auth_url,
+        &mut oauth.token_url,
+        &mut oauth.revoke_url,
+        &mut oauth.client_id,
+        &mut oauth.client_secret,
+        &mut oauth.scope,
+        &mut oauth.audience,
+        &mut oauth.redirect_uri,
+        &mut oauth.username,
+        &mut oauth.password,
+    ] {
+        *value = resolve_text(value, scope);
+    }
 }
 
 pub fn resolve_text(value: &str, scope: &Scope) -> String {
@@ -152,12 +173,8 @@ pub fn effective_auth(tree: &[TreeNode], id: &str, own: Option<&AuthConfig>) -> 
         .cloned()
         .unwrap_or_else(|| AuthConfig {
             auth_type: "none".into(),
-            bearer_token: None,
-            basic_username: None,
-            basic_password: None,
-            api_key_name: None,
-            api_key_value: None,
             api_key_in: Some("header".into()),
+            ..AuthConfig::default()
         })
 }
 
@@ -223,7 +240,7 @@ fn grpc_metadata(
         return explicit_metadata(out, metadata, scope, strip_authorization);
     };
     match auth.auth_type.as_str() {
-        "bearer" => {
+        "bearer" | "oauth2" => {
             if let Some(token) = auth.bearer_token.as_deref().map(str::trim) {
                 if !token.is_empty() {
                     out.insert("authorization".into(), format!("Bearer {}", text(token)));
@@ -300,7 +317,8 @@ fn apply_auth(request: &mut HttpRequest) -> Result<(), String> {
     };
     match auth.auth_type.as_str() {
         "none" | "" | "inherit" => {}
-        "bearer" => {
+        // The send path puts the keychain token into `bearer_token` (application::oauth).
+        "bearer" | "oauth2" => {
             if let Some(token) = auth.bearer_token.filter(|token| !token.trim().is_empty()) {
                 let value = format!("Bearer {}", token.trim());
                 set_header_if_missing(&mut request.headers, "Authorization", &value);
@@ -484,11 +502,7 @@ mod tests {
         AuthConfig {
             auth_type: kind.into(),
             bearer_token: Some("{{token}}".into()),
-            basic_username: None,
-            basic_password: None,
-            api_key_name: None,
-            api_key_value: None,
-            api_key_in: None,
+            ..AuthConfig::default()
         }
     }
 
