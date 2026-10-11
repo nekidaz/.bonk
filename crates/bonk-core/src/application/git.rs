@@ -1985,7 +1985,7 @@ pub fn rebase_plan(root: &str, onto: &str) -> Result<RebasePlan, String> {
 /// `sequence.editor` is `cp '<todo>'`: git appends its own todo path, so the
 /// copy overwrites it (on Windows `cp` comes from Git's own sh). A reword is a
 /// `pick` plus `exec git commit --amend -F <file>`. `core.editor=true` keeps
-/// git's combined message for squash. Temp files are removed afterwards.
+/// git's combined message for squash. The files are removed afterwards.
 pub fn rebase_interactive(root: &str, onto: &str, steps: &[RebaseAction]) -> Result<(), String> {
     check_name(onto)?;
     let mut first_kept = true;
@@ -2010,59 +2010,79 @@ pub fn rebase_interactive(root: &str, onto: &str, steps: &[RebaseAction]) -> Res
         }
     }
     let top = toplevel(root)?;
+    // The todo and reword messages live in a fresh directory inside the repo's own
+    // git dir, never in the shared temp dir: there another user could pre-create
+    // the predictable names (or symlink them) and swap in a todo with `exec` lines.
+    // `create_dir` fails if the name already exists, so the directory is ours.
+    let git_dir = git(&top, &["rev-parse", "--absolute-git-dir"])?;
     static SEQ: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
-    let tag = format!(
+    let dir = std::path::Path::new(git_dir.trim()).join(format!(
         "bonk-rebase-{}-{}",
         std::process::id(),
         SEQ.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
-    );
-    let tmp = std::env::temp_dir();
-    let todo_path = tmp.join(format!("{tag}-todo"));
-    let mut files = vec![todo_path.clone()];
+    ));
+    std::fs::create_dir(&dir).map_err(|e| format!("failed to create {}: {e}", dir.display()))?;
+    let result = run_rebase_todo(&top, &dir, onto, steps);
+    let _ = std::fs::remove_dir_all(&dir);
+    result
+}
+
+/// Write the todo (and reword messages) into `dir` and run the rebase with it.
+fn run_rebase_todo(
+    top: &str,
+    dir: &std::path::Path,
+    onto: &str,
+    steps: &[RebaseAction],
+) -> Result<(), String> {
+    let write = |name: &str, body: &str| -> Result<std::path::PathBuf, String> {
+        let path = dir.join(name);
+        let mut f = std::fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&path)
+            .map_err(|e| format!("failed to write {}: {e}", path.display()))?;
+        std::io::Write::write_all(&mut f, body.as_bytes())
+            .map_err(|e| format!("failed to write {}: {e}", path.display()))?;
+        Ok(path)
+    };
     let mut todo = String::new();
-    let mut result = Ok(());
     for (i, s) in steps.iter().enumerate() {
         if s.action != "reword" {
             todo.push_str(&format!("{} {}\n", s.action, s.hash));
             continue;
         }
-        let msg_path = tmp.join(format!("{tag}-msg{i}"));
-        if let Err(e) = std::fs::write(&msg_path, s.message.as_deref().unwrap_or("")) {
-            result = Err(format!("failed to write temp file: {e}"));
-            break;
-        }
-        files.push(msg_path.clone());
+        let msg = write(&format!("msg{i}"), s.message.as_deref().unwrap_or(""))?;
         todo.push_str(&format!(
-            "pick {}\nexec git commit --amend -F '{}'\n",
+            "pick {}\nexec git commit --amend -F {}\n",
             s.hash,
-            msg_path.display()
+            sh_quote(&msg.display().to_string())
         ));
     }
-    if result.is_ok() {
-        result = std::fs::write(&todo_path, todo)
-            .map_err(|e| format!("failed to write temp file: {e}"))
-            .and_then(|_| {
-                let editor = format!("sequence.editor=cp '{}'", todo_path.display());
-                git(
-                    &top,
-                    &[
-                        "-c",
-                        &editor,
-                        "-c",
-                        "core.editor=true",
-                        "rebase",
-                        "-i",
-                        "--autostash",
-                        onto,
-                    ],
-                )
-                .map(|_| ())
-            });
-    }
-    for f in files {
-        let _ = std::fs::remove_file(f);
-    }
-    result
+    let todo_path = write("todo", &todo)?;
+    let editor = format!(
+        "sequence.editor=cp {}",
+        sh_quote(&todo_path.display().to_string())
+    );
+    git(
+        top,
+        &[
+            "-c",
+            &editor,
+            "-c",
+            "core.editor=true",
+            "rebase",
+            "-i",
+            "--autostash",
+            onto,
+        ],
+    )
+    .map(|_| ())
+}
+
+/// Single-quote `s` for sh (git runs the editor and `exec` lines through it), so a
+/// repo path with spaces or quotes stays one word.
+fn sh_quote(s: &str) -> String {
+    format!("'{}'", s.replace('\'', "'\\''"))
 }
 
 #[cfg(test)]
@@ -3121,6 +3141,12 @@ mod tests {
         assert!(!dir.join("f1.txt").exists());
         assert_eq!(status(r).unwrap().operation, "");
         let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn sh_quote_keeps_a_path_one_word() {
+        assert_eq!(sh_quote("/a b/c"), "'/a b/c'");
+        assert_eq!(sh_quote("/O'Brien/x"), "'/O'\\''Brien/x'");
     }
 
     #[test]
