@@ -55,7 +55,7 @@
   /** D: unfocused, a multi-line message shows only its subject and «ещё N строк». */
   const collapsed = $derived(!focused && parts.more > 0);
   const subjectLen = $derived(git.message.split('\n')[0].length);
-  const canCommit = $derived(git.message.trim() !== '' && (staged.length > 0 || git.amend));
+  const canCommit = $derived(!git.busy && git.message.trim() !== '' && (staged.length > 0 || git.amend));
 
   // Grow with the text up to MESSAGE_MAX_LINES lines, then scroll.
   $effect(() => {
@@ -174,7 +174,7 @@
   </button>
 {/snippet}
 
-<div class="bs-gitpanel">
+<div class="bs-gitpanel" class:busy={git.busy}>
   {#if !workspace.path}
     <div class="empty">
       <span class="tile material-symbols-outlined" aria-hidden="true">folder_open</span>
@@ -255,7 +255,11 @@
       {#if staged.length}
         <div class="sec">
           <span class="eb">{t('git.staged')}</span><span class="n">{staged.length}</span>
-          <button class="ico" title={t('git.unstageAll')} onclick={() => unstagePaths(staged.map((f) => f.path))}
+          <button
+            class="ico"
+            disabled={git.busy}
+            title={t('git.unstageAll')}
+            onclick={() => unstagePaths(staged.map((f) => f.path))}
             ><span class="material-symbols-outlined">remove</span></button
           >
         </div>
@@ -270,13 +274,17 @@
           >
         {/if}
         {#if changes.length}
-          <button class="ico" title={t('git.stash.title')} onclick={openStash}
+          <button class="ico" disabled={git.busy} title={t('git.stash.title')} onclick={openStash}
             ><span class="material-symbols-outlined">inventory_2</span></button
           >
-          <button class="ico" title={t('git.discardAll')} onclick={discardAll}
+          <button class="ico" disabled={git.busy} title={t('git.discardAll')} onclick={discardAll}
             ><span class="material-symbols-outlined">undo</span></button
           >
-          <button class="ico" title={t('git.stageAll')} onclick={() => stagePaths(changes.map((f) => f.path))}
+          <button
+            class="ico"
+            disabled={git.busy}
+            title={t('git.stageAll')}
+            onclick={() => stagePaths(changes.map((f) => f.path))}
             ><span class="material-symbols-outlined">add</span></button
           >
         {/if}
@@ -320,6 +328,9 @@
 </div>
 
 <style>
+  .bs-gitpanel.busy {
+    cursor: progress;
+  }
   .bs-gitpanel {
     flex: 1;
     min-height: 0;
@@ -525,7 +536,11 @@
     border-radius: var(--radius-control);
     color: var(--color-text-muted);
   }
-  .ico:hover {
+  .ico:disabled {
+    opacity: 0.4;
+    cursor: progress;
+  }
+  .ico:hover:not(:disabled) {
     background: var(--color-hover);
     color: var(--color-text);
   }

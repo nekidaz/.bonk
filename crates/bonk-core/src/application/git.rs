@@ -6,7 +6,7 @@
 //! against their remotes exactly as on the command line.
 
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::io::Read;
 use std::process::{Command, Stdio};
 use std::time::{Duration, Instant};
@@ -368,52 +368,55 @@ fn staged_renames(top: &str) -> HashMap<String, String> {
 /// clean rather than losing the file. Tracked-modify, untracked, and staged-new
 /// files are handled as above.
 pub fn discard(root: &str, paths: &[String]) -> Result<(), String> {
+    if paths.is_empty() {
+        return Ok(());
+    }
     // `paths` are toplevel-relative, so resolve the toplevel and run/join there.
     let top = toplevel(root)?;
     let renames = staged_renames(&top);
+    // Which paths HEAD has, in one `ls-tree` (the `--` keeps a path that starts
+    // with `-` from being read as a flag; an unborn HEAD has none). A constant
+    // number of git processes per discard, however many files: a fresh
+    // collection of hundreds of untracked requests must not spawn one per file.
+    // ponytail: all paths go on one command line; batch it if workspaces ever
+    // reach tens of thousands of changed files (ARG_MAX).
+    let mut args: Vec<&str> = vec!["ls-tree", "--name-only", "-z", "HEAD", "--"];
+    args.extend(paths.iter().map(String::as_str));
+    let in_head: HashSet<String> = git(&top, &args)
+        .map(|out| {
+            out.split('\0')
+                .filter(|p| !p.is_empty())
+                .map(str::to_string)
+                .collect()
+        })
+        .unwrap_or_default();
+
+    // Restored from HEAD: tracked files, and a staged rename's original path
+    // (un-staging its delete side). Dropped: everything HEAD doesn't have,
+    // including a staged rename's new path.
+    let mut restore: Vec<&str> = Vec::new();
+    let mut drop: Vec<&str> = Vec::new();
     for p in paths {
-        // Staged rename: the new path isn't in HEAD, so the in-HEAD branch below
-        // would only delete it and leave the old path staged-as-deleted. Restore
-        // the old path from HEAD (un-staging the delete), then drop the new path.
         if let Some(old) = renames.get(p) {
-            git(
-                &top,
-                &[
-                    "restore",
-                    "--staged",
-                    "--worktree",
-                    "--source=HEAD",
-                    "--",
-                    old,
-                ],
-            )?;
-            let _ = git(&top, &["rm", "--cached", "-q", "--", p]);
-            let _ = std::fs::remove_file(std::path::Path::new(&top).join(p));
-            continue;
-        }
-        // Detect "exists in HEAD" with a `--`-separated form so a path that
-        // starts with `-` (or otherwise looks like an option) can't be parsed as
-        // a flag — `HEAD:{p}` puts the path in git's object-path slot where `--`
-        // can't guard it. `ls-tree` prints the path only when it's tracked at
-        // HEAD, so non-empty output means it exists.
-        let in_head = git(&top, &["ls-tree", "--name-only", "HEAD", "--", p])
-            .map(|out| !out.trim().is_empty())
-            .unwrap_or(false);
-        if in_head {
-            git(
-                &top,
-                &[
-                    "restore",
-                    "--staged",
-                    "--worktree",
-                    "--source=HEAD",
-                    "--",
-                    p,
-                ],
-            )?;
+            restore.push(old);
+            drop.push(p);
+        } else if in_head.contains(p) {
+            restore.push(p);
         } else {
-            // Drop from the index if staged (no-op otherwise), then remove the file.
-            let _ = git(&top, &["rm", "--cached", "-q", "--", p]);
+            drop.push(p);
+        }
+    }
+    if !restore.is_empty() {
+        let mut args = vec!["restore", "--staged", "--worktree", "--source=HEAD", "--"];
+        args.extend(&restore);
+        git(&top, &args)?;
+    }
+    if !drop.is_empty() {
+        // Drop from the index where staged (a no-op for untracked), then delete.
+        let mut args = vec!["rm", "--cached", "-q", "--ignore-unmatch", "--"];
+        args.extend(&drop);
+        git(&top, &args)?;
+        for p in drop {
             let _ = std::fs::remove_file(std::path::Path::new(&top).join(p));
         }
     }
@@ -713,28 +716,36 @@ fn diff_head_at(top: &str, path: &str) -> Result<String, String> {
     git(top, &["diff", "HEAD", "--", path])
 }
 
-/// The platform's null device, used as the "before" side of an untracked-file
-/// diff: `/dev/null` on unix, `NUL` on Windows (a bare `/dev/null` path doesn't
-/// exist there, so the diff would error instead of showing the file body).
-#[cfg(windows)]
-const NULL_DEVICE: &str = "NUL";
-#[cfg(not(windows))]
-const NULL_DEVICE: &str = "/dev/null";
-
-/// Diff an untracked file against the null device so its full contents show as
-/// additions. `--no-index` exits 0 (identical) or 1 (differences) — both are
-/// normal here; only a higher code is a real error.
+/// Diff an untracked file as one addition of its whole contents (a binary
+/// file gets git's one-line "Binary files … differ").
 fn diff_untracked_at(top: &str, path: &str) -> Result<String, String> {
-    let output = Command::new("git")
-        .arg("-C")
-        .arg(top)
-        .args(["diff", "--no-index", FULL, "--", NULL_DEVICE, path])
-        .output()
-        .map_err(|e| format!("failed to run git: {e}"))?;
-    match output.status.code() {
-        Some(0) | Some(1) => Ok(String::from_utf8_lossy(&output.stdout).into_owned()),
-        _ => Err(String::from_utf8_lossy(&output.stderr).trim().to_string()),
+    // Built here rather than by `git diff --no-index`: the Project Diff asks for
+    // every untracked file, and a process per file made hundreds of them slow.
+    let bytes =
+        std::fs::read(std::path::Path::new(top).join(path)).map_err(|e| format!("{path}: {e}"))?;
+    let mut out = format!("diff --git a/{path} b/{path}\nnew file mode 100644\n");
+    if bytes.contains(&0) {
+        out.push_str(&format!("Binary files /dev/null and b/{path} differ\n"));
+        return Ok(out);
     }
+    let text = String::from_utf8_lossy(&bytes);
+    if text.is_empty() {
+        return Ok(out);
+    }
+    let lines: Vec<&str> = text.lines().collect();
+    out.push_str(&format!(
+        "--- /dev/null\n+++ b/{path}\n@@ -0,0 +1,{} @@\n",
+        lines.len()
+    ));
+    for line in lines {
+        out.push('+');
+        out.push_str(line);
+        out.push('\n');
+    }
+    if !text.ends_with('\n') {
+        out.push_str("\\ No newline at end of file\n");
+    }
+    Ok(out)
 }
 
 /// Split a multi-file diff into one text per `diff --git` section.
@@ -1346,14 +1357,18 @@ mod tests {
         // Modify a tracked file, add an untracked one, stage a brand-new one.
         fs::write(dir.join("tracked.bonk.json"), "{\"v\":999}\n").unwrap();
         fs::write(dir.join("untracked.bonk.json"), "{}").unwrap();
+        fs::create_dir_all(dir.join("New Folder")).unwrap();
+        fs::write(dir.join("New Folder/спуск.bonk.json"), "{}").unwrap();
         fs::write(dir.join("added.bonk.json"), "{}").unwrap();
         stage(root, &["added.bonk.json".to_string()]).unwrap();
 
+        // All in one call: one batch of git processes, not one per file.
         discard(
             root,
             &[
                 "tracked.bonk.json".to_string(),
                 "untracked.bonk.json".to_string(),
+                "New Folder/спуск.bonk.json".to_string(),
                 "added.bonk.json".to_string(),
             ],
         )
@@ -1364,6 +1379,7 @@ mod tests {
         assert_eq!(content, "{\"v\":1}\n");
         // Untracked + staged-new files are gone.
         assert!(!dir.join("untracked.bonk.json").exists());
+        assert!(!dir.join("New Folder/спуск.bonk.json").exists());
         assert!(!dir.join("added.bonk.json").exists());
         // Working tree is clean.
         let st = status(root).unwrap();
