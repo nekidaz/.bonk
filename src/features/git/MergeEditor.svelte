@@ -4,7 +4,8 @@
    * is one aligned row across the columns: » / « take a side into the result, × rejects it,
    * «Слить непересекающиеся» takes every side that doesn't collide. Apply writes the result and
    * marks the file resolved once nothing is left to decide. «Поля» merges a JSON request field by
-   * field instead (mergeFields.ts): the same columns, one row per changed field.
+   * field instead (mergeFields.ts): the same columns, one row per changed field. Any result block
+   * or field can also be typed by hand (✎): it then counts as decided and is marked «вручную».
    */
   import { untrack } from 'svelte';
   import { findNode, workspace } from '$entities/workspace';
@@ -24,6 +25,8 @@
   } from './merge3';
   import {
     autoChoices,
+    chosenValue,
+    parseValue,
     fields as fieldsOf,
     initialChoices,
     mergeFields,
@@ -53,6 +56,17 @@
   let mineObj: Obj = {};
   let trailing = false;
   const fieldsMode = $derived(fieldsOk && mergeMode.current === 'fields');
+
+  // Hand edits of the result, one block (or field) at a time, in place.
+  let editing = $state<number | null>(null);
+  let draft = $state('');
+  let draftError = $state('');
+  const isManual = (c: FieldChoice) => !!c && typeof c === 'object';
+  // Switching JSON | Поля changes what an index means: drop an open edit.
+  $effect(() => {
+    void fieldsMode;
+    editing = null;
+  });
 
   const path = $derived(tab.git?.path ?? '');
   const info = $derived(describeFile(path, git.prefix, (id) => findNode(workspace.tree, id)));
@@ -111,8 +125,17 @@
           total: fChanged.length,
           auto: fAuto.filter(Boolean).length,
           result: fResult,
+          open: fConflicts.filter((k) => choices[k] === null).length,
         }
-      : { conflicts, focus, left, total: changes.length, auto: autoCount, result },
+      : {
+          conflicts,
+          focus,
+          left,
+          total: changes.length,
+          auto: autoCount,
+          result,
+          open: conflicts.filter((k) => isPending(res[k])).length,
+        },
   );
 
   function fNext(from: number, dir = 1): number {
@@ -196,7 +219,61 @@
     }
   }
 
+  function startEdit(i: number): void {
+    if (fieldsMode) {
+      const f = fs[i];
+      const c = choices[i];
+      const v = c === null ? f.mine : chosenValue(f, c);
+      draft = v === undefined ? '' : JSON.stringify(v, null, 2);
+    } else {
+      const c = chunks[i];
+      // An open conflict starts from both sides, mine first, to cut down from.
+      draft = (resolvedLines(c, res[i]) ?? (c.kind === 'change' ? [...c.mine, ...c.theirs] : [])).join('\n');
+    }
+    draftError = '';
+    editing = i;
+    requestAnimationFrame(() => document.querySelector<HTMLTextAreaElement>('.bs-gview textarea.edit')?.focus());
+  }
+
+  function saveEdit(): void {
+    const i = editing;
+    if (i === null) return;
+    if (fieldsMode) {
+      let value;
+      try {
+        value = parseValue(draft);
+      } catch {
+        draftError = t('git.mg.badJson');
+        return;
+      }
+      choose(i, { value });
+    } else {
+      res = res.map((r, k) => (k === i ? { ...r, edited: draft === '' ? [] : draft.split('\n'), auto: false } : r));
+      const next = nextPending(i);
+      if (next !== -1) focus = next;
+    }
+    editing = null;
+  }
+
+  /** Forget a hand edit: the block (or field) goes back to its sides. */
+  function undoEdit(i: number): void {
+    if (fieldsMode) choices = choices.map((c, k) => (k === i ? initialChoices([fs[i]])[0] : c));
+    else res = res.map((r, k) => (k === i ? initialResolution(chunks[i]) : r));
+  }
+
+  function editKey(e: KeyboardEvent): void {
+    e.stopPropagation();
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      editing = null;
+    } else if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+      e.preventDefault();
+      saveEdit();
+    }
+  }
+
   function onKey(e: KeyboardEvent): void {
+    if ((e.target as HTMLElement | null)?.closest?.('textarea, input')) return;
     if (fieldsMode && e.altKey && fs[ffocus]) {
       if (e.key === 'ArrowLeft') choose(ffocus, 'mine');
       else if (e.key === 'ArrowRight') choose(ffocus, 'theirs');
@@ -226,13 +303,15 @@
       return at;
     });
   });
+  // A block typed by hand took neither side as it was: both read as set aside.
   const stateOf = (r: Resolution, side: 'mine' | 'theirs', c: Chunk) =>
-    c.kind === 'change' && c.conflict && r[side] === 'pending' ? 'conflict' : r[side];
+    r.edited ? 'rejected' : c.kind === 'change' && c.conflict && r[side] === 'pending' ? 'conflict' : r[side];
   /** A field cell's colour: what this side offers and whether it was taken. */
   function fieldState(f: Field, c: FieldChoice, side: 'mine' | 'theirs'): string {
     const other = side === 'mine' ? 'theirs' : 'mine';
     if (f.kind === 'same' || f.kind === other) return '';
     if (c === null) return f.kind === 'conflict' ? 'conflict' : 'pending';
+    if (isManual(c)) return 'rejected';
     return c === side || f.kind === 'both' ? 'taken' : 'rejected';
   }
 </script>
@@ -242,6 +321,67 @@
 {#snippet cell(ls: string[], from: number, cls: string)}
   <div class="cell {cls}">
     {#each ls as l, k (k)}<div class="ln"><span class="no">{from + k}</span><code>{l}</code></div>{/each}
+  </div>
+{/snippet}
+
+{#snippet editor()}
+  <textarea
+    class="edit"
+    rows={Math.max(1, draft.split('\n').length)}
+    bind:value={draft}
+    spellcheck="false"
+    aria-label={t('git.mg.edit')}
+    onkeydown={editKey}></textarea>
+  {#if draftError}<div class="editerr">{draftError}</div>{/if}
+  <div class="editbar">
+    <span>{fieldsMode ? t('git.mg.editHintField') : t('git.mg.editHint')}</span>
+    <button onclick={() => (editing = null)}>{t('common.cancel')}</button>
+    <button class="save" onclick={saveEdit}>{t('git.mg.save')}</button>
+  </div>
+{/snippet}
+
+{#snippet tools(i: number, manual: boolean)}
+  <span class="tools">
+    {#if manual}<button title={t('git.mg.undoEdit')} aria-label={t('git.mg.undoEdit')} onclick={() => undoEdit(i)}
+        ><span class="material-symbols-outlined">undo</span></button
+      >{/if}
+    <button title={t('git.mg.edit')} aria-label={t('git.mg.edit')} onclick={() => startEdit(i)}
+      ><span class="material-symbols-outlined">edit</span></button
+    >
+  </span>
+{/snippet}
+
+{#snippet resultCell(i: number, c: Chunk, r: Resolution, from: number)}
+  {@const out = resolvedLines(c, r)}
+  {@const cls = r.edited
+    ? 'edited'
+    : c.kind === 'same'
+      ? ''
+      : out === null
+        ? c.conflict
+          ? 'conflict'
+          : 'pending'
+        : 'taken'}
+  <div class="cell res {cls}{c.kind === 'change' && focus === i ? ' focus' : ''}">
+    {#if editing === i}
+      {@render editor()}
+    {:else}
+      {#if out === null}
+        {#if c.kind === 'change' && c.conflict}<div class="ln ask">
+            <span class="no"></span><i>{t('git.mg.choose')}</i>
+          </div>{/if}
+      {:else}
+        {#each out as l, k (k)}<div class="ln">
+            <span class="no">{from + k}</span><code>{l}</code>{#if k === 0 && r.edited}<span class="auto hand"
+                >{t('git.mg.handTag')}</span
+              >{:else if k === 0 && r.auto}<span class="auto">{t('git.mg.autoTag')}</span>{/if}
+          </div>{/each}
+        {#if !out.length && r.edited}<div class="ln">
+            <span class="no"></span><span class="auto hand">{t('git.mg.handTag')}</span>
+          </div>{/if}
+      {/if}
+      {@render tools(i, !!r.edited)}
+    {/if}
   </div>
 {/snippet}
 
@@ -259,7 +399,7 @@
             >{info.method}</b
           >{/if}
         <h2>{info.name}</h2>
-        {#if view.conflicts.length}
+        {#if view.open}
           <span class="bs-gtag bad"
             >{t('git.mg.counter', {
               i: Math.max(1, view.conflicts.indexOf(view.focus) + 1),
@@ -335,20 +475,26 @@
               {/if}
             </div>
             <div
-              class="fv res {c === null
-                ? f.kind === 'conflict'
-                  ? 'conflict'
-                  : 'pending'
-                : f.kind === 'same'
-                  ? ''
-                  : 'taken'}{hot}"
+              class="fv res {isManual(c)
+                ? 'edited'
+                : c === null
+                  ? f.kind === 'conflict'
+                    ? 'conflict'
+                    : 'pending'
+                  : f.kind === 'same'
+                    ? ''
+                    : 'taken'}{hot}"
             >
-              {#if c === null}
-                {#if f.kind === 'conflict'}<i class="ask">{t('git.mg.choose')}</i>{/if}
+              {#if editing === i}
+                {@render editor()}
               {:else}
-                {@render val(c === 'theirs' ? f.theirs : f.mine)}{#if fAuto[i]}<span class="auto"
-                    >{t('git.mg.autoTag')}</span
-                  >{/if}
+                {#if c === null}
+                  {#if f.kind === 'conflict'}<i class="ask">{t('git.mg.choose')}</i>{/if}
+                {:else}
+                  {@render val(chosenValue(f, c))}{#if isManual(c)}<span class="auto hand">{t('git.mg.handTag')}</span
+                    >{:else if fAuto[i]}<span class="auto">{t('git.mg.autoTag')}</span>{/if}
+                {/if}
+                {@render tools(i, isManual(c))}
               {/if}
             </div>
             <div class="g">
@@ -399,40 +545,25 @@
           {#if c.kind === 'same'}
             {@render cell(c.lines, at.mine, '')}
             <div class="g"></div>
-            {@render cell(c.lines, at.result, '')}
+            {@render resultCell(i, c, r, at.result)}
             <div class="g"></div>
             {@render cell(c.lines, at.theirs, '')}
           {:else}
-            {@const out = resolvedLines(c, r)}
             {@render cell(c.mine, at.mine, `ch ${stateOf(r, 'mine', c)}${focus === i ? ' focus' : ''}`)}
             <div class="g" data-chunk={i}>
-              {#if r.mine === 'pending'}
+              {#if r.mine === 'pending' && !r.edited}
                 <button title={t('git.mg.takeMine')} onclick={() => set(i, 'mine', 'taken')}>»</button>
                 <button title={t('git.mg.reject')} onclick={() => set(i, 'mine', 'rejected')}>×</button>
-              {:else if r.mine === 'taken' && c.from !== 'theirs'}
+              {:else if r.mine === 'taken' && c.from !== 'theirs' && !r.edited}
                 <span class="ok material-symbols-outlined">{r.auto ? 'auto_fix_high' : 'check'}</span>
               {/if}
             </div>
-            <div
-              class="cell res {out === null ? (c.conflict ? 'conflict' : 'pending') : 'taken'}{focus === i
-                ? ' focus'
-                : ''}"
-            >
-              {#if out === null}
-                {#if c.conflict}<div class="ln ask"><span class="no"></span><i>{t('git.mg.choose')}</i></div>{/if}
-              {:else}
-                {#each out as l, k (k)}<div class="ln">
-                    <span class="no">{at.result + k}</span><code>{l}</code>{#if r.auto && k === 0}<span class="auto"
-                        >{t('git.mg.autoTag')}</span
-                      >{/if}
-                  </div>{/each}
-              {/if}
-            </div>
+            {@render resultCell(i, c, r, at.result)}
             <div class="g">
-              {#if r.theirs === 'pending'}
+              {#if r.theirs === 'pending' && !r.edited}
                 <button title={t('git.mg.reject')} onclick={() => set(i, 'theirs', 'rejected')}>×</button>
                 <button title={t('git.mg.takeTheirs')} onclick={() => set(i, 'theirs', 'taken')}>«</button>
-              {:else if r.theirs === 'taken' && c.from !== 'mine'}
+              {:else if r.theirs === 'taken' && c.from !== 'mine' && !r.edited}
                 <span class="ok material-symbols-outlined">{r.auto ? 'auto_fix_high' : 'check'}</span>
               {/if}
             </div>
@@ -646,6 +777,86 @@
     color: var(--color-danger);
     font: italic var(--font-size-ui) var(--font-ui);
     line-height: 26px;
+  }
+  .res {
+    position: relative;
+  }
+  .res.edited {
+    background: color-mix(in srgb, var(--method-get) 14%, transparent);
+  }
+  .tools {
+    position: absolute;
+    top: 2px;
+    right: 6px;
+    display: none;
+    gap: 2px;
+  }
+  .res:hover .tools,
+  .res:focus-within .tools {
+    display: flex;
+  }
+  .tools button {
+    display: inline-flex;
+    width: 22px;
+    height: 22px;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--radius-control);
+    background: var(--color-raised);
+    color: var(--color-text-secondary);
+  }
+  .tools button:hover {
+    color: var(--color-text);
+  }
+  .tools .material-symbols-outlined {
+    font-size: 14px;
+  }
+  textarea.edit {
+    display: block;
+    width: 100%;
+    padding: 0 10px 0 58px;
+    border: 0;
+    outline: 1px solid var(--method-get);
+    outline-offset: -1px;
+    resize: none;
+    background: var(--color-raised);
+    color: var(--color-text);
+    font: inherit;
+    white-space: pre;
+  }
+  .fv textarea.edit {
+    padding: 0 10px;
+  }
+  .editerr {
+    padding: 2px 10px;
+    color: var(--color-danger);
+    font: var(--font-size-caption) var(--font-ui);
+  }
+  .editbar {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 6px;
+    color: var(--color-text-muted);
+    font: var(--font-size-caption) var(--font-ui);
+  }
+  .editbar span {
+    flex: 1;
+  }
+  .editbar button {
+    height: 24px;
+    padding: 0 10px;
+    border-radius: var(--radius-control);
+    color: var(--color-text-secondary);
+  }
+  .editbar .save {
+    background: var(--color-inverse);
+    color: var(--color-on-inverse);
+    font-weight: 600;
+  }
+  .auto.hand {
+    background: color-mix(in srgb, var(--method-get) 18%, transparent);
+    color: var(--method-get);
   }
   .auto {
     margin-left: 8px;

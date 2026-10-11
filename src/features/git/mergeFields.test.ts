@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { autoChoices, fields, initialChoices, mergeFields, parseSide } from './mergeFields';
+import { autoChoices, fields, initialChoices, mergeFields, parseSide, parseValue } from './mergeFields';
 
 const base = { name: 'Create refund', headers: { Authorization: 'Bearer' }, timeout: 5000, body: { mode: 'json' } };
 const mine = {
@@ -64,6 +64,13 @@ describe('field merge', () => {
     const out = mergeFields({ a: 1 }, fs, ['mine', 'theirs'], false)!;
     expect(({} as Record<string, unknown>).polluted).toBeUndefined();
     expect(out).toContain('"__proto__"');
+  });
+
+  it('uses a value typed by hand, and removes the field for an empty one', () => {
+    const fs = fields({ t: 1, u: 1 }, { t: 2, u: 1 }, { t: 3, u: 2 });
+    const choices = fs.map((f) => (f.path[0] === 't' ? { value: parseValue('25') } : { value: parseValue('') }));
+    expect(JSON.parse(mergeFields({ t: 2, u: 1 }, fs, choices, false)!)).toEqual({ t: 25 });
+    expect(() => parseValue('{ nope')).toThrow();
   });
 
   it('only parses JSON objects', () => {
