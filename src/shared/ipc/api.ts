@@ -12,6 +12,9 @@ import {
   type GrpcCertInfo,
   type GrpcPrefs,
   type AuthConfig,
+  type OAuthEnsured,
+  type OAuthLoginStarted,
+  type OAuthTokenInfo,
   type ImportSource,
   type TreeNode,
   type RequestNode,
@@ -416,3 +419,21 @@ export const gitDiscard = (root: string, paths: string[]) => invoke<void>('git_d
 export const secretGet = (key: string) => invoke<string | null>('secret_get', { key });
 export const secretSet = (key: string, value: string) => invoke<void>('secret_set', { key, value });
 export const secretDelete = (key: string) => invoke<void>('secret_delete', { key });
+
+// OAuth 2.0: tokens live in the keychain, keyed by the auth's settings resolved with `scope`.
+type Scope = Record<string, string>;
+export const oauthStatus = (auth: AuthConfig, scope: Scope) =>
+  invoke<OAuthTokenInfo | null>('oauth_status', { auth, scope });
+export const oauthToken = (auth: AuthConfig, scope: Scope, settings: RequestSettings | undefined, force: boolean) =>
+  invoke<OAuthEnsured>('oauth_token', { auth, scope, settings: settings ?? null, force });
+export const oauthForget = (auth: AuthConfig, scope: Scope) => invoke<void>('oauth_forget', { auth, scope });
+export const oauthRevoke = (auth: AuthConfig, scope: Scope, settings?: RequestSettings) =>
+  invoke<void>('oauth_revoke', { auth, scope, settings: settings ?? null });
+export const oauthLoginStart = (auth: AuthConfig, scope: Scope) =>
+  invoke<OAuthLoginStarted>('oauth_login_start', { auth, scope });
+export const oauthLoginWait = (flowId: string, settings?: RequestSettings) =>
+  invoke<OAuthTokenInfo>('oauth_login_wait', { flowId, settings: settings ?? null });
+/** A pasted code or redirect URL; `null` cancels the login. */
+export const oauthLoginInput = (flowId: string, input: string | null) =>
+  invoke<void>('oauth_login_input', { flowId, input });
+export const openUrl = (url: string) => invoke<void>('open_url', { url });

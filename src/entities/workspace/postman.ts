@@ -1,8 +1,10 @@
 import { t } from '$shared/i18n';
 import {
+  oauthGrant,
   paramsFromUrl,
   syncUrlWithParams,
   type AuthConfig,
+  type OAuthGrant,
   type BodyParam,
   type HttpRequest,
   type Param,
@@ -88,7 +90,38 @@ function auth(value: unknown): AuthConfig | undefined {
       apiKeyIn: field('apikey', 'in') === 'query' ? 'query' : 'header',
     };
   }
+  if (type === 'oauth2') return oauth2Auth((key) => field('oauth2', key));
   return undefined;
+}
+
+/** Postman's grant types; the implicit one has no token endpoint, so it is left out. */
+const POSTMAN_GRANTS: Record<string, OAuthGrant> = {
+  authorization_code: 'authorization_code',
+  authorization_code_with_pkce: 'authorization_code',
+  client_credentials: 'client_credentials',
+  password_credentials: 'password',
+};
+
+function oauth2Auth(field: (key: string) => string): AuthConfig | undefined {
+  const grant = POSTMAN_GRANTS[field('grant_type') || 'authorization_code'];
+  if (!grant) return undefined;
+  const pkce = field('grant_type') === 'authorization_code_with_pkce';
+  return {
+    type: 'oauth2',
+    oauth: {
+      grant,
+      authUrl: field('authUrl'),
+      tokenUrl: field('accessTokenUrl'),
+      clientId: field('clientId'),
+      clientSecret: field('clientSecret'),
+      clientAuth: field('client_authentication') === 'body' ? 'body' : 'basic',
+      scope: field('scope'),
+      redirectUri: field('redirect_uri'),
+      username: field('username'),
+      password: field('password'),
+      ...(grant === 'authorization_code' && !pkce ? { pkce: false } : {}),
+    },
+  };
 }
 
 function urlAndParams(value: unknown): { url: string; params: Param[] } {
@@ -282,6 +315,33 @@ function exportAuth(a: AuthConfig | undefined): Json | undefined {
           ['in', a.apiKeyIn ?? 'header'],
         ]),
       };
+    case 'oauth2': {
+      const o = a.oauth ?? {};
+      const grant = oauthGrant(o);
+      const pkce = grant === 'authorization_code' && o.pkce !== false;
+      const type = {
+        authorization_code: pkce ? 'authorization_code_with_pkce' : 'authorization_code',
+        client_credentials: 'client_credentials',
+        password: 'password_credentials',
+      }[grant];
+      return {
+        type: 'oauth2',
+        oauth2: kv([
+          ['grant_type', type],
+          ['authUrl', o.authUrl],
+          ['accessTokenUrl', o.tokenUrl],
+          ['clientId', o.clientId],
+          ['clientSecret', o.clientSecret],
+          ['client_authentication', o.clientAuth === 'body' ? 'body' : 'header'],
+          ['scope', o.scope],
+          ['redirect_uri', o.redirectUri],
+          ['username', o.username],
+          ['password', o.password],
+          ['addTokenTo', 'header'],
+          ...(pkce ? ([['challengeAlgorithm', 'S256']] as [string, string][]) : []),
+        ]),
+      };
+    }
     default:
       return undefined; // inherit / absent: let Postman inherit
   }

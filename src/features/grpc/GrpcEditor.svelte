@@ -36,6 +36,8 @@
     grpcEditorUi,
     openGrpcEditorSection,
     scriptUi,
+    currentRequestSettings,
+    withOAuthToken,
   } from '$entities/request';
   import {
     cancelRequest,
@@ -448,7 +450,13 @@
     const streaming = !!method?.serverStreaming || !!method?.clientStreaming;
     try {
       ({ message: resolvedMessage, metadata: resolvedMetadata } = await grpcPrepare({
-        auth: effectiveAuth(workspace.tree, tab.savedPath, g.auth),
+        auth: (
+          await withOAuthToken(
+            effectiveAuth(workspace.tree, tab.savedPath, g.auth),
+            currentVarScope(),
+            currentRequestSettings(),
+          )
+        ).auth,
         message,
         metadata,
         scope: currentVarScope(),

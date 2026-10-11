@@ -5,6 +5,15 @@ export { parseCurl, toCurl, tokenize } from './curl';
 export { buildUrl, formatBytes, mergeParamsFromUrl, paramsFromUrl, syncUrlWithParams } from './http';
 export { buildRequestForSend, currentBodyMode, currentRawFormat, enabledBodyParams } from './httpBody';
 export { methodColor, methodLabel } from './method';
+export {
+  asOAuthFailure,
+  decodeJwt,
+  oauthFailureText,
+  oauthGrant,
+  oauthScopes,
+  urlHost,
+  withOAuthBearer,
+} from './oauth';
 export { elapsedLabel, GRPC_CODES, grpcStatusLabel, HTTP_STATUS_TEXT } from './statusLabel';
 export {
   allTestsPassed,
@@ -32,6 +41,12 @@ export {
   type FileDiff,
   type FolderNode,
   type ImportSource,
+  type OAuthConfig,
+  type OAuthEnsured,
+  type OAuthFailure,
+  type OAuthGrant,
+  type OAuthLoginStarted,
+  type OAuthTokenInfo,
   type GitCommit,
   type GitDiffMode,
   type GitFile,
