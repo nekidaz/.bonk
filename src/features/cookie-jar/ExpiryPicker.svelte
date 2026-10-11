@@ -38,8 +38,13 @@
   const W = 300;
 
   let trigger = $state<HTMLButtonElement | null>(null);
-  let pop = $state<HTMLDivElement | null>(null);
-  let pos = $state({ left: 0, top: 0 });
+  /** Where the popover hangs: `top` (below the field) or `bottom` (above it, growing upward). */
+  let pos = $state<{ left: number; top: number | null; bottom: number | null; maxH: number }>({
+    left: 0,
+    top: 0,
+    bottom: null,
+    maxH: 0,
+  });
   let now = $state(Date.now());
   /** The month on screen: first day of it. */
   let view = $state(new Date());
@@ -109,15 +114,25 @@
     place();
   }
 
-  /** Above the field like the mock; below it when there is no room. */
+  /** The tallest mode (Date with its month grid); the side is chosen for it, once per opening. */
+  const MAX_H = 430;
+
+  /**
+   * Above the field like the mock, below it when the tallest mode would not fit above. The side
+   * is fixed while the popover is open, so switching Session / Date / In… never makes it jump;
+   * above, it is anchored by its bottom edge and grows upward away from the field.
+   */
   function place(): void {
     const r = trigger?.getBoundingClientRect();
     if (!r) return;
-    const h = pop?.offsetHeight ?? 380;
-    const above = r.top - h - 6;
+    const roomAbove = r.top - 14;
+    const roomBelow = window.innerHeight - r.bottom - 14;
+    const above = roomAbove >= MAX_H || roomAbove > roomBelow;
     pos = {
       left: Math.max(8, Math.min(window.innerWidth - W - 8, r.left)),
-      top: above >= 8 ? above : Math.min(r.bottom + 6, window.innerHeight - h - 8),
+      top: above ? null : r.bottom + 6,
+      bottom: above ? window.innerHeight - r.top + 6 : null,
+      maxH: Math.max(160, above ? roomAbove : roomBelow),
     };
   }
 
@@ -132,7 +147,6 @@
       const d = new Date(at);
       view = new Date(d.getFullYear(), d.getMonth(), 1);
     } else onchange({ expiresMs: null, maxAge: 3600 });
-    void tick().then(place);
   }
 
   function preset(ms: number): void {
@@ -165,16 +179,9 @@
   }
 
   const shiftMonth = (n: number) => (view = new Date(view.getFullYear(), view.getMonth() + n, 1));
-
-  function onOutside(e: PointerEvent): void {
-    if (!open) return;
-    const target = e.target as Node;
-    if (pop?.contains(target) || trigger?.contains(target)) return;
-    open = false;
-  }
 </script>
 
-<svelte:window onpointerdown={onOutside} onresize={() => open && place()} />
+<svelte:window onresize={() => open && place()} />
 
 <button
   bind:this={trigger}
@@ -190,111 +197,116 @@
 >
 
 {#if open}
-  <div
-    bind:this={pop}
-    use:portal
-    class="bs-expiry"
-    role="dialog"
-    aria-label={t('cookies.picker.aria')}
-    style:left="{pos.left}px"
-    style:top="{pos.top}px"
-  >
-    <div class="tabs" role="radiogroup" aria-label={t('cookies.picker.aria')}>
-      {#each [['session', 'cookies.picker.session'], ['date', 'cookies.picker.date'], ['after', 'cookies.picker.after']] as const as [m, label] (m)}
-        <button type="button" role="radio" aria-checked={mode === m} class:on={mode === m} onclick={() => setMode(m)}
-          >{t(label)}</button
-        >
-      {/each}
-    </div>
-
-    {#if mode === 'session'}
-      <p class="note">{t('cookies.picker.session_note')}</p>
-    {:else}
-      <div class="chips">
-        {#each PRESETS as [label, ms] (label)}
-          <button type="button" class="chip" onclick={() => preset(ms)}>{label}</button>
-        {/each}
-      </div>
-    {/if}
-
-    {#if mode === 'date'}
-      <div class="month">
-        <button type="button" class="nav" aria-label={t('cookies.picker.prev')} onclick={() => shiftMonth(-1)}
-          ><span class="material-symbols-outlined" aria-hidden="true">chevron_left</span></button
-        >
-        <span class="title">{monthTitle}</span>
-        <button type="button" class="nav" aria-label={t('cookies.picker.next')} onclick={() => shiftMonth(1)}
-          ><span class="material-symbols-outlined" aria-hidden="true">chevron_right</span></button
-        >
-      </div>
-      <div class="grid" role="grid">
-        {#each weekdays as w (w)}<span class="wd">{w}</span>{/each}
-        {#each cells as c (`${c.year}-${c.month}-${c.day}`)}
-          {@const past = beforeToday(c.year, c.month, c.day)}
-          <button
-            type="button"
-            class="day"
-            class:out={!c.inMonth}
-            class:past
-            class:today={sameDay(today, c.year, c.month, c.day)}
-            class:sel={sameDay(chosen, c.year, c.month, c.day)}
-            disabled={past}
-            aria-pressed={sameDay(chosen, c.year, c.month, c.day)}
-            onclick={() => pickDay(c.year, c.month, c.day)}>{c.day}</button
+  <!-- In <body>: a transparent layer that closes the picker on any click outside it (no global
+       listener: in the Tauri webview a window pointerdown misjudged clicks inside the portal). -->
+  <div use:portal class="bs-expiry-layer">
+    <div class="backdrop" role="presentation" onpointerdown={() => (open = false)}></div>
+    <div
+      class="bs-expiry"
+      role="dialog"
+      aria-label={t('cookies.picker.aria')}
+      style:left="{pos.left}px"
+      style:top={pos.top == null ? null : `${pos.top}px`}
+      style:bottom={pos.bottom == null ? null : `${pos.bottom}px`}
+      style:max-height="{pos.maxH}px"
+    >
+      <div class="tabs" role="radiogroup" aria-label={t('cookies.picker.aria')}>
+        {#each [['session', 'cookies.picker.session'], ['date', 'cookies.picker.date'], ['after', 'cookies.picker.after']] as const as [m, label] (m)}
+          <button type="button" role="radio" aria-checked={mode === m} class:on={mode === m} onclick={() => setMode(m)}
+            >{t(label)}</button
           >
         {/each}
       </div>
-      <div class="time">
-        <span>{t('cookies.picker.time')}</span>
-        <!-- Text, not type=time: that one follows the OS 12/24 h setting; the mock is always 24 h. -->
-        <input
-          class="hhmm"
-          inputmode="numeric"
-          maxlength="5"
-          placeholder={t('cookies.picker.hhmm')}
-          aria-label={t('cookies.picker.time')}
-          value={chosen ? `${pad(chosen.getHours())}:${pad(chosen.getMinutes())}` : ''}
-          onchange={(e) => setTime(e.currentTarget.value)}
-          onkeydown={(e) => e.key === 'Enter' && setTime(e.currentTarget.value)}
-        />
-        <span class="zone">{zoneLabel(chosen ?? new Date(now))}</span>
-      </div>
-    {:else if mode === 'after'}
-      <div class="time">
-        <input
-          class="amount"
-          type="number"
-          min="1"
-          aria-label={t('cookies.picker.amount')}
-          value={amount}
-          onchange={(e) => {
-            const n = Math.max(1, Math.round(e.currentTarget.valueAsNumber || 1));
-            onchange({ expiresMs: null, maxAge: n * unitSecs(unit) });
-          }}
-        />
-        <div class="units" role="radiogroup" aria-label={t('cookies.picker.amount')}>
-          {#each UNITS as [u, secs] (u)}
+
+      {#if mode === 'session'}
+        <p class="note">{t('cookies.picker.session_note')}</p>
+      {:else}
+        <div class="chips">
+          {#each PRESETS as [label, ms] (label)}
+            <button type="button" class="chip" onclick={() => preset(ms)}>{label}</button>
+          {/each}
+        </div>
+      {/if}
+
+      {#if mode === 'date'}
+        <div class="month">
+          <button type="button" class="nav" aria-label={t('cookies.picker.prev')} onclick={() => shiftMonth(-1)}
+            ><span class="material-symbols-outlined" aria-hidden="true">chevron_left</span></button
+          >
+          <span class="title">{monthTitle}</span>
+          <button type="button" class="nav" aria-label={t('cookies.picker.next')} onclick={() => shiftMonth(1)}
+            ><span class="material-symbols-outlined" aria-hidden="true">chevron_right</span></button
+          >
+        </div>
+        <div class="grid" role="grid">
+          {#each weekdays as w (w)}<span class="wd">{w}</span>{/each}
+          {#each cells as c (`${c.year}-${c.month}-${c.day}`)}
+            {@const past = beforeToday(c.year, c.month, c.day)}
             <button
               type="button"
-              role="radio"
-              aria-checked={unit === u}
-              class:on={unit === u}
-              onclick={() => {
-                unit = u;
-                onchange({ expiresMs: null, maxAge: amount * secs });
-              }}>{t(`cookies.picker.unit.${u}`)}</button
+              class="day"
+              class:out={!c.inMonth}
+              class:past
+              class:today={sameDay(today, c.year, c.month, c.day)}
+              class:sel={sameDay(chosen, c.year, c.month, c.day)}
+              disabled={past}
+              aria-pressed={sameDay(chosen, c.year, c.month, c.day)}
+              onclick={() => pickDay(c.year, c.month, c.day)}>{c.day}</button
             >
           {/each}
         </div>
-      </div>
-    {/if}
+        <div class="time">
+          <span>{t('cookies.picker.time')}</span>
+          <!-- Text, not type=time: that one follows the OS 12/24 h setting; the mock is always 24 h. -->
+          <input
+            class="hhmm"
+            inputmode="numeric"
+            maxlength="5"
+            placeholder={t('cookies.picker.hhmm')}
+            aria-label={t('cookies.picker.time')}
+            value={chosen ? `${pad(chosen.getHours())}:${pad(chosen.getMinutes())}` : ''}
+            onchange={(e) => setTime(e.currentTarget.value)}
+            onkeydown={(e) => e.key === 'Enter' && setTime(e.currentTarget.value)}
+          />
+          <span class="zone">{zoneLabel(chosen ?? new Date(now))}</span>
+        </div>
+      {:else if mode === 'after'}
+        <div class="time">
+          <input
+            class="amount"
+            type="number"
+            min="1"
+            aria-label={t('cookies.picker.amount')}
+            value={amount}
+            onchange={(e) => {
+              const n = Math.max(1, Math.round(e.currentTarget.valueAsNumber || 1));
+              onchange({ expiresMs: null, maxAge: n * unitSecs(unit) });
+            }}
+          />
+          <div class="units" role="radiogroup" aria-label={t('cookies.picker.amount')}>
+            {#each UNITS as [u, secs] (u)}
+              <button
+                type="button"
+                role="radio"
+                aria-checked={unit === u}
+                class:on={unit === u}
+                onclick={() => {
+                  unit = u;
+                  onchange({ expiresMs: null, maxAge: amount * secs });
+                }}>{t(`cookies.picker.unit.${u}`)}</button
+              >
+            {/each}
+          </div>
+        </div>
+      {/if}
 
-    {#if attr}
-      <div class="preview">
-        <code>{attr}</code>
-        <span>{sub}</span>
-      </div>
-    {/if}
+      {#if attr}
+        <div class="preview">
+          <code>{attr}</code>
+          <span>{sub}</span>
+        </div>
+      {/if}
+    </div>
   </div>
 {/if}
 
@@ -331,10 +343,21 @@
     color: var(--color-text-muted);
   }
 
+  .bs-expiry-layer {
+    position: fixed;
+    inset: 0;
+    z-index: 102;
+  }
+  .backdrop {
+    position: absolute;
+    inset: 0;
+  }
   /* Pencil «Date picker» (CJ7): 300 wide, over the jar sheet. */
   .bs-expiry {
     position: fixed;
-    z-index: 102;
+    /* Scrolls only when the window is too short for it; no bar for the last few pixels. */
+    overflow-y: auto;
+    scrollbar-width: none;
     width: 300px;
     display: flex;
     flex-direction: column;
@@ -447,7 +470,9 @@
     box-shadow: inset 0 0 0 1px var(--color-border);
     font-weight: 600;
   }
-  .day.sel {
+  /* Also under the pointer: `.day:hover` above is more specific. */
+  .day.sel,
+  .day.sel:hover:not(:disabled) {
     background: var(--color-action);
     color: var(--color-on-action);
     font-weight: 600;
