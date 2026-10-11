@@ -129,7 +129,9 @@
 
   <div class="bs-gview-body">
     {#if !rows.length}
-      <div class="bs-gview-empty">{op?.kind ? t('git.op.ready') : t('git.cf.none')}</div>
+      <div class="bs-gview-empty">
+        {op?.paused ? t('git.op.paused') : op?.kind ? t('git.op.ready') : t('git.cf.none')}
+      </div>
     {:else}
       <div class="table">
         <div class="th">

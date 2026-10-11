@@ -152,6 +152,7 @@ pub fn run() {
             commands::git::git_operation_skip,
             commands::git::git_rebase_plan,
             commands::git::git_rebase_interactive,
+            commands::git::git_rebase_undo,
             commands::mcp::mcp_integration_status,
             commands::mcp::mcp_install,
             commands::mcp::mcp_uninstall,

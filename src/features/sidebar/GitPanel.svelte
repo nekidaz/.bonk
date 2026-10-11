@@ -275,14 +275,18 @@
                   n: conflicts.length,
                   files: tp(conflicts.length, ['конфликт', 'конфликта', 'конфликтов'], ['conflict', 'conflicts']),
                 })
-              : t('git.op.ready')}
+              : git.op?.paused
+                ? t('git.op.paused')
+                : t('git.op.ready')}
           </p>
           <div class="opb">
             <button class="bs-gbtn sm" disabled={git.busy} onclick={abortOperation}
               ><span class="material-symbols-outlined">close</span>{t('git.op.abort')}</button
             >
-            <button class="bs-gbtn sm" disabled={git.busy || status.operation === 'merge'} onclick={skipOperation}
-              ><span class="material-symbols-outlined">skip_next</span>{t('git.op.skip')}</button
+            <button
+              class="bs-gbtn sm"
+              disabled={git.busy || status.operation === 'merge' || !!git.op?.paused}
+              onclick={skipOperation}><span class="material-symbols-outlined">skip_next</span>{t('git.op.skip')}</button
             >
           </div>
           <button class="bs-gbtn sm inv cont" disabled={git.busy || conflicts.length > 0} onclick={continueOperation}

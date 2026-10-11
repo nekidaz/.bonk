@@ -130,6 +130,15 @@ export const ru = {
   'git.rb.drag': 'Перетащить',
   'git.rb.into': 'в',
   'git.rb.message': 'Новое сообщение',
+  'git.rb.squashMessage': 'Сообщение после squash',
+  'git.rb.pauses': 'пауза для правки',
+  'git.rb.done': 'Rebase завершён.',
+  'git.rb.undo': 'Отменить',
+  'git.graph.undoRebase': 'Отменить rebase',
+  'git.op.paused':
+    'Rebase на паузе: измените запросы, добавьте их в индекс (+) и нажмите «Продолжить» — проиндексированное войдёт в этот коммит.',
+  'git.op.pausedToast':
+    'Rebase на паузе на {short}: внесите правки, добавьте их в индекс и нажмите «Продолжить» в панели Git.',
   'git.rb.nothing': 'Над {onto} нет коммитов — переписывать нечего.',
   'git.rb.oldestFirst': 'Сверху — старые',
   'git.rb.pushed': '{n} {commits} в origin. После rebase понадобится push --force-with-lease.',
@@ -547,6 +556,15 @@ export const en: Record<keyof typeof ru, string> = {
   'git.rb.drag': 'Drag',
   'git.rb.into': 'into',
   'git.rb.message': 'New message',
+  'git.rb.squashMessage': 'Message after squash',
+  'git.rb.pauses': 'pauses to edit',
+  'git.rb.done': 'Rebase finished.',
+  'git.rb.undo': 'Undo',
+  'git.graph.undoRebase': 'Undo rebase',
+  'git.op.paused':
+    'Rebase paused: change the requests, stage them (+) and press Continue — what is staged goes into this commit.',
+  'git.op.pausedToast':
+    'Rebase paused at {short}: make your changes, stage them, then press Continue in the Git panel.',
   'git.rb.nothing': 'No commits above {onto} — nothing to rewrite.',
   'git.rb.oldestFirst': 'Oldest on top',
   'git.rb.pushed': '{n} {commits} already on origin. After the rebase you’ll need push --force-with-lease.',
