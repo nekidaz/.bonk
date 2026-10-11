@@ -59,6 +59,8 @@ export interface CookieDraft {
   sameSite: SameSite | null;
   /** No Domain attribute: only this exact host gets it. */
   hostOnly: boolean;
+  /** «Через…» in the expiry picker: Max-Age seconds, sent instead of Expires. */
+  maxAge?: number | null;
 }
 
 export function draftOf(c: CookieInfo): CookieDraft {
@@ -93,7 +95,8 @@ export function setCookieOf(d: CookieDraft): string {
   const parts = [`${d.name.trim()}=${d.value}`];
   if (!d.hostOnly) parts.push(`Domain=${d.domain.trim()}`);
   parts.push(`Path=${d.path.trim() || '/'}`);
-  if (d.expiresMs != null) parts.push(`Expires=${new Date(d.expiresMs).toUTCString()}`);
+  if (d.maxAge != null) parts.push(`Max-Age=${d.maxAge}`);
+  else if (d.expiresMs != null) parts.push(`Expires=${new Date(d.expiresMs).toUTCString()}`);
   if (d.httpOnly) parts.push('HttpOnly');
   if (d.secure) parts.push('Secure');
   if (d.sameSite) parts.push(`SameSite=${d.sameSite}`);
@@ -158,4 +161,43 @@ export function cookiesFor(
         (!c.secure || u.protocol === 'https:'),
     )
     .map((c) => ({ name: c.name, value: c.value }));
+}
+
+/** One cell of the expiry picker's month (Monday first). */
+export interface DayCell {
+  year: number;
+  /** 0-based, as in Date. */
+  month: number;
+  day: number;
+  inMonth: boolean;
+}
+
+/** The weeks showing `month` of `year`, Monday first, padded with the neighbours' days. */
+export function monthGrid(year: number, month: number): DayCell[] {
+  const first = new Date(year, month, 1);
+  const lead = (first.getDay() + 6) % 7;
+  const days = new Date(year, month + 1, 0).getDate();
+  const total = Math.ceil((lead + days) / 7) * 7;
+  return Array.from({ length: total }, (_, i) => {
+    const d = new Date(year, month, 1 - lead + i);
+    return { year: d.getFullYear(), month: d.getMonth(), day: d.getDate(), inMonth: d.getMonth() === month };
+  });
+}
+
+/** Whole days, hours and minutes from `now` to `ms` (0 when past). */
+export function spanParts(ms: number, now: number): { d: number; h: number; m: number } {
+  const min = Math.max(0, Math.round((ms - now) / 60_000));
+  return { d: Math.floor(min / 1440), h: Math.floor((min % 1440) / 60), m: min % 60 };
+}
+
+/** «Almaty · UTC+5»: the system time zone the picker's time is in. */
+export function zoneLabel(at = new Date()): string {
+  const zone = Intl.DateTimeFormat().resolvedOptions().timeZone ?? '';
+  const city = zone.split('/').at(-1)?.replace(/_/g, ' ') ?? '';
+  const off = -at.getTimezoneOffset();
+  const sign = off < 0 ? '−' : '+';
+  const h = Math.floor(Math.abs(off) / 60);
+  const m = Math.abs(off) % 60;
+  const utc = `UTC${off === 0 ? '' : `${sign}${h}${m ? `:${String(m).padStart(2, '0')}` : ''}`}`;
+  return city ? `${city} · ${utc}` : utc;
 }

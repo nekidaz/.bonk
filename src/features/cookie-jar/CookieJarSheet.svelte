@@ -6,6 +6,7 @@
    */
   import { tick, untrack } from 'svelte';
   import { t, tp } from '$shared/i18n';
+  import ExpiryPicker from './ExpiryPicker.svelte';
   import type { CookieInfo } from '$shared/model';
   import {
     cookieJar,
@@ -35,6 +36,8 @@
   let keepLocal = $state(false);
   let pasteOpen = $state(false);
   let pasteText = $state('');
+  /** The expiry picker (CJ7) is open: Escape closes it first. */
+  let expiryOpen = $state(false);
   let opener: HTMLElement | null = null;
   let searchInput = $state<HTMLInputElement | null>(null);
   let nameInput = $state<HTMLInputElement | null>(null);
@@ -88,7 +91,8 @@
     if (!cookieJar.sheetOpen || e.key !== 'Escape') return;
     e.preventDefault();
     e.stopPropagation();
-    if (confirmOpen) confirmOpen = false;
+    if (expiryOpen) expiryOpen = false;
+    else if (confirmOpen) confirmOpen = false;
     else if (pasteOpen) pasteOpen = false;
     else if (editing) cancelEdit();
     else close();
@@ -199,13 +203,6 @@
     const e = expiryLabel(c, now);
     return t(e.key, e.params);
   };
-
-  /** datetime-local value ⇄ unix ms, in local time. */
-  function toLocalInput(ms: number): string {
-    const d = new Date(ms);
-    const p = (n: number) => String(n).padStart(2, '0');
-    return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
-  }
 
   const flags = (c: CookieInfo): string[] =>
     [c.httpOnly && 'HttpOnly', c.secure && 'Secure', c.sameSite].filter((f): f is string => !!f);
@@ -490,36 +487,12 @@
         >
         <div class="f">
           <span class="eyebrow">{t('cookies.col.expires')}</span>
-          {#if d.expiresMs == null}
-            <button
-              class="field exp"
-              type="button"
-              aria-label={t('cookies.exp.set')}
-              onclick={() => patch({ expiresMs: Math.ceil((Date.now() + 86_400_000) / 60_000) * 60_000 })}
-              >{t('cookies.exp.until_close')}<span class="material-symbols-outlined" aria-hidden="true"
-                >calendar_today</span
-              ></button
-            >
-          {:else}
-            <span class="field exp">
-              <input
-                type="datetime-local"
-                aria-label={t('cookies.col.expires')}
-                value={toLocalInput(d.expiresMs)}
-                onchange={(e) => {
-                  const ms = new Date(e.currentTarget.value).getTime();
-                  if (!Number.isNaN(ms)) patch({ expiresMs: ms });
-                }}
-              />
-              <button
-                class="icon sm"
-                type="button"
-                aria-label={t('cookies.exp.clear')}
-                onclick={() => patch({ expiresMs: null })}
-                ><span class="material-symbols-outlined" aria-hidden="true">close</span></button
-              >
-            </span>
-          {/if}
+          <ExpiryPicker
+            expiresMs={d.expiresMs}
+            maxAge={d.maxAge ?? null}
+            bind:open={expiryOpen}
+            onchange={(p) => patch(p)}
+          />
         </div>
         <div class="f">
           <span class="eyebrow">SameSite</span>
@@ -975,8 +948,7 @@
     gap: 6px;
     min-width: 0;
   }
-  .f input,
-  .field {
+  .f input {
     width: 100%;
     min-width: 0;
     height: 32px;
@@ -991,27 +963,6 @@
   .paste textarea:focus-visible {
     outline: 2px solid var(--color-text);
     outline-offset: 0;
-  }
-  .field.exp {
-    white-space: nowrap;
-    overflow: hidden;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 8px;
-    font-family: var(--font-ui);
-    text-align: left;
-  }
-  .field.exp .material-symbols-outlined {
-    font-size: 15px;
-    color: var(--color-text-muted);
-  }
-  .field.exp input {
-    flex: 1;
-    min-width: 0;
-    height: 100%;
-    padding: 0;
-    background: transparent;
   }
   .seg {
     display: flex;

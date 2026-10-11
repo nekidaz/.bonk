@@ -8,6 +8,8 @@ import {
   draftOf,
   emptyDraft,
   expiryLabel,
+  monthGrid,
+  spanParts,
   pastedDomain,
   setCookieOf,
 } from './cookies';
@@ -137,5 +139,27 @@ describe('cookiesFor', () => {
       { name: 'sid', value: 's2' },
       { name: 'csrf', value: '1' },
     ]);
+  });
+});
+
+describe('expiry picker helpers', () => {
+  it('lays out a month in Monday-first weeks', () => {
+    const oct = monthGrid(2026, 9);
+    expect(oct).toHaveLength(35);
+    expect(oct[0]).toEqual({ year: 2026, month: 8, day: 28, inMonth: false });
+    expect(oct[3]).toEqual({ year: 2026, month: 9, day: 1, inMonth: true });
+    expect(oct.at(-1)).toEqual({ year: 2026, month: 10, day: 1, inMonth: false });
+    // February 2027 starts on a Monday and fills exactly four weeks.
+    expect(monthGrid(2027, 1)).toHaveLength(28);
+  });
+  it('splits a span into days, hours and minutes', () => {
+    const now = Date.UTC(2026, 9, 11, 12, 0);
+    expect(spanParts(now + (2 * 24 + 5) * 3600_000, now)).toEqual({ d: 2, h: 5, m: 0 });
+    expect(spanParts(now - 1, now)).toEqual({ d: 0, h: 0, m: 0 });
+  });
+  it('sends Max-Age instead of Expires when set', () => {
+    expect(setCookieOf({ ...emptyDraft('a.kz'), name: 'x', expiresMs: 1, maxAge: 7200 })).toBe(
+      'x=; Path=/; Max-Age=7200; SameSite=Lax',
+    );
   });
 });
