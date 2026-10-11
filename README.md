@@ -1,13 +1,13 @@
 <div align="center">
 
-[![bonk — The API client for you and your AI.](docs/landing/screenshots/social.png)](https://nekidaz.github.io/.bonk/)
+[![Bonk — API requests, right next to your code](docs/landing/screenshots/social.png)](https://nekidaz.github.io/.bonk/)
 
 [![Release](https://img.shields.io/github/v/release/nekidaz/.bonk?style=flat-square&color=5eead4&label=release)](https://github.com/nekidaz/.bonk/releases/latest)
 [![Downloads](https://img.shields.io/github/downloads/nekidaz/.bonk/total?style=flat-square&color=5eead4)](https://github.com/nekidaz/.bonk/releases)
 [![License](https://img.shields.io/badge/license-MIT-5eead4?style=flat-square)](LICENSE)
 ![Platforms](https://img.shields.io/badge/macOS_·_Windows_·_Linux-1b1b1b?style=flat-square)
 
-[**Download**](https://github.com/nekidaz/.bonk/releases/latest) · [**Website**](https://nekidaz.github.io/.bonk/) · [Features](#everything-for-the-request) · [AI / MCP](#your-ai-agent-now-speaks-api) · [Quick start](#your-first-request) · [Screenshots](#a-look-inside)
+[**Download**](https://github.com/nekidaz/.bonk/releases/latest) · [**Website**](https://nekidaz.github.io/.bonk/) · [Docs](https://nekidaz.github.io/.bonk/docs/) · [Features](#everything-for-the-request) · [AI / MCP](#your-ai-agent-now-speaks-api) · [Quick start](#your-first-request) · [Screenshots](#a-look-inside)
 
 </div>
 
