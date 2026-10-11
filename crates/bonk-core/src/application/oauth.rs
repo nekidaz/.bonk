@@ -521,6 +521,9 @@ pub async fn begin_authorize(oauth: &OAuthConfig) -> Result<Authorize, OAuthErro
     }
     let mut url = Url::parse(oauth.auth_url.trim())
         .map_err(|e| other(format!("OAuth: bad Auth URL: {e}")))?;
+    if !matches!(url.scheme(), "http" | "https") {
+        return Err(other("OAuth: the Auth URL must be http(s)"));
+    }
     let (listener, redirect_uri) = redirect_listener(&oauth.redirect_uri).await?;
     let state = random_string()?;
     let verifier = match oauth.pkce {
@@ -1092,6 +1095,11 @@ mod tests {
         assert!(login
             .pasted("https://example.com/cb?code=x&state=evil")
             .is_err());
+        let file = OAuthConfig {
+            auth_url: "file:///etc/passwd".into(),
+            ..config("")
+        };
+        assert!(begin_authorize(&file).await.is_err());
         let denied = login
             .pasted("https://example.com/cb?error=access_denied&error_description=no")
             .unwrap_err();

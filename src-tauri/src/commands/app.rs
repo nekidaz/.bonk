@@ -83,13 +83,17 @@ pub fn open_releases() -> Result<(), String> {
 /// Open an http(s) link in the system browser (an OAuth login page, say).
 #[tauri::command]
 pub fn open_url(url: String) -> Result<(), String> {
-    if !(url.starts_with("https://") || url.starts_with("http://")) {
-        return Err("only http(s) links can be opened".into());
-    }
     open_in_browser(&url)
 }
 
+/// Every caller goes through here: only http(s) reaches the OS opener, never `file:` or
+/// another app's scheme (URLs come from workspace files, which may come from anyone).
 pub(crate) fn open_in_browser(url: &str) -> Result<(), String> {
+    let parsed = reqwest::Url::parse(url).map_err(|e| format!("bad link: {e}"))?;
+    if !matches!(parsed.scheme(), "http" | "https") {
+        return Err("only http(s) links can be opened".into());
+    }
+    let url = parsed.as_str();
     let status = if cfg!(target_os = "macos") {
         std::process::Command::new("open").arg(url).status()
     } else if cfg!(target_os = "windows") {
