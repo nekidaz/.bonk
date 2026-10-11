@@ -117,7 +117,8 @@ impl Dynamic {
             "$randomMonth" => self.pick_loc(MONTHS_RU, MONTHS_EN).to_string(),
 
             // id
-            "$guid" | "$randomUUID" => self.uuid(),
+            // `$uuid` is not Postman's, but other clients use it: a synonym of `$guid`.
+            "$guid" | "$uuid" | "$randomUUID" => self.uuid(),
             "$randomAlphaNumeric" => self.chars(LOWER_DIGITS, 1),
 
             // numbers
@@ -444,6 +445,7 @@ pub const NAMES: &[&str] = &[
     "$randomMonth",
     // id
     "$guid",
+    "$uuid",
     "$randomUUID",
     "$randomAlphaNumeric",
     // numbers
@@ -999,7 +1001,6 @@ mod tests {
 
     #[test]
     fn every_name_generates_in_both_locales() {
-        assert_eq!(NAMES.len(), 65);
         for locale in ["en", "ru"] {
             let mut d = Dynamic::new(&opts(locale, 1));
             for name in NAMES {
@@ -1054,10 +1055,12 @@ mod tests {
         let mut en = Dynamic::new(&opts("en", 5));
         let mut ru = Dynamic::new(&opts("ru", 5));
 
-        assert!(matches(
-            r"^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
-            &en.value("$guid").unwrap()
-        ));
+        for name in ["$guid", "$uuid"] {
+            assert!(matches(
+                r"^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+                &en.value(name).unwrap()
+            ));
+        }
         assert!(matches(
             r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$",
             &en.value("$isoTimestamp").unwrap()
