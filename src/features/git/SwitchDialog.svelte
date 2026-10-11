@@ -3,6 +3,7 @@
    * G11: switching branches with uncommitted changes. Stash and switch (optionally popping the
    * stash on the way back), take the changes along, or discard them. Opened by `requestCheckout`.
    */
+  import { GitBranchIcon } from '$shared/ui/components';
   import { untrack } from 'svelte';
   import { findNode, workspace } from '$entities/workspace';
   import { describeFile, git, switchBranch, type SwitchChoice } from '$entities/git';
@@ -83,7 +84,7 @@
       <div class="foot">
         <button class="bs-gbtn" onclick={cancel}>{t('common.cancel')}</button>
         <button class="bs-gbtn inv" onclick={() => switchBranch(to, choice, autoRestore)}
-          ><span class="material-symbols-outlined">fork_right</span>{t('git.switch.go', { branch: target })}</button
+          ><GitBranchIcon size={15} />{t('git.switch.go', { branch: target })}</button
         >
       </div>
     </div>

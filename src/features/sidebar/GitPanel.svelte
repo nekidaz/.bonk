@@ -4,6 +4,7 @@
    * STAGED and CHANGES with per-file actions, STASHES (G10) and RECENT COMMITS. Clicking a file
    * opens its diff tab. Without a repo it is the G4 empty state with one button.
    */
+  import { GitBranchIcon } from '$shared/ui/components';
   import {
     commitChanges,
     describeFile,
@@ -182,18 +183,16 @@
     </div>
   {:else if status && !status.isRepo}
     <div class="empty">
-      <span class="tile material-symbols-outlined" aria-hidden="true">fork_right</span>
+      <span class="tile"><GitBranchIcon size={20} /></span>
       <b>{t('git.notRepo')}</b>
       <p>{t('git.notRepo.hint')}</p>
-      <button class="bs-gbtn inv init" onclick={initRepo}
-        ><span class="material-symbols-outlined">fork_right</span>{t('git.init')}</button
-      >
+      <button class="bs-gbtn inv init" onclick={initRepo}><GitBranchIcon size={15} />{t('git.init')}</button>
       <code>{t('git.init.hint', { path: workspace.path.replace(/^\/Users\/[^/]+/, '~') })}</code>
     </div>
   {:else if status}
     <div class="branchrow">
       <button class="branch" title={t('git.branch.switch')} onclick={openBranches}>
-        <span class="material-symbols-outlined" aria-hidden="true">fork_right</span>
+        <GitBranchIcon size={14} />
         <span class="bn">{status.branch || t('git.noBranch')}</span>
         <span class="material-symbols-outlined chev" aria-hidden="true">unfold_more</span>
       </button>

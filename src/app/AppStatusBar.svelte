@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { GitBranchIcon } from '$shared/ui/components';
   import type { UtilityMode } from '$shared/ui';
   import { tabs } from '$entities/tab';
   import { runner } from '$features/runner';
@@ -69,7 +70,7 @@
       type="button"
       aria-label={t('git.branch.switch')}
       onclick={onBranch}
-      ><span class="material-symbols-outlined" aria-hidden="true">fork_right</span><span class="lbl"
+      ><GitBranchIcon size={13} /><span class="lbl"
         >{gitStatus.isRepo
           ? `${gitStatus.branch || t('git.noBranch')}${sync ? `  ${sync}` : ''}`
           : t('git.noRepo')}</span

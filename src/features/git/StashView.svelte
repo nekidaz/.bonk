@@ -3,6 +3,7 @@
    * G10: one stash as a tab — where it was made, its files as full diffs, and Drop (asks first),
    * Branch from stash, Apply, Pop. Once popped or dropped the stash is gone and the tab says so.
    */
+  import { GitBranchIcon } from '$shared/ui/components';
   import { workspace } from '$entities/workspace';
   import { git, relativeAgo, stashApply, stashBranch, stashDrop, stashPop } from '$entities/git';
   import { gitStashShow } from '$shared/ipc';
@@ -89,7 +90,7 @@
         onclick={() => {
           branchName = '';
           branching = true;
-        }}><span class="material-symbols-outlined">fork_right</span>{t('git.stash.branch')}</button
+        }}><GitBranchIcon size={15} />{t('git.stash.branch')}</button
       >
       <button class="bs-gbtn" onclick={() => stashApply(stash!.index)}
         ><span class="material-symbols-outlined">content_copy</span>{t('git.stash.apply')}</button
