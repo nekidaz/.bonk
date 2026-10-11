@@ -146,10 +146,10 @@ async fn run(args: &RunArgs) -> Result<bool, String> {
         workspace_root: root.to_string_lossy().into_owned(),
         ..RunPlan::default()
     };
-    let mut vars = variables(args)?;
+    let (mut vars, secrets) = variables(args)?;
     let transport = CliTransport::new(args)?;
     let color = std::io::stdout().is_terminal() && std::env::var_os("NO_COLOR").is_none();
-    let report = Mutex::new(report::Report::new(plan.iteration_count(), color));
+    let report = Mutex::new(report::Report::new(plan.iteration_count(), color, secrets));
     let status = runner::run_collection(
         &plan,
         &mut vars,
@@ -194,21 +194,25 @@ fn node_id(root: &Path, path: &Path) -> Result<String, String> {
 }
 
 /// Globals and the chosen environment from the app, `BONK_VAR_*` over the globals and
-/// `--var` over the environment (as in bonk-mcp).
-fn variables(args: &RunArgs) -> Result<RunVars, String> {
+/// `--var` over the environment (as in bonk-mcp), plus the secret values to redact from
+/// the output: the app's secret variables and every `BONK_VAR_*` (CI secrets go there).
+fn variables(args: &RunArgs) -> Result<(RunVars, Vec<String>), String> {
     let state = args.app_state.clone().or_else(default_state_path);
     let app = app_vars::load_app_vars(state.as_deref());
-    let (mut environment, mut globals, _) =
+    let (mut environment, mut globals, mut secrets) =
         app_vars::app_scopes(&app, args.env.as_deref(), &app_vars::keychain_secret)?;
-    globals.extend(std::env::vars().filter_map(|(name, value)| {
-        let name = name.strip_prefix(VAR_PREFIX)?;
-        (!name.is_empty()).then(|| (name.to_string(), value))
-    }));
+    for (name, value) in std::env::vars() {
+        if let Some(name) = name.strip_prefix(VAR_PREFIX).filter(|n| !n.is_empty()) {
+            secrets.push(value.clone());
+            globals.insert(name.to_string(), value);
+        }
+    }
     environment.extend(args.vars.iter().cloned());
-    Ok(RunVars {
+    let vars = RunVars {
         environment,
         globals,
-    })
+    };
+    Ok((vars, secrets))
 }
 
 /// Where the Bonk app keeps state.json (Tauri's app data dir for the bundle identifier).

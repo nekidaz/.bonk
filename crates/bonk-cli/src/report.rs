@@ -1,21 +1,48 @@
 //! What a run prints as it goes, its summary, and the JUnit / JSON reports.
 
 use bonk_core::application::runner::{RowStatus, RunEvent, RunResultRow, RunStatus};
+use bonk_core::domain::request_prep::encode_uri_component;
 use serde_json::{json, Value};
 
 pub struct Report {
     iterations: u32,
     color: bool,
+    /// Values never printed or written: CI logs and report artifacts are widely readable.
+    secrets: Vec<String>,
     rows: Vec<RunResultRow>,
 }
 
 impl Report {
-    pub fn new(iterations: u32, color: bool) -> Self {
+    pub fn new(iterations: u32, color: bool, secrets: Vec<String>) -> Self {
         Self {
             iterations,
             color,
+            secrets: secrets.into_iter().filter(|s| !s.is_empty()).collect(),
             rows: Vec::new(),
         }
+    }
+
+    /// `text` with every secret (as is, or URL-encoded) replaced by `<redacted>`.
+    fn redact(&self, text: &str) -> String {
+        self.secrets.iter().fold(text.to_string(), |text, secret| {
+            text.replace(secret, "<redacted>")
+                .replace(&encode_uri_component(secret), "<redacted>")
+        })
+    }
+
+    /// Redact everything of a row that is printed or written, once, as it arrives.
+    fn redact_row(&self, mut row: RunResultRow) -> RunResultRow {
+        let redact = |value: &mut String| *value = self.redact(value);
+        redact(&mut row.target);
+        redact(&mut row.request_name);
+        row.error.iter_mut().for_each(redact);
+        row.response_body.iter_mut().for_each(redact);
+        row.logs.iter_mut().for_each(redact);
+        for test in &mut row.tests {
+            redact(&mut test.name);
+            test.error.iter_mut().for_each(redact);
+        }
+        row
     }
 
     /// Print a runner event as it happens; keep the rows for the summary and reports.
@@ -28,8 +55,9 @@ impl Report {
                 );
             }
             RunEvent::Row(row) => {
+                let row = self.redact_row(*row);
                 self.print_row(&row);
-                self.rows.push(*row);
+                self.rows.push(row);
             }
             _ => {}
         }
@@ -236,7 +264,7 @@ mod tests {
 
     #[test]
     fn junit_escapes_and_names_the_failure() {
-        let mut report = Report::new(1, false);
+        let mut report = Report::new(1, false, Vec::new());
         report.event(RunEvent::Row(Box::new(row(true))));
         report.event(RunEvent::Row(Box::new(row(false))));
         let xml = report.junit();
@@ -256,8 +284,20 @@ mod tests {
     }
 
     #[test]
+    fn secrets_never_reach_the_output() {
+        let mut report = Report::new(1, false, vec!["s3 cret".into()]);
+        let mut leaky = row(false);
+        leaky.target = "https://x/?key=s3%20cret".into();
+        leaky.error = Some("401 for token s3 cret".into());
+        report.event(RunEvent::Row(Box::new(leaky)));
+        let (xml, json) = (report.junit(), report.json(RunStatus::Done));
+        assert!(!xml.contains("s3") && !json.contains("s3"), "{xml}\n{json}");
+        assert!(xml.contains("key=&lt;redacted&gt;"), "{xml}");
+    }
+
+    #[test]
     fn json_drops_response_bodies() {
-        let mut report = Report::new(1, false);
+        let mut report = Report::new(1, false, Vec::new());
         report.event(RunEvent::Row(Box::new(row(false))));
         let json = report.json(RunStatus::Done);
         assert!(json.contains(r#""failed": 1"#), "{json}");

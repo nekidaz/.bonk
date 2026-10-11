@@ -25,5 +25,9 @@ Variables, later wins: the app's globals → `BONK_VAR_<NAME>` → the `--env` e
 → `--var NAME=VALUE` → the data row. The app's globals and environments come from its
 state.json (`--app-state` to point elsewhere); secret values from the OS keychain.
 
+Secrets: put them in `BONK_VAR_<NAME>`, not `--var`. Their values, and the app's secret
+variables, are replaced by `<redacted>` in everything bonk-cli prints and in the
+`--junit` / `--json` reports (CI logs and artifacts are widely readable).
+
 Not yet: the app's proxy / CA / client-certificate settings (the system proxy is used;
 `-k` skips TLS checks), Flows.
