@@ -200,12 +200,7 @@
   {/if}
   <!-- svelte-ignore a11y_no_static_element_interactions -->
   <div class="edge" onpointerdown={startDrag} ondblclick={toggle}>
-    {#if dragWidth !== null}
-      <span class="drag-tip"
-        >{#if dragWidth >= OPEN_AT && rail}{t('script.outline.release')}{' '}{/if}<b>{Math.round(dragWidth)} px</b
-        ></span
-      >
-    {/if}
+    <span class="grip" aria-hidden="true"></span>
   </div>
 </aside>
 
@@ -461,30 +456,27 @@
   .edge {
     position: absolute;
     top: 0;
-    right: -5px;
+    /* Fills the 10 px gap to the editor card, so the grip sits in the middle of it like the sidebar's. */
+    right: -11px;
     bottom: 0;
     z-index: 4;
-    width: 8px;
+    width: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     cursor: col-resize;
   }
-  .edge:hover,
-  .dragging .edge {
-    background: linear-gradient(var(--accent), var(--accent)) center / 2px 100% no-repeat;
+  /* The same grip as the sidebar's resize handle (S33): a short capsule that shows on hover and while dragging. */
+  .grip {
+    width: 4px;
+    height: 48px;
+    border-radius: var(--radius-control);
+    background: var(--color-text-secondary);
+    opacity: 0;
+    transition: opacity var(--duration-hover);
   }
-  .drag-tip {
-    position: absolute;
-    top: 45%;
-    left: 14px;
-    padding: 6px 10px;
-    color: var(--color-on-inverse);
-    background: var(--color-inverse);
-    border-radius: 999px;
-    font-size: var(--font-size-caption);
-    white-space: nowrap;
-  }
-  .drag-tip b {
-    margin-left: 4px;
-    font: 500 var(--font-size-micro) var(--mono);
-    opacity: 0.7;
+  .edge:hover .grip,
+  .dragging .grip {
+    opacity: 1;
   }
 </style>
