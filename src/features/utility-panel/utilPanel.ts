@@ -98,7 +98,9 @@ export function curlForShell(e: Pick<AppConsoleEntry, 'method' | 'url' | 'reques
   env: Record<string, string>;
 } {
   const env: Record<string, string> = {};
-  const lines = [`curl -X ${e.method} ${sq(e.url)}`];
+  // A custom method is user text: quote anything that isn't a plain token.
+  const method = /^[A-Za-z]+$/.test(e.method) ? e.method : sq(e.method);
+  const lines = [`curl -X ${method} ${sq(e.url)}`];
   for (const [name, value] of Object.entries(e.request?.headers ?? {})) {
     if (!isSecretHeader(name)) {
       lines.push(`-H ${sq(`${name}: ${value}`)}`);

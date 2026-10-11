@@ -72,6 +72,12 @@ describe('curlForShell', () => {
     );
   });
 
+  it('quotes a custom method', () => {
+    expect(curlForShell({ method: 'GET;rm -rf ~', url: 'https://x' }).command).toBe(
+      `curl -X 'GET;rm -rf ~' 'https://x'`,
+    );
+  });
+
   it('masks secrets for display', () => {
     expect(maskSecret('Bearer abcdefgh4f2a')).toBe('Bearer ••••4f2a');
     expect(maskSecret('short')).toBe('••••');
