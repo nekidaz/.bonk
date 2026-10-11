@@ -1,5 +1,5 @@
 [workspace]
-members = ["src-tauri", "crates/bonk-core", "crates/bonk-mcp"]
+members = ["src-tauri", "crates/bonk-core", "crates/bonk-mcp", "crates/bonk-cli"]
 resolver = "2"
 
 # Release binaries ship without symbol tables: the Linux bonk-mcp asset was 225 MB

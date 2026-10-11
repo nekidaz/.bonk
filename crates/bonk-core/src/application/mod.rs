@@ -1,4 +1,5 @@
 pub mod app_state;
+pub mod app_vars;
 pub mod git;
 pub mod grpc_native;
 pub mod grpc_tls;
@@ -7,6 +8,7 @@ pub mod http;
 pub mod import_file;
 pub mod mcp_install;
 pub mod proto_inspect;
+pub mod run_data;
 pub mod runner;
 pub mod scripts;
 pub mod workspace;

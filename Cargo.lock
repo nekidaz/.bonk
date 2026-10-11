@@ -612,6 +612,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "bonk-cli"
+version = "0.1.9"
+dependencies = [
+ "bonk-core",
+ "clap",
+ "reqwest",
+ "serde_json",
+ "tokio",
+]
+
+[[package]]
 name = "bonk-core"
 version = "0.1.9"
 dependencies = [
@@ -621,6 +632,7 @@ dependencies = [
  "fastrand",
  "http",
  "hyper-util",
+ "keyring",
  "p12-keystore",
  "prost",
  "prost-reflect",
@@ -650,7 +662,6 @@ dependencies = [
  "axum",
  "bonk-core",
  "clap",
- "keyring",
  "regex",
  "reqwest",
  "rmcp",

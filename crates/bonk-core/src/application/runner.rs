@@ -7,7 +7,7 @@
 //! the app's sends through its proxy/mTLS/cookie settings and gRPC connection cache.
 
 use std::{
-    collections::BTreeMap,
+    collections::{BTreeMap, HashMap},
     future::Future,
     sync::atomic::{AtomicBool, Ordering},
     time::{Duration, Instant},
@@ -16,12 +16,13 @@ use std::{
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Map, Value};
 
-use super::scripts;
+use super::{grpc_native, scripts};
+use crate::conn::GrpcDescriptorCache;
 use crate::domain::{
-    grpc::{GrpcResult, GrpcTls},
+    grpc::{GrpcPrefs, GrpcResult, GrpcTls},
     http::{pick_client_cert, ClientCert, HttpRequest, HttpResponse},
     request_prep::{self, Scope},
-    workspace::RequestNode,
+    workspace::{RequestNode, TreeNode},
 };
 
 /// Environment + globals of a run. Scripts change them as the run goes.
@@ -255,6 +256,98 @@ pub trait Transport: Sync {
     ) -> Vec<(String, String)> {
         Vec::new()
     }
+}
+
+/// A target's schema, without policy: reflection over the network, or the `.proto`
+/// files as given. For transports that dial directly (bonk-mcp, bonk-cli).
+pub async fn load_grpc_schema(target: &GrpcTarget) -> Result<GrpcDescriptorCache, String> {
+    match &target.schema {
+        GrpcSchema::Reflection => grpc_native::reflect_with(
+            &target.endpoint,
+            target.plaintext,
+            &target.tls,
+            &GrpcPrefs::default(),
+        )
+        .await
+        .map_err(|e| e.message),
+        GrpcSchema::Proto { files, imports } => {
+            let (files, imports) = (files.clone(), imports.clone());
+            tokio::task::spawn_blocking(move || grpc_native::compile_protos(&files, &imports))
+                .await
+                .map_err(|e| format!("proto compile task failed: {e}"))?
+        }
+    }
+}
+
+/// Dial `target` and make one unary call, all within `timeout`.
+pub async fn call_grpc(
+    target: &GrpcTarget,
+    cache: &GrpcDescriptorCache,
+    method: &str,
+    message: &str,
+    metadata: &BTreeMap<String, String>,
+    timeout: Duration,
+) -> Result<GrpcResult, String> {
+    let metadata: HashMap<String, String> = metadata.clone().into_iter().collect();
+    let call = async {
+        let prefs = GrpcPrefs::default();
+        let channel =
+            grpc_native::connect_with(&target.endpoint, target.plaintext, &target.tls, &prefs)
+                .await?;
+        grpc_native::call(channel, cache.clone(), method, message, &metadata).await
+    };
+    tokio::time::timeout(timeout, call)
+        .await
+        .map_err(|_| format!("gRPC call timed out after {} ms", timeout.as_millis()))?
+        .map_err(|e| e.message)
+}
+
+/// The requests under each of `ids` (a folder, a request, or `fs:` for everything), in
+/// tree order, each once, with effective auth (own or the folder's) — ready for `RunPlan`.
+pub fn plan_requests(tree: &[TreeNode], ids: &[String]) -> Result<Vec<RequestNode>, String> {
+    fn collect(nodes: &[TreeNode], out: &mut Vec<RequestNode>) {
+        for node in nodes {
+            match node {
+                TreeNode::Folder(folder) => collect(&folder.children, out),
+                TreeNode::Request(request) => out.push((**request).clone()),
+            }
+        }
+    }
+    fn find<'a>(nodes: &'a [TreeNode], id: &str) -> Option<&'a TreeNode> {
+        nodes.iter().find_map(|node| match node {
+            TreeNode::Request(r) if r.id == id => Some(node),
+            TreeNode::Folder(f) if f.id == id => Some(node),
+            TreeNode::Folder(f) => find(&f.children, id),
+            TreeNode::Request(_) => None,
+        })
+    }
+    let mut out: Vec<RequestNode> = Vec::new();
+    for id in ids {
+        let mut found = Vec::new();
+        if id == "fs:" || id.is_empty() {
+            collect(tree, &mut found);
+        } else {
+            let node = find(tree, id).ok_or_else(|| format!("not in the workspace: {id}"))?;
+            collect(std::slice::from_ref(node), &mut found);
+        }
+        for node in found {
+            if !out.iter().any(|n| n.id == node.id) {
+                out.push(node);
+            }
+        }
+    }
+    for node in &mut out {
+        let auth = request_prep::effective_auth(tree, &node.id, node.request.auth.as_ref());
+        node.request.auth = Some(auth);
+        if let Some(grpc) = node.grpc.as_mut() {
+            grpc.auth = Some(request_prep::effective_auth(
+                tree,
+                &node.id,
+                grpc.auth.as_ref(),
+            ));
+        }
+    }
+    Ok(out)
 }
 
 /// Run every request of `plan`, `iteration_count` times, streaming progress to `emit`.
@@ -1117,6 +1210,45 @@ mod tests {
         .unwrap();
         assert_eq!(plan.requests.len(), 2);
         assert_eq!(plan.iteration_count(), 2);
+    }
+
+    #[test]
+    fn plan_requests_takes_folders_in_tree_order_once() {
+        let tree: Vec<TreeNode> = serde_json::from_value(json!([
+            {"kind": "folder", "id": "fs:api", "name": "api", "expanded": true,
+             "auth": {"type": "bearer", "bearerToken": "t"},
+             "children": [
+                {"kind": "request", "id": "fs:api/a.bonk.json", "name": "a", "protocol": "http",
+                 "request": {"method": "GET", "url": "x", "auth": {"type": "inherit"}}},
+                {"kind": "request", "id": "fs:api/b.bonk.json", "name": "b", "protocol": "http",
+                 "request": {"method": "GET", "url": "x"}}
+             ]},
+            {"kind": "request", "id": "fs:c.bonk.json", "name": "c", "protocol": "http",
+             "request": {"method": "GET", "url": "x"}}
+        ]))
+        .unwrap();
+        let ids = |ids: &[&str]| -> Vec<String> {
+            let ids: Vec<String> = ids.iter().map(|s| s.to_string()).collect();
+            plan_requests(&tree, &ids)
+                .unwrap()
+                .into_iter()
+                .map(|n| n.id)
+                .collect()
+        };
+        assert_eq!(
+            ids(&["fs:"]),
+            ["fs:api/a.bonk.json", "fs:api/b.bonk.json", "fs:c.bonk.json"]
+        );
+        assert_eq!(
+            ids(&["fs:api/b.bonk.json", "fs:api"]),
+            ["fs:api/b.bonk.json", "fs:api/a.bonk.json"]
+        );
+        let planned = plan_requests(&tree, &["fs:api/a.bonk.json".into()]).unwrap();
+        assert_eq!(
+            planned[0].request.auth.as_ref().unwrap().auth_type,
+            "bearer"
+        );
+        assert!(plan_requests(&tree, &["fs:nope".into()]).is_err());
     }
 
     #[test]

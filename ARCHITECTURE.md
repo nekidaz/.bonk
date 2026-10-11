@@ -19,9 +19,14 @@ layers with a deliberately thin boundary between them:
 - **`crates/bonk-mcp/`** — headless Model Context Protocol server. Reuses
   `bonk-core` and exposes workspace resources/tools over STDIO or Streamable HTTP.
   `server.rs` holds the MCP surface, `runtime.rs` the `BonkRuntime` operations, and
-  helpers live in `vars.rs` (app env/globals + keychain), `request_prep.rs`
+  helpers live in `vars.rs` (unresolved-variable checks), `request_prep.rs`
   (HTTP client, target-host policy) and `redact.rs` (secret scrubbing). Requests run
   through bonk-core's runner; `runtime.rs`'s `McpTransport` adds the server's policy.
+- **`crates/bonk-cli/`** — `bonk-cli run`: runs workspace folders/requests from a terminal
+  or CI on bonk-core's runner (`CliTransport`: one reqwest client with a session cookie
+  jar). Variables come from the app's state.json + keychain (`application/app_vars.rs`),
+  `BONK_VAR_*` and `--var`; `--data` files parse in `application/run_data.rs`. Exit 0 / 1
+  (failures) / 2 (couldn't run); `--junit` / `--json` reports. See crates/bonk-cli/README.md.
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐

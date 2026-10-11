@@ -1,5 +1,5 @@
 use std::{
-    collections::{BTreeMap, BTreeSet, HashMap},
+    collections::{BTreeMap, BTreeSet},
     path::{Path, PathBuf},
     sync::{Arc, Mutex},
     time::Duration,
@@ -16,7 +16,7 @@ use bonk_core::{
     },
     conn::GrpcDescriptorCache,
     domain::{
-        grpc::{GrpcPrefs, GrpcResult},
+        grpc::GrpcResult,
         http::{HttpRequest, HttpResponse, RequestSettings},
         request_prep::{self, resolve_text},
         workspace::{GrpcTabState, Param, RequestNode, TreeNode},
@@ -1052,26 +1052,14 @@ impl Transport for McpTransport<'_> {
         Ok(response)
     }
 
-    async fn grpc_open(&self, target: GrpcTarget) -> Result<Self::Grpc, String> {
+    async fn grpc_open(&self, mut target: GrpcTarget) -> Result<Self::Grpc, String> {
         reject_unresolved(&[&target.endpoint])?;
         self.runtime.check_grpc_target(&target.endpoint)?;
-        let cache = match &target.schema {
-            GrpcSchema::Reflection => grpc_native::reflect_with(
-                &target.endpoint,
-                target.plaintext,
-                &target.tls,
-                &GrpcPrefs::default(),
-            )
-            .await
-            .map_err(|e| e.message)?,
-            GrpcSchema::Proto { files, imports } => {
-                let files = self.runtime.normalize_proto_paths(files)?;
-                let includes = self.runtime.normalize_proto_paths(imports)?;
-                tokio::task::spawn_blocking(move || grpc_native::compile_protos(&files, &includes))
-                    .await
-                    .map_err(|error| format!("proto compile task failed: {error}"))??
-            }
-        };
+        if let GrpcSchema::Proto { files, imports } = &mut target.schema {
+            *files = self.runtime.normalize_proto_paths(files)?;
+            *imports = self.runtime.normalize_proto_paths(imports)?;
+        }
+        let cache = runner::load_grpc_schema(&target).await?;
         Ok((target, cache))
     }
 
@@ -1084,23 +1072,8 @@ impl Transport for McpTransport<'_> {
     ) -> Result<GrpcResult, String> {
         let (target, cache) = conn;
         reject_unresolved_grpc(&target.endpoint, method, message, metadata.iter())?;
-        let metadata: HashMap<String, String> = metadata.clone().into_iter().collect();
-        let call = async {
-            let prefs = GrpcPrefs::default();
-            let channel =
-                grpc_native::connect_with(&target.endpoint, target.plaintext, &target.tls, &prefs)
-                    .await?;
-            grpc_native::call(channel, cache.clone(), method, message, &metadata).await
-        };
-        let result = tokio::time::timeout(self.grpc_timeout, call)
-            .await
-            .map_err(|_| {
-                format!(
-                    "gRPC call timed out after {} ms",
-                    self.grpc_timeout.as_millis()
-                )
-            })?
-            .map_err(|e| e.message)?;
+        let result =
+            runner::call_grpc(target, cache, method, message, metadata, self.grpc_timeout).await?;
         if let Ok(mut slot) = self.grpc.lock() {
             *slot = Some(result.clone());
         }

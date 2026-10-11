@@ -2,7 +2,7 @@
 # Mirrors .github/workflows/ci.yml: if `make check` is green, CI is green.
 
 .DEFAULT_GOAL := help
-.PHONY: help setup dev ui mcp check lint test test-ts test-rs build visual visual-baseline css-oracle css-oracle-baseline fmt sidecar bump
+.PHONY: help setup dev ui mcp cli check lint test test-ts test-rs build visual visual-baseline css-oracle css-oracle-baseline fmt sidecar bump
 
 help: ## list targets
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  make %-16s %s\n", $$1, $$2}'
@@ -19,6 +19,9 @@ ui: ## frontend only in a browser, no Rust backend (http://localhost:1420)
 
 mcp: ## run the headless MCP server (pass args: make mcp ARGS="--help")
 	cargo run -p bonk-mcp -- $(ARGS)
+
+cli: ## run the CLI (pass args: make cli ARGS="run ./api --env Staging")
+	cargo run -p bonk-cli -- $(ARGS)
 
 sidecar: # stage the MCP sidecar binary — src-tauri's build.rs refuses to build without it
 	node scripts/prepare-mcp-sidecar.mjs
@@ -66,7 +69,7 @@ bump: ## set version everywhere: make bump V=0.1.9
 	@test -n "$(V)" || { echo "usage: make bump V=x.y.z"; exit 1; }
 	npm version $(V) --no-git-tag-version --allow-same-version >/dev/null
 	sed -i '' -E '1,/"version"/s/"version": "[^"]+"/"version": "$(V)"/' src-tauri/tauri.conf.json
-	sed -i '' -E '1,/^version = /s/^version = ".*"/version = "$(V)"/' src-tauri/Cargo.toml crates/bonk-core/Cargo.toml crates/bonk-mcp/Cargo.toml
+	sed -i '' -E '1,/^version = /s/^version = ".*"/version = "$(V)"/' src-tauri/Cargo.toml crates/bonk-core/Cargo.toml crates/bonk-mcp/Cargo.toml crates/bonk-cli/Cargo.toml
 	cargo update --workspace --offline -q
 	@git diff --stat
 	@echo "now: add a '## [$(V)]' section to CHANGELOG.md, then see RELEASING.md"
