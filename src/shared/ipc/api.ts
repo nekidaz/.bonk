@@ -539,6 +539,8 @@ export const gitOperationSkip = (root: string) => invoke<void>('git_operation_sk
 export const gitRebasePlan = (root: string, onto: string) => invoke<RebasePlan>('git_rebase_plan', { root, onto });
 export const gitRebaseInteractive = (root: string, onto: string, steps: RebaseAction[]) =>
   invoke<void>('git_rebase_interactive', { root, onto, steps });
+/** Put the branch back where it was before the last rebase (`before` = GitStatus.undoRebase). */
+export const gitRebaseUndo = (root: string, before: string) => invoke<void>('git_rebase_undo', { root, before });
 
 // OS keychain (secret env vars)
 export const secretGet = (key: string) => invoke<string | null>('secret_get', { key });

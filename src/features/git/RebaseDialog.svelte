@@ -2,8 +2,9 @@
   /**
    * G9: interactive rebase as in GitKraken — the commits above `onto`, oldest on top. Drag a row by
    * its handle to reorder (pointer events: HTML5 drag & drop never fires in the macOS webview),
-   * pick an action per commit (keys P R S F D on a focused row), edit a reword's message in place.
-   * A squash / fixup folds into the nearest kept commit above it.
+   * pick an action per commit (keys P R E S F D on a focused row), edit a reword's whole message in
+   * place. A squash / fixup folds into the nearest kept commit above it; one with squashes gets the
+   * joined messages to edit. `edit` pauses the rebase on that commit to change it.
    */
   import { untrack } from 'svelte';
   import { workspace } from '$entities/workspace';
@@ -12,11 +13,20 @@
   import type { GitBranch, RebasePlan, RebaseVerb } from '$shared/model';
   import { t, tp } from '$shared/i18n';
   import { GitBranchIcon } from '$shared/ui/components';
-  import { foldTarget, rebasePlanError } from './rebasePlan';
+  import { foldTarget, isKept, messageOf, needsMessage, rebasePlanError, toActions } from './rebasePlan';
 
   let { onto: initialOnto, onClose }: { onto: string; onClose: () => void } = $props();
 
-  type Step = { hash: string; short: string; subject: string; pushed: boolean; action: RebaseVerb; message: string };
+  /** `full` is the commit's message; `message` what was typed for it, null while untouched. */
+  type Step = {
+    hash: string;
+    short: string;
+    subject: string;
+    pushed: boolean;
+    full: string;
+    action: RebaseVerb;
+    message: string | null;
+  };
 
   let onto = $state(untrack(() => initialOnto));
   let plan = $state.raw<RebasePlan | null>(null);
@@ -27,10 +37,10 @@
   let drag = $state<{ from: number; to: number } | null>(null);
   let list = $state<HTMLElement>();
 
-  const VERBS: RebaseVerb[] = ['pick', 'reword', 'squash', 'fixup', 'drop'];
-  const KEYS: Record<string, RebaseVerb> = { p: 'pick', r: 'reword', s: 'squash', f: 'fixup', d: 'drop' };
+  const VERBS: RebaseVerb[] = ['pick', 'reword', 'edit', 'squash', 'fixup', 'drop'];
+  const KEYS: Record<string, RebaseVerb> = { p: 'pick', r: 'reword', e: 'edit', s: 'squash', f: 'fixup', d: 'drop' };
   const current = $derived(git.status?.branch || 'HEAD');
-  const kept = $derived(steps.filter((s) => s.action === 'pick' || s.action === 'reword').length);
+  const kept = $derived(steps.filter((s) => isKept(s.action)).length);
   const pushed = $derived(steps.filter((s) => s.pushed).length);
   const invalid = $derived(rebasePlanError(steps));
 
@@ -57,17 +67,25 @@
   });
 
   function reset(): void {
-    steps = (plan?.commits ?? []).map((c) => ({ ...c, action: 'pick', message: c.subject }));
+    steps = (plan?.commits ?? []).map((c) => ({
+      hash: c.hash,
+      short: c.short,
+      subject: c.subject,
+      pushed: c.pushed,
+      full: c.message || c.subject,
+      action: 'pick',
+      message: null,
+    }));
   }
 
   function setVerb(i: number, action: RebaseVerb): void {
     steps = steps.map((s, k) => (k === i ? { ...s, action } : s));
     if (action === 'reword')
-      requestAnimationFrame(() => list?.querySelector<HTMLInputElement>(`[data-msg="${i}"]`)?.focus());
+      requestAnimationFrame(() => list?.querySelector<HTMLTextAreaElement>(`[data-msg="${i}"]`)?.focus());
   }
 
   function rowKey(e: KeyboardEvent, i: number): void {
-    if ((e.target as HTMLElement).tagName === 'INPUT' || (e.target as HTMLElement).tagName === 'SELECT') return;
+    if (['INPUT', 'SELECT', 'TEXTAREA'].includes((e.target as HTMLElement).tagName)) return;
     const verb = KEYS[e.key.toLowerCase()];
     if (verb) {
       e.preventDefault();
@@ -101,11 +119,7 @@
 
   async function start(): Promise<void> {
     if (invalid || !steps.length) return;
-    const actions = steps.map((s) => ({
-      hash: s.hash,
-      action: s.action,
-      ...(s.action === 'reword' ? { message: s.message.trim() } : {}),
-    }));
+    const actions = toActions(steps);
     onClose();
     await rebaseInteractive(onto, actions);
   }
@@ -133,7 +147,7 @@
         {/if}
       </div>
       <div class="onto">
-        <button class="pick" onclick={() => (ontoOpen = !ontoOpen)}
+        <button class="ontobtn" onclick={() => (ontoOpen = !ontoOpen)}
           >onto <GitBranchIcon size={13} /><b>{onto}</b><span class="material-symbols-outlined">expand_more</span
           ></button
         >
@@ -163,10 +177,11 @@
     {:else}
       <div class="list" bind:this={list}>
         <div class="lh">
-          <span>{t('git.rb.oldestFirst')}</span><span>P pick · R reword · S squash · F fixup · D drop</span>
+          <span>{t('git.rb.oldestFirst')}</span><span>P pick · R reword · E edit · S squash · F fixup · D drop</span>
         </div>
         {#each steps as s, i (s.hash)}
           {@const fold = s.action === 'squash' || s.action === 'fixup' ? foldTarget(steps, i) : undefined}
+          {@const msg = needsMessage(steps, i) ? messageOf(steps, i) : null}
           <!-- svelte-ignore a11y_no_noninteractive_tabindex, a11y_no_noninteractive_element_interactions -->
           <div
             class="step {s.action}"
@@ -178,41 +193,51 @@
             role="listitem"
             onkeydown={(e) => rowKey(e, i)}
           >
-            <span
-              class="grip"
-              role="button"
-              tabindex="-1"
-              aria-label={t('git.rb.drag')}
-              onpointerdown={(e) => dragStart(e, i)}
-              onpointermove={dragMove}
-              onpointerup={dragEnd}
-              onpointercancel={() => (drag = null)}><span class="material-symbols-outlined">drag_indicator</span></span
-            >
-            {#if fold}<span class="material-symbols-outlined fold" aria-hidden="true">subdirectory_arrow_right</span
-              >{/if}
-            <select
-              class="verb {s.action}"
-              value={s.action}
-              aria-label={t('git.rb.action')}
-              onchange={(e) => setVerb(i, e.currentTarget.value as RebaseVerb)}
-            >
-              {#each VERBS as v (v)}<option value={v}>{v}</option>{/each}
-            </select>
-            <span class="hash">{s.short}</span>
-            {#if s.action === 'reword'}
-              <input
+            <div class="line">
+              <span
+                class="grip"
+                role="button"
+                tabindex="-1"
+                aria-label={t('git.rb.drag')}
+                onpointerdown={(e) => dragStart(e, i)}
+                onpointermove={dragMove}
+                onpointerup={dragEnd}
+                onpointercancel={() => (drag = null)}
+                ><span class="material-symbols-outlined">drag_indicator</span></span
+              >
+              {#if fold}<span class="material-symbols-outlined fold" aria-hidden="true">subdirectory_arrow_right</span
+                >{/if}
+              <select
+                class="verb {s.action}"
+                value={s.action}
+                aria-label={t('git.rb.action')}
+                onchange={(e) => setVerb(i, e.currentTarget.value as RebaseVerb)}
+              >
+                {#each VERBS as v (v)}<option value={v}>{v}</option>{/each}
+              </select>
+              <span class="hash">{s.short}</span>
+              <span class="subj" class:dropped={s.action === 'drop'}
+                >{msg === null ? s.subject : msg.split('\n')[0] || s.subject}</span
+              >
+              {#if fold}<span class="into">{`→ ${t('git.rb.into')} ${fold.short}`}</span>{/if}
+              {#if s.action === 'edit'}<span class="into">{t('git.rb.pauses')}</span>{/if}
+              {#if s.pushed}<span class="material-symbols-outlined pushed" title={t('git.rb.pushedOne')}
+                  >cloud_done</span
+                >{/if}
+            </div>
+            {#if msg !== null && s.action !== 'reword'}<div class="msgnote">{t('git.rb.squashMessage')}</div>{/if}
+            {#if msg !== null}
+              <!-- The whole message, body included: a reword's, or the squashes' joined as git would. -->
+              <textarea
                 class="msg"
+                class:squashed={s.action !== 'reword'}
                 data-msg={i}
-                value={s.message}
-                aria-label={t('git.rb.message')}
+                rows={Math.min(8, msg.split('\n').length + 1)}
+                value={msg}
+                aria-label={s.action === 'reword' ? t('git.rb.message') : t('git.rb.squashMessage')}
                 oninput={(e) => (steps = steps.map((x, k) => (k === i ? { ...x, message: e.currentTarget.value } : x)))}
-              />
-            {:else}
-              <span class="subj" class:dropped={s.action === 'drop'}>{s.subject}</span>
+              ></textarea>
             {/if}
-            {#if fold}<span class="into">{`→ ${t('git.rb.into')} ${fold.short}`}</span>{/if}
-            {#if s.pushed}<span class="material-symbols-outlined pushed" title={t('git.rb.pushedOne')}>cloud_done</span
-              >{/if}
           </div>
         {/each}
       </div>
@@ -281,7 +306,7 @@
     position: relative;
     flex: none;
   }
-  .pick {
+  .ontobtn {
     display: inline-flex;
     align-items: center;
     gap: 6px;
@@ -292,11 +317,11 @@
     color: var(--color-text-secondary);
     font: var(--font-size-body) var(--font-ui);
   }
-  .pick b {
+  .ontobtn b {
     color: var(--method-patch);
     font: 500 var(--font-size-body) var(--font-code);
   }
-  .pick .material-symbols-outlined {
+  .ontobtn .material-symbols-outlined {
     font-size: 15px;
   }
   .menu {
@@ -345,13 +370,15 @@
     padding: 4px 8px 10px;
   }
   .step {
+    padding: 0 8px;
+    border-radius: 14px;
+    outline: none;
+  }
+  .line {
     display: flex;
     align-items: center;
     gap: 10px;
     min-height: 46px;
-    padding: 0 8px;
-    border-radius: 14px;
-    outline: none;
   }
   .step:focus-visible,
   .step:focus-within {
@@ -395,7 +422,8 @@
     color: var(--color-text);
     font: 600 var(--font-size-body) var(--font-code);
   }
-  .verb.reword {
+  .verb.reword,
+  .verb.edit {
     color: var(--method-get);
   }
   .verb.squash,
@@ -424,16 +452,28 @@
     text-decoration: line-through;
   }
   .msg {
-    flex: 1;
-    min-width: 0;
-    height: 32px;
-    padding: 0 12px;
+    /* Under the row, from the action column on. */
+    display: block;
+    width: calc(100% - 28px);
+    margin: 0 0 10px 28px;
+    padding: 8px 12px;
+    resize: vertical;
     border: 1px solid var(--method-get);
-    border-radius: var(--radius-control);
+    border-radius: var(--radius-md);
     outline: none;
     background: var(--color-field);
     color: var(--color-text);
-    font: var(--font-size-ui) var(--font-ui);
+    font: var(--font-size-ui) / 1.45 var(--font-ui);
+  }
+  .msgnote {
+    margin: -2px 0 6px 28px;
+    color: var(--method-patch);
+    font: 500 var(--font-size-micro) var(--font-code);
+    letter-spacing: var(--tracking-eyebrow);
+    text-transform: uppercase;
+  }
+  .msg.squashed {
+    border-color: var(--method-patch);
   }
   .into {
     flex: none;

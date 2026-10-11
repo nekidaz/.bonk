@@ -2,7 +2,7 @@ import { onDestroy, onMount, untrack } from 'svelte';
 import { watchCookieJar } from '$entities/cookies';
 import { git, watchGitWorkspace } from '$entities/git';
 import { watchHistoryRetention } from '$entities/history';
-import { watchDocumentLang } from '$shared/i18n';
+import { t, watchDocumentLang } from '$shared/i18n';
 import { flushPendingSaves } from '$shared/persist';
 import {
   autoUpdateCheck,
@@ -39,6 +39,16 @@ export function startApp(): void {
   $effect(() => {
     const text = git.error;
     if (text) untrack(() => shell.showToast({ text, icon: 'error', iconColor: 'var(--color-danger)' }));
+  });
+
+  // A rebase finished (with «Отменить») or paused at an `edit`.
+  $effect(() => {
+    const n = git.notice;
+    if (!n) return;
+    untrack(() => {
+      shell.showToast({ text: n.text, undo: n.undo, undoLabel: n.undo ? t('git.rb.undo') : undefined, icon: 'commit' });
+      git.notice = null;
+    });
   });
 
   $effect(() => {

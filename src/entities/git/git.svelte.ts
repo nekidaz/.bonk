@@ -46,10 +46,12 @@ import {
   gitResolveSide,
   gitUnresolve,
   gitRebaseInteractive,
+  gitRebaseUndo,
 } from '$shared/ipc';
 import { isConflict, statusByPath } from './gitStatus';
 import { openConflictsTab } from './diffTabs';
 import { workspace } from '$entities/workspace';
+import { t } from '$shared/i18n';
 
 /**
  * Master switch for the Git feature. When false the source-control UI is hidden
@@ -106,6 +108,8 @@ class Git {
   opConflicts = $state.raw<string[]>([]);
   /** G7: what the stopped operation is applying, null when none is running. */
   op = $state.raw<OperationInfo | null>(null);
+  /** News for a toast (the app shows it, then clears this): a rebase that finished or paused. */
+  notice = $state.raw<{ text: string; undo?: () => void } | null>(null);
   /** G11: the switch dialog's target, null when closed. */
   pendingSwitch = $state.raw<PendingSwitch | null>(null);
 }
@@ -301,10 +305,20 @@ export const rebaseInteractive = (onto: string, steps: RebaseAction[]) =>
  * news: the conflicts are, so their tab opens instead of a toast.
  */
 async function replay(name: string, fn: (root: string) => Promise<unknown>): Promise<boolean> {
-  const stopped = () => !!git.status?.operation;
+  // Stopped on conflicts. A rebase paused at an `edit` is not: a refused continue there is news.
+  const stopped = () => !!git.status?.operation && !git.op?.paused;
   const ok = await runGit(name, fn, stopped);
   if (!ok && stopped()) openConflictsTab();
+  if (ok && git.op?.paused) git.notice = { text: t('git.op.pausedToast', { short: git.op.hash.slice(0, 7) }) };
+  else if (ok && !stopped() && git.status?.undoRebase && ['rebase', 'continue', 'skip'].includes(name))
+    git.notice = { text: t('git.rb.done'), undo: () => void undoRebase() };
   return ok;
+}
+
+/** Put the branch back where it was before the last rebase (while that is still undoable). */
+export function undoRebase(): Promise<boolean> {
+  const before = git.status?.undoRebase;
+  return before ? runGit('undo rebase', (root) => gitRebaseUndo(root, before)) : Promise.resolve(false);
 }
 export const checkoutCommit = (hash: string) => runGit('checkout', (root) => gitCheckoutDetached(root, hash));
 export const resetTo = (hash: string, mode: ResetMode) => runGit('reset', (root) => gitReset(root, hash, mode));

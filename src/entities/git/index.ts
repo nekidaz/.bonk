@@ -15,6 +15,7 @@ export {
   checkoutCommit,
   cherryPick,
   continueOperation,
+  undoRebase,
   createBranchAt,
   createTag,
   fetchAll,

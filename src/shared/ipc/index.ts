@@ -19,6 +19,7 @@ export {
   gitOperationInfo,
   gitOperationSkip,
   gitRebaseInteractive,
+  gitRebaseUndo,
   gitRebasePlan,
   gitResolveFile,
   gitResolveSide,

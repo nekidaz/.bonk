@@ -13,6 +13,7 @@
     createBranchAt,
     createTag,
     fetchAll,
+    undoRebase,
     git,
     mergeBranch,
     openProjectDiffTab,
@@ -328,6 +329,15 @@
       <button class:on={all} aria-pressed={all} onclick={() => (all = true)}>{t('git.graph.all')}</button>
       <button class:on={!all} aria-pressed={!all} onclick={() => (all = false)}>{t('git.graph.current')}</button>
     </div>
+    {#if git.status?.undoRebase}
+      <button
+        class="bs-gbtn"
+        disabled={git.busy}
+        title={`git reset --keep ${git.status.undoRebase.slice(0, 7)}`}
+        onclick={() => undoRebase()}
+        ><span class="material-symbols-outlined">undo</span>{t('git.graph.undoRebase')}</button
+      >
+    {/if}
     <button class="bs-gbtn" disabled={git.busy} onclick={() => fetchAll()}
       ><span class="material-symbols-outlined" class:spin={git.busy}>sync</span>Fetch</button
     >
@@ -451,8 +461,13 @@
   .bs-graphview {
     outline: none;
   }
+  /* The title keeps its width; the search gives way when the header gets crowded. */
+  .ttl {
+    flex: 1 0 auto;
+  }
   .search {
     flex: 0 1 300px;
+    min-width: 120px;
     display: flex;
     align-items: center;
     gap: 8px;

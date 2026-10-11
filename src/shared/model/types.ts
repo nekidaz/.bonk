@@ -402,6 +402,8 @@ export interface GitStatus {
   prefix: string;
   /** A cherry-pick / merge / rebase / revert stopped on conflicts, or '' when none is in progress. */
   operation: '' | 'merge' | 'rebase' | 'cherry-pick' | 'revert';
+  /** The branch tip before the last rebase while that rebase is its latest move, else ''. */
+  undoRebase: string;
 }
 
 /** A ref pointing at a commit: `head` is the checked-out branch (or a detached `HEAD`). */
@@ -469,6 +471,8 @@ export interface OperationInfo {
   subject: string;
   mine: string;
   theirs: string;
+  /** A rebase paused at an `edit` step: change the requests, then continue. */
+  paused: boolean;
 }
 
 /** G9: a commit an interactive rebase would replay, oldest first. */
@@ -476,6 +480,8 @@ export interface RebaseStep {
   hash: string;
   short: string;
   subject: string;
+  /** The full message (subject, blank line, body). */
+  message: string;
   /** Already on a remote branch: rewriting it needs a force push. */
   pushed: boolean;
 }
@@ -487,11 +493,12 @@ export interface RebasePlan {
   commits: RebaseStep[];
 }
 
-export type RebaseVerb = 'pick' | 'reword' | 'squash' | 'fixup' | 'drop';
+export type RebaseVerb = 'pick' | 'reword' | 'edit' | 'squash' | 'fixup' | 'drop';
 
 export interface RebaseAction {
   hash: string;
   action: RebaseVerb;
+  /** The message a kept commit ends with after its squashes; required for reword. */
   message?: string;
 }
 

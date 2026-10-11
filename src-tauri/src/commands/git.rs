@@ -280,3 +280,8 @@ pub async fn git_rebase_interactive(
 ) -> Result<(), String> {
     off_main(move || git::rebase_interactive(&root, &onto, &steps)).await
 }
+
+#[tauri::command]
+pub async fn git_rebase_undo(root: String, before: String) -> Result<(), String> {
+    off_main(move || git::rebase_undo(&root, &before)).await
+}

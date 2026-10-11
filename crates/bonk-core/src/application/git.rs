@@ -47,6 +47,9 @@ pub struct GitStatus {
     /// In-progress operation stopped on conflicts: "" | "merge" | "rebase" |
     /// "cherry-pick" | "revert".
     pub operation: String,
+    /// The branch tip before the last rebase while that rebase is still the
+    /// branch's latest move (undo target), else "".
+    pub undo_rebase: String,
 }
 
 /// One entry from `git log`.
@@ -233,6 +236,7 @@ pub fn status(root: &str) -> Result<GitStatus, String> {
                 files: vec![],
                 prefix: String::new(),
                 operation: String::new(),
+                undo_rebase: String::new(),
             });
         }
     };
@@ -296,8 +300,46 @@ pub fn status(root: &str) -> Result<GitStatus, String> {
         behind,
         files,
         prefix,
+        undo_rebase: if operation.is_empty() {
+            rebase_undo_target(&top)
+        } else {
+            String::new()
+        },
         operation,
     })
+}
+
+/// Where [`rebase_undo`] would put the branch back: its tip before the last
+/// rebase, read from the branch's own reflog (git moves the branch once, when
+/// the rebase finishes). Anything after it (a commit, a reset) ends the offer.
+fn rebase_undo_target(top: &str) -> String {
+    let Ok(head) = git(top, &["symbolic-ref", "-q", "HEAD"]) else {
+        return String::new();
+    };
+    let head = head.trim();
+    let last = git(top, &["reflog", "-1", "--format=%gs", head, "--"]).unwrap_or_default();
+    // "rebase (finish): refs/heads/x onto …", also "pull --rebase (finish): …".
+    if !last.contains("(finish): ") {
+        return String::new();
+    }
+    git(
+        top,
+        &["rev-parse", "--verify", "-q", &format!("{head}@{{1}}")],
+    )
+    .map(|h| h.trim().to_string())
+    .unwrap_or_default()
+}
+
+/// Put the branch back where it was before the last rebase. `before` is what
+/// the UI offered; it must still be the target, so a stale button can't move
+/// the branch somewhere else. `--keep` refuses rather than lose local changes.
+pub fn rebase_undo(root: &str, before: &str) -> Result<(), String> {
+    check_hash(before)?;
+    let top = toplevel(root)?;
+    if rebase_undo_target(&top) != before {
+        return Err("the last rebase can no longer be undone here".to_string());
+    }
+    git_noedit(&top, &["reset", "--keep", before])
 }
 
 /// Stage `paths` (or everything with `add -A` when empty).
@@ -1549,6 +1591,13 @@ pub fn operation_abort(root: &str) -> Result<(), String> {
 
 pub fn operation_continue(root: &str) -> Result<(), String> {
     let (top, op) = current_operation(root)?;
+    // Paused at an `edit`, git amends the commit with what is staged and
+    // refuses unstaged changes with a message about merge conflicts.
+    let amend = git(&top, &["rev-parse", "--git-path", "rebase-merge/amend"]).unwrap_or_default();
+    let paused = op == "rebase" && std::path::Path::new(&top).join(amend.trim()).exists();
+    if paused && git(&top, &["diff", "--quiet"]).is_err() {
+        return Err("There are unstaged changes: stage them to put them into the paused commit, or discard them.".to_string());
+    }
     if op == "merge" {
         git_noedit(&top, &["commit", "--no-edit"])
     } else {
@@ -1582,6 +1631,9 @@ pub struct OperationInfo {
     /// Labels for the two sides.
     pub mine: String,
     pub theirs: String,
+    /// A rebase paused at an `edit` step: change and stage files, then continue
+    /// (git amends the commit with what is staged).
+    pub paused: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1590,6 +1642,8 @@ pub struct RebaseStep {
     pub hash: String,
     pub short: String,
     pub subject: String,
+    /// The full message (subject, blank line, body), for reword and squash.
+    pub message: String,
     /// Reachable from some remote-tracking branch.
     pub pushed: bool,
 }
@@ -1608,9 +1662,10 @@ pub struct RebasePlan {
 #[serde(rename_all = "camelCase")]
 pub struct RebaseAction {
     pub hash: String,
-    /// pick | reword | squash | fixup | drop
+    /// pick | reword | edit | squash | fixup | drop
     pub action: String,
-    /// New message, reword only.
+    /// The message a kept commit (pick / reword / edit) ends with once the
+    /// squashes / fixups after it are folded in. Required for reword.
     pub message: Option<String>,
 }
 
@@ -1772,6 +1827,7 @@ pub fn operation_info(root: &str) -> Result<OperationInfo, String> {
         subject: String::new(),
         mine: String::new(),
         theirs: String::new(),
+        paused: false,
     };
     if kind.is_empty() {
         return Ok(info);
@@ -1797,6 +1853,7 @@ pub fn operation_info(root: &str) -> Result<OperationInfo, String> {
                     .and_then(|s| s.parse().ok())
                     .unwrap_or(0);
                 info.hash = read_trim(rm.join("stopped-sha")).unwrap_or_default();
+                info.paused = rm.join("amend").exists();
                 info.mine = read_trim(rm.join("head-name"))
                     .map(|n| n.strip_prefix("refs/heads/").unwrap_or(&n).to_string())
                     .filter(|n| n != "detached HEAD")
@@ -2000,7 +2057,7 @@ pub fn rebase_plan(root: &str, onto: &str) -> Result<RebasePlan, String> {
             "log",
             "--reverse",
             "--no-merges",
-            "--format=%H%x1f%h%x1f%s%x1e",
+            "--format=%H%x1f%h%x1f%s%x1f%B%x1e",
             &range,
             "--",
         ],
@@ -2023,12 +2080,13 @@ pub fn rebase_plan(root: &str, onto: &str) -> Result<RebasePlan, String> {
     let commits = log
         .split('\x1e')
         .filter_map(|rec| {
-            let mut f = rec.trim_start_matches('\n').splitn(3, '\x1f');
+            let mut f = rec.trim_start_matches('\n').splitn(4, '\x1f');
             let hash = f.next().filter(|h| !h.is_empty())?.to_string();
             Some(RebaseStep {
                 pushed: !unpushed.contains(&hash),
                 short: f.next().unwrap_or("").to_string(),
                 subject: f.next().unwrap_or("").to_string(),
+                message: f.next().unwrap_or("").trim_end().to_string(),
                 hash,
             })
         })
@@ -2043,18 +2101,24 @@ pub fn rebase_plan(root: &str, onto: &str) -> Result<RebasePlan, String> {
 
 /// Run an interactive rebase non-interactively with a todo we build.
 /// `sequence.editor` is `cp '<todo>'`: git appends its own todo path, so the
-/// copy overwrites it (on Windows `cp` comes from Git's own sh). A reword is a
-/// `pick` plus `exec git commit --amend -F <file>`. `core.editor=true` keeps
-/// git's combined message for squash. The files are removed afterwards.
+/// copy overwrites it (on Windows `cp` comes from Git's own sh). A kept commit
+/// with a message (a reword, or a pick whose squashes got a new message) gets
+/// `exec git commit --amend -F <file>` after its folds; `core.editor=true`
+/// keeps git's own message otherwise. `edit` stops after its commit with the
+/// rebase in progress (see [`operation_continue`]). The files are removed
+/// afterwards.
 pub fn rebase_interactive(root: &str, onto: &str, steps: &[RebaseAction]) -> Result<(), String> {
     check_name(onto)?;
     let mut first_kept = true;
     for s in steps {
         check_hash(&s.hash)?;
+        if s.message.as_deref().is_some_and(|m| m.trim().is_empty()) {
+            return Err("a commit message can't be empty".to_string());
+        }
         match s.action.as_str() {
-            "pick" | "drop" => {}
+            "pick" | "edit" | "drop" => {}
             "reword" => {
-                if s.message.as_deref().is_none_or(|m| m.trim().is_empty()) {
+                if s.message.is_none() {
                     return Err("a reworded commit needs a message".to_string());
                 }
             }
@@ -2105,19 +2169,34 @@ fn run_rebase_todo(
             .map_err(|e| format!("failed to write {}: {e}", path.display()))?;
         Ok(path)
     };
+    // The message of the kept commit whose folds are being written, applied
+    // when the next kept commit (or the end) closes its group.
+    let mut pending: Option<std::path::PathBuf> = None;
     let mut todo = String::new();
-    for (i, s) in steps.iter().enumerate() {
-        if s.action != "reword" {
-            todo.push_str(&format!("{} {}\n", s.action, s.hash));
-            continue;
+    let amend = |todo: &mut String, msg: Option<std::path::PathBuf>| {
+        if let Some(m) = msg {
+            todo.push_str(&format!(
+                "exec git commit --amend -F {}\n",
+                sh_quote(&m.display().to_string())
+            ));
         }
-        let msg = write(&format!("msg{i}"), s.message.as_deref().unwrap_or(""))?;
-        todo.push_str(&format!(
-            "pick {}\nexec git commit --amend -F {}\n",
-            s.hash,
-            sh_quote(&msg.display().to_string())
-        ));
+    };
+    for (i, s) in steps.iter().enumerate() {
+        let kept = matches!(s.action.as_str(), "pick" | "reword" | "edit");
+        if kept {
+            amend(&mut todo, pending.take());
+            if let Some(m) = &s.message {
+                pending = Some(write(&format!("msg{i}"), m)?);
+            }
+        }
+        let verb = if s.action == "reword" {
+            "pick"
+        } else {
+            &s.action
+        };
+        todo.push_str(&format!("{verb} {}\n", s.hash));
     }
+    amend(&mut todo, pending.take());
     let todo_path = write("todo", &todo)?;
     let editor = format!(
         "sequence.editor=cp {}",
@@ -3319,6 +3398,83 @@ mod tests {
         assert!(dir.join("f4.txt").exists() && dir.join("f5.txt").exists());
         assert!(!dir.join("f1.txt").exists());
         assert_eq!(status(r).unwrap().operation, "");
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    fn full_message(r: &str, rev_: &str) -> String {
+        git(r, &["log", "-1", "--format=%B", rev_])
+            .unwrap()
+            .trim_end()
+            .to_string()
+    }
+
+    #[test]
+    fn rebase_messages_keep_the_body_and_squash_takes_a_new_one() {
+        let dir = init_repo();
+        let r = dir.to_str().unwrap();
+        commit_file(r, "base.txt", "b\n", "base");
+        commit_file(r, "a.txt", "a\n", "a\n\nwhy a");
+        commit_file(r, "b.txt", "b\n", "b");
+        commit_file(r, "c.txt", "c\n", "c");
+        let plan = rebase_plan(r, "HEAD~3").unwrap();
+        assert_eq!(plan.commits[0].subject, "a");
+        assert_eq!(plan.commits[0].message, "a\n\nwhy a");
+        let steps = [
+            act(r, "HEAD~2", "reword", Some("a2\n\nwhy a")),
+            act(r, "HEAD~1", "pick", Some("b + c\n\nboth")),
+            act(r, "HEAD", "squash", None),
+        ];
+        rebase_interactive(r, "HEAD~3", &steps).unwrap();
+        assert_eq!(subjects(r), ["base", "a2", "b + c"]);
+        assert_eq!(full_message(r, "HEAD~1"), "a2\n\nwhy a");
+        assert_eq!(full_message(r, "HEAD"), "b + c\n\nboth");
+        assert!(dir.join("c.txt").exists());
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn rebase_edit_pauses_and_continue_amends_the_change_in() {
+        let dir = init_repo();
+        let r = dir.to_str().unwrap();
+        commit_file(r, "base.txt", "b\n", "base");
+        commit_file(r, "a.txt", "a\n", "a");
+        commit_file(r, "b.txt", "b\n", "b");
+        let steps = [act(r, "HEAD~1", "edit", None), act(r, "HEAD", "pick", None)];
+        rebase_interactive(r, "HEAD~2", &steps).unwrap();
+        assert_eq!(status(r).unwrap().operation, "rebase");
+        let info = operation_info(r).unwrap();
+        assert!(info.paused);
+        assert_eq!(info.hash, rev(r, "HEAD"));
+        // An unstaged change is refused (git won't guess what belongs in the
+        // commit); a staged one is amended into the paused commit.
+        fs::write(dir.join("a.txt"), "a, edited\n").unwrap();
+        assert!(operation_continue(r).unwrap_err().contains("unstaged"));
+        stage(r, &["a.txt".to_string()]).unwrap();
+        operation_continue(r).unwrap();
+        assert_eq!(status(r).unwrap().operation, "");
+        assert_eq!(subjects(r), ["base", "a", "b"]);
+        assert_eq!(git(r, &["show", "HEAD~1:a.txt"]).unwrap(), "a, edited\n");
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn rebase_undo_puts_the_branch_back_once() {
+        let dir = init_repo();
+        let r = dir.to_str().unwrap();
+        commit_file(r, "base.txt", "b\n", "base");
+        commit_file(r, "a.txt", "a\n", "a");
+        commit_file(r, "b.txt", "b\n", "b");
+        let before = rev(r, "HEAD");
+        assert_eq!(status(r).unwrap().undo_rebase, "");
+        let steps = [act(r, "HEAD", "pick", None), act(r, "HEAD~1", "pick", None)];
+        rebase_interactive(r, "HEAD~2", &steps).unwrap();
+        assert_eq!(subjects(r), ["base", "b", "a"]);
+        assert_eq!(status(r).unwrap().undo_rebase, before);
+        assert!(rebase_undo(r, &rev(r, "HEAD~1")).is_err(), "a stale target");
+        rebase_undo(r, &before).unwrap();
+        assert_eq!(rev(r, "HEAD"), before);
+        assert_eq!(status(r).unwrap().undo_rebase, "");
+        assert!(rebase_undo(r, &before).is_err(), "only once");
         let _ = fs::remove_dir_all(dir);
     }
 
