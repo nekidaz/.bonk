@@ -20,11 +20,11 @@ import type {
 
 /**
  * Master switch for the Scripts tab (HTTP + gRPC). When false the editor tab is hidden; scripts already saved in
- * requests still run on send / in the runner / in flows. Flip to `true` to bring the tab back.
+ * requests still run on send / in the runner. Flip to `true` to bring the tab back.
  */
 export const SCRIPTS_ENABLED = true;
 
-export type ScriptPhase = 'pre-request' | 'test' | 'flow';
+export type ScriptPhase = 'pre-request' | 'test';
 
 /** Parsed shape of the `__out` object the QuickJS `run_script` returns. */
 export interface ScriptResult {
@@ -48,7 +48,7 @@ export interface ScriptResult {
   errorLine?: number | null;
   /** Console feed rows in run order (stage is filled in by `collectScriptRun`). */
   events?: Omit<ScriptEvent, 'stage'>[];
-  /** The script's top-level `return` value (Flow blocks); undefined when none. */
+  /** The script's top-level `return` value; undefined when none. */
   returnValue?: unknown;
 }
 
@@ -86,8 +86,6 @@ export interface ScriptContext {
    * precedence over env/globals in `pm.variables.get`.
    */
   iterationData: Record<string, string>;
-  /** Flow block payload, exposed to the script as the `payload` global. */
-  payload?: unknown;
   /** Cookies going to the request URL, exposed as `pm.cookies`. */
   cookies?: { name: string; value: string }[];
 }

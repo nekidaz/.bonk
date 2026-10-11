@@ -4,6 +4,12 @@ All notable changes to bonk are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project aims to
 follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Removed
+- Flows canvas, block execution and its UI entry points. Collection Runner and
+  HTTP/gRPC request scripts remain available.
+
 ## [0.1.9] - 2026-10-10
 
 ### Added

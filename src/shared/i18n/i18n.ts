@@ -4,7 +4,7 @@ import * as app from './app';
 import * as nav from './nav';
 import * as request from './request';
 import * as grpcgit from './grpcgit';
-import * as flow from './flow';
+import * as runner from './runner';
 import * as shell from './shell';
 import * as largebody from './largebody';
 import * as scripts from './scripts';
@@ -12,7 +12,7 @@ import * as cookies from './cookies';
 import * as importer from './importer';
 // Each area owns a part file in ./i18n/ exporting `ru` and `en: Record<keyof typeof ru, string>`
 // (so a missing key is a type error); they are merged below.
-const parts = [common, app, nav, request, grpcgit, flow, shell, largebody, scripts, cookies, importer];
+const parts = [common, app, nav, request, grpcgit, runner, shell, largebody, scripts, cookies, importer];
 
 export const ru = Object.assign({}, ...parts.map((p) => p.ru)) as Record<string, string> & (typeof common)['ru'];
 export const en = Object.assign({}, ...parts.map((p) => p.en)) as Record<string, string> & (typeof common)['en'];

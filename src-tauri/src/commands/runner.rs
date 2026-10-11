@@ -1,4 +1,4 @@
-//! Collection Runner (and Flow request blocks): bonk-core's runner with the app's network.
+//! Collection Runner: bonk-core's runner with the app's network.
 
 use std::collections::{BTreeMap, HashMap};
 use std::future::Future;

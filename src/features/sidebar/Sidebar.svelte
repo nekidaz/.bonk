@@ -7,7 +7,7 @@
    *    (folder/request rows, inline-rename input, per-row ⋯ actions),
    *  - the History section (header with count/paused + ⋯, list rows with a
    *    remove button, and the empty state),
-   *  - the Postman-style bottom dock (environments, flows).
+   *  - the Postman-style bottom dock (environments).
    *
    * The outer `<aside class="bs-side" style="width:…">` wrapper, the column
    * resize handle, and the sidebar width/resize state live in app/ (AppSidebar.svelte,
@@ -32,7 +32,6 @@
   import { tabs } from '$entities/tab';
   import { history, openHistoryEntry, removeHistoryEntry } from '$entities/history';
   import { openSavedRequest } from '$entities/request';
-  import { flows, openFlowTab, createFlow } from '$entities/flow';
   import {
     environments,
     setActiveEnvironment,
@@ -63,7 +62,7 @@
     editingNodeId: string | undefined;
     editValue: string;
     filter: string;
-    panel?: 'collections' | 'history' | 'git' | 'flows';
+    panel?: 'collections' | 'history' | 'git';
     onTreeKey: (e: KeyboardEvent, id: string, isFolder: boolean) => void;
     commitInlineRename: () => void;
     inlineRenameKeydown: (e: KeyboardEvent) => void;
@@ -170,25 +169,13 @@
   // S22b tree: 24px per level; --d draws one guide line per ancestor level.
   const indent = (depth: number) => 8 + Math.min(depth, 4) * 24;
 
-  type DockSection = 'environments' | 'flows';
-  // Postman-style secondary sections stay docked to the bottom instead of
-  // opening popovers over the collections tree.
-  let dockSection = $state<DockSection | null>('environments');
+  // The environment picker stays docked below the collections tree.
+  let environmentsOpen = $state(true);
 
-  $effect(() => {
-    if (panel === 'flows') dockSection = 'flows';
-  });
-
-  function toggleDock(section: DockSection): void {
-    dockSection = dockSection === section ? null : section;
+  function toggleEnvironments(): void {
+    environmentsOpen = !environmentsOpen;
   }
 
-  function chooseFlow(id: string): void {
-    openFlowTab(id);
-  }
-  function newFlow(): void {
-    createFlow();
-  }
   function chooseEnv(id: string | null): void {
     setActiveEnvironment(id);
   }
@@ -587,7 +574,6 @@
         bind:this={treeEl}
         bind:clientHeight={viewH}
         onscroll={() => (scrollTop = treeEl?.scrollTop ?? 0)}
-        class:bs-flows-selected={panel === 'flows'}
         class:bs-droproot={dropAt?.id === ''}
         class:bs-dragging={!!dragId}
       >
@@ -700,17 +686,17 @@
       </div>
     {/if}
 
-    <div class="bs-side-dock" class:bs-flows-selected={panel === 'flows'}>
-      <section class="bs-dock-section" class:open={dockSection === 'environments'}>
+    <div class="bs-side-dock">
+      <section class="bs-dock-section" class:open={environmentsOpen}>
         <div class="bs-dock-head">
           <button
             class="bs-dock-toggle"
             type="button"
-            aria-expanded={dockSection === 'environments'}
-            onclick={() => toggleDock('environments')}
+            aria-expanded={environmentsOpen}
+            onclick={() => toggleEnvironments()}
           >
             <span class="material-symbols-outlined" aria-hidden="true" style="font-size:13px"
-              >{dockSection === 'environments' ? 'expand_more' : 'chevron_right'}</span
+              >{environmentsOpen ? 'expand_more' : 'chevron_right'}</span
             >
             <span>{t('sidebar.environments')}</span>
             <span class="bs-dock-summary">{activeEnvName}</span>
@@ -719,7 +705,7 @@
             ><span class="material-symbols-outlined" style="font-size:14px">tune</span></button
           >
         </div>
-        {#if dockSection === 'environments'}
+        {#if environmentsOpen}
           <div class="bs-dock-body">
             <button
               class="bs-dock-item"
@@ -745,38 +731,6 @@
                 <span>{environment.name}</span>
               </button>
             {/each}
-          </div>
-        {/if}
-      </section>
-
-      <section class="bs-dock-section" class:open={dockSection === 'flows'}>
-        <div class="bs-dock-head">
-          <button
-            class="bs-dock-toggle"
-            type="button"
-            aria-expanded={dockSection === 'flows'}
-            onclick={() => toggleDock('flows')}
-          >
-            <span class="material-symbols-outlined" aria-hidden="true" style="font-size:13px"
-              >{dockSection === 'flows' ? 'expand_more' : 'chevron_right'}</span
-            ><span>{t('sidebar.flows')}</span>
-          </button>
-          <button class="bs-dock-action" type="button" title={t('sidebar.newFlow')} onclick={newFlow}
-            ><span class="material-symbols-outlined" style="font-size:14px">add</span></button
-          >
-        </div>
-        {#if dockSection === 'flows'}
-          <div class="bs-dock-body">
-            {#if flows.list.length === 0}
-              <div class="bs-dock-empty">{t('sidebar.noFlows')}</div>
-            {:else}
-              {#each flows.list as flow (flow.id)}
-                <button class="bs-dock-item" type="button" onclick={() => chooseFlow(flow.id)}>
-                  <span class="material-symbols-outlined" aria-hidden="true" style="font-size:14px">account_tree</span
-                  ><span>{flow.name}</span>
-                </button>
-              {/each}
-            {/if}
           </div>
         {/if}
       </section>
