@@ -228,7 +228,10 @@ it('imports, configures auth, runs, commits and repeats the same scenario from a
         cli,
         ['run', '--workspace', root, '--scenario', 'smoke', '--json', report, '--junit', junit],
         { cwd: dir, env },
-      );
+      ).catch((e) => {
+        // execFile's message carries only stderr; the run's failures are on stdout.
+        throw new Error(`${e.message}exit ${e.code}\n${e.stdout}`);
+      });
       const reportText = await readFile(report, 'utf8');
       expect(reportText + output.stdout + (await readFile(junit, 'utf8'))).not.toContain(secret);
       const result = JSON.parse(reportText);

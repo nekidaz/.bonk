@@ -12,7 +12,8 @@ const sh = (cwd: string, cmd: string, input?: string) => execSync(cmd, { cwd, in
 describe('patches against real git', () => {
   it('stage a block, partial lines, unstage, discard', () => {
     const d = mkdtempSync(join(tmpdir(), 'bonk-patch-'));
-    sh(d, 'git init -q && git config user.email a@b && git config user.name a');
+    // core.autocrlf off: a Windows runner's global autocrlf=true would write CRLF on `git apply -R`.
+    sh(d, 'git init -q && git config core.autocrlf false && git config user.email a@b && git config user.name a');
     writeFileSync(join(d, 'a.txt'), '1\n2\n3\n4\n5\n6\n7\n8');
     sh(d, 'git add -A && git commit -qm base');
     writeFileSync(join(d, 'a.txt'), '1 changed\n2\n3\n4\n5\n6\n7\n8a\n8b');
