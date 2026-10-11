@@ -15,6 +15,7 @@
    * state it renders directly and coordinates menus/inline-rename through
    * props so the menu popovers, modals, and editing state stay in app/.
    */
+  import { GitBranchIcon } from '$shared/ui/components';
   import { tick, untrack } from 'svelte';
   import {
     toggleFolder,
@@ -408,8 +409,9 @@
           class:on={panel === 'git'}
           title={t('sidebar.sourceControl')}
           onclick={() => (panel = 'git')}
-          ><span class="material-symbols-outlined">fork_right</span><span class="bs-ri-label">Git</span
-          >{#if gitFiles.length}<span class="bs-ri-badge">{gitFiles.length}</span>{/if}</button
+          ><GitBranchIcon size={16} /><span class="bs-ri-label">Git</span>{#if gitFiles.length}<span class="bs-ri-badge"
+              >{gitFiles.length > 99 ? '99+' : gitFiles.length}</span
+            >{/if}</button
         >
       {/if}
     </div>

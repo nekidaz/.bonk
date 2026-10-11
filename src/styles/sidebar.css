@@ -1288,8 +1288,9 @@
 
 /* Flow · Git: three rail tabs — only the active one is wide and labelled, the rest are icons. */
 :root .bs .bs-ri:not(.on) {
-  flex: 0 0 36px;
-  padding: 0;
+  flex: 0 0 auto;
+  min-width: 36px;
+  padding: 0 10px;
 }
 
 :root .bs .bs-ri:not(.on) .bs-ri-label {

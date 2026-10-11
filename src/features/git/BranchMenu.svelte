@@ -4,6 +4,7 @@
    * (`git.branchMenu` holds its anchor). Search, local branches with ahead/behind, remote branches
    * not checked out yet, «New branch from …», and Pull / Push.
    */
+  import { GitBranchIcon } from '$shared/ui/components';
   import { untrack } from 'svelte';
   import { workspace } from '$entities/workspace';
   import { createBranch, git, pull, push, requestCheckout } from '$entities/git';
@@ -105,9 +106,9 @@
         <div class="eyebrow">{t('git.branch.local')}</div>
         {#each locals as b (b.name)}
           <button class="item" class:cur={b.name === current} onclick={() => pick(b)}>
-            <span class="material-symbols-outlined" aria-hidden="true"
-              >{b.name === current ? 'check' : 'fork_right'}</span
-            >
+            {#if b.name === current}<span class="material-symbols-outlined" aria-hidden="true">check</span>{:else}<span
+                class="ic"><GitBranchIcon size={14} /></span
+              >{/if}
             <span class="nm">{b.name}</span>
             <span class="tr">{track(b)}</span>
           </button>
@@ -225,6 +226,12 @@
   }
   .item:hover {
     background: var(--color-hover);
+  }
+  .item .ic {
+    display: inline-flex;
+    width: 15px;
+    justify-content: center;
+    color: var(--color-text-muted);
   }
   .item .material-symbols-outlined {
     font-size: 15px;
