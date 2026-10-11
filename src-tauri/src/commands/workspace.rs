@@ -131,3 +131,33 @@ pub fn workspace_reorder(root: String, dir: String, names: Vec<String>) -> Resul
     require_absolute_root(&root)?;
     bonk_core::application::workspace::reorder(&root, &dir, names)
 }
+
+#[tauri::command]
+pub fn scenarios_load(
+    root: String,
+) -> Result<Vec<bonk_core::application::scenarios::Scenario>, String> {
+    require_absolute_root(&root)?;
+    bonk_core::application::scenarios::load(std::path::Path::new(&root))
+}
+#[tauri::command]
+pub fn scenarios_save(
+    root: String,
+    scenario: bonk_core::application::scenarios::Scenario,
+) -> Result<(), String> {
+    require_absolute_root(&root)?;
+    bonk_core::application::scenarios::save(std::path::Path::new(&root), scenario)
+}
+#[tauri::command]
+pub fn scenarios_delete(root: String, name: String) -> Result<(), String> {
+    require_absolute_root(&root)?;
+    bonk_core::application::scenarios::delete(std::path::Path::new(&root), &name)
+}
+
+#[tauri::command]
+pub fn workspace_import_collection(
+    root: String,
+    collection: bonk_core::application::workspace::ImportCollection,
+) -> Result<String, String> {
+    require_absolute_root(&root)?;
+    bonk_core::application::workspace::import_collection(&root, collection)
+}

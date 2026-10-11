@@ -1,3 +1,4 @@
+import { httpPathsToRel } from './protoPaths';
 import type { Param, RequestNode, Tab } from '$shared/model';
 
 /** JSON with empty values dropped, so `body: ''` vs a missing body (or a trailing blank param row) never reads as a change. */
@@ -20,7 +21,7 @@ const same = (a: unknown, b: unknown): boolean => JSON.stringify(canon(a)) === J
 const realParams = (ps: Param[] | undefined): Param[] => (ps ?? []).filter((p) => p.key || p.value || p.description);
 
 /** A tab backed by a saved request differs from what is on disk (S09 «Изменён · не сохранён»). */
-export function isTabDirty(tab: Tab, saved: RequestNode | undefined): boolean {
+export function isTabDirty(tab: Tab, saved: RequestNode | undefined, workspaceRoot = ''): boolean {
   if (!saved || (tab.protocol !== 'http' && tab.protocol !== 'grpc')) return false;
   if (tab.title !== saved.name) return true;
   if (tab.protocol === 'grpc') {
@@ -28,7 +29,10 @@ export function isTabDirty(tab: Tab, saved: RequestNode | undefined): boolean {
       g && { endpoint: g.endpoint, method: g.method, message: g.message, metadata: g.metadata, plaintext: g.plaintext };
     return !same(pick(tab.grpc), pick(saved.grpc));
   }
-  return !same(tab.request, saved.request) || !same(realParams(tab.params), realParams(saved.params));
+  return (
+    !same(httpPathsToRel(tab.request, workspaceRoot), httpPathsToRel(saved.request, workspaceRoot)) ||
+    !same(realParams(tab.params), realParams(saved.params))
+  );
 }
 
 /** Param row `i` differs from the saved row at the same position. */

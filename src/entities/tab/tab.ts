@@ -68,7 +68,7 @@ export function stripRuntimeTab(tab: Tab): Tab {
   // `testResults` is ephemeral script output, not part of the saved request;
   // drop it so it doesn't bloat persisted state (matches how live gRPC fields
   // are stripped below).
-  const { testResults: _testResults, grpcStream: _grpcStream, ...rest } = tab;
+  const { testResults: _testResults, grpcStream: _grpcStream, sent: _sent, ...rest } = tab;
   return stripLiveGrpc(rest);
 }
 

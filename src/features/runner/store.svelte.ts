@@ -1,7 +1,16 @@
+import { dynamicOptions } from '$shared/settings';
 import { untrack } from 'svelte';
 import { t } from '$shared/i18n';
-import type { Tab, RunResultRow, RunStatus } from '$shared/model';
-import { runnerPause, runnerStop, workspaceSaveRequest } from '$shared/ipc';
+import { type Tab, type RunResultRow, type RunStatus, type Scenario, scenarioVariables } from '$shared/model';
+import {
+  runnerPause,
+  runnerStop,
+  workspaceSaveRequest,
+  scenariosLoad,
+  scenariosSave,
+  scenariosDelete,
+  type RunVarWrites,
+} from '$shared/ipc';
 import { findNode, idToRel, parentId, ROOT, refreshDirs, workspace } from '$entities/workspace';
 import {
   pushHistory,
@@ -12,7 +21,7 @@ import {
   type RunRecord,
   type RunSummary,
 } from './runnerStats';
-import { isPreset, upsertPreset, type RunnerPreset } from './runnerPreset';
+import { isPreset, type RunnerPreset } from './runnerPreset';
 import {
   DEFAULT_CONFIG,
   DEFAULT_RUN,
@@ -30,7 +39,6 @@ import {
   orderedRequests,
   persistedConfig,
   plannedRequests,
-  presetFrom,
   runnerScopeTitle,
   type RunnerConfig,
   type RunnerRun,
@@ -39,7 +47,7 @@ import {
 import { isArrayOf, loadState, saveState, saveStateDebounced } from '$shared/persist';
 import { tabs } from '$entities/tab';
 import { environments, setActiveEnvironment } from '$entities/environment';
-import { runOne, runRequests } from '$entities/request';
+import { runOne, runRequests, captureExecutionContext } from '$entities/request';
 
 /**
  * The Collection Runner: runs a whole folder of saved requests (HTTP + gRPC) in
@@ -67,12 +75,29 @@ class Runner {
   records = $state.raw<RunRecord[]>([]);
   /** Run number shown read-only in the run view (an older run); null = the latest / live run. */
   viewing = $state<number | null>(null);
+  scenarios = $state.raw<Scenario[]>([]);
+  activeScenario = $state.raw<Scenario | null>(null);
+  error = $state('');
+  variables = $state.raw<Scenario['variables'] | null>(null);
+  runEnvironmentId: string | null = null;
   #presets = $state.raw<RunnerPreset[]>([]);
   #presetsLoaded = false;
 
-  /** Saved setups (R2 «Сохранить как пресет»), loaded from the R1 list. Saved on every change once loaded. */
+  /** Workspace scenarios plus legacy local presets; same-name workspace setups take precedence. */
   get presets(): RunnerPreset[] {
-    return this.#presets;
+    const shared = this.scenarios.map((scenario): RunnerPreset => ({
+      name: scenario.name,
+      folderIds: scenario.paths.map((p) => `fs:${p}`),
+      excludedIds: [],
+      orderIds: [],
+      iterations: scenario.iterations,
+      delayMs: scenario.delayMs,
+      stopOnFailure: scenario.stopOnFailure,
+      saveResponses: true,
+      envId: environments.list.find((e) => e.name === scenario.environmentName)?.id ?? null,
+      scenario,
+    }));
+    return [...this.#presets.filter((p) => !shared.some((s) => s.name === p.name)), ...shared];
   }
 
   set presets(list: RunnerPreset[]) {
@@ -84,6 +109,21 @@ class Runner {
   loadPresets(list: RunnerPreset[]): void {
     this.#presetsLoaded = true;
     this.presets = list;
+  }
+
+  /** Keep the run-local variables so one-call reruns work without a local environment. */
+  updateVariables(writes: RunVarWrites): void {
+    const current = untrack(() => this.variables);
+    if (!current) return;
+    const patch = (values: Record<string, string>, set: Record<string, string>, unset: string[]) => {
+      const next = { ...values, ...set };
+      for (const key of unset) delete next[key];
+      return next;
+    };
+    this.variables = {
+      environment: patch(current.environment, writes.envSet, writes.envUnset),
+      globals: patch(current.globals, writes.globalsSet, writes.globalsUnset),
+    };
   }
 
   /** Replace the config with `fn(config)`; reads untracked. */
@@ -188,6 +228,7 @@ export function repeatRun(s: RunSummary): void {
 
 /** Run scope: folder ids in order (empty = whole tree). A new scope resets the setup's checks and order. */
 export function setRunnerFolders(folderIds: string[]): void {
+  runner.activeScenario = null;
   runner.updateConfig((c) =>
     c.folderIds.join() === folderIds.join() ? c : { ...c, folderIds, excludedIds: [], orderIds: [] },
   );
@@ -230,22 +271,101 @@ export function currentPresetName(): string {
 }
 
 /** Save the current setup as a preset (same name = update); returns its name. */
-export function savePreset(): string {
+export async function savePreset(): Promise<string> {
+  runner.error = '';
   const c = runner.config;
-  const name = currentPresetName();
-  runner.presets = upsertPreset(runner.presets, presetFrom(c, name, environments.activeId));
+  const prior = runner.activeScenario;
+  const name = prior?.name ?? currentPresetName();
+  const root = workspace.path;
+  if (!root) throw new Error(t('runner.preset.workspaceRequired'));
+  const defaults = scenarioVariables(environments.globals, environments.active?.vars ?? []);
+  const requiredNames = new Set(prior?.requiredVariables ?? []);
+  for (const key of [...Object.keys(defaults.variables.globals), ...Object.keys(defaults.variables.environment)])
+    requiredNames.delete(key);
+  for (const key of defaults.requiredVariables) requiredNames.add(key);
+  const required = [...requiredNames];
+  const variables = {
+    globals: { ...prior?.variables.globals, ...defaults.variables.globals },
+    environment: { ...prior?.variables.environment, ...defaults.variables.environment },
+  };
+  for (const key of required) {
+    delete variables.globals[key];
+    delete variables.environment[key];
+  }
+  const scenario: Scenario = {
+    name,
+    paths: plannedRequests(c, workspace.tree).map((n) => idToRel(n.id)),
+    variables,
+    requiredVariables: required,
+    environmentName: environments.active?.name ?? null,
+    iterations: c.iterations,
+    dynamic: prior?.dynamic ?? dynamicOptions(),
+    dataRows: c.dataRows.map((row) =>
+      Object.fromEntries(Object.entries(row).filter(([key]) => !required.includes(key))),
+    ),
+    delayMs: c.delayMs,
+    stopOnFailure: c.stopOnFailure,
+  };
+  await scenariosSave(root, scenario);
+  const list = await scenariosLoad(root);
+  if (workspace.path === root) {
+    runner.scenarios = list;
+    runner.activeScenario = scenario;
+  }
   return name;
 }
 
-export function deletePreset(name: string): void {
-  runner.presets = runner.presets.filter((p) => p.name !== name);
+export async function deletePreset(name: string): Promise<void> {
+  runner.error = '';
+  const root = workspace.path;
+  try {
+    if (runner.scenarios.some((s) => s.name === name) && root) {
+      await scenariosDelete(root, name);
+      const list = await scenariosLoad(root);
+      if (workspace.path === root) {
+        runner.scenarios = list;
+        if (runner.activeScenario?.name === name) runner.activeScenario = null;
+      }
+    }
+    runner.presets = runner.presets.filter((p) => p.name !== name && !p.scenario);
+  } catch (e) {
+    runner.error = String(e);
+  }
+}
+
+/** Workspace changes reload shared setups; lifecycle owns this watcher. */
+export function watchRunnerWorkspace(): () => void {
+  return $effect.root(() => {
+    $effect(() => {
+      const root = workspace.path;
+      runner.scenarios = [];
+      runner.activeScenario = null;
+      if (!root) return;
+      let cancelled = false;
+      void scenariosLoad(root)
+        .then((list) => {
+          if (!cancelled) runner.scenarios = list;
+        })
+        .catch((e) => {
+          if (!cancelled) runner.error = String(e);
+        });
+      return () => {
+        cancelled = true;
+      };
+    });
+  });
 }
 
 /** Restore a preset's setup and open R2. */
 export function applyPreset(p: RunnerPreset): void {
   runner.viewing = null;
   setRunnerFolders(p.folderIds);
-  runner.updateConfig((c) => applyPresetSettings(c, p));
+  runner.updateConfig((c) => ({
+    ...applyPresetSettings(c, p),
+    dataRows: p.scenario?.dataRows ?? [],
+    dataFileName: null,
+  }));
+  runner.activeScenario = p.scenario ?? null;
   persistConfig();
   if (p.envId === null || environments.list.some((e) => e.id === p.envId)) setActiveEnvironment(p.envId);
   setRunnerStage('setup');
@@ -271,7 +391,7 @@ function finishRun(status: RunStatus): void {
   const r = runner.run;
   if (r.results.length === 0 || r.startedAt === null) return;
   const { folderIds } = runner.config;
-  const envId = environments.activeId;
+  const envId = runner.runEnvironmentId;
   const summary = {
     ...summarizeRun(r.n, r.startedAt, r.finishedAt ?? Date.now(), r.results),
     title: runnerScopeTitle(folderIds, workspace.tree),
@@ -354,9 +474,17 @@ export function stopRun(): void {
 export async function runCollection(): Promise<void> {
   if (runner.run.status === 'running') return;
   await loadRunnerState();
+  runner.error = '';
   setRunnerStage('run');
   runner.viewing = null;
   const config = runner.config;
+  const scenario = runner.activeScenario;
+  const missing = scenario?.paths.find((path) => !findNode(workspace.tree, `fs:${path}`));
+  if (missing) {
+    runner.error = t('runner.scenario.missingPath', { path: missing });
+    setRunnerStage('setup');
+    return;
+  }
   const requests = plannedRequests(config, workspace.tree);
   const n = (runner.history.at(-1)?.n ?? 0) + 1;
   if (requests.length === 0) {
@@ -366,6 +494,12 @@ export async function runCollection(): Promise<void> {
   }
 
   const iterations = iterationCount(config);
+  const context = captureExecutionContext();
+  runner.runEnvironmentId = context.environmentId;
+  runner.variables = {
+    environment: { ...scenario?.variables.environment, ...context.variables.environment },
+    globals: { ...context.variables.globals, ...scenario?.variables.globals },
+  };
 
   const startedAt = Date.now();
   runner.run = {
@@ -385,13 +519,17 @@ export async function runCollection(): Promise<void> {
       requests,
       {
         runId,
+        dynamic: scenario?.dynamic,
+        variables: scenario?.variables,
+        requiredVariables: scenario?.requiredVariables,
         iterations: config.iterations,
         dataRows: config.dataRows,
         delayMs: config.delayMs,
         stopOnFailure: config.stopOnFailure,
       },
       (e) => {
-        if (e.kind === 'iteration') runner.updateRun((r) => ({ ...r, iterStarts: [...r.iterStarts, e.atMs] }));
+        if (e.kind === 'vars') runner.updateVariables(e);
+        else if (e.kind === 'iteration') runner.updateRun((r) => ({ ...r, iterStarts: [...r.iterStarts, e.atMs] }));
         else if (e.kind === 'call')
           runner.updateRun((r) => ({
             ...r,
@@ -404,7 +542,9 @@ export async function runCollection(): Promise<void> {
       },
     );
   } catch (e) {
+    runner.error = String(e);
     console.error('runner: run failed', e);
+    setRunnerStage('setup');
     status = 'stopped';
   }
   finishRun(status);
@@ -419,7 +559,11 @@ async function rerunRows(rows: RunResultRow[]): Promise<void> {
   for (const [k, old] of rows.entries()) {
     const node = old.nodeId ? findNode(workspace.tree, old.nodeId) : undefined;
     if (node?.kind !== 'request') continue;
-    const fresh = await runOne(node, old.iteration, config.dataRows[old.iteration - 1] ?? {});
+    const fresh = await runOne(node, old.iteration, config.dataRows[old.iteration - 1] ?? {}, {
+      dynamic: runner.activeScenario?.dynamic,
+      variables: runner.variables ?? runner.activeScenario?.variables,
+      requiredVariables: runner.activeScenario?.requiredVariables,
+    });
     const row = { ...fresh, id: old.id, startOffsetMs: old.startOffsetMs, endMs: old.endMs };
     runner.updateRun((r) => ({ ...r, results: r.results.map((x) => (x.id === old.id ? row : x)) }));
     if (config.delayMs > 0 && k < rows.length - 1) await new Promise((done) => setTimeout(done, config.delayMs));

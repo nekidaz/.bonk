@@ -1,4 +1,4 @@
-import type { GrpcTabState } from '$shared/model';
+import type { GrpcTabState, HttpRequest } from '$shared/model';
 
 /**
  * Workspace-relative ⇄ absolute path helpers for persisting gRPC `.proto`
@@ -41,4 +41,27 @@ export function grpcPathsToRel(grpc: GrpcTabState | undefined, root: string): Gr
 /** Convert a tab's stored proto/import paths back to absolute (for the compiler). */
 export function grpcPathsToAbs(grpc: GrpcTabState | undefined, root: string): GrpcTabState | undefined {
   return mapPaths(grpc, (p) => toAbs(p, root));
+}
+
+function mapHttpPaths(request: HttpRequest, fn: (path: string) => string): HttpRequest {
+  return {
+    ...request,
+    headers: { ...request.headers },
+    binaryFilePath: request.binaryFilePath ? fn(request.binaryFilePath) : request.binaryFilePath,
+    bodyParams: request.bodyParams?.map((row) =>
+      row.kind !== 'file'
+        ? row
+        : {
+            ...row,
+            filePath: row.filePath ? fn(row.filePath) : row.filePath,
+            value: !row.filePath && row.value ? fn(row.value) : row.value,
+          },
+    ),
+  };
+}
+export function httpPathsToRel(request: HttpRequest, root: string): HttpRequest {
+  return mapHttpPaths(request, (p) => toWorkspaceRel(p, root));
+}
+export function httpPathsToAbs(request: HttpRequest, root: string): HttpRequest {
+  return mapHttpPaths(request, (p) => (p.includes('{{') ? p : toAbs(p, root)));
 }

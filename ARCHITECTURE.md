@@ -14,7 +14,9 @@ layers with a deliberately thin boundary between them:
   (`http_prepare` / `http_resolve` / `grpc_prepare`) and bonk-mcp both send through it.
   `application/runner.rs` is the Collection Runner (scripts, `{{vars}}` carried between
   requests, iterations, stop/pause); the network comes in through its `Transport` trait.
-  The app runs collections through it (`runner_run`), and
+  Interactive HTTP Send and unary gRPC Invoke use `request_run` / `execute_node`,
+  retaining full response/script details for the editor. The app runs collections
+  through it (`runner_run`), and
   bonk-mcp runs its HTTP/gRPC tools through it too.
 - **`crates/bonk-mcp/`** — headless Model Context Protocol server. Reuses
   `bonk-core` and exposes workspace resources/tools over STDIO or Streamable HTTP.
@@ -25,7 +27,8 @@ layers with a deliberately thin boundary between them:
 - **`crates/bonk-cli/`** — `bonk-cli run`: runs workspace folders/requests from a terminal
   or CI on bonk-core's runner (`CliTransport`: one reqwest client with a session cookie
   jar). Variables come from the app's state.json + keychain (`application/app_vars.rs`),
-  `BONK_VAR_*` and `--var`; `--data` files parse in `application/run_data.rs`. Exit 0 / 1
+  `BONK_VAR_*` and `--var`; named scenarios load public defaults and run intent from
+  `.bonk/scenarios.json` without implicit desktop state. `--data` files parse in `application/run_data.rs`. Exit 0 / 1
   (failures) / 2 (couldn't run); `--junit` / `--json` reports. See docs/CLI.md.
 
 ```
@@ -116,22 +119,23 @@ sequenceDiagram
     participant UI as features/http (HttpUrlBar)
     participant S as entities/request/store.ts
     participant API as shared/ipc/api.ts
-    participant CMD as commands::http_send
-    participant CORE as bonk_core::application::http
+    participant CMD as commands::request_run
+    participant CORE as bonk_core::application::runner
     participant NET as target server
 
-    UI->>API: httpPrepare(req, params) — params + body (bonk-core request_prep)
     UI->>S: send(req)
-    S->>S: capture origin tabId + requestId, mark busy[tabId]
-    S->>API: pre-request script, then httpResolve(req, scope) — {{vars}} + auth
-    S->>API: httpSend(resolved, requestId)
-    API->>CMD: invoke("http_send", {req, requestId})
-    CMD->>CORE: send(client, req, cancel-token)
-    CORE->>NET: reqwest (follows redirects)
-    NET-->>CORE: status, headers, body, timing, size
-    CORE-->>CMD: HttpResponse
-    CMD-->>S: HttpResponse
-    S->>UI: tabs.updateById(tabId, response) + addHistory
+    S->>S: capture origin tabId, environment and requestId; mark busy
+    S->>API: requestRun(node, vars, settings)
+    API->>CMD: invoke("request_run", args)
+    CMD->>CORE: runner::execute_node (shared with collections / CLI / MCP)
+    CORE->>CORE: materialize → pre-script → vars / OAuth / auth
+    CORE->>NET: AppTransport send (proxy, TLS, cookies, cancellation)
+    NET-->>CORE: response
+    CORE->>CORE: post-script, tests, variable writes
+    CORE-->>CMD: row + full response / scripts / OAuth details
+    CMD-->>S: result + variable-write events
+    S->>UI: origin tab response + history / console
+
 ```
 
 - In-flight state is **per tab** (`requestRuntime.busy[tabId]`); the response is written back to
@@ -165,6 +169,14 @@ my-workspace/
 requests, each alphabetical). Mutations are granular fs ops
 (create/save/rename/delete/duplicate/move) — there is **no manifest**, which is
 what keeps it Git-friendly and self-healing. Node id = `fs:<relative path>`.
+
+**Portable scenarios** live in `.bonk/scenarios.json` alongside this tree. They
+contain relative request/folder paths, execution order, public variable defaults,
+required secret names and run/data settings. The hidden directory is ignored by
+the request-tree loader. The app, CLI and MCP validate and execute them through
+bonk-core; local UI state and run history are still separate. Import persistence
+is also core-owned (`workspace::import_collection`), preserving import order and
+removing an incomplete new collection on failure.
 
 **2. App state = `state.json` KV** (in the app data dir), via `app_state_load` /
 `app_state_set`. Holds session/UI state: open `tabs`, `history`, `workspacePath`,

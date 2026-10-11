@@ -121,7 +121,12 @@ pub(crate) fn sanitize_text(value: &str, secrets: &[String]) -> String {
         .filter(|secret| !secret.is_empty())
         .fold(value.to_string(), |text, secret| {
             let encoded = encode_uri_component(secret);
+            let escaped = serde_json::to_string(secret).unwrap_or_default();
+            let escaped = escaped
+                .get(1..escaped.len().saturating_sub(1))
+                .unwrap_or(secret);
             text.replace(secret, "<redacted>")
+                .replace(escaped, "<redacted>")
                 .replace(&encoded, "<redacted>")
         })
 }
@@ -162,6 +167,20 @@ pub(crate) fn redact_sensitive_url(value: &str) -> String {
         parsed.query_pairs_mut().clear().extend_pairs(pairs);
     }
     parsed.to_string()
+}
+
+/// Scrub string values without round-tripping through escaped JSON text.
+pub(crate) fn sanitize_json(value: &mut serde_json::Value, secrets: &[String]) {
+    match value {
+        serde_json::Value::String(text) => *text = sanitize_text(text, secrets),
+        serde_json::Value::Array(values) => {
+            values.iter_mut().for_each(|v| sanitize_json(v, secrets))
+        }
+        serde_json::Value::Object(values) => {
+            values.values_mut().for_each(|v| sanitize_json(v, secrets))
+        }
+        _ => {}
+    }
 }
 
 #[cfg(test)]

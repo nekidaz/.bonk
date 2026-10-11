@@ -19,9 +19,11 @@
   import { tabs, grpcSnapshot, titleFromUrl, GRPC_DEFAULT_TITLE } from '$entities/tab';
   import { effectiveAuth, workspace } from '$entities/workspace';
   import { addHistory } from '$entities/history';
-  import { grpcTlsFor, currentGrpcPrefs, withGlobalImports, requestPrefs } from '$shared/settings';
+  import { grpcTlsFor, currentGrpcPrefs, dynamicOptions, withGlobalImports, requestPrefs } from '$shared/settings';
   import {
     applyScriptVars,
+    sendGrpcRequest,
+    captureExecutionContext,
     addAppConsoleEntry,
     isGrpcNoServicesHint,
     grpcConnectFailureMessage,
@@ -45,7 +47,6 @@
     grpcErrorCode,
     grpcReflect,
     grpcLoadProto,
-    grpcCall,
     grpcStream,
     grpcStreamSend,
     grpcStreamEnd,
@@ -328,7 +329,11 @@
     const g = tabs.list.find((t) => t.id === tabId)?.grpc;
     if (!busy?.writable || !busy.requestId || !g) return;
     try {
-      const { message: body } = await grpcPrepare({ message: g.message, scope: currentVarScope() });
+      const { message: body } = await grpcPrepare({
+        message: g.message,
+        scope: currentVarScope(),
+        dynamic: dynamicOptions(),
+      });
       await grpcStreamSend(busy.requestId, body);
       requestRuntime.clearGrpcError(tabId);
       tabs.updateById(tabId, (x) => {
@@ -367,6 +372,7 @@
     const t0 = tab;
     if (!t0) return;
     const tabId = t0.id;
+    const context = captureExecutionContext();
     // If this tab already has an invoke in flight, the button is a Cancel
     // (or Send, while a client/bidi stream is still open).
     const inFlight = requestRuntime.busy[tabId];
@@ -394,6 +400,21 @@
     const requestId = crypto.randomUUID();
     requestRuntime.clearGrpcError(tabId);
     requestRuntime.updateBusy((m) => ({ ...m, [tabId]: { kind: 'invoke', requestId } }));
+
+    const chosen = g.tree?.services.flatMap((s) => s.methods).find((m) => m.symbol === g.method);
+    if (!chosen?.serverStreaming && !chosen?.clientStreaming) {
+      try {
+        await sendGrpcRequest({ ...t0, grpc: g }, requestId, context);
+        const error = tabs.list.find((x) => x.id === tabId)?.testResults;
+        if (error?.errorPhase === 'pre')
+          requestRuntime.setGrpcError(tabId, t('grpc.err.preRequest', { err: error.error ?? '' }));
+      } catch (e) {
+        tabs.updateById(tabId, (x) => ({ ...x, grpcResult: invokeFailureResult(e), grpcStream: undefined }));
+      } finally {
+        requestRuntime.updateBusy((m) => (m[tabId]?.requestId === requestId ? omitKey(m, tabId) : m));
+      }
+      return;
+    }
 
     let pre: ScriptResult | undefined;
     let post: ScriptResult | undefined;
@@ -449,11 +470,10 @@
     // bonk-core prepares the wire payload (an empty editor goes out as `{}`), as for bonk-mcp.
     let resolvedMessage = '{}';
     let resolvedMetadata: Record<string, string> = {};
-    // S20: streams (server, client, bidi) arrive message by message; everything else is a unary call.
+    // Streams arrive message by message; unary calls returned through the shared engine above.
     // A client/bidi stream sends the editor message (an array = one message per element),
     // then stays open for Send until End.
-    const method = g.tree?.services.flatMap((s) => s.methods).find((m) => m.symbol === g.method);
-    const streaming = !!method?.serverStreaming || !!method?.clientStreaming;
+    const method = chosen;
     try {
       ({ message: resolvedMessage, metadata: resolvedMetadata } = await grpcPrepare({
         auth: (
@@ -467,43 +487,32 @@
         metadata,
         scope: currentVarScope(),
         stripAuthorization: stripAuth,
+        dynamic: dynamicOptions(),
       }));
-      if (streaming) {
-        const sent = method?.clientStreaming ? sentEntries(resolvedMessage, 0) : [];
-        if (method?.clientStreaming)
-          requestRuntime.updateBusy((m) =>
-            m[tabId]?.requestId === requestId ? { ...m, [tabId]: { ...m[tabId], writable: true } } : m,
-          );
-        tabs.updateById(tabId, (x) => ({
-          ...x,
-          grpcResult: undefined,
-          grpcStream: {
-            messages: sent,
-            done: false,
-            startedAt: Date.now(),
-            kind: method?.clientStreaming ? (method.serverStreaming ? 'bidi' : 'client') : 'server',
-          },
-        }));
-        result = await grpcStream(g.connectionId, g.method, resolvedMessage, resolvedMetadata, requestId, (msg) =>
-          tabs.updateById(tabId, (x) => {
-            const s = x.grpcStream ?? { messages: [], done: false, startedAt: Date.now() };
-            return {
-              ...x,
-              grpcStream: msg.headers ? { ...s, headers: msg.headers } : { ...s, messages: [...s.messages, msg] },
-            };
-          }),
+      const sent = method?.clientStreaming ? sentEntries(resolvedMessage, 0) : [];
+      if (method?.clientStreaming)
+        requestRuntime.updateBusy((m) =>
+          m[tabId]?.requestId === requestId ? { ...m, [tabId]: { ...m[tabId], writable: true } } : m,
         );
-      } else {
-        tabs.updateById(tabId, (x) => ({ ...x, grpcStream: undefined }));
-        result = await grpcCall(
-          g.connectionId,
-          g.method,
-          resolvedMessage,
-          resolvedMetadata,
-          requestId,
-          requestPrefs.grpcDeadlineMs,
-        );
-      }
+      tabs.updateById(tabId, (x) => ({
+        ...x,
+        grpcResult: undefined,
+        grpcStream: {
+          messages: sent,
+          done: false,
+          startedAt: Date.now(),
+          kind: method?.clientStreaming ? (method.serverStreaming ? 'bidi' : 'client') : 'server',
+        },
+      }));
+      result = await grpcStream(g.connectionId, g.method, resolvedMessage, resolvedMetadata, requestId, (msg) =>
+        tabs.updateById(tabId, (x) => {
+          const s = x.grpcStream ?? { messages: [], done: false, startedAt: Date.now() };
+          return {
+            ...x,
+            grpcStream: msg.headers ? { ...s, headers: msg.headers } : { ...s, messages: [...s.messages, msg] },
+          };
+        }),
+      );
     } catch (e) {
       result = invokeFailureResult(e);
     } finally {

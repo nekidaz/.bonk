@@ -12,7 +12,7 @@ function dirtyIds(list: Tab[], tree: TreeNode[]): Set<string> {
       continue;
     }
     const node = findNode(tree, t.savedPath);
-    if (node?.kind === 'request' && isTabDirty(t, node)) ids.add(t.id);
+    if (node?.kind === 'request' && isTabDirty(t, node, workspace.path)) ids.add(t.id);
   }
   return ids;
 }

@@ -107,8 +107,13 @@
   }
 
   let presetSaved = $state(false);
-  function doSavePreset(): void {
-    savePreset();
+  async function doSavePreset(): Promise<void> {
+    try {
+      await savePreset();
+    } catch (e) {
+      runner.error = String(e);
+      return;
+    }
     presetSaved = true;
     setTimeout(() => (presetSaved = false), 1400);
   }

@@ -5,6 +5,7 @@ use bonk_core::domain::grpc::{
     GrpcCertInfo, GrpcError, GrpcErrorCode, GrpcPrefs, GrpcResult, GrpcTls, ServiceTree,
 };
 use bonk_core::domain::{
+    dynamic_vars::{Dynamic, DynamicOptions},
     http::AuthConfig,
     request_prep::{self, GrpcOutgoing},
 };
@@ -48,6 +49,7 @@ pub fn grpc_prepare(
     metadata: BTreeMap<String, String>,
     scope: BTreeMap<String, String>,
     strip_authorization: bool,
+    dynamic: Option<DynamicOptions>,
 ) -> GrpcOutgoing {
     request_prep::grpc_prepare(
         auth.as_ref(),
@@ -55,6 +57,7 @@ pub fn grpc_prepare(
         &metadata,
         &scope,
         strip_authorization,
+        &mut Dynamic::new(&dynamic.unwrap_or_default()),
     )
 }
 

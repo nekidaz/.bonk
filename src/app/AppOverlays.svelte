@@ -4,6 +4,7 @@
   import { tabs } from '$entities/tab';
   import { openWorkspaceFolder } from '$entities/workspace';
   import { openEnvironmentsTab } from '$entities/environment';
+  import { DynamicCatalog } from '$entities/environment/components';
   import { SaveRequestDialog, ProductionGuard } from '$entities/request/components';
   import { openRunnerTab } from '$features/runner';
   import { MoveDialog, FolderAuthDialog } from '$features/sidebar/components';
@@ -133,6 +134,7 @@
 
 <EnvironmentsSheet />
 
+<DynamicCatalog />
 <CookieJarSheet onCleared={(text) => shell.showToast({ text, icon: 'delete_sweep' })} />
 
 <BranchMenu />

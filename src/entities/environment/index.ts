@@ -22,6 +22,7 @@ export {
   timeAgo,
 } from './palette';
 export { requestVariableHighlight } from './requestVarHighlight';
+export { dynamicVars, openDynamicCatalog, refreshDynamicSamples } from './dynamic.svelte';
 export {
   addEnvironment,
   currentVarScope,

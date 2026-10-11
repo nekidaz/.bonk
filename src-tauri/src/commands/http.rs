@@ -2,6 +2,7 @@ use crate::state::AppState;
 use std::collections::BTreeMap;
 
 use bonk_core::domain::{
+    dynamic_vars::{self, Dynamic, DynamicOptions, DynamicValue},
     http::{HttpRequest, HttpResponse, RequestSettings},
     request_prep,
     workspace::Param,
@@ -57,14 +58,33 @@ pub fn http_prepare(mut req: HttpRequest, params: Option<Vec<Param>>) -> HttpReq
     req
 }
 
-/// After the pre-request script: `{{vars}}` from `scope`, then auth.
+/// The request as it goes on the wire, plus the `{{$dynamic}}` values that went into it
+/// (the response's Timeline shows them).
+#[derive(serde::Serialize)]
+pub struct Resolved {
+    request: HttpRequest,
+    dynamic: Vec<DynamicValue>,
+}
+
+/// After the pre-request script: `{{vars}}` from `scope`, `{{$vars}}` generated, then auth.
 #[tauri::command]
 pub fn http_resolve(
     mut req: HttpRequest,
     scope: BTreeMap<String, String>,
-) -> Result<HttpRequest, String> {
-    request_prep::resolve(&mut req, &scope)?;
-    Ok(req)
+    dynamic: Option<DynamicOptions>,
+) -> Result<Resolved, String> {
+    let mut generator = Dynamic::new(&dynamic.unwrap_or_default());
+    request_prep::resolve(&mut req, &scope, &mut generator)?;
+    Ok(Resolved {
+        request: req,
+        dynamic: generator.into_used(),
+    })
+}
+
+/// One example value per `{{$name}}`, for the editor (autocomplete, catalog, settings).
+#[tauri::command]
+pub fn dynamic_samples(options: Option<DynamicOptions>) -> BTreeMap<String, String> {
+    dynamic_vars::samples(&options.unwrap_or_default())
 }
 
 #[tauri::command]

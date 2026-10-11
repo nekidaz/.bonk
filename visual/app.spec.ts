@@ -296,7 +296,7 @@ const SCENARIOS: Scenario[] = [
   { name: 'layout-side', query: '&layout=side', steps: (p) => send(p) },
   { name: 'layout-focus', query: '&layout=focus', steps: (p) => send(p) },
   { name: 'lang-en', query: '&lang=en' },
-  { name: 'lang-en-settings', query: '&lang=en', steps: (p) => settings(p, 3) },
+  { name: 'lang-en-settings', query: '&lang=en', steps: (p) => settings(p, 4) },
   { name: 'small-window-http', viewport: { width: 1024, height: 640 } },
   {
     name: 'small-window-grpc',
@@ -365,9 +365,19 @@ const SCENARIOS: Scenario[] = [
   { name: 'response-expanded', steps: (p) => p.locator('button.bs-ric').last().click() },
   // settings (one shot per section)
   // Same order as the Settings nav (SettingsModal PAGES): the index picks the section.
-  ...['general', 'requests', 'cookies', 'proxy', 'certs', 'grpc', 'mcp', 'appearance', 'hotkeys', 'data'].map(
-    (id, i): Scenario => ({ name: `settings-${id}`, steps: (p) => settings(p, i) }),
-  ),
+  ...[
+    'general',
+    'requests',
+    'variables',
+    'cookies',
+    'proxy',
+    'certs',
+    'grpc',
+    'mcp',
+    'appearance',
+    'hotkeys',
+    'data',
+  ].map((id, i): Scenario => ({ name: `settings-${id}`, steps: (p) => settings(p, i) })),
   // runner
   {
     name: 'runner-setup',

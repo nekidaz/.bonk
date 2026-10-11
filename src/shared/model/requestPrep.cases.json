@@ -1,5 +1,11 @@
 [
   {
+    "name": "names with $ are reserved for dynamic variables: the scope can't fill them",
+    "request": { "method": "GET", "url": "https://api.test/{{$notDynamic}}/{{id}}", "headers": {}, "body": null },
+    "scope": { "$notDynamic": "env", "id": "42" },
+    "expected": { "url": "https://api.test/{{$notDynamic}}/42", "headers": {}, "body": null }
+  },
+  {
     "name": "params own the query string; {{vars}} survive encoding, then resolve",
     "request": { "method": "GET", "url": "{{base}}/items?old=1#top", "headers": {}, "body": null },
     "params": [

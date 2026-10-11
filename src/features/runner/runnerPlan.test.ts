@@ -30,11 +30,11 @@ const cfg = (p: Partial<typeof DEFAULT_CONFIG> = {}) => ({ ...DEFAULT_CONFIG, ..
 const ids = (l: RequestNode[]) => l.map((n) => n.id);
 
 describe('runner scope planning', () => {
-  it('flattens depth-first; empty / root sentinel / unknown ids = whole tree', () => {
+  it('flattens depth-first; empty / root sentinel = whole tree; missing picks stay empty', () => {
     const all = ['a', 'f/b', 'f/g/c', 'd'];
     expect(ids(collectRequests([], tree))).toEqual(all);
     expect(ids(collectRequests([RUNNER_ROOT], tree))).toEqual(all);
-    expect(ids(collectRequests(['nope'], tree))).toEqual(all);
+    expect(ids(collectRequests(['nope'], tree))).toEqual([]);
   });
   it('a nested pick does not run twice', () => {
     expect(ids(collectRequests(['f', 'f/g'], tree))).toEqual(['f/b', 'f/g/c']);

@@ -39,6 +39,7 @@
   import { tabs } from '$entities/tab';
   import ResponseBody, { type BodyInfo } from './ResponseBody.svelte';
   import ResponseCookies from './ResponseCookies.svelte';
+  import SentRequest from './SentRequest.svelte';
   import { EditorTools, ScriptConsole, ScriptTests } from '$shared/editor/components';
   import { consoleRows, countLabel } from '$shared/editor';
   import { focusMode, toggleFocus, tablist } from '$shared/ui';
@@ -752,7 +753,7 @@
         <div><span class="k">{t('response.size')}</span>{formatBytes(tab.response.size_bytes)}{tab.response.body_truncated ? t('response.truncated_paren') : ''}</div>
         {#if responseContentType}<div><span class="k">Content-Type</span>{responseContentType}</div>{/if}
         {#if tab.response.final_url}<div><span class="k">URL</span>{tab.response.final_url}</div>{/if}
-      </div></div>
+      </div>{#if tab.sent}<SentRequest {tab} sent={tab.sent} />{/if}</div>
     {:else if respTab === 'headers'}
       <!-- prettier-ignore -->
       <div class="bs-rbody"><div class="bs-code">{#each responseHeaderEntries as [k, v] (k)}<div><span class="k">{k}</span>: {v}</div>{/each}{#if responseHeaderEntries.length === 0}<span style="color:var(--t3)">{t('response.no_headers')}</span>{/if}</div></div>

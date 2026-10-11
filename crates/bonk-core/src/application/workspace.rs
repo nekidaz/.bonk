@@ -13,7 +13,7 @@ static TMP_SEQ: AtomicU64 = AtomicU64::new(0);
 /// failure leaves `target` untouched (it either holds the old content or does
 /// not exist yet) rather than a half-written file. Mirrors the safe pattern in
 /// `app_state::set_key`.
-fn atomic_write(target: &Path, contents: &str) -> Result<(), String> {
+pub(super) fn atomic_write(target: &Path, contents: &str) -> Result<(), String> {
     let parent = target
         .parent()
         .ok_or_else(|| format!("target has no parent directory: {}", target.display()))?;
@@ -756,6 +756,69 @@ pub fn move_node(root: &str, rel: &str, dest_dir_rel: &str) -> Result<String, St
     rel_id(Path::new(root), &destination)
 }
 
+/// All import formats converge on this collection tree before persistence.
+#[derive(Debug, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ImportCollection {
+    pub name: String,
+    pub children: Vec<TreeNode>,
+    #[serde(default)]
+    pub auth: Option<AuthConfig>,
+    #[serde(default)]
+    pub source: Option<serde_json::Value>,
+}
+
+/// Persist the whole import or remove its new folder on failure. Existing
+/// collections are never overwritten: create_folder chooses a unique name.
+pub fn import_collection(root: &str, collection: ImportCollection) -> Result<String, String> {
+    fn save(root: &str, parent: &str, children: Vec<TreeNode>) -> Result<(), String> {
+        let mut order = Vec::new();
+        for node in children {
+            match node {
+                TreeNode::Folder(folder) => {
+                    let id = create_folder(root, parent, &folder.name)?;
+                    save_folder_auth(root, &id, folder.auth.map(|auth| *auth))?;
+                    save_folder_source(root, &id, folder.source)?;
+                    save(root, &id, folder.children)?;
+                    order.push(
+                        id.rsplit('/')
+                            .next()
+                            .unwrap_or(&id)
+                            .trim_start_matches("fs:")
+                            .to_string(),
+                    );
+                }
+                TreeNode::Request(request) => {
+                    let id = save_request(root, parent, None, *request)?;
+                    order.push(
+                        id.rsplit('/')
+                            .next()
+                            .unwrap_or(&id)
+                            .trim_start_matches("fs:")
+                            .to_string(),
+                    );
+                }
+            }
+        }
+        reorder(root, parent, order)
+    }
+    let id = create_folder(root, "", &collection.name)?;
+    let result = (|| {
+        save_folder_auth(root, &id, collection.auth)?;
+        save_folder_source(root, &id, collection.source)?;
+        save(root, &id, collection.children)
+    })();
+    if let Err(error) = result {
+        return match delete(root, &id) {
+            Ok(()) => Err(error),
+            Err(cleanup) => Err(format!(
+                "{error}; could not remove incomplete import: {cleanup}"
+            )),
+        };
+    }
+    Ok(id)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1408,5 +1471,40 @@ mod tests {
         rename(root_s, "fs:C.bonk.json", "Z").unwrap();
         assert_eq!(names(root_s), ["Z", "A", "B"]);
         fs::remove_dir_all(root).ok();
+    }
+    #[test]
+    fn collection_import_preserves_order_and_rolls_back_a_partial_write() {
+        let root = std::env::temp_dir().join(format!("bonk-import-{}", fastrand::u64(..)));
+        std::fs::create_dir(&root).unwrap();
+        let request = |name: String| -> TreeNode {
+            serde_json::from_value(serde_json::json!({
+            "kind": "request", "id": "", "name": name, "protocol": "http", "request": { "method": "GET", "url": "https://api.test" }
+        })).unwrap()
+        };
+        let make = |children| ImportCollection {
+            name: "api".into(),
+            children,
+            auth: None,
+            source: None,
+        };
+        import_collection(
+            &root.to_string_lossy(),
+            make(vec![request("z-login".into()), request("a-me".into())]),
+        )
+        .unwrap();
+        let tree = load(&root.to_string_lossy()).unwrap();
+        let TreeNode::Folder(folder) = &tree[0] else {
+            panic!("collection missing")
+        };
+        assert_eq!(node_name(&folder.children[0]), "z-login");
+        assert_eq!(node_name(&folder.children[1]), "a-me");
+        assert!(import_collection(
+            &root.to_string_lossy(),
+            make(vec![request("first".into()), request("x".repeat(300))])
+        )
+        .is_err());
+        assert!(!root.join("api 2").exists());
+        assert!(root.join("api/z-login.bonk.json").exists());
+        std::fs::remove_dir_all(root).unwrap();
     }
 }

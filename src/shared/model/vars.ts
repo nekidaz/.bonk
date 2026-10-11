@@ -94,12 +94,13 @@ export function lookupVar(name: string, globals: VarRow[], activeEnv: Environmen
  * Replace every `{{ name }}` in `text` with `scope[name]`. Surrounding
  * whitespace inside the braces is trimmed before lookup. Unknown names are left
  * untouched (the literal `{{ name }}` is preserved) so a typo is visible rather
- * than silently blanked. Handles multiple occurrences.
+ * than silently blanked. Handles multiple occurrences. `{{$name}}` is reserved for
+ * dynamic variables, which only Rust generates at send time: previews keep it as written.
  */
 export function resolveVars(text: string, scope: Record<string, string>): string {
   return text.replace(VAR_RE, (match, rawName: string) => {
     const name = rawName.trim();
-    return Object.prototype.hasOwnProperty.call(scope, name) ? scope[name] : match;
+    return !name.startsWith('$') && Object.prototype.hasOwnProperty.call(scope, name) ? scope[name] : match;
   });
 }
 

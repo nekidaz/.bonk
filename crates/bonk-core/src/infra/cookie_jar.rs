@@ -40,6 +40,32 @@ impl CookieJar {
         })
     }
 
+    /// A run-local jar; it never reads or writes the app's cookie file.
+    pub fn memory() -> Self {
+        Self {
+            path: PathBuf::new(),
+            store: RwLock::new(CookieStore::default()),
+            dirty: AtomicBool::new(false),
+            keep_session: AtomicBool::new(false),
+        }
+    }
+
+    /// Seed an isolated run from the app's cookies without changing the app's jar.
+    pub fn fork(&self) -> Self {
+        Self {
+            store: RwLock::new(self.read().clone()),
+            ..Self::memory()
+        }
+    }
+
+    pub fn clear_for_url(&self, url: &str) {
+        if let Ok(url) = Url::parse(url) {
+            if let Some(host) = url.host_str() {
+                self.clear(Some(host));
+            }
+        }
+    }
+
     pub fn path(&self) -> &Path {
         &self.path
     }
@@ -65,7 +91,7 @@ impl CookieJar {
     /// Write persistent cookies (expired ones too, and session ones when kept) to disk,
     /// if anything changed.
     pub fn save(&self) -> Result<(), String> {
-        if !self.dirty.swap(false, Ordering::Relaxed) {
+        if self.path.as_os_str().is_empty() || !self.dirty.swap(false, Ordering::Relaxed) {
             return Ok(());
         }
         let json = {

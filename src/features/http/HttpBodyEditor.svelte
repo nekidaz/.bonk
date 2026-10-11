@@ -17,12 +17,16 @@
     type BodyParamKind,
     type RawBodyFormat,
     type Tab,
+    unknownDynamicCount,
   } from '$shared/model';
   import { bodyParamRows, emptyBodyParam, fileName } from './httpHeaders';
   import { tabs } from '$entities/tab';
   import { environments, requestVariableHighlight } from '$entities/environment';
 
   let { tab }: { tab: Tab } = $props();
+
+  // DV6: `{{$typo}}` goes out as text — say so above the editor.
+  const unknownDynamic = $derived(unknownDynamicCount(tab.request.body ?? ''));
 
   // `{{var}}` inline highlight + hover quick-set for the body editor. Scripts
   // editors intentionally do NOT get this: `{{}}` is not resolved in scripts.
@@ -262,6 +266,15 @@
           )}</button
         >
       {/if}
+      {#if unknownDynamic}
+        <span class="dyn-bad"
+          ><span class="material-symbols-outlined" aria-hidden="true">error</span>{`${unknownDynamic} ${tp(
+            unknownDynamic,
+            ['неизвестная переменная', 'неизвестные переменные', 'неизвестных переменных'],
+            ['unknown variable', 'unknown variables'],
+          )}`}</span
+        >
+      {/if}
     </div>
   {/if}
 
@@ -412,6 +425,20 @@
 </div>
 
 <style>
+  .dyn-bad {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    flex: none;
+    padding: 3px 10px;
+    border-radius: 999px;
+    background: var(--color-danger-soft);
+    color: var(--color-danger);
+    font-size: 11px;
+  }
+  .dyn-bad .material-symbols-outlined {
+    font-size: 13px;
+  }
   .bs-graphql-editors {
     display: flex;
     flex: 1;

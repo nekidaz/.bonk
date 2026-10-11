@@ -25,8 +25,8 @@ use crate::{
     types::{
         CreateFolderArgs, GetRequestArgs, GrpcCallArgs, GrpcTemplateArgs, JournalEntry, JsonOutput,
         ListRequestsArgs, ListWorkspaceArgs, MoveNodeArgs, MutationResult, NodeArgs,
-        RenameNodeArgs, RequestList, RunSavedRequestArgs, SaveRequestArgs, SendHttpArgs,
-        ValidateHttpArgs,
+        RenameNodeArgs, RequestList, RunSavedRequestArgs, RunScenarioArgs, SaveRequestArgs,
+        SendHttpArgs, ValidateHttpArgs,
     },
 };
 
@@ -472,6 +472,51 @@ impl BonkMcpServer {
         self.runtime
             .run_saved_request(
                 &args.id,
+                args.variables,
+                args.environment.as_deref(),
+                settings,
+                body_limit,
+            )
+            .await
+            .map(|result| Json(JsonOutput { result }))
+    }
+
+    #[tool(
+        description = "Run a committed scenario from .bonk/scenarios.json: request order, data rows, public variable defaults and tests. Required secrets must come from variables, BONK_VAR_* or an allowed environment. This may change external systems.",
+        annotations(
+            title = "Run Bonk workspace scenario",
+            read_only_hint = false,
+            destructive_hint = true,
+            idempotent_hint = false,
+            open_world_hint = true
+        )
+    )]
+    async fn run_scenario(
+        &self,
+        Parameters(args): Parameters<RunScenarioArgs>,
+        context: RequestContext<RoleServer>,
+    ) -> Result<Json<JsonOutput>, String> {
+        let scenario = self.runtime.scenario(&args.name)?;
+        let plan = scenario.plan(&self.runtime.config().root)?;
+        // Approve the complete plan before the first call (never execute half a denied scenario).
+        for node in &plan.requests {
+            if node.protocol != "grpc" {
+                self.confirm_method(
+                    &context,
+                    &node.request.method,
+                    &node.request.url,
+                    args.environment.as_deref(),
+                )
+                .await?;
+            }
+        }
+        let body_limit = args.settings.output_body_limit();
+        let settings = args
+            .settings
+            .into_core(self.runtime.config().max_response_body_bytes);
+        self.runtime
+            .run_scenario(
+                &args.name,
                 args.variables,
                 args.environment.as_deref(),
                 settings,

@@ -376,6 +376,18 @@ pub struct RunSavedRequestArgs {
 
 #[derive(Debug, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
+pub struct RunScenarioArgs {
+    pub name: String,
+    #[serde(default)]
+    pub variables: BTreeMap<String, String>,
+    #[serde(default)]
+    pub environment: Option<String>,
+    #[serde(default)]
+    pub settings: RequestSettingsSpec,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
 pub struct SendHttpArgs {
     pub request: HttpRequestSpec,
     #[serde(default)]

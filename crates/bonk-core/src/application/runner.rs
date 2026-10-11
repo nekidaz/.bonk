@@ -19,6 +19,7 @@ use super::oauth::{self, Keychain, TokenStore};
 use super::{grpc_native, scripts};
 use crate::conn::GrpcDescriptorCache;
 use crate::domain::{
+    dynamic_vars::{Dynamic, DynamicOptions, DynamicValue},
     grpc::{GrpcPrefs, GrpcResult, GrpcTls},
     http::{pick_client_cert, ClientCert, HttpRequest, HttpResponse},
     request_prep::{self, Scope},
@@ -35,6 +36,28 @@ pub struct RunVars {
 }
 
 impl RunVars {
+    /// Reject a missing secret before any request goes out.
+    pub fn require(&self, names: &[String]) -> Result<(), String> {
+        let missing: Vec<_> = names
+            .iter()
+            .filter(|key| {
+                self.environment
+                    .get(*key)
+                    .or_else(|| self.globals.get(*key))
+                    .is_none_or(|v| v.is_empty())
+            })
+            .cloned()
+            .collect();
+        if missing.is_empty() {
+            Ok(())
+        } else {
+            Err(format!(
+                "scenario requires variables: {}",
+                missing.join(", ")
+            ))
+        }
+    }
+
     /// `{{var}}` scope: iteration data over environment over globals (`pm.variables.get`).
     fn scope(&self, data: &Scope) -> Scope {
         let mut scope = self.globals.clone();
@@ -58,7 +81,7 @@ pub struct RunPlan {
     pub delay_ms: u64,
     #[serde(default)]
     pub stop_on_failure: bool,
-    /// Resolves workspace-relative `.proto` paths.
+    /// Resolves workspace-relative `.proto` and upload paths.
     #[serde(default)]
     pub workspace_root: String,
     /// The global `-I` list (Settings → gRPC), after each request's own imports.
@@ -67,6 +90,11 @@ pub struct RunPlan {
     /// Settings client identities: a gRPC request without its own takes the one for its host.
     #[serde(default)]
     pub client_certs: Vec<ClientCert>,
+    #[serde(default)]
+    pub required_variables: Vec<String>,
+    /// How `{{$dynamic}}` values are generated (Settings → Variables).
+    #[serde(default)]
+    pub dynamic: DynamicOptions,
 }
 
 impl RunPlan {
@@ -134,6 +162,28 @@ pub struct RunResultRow {
     /// When the call finished, ms since the run started.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub end_ms: Option<u64>,
+}
+
+/// Full execution details for an interactive editor. Collections keep only their row.
+/// The pipeline is the same; the editor uses these to show headers, script lines and OAuth renewal.
+#[derive(Debug, Default, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ExecutionDetails {
+    pub request: Option<HttpRequest>,
+    pub response: Option<HttpResponse>,
+    pub grpc_result: Option<GrpcResult>,
+    pub pre: Option<Value>,
+    pub post: Option<Value>,
+    pub post_ms: Option<u64>,
+    pub oauth: Option<oauth::Ensured>,
+    pub dynamic: Vec<DynamicValue>,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RequestExecution {
+    pub row: RunResultRow,
+    pub details: ExecutionDetails,
 }
 
 /// What scripts changed, for the caller to keep (the app folds it into its stores).
@@ -253,6 +303,9 @@ pub trait Transport: Sync {
         &Keychain
     }
 
+    /// Apply a script's cookie removal before the next stage/request.
+    fn clear_script_cookies(&self, _url: &str) {}
+
     /// `pm.cookies` for `url`, as `(name, value)`; none without a cookie jar.
     fn script_cookies(
         &self,
@@ -356,14 +409,15 @@ pub fn plan_requests(tree: &[TreeNode], ids: &[String]) -> Result<Vec<RequestNod
 }
 
 /// Run every request of `plan`, `iteration_count` times, streaming progress to `emit`.
-/// Never fails: a request that can't be sent becomes an `ok: false` row.
+/// Missing required variables refuse the run before any I/O. Individual request failures become rows.
 pub async fn run_collection<T: Transport>(
     plan: &RunPlan,
     vars: &mut RunVars,
     transport: &T,
     control: &RunControl,
     emit: &(dyn Fn(RunEvent) + Sync),
-) -> RunStatus {
+) -> Result<RunStatus, String> {
+    vars.require(&plan.required_variables)?;
     let iterations = plan.iteration_count();
     let started = Instant::now();
     let no_data = Scope::new();
@@ -379,7 +433,7 @@ pub async fn run_collection<T: Transport>(
         for (j, node) in plan.requests.iter().enumerate() {
             let held = Instant::now();
             if control.hold_or_stop().await {
-                return RunStatus::Stopped;
+                return Ok(RunStatus::Stopped);
             }
             idle += held.elapsed();
             emit(RunEvent::Call {
@@ -394,7 +448,7 @@ pub async fn run_collection<T: Transport>(
             let ok = row.ok;
             emit(RunEvent::Row(Box::new(row)));
             if control.stopped() || (plan.stop_on_failure && !ok) {
-                return RunStatus::Stopped;
+                return Ok(RunStatus::Stopped);
             }
             let last = index == iterations && j + 1 == plan.requests.len();
             if plan.delay_ms > 0 && !last {
@@ -404,7 +458,7 @@ pub async fn run_collection<T: Transport>(
             }
         }
     }
-    RunStatus::Done
+    Ok(RunStatus::Done)
 }
 
 /// Run one saved request; script writes land in `vars` and go out as `RunEvent::Vars`.
@@ -417,17 +471,64 @@ pub async fn run_node<T: Transport>(
     transport: &T,
     emit: &(dyn Fn(RunEvent) + Sync),
 ) -> RunResultRow {
+    execute(plan, node, iteration, data, vars, transport, emit, false)
+        .await
+        .row
+}
+
+/// Interactive execution through the same pipeline used by collections, CLI and MCP.
+pub async fn execute_node<T: Transport>(
+    plan: &RunPlan,
+    node: &RequestNode,
+    vars: &mut RunVars,
+    transport: &T,
+    emit: &(dyn Fn(RunEvent) + Sync),
+) -> RequestExecution {
+    execute(plan, node, 1, &Scope::new(), vars, transport, emit, true).await
+}
+
+#[allow(clippy::too_many_arguments)]
+async fn execute<T: Transport>(
+    plan: &RunPlan,
+    node: &RequestNode,
+    iteration: u32,
+    data: &Scope,
+    vars: &mut RunVars,
+    transport: &T,
+    emit: &(dyn Fn(RunEvent) + Sync),
+    capture: bool,
+) -> RequestExecution {
+    // A fixed seed repeats the run, with distinct values per request/iteration.
+    let mut dynamic = plan.dynamic.clone();
+    dynamic.seed = dynamic.seed.map(|seed| {
+        node.id
+            .bytes()
+            .fold(seed ^ u64::from(iteration), |hash, byte| {
+                hash.wrapping_mul(31).wrapping_add(u64::from(byte))
+            })
+    });
     let mut ctx = NodeRun {
         data,
         vars,
         emit,
         tests: Vec::new(),
         logs: Vec::new(),
+        capture,
+        dynamic: Dynamic::new(&dynamic),
+        details: ExecutionDetails::default(),
+        target: None,
     };
-    if node.protocol == "grpc" {
+    let row = if node.protocol == "grpc" {
         ctx.grpc(plan, node, iteration, transport).await
     } else {
-        ctx.http(node, iteration, transport).await
+        ctx.http(plan, node, iteration, transport).await
+    };
+    if capture {
+        ctx.details.dynamic = ctx.dynamic.into_used();
+    }
+    RequestExecution {
+        row,
+        details: ctx.details,
     }
 }
 
@@ -450,7 +551,7 @@ fn millis(d: Duration) -> u64 {
 /// What a request's pipeline produced, before it becomes a row.
 struct Outcome {
     status: RowStatus,
-    /// Transport-level success (HTTP 2xx is judged by the caller).
+    /// Transport-level success (HTTP status is judged by the caller).
     ok: bool,
     elapsed_ms: u64,
     error: Option<String>,
@@ -477,13 +578,19 @@ struct NodeRun<'a> {
     data: &'a Scope,
     vars: &'a mut RunVars,
     emit: &'a (dyn Fn(RunEvent) + Sync),
+    /// `{{$dynamic}}` values of this request: one per name, shared by the row and the send.
+    dynamic: Dynamic,
     tests: Vec<ScriptTest>,
     logs: Vec<String>,
+    capture: bool,
+    details: ExecutionDetails,
+    target: Option<String>,
 }
 
 impl NodeRun<'_> {
     async fn http<T: Transport>(
         &mut self,
+        plan: &RunPlan,
         node: &RequestNode,
         iteration: u32,
         transport: &T,
@@ -495,15 +602,17 @@ impl NodeRun<'_> {
             _ => node.request.url.clone(),
         };
         let target = request_prep::resolve_text(&url, &self.vars.scope(self.data));
-        let outcome = self.http_pipeline(node, transport).await;
+        let outcome = self.http_pipeline(plan, node, transport).await;
+        let target = self.target.take().unwrap_or(target);
         self.row(node, iteration, target, outcome, |o| match o.status {
-            RowStatus::Code(code) => o.ok && (200..300).contains(&code),
+            RowStatus::Code(code) => o.ok && (200..400).contains(&code),
             RowStatus::Text(_) => false,
         })
     }
 
     async fn http_pipeline<T: Transport>(
         &mut self,
+        plan: &RunPlan,
         node: &RequestNode,
         transport: &T,
     ) -> Result<Outcome, String> {
@@ -511,10 +620,16 @@ impl NodeRun<'_> {
         request_prep::materialize(&mut request, node.params.as_deref());
         if let Some(code) = script(&request.pre_request_script) {
             let mut probe = request.clone();
-            request_prep::resolve(&mut probe, &self.vars.scope(self.data))?;
+            request_prep::resolve(
+                &mut probe,
+                &self.vars.scope(self.data),
+                &mut Dynamic::default(),
+            )?;
             let cookies = transport.script_cookies(&probe.url, None);
             let context = self.http_context(&request, None, &cookies);
-            let pre = self.run_script("pre-request", code, context).await?;
+            let pre = self
+                .run_script("pre-request", code, context, transport)
+                .await?;
             if let Some(error) = pre.error {
                 return Ok(Outcome::not_sent(RowStatus::Code(0), error));
             }
@@ -522,13 +637,19 @@ impl NodeRun<'_> {
         }
         let scope = self.vars.scope(self.data);
         let mut resolved = self.with_oauth(&request, &scope, transport, false).await?;
-        request_prep::resolve(&mut resolved, &scope)?;
+        request_prep::resolve(&mut resolved, &scope, &mut self.dynamic)?;
+        resolve_upload_paths(&mut resolved, &plan.workspace_root);
+        self.target = Some(resolved.url.clone());
+        if self.capture {
+            self.details.request = Some(resolved.clone());
+        }
         let mut response = transport.send_http(resolved.clone()).await?;
         // A 401 with an OAuth token: renew it once and resend (the server may have revoked it).
         if response.status == 401 && is_oauth(request.auth.as_ref()) {
             match self.with_oauth(&request, &scope, transport, true).await {
                 Ok(mut retry) => {
-                    request_prep::resolve(&mut retry, &scope)?;
+                    request_prep::resolve(&mut retry, &scope, &mut self.dynamic)?;
+                    resolve_upload_paths(&mut retry, &plan.workspace_root);
                     response = transport.send_http(retry.clone()).await?;
                     resolved = retry;
                 }
@@ -537,11 +658,19 @@ impl NodeRun<'_> {
                     .push(format!("401, and the token was not renewed: {e}")),
             }
         }
+        self.target = Some(resolved.url.clone());
+        if self.capture {
+            self.details.request = Some(resolved.clone());
+            self.details.response = Some(response.clone());
+        }
         let mut error = None;
         if let Some(code) = script(&request.test_script) {
             let cookies = transport.script_cookies(&resolved.url, Some(&response));
             let context = self.http_context(&resolved, Some(&response), &cookies);
-            error = self.run_script("test", code, context).await?.error;
+            error = self
+                .run_script("test", code, context, transport)
+                .await?
+                .error;
         }
         Ok(Outcome {
             status: RowStatus::Code(response.status),
@@ -579,6 +708,9 @@ impl NodeRun<'_> {
     }
 
     fn note_oauth(&mut self, got: &oauth::Ensured) {
+        if self.capture {
+            self.details.oauth = Some(got.clone());
+        }
         if got.renewed {
             self.logs.push("OAuth: got a new access token".into());
         }
@@ -648,7 +780,9 @@ impl NodeRun<'_> {
         let mut metadata = g.metadata.clone();
         if let Some(code) = script(&g.pre_request_script) {
             let context = self.grpc_context(method, endpoint, &message, &metadata, None);
-            let pre = self.run_script("pre-request", code, context).await?;
+            let pre = self
+                .run_script("pre-request", code, context, transport)
+                .await?;
             if let Some(error) = pre.error {
                 return Ok(Outcome::not_sent(RowStatus::Text("ERR".into()), error));
             }
@@ -678,10 +812,14 @@ impl NodeRun<'_> {
             &metadata,
             &self.vars.scope(self.data),
             strip_authorization,
+            &mut self.dynamic,
         );
         let result = transport
             .grpc_call(&conn, method, &outgoing.message, &outgoing.metadata)
             .await?;
+        if self.capture {
+            self.details.grpc_result = Some(result.clone());
+        }
         let mut error = None;
         if let Some(code) = script(&g.test_script) {
             let context = self.grpc_context(
@@ -691,7 +829,10 @@ impl NodeRun<'_> {
                 &outgoing.metadata,
                 Some(&result),
             );
-            error = self.run_script("test", code, context).await?.error;
+            error = self
+                .run_script("test", code, context, transport)
+                .await?
+                .error;
         }
         Ok(Outcome {
             status: RowStatus::Text(result.status),
@@ -703,7 +844,7 @@ impl NodeRun<'_> {
         })
     }
 
-    /// The row for `outcome`; a pipeline error is an `ERR` row without the scripts' output.
+    /// The row for `outcome`; a pipeline error retains earlier script output.
     fn row(
         &mut self,
         node: &RequestNode,
@@ -712,11 +853,8 @@ impl NodeRun<'_> {
         outcome: Result<Outcome, String>,
         transport_ok: impl Fn(&Outcome) -> bool,
     ) -> RunResultRow {
-        let outcome = outcome.unwrap_or_else(|error| {
-            self.tests.clear();
-            self.logs.clear();
-            Outcome::not_sent(RowStatus::Text("ERR".into()), error)
-        });
+        let outcome =
+            outcome.unwrap_or_else(|error| Outcome::not_sent(RowStatus::Text("ERR".into()), error));
         let tests_ok = self.tests.iter().all(|t| t.passed);
         RunResultRow {
             id: new_id(),
@@ -745,17 +883,26 @@ impl NodeRun<'_> {
     }
 
     /// Run a script, keep its tests/logs, fold its variable writes into `vars` (and emit them).
-    async fn run_script(
+    async fn run_script<T: Transport>(
         &mut self,
         phase: &'static str,
         code: &str,
         context: Value,
+        transport: &T,
     ) -> Result<ScriptOutput, String> {
+        let started = Instant::now();
         let code = code.to_string();
         let context = context.to_string();
-        let raw = tokio::task::spawn_blocking(move || scripts::run_script(phase, &code, &context))
-            .await
-            .map_err(|e| format!("script task failed: {e}"))??;
+        let raw =
+            match tokio::task::spawn_blocking(move || scripts::run_script(phase, &code, &context))
+                .await
+            {
+                Ok(Ok(raw)) => raw,
+                Ok(Err(error)) => json!({ "error": error }).to_string(),
+                Err(error) => {
+                    json!({ "error": format!("script task failed: {error}") }).to_string()
+                }
+            };
         let mut out: ScriptOutput = serde_json::from_str(&raw).unwrap_or_else(|_| ScriptOutput {
             error: Some(format!(
                 "script returned invalid output: {}",
@@ -763,6 +910,18 @@ impl NodeRun<'_> {
             )),
             ..ScriptOutput::default()
         });
+        if self.capture {
+            let value = serde_json::from_str::<Value>(&raw)
+                .ok()
+                .filter(Value::is_object)
+                .unwrap_or_else(|| json!({ "error": out.error }));
+            if phase == "pre-request" {
+                self.details.pre = Some(value);
+            } else {
+                self.details.post = Some(value);
+                self.details.post_ms = Some(millis(started.elapsed()));
+            }
+        }
         self.logs.append(&mut out.logs);
         self.tests.append(&mut out.tests);
         let writes = std::mem::take(&mut out.writes);
@@ -777,6 +936,9 @@ impl NodeRun<'_> {
         }
         for key in &writes.globals_unset {
             self.vars.globals.remove(key);
+        }
+        for url in &writes.cookie_clears {
+            transport.clear_script_cookies(url);
         }
         if writes != VarWrites::default() {
             (self.emit)(RunEvent::Vars(writes));
@@ -921,6 +1083,29 @@ fn endpoint_host(endpoint: &str) -> String {
     rest.split(':').next().unwrap_or_default().to_string()
 }
 
+/// Request-body attachments resolve from the workspace, independent of the caller's CWD.
+fn resolve_upload_paths(request: &mut HttpRequest, root: &str) {
+    if let Some(path) = request
+        .binary_file_path
+        .as_mut()
+        .filter(|p| !p.trim().is_empty())
+    {
+        *path = to_abs(path, root);
+    }
+    for row in request
+        .body_params
+        .iter_mut()
+        .flatten()
+        .filter(|row| row.kind.as_deref() == Some("file"))
+    {
+        if let Some(path) = row.file_path.as_mut().filter(|p| !p.trim().is_empty()) {
+            *path = to_abs(path, root);
+        } else if !row.value.trim().is_empty() {
+            row.value = to_abs(&row.value, root);
+        }
+    }
+}
+
 /// A stored proto path made absolute (`toAbs` in entities/request/protoPaths.ts).
 fn to_abs(path: &str, root: &str) -> String {
     let b = path.as_bytes();
@@ -1035,7 +1220,8 @@ mod tests {
         let status = run_collection(plan, vars, fake, &RunControl::default(), &|e| {
             events.lock().unwrap().push(e)
         })
-        .await;
+        .await
+        .unwrap();
         (status, events.into_inner().unwrap())
     }
 
@@ -1220,7 +1406,10 @@ mod tests {
 
     #[tokio::test]
     async fn a_transport_error_is_an_err_row() {
-        let a = http("a", json!({"method": "GET", "url": "https://down.test/"}));
+        let a = http(
+            "a",
+            json!({"method": "GET", "url": "https://down.test/", "preRequestScript": "console.log('before send'); pm.test('pre succeeded', function(){ pm.expect(1).to.equal(1); });"}),
+        );
         let plan = RunPlan {
             requests: vec![a],
             ..RunPlan::default()
@@ -1230,6 +1419,67 @@ mod tests {
         let row = rows(&events)[0];
         assert_eq!(row.status, RowStatus::Text("ERR".into()));
         assert_eq!(row.error.as_deref(), Some("connection refused"));
+        assert_eq!(row.logs, vec!["before send"]);
+        assert_eq!(row.tests[0].name, "pre succeeded");
+        assert!(row.tests[0].passed);
+    }
+
+    #[tokio::test]
+    async fn reports_the_wire_url_after_a_pre_request_patch() {
+        let node = http(
+            "patched",
+            json!({ "method": "GET", "url": "https://api.test/old",
+            "preRequestScript": "pm.environment.set('id', '42'); pm.request.url = 'https://api.test/items/{{id}}';" }),
+        );
+        let fake = Fake {
+            responses: Mutex::new(vec![(302, String::new())]),
+            ..Fake::default()
+        };
+        let plan = RunPlan {
+            requests: vec![node],
+            ..RunPlan::default()
+        };
+        let (_, events) = run(&plan, &mut RunVars::default(), &fake).await;
+        let row = rows(&events)[0];
+        assert_eq!(
+            fake.sent.lock().unwrap()[0].url,
+            "https://api.test/items/42"
+        );
+        assert_eq!(row.target, "https://api.test/items/42");
+        assert!(
+            row.ok,
+            "a 302 has the same success meaning in every frontend"
+        );
+    }
+
+    #[tokio::test]
+    async fn editor_details_keep_a_response_when_its_test_script_throws() {
+        let node = http(
+            "editor",
+            json!({ "method": "GET", "url": "https://api.test/items/{{id}}",
+            "preRequestScript": "pm.environment.set('id', '7'); console.log('pre');",
+            "testScript": "pm.test('response', function(){ pm.expect(pm.response.code).to.equal(200); }); throw new Error('post failure');" }),
+        );
+        let result = execute_node(
+            &RunPlan::default(),
+            &node,
+            &mut RunVars::default(),
+            &Fake::default(),
+            &|_| {},
+        )
+        .await;
+        assert!(!result.row.ok);
+        assert!(result.row.tests[0].passed);
+        assert_eq!(result.row.logs, vec!["pre"]);
+        assert_eq!(
+            result.details.request.unwrap().url,
+            "https://api.test/items/7"
+        );
+        assert_eq!(result.details.response.unwrap().status, 200);
+        assert_eq!(result.details.pre.unwrap()["envSet"]["id"], "7");
+        let post = result.details.post.unwrap();
+        assert!(post["error"].as_str().unwrap().contains("post failure"));
+        assert_eq!(post["errorLine"], 1);
     }
 
     #[tokio::test]
@@ -1242,7 +1492,9 @@ mod tests {
         let control = RunControl::default();
         control.stop();
         let fake = Fake::default();
-        let status = run_collection(&plan, &mut RunVars::default(), &fake, &control, &|_| {}).await;
+        let status = run_collection(&plan, &mut RunVars::default(), &fake, &control, &|_| {})
+            .await
+            .unwrap();
         assert_eq!(status, RunStatus::Stopped);
         assert!(fake.sent.lock().unwrap().is_empty());
     }

@@ -4,12 +4,13 @@ import { addEnvironment, environments, setEnvVars } from '$entities/environment'
 import { idToRel, openWorkspaceFolder, parentId, refreshDirs, revealNode, ROOT, workspace } from '$entities/workspace';
 import {
   workspaceCreateFolder,
+  workspaceImportCollection,
   workspaceDelete,
   workspaceSaveFolderAuth,
   workspaceSaveFolderSource,
   workspaceSaveRequest,
 } from '$shared/ipc';
-import type { FolderNode, ImportSource, RequestNode } from '$shared/model';
+import type { FolderNode, ImportSource, RequestNode, TreeNode } from '$shared/model';
 import type { EnvRow, EnvTarget, PlanItem, PlanRequest } from './plan';
 import { fingerprint, type Diff } from './reimport';
 
@@ -73,29 +74,34 @@ export async function importPlan(p: {
 }): Promise<ImportResult | null> {
   const root = await workspaceRoot();
   if (!root) return null;
-  const collectionId = await workspaceCreateFolder(root, ROOT, p.name);
-  const dir = idToRel(collectionId);
-  if (p.collectionAuth) await workspaceSaveFolderAuth(root, dir, p.collectionAuth);
-  if (p.source) await workspaceSaveFolderSource(root, dir, p.source);
-
-  let requests = 0;
-  let first: RequestNode | undefined;
-  const save = async (parent: string, items: PlanItem[]): Promise<void> => {
-    for (const item of items) {
-      if (item.kind === 'folder') {
-        await save(await workspaceCreateFolder(root, idToRel(parent), item.name), item.items);
-        continue;
-      }
-      const node = p.source ? { ...item.node, spec: linkOf(item) } : item.node;
-      const id = await workspaceSaveRequest(root, idToRel(parent), null, node);
-      first ??= { ...node, id };
-      requests++;
-    }
-  };
-  await save(collectionId, p.items);
-
+  const nodes = (items: PlanItem[]): TreeNode[] =>
+    items.map((item) =>
+      item.kind === 'folder'
+        ? { kind: 'folder', id: '', name: item.name, expanded: false, children: nodes(item.items) }
+        : p.source
+          ? { ...item.node, spec: linkOf(item) }
+          : item.node,
+    );
+  const collectionId = await workspaceImportCollection(root, {
+    name: p.name,
+    children: nodes(p.items),
+    auth: p.collectionAuth,
+    source: p.source,
+  });
+  const count = (items: PlanItem[]): number =>
+    items.reduce((n, item) => n + (item.kind === 'folder' ? count(item.items) : 1), 0);
+  const requests = count(p.items);
   const envs = applyEnvs(p.envRows, p.targets);
   await refreshDirs(ROOT);
+  const firstRequest = (nodes: TreeNode[]): RequestNode | undefined => {
+    for (const node of nodes) {
+      if (node.kind === 'request') return node;
+      const found = firstRequest(node.children);
+      if (found) return found;
+    }
+  };
+  const collection = workspace.tree.find((n) => n.id === collectionId);
+  const first = collection?.kind === 'folder' ? firstRequest(collection.children) : undefined;
   revealNode(collectionId);
   return { name: workspace.tree.find((n) => n.id === collectionId)?.name ?? p.name, requests, first, envs };
 }

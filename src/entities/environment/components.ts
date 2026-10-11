@@ -2,3 +2,4 @@
 // Code outside src/entities/environment/ imports only from here; files inside use relative paths.
 
 export { default as EnvironmentSelector } from './EnvironmentSelector.svelte';
+export { default as DynamicCatalog } from './DynamicCatalog.svelte';

@@ -16,6 +16,7 @@ use bonk_core::{
     },
     conn::GrpcDescriptorCache,
     domain::{
+        dynamic_vars::Dynamic,
         grpc::GrpcResult,
         http::{HttpRequest, HttpResponse, RequestSettings},
         request_prep::{self, resolve_text},
@@ -386,12 +387,12 @@ impl BonkRuntime {
             .collect::<VariableMap>();
         let app = load_app_vars(self.config.app_state.as_deref());
         // ponytail: keychain reads are blocking and may show an OS prompt; fine on the multi-thread runtime.
-        let (mut env, mut globals, app_secrets) = app_scopes(&app, environment, &keychain_secret)?;
+        let (mut env, globals, app_secrets) = app_scopes(&app, environment, &keychain_secret)?;
         let mut secrets = process.values().cloned().collect::<Vec<_>>();
         if !self.config.expose_secrets {
             secrets.extend(app_secrets);
         }
-        globals.extend(process);
+        env.extend(process);
         env.extend(variables);
         Ok((env, globals, secrets))
     }
@@ -406,7 +407,7 @@ impl BonkRuntime {
         request_prep::materialize(&mut request, params.as_deref());
         let (environment, globals, secrets) = self.scopes(variables, environment)?;
         let scope = merged_scope(&globals, &environment);
-        request_prep::resolve(&mut request, &scope)?;
+        request_prep::resolve(&mut request, &scope, &mut Dynamic::default())?;
         self.normalize_file_paths(&mut request)
             .map_err(|error| sanitize_error(&error, &secrets))?;
 
@@ -490,10 +491,8 @@ impl BonkRuntime {
             return Err(run.failure(&secrets));
         };
         let row = run.row;
-        let tests_ok = row.tests.iter().all(|test| test.passed);
-        let transport_ok = (200..400).contains(&response.status);
         Ok(HttpRunOutput {
-            ok: transport_ok && tests_ok && row.error.is_none(),
+            ok: row.ok,
             // Cut after sanitizing, so a secret is never split past the redaction.
             response: sanitize_http_response(response, &secrets).truncate_body(body_limit),
             tests: sanitize_tests(mcp_tests(row.tests), &secrets),
@@ -545,6 +544,92 @@ impl BonkRuntime {
         }
     }
 
+    pub fn scenario(
+        &self,
+        name: &str,
+    ) -> Result<bonk_core::application::scenarios::Scenario, String> {
+        bonk_core::application::scenarios::load(&self.config.root)?
+            .into_iter()
+            .find(|s| s.name == name)
+            .ok_or_else(|| format!("scenario `{name}` was not found"))
+    }
+
+    pub async fn run_scenario(
+        &self,
+        name: &str,
+        variables: VariableMap,
+        environment: Option<&str>,
+        settings: RequestSettings,
+        body_limit: usize,
+    ) -> Result<Value, String> {
+        self.require_network()?;
+        let scenario = self.scenario(name)?;
+        let plan = scenario.plan(&self.config.root)?;
+        let (env, globals, mut secrets) = self.scopes(variables, environment)?;
+        let mut vars = scenario.variables.clone();
+        vars.globals = globals.into_iter().chain(vars.globals).collect();
+        vars.environment.extend(env);
+        scenario.require_variables(&vars)?;
+        for key in &scenario.required_variables {
+            if let Some(value) = vars.environment.get(key).or_else(|| vars.globals.get(key)) {
+                secrets.push(value.clone());
+            }
+        }
+        let transport = McpTransport::new(self, settings, GRPC_TIMEOUT);
+        let secrets = Mutex::new(secrets);
+        let rows = Mutex::new(Vec::new());
+        let status = runner::run_collection(
+            &plan,
+            &mut vars,
+            &transport,
+            &RunControl::default(),
+            &|event| match event {
+                RunEvent::Row(row) => {
+                    if let Ok(mut rows) = rows.lock() {
+                        rows.push(*row);
+                    }
+                }
+                RunEvent::Vars(w) => {
+                    if let Ok(mut secrets) = secrets.lock() {
+                        for (key, value) in w.env_set.into_iter().chain(w.globals_set) {
+                            if scenario.required_variables.contains(&key) && !value.is_empty() {
+                                secrets.push(value);
+                            }
+                        }
+                    }
+                }
+                _ => {}
+            },
+        )
+        .await?;
+        let rows = rows
+            .into_inner()
+            .map_err(|_| "scenario results lock poisoned")?;
+        let mut result = json!({ "ok": status == runner::RunStatus::Done && rows.iter().all(|r| r.ok), "status": status, "results": rows });
+        // Sanitize all fields, including responses, tests and logs, before returning a tool artifact.
+        let secrets = secrets
+            .into_inner()
+            .map_err(|_| "scenario secrets lock poisoned")?;
+        crate::redact::sanitize_json(&mut result, &secrets);
+        if let Some(rows) = result["results"].as_array_mut() {
+            for row in rows {
+                if let Some(body) = row["responseBody"]
+                    .as_str()
+                    .filter(|body| body.len() > body_limit)
+                {
+                    let mut end = body_limit;
+                    while !body.is_char_boundary(end) {
+                        end -= 1;
+                    }
+                    let cut = body[..end].to_string();
+                    row["responseBody"] = Value::String(cut);
+                    row["bodyTruncated"] = Value::Bool(true);
+                }
+            }
+        }
+        Ok(result)
+    }
+
     /// One request through bonk-core's runner (the app's engine), behind this server's policy.
     async fn run_one(
         &self,
@@ -553,51 +638,35 @@ impl BonkRuntime {
         settings: RequestSettings,
         grpc_timeout: Duration,
     ) -> Result<RunOne, String> {
-        let transport = McpTransport {
-            runtime: self,
-            settings: settings.normalized(),
-            grpc_timeout,
-            http: Mutex::new(None),
-            grpc: Mutex::new(None),
-        };
+        let transport = McpTransport::new(self, settings, grpc_timeout);
         let plan = RunPlan {
             requests: vec![node],
             workspace_root: self.root_str(),
             ..RunPlan::default()
         };
         let events = Mutex::new(Vec::new());
-        runner::run_collection(
-            &plan,
-            &mut vars,
-            &transport,
-            &RunControl::default(),
-            &|event| {
+        let execution =
+            runner::execute_node(&plan, &plan.requests[0], &mut vars, &transport, &|event| {
                 if let Ok(mut events) = events.lock() {
                     events.push(event);
                 }
-            },
-        )
-        .await;
+            })
+            .await;
         let mut changed = BTreeSet::new();
-        let mut row = None;
         for event in events
             .into_inner()
             .map_err(|_| "runner events lock poisoned")?
         {
-            match event {
-                RunEvent::Vars(w) => {
-                    changed.extend(w.env_set.into_keys().chain(w.env_unset));
-                    changed.extend(w.globals_set.into_keys().chain(w.globals_unset));
-                }
-                RunEvent::Row(r) => row = Some(*r),
-                _ => {}
+            if let RunEvent::Vars(w) = event {
+                changed.extend(w.env_set.into_keys().chain(w.env_unset));
+                changed.extend(w.globals_set.into_keys().chain(w.globals_unset));
             }
         }
         Ok(RunOne {
-            row: row.ok_or("the run produced no result")?,
+            row: execution.row,
             changed: changed.into_iter().collect(),
-            http: transport.http.into_inner().ok().flatten(),
-            grpc: transport.grpc.into_inner().ok().flatten(),
+            http: execution.details.response,
+            grpc: execution.details.grpc_result,
         })
     }
 
@@ -1020,13 +1089,47 @@ fn sanitize_all(values: Vec<String>, secrets: &[String]) -> Vec<String> {
 
 /// bonk-core's runner network with this server's guard rails: the target-host policy,
 /// uploads and protos confined to the workspace, unresolved `{{vars}}` refused, the
-/// app's cookies read-only. Keeps the call's raw response for the tool output.
+/// app's cookies copied into an isolated run-local jar.
 struct McpTransport<'a> {
     runtime: &'a BonkRuntime,
     settings: RequestSettings,
     grpc_timeout: Duration,
-    http: Mutex<Option<HttpResponse>>,
-    grpc: Mutex<Option<GrpcResult>>,
+    jar: Arc<CookieJar>,
+}
+
+impl<'a> McpTransport<'a> {
+    fn new(
+        runtime: &'a BonkRuntime,
+        mut settings: RequestSettings,
+        grpc_timeout: Duration,
+    ) -> Self {
+        let existing = runtime.read_only_jar();
+        let jar = existing
+            .as_ref()
+            .map(|p| p.jar.fork())
+            .unwrap_or_else(CookieJar::memory);
+        if let Some(provider) = existing {
+            settings.cookies_exclude.extend(provider.exclude);
+        }
+        if let Some(path) = runtime.config.app_state.as_deref() {
+            if let Ok(state) = bonk_core::application::app_state::load_map(path) {
+                settings.cookies_send &= state
+                    .get("cookiesSend")
+                    .and_then(Value::as_bool)
+                    .unwrap_or(true);
+                settings.cookies_save &= state
+                    .get("cookiesSave")
+                    .and_then(Value::as_bool)
+                    .unwrap_or(true);
+            }
+        }
+        Self {
+            runtime,
+            settings: settings.normalized(),
+            grpc_timeout,
+            jar: Arc::new(jar),
+        }
+    }
 }
 
 impl Transport for McpTransport<'_> {
@@ -1043,12 +1146,15 @@ impl Transport for McpTransport<'_> {
         let client = build_http_client(
             &self.settings,
             &self.runtime.config.target_hosts,
-            self.runtime.read_only_jar(),
+            Some(JarProvider {
+                jar: self.jar.clone(),
+                save: self.settings.cookies_save,
+                send: self.settings.cookies_send,
+                exclude: self.settings.cookies_exclude.clone(),
+            }),
         )?;
-        let response = http::http_send(client, request, self.settings.clone(), None).await?;
-        if let Ok(mut slot) = self.http.lock() {
-            *slot = Some(response.clone());
-        }
+        let response =
+            http::http_send(client, request, self.settings.clone(), Some(&self.jar)).await?;
         Ok(response)
     }
 
@@ -1074,18 +1180,16 @@ impl Transport for McpTransport<'_> {
         reject_unresolved_grpc(&target.endpoint, method, message, metadata.iter())?;
         let result =
             runner::call_grpc(target, cache, method, message, metadata, self.grpc_timeout).await?;
-        if let Ok(mut slot) = self.grpc.lock() {
-            *slot = Some(result.clone());
-        }
         Ok(result)
+    }
+
+    fn clear_script_cookies(&self, url: &str) {
+        self.jar.clear_for_url(url);
     }
 
     fn script_cookies(&self, url: &str, response: Option<&HttpResponse>) -> Vec<(String, String)> {
         let set = response.map_or(&[][..], |r| r.cookies.as_slice());
-        self.runtime
-            .read_only_jar()
-            .map(|p| p.jar.script_cookies(url, set))
-            .unwrap_or_default()
+        self.jar.script_cookies(url, set)
     }
 }
 

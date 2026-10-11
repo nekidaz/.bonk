@@ -14,6 +14,7 @@ import {
   uiFontSize,
 } from '$shared/settings';
 import { checkForUpdate } from '$shared/updater';
+import { runner, watchRunnerWorkspace } from '$features/runner';
 import { layout } from './layout.svelte';
 import { shell } from './shell.svelte';
 import { hydrate } from './persistence.svelte';
@@ -30,12 +31,18 @@ export function startApp(): void {
   onDestroy(watchHistoryRetention());
   onDestroy(watchGitWorkspace());
   onDestroy(watchCookieJar());
+  onDestroy(watchRunnerWorkspace());
 
   layout.startEffects();
 
   // A failed git op (push rejected, checkout blocked…) says what git said.
   $effect(() => {
     const text = git.error;
+    if (text) untrack(() => shell.showToast({ text, icon: 'error', iconColor: 'var(--color-danger)' }));
+  });
+
+  $effect(() => {
+    const text = runner.error;
     if (text) untrack(() => shell.showToast({ text, icon: 'error', iconColor: 'var(--color-danger)' }));
   });
 
