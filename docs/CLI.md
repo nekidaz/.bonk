@@ -50,4 +50,4 @@ variables, are replaced by `<redacted>` in everything bonk-cli prints and in the
 `--junit` / `--json` reports (CI logs and artifacts are widely readable).
 
 Not yet: the app's proxy / CA / client-certificate settings (the system proxy is used;
-`-k` skips TLS checks), Flows.
+`-k` skips TLS checks).

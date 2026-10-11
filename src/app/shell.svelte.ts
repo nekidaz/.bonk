@@ -40,7 +40,7 @@ class Shell {
   activeFolderId = $derived(tabs.active?.savedPath ? parentId(tabs.active.savedPath) : undefined);
   activeFolderName = $derived(this.activeFolderId ? findNode(workspace.tree, this.activeFolderId)?.name : undefined);
 
-  sidebarPanel = $state<'collections' | 'history' | 'git' | 'flows'>('collections');
+  sidebarPanel = $state<'collections' | 'history' | 'git'>('collections');
   searchTerm = $state('');
   // Inline rename of a tree node (window.prompt is unavailable in the Tauri webview)
   editingNodeId = $state<string | undefined>(undefined);

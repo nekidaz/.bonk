@@ -14,7 +14,7 @@ layers with a deliberately thin boundary between them:
   (`http_prepare` / `http_resolve` / `grpc_prepare`) and bonk-mcp both send through it.
   `application/runner.rs` is the Collection Runner (scripts, `{{vars}}` carried between
   requests, iterations, stop/pause); the network comes in through its `Transport` trait.
-  The app runs collections and Flow request blocks through it (`runner_run`), and
+  The app runs collections through it (`runner_run`), and
   bonk-mcp runs its HTTP/gRPC tools through it too.
 - **`crates/bonk-mcp/`** — headless Model Context Protocol server. Reuses
   `bonk-core` and exposes workspace resources/tools over STDIO or Streamable HTTP.
@@ -95,8 +95,8 @@ are enforced by `src/architecture.test.ts`. Path aliases: `$shared`, `$entities`
 | Layer | Holds | Rule |
 | --- | --- | --- |
 | `app/` | the shell: `App.svelte` (composition root) + `AppSidebar` / `AppMain` / `AppOverlays`, toolbar, tab bar, status bar; `shell.svelte.ts` (menus, dialogs, toast), `layout.svelte.ts` (panes), `actions.ts`, `hotkeys.ts`, `lifecycle.svelte.ts` (`startApp()`: hydrate, watchers, appearance), `persistence.svelte.ts` (restore + save `state.json`), `secrets.ts` | may import everything; only `main.ts` imports it |
-| `features/` | user capabilities: `http`, `grpc`, `response`, `codegen`, `sidebar`, `environments`, `runner`, `flow`, `git`, `settings`, `command-palette`, `utility-panel`, `workspace-menu`, `updater`, `import`, `tabs` | never import each other |
-| `entities/` | core models and their state (`store.svelte.ts` + pure logic): `tab`, `environment`, `workspace`, `history`, `request`, `flow`, `git` | may import each other, never in a cycle |
+| `features/` | user capabilities: `http`, `grpc`, `response`, `codegen`, `sidebar`, `environments`, `runner`, `git`, `settings`, `command-palette`, `utility-panel`, `workspace-menu`, `updater`, `import`, `tabs` | never import each other |
+| `entities/` | core models and their state (`store.svelte.ts` + pure logic): `tab`, `environment`, `workspace`, `history`, `request`, `git` | may import each other, never in a cycle |
 | `shared/` | foundation: `persist`, `i18n`, `model` (types + pure request model: http, vars, curl, scripts), `ipc` (`api.ts`), `settings`, `ui`, `editor`, `updater` | no tab/workspace/request state |
 
 A slice's public API is its `index.ts` (code) and `components.ts` (Svelte components); other

@@ -26,7 +26,6 @@
   } from '$features/git/components';
   import { EnvironmentsSheet } from '$features/environments/components';
   import { RunnerView } from '$features/runner/components';
-  import { FlowView } from '$features/flow/components';
   import { UtilityPanel } from '$features/utility-panel/components';
   import AppTabBar from './AppTabBar.svelte';
   import FocusBar from './FocusBar.svelte';
@@ -100,10 +99,6 @@
           <EnvironmentsSheet embedded />
         {:else if active.protocol === 'runner'}
           <RunnerView />
-        {:else if active.protocol === 'flow'}
-          {#key active.flowId}
-            <FlowView tab={active} />
-          {/key}
         {:else}
           {#if historySnapshot}
             <div class="bs-history-banner" role="status">

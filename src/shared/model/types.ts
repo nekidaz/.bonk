@@ -2,10 +2,10 @@ export type RequestProtocol = 'http' | 'grpc';
 /**
  * Tab kinds: the two request protocols plus the special full-pane tabs —
  * 'git' (diff / project-diff views), 'env' (the Environments manager),
- * 'runner' (the Collection Runner), and 'flow' (a Flow canvas). Special tabs
+ * 'runner' (the Collection Runner). Special tabs
  * hold no request state and are never persisted.
  */
-export type Protocol = RequestProtocol | 'git' | 'env' | 'runner' | 'flow';
+export type Protocol = RequestProtocol | 'git' | 'env' | 'runner';
 export type BodyMode = 'none' | 'form-data' | 'urlencoded' | 'raw' | 'binary' | 'graphql';
 export type RawBodyFormat = 'JSON' | 'Text' | 'JavaScript' | 'HTML' | 'XML';
 export type BodyParamKind = 'text' | 'file';
@@ -244,8 +244,6 @@ export interface Tab {
   params?: Param[];
   /** Latest pre-request + test script output for this tab (runtime-only). */
   testResults?: TabTestResults;
-  /** id of the Flow this tab shows (protocol 'flow' only). */
-  flowId?: string;
   /** Per-request overrides of timeout / redirects / TLS verification (session-only, not saved to the file). */
   settings?: RequestOverrides;
   /** S17b: pinned tabs lead the strip and survive «Закрыть остальные / справа / все». */
@@ -648,7 +646,7 @@ export interface RunResultRow {
   tests: ScriptTestResult[];
   logs: string[];
   error?: string; // transport/connect/fatal error message
-  /** Response body (HTTP) / result body (gRPC); Flows pass it downstream. */
+  /** Response body (HTTP) / result body (gRPC). */
   responseBody?: string;
   /** Saved request node id (Runner re-runs, "Открыть запрос"). */
   nodeId?: string;
