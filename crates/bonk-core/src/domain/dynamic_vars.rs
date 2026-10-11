@@ -71,14 +71,19 @@ impl Dynamic {
     /// per_request mode: the first call for a name generates and memoizes; later calls return the memo.
     /// Every returned value is recorded in `used` — once per name in per_request mode, once per call otherwise.
     pub fn value(&mut self, name: &str) -> Option<String> {
+        // Synonyms share one memo entry: `{{$uuid}}` and `{{$guid}}` match within a request.
+        let key = match name {
+            "$uuid" => "$guid",
+            other => other,
+        };
         if self.per_request {
-            if let Some(v) = self.memo.get(name) {
+            if let Some(v) = self.memo.get(key) {
                 return Some(v.clone());
             }
         }
         let value = self.generate(name)?;
         if self.per_request {
-            self.memo.insert(name.to_string(), value.clone());
+            self.memo.insert(key.to_string(), value.clone());
         }
         self.used.push(DynamicValue {
             name: name.to_string(),
@@ -1040,7 +1045,9 @@ mod tests {
     fn per_request_memoizes_per_name() {
         let mut d = Dynamic::new(&opts("en", 3));
         assert_eq!(d.value("$guid"), d.value("$guid"));
+        assert_eq!(d.value("$uuid"), d.value("$guid"));
         assert_eq!(d.used().len(), 1);
+        assert_ne!(d.value("$randomUUID"), d.value("$guid"));
 
         let mut d = Dynamic::new(&DynamicOptions {
             per_request: false,
