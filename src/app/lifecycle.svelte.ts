@@ -1,6 +1,6 @@
 import { onDestroy, onMount, untrack } from 'svelte';
 import { watchCookieJar } from '$entities/cookies';
-import { git, watchGitWorkspace } from '$entities/git';
+import { git, watchGitAutoFetch, watchGitWorkspace } from '$entities/git';
 import { watchHistoryRetention } from '$entities/history';
 import { t, watchDocumentLang } from '$shared/i18n';
 import { flushPendingSaves } from '$shared/persist';
@@ -30,6 +30,7 @@ export function startApp(): void {
   onDestroy(watchDocumentLang());
   onDestroy(watchHistoryRetention());
   onDestroy(watchGitWorkspace());
+  onDestroy(watchGitAutoFetch());
   onDestroy(watchCookieJar());
   onDestroy(watchRunnerWorkspace());
 

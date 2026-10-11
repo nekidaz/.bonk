@@ -88,7 +88,7 @@ pub async fn git_status_diffs(root: String) -> Result<Vec<git::FileDiff>, String
 }
 
 #[tauri::command]
-pub async fn git_discard(root: String, paths: Vec<String>) -> Result<(), String> {
+pub async fn git_discard(root: String, paths: Vec<String>) -> Result<String, String> {
     off_main(move || git::discard(&root, &paths)).await
 }
 
@@ -282,7 +282,7 @@ pub async fn git_rebase_interactive(
 }
 
 #[tauri::command]
-pub async fn git_delete_branch(root: String, name: String, force: bool) -> Result<(), String> {
+pub async fn git_delete_branch(root: String, name: String, force: bool) -> Result<String, String> {
     off_main(move || git::delete_branch(&root, &name, force)).await
 }
 
@@ -319,6 +319,49 @@ pub async fn git_file_log(
 #[tauri::command]
 pub async fn git_blame(root: String, path: String) -> Result<Vec<git::BlameLine>, String> {
     off_main(move || git::blame(&root, &path)).await
+}
+
+#[tauri::command]
+pub async fn git_restore_snapshot(
+    root: String,
+    snapshot: String,
+    paths: Vec<String>,
+) -> Result<(), String> {
+    off_main(move || git::restore_snapshot(&root, &snapshot, &paths)).await
+}
+
+#[tauri::command]
+pub async fn git_head(root: String) -> Result<String, String> {
+    off_main(move || git::head(&root)).await
+}
+
+#[tauri::command]
+pub async fn git_move_head(
+    root: String,
+    expected: String,
+    to: String,
+    mode: String,
+) -> Result<(), String> {
+    off_main(move || git::move_head(&root, &expected, &to, &mode)).await
+}
+
+#[tauri::command]
+pub async fn git_compare(
+    root: String,
+    base: String,
+    target: String,
+) -> Result<Vec<git::CommitFile>, String> {
+    off_main(move || git::compare(&root, &base, &target)).await
+}
+
+#[tauri::command]
+pub async fn git_compare_file_diff(
+    root: String,
+    base: String,
+    target: String,
+    path: String,
+) -> Result<String, String> {
+    off_main(move || git::compare_file_diff(&root, &base, &target, &path)).await
 }
 
 #[tauri::command]

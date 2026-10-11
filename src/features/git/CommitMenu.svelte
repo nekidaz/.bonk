@@ -65,6 +65,11 @@
   <button role="menuitem" onclick={() => run({ kind: 'patch' })}
     ><span class="material-symbols-outlined">draft</span>{t('git.graph.patch')}</button
   >
+  <button role="menuitem" disabled={n > 2} onclick={() => run({ kind: 'compare' })}
+    ><span class="material-symbols-outlined">compare_arrows</span>{n === 2
+      ? t('git.compare.two')
+      : t('git.compare.withHead')}</button
+  >
   {#if one && onCurrent && current && !commits[0].refs.some((r) => r.kind === 'head')}
     <!-- Rewrite our own commits above this one: `rebase -i <commit>`. -->
     <button role="menuitem" onclick={() => run({ kind: 'interactive', branch: commits[0].short })}

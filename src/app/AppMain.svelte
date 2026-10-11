@@ -17,6 +17,7 @@
   import { HttpRequestEditor } from '$features/http/components';
   import {
     CommitEditor,
+    CompareView,
     ConflictsView,
     FileHistoryView,
     GitDiffView,
@@ -87,6 +88,8 @@
             <ConflictsView />
           {:else if active.git?.view === 'merge'}
             {#key active.git.path}<MergeEditor tab={active} onClose={() => requestCloseTab(active.id)} />{/key}
+          {:else if active.git?.view === 'compare'}
+            {#key `${active.git.path}..${active.git.rev}`}<CompareView tab={active} />{/key}
           {:else if active.git?.view === 'history'}
             {#key active.git.path}<FileHistoryView tab={active} />{/key}
           {:else if active.git?.view === 'graph'}

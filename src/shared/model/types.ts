@@ -566,8 +566,11 @@ export interface GitTabState {
   path: string;
   mode: GitDiffMode;
   /** 'file' = single-file diff (default); 'project' = the aggregate Project Diff; 'stash' = one stash; 'commit' = the commit-message editor; 'graph' = the commit graph; 'history' = one file's commits and blame. */
-  view?: 'file' | 'project' | 'stash' | 'commit' | 'graph' | 'conflicts' | 'merge' | 'history';
-  /** View 'file' of a past commit: its hash (the diff is against its first parent). View 'graph': the commit to select. */
+  view?: 'file' | 'project' | 'stash' | 'commit' | 'graph' | 'conflicts' | 'merge' | 'history' | 'compare';
+  /**
+   * View 'file' of a past commit: its hash (the diff is against its first parent). View 'graph': the
+   * commit to select. View 'compare': the target, compared against `path` (both commits or branches).
+   */
   rev?: string;
 }
 

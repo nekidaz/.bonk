@@ -12,6 +12,7 @@
     deleteBranch,
     deleteRemoteBranch,
     git,
+    openCompareTab,
     pull,
     push,
     renameBranch,
@@ -94,6 +95,12 @@
     e.stopPropagation();
     if (e.key === 'Enter') void commitRename();
     else if (e.key === 'Escape') renaming = '';
+  }
+
+  /** What `b` has that the current branch hasn't. */
+  function compareWith(b: GitBranch): void {
+    close();
+    openCompareTab(current || 'HEAD', b.name);
   }
 
   async function remove(b: GitBranch): Promise<void> {
@@ -185,6 +192,12 @@
                 <span class="nm">{b.name}</span>
                 <span class="tr">{track(b)}</span>
               </button>
+              <button
+                class="act"
+                title={t('git.compare.withCurrent', { name: current })}
+                disabled={b.name === current}
+                onclick={() => compareWith(b)}><span class="material-symbols-outlined">compare_arrows</span></button
+              >
               <button class="act" title={t('git.branch.rename')} disabled={git.busy} onclick={() => startRename(b)}
                 ><span class="material-symbols-outlined">edit</span></button
               >
@@ -206,6 +219,9 @@
               <span class="material-symbols-outlined" aria-hidden="true">cloud</span>
               <span class="nm">{b.name}</span>
             </button>
+            <button class="act" title={t('git.compare.withCurrent', { name: current })} onclick={() => compareWith(b)}
+              ><span class="material-symbols-outlined">compare_arrows</span></button
+            >
             <button
               class="act"
               title={t('git.branch.deleteRemote', { name: b.name })}

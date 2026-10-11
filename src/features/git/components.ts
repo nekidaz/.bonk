@@ -3,6 +3,7 @@
 
 export { default as BranchMenu } from './BranchMenu.svelte';
 export { default as CommitEditor } from './CommitEditor.svelte';
+export { default as CompareView } from './CompareView.svelte';
 export { default as ConflictsView } from './ConflictsView.svelte';
 export { default as MergeEditor } from './MergeEditor.svelte';
 export { default as GraphView } from './GraphView.svelte';

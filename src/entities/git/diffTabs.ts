@@ -81,6 +81,16 @@ export function openFileHistoryTab(path: string, name: string): void {
   );
 }
 
+/** Open (or focus) what `target` has that `base` hasn't — two commits or branches, file by file. */
+export function openCompareTab(base: string, target: string): void {
+  const label = (r: string) => (/^[0-9a-f]{40}$/.test(r) ? r.slice(0, 7) : r);
+  openGitTab(
+    (g) => g.view === 'compare' && g.path === base && g.rev === target,
+    { path: base, mode: 'working', view: 'compare', rev: target },
+    t('git.tab.compare', { base: label(base), target: label(target) }),
+  );
+}
+
 /** G4b·E: open (or focus) the commit-message editor tab. */
 export function openCommitEditorTab(): void {
   openGitTab((g) => g.view === 'commit', { path: '', mode: 'working', view: 'commit' }, t('git.tab.commit'));

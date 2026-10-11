@@ -21,6 +21,8 @@
   let more = $state(false);
   let selected = $state('');
   let diffText = $state('');
+  /** Whose diff `diffText` is: until it is the picked commit's, that one is still loading. */
+  let diffOf = $state('');
   let blame = $state.raw<BlameLine[]>([]);
   let error = $state('');
   let loaded = $state(false);
@@ -79,7 +81,9 @@
     if (!root || !c || view !== 'history') return;
     void gitCommitFileDiff(root, c.hash, c.path)
       .then((d) => {
-        if (pick?.hash === c.hash) diffText = d;
+        if (pick?.hash !== c.hash) return;
+        diffText = d;
+        diffOf = c.hash;
       })
       .catch((err) => (error = String(err)));
   });
@@ -157,7 +161,9 @@
                 ><span class="material-symbols-outlined">account_tree</span>{pick.short}</button
               >
             </div>
-            {#if diffText.trim()}
+            {#if diffOf !== pick.hash}
+              <div class="bs-gview-empty">{t('git.diff.loading')}</div>
+            {:else if diffText.trim()}
               <FileDiff
                 path={pick.path}
                 text={diffText}

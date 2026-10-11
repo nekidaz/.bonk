@@ -150,9 +150,15 @@
       <button class="bs-gbtn inv" disabled={!current} onclick={() => onAction({ kind: 'cherry-pick' })}
         ><span class="material-symbols-outlined">commit</span>{`Cherry-pick ${commits.length}`}</button
       >
-      <button class="bs-gbtn" onclick={() => onAction({ kind: 'revert' })}
-        ><span class="material-symbols-outlined">undo</span>Revert</button
-      >
+      {#if commits.length === 2}
+        <button class="bs-gbtn" onclick={() => onAction({ kind: 'compare' })}
+          ><span class="material-symbols-outlined">compare_arrows</span>{t('git.compare.action')}</button
+        >
+      {:else}
+        <button class="bs-gbtn" onclick={() => onAction({ kind: 'revert' })}
+          ><span class="material-symbols-outlined">undo</span>Revert</button
+        >
+      {/if}
     {/if}
     <button class="bs-gbtn more" title={t('git.graph.actions')} aria-label={t('git.graph.actions')} onclick={onMenu}
       ><span class="material-symbols-outlined">more_horiz</span></button
