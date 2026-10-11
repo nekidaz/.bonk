@@ -57,6 +57,15 @@ describe('field merge', () => {
     expect(fs.map((f) => f.path.join('.'))).toEqual(['body']);
   });
 
+  it('keeps a __proto__ key a plain field and never touches Object.prototype', () => {
+    const theirs = parseSide('{"a": 1, "__proto__": {"polluted": true}}')!;
+    const fs = fields({ a: 1 }, { a: 1 }, theirs);
+    expect(fs.map((f) => f.path.join('.'))).toEqual(['a', '__proto__.polluted']);
+    const out = mergeFields({ a: 1 }, fs, ['mine', 'theirs'], false)!;
+    expect(({} as Record<string, unknown>).polluted).toBeUndefined();
+    expect(out).toContain('"__proto__"');
+  });
+
   it('only parses JSON objects', () => {
     expect(parseSide('{"a":1}')).toEqual({ a: 1 });
     expect(parseSide(null)).toEqual({});

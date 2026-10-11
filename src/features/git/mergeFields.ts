@@ -51,7 +51,7 @@ export function fields(base: Obj, mine: Obj, theirs: Obj): Field[] {
     }
     const keys = [...new Set([m, t, b].flatMap((v) => (isObj(v) ? Object.keys(v) : [])))];
     for (const k of keys) {
-      const pick = (v: Json | undefined) => (isObj(v) ? v[k] : undefined);
+      const pick = (v: Json | undefined) => (isObj(v) ? own(v, k) : undefined);
       walk(pick(b), pick(m), pick(t), [...path, k]);
     }
   };
@@ -69,15 +69,25 @@ export function autoChoices(fs: Field[], choices: FieldChoice[]): FieldChoice[] 
   return fs.map((f, i) => choices[i] ?? (f.kind === 'mine' ? 'mine' : f.kind === 'theirs' ? 'theirs' : null));
 }
 
+/**
+ * Read and write only own properties: a request file from another branch can carry a
+ * `"__proto__"` key, and plain `node[k]` would reach Object.prototype through it.
+ */
+const own = (o: Obj, k: string): Json | undefined => (Object.hasOwn(o, k) ? o[k] : undefined);
+const put = (o: Obj, k: string, value: Json) =>
+  Object.defineProperty(o, k, { value, writable: true, enumerable: true, configurable: true });
+
 function setPath(obj: Obj, path: string[], value: Json | undefined): void {
   let node: Obj = obj;
   for (const k of path.slice(0, -1)) {
-    if (!isObj(node[k])) node[k] = {};
-    node = node[k] as Obj;
+    let child = own(node, k);
+    if (!isObj(child)) put(node, k, (child = {}));
+    node = child;
   }
   const last = path[path.length - 1];
-  if (value === undefined) delete node[last];
-  else node[last] = value;
+  if (value === undefined) {
+    if (Object.hasOwn(node, last)) delete node[last];
+  } else put(node, last, value);
 }
 
 /**
