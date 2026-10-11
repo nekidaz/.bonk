@@ -248,7 +248,9 @@ function globalsMap(): Record<string, string> {
  * Exported so the Collection Runner folds script writes the exact same way,
  * which is what lets a later request in the run see an earlier one's writes.
  */
-export function applyScriptVars(result: ScriptResult): void {
+export function applyScriptVars(
+  result: Pick<ScriptResult, 'envSet' | 'envUnset' | 'globalsSet' | 'globalsUnset' | 'cookieClears'>,
+): void {
   const hasEnv = Object.keys(result.envSet).length > 0 || result.envUnset.length > 0;
   const hasGlob = Object.keys(result.globalsSet).length > 0 || result.globalsUnset.length > 0;
   if (hasEnv) {

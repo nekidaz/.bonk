@@ -53,6 +53,8 @@ pub struct AppState {
     pub cancels: Mutex<HashMap<String, oneshot::Sender<()>>>,
     /// Open client/bidi gRPC streams by request id; removing one half-closes it.
     pub grpc_streams: Mutex<HashMap<String, bonk_core::application::grpc_native::StreamSender>>,
+    /// Collection Runner runs in progress by run id (pause / stop).
+    pub runs: Mutex<HashMap<String, Arc<bonk_core::application::runner::RunControl>>>,
 }
 
 fn default_headers() -> HeaderMap {
@@ -235,6 +237,7 @@ impl Default for AppState {
             conns: Mutex::new(HashMap::new()),
             cancels: Mutex::new(HashMap::new()),
             grpc_streams: Mutex::new(HashMap::new()),
+            runs: Mutex::new(HashMap::new()),
         }
     }
 }

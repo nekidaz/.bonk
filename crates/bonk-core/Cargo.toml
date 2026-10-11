@@ -32,3 +32,6 @@ rustls-native-certs = "0.8"
 hyper-util = { version = "0.1", features = ["tokio"] }
 tower = { version = "0.5", features = ["util"] }
 p12-keystore = "0.3.2"
+
+[dev-dependencies]
+tokio = { version = "1", features = ["macros"] }

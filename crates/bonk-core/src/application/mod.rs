@@ -7,5 +7,6 @@ pub mod http;
 pub mod import_file;
 pub mod mcp_install;
 pub mod proto_inspect;
+pub mod runner;
 pub mod scripts;
 pub mod workspace;

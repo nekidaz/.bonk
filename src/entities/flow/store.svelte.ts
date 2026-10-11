@@ -6,7 +6,7 @@ import { executeFlow, type FlowBlockState, type FlowEffects, type FlowRunStatus 
 import { runScript } from '$shared/ipc';
 import { findNode, workspace } from '$entities/workspace';
 import { tabs } from '$entities/tab';
-import { applyScriptVars, activeEnvMap, globalsMap, runHttpNode, runGrpcNode } from '$entities/request';
+import { applyScriptVars, activeEnvMap, globalsMap, runOne } from '$entities/request';
 
 /**
  * Flows: CRUD over the persisted `flows` store, the per-run live state the
@@ -160,8 +160,7 @@ function realEffects(): FlowEffects {
       }
       // Wired-in variables ride the runner's iterationData slot: it already wins
       // over env/globals in {{var}} resolution and in `pm.variables.get`.
-      const row =
-        node.protocol === 'grpc' ? await runGrpcNode(node, 1, variables) : await runHttpNode(node, 1, variables);
+      const row = await runOne(node, 1, variables);
       flows.updateRun((r) => ({ ...r, logs: [...r.logs, ...row.logs] }));
       return {
         row,
