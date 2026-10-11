@@ -11,6 +11,8 @@
  * after the element it follows there.
  */
 
+import { lineHunks } from './merge3';
+
 export type Json = null | boolean | number | string | Json[] | { [k: string]: Json };
 export type Obj = { [k: string]: Json };
 type Node = Json | undefined;
@@ -26,6 +28,11 @@ export interface Field {
   theirs: Node;
   /** Who changed it against the base: nobody, one side, both the same way, or both differently. */
   kind: 'same' | 'mine' | 'theirs' | 'both' | 'conflict';
+  /**
+   * Set when the field belongs to an array element matched only by place (every field changed):
+   * the pairings it rests on. Passing them to `fields` as splits makes it a removal + addition.
+   */
+  guess?: string[];
 }
 
 /** A side, a value typed by hand (`undefined` removes the field), or null while undecided. */
@@ -67,15 +74,18 @@ export function parseSide(text: string | null): Obj | undefined {
   }
 }
 
-/** Who an array element is: its `key` / `name` / `id`, else the whole value. */
-function identity(el: Json): string {
-  if (isObj(el))
-    for (const k of ['key', 'name', 'id']) {
-      const v = own(el, k);
-      if (typeof v === 'string' || typeof v === 'number') return `${k}=${v}`;
-    }
-  return `=${JSON.stringify(el)}`;
+/** An object element's own name: its `key` / `name` / `id`, if it has one. */
+function naturalKey(el: Json): string | undefined {
+  if (!isObj(el)) return undefined;
+  for (const k of ['key', 'name', 'id']) {
+    const v = own(el, k);
+    if (typeof v === 'string' || typeof v === 'number') return `${k}=${v}`;
+  }
+  return undefined;
 }
+
+/** Who an array element is: its natural key, else the whole value. */
+const identity = (el: Json): string => naturalKey(el) ?? `=${JSON.stringify(el)}`;
 
 /** Identities of an array's elements; a repeat gets its occurrence (`key=tag`, `key=tag#2`). */
 function identities(arr: Json[]): string[] {
@@ -86,6 +96,92 @@ function identities(arr: Json[]): string[] {
     seen.set(id, n);
     return n > 1 ? `${id}#${n}` : id;
   });
+}
+
+/** How many top-level fields two objects share with equal values — how alike two elements are. */
+function likeness(a: Json, b: Json): number {
+  if (!isObj(a) || !isObj(b)) return 0;
+  return Object.keys(a).filter((k) => Object.hasOwn(b, k) && eq(a[k], b[k])).length;
+}
+
+/**
+ * Whether two elements are built alike enough to be one element edited rather than one replaced
+ * by another: both objects whose field names mostly agree (at least half of them, Jaccard).
+ */
+function builtAlike(a: Json, b: Json): boolean {
+  if (!isObj(a) || !isObj(b)) return false;
+  const ka = Object.keys(a);
+  const kb = Object.keys(b);
+  const shared = ka.filter((k) => Object.hasOwn(b, k)).length;
+  const union = ka.length + kb.length - shared;
+  return union === 0 || shared / union >= 0.5;
+}
+
+/**
+ * Identities for an array of objects without a natural key, relative to the base: an element
+ * unchanged since the base keeps the base element's identity (found by a common subsequence, as
+ * lines are); inside a changed stretch each base element pairs, in order, with the most alike
+ * element left on that side, so an edit stays an edit even next to an insertion; what is left
+ * between matched neighbours on both sides pairs in place when built alike, so even an element
+ * changed in every field stays the same element, while one replaced by something else does not.
+ * Pairs made in place are guesses: `guesses` maps each base identity to the keys of its guessed
+ * pairings, and a key in `splits` (the user said «Это замена») is not paired. What finds no pair
+ * is new on its side (or gone from it).
+ */
+function pairedIdentities(
+  arrs: [Json[], Json[], Json[]],
+  arrayId: string,
+  splits: ReadonlySet<string>,
+  guesses: Map<string, string[]>,
+): [string[], string[], string[]] {
+  const [base] = arrs;
+  const baseIds = base.map((_, i) => `@b${i}`);
+  const str = (e: Json) => JSON.stringify(e);
+  const side = (arr: Json[], tag: string): string[] => {
+    const out = arr.map((_, i) => `@${tag}${i}`);
+    const end = { aStart: base.length, aEnd: base.length, bStart: arr.length, bEnd: arr.length };
+    let a = 0;
+    let b = 0;
+    for (const h of [...lineHunks(base.map(str), arr.map(str)), end]) {
+      // Between changed stretches the two arrays run in step.
+      for (; a < h.aStart; a++, b++) out[b] = baseIds[a];
+      // First by likeness: each base element takes the most alike element still ahead.
+      const pairs: [number, number][] = [];
+      let from = h.bStart;
+      for (let i = h.aStart; i < h.aEnd; i++) {
+        let best = -1;
+        let score = 0;
+        for (let k = from; k < h.bEnd; k++) {
+          const sc = likeness(base[i], arr[k]);
+          if (sc > score) [best, score] = [k, sc];
+        }
+        if (best !== -1) {
+          pairs.push([i, best]);
+          from = best + 1;
+        }
+      }
+      // Then in place: between two matched neighbours, what is left on both sides was replaced
+      // there — an element changed in every field — so they pair in order, as a diff pairs a
+      // removed line with the added one. The surplus on either side stays new or gone.
+      const fences: [number, number][] = [[h.aStart - 1, h.bStart - 1], ...pairs, [h.aEnd, h.bEnd]];
+      for (let f = 0; f + 1 < fences.length; f++) {
+        const [i0, k0] = fences[f];
+        const [i1, k1] = fences[f + 1];
+        for (let n = 0; i0 + 1 + n < i1 && k0 + 1 + n < k1; n++) {
+          const [i, k] = [i0 + 1 + n, k0 + 1 + n];
+          const key = `${arrayId}|${baseIds[i]}|${tag}${k}`;
+          if (splits.has(key) || !builtAlike(base[i], arr[k])) continue;
+          pairs.push([i, k]);
+          guesses.set(baseIds[i], [...(guesses.get(baseIds[i]) ?? []), key]);
+        }
+      }
+      for (const [i, k] of pairs) out[k] = baseIds[i];
+      a = h.aEnd;
+      b = h.bEnd;
+    }
+    return out;
+  };
+  return [baseIds, side(arrs[1], 'm'), side(arrs[2], 't')];
 }
 
 /** How an identity reads in a label: `[limit]`, `["Accept"]`, `[tag #2]`. */
@@ -116,7 +212,7 @@ function order(base: string[], mine: string[], theirs: string[]): string[] {
   return out;
 }
 
-type Child = { id: string; label: string; vals: [Node, Node, Node]; inArray: boolean };
+type Child = { id: string; label: string; vals: [Node, Node, Node]; inArray: boolean; guess?: string[] };
 
 /**
  * What a node is across the three sides. An array element a side lacks is one field (added or
@@ -131,7 +227,7 @@ function shape(vals: [Node, Node, Node], inArray: boolean): 'obj' | 'arr' | 'lea
   return 'leaf';
 }
 
-function children(vals: [Node, Node, Node], kind: 'obj' | 'arr', id: string, label: string): Child[] {
+function children({ vals, id, label, guess }: Child, kind: 'obj' | 'arr', splits: ReadonlySet<string>): Child[] {
   if (kind === 'obj') {
     const keys = vals.map((v) => (isObj(v) ? Object.keys(v) : [])) as [string[], string[], string[]];
     return order(...keys).map((k) => ({
@@ -139,27 +235,36 @@ function children(vals: [Node, Node, Node], kind: 'obj' | 'arr', id: string, lab
       label: label ? `${label}.${k}` : k,
       vals: vals.map((v) => (isObj(v) ? own(v, k) : undefined)) as [Node, Node, Node],
       inArray: false,
+      guess,
     }));
   }
   const arrs = vals.map((v) => (Array.isArray(v) ? v : [])) as [Json[], Json[], Json[]];
-  const ids = arrs.map(identities) as [string[], string[], string[]];
-  return order(...ids).map((el) => ({
+  // Objects that all have a name match by it, plain values by value; other objects by position
+  // relative to the base, labelled by where they end up.
+  const all = arrs.flat();
+  const byPosition = all.some(isObj) && !all.every((e) => naturalKey(e) !== undefined);
+  const guesses = new Map<string, string[]>();
+  const ids = byPosition
+    ? pairedIdentities(arrs, id, splits, guesses)
+    : (arrs.map(identities) as [string[], string[], string[]]);
+  return order(...ids).map((el, at) => ({
     id: `${id}[${JSON.stringify(el)}]`,
-    label: `${label}${elementLabel(el)}`,
+    label: `${label}${byPosition ? `[${at}]` : elementLabel(el)}`,
     vals: arrs.map((a, s) => {
       const at = ids[s].indexOf(el);
       return at === -1 ? undefined : a[at];
     }) as [Node, Node, Node],
     inArray: true,
+    guess: guesses.get(el),
   }));
 }
 
-/** Leaf fields of the three objects, in merged order. */
-export function fields(base: Obj, mine: Obj, theirs: Obj): Field[] {
+/** Leaf fields of the three objects, in merged order. `splits`: guessed pairings turned down. */
+export function fields(base: Obj, mine: Obj, theirs: Obj, splits: ReadonlySet<string> = new Set()): Field[] {
   const out: Field[] = [];
   const walk = (c: Child) => {
     const kind = shape(c.vals, c.inArray);
-    if (kind !== 'leaf') return children(c.vals, kind, c.id, c.label).forEach(walk);
+    if (kind !== 'leaf') return children(c, kind, splits).forEach(walk);
     const [b, m, t] = c.vals;
     out.push({
       id: c.id,
@@ -168,9 +273,10 @@ export function fields(base: Obj, mine: Obj, theirs: Obj): Field[] {
       mine: m,
       theirs: t,
       kind: eq(m, b) && eq(t, b) ? 'same' : eq(t, b) ? 'mine' : eq(m, b) ? 'theirs' : eq(m, t) ? 'both' : 'conflict',
+      ...(c.guess ? { guess: c.guess } : {}),
     });
   };
-  children([base, mine, theirs], 'obj', '', '').forEach(walk);
+  children({ id: '', label: '', vals: [base, mine, theirs], inArray: false }, 'obj', splits).forEach(walk);
   return out;
 }
 
@@ -196,13 +302,14 @@ export function mergeFields(
   fs: Field[],
   choices: FieldChoice[],
   trailingNewline: boolean,
+  splits: ReadonlySet<string> = new Set(),
 ): string | null {
   if (choices.some((c) => c === null)) return null;
   const byId = new Map(fs.map((f, i) => [f.id, chosenValue(f, choices[i])]));
   const build = (c: Child): Node => {
     const kind = shape(c.vals, c.inArray);
     if (kind === 'leaf') return byId.get(c.id);
-    const parts = children(c.vals, kind, c.id, c.label)
+    const parts = children(c, kind, splits)
       .map((ch) => [ch, build(ch)] as const)
       .filter(([, v]) => v !== undefined);
     if (!parts.length && c.vals.some((v) => v === undefined)) return undefined;

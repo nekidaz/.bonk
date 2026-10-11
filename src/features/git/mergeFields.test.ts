@@ -158,4 +158,90 @@ describe('field merge of arrays', () => {
     const b = { params: [p('a', '1')] };
     expect(kinds(b, { params: [p('a', '2')] }, { params: [] })['params[a]']).toBe('conflict');
   });
+
+  describe('objects without a key', () => {
+    const e = (a: number, b: number) => ({ a, b });
+
+    it('matches elements by position, so edits to different ones never collide', () => {
+      const b = { items: [e(1, 1), e(2, 2)] };
+      const m = { items: [e(9, 1), e(2, 2)] };
+      const t = { items: [e(1, 1), e(2, 8)] };
+      expect(kinds(b, m, t)).toMatchObject({ 'items[0].a': 'mine', 'items[1].b': 'theirs' });
+      expect(merge(b, m, t).items).toEqual([e(9, 1), e(2, 8)]);
+    });
+
+    it('keeps an edit on the right element when the other side inserts before it', () => {
+      const b = { items: [e(1, 1), e(2, 2)] };
+      const m = { items: [e(1, 1), e(2, 5)] };
+      const t = { items: [e(0, 0), e(1, 1), e(2, 2)] };
+      expect(merge(b, m, t).items).toEqual([e(0, 0), e(1, 1), e(2, 5)]);
+    });
+
+    it('pairs an edited element with the most alike one when an insertion sits next to it', () => {
+      // Theirs added {a: 7, b: 7} right before editing {a: 2, b: 2} into {a: 2, b: 3}.
+      const b = { items: [e(1, 1), e(2, 2)] };
+      const m = { items: [e(1, 1), e(2, 2)] };
+      const t = { items: [e(1, 1), e(7, 7), e(2, 3)] };
+      expect(kinds(b, m, t)).toMatchObject({ 'items[1]': 'theirs', 'items[2].b': 'theirs' });
+      expect(merge(b, m, t).items).toEqual([e(1, 1), e(7, 7), e(2, 3)]);
+    });
+
+    it('is a conflict when both sides change the same field of one element', () => {
+      const b = { items: [e(1, 1)] };
+      expect(kinds(b, { items: [e(2, 1)] }, { items: [e(3, 1)] })['items[0].a']).toBe('conflict');
+    });
+
+    it('is a conflict when one side edits an element the other removed', () => {
+      const b = { items: [e(1, 1), e(2, 2)] };
+      expect(kinds(b, { items: [e(1, 1)] }, { items: [e(1, 1), e(2, 9)] })['items[1]']).toBe('conflict');
+    });
+
+    it('pairs an element changed in every field with the one it replaced in place', () => {
+      const b = { items: [e(1, 1), e(2, 2), e(3, 3)] };
+      const m = { items: [e(1, 1), e(2, 2), e(3, 3)] };
+      const t = { items: [e(1, 1), e(8, 9), e(3, 3)] };
+      expect(kinds(b, m, t)).toMatchObject({ 'items[1].a': 'theirs', 'items[1].b': 'theirs' });
+      // So an edit on the other side meets it field by field.
+      const m2 = { items: [e(1, 1), e(2, 5), e(3, 3)] };
+      expect(kinds(b, m2, t)).toMatchObject({ 'items[1].a': 'theirs', 'items[1].b': 'conflict' });
+      expect(merge(b, m2, t, { 'items[1].b': 'mine' }).items).toEqual([e(1, 1), e(8, 5), e(3, 3)]);
+    });
+
+    it('tells a replacement by its other shape: removed + added, not an edit', () => {
+      const b = { items: [e(1, 1), e(2, 2)] };
+      const t = { items: [e(1, 1), { url: '/x', method: 'GET' }] };
+      expect(kinds(b, b, t)).toMatchObject({ 'items[1]': 'theirs', 'items[2]': 'theirs' });
+      expect(merge(b, b, t).items).toEqual([e(1, 1), { url: '/x', method: 'GET' }]);
+    });
+
+    it('marks a pairing made only by place, and splits it on request', () => {
+      const b = { items: [e(1, 1), e(2, 2)] };
+      const t = { items: [e(1, 1), e(8, 9)] };
+      const guessed = fields(b, b, t).filter((f) => f.guess);
+      expect(guessed.map((f) => f.label)).toEqual(['items[1].a', 'items[1].b']);
+      // «Это замена»: the same element is now gone and a new one added.
+      const splits = new Set(guessed[0].guess);
+      const split = fields(b, b, t, splits);
+      expect(Object.fromEntries(split.map((f) => [f.label, f.kind]))).toMatchObject({
+        'items[1]': 'theirs',
+        'items[2]': 'theirs',
+      });
+      expect(split.some((f) => f.guess)).toBe(false);
+      const choices = autoChoices(split, initialChoices(split));
+      expect(JSON.parse(mergeFields(b, b, t, split, choices, false, splits)!).items).toEqual([e(1, 1), e(8, 9)]);
+    });
+
+    it('pairs in place only between matched neighbours, leaving the extra one new', () => {
+      const b = { items: [e(1, 1), e(2, 2)] };
+      const t = { items: [e(1, 1), e(8, 8), e(9, 9)] };
+      expect(kinds(b, b, t)).toMatchObject({ 'items[1].a': 'theirs', 'items[2]': 'theirs' });
+      expect(merge(b, b, t).items).toEqual([e(1, 1), e(8, 8), e(9, 9)]);
+    });
+
+    it("keeps both sides' additions at the same spot, mine first", () => {
+      const b = { items: [e(1, 1)] };
+      const out = merge(b, { items: [e(1, 1), e(5, 5)] }, { items: [e(1, 1), e(6, 6)] });
+      expect(out.items).toEqual([e(1, 1), e(5, 5), e(6, 6)]);
+    });
+  });
 });
