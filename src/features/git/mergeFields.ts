@@ -11,6 +11,8 @@
  * after the element it follows there.
  */
 
+import { lineHunks } from './merge3';
+
 export type Json = null | boolean | number | string | Json[] | { [k: string]: Json };
 export type Obj = { [k: string]: Json };
 type Node = Json | undefined;
@@ -67,15 +69,18 @@ export function parseSide(text: string | null): Obj | undefined {
   }
 }
 
-/** Who an array element is: its `key` / `name` / `id`, else the whole value. */
-function identity(el: Json): string {
-  if (isObj(el))
-    for (const k of ['key', 'name', 'id']) {
-      const v = own(el, k);
-      if (typeof v === 'string' || typeof v === 'number') return `${k}=${v}`;
-    }
-  return `=${JSON.stringify(el)}`;
+/** An object element's own name: its `key` / `name` / `id`, if it has one. */
+function naturalKey(el: Json): string | undefined {
+  if (!isObj(el)) return undefined;
+  for (const k of ['key', 'name', 'id']) {
+    const v = own(el, k);
+    if (typeof v === 'string' || typeof v === 'number') return `${k}=${v}`;
+  }
+  return undefined;
 }
+
+/** Who an array element is: its natural key, else the whole value. */
+const identity = (el: Json): string => naturalKey(el) ?? `=${JSON.stringify(el)}`;
 
 /** Identities of an array's elements; a repeat gets its occurrence (`key=tag`, `key=tag#2`). */
 function identities(arr: Json[]): string[] {
@@ -86,6 +91,52 @@ function identities(arr: Json[]): string[] {
     seen.set(id, n);
     return n > 1 ? `${id}#${n}` : id;
   });
+}
+
+/** How many top-level fields two objects share with equal values — how alike two elements are. */
+function likeness(a: Json, b: Json): number {
+  if (!isObj(a) || !isObj(b)) return 0;
+  return Object.keys(a).filter((k) => Object.hasOwn(b, k) && eq(a[k], b[k])).length;
+}
+
+/**
+ * Identities for an array of objects without a natural key, relative to the base: an element
+ * unchanged since the base keeps the base element's identity (found by a common subsequence, as
+ * lines are); inside a changed stretch each base element pairs, in order, with the most alike
+ * element left on that side, so an edit stays an edit even next to an insertion. What finds no
+ * pair is new on its side (or gone from it).
+ */
+function pairedIdentities(arrs: [Json[], Json[], Json[]]): [string[], string[], string[]] {
+  const [base] = arrs;
+  const baseIds = base.map((_, i) => `@b${i}`);
+  const str = (e: Json) => JSON.stringify(e);
+  const side = (arr: Json[], tag: string): string[] => {
+    const out = arr.map((_, i) => `@${tag}${i}`);
+    const end = { aStart: base.length, aEnd: base.length, bStart: arr.length, bEnd: arr.length };
+    let a = 0;
+    let b = 0;
+    for (const h of [...lineHunks(base.map(str), arr.map(str)), end]) {
+      // Between changed stretches the two arrays run in step.
+      for (; a < h.aStart; a++, b++) out[b] = baseIds[a];
+      let from = h.bStart;
+      for (let i = h.aStart; i < h.aEnd; i++) {
+        let best = -1;
+        let score = 0;
+        for (let k = from; k < h.bEnd; k++) {
+          const sc = likeness(base[i], arr[k]);
+          if (sc > score) [best, score] = [k, sc];
+        }
+        if (best !== -1) {
+          out[best] = baseIds[i];
+          from = best + 1;
+        }
+      }
+      a = h.aEnd;
+      b = h.bEnd;
+    }
+    return out;
+  };
+  return [baseIds, side(arrs[1], 'm'), side(arrs[2], 't')];
 }
 
 /** How an identity reads in a label: `[limit]`, `["Accept"]`, `[tag #2]`. */
@@ -142,10 +193,14 @@ function children(vals: [Node, Node, Node], kind: 'obj' | 'arr', id: string, lab
     }));
   }
   const arrs = vals.map((v) => (Array.isArray(v) ? v : [])) as [Json[], Json[], Json[]];
-  const ids = arrs.map(identities) as [string[], string[], string[]];
-  return order(...ids).map((el) => ({
+  // Objects that all have a name match by it, plain values by value; other objects by position
+  // relative to the base, labelled by where they end up.
+  const all = arrs.flat();
+  const byPosition = all.some(isObj) && !all.every((e) => naturalKey(e) !== undefined);
+  const ids = byPosition ? pairedIdentities(arrs) : (arrs.map(identities) as [string[], string[], string[]]);
+  return order(...ids).map((el, at) => ({
     id: `${id}[${JSON.stringify(el)}]`,
-    label: `${label}${elementLabel(el)}`,
+    label: `${label}${byPosition ? `[${at}]` : elementLabel(el)}`,
     vals: arrs.map((a, s) => {
       const at = ids[s].indexOf(el);
       return at === -1 ? undefined : a[at];
