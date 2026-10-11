@@ -220,15 +220,42 @@ describe('field merge of arrays', () => {
       const guessed = fields(b, b, t).filter((f) => f.guess);
       expect(guessed.map((f) => f.label)).toEqual(['items[1].a', 'items[1].b']);
       // «Это замена»: the same element is now gone and a new one added.
-      const splits = new Set(guessed[0].guess);
-      const split = fields(b, b, t, splits);
+      const pairing = { splits: new Set(guessed[0].guess), joins: new Set<string>() };
+      const split = fields(b, b, t, pairing);
       expect(Object.fromEntries(split.map((f) => [f.label, f.kind]))).toMatchObject({
         'items[1]': 'theirs',
         'items[2]': 'theirs',
       });
       expect(split.some((f) => f.guess)).toBe(false);
       const choices = autoChoices(split, initialChoices(split));
-      expect(JSON.parse(mergeFields(b, b, t, split, choices, false, splits)!).items).toEqual([e(1, 1), e(8, 9)]);
+      expect(JSON.parse(mergeFields(b, b, t, split, choices, false, pairing)!).items).toEqual([e(1, 1), e(8, 9)]);
+    });
+
+    it('joins a removed and an added element into one edit on request', () => {
+      // Theirs replaced {a, b} by an object of another shape: removed + added, with a join offered.
+      const b = { items: [e(1, 1), e(2, 2)] };
+      const m = { items: [e(1, 1), e(2, 5)] };
+      const t = { items: [e(1, 1), { a: 7, url: '/x' }] };
+      const fs = fields(b, m, t);
+      const removed = fs.find((f) => f.label === 'items[1]')!;
+      expect(removed.kind).toBe('conflict'); // mine edited what theirs removed
+      expect(removed.join?.map((j) => j.label)).toEqual(['items[2]']);
+      // «Это правка»: one element, merged field by field — b from mine, url from theirs.
+      const pairing = { splits: new Set<string>(), joins: new Set([removed.join![0].key]) };
+      const joined = fields(b, m, t, pairing);
+      expect(Object.fromEntries(joined.map((f) => [f.label, f.kind]))).toMatchObject({
+        'items[1].a': 'theirs',
+        'items[1].b': 'conflict',
+        'items[1].url': 'theirs',
+      });
+      expect(joined.find((f) => f.label === 'items[1].url')?.guess).toEqual([removed.join![0].key]);
+      const choices = autoChoices(joined, initialChoices(joined)).map((c, i) =>
+        joined[i].label === 'items[1].b' ? ('mine' as const) : c,
+      );
+      expect(JSON.parse(mergeFields(b, m, t, joined, choices, false, pairing)!).items).toEqual([
+        e(1, 1),
+        { a: 7, b: 5, url: '/x' },
+      ]);
     });
 
     it('pairs in place only between matched neighbours, leaving the extra one new', () => {

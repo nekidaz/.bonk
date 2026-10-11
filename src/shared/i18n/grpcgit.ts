@@ -56,6 +56,8 @@ export const ru = {
   'git.log': 'Recent commits',
   'git.log.none': 'Коммитов пока нет.',
   'git.tab.staged': '{name} (в индексе)',
+  'git.mg.join': 'Это правка → {label}',
+  'git.mg.joinHint': 'Не удаление, а этот элемент, изменённый в {label}: слить их по полям',
   'git.mg.guess': '≈ по месту',
   'git.mg.guessHint':
     'Все поля элемента изменились — он сопоставлен с прежним по месту в массиве. Это может быть и замена.',
@@ -467,6 +469,8 @@ export const en: Record<keyof typeof ru, string> = {
   'git.log': 'Recent commits',
   'git.log.none': 'No commits yet.',
   'git.tab.staged': '{name} (staged)',
+  'git.mg.join': 'It’s an edit → {label}',
+  'git.mg.joinHint': 'Not a removal: this element was edited into {label} — merge them field by field',
   'git.mg.guess': '≈ by place',
   'git.mg.guessHint':
     'Every field of this element changed — it was matched with the old one by its place in the array. It may be a replacement.',
