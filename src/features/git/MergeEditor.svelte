@@ -53,7 +53,7 @@
   let fieldsOk = $state(false);
   let showSame = $state(false);
   let ffocus = $state(0);
-  let mineObj: Obj = {};
+  let sides: [Obj, Obj, Obj] = [{}, {}, {}];
   let trailing = false;
   const fieldsMode = $derived(fieldsOk && mergeMode.current === 'fields');
 
@@ -89,7 +89,7 @@
       const [b, m, th] = [parseSide(f.base), parseSide(f.mine), parseSide(f.theirs)];
       fieldsOk = !!(b && m && th);
       if (b && m && th) {
-        mineObj = m;
+        sides = [b, m, th];
         trailing = (f.mine ?? '').endsWith('\n');
         fs = fieldsOf(b, m, th);
         choices = initialChoices(fs);
@@ -114,7 +114,7 @@
   const fConflicts = $derived(fChanged.filter((i) => fs[i].kind === 'conflict'));
   const fLeft = $derived(fChanged.filter((i) => choices[i] === null).length);
   const sameCount = $derived(fs.length - fChanged.length);
-  const fResult = $derived(fieldsOk ? mergeFields(mineObj, fs, choices, trailing) : null);
+  const fResult = $derived(fieldsOk ? mergeFields(...sides, fs, choices, trailing) : null);
   // What the header and footer show, for whichever mode is on.
   const view = $derived(
     fieldsMode
@@ -457,11 +457,11 @@
             >{(op?.hash ?? '').slice(0, 7)}</span
           >
         </div>
-        {#each fs as f, i (f.path.join('\u0000'))}
+        {#each fs as f, i (f.id)}
           {#if f.kind !== 'same' || showSame}
             {@const c = choices[i]}
             {@const hot = ffocus === i && f.kind !== 'same' ? ' focus' : ''}
-            <div class="fp{hot}" data-field={i} title={f.path.join('.')}>{f.path.join('.')}</div>
+            <div class="fp{hot}" data-field={i} title={f.label}>{f.label}</div>
             <div class="fv {fieldState(f, c, 'mine')}{hot}">{@render val(f.mine)}</div>
             <div class="g">
               {#if f.kind === 'mine' || f.kind === 'conflict'}
