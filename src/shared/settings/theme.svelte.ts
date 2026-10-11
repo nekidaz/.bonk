@@ -1,9 +1,12 @@
+import { customThemes, themeCssText, type CustomTheme, type ThemeColors } from './customThemes.svelte';
+
 /** Themes (Flow · Темы): a palette from tokens.css plus the shape and UI font it uses by default.
- *  Shape and font are separate layers: each follows the theme until the user picks one. */
+ *  Shape and font are separate layers: each follows the theme until the user picks one.
+ *  User themes (`custom:<slug>`, customThemes.svelte.ts) sit on top of Bonk Dark / Bonk Light. */
 export type Shape = 'soft' | 'sharp' | 'square';
 export type UiFont = 'sans' | 'mono';
 
-export const THEMES = [
+const BUILTIN = [
   { id: 'smooth-dark', name: 'Bonk Dark', dark: true, shape: 'soft', font: 'sans' },
   { id: 'smooth-light', name: 'Bonk Light', dark: false, shape: 'soft', font: 'sans' },
   { id: 'gruvbox-dark', name: 'Gruvbox Dark', dark: true, shape: 'square', font: 'mono' },
@@ -11,8 +14,33 @@ export const THEMES = [
   { id: 'nord', name: 'Nord', dark: true, shape: 'sharp', font: 'sans' },
   { id: 'solarized-light', name: 'Solarized Light', dark: false, shape: 'sharp', font: 'sans' },
 ] as const satisfies readonly { id: string; name: string; dark: boolean; shape: Shape; font: UiFont }[];
-export type Theme = (typeof THEMES)[number]['id'];
-export type ThemeInfo = (typeof THEMES)[number];
+export type BuiltinTheme = (typeof BUILTIN)[number]['id'];
+export type Theme = BuiltinTheme | `custom:${string}`;
+
+export interface ThemeInfo {
+  id: Theme;
+  name: string;
+  dark: boolean;
+  shape: Shape;
+  font: UiFont;
+  /** The tokens.css palette under it: itself, or Bonk Dark / Light for a user theme. */
+  base: BuiltinTheme;
+  /** A user theme's colours, laid over `base`. */
+  colors?: ThemeColors;
+}
+
+export const THEMES: readonly ThemeInfo[] = BUILTIN.map((x) => ({ ...x, base: x.id }));
+const customInfo = (c: CustomTheme): ThemeInfo => ({
+  id: `custom:${c.slug}`,
+  name: c.name,
+  dark: c.dark,
+  shape: 'soft',
+  font: 'sans',
+  base: c.dark ? 'smooth-dark' : 'smooth-light',
+  colors: c.colors,
+});
+/** Built-in themes, then the user's (reactive: reads customThemes.list). */
+export const allThemes = (): ThemeInfo[] => [...THEMES, ...customThemes.list.map(customInfo)];
 
 export const DEFAULT_THEME: Theme = 'smooth-light';
 export const SHAPES: readonly Shape[] = ['soft', 'sharp', 'square'];
@@ -20,8 +48,10 @@ export const UI_FONTS: readonly UiFont[] = ['sans', 'mono'];
 // Palettes removed earlier; a stored one keeps its light/dark intent.
 const LEGACY_DARK = ['postman-dark', 'dark', 'tokyo-night', 'ayu-mirage', 'rose-pine'];
 
-export const isTheme = (v: unknown): v is Theme => THEMES.some((x) => x.id === v);
-export const themeInfo = (t: Theme): ThemeInfo => THEMES.find((x) => x.id === t) ?? THEMES[1];
+const find = (t: unknown): ThemeInfo | undefined => allThemes().find((x) => x.id === t);
+export const isTheme = (v: unknown): v is Theme => !!find(v);
+/** A user theme whose file is gone falls back to Bonk Light. */
+export const themeInfo = (t: Theme): ThemeInfo => find(t) ?? THEMES[1];
 export const isDarkTheme = (t: Theme): boolean => themeInfo(t).dark;
 
 function read(key: string): string {
@@ -90,13 +120,29 @@ export function applyAppearance(t: Theme = theme.current): void {
   try {
     const root = globalThis.document?.documentElement;
     if (!root) return;
-    root.classList.toggle('dark', isDarkTheme(t));
-    root.dataset.theme = t;
+    const info = themeInfo(t);
+    root.classList.toggle('dark', info.dark);
+    root.dataset.theme = info.base;
+    applyColors(root, info.colors);
     root.dataset.shape = shapeOf(t);
     root.dataset.font = fontOf(t);
   } catch {
     /* no DOM (tests) — ignore */
   }
+}
+
+/** A user theme's colours go into one <style> rule that outranks the base palette on <html> and .bs
+ *  (tokens.css repeats each palette on .bs, so inline vars on <html> alone would lose there). */
+function applyColors(root: HTMLElement, colors: ThemeColors | undefined): void {
+  let style = document.getElementById('bonk-custom-theme');
+  root.toggleAttribute('data-custom', !!colors);
+  if (!style && !colors) return;
+  if (!style) {
+    style = document.createElement('style');
+    style.id = 'bonk-custom-theme';
+    document.head.append(style);
+  }
+  style.textContent = colors ? `:root[data-custom],:root[data-custom] .bs{${themeCssText(colors)}}` : '';
 }
 
 export function setTheme(t: Theme): void {

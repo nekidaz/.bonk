@@ -5,7 +5,7 @@
 <script module lang="ts">
   import type { Snippet } from 'svelte';
   import { t } from '$shared/i18n';
-  export { row, sw, number, select, seg, chips };
+  export { row, sw, number, select, seg, chips, themePic };
 
   function clampInt(value: number, min: number, max: number, fallback: number): number {
     if (!Number.isFinite(value)) return fallback;
@@ -29,6 +29,17 @@
 
   export type Option<T> = { label: string; value: T };
 </script>
+
+<!-- A theme's mini app (Flow · Темы TH1/TH3): `base` palette from tokens.css, a user theme's colours inline on top. -->
+{#snippet themePic(base: string, style: string | undefined)}
+  <span class="st-theme-pic" data-theme={base} {style} aria-hidden="true">
+    <i class="side"><b></b><b></b><b></b><b></b></i>
+    <i class="main"
+      ><b class="title"></b><span class="url"><i><b></b><b></b></i><b></b></span><span class="code"><b></b><b></b></span
+      ><span class="code"><b></b><b></b></span><span class="status"><b></b><b></b></span></i
+    >
+  </span>
+{/snippet}
 
 {#snippet row(name: string, desc: string, control: Snippet, danger?: boolean)}
   <div class="st-row" class:st-danger={danger}>

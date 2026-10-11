@@ -1,8 +1,11 @@
 <script lang="ts">
+  import { getCurrentWebview } from '@tauri-apps/api/webview';
   import { t } from '$shared/i18n';
+  import { importReadFile, themeImportPick, type ImportFile } from '$shared/ipc';
   import {
     theme,
-    THEMES,
+    allThemes,
+    themeCssText,
     themeInfo,
     pickTheme,
     themeFollowSystem,
@@ -30,7 +33,8 @@
     type AfterSend,
     type RequestLayout,
   } from '$shared/settings';
-  import { row, number, select, seg, sw, commit } from './ui.svelte';
+  import { row, number, select, seg, sw, commit, themePic } from './ui.svelte';
+  import ThemeImportDialog from './ThemeImportDialog.svelte';
 
   const LAYOUTS: RequestLayout[] = ['stack', 'side', 'focus'];
 
@@ -39,16 +43,56 @@
   // Picking the theme's own shape goes back to following the theme.
   const setShape = (v: string) =>
     (shapePref.current = v === themeInfo(theme.current).shape ? 'theme' : (v as typeof shape));
+  // Flow · Темы TH3: a Zed / VS Code theme, picked or dropped on the window, opens the import dialog.
+  let importFile = $state.raw<ImportFile | null>(null);
+  let pickError = $state('');
+  async function pickThemeFile(): Promise<void> {
+    pickError = '';
+    try {
+      importFile = (await themeImportPick()) ?? importFile;
+    } catch (e) {
+      pickError = String(e);
+    }
+  }
+  // Tauri delivers dropped paths through the webview, not HTML5 drop events.
+  $effect(() => {
+    let off: (() => void) | undefined;
+    let cancelled = false;
+    try {
+      getCurrentWebview()
+        .onDragDropEvent((e) => {
+          const path = e.payload.type === 'drop' ? e.payload.paths.find((p) => /\.json$/i.test(p)) : undefined;
+          if (!path) return;
+          pickError = '';
+          importReadFile(path).then(
+            (f) => (importFile = f),
+            (err) => (pickError = String(err)),
+          );
+        })
+        .then((fn) => (cancelled ? fn() : (off = fn)))
+        .catch(() => {});
+    } catch {
+      /* not inside Tauri (browser preview) */
+    }
+    return () => {
+      cancelled = true;
+      off?.();
+    };
+  });
+
   const pairOptions = (dark: boolean) =>
-    THEMES.filter((x) => x.dark === dark).map((x) => ({ label: x.name, value: x.id }));
+    allThemes()
+      .filter((x) => x.dark === dark)
+      .map((x) => ({ label: x.name, value: x.id }));
 </script>
 
 <div class="st-group">{t('settings.appearance.theme')}</div>
 <!-- Flow · Темы TH1: every card is a mini app in its own palette (data-theme on the card); «Как в системе» picks a
      light and a dark theme (app/lifecycle.svelte.ts). -->
-<div class="st-card st-pad">
+<!-- data-theme-drop: a dropped .json comes here, not to the collection import (features/import/DropZone). -->
+<div class="st-card st-pad" data-theme-drop>
   <div class="st-themes" role="radiogroup" aria-label={t('settings.appearance.theme')}>
-    {#each THEMES as th (th.id)}
+    {#each allThemes() as th (th.id)}
       <button
         type="button"
         class="st-theme"
@@ -57,14 +101,7 @@
         class:on={theme.current === th.id}
         onclick={() => pickTheme(th.id)}
       >
-        <span class="st-theme-pic" data-theme={th.id} aria-hidden="true">
-          <i class="side"><b></b><b></b><b></b><b></b></i>
-          <i class="main"
-            ><b class="title"></b><span class="url"><i><b></b><b></b></i><b></b></span><span class="code"
-              ><b></b><b></b></span
-            ><span class="code"><b></b><b></b></span><span class="status"><b></b><b></b></span></i
-          >
-        </span>
+        {@render themePic(th.base, th.colors && themeCssText(th.colors))}
         <span class="st-mode-label"><span class="radio"></span>{th.name}</span>
       </button>
     {/each}
@@ -80,6 +117,11 @@
     {@render select(t('settings.appearance.systemDark'), systemDarkTheme.current, pairOptions(true), (v) => {
       systemDarkTheme.current = v as Theme;
     })}
+    <span class="st-spacer"></span>
+    {#if pickError}<span class="st-error" title={pickError}>{pickError}</span>{/if}
+    <button type="button" class="st-link" onclick={pickThemeFile}>
+      <span class="material-symbols-outlined" aria-hidden="true">upload_file</span>{t('settings.themeImport.open')}
+    </button>
   </div>
 </div>
 
@@ -207,3 +249,5 @@
     )}{/snippet}
   {@render row(t('settings.appearance.foldArrays'), t('settings.appearance.foldArrays.desc'), fold)}
 </div>
+
+<ThemeImportDialog bind:file={importFile} onpick={pickThemeFile} />

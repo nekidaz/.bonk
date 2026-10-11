@@ -10,6 +10,8 @@ import {
   codeFontSize,
   density,
   setTheme,
+  applyAppearance,
+  loadCustomThemes,
   systemDarkTheme,
   systemLightTheme,
   themeFollowSystem,
@@ -90,6 +92,13 @@ export function startApp(): void {
     sync();
     mq.addEventListener('change', sync);
     return () => mq.removeEventListener('change', sync);
+  });
+
+  // User themes from ~/.bonk/themes; the localStorage copy already painted the saved one.
+  onMount(() => {
+    loadCustomThemes()
+      .then(() => applyAppearance())
+      .catch(() => {});
   });
 
   onMount(async () => {

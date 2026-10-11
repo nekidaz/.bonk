@@ -476,6 +476,17 @@ export const importReadFile = (path: string) => invoke<ImportFile>('import_read_
 export const openapiExportSave = (defaultName: string, contents: string, title?: string) =>
   invoke<string | null>('openapi_export_save', { defaultName, contents, title: title ?? null });
 
+// ---------- User themes (~/.bonk/themes) ----------
+export interface ThemeFile {
+  slug: string;
+  text: string;
+}
+export const themesList = () => invoke<ThemeFile[]>('themes_list');
+/** Write `<slug>.json`, return its path. */
+export const themeSave = (slug: string, text: string) => invoke<string>('theme_save', { slug, text });
+/** Prompt for a Zed / VS Code theme file, or null if cancelled. */
+export const themeImportPick = () => invoke<ImportFile | null>('theme_import_pick');
+
 // ---------- Data & workspace settings ----------
 export const appDataDir = () => invoke<string>('app_data_dir');
 

@@ -16,9 +16,9 @@
   let seq = 0;
 
   async function enter(paths: string[]): Promise<void> {
-    // The .proto dialog takes its own drops.
+    // The .proto dialog and Settings → Внешний вид (theme import) take their own drops.
     const path = paths.find((p) => IMPORTABLE.test(p));
-    if (!path || document.querySelector('.pid-overlay')) return;
+    if (!path || document.querySelector('.pid-overlay, [data-theme-drop]')) return;
     const id = ++seq;
     over = true;
     label = '';

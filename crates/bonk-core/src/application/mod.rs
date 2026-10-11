@@ -15,4 +15,5 @@ pub mod run_data;
 pub mod runner;
 pub mod scenarios;
 pub mod scripts;
+pub mod themes;
 pub mod workspace;

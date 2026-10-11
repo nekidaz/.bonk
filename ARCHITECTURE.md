@@ -85,6 +85,7 @@ over `bonk-core`; folder/file dialogs are shell-owned:
 | Workspace | `workspace_pick_folder`, `workspace_load`, `workspace_create_folder`, `workspace_save_request`, `workspace_rename`, `workspace_delete`, `workspace_duplicate`, `workspace_move` |
 | App state | `app_state_load`, `app_state_set` |
 | MCP integration | `mcp_integration_status`, `mcp_install`, `mcp_uninstall` |
+| User themes (`~/.bonk/themes`) | `themes_list`, `theme_save`, `theme_import_pick` |
 
 Frontend bindings live in `src/shared/ipc/api.ts` (workspace/http/gRPC) and
 `src/shared/persist/persist.ts` (app state). The table lists the core commands; the full set

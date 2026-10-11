@@ -23,7 +23,7 @@
   import { workspace } from '$entities/workspace';
   import { openSavedRequest } from '$entities/request';
   import { methodColor, methodLabel, type RequestNode } from '$shared/model';
-  import { applyAppearance, pickTheme, theme, themeInfo, THEMES, type Theme } from '$shared/settings';
+  import { allThemes, applyAppearance, pickTheme, theme, themeCssText, themeInfo, type Theme } from '$shared/settings';
 
   let { open = $bindable(), commands }: { open: boolean; commands: PaletteCommand[] } = $props();
 
@@ -37,7 +37,7 @@
   let saved = $state<Theme>(theme.current);
 
   const q = $derived(query.trim().toLowerCase());
-  const themes = $derived(THEMES.filter((x) => x.name.toLowerCase().includes(q)));
+  const themes = $derived(allThemes().filter((x) => x.name.toLowerCase().includes(q)));
   const requests = $derived(searchRequests(workspace.tree, query));
   const themeCommand: PaletteCommand = { label: '', icon: 'palette', run: enterThemes };
   const matchedCommands = $derived(
@@ -81,7 +81,10 @@
     saved = theme.current;
     scope = 'theme';
     query = '';
-    sel = THEMES.findIndex((x) => x.id === saved);
+    sel = Math.max(
+      0,
+      allThemes().findIndex((x) => x.id === saved),
+    );
   }
 
   function leaveThemes(): void {
@@ -169,7 +172,12 @@
               onclick={() => runAt(i)}
               onkeydown={() => {}}
             >
-              <span class="bs-palette-swatch" data-theme={th.id} aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+              <span
+                class="bs-palette-swatch"
+                data-theme={th.base}
+                style={th.colors && themeCssText(th.colors)}
+                aria-hidden="true"><i></i><i></i><i></i><i></i></span
+              >
               <span class="name">{th.name}</span>
               {#if th.id === saved}
                 <span class="bs-palette-current"

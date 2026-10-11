@@ -59,6 +59,7 @@ export {
 } from './cookiePrefs.svelte';
 export { requestPrefs } from './requestPrefs.svelte';
 export {
+  allThemes,
   applyAppearance,
   applyStoredTheme,
   fontOf,
@@ -72,7 +73,19 @@ export {
   theme,
   type Theme,
   themeInfo,
+  type ThemeInfo,
   THEMES,
   type UiFont,
 } from './theme.svelte';
 export { dynamicOptions, dynKeepSent, dynLocale, dynPerRequest, dynSeed, dynSeedOn } from './dynamicPrefs.svelte';
+export {
+  customThemes,
+  type CustomTheme,
+  isHexColor,
+  loadCustomThemes,
+  serializeCustomTheme,
+  type ThemeColors,
+  themeCssText,
+  THEME_TOKENS,
+  type ThemeToken,
+} from './customThemes.svelte';
