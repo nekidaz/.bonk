@@ -74,6 +74,9 @@
     <button role="menuitem" disabled={!current} onclick={() => run({ kind: 'rebase', branch })}
       ><span class="material-symbols-outlined">low_priority</span>{t('git.graph.rebase', { current: here })}</button
     >
+    <button role="menuitem" disabled={!current} onclick={() => run({ kind: 'interactive', branch })}
+      ><span class="material-symbols-outlined">format_list_numbered</span>{t('git.graph.interactive')}</button
+    >
   {/if}
 
   <div class="sep"></div>

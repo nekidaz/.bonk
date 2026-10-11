@@ -19,6 +19,9 @@
     isConflict,
     abortOperation,
     continueOperation,
+    skipOperation,
+    openConflictsTab,
+    openMergeTab,
     openProjectDiffTab,
     openStashTab,
     shortAgo,
@@ -261,8 +264,11 @@
       {#if status.operation}
         <div class="op">
           <div class="oph">
-            <span class="material-symbols-outlined">warning</span>{status.operation}
+            <span class="material-symbols-outlined">commit</span>{git.op?.total
+              ? t('git.op.step', { kind: status.operation, i: git.op.step, n: git.op.total })
+              : status.operation}
           </div>
+          {#if git.op?.hash}<div class="opc">{`${git.op.hash.slice(0, 7)} · ${git.op.subject}`}</div>{/if}
           <p>
             {conflicts.length
               ? t('git.op.conflicts', {
@@ -275,17 +281,37 @@
             <button class="bs-gbtn sm" disabled={git.busy} onclick={abortOperation}
               ><span class="material-symbols-outlined">close</span>{t('git.op.abort')}</button
             >
-            <button class="bs-gbtn sm inv" disabled={git.busy || conflicts.length > 0} onclick={continueOperation}
-              >{t('git.op.continue')}<span class="material-symbols-outlined">arrow_forward</span></button
+            <button class="bs-gbtn sm" disabled={git.busy || status.operation === 'merge'} onclick={skipOperation}
+              ><span class="material-symbols-outlined">skip_next</span>{t('git.op.skip')}</button
             >
           </div>
+          <button class="bs-gbtn sm inv cont" disabled={git.busy || conflicts.length > 0} onclick={continueOperation}
+            >{t('git.op.continue')}<span class="material-symbols-outlined">arrow_forward</span></button
+          >
         </div>
       {/if}
       {#if conflicts.length}
         <div class="sec conflicts">
           <span class="eb">{t('git.conflicts')}</span><span class="n">{conflicts.length}</span>
+          <button class="ico" title={t('git.tab.conflicts')} onclick={openConflictsTab}
+            ><span class="material-symbols-outlined">north_east</span></button
+          >
         </div>
-        {#each conflicts as f (f.path)}{@render fileRow(f, false)}{/each}
+        {#each conflicts as f (f.path)}
+          {@const i = info(f)}
+          <button
+            class="row"
+            title={f.path}
+            onclick={() => (i.method ? openMergeTab(f.path, i.name) : openConflictsTab())}
+          >
+            <span class="m" style:color={i.method ? methodColor(i.method === 'gRPC' ? 'GRPC' : i.method) : undefined}
+              >{i.method}</span
+            >
+            <span class="nm">{i.name}</span>
+            <span class="dir">{f.index === 'D' || f.worktree === 'D' ? t('git.cf.deleted') : i.dir}</span>
+            <span class="st" style:color="var(--color-danger)">!</span>
+          </button>
+        {/each}
       {/if}
       {#if staged.length}
         <div class="sec">
@@ -705,6 +731,15 @@
   }
   .oph .material-symbols-outlined {
     font-size: 14px;
+  }
+  .opc {
+    margin-top: 6px;
+    color: var(--color-text);
+    font-size: var(--font-size-body);
+  }
+  .cont {
+    width: 100%;
+    margin-top: 6px;
   }
   .op p {
     margin: 6px 0 10px;

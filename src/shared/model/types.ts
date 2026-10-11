@@ -451,6 +451,49 @@ export interface CommitDetail {
 
 export type ResetMode = 'soft' | 'mixed' | 'hard';
 
+/** G7: one unmerged file with each side's text; null = that side has no version (deleted there). */
+export interface ConflictFile {
+  path: string;
+  base: string | null;
+  mine: string | null;
+  theirs: string | null;
+}
+
+/** G7: the stopped operation. `mine` / `theirs` are labels: the branch we're on and what comes in. */
+export interface OperationInfo {
+  kind: GitStatus['operation'];
+  step: number;
+  total: number;
+  hash: string;
+  subject: string;
+  mine: string;
+  theirs: string;
+}
+
+/** G9: a commit an interactive rebase would replay, oldest first. */
+export interface RebaseStep {
+  hash: string;
+  short: string;
+  subject: string;
+  /** Already on a remote branch: rewriting it needs a force push. */
+  pushed: boolean;
+}
+
+export interface RebasePlan {
+  onto: string;
+  ontoShort: string;
+  ontoSubject: string;
+  commits: RebaseStep[];
+}
+
+export type RebaseVerb = 'pick' | 'reword' | 'squash' | 'fixup' | 'drop';
+
+export interface RebaseAction {
+  hash: string;
+  action: RebaseVerb;
+  message?: string;
+}
+
 export interface GitCommit {
   hash: string;
   short: string;
@@ -495,7 +538,7 @@ export interface GitTabState {
   path: string;
   mode: GitDiffMode;
   /** 'file' = single-file diff (default); 'project' = the aggregate Project Diff; 'stash' = one stash; 'commit' = the commit-message editor; 'graph' = the commit graph. */
-  view?: 'file' | 'project' | 'stash' | 'commit' | 'graph';
+  view?: 'file' | 'project' | 'stash' | 'commit' | 'graph' | 'conflicts' | 'merge';
   /** View 'file' of a past commit: its hash (the diff is against its first parent). View 'graph': the commit to select. */
   rev?: string;
 }

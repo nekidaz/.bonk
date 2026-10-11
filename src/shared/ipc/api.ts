@@ -27,6 +27,10 @@ import {
   type GraphPage,
   type CommitDetail,
   type ResetMode,
+  type ConflictFile,
+  type OperationInfo,
+  type RebasePlan,
+  type RebaseAction,
   type FileDiff,
   parseScriptResult,
   type ScriptPhase,
@@ -457,6 +461,17 @@ export const gitFormatPatch = (root: string, hashes: string[]) => invoke<string>
 export const gitFetch = (root: string) => invoke<string>('git_fetch', { root });
 export const gitOperationAbort = (root: string) => invoke<void>('git_operation_abort', { root });
 export const gitOperationContinue = (root: string) => invoke<void>('git_operation_continue', { root });
+export const gitConflicts = (root: string) => invoke<ConflictFile[]>('git_conflicts', { root });
+export const gitOperationInfo = (root: string) => invoke<OperationInfo>('git_operation_info', { root });
+export const gitResolveFile = (root: string, path: string, content: string) =>
+  invoke<void>('git_resolve_file', { root, path, content });
+export const gitResolveSide = (root: string, paths: string[], side: 'mine' | 'theirs') =>
+  invoke<void>('git_resolve_side', { root, paths, side });
+export const gitUnresolve = (root: string, paths: string[]) => invoke<void>('git_unresolve', { root, paths });
+export const gitOperationSkip = (root: string) => invoke<void>('git_operation_skip', { root });
+export const gitRebasePlan = (root: string, onto: string) => invoke<RebasePlan>('git_rebase_plan', { root, onto });
+export const gitRebaseInteractive = (root: string, onto: string, steps: RebaseAction[]) =>
+  invoke<void>('git_rebase_interactive', { root, onto, steps });
 
 // OS keychain (secret env vars)
 export const secretGet = (key: string) => invoke<string | null>('secret_get', { key });

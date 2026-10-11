@@ -1,7 +1,15 @@
 // Public API of entities/git (like the exported names of a Go package).
 // Code outside src/entities/git/ imports only from here; files inside use relative paths.
 
-export { openCommitEditorTab, openGitDiffTab, openGraphTab, openProjectDiffTab, openStashTab } from './diffTabs';
+export {
+  openCommitEditorTab,
+  openConflictsTab,
+  openGitDiffTab,
+  openGraphTab,
+  openMergeTab,
+  openProjectDiffTab,
+  openStashTab,
+} from './diffTabs';
 export {
   abortOperation,
   checkoutCommit,
@@ -11,7 +19,12 @@ export {
   createTag,
   fetchAll,
   mergeBranch,
+  rebaseInteractive,
   rebaseOnto,
+  resolveFile,
+  resolveSide,
+  skipOperation,
+  unresolve,
   resetTo,
   revertCommits,
   commitChanges,

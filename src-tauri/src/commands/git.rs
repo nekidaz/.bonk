@@ -232,3 +232,51 @@ pub async fn git_operation_abort(root: String) -> Result<(), String> {
 pub async fn git_operation_continue(root: String) -> Result<(), String> {
     off_main(move || git::operation_continue(&root)).await
 }
+
+#[tauri::command]
+pub async fn git_conflicts(root: String) -> Result<Vec<git::ConflictFile>, String> {
+    off_main(move || git::conflicts(&root)).await
+}
+
+#[tauri::command]
+pub async fn git_operation_info(root: String) -> Result<git::OperationInfo, String> {
+    off_main(move || git::operation_info(&root)).await
+}
+
+#[tauri::command]
+pub async fn git_resolve_file(root: String, path: String, content: String) -> Result<(), String> {
+    off_main(move || git::resolve_file(&root, &path, &content)).await
+}
+
+#[tauri::command]
+pub async fn git_resolve_side(
+    root: String,
+    paths: Vec<String>,
+    side: String,
+) -> Result<(), String> {
+    off_main(move || git::resolve_side(&root, &paths, &side)).await
+}
+
+#[tauri::command]
+pub async fn git_unresolve(root: String, paths: Vec<String>) -> Result<(), String> {
+    off_main(move || git::unresolve(&root, &paths)).await
+}
+
+#[tauri::command]
+pub async fn git_operation_skip(root: String) -> Result<(), String> {
+    off_main(move || git::operation_skip(&root)).await
+}
+
+#[tauri::command]
+pub async fn git_rebase_plan(root: String, onto: String) -> Result<git::RebasePlan, String> {
+    off_main(move || git::rebase_plan(&root, &onto)).await
+}
+
+#[tauri::command]
+pub async fn git_rebase_interactive(
+    root: String,
+    onto: String,
+    steps: Vec<git::RebaseAction>,
+) -> Result<(), String> {
+    off_main(move || git::rebase_interactive(&root, &onto, &steps)).await
+}
