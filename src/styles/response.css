@@ -644,28 +644,156 @@
   }
 }
 
-/* S20: server stream feed and the Stop button. */
+/* S20 + Flow · gRPC Stream: toolbar, one feed for ↑ sent / ↓ received, system lines, message pane. */
+:root .bs .bs-stream {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+:root .bs .bs-stream-bar {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px 6px;
+  font: 500 var(--font-size-caption) var(--font-ui);
+}
+
+:root .bs .bs-stream-bar .filter {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 240px;
+  min-width: 120px;
+  height: 25px;
+  padding: 0 10px;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-control);
+  background: var(--color-field);
+  color: var(--color-text-muted);
+}
+
+:root .bs .bs-stream-bar .filter input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--color-text);
+  font: var(--font-size-body) var(--font-code);
+}
+
+:root .bs .bs-stream-bar .filter input::placeholder {
+  color: var(--color-text-muted);
+  font-family: var(--font-ui);
+}
+
+:root .bs .bs-stream-bar .filter:focus-within {
+  border-color: var(--color-border);
+}
+
+:root .bs .bs-stream-bar .material-symbols-outlined {
+  font-size: 14px;
+}
+
+:root .bs .bs-stream-bar .dir {
+  display: flex;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-control);
+  background: var(--color-field);
+}
+
+:root .bs .bs-stream-bar button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 22px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--color-text-secondary);
+  font: inherit;
+  white-space: nowrap;
+}
+
+:root .bs .bs-stream-bar .dir button {
+  height: 19px;
+}
+
+:root .bs .bs-stream-bar button:hover {
+  background: var(--color-hover);
+  color: var(--color-text);
+}
+
+:root .bs .bs-stream-bar .dir button.on {
+  background: var(--color-raised);
+  color: var(--color-text);
+  font-weight: 600;
+}
+
+:root .bs .bs-stream-bar button.warn,
+:root .bs .bs-stream-bar button.warn:hover {
+  background: var(--color-warning-soft);
+  color: var(--color-warning);
+}
+
+:root .bs .bs-stream-bar .of {
+  color: var(--color-text-muted);
+  font: var(--font-size-caption) var(--font-code);
+  white-space: nowrap;
+}
+
+:root .bs .bs-stream .sp {
+  flex: 1;
+}
+
+:root .bs .bs-stream-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+}
+
 :root .bs .bs-stream-feed {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  padding: 12px 14px;
+  padding: 4px 12px 12px;
   overflow: auto;
+  outline: 0;
+}
+
+:root .bs .bs-stream-feed .dir {
+  flex: 0 0 13px;
+  font-size: 13px;
+  font-variation-settings: 'wght' 500;
+  color: var(--color-text-muted);
 }
 
 :root .bs .bs-stream-feed .no {
-  flex: 0 0 36px;
+  flex: 0 0 40px;
+  margin-right: 14px;
+  text-align: right;
   color: var(--color-text-muted);
   font: 600 var(--font-size-caption) var(--font-code);
 }
 
 :root .bs .bs-stream-feed .at {
-  flex: 0 0 116px;
+  flex: 0 0 104px;
   color: var(--color-text-muted);
   font: var(--font-size-caption) var(--font-code);
 }
 
+:root .bs .bs-stream.split .bs-stream-feed .at {
+  flex-basis: 80px;
+}
+
 :root .bs .bs-stream-feed code {
+  flex: 1;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -673,13 +801,58 @@
   color: var(--color-text);
 }
 
-:root .bs .bs-stream-feed .waiting {
+:root .bs .bs-stream-feed .dt,
+:root .bs .bs-stream-feed .hint {
+  flex: none;
+  margin-left: 12px;
+  color: var(--color-text-muted);
+  font: var(--font-size-caption) var(--font-code);
+}
+
+:root .bs .bs-stream.split .bs-stream-feed .dt {
+  display: none;
+}
+
+:root .bs .bs-stream-feed .msg.sent .dir,
+:root .bs .bs-stream-feed .msg.sent .no,
+:root .bs .bs-stream-feed .msg.sent .dt {
+  color: var(--method-grpc);
+}
+
+:root .bs .bs-stream-feed .waiting,
+:root .bs .bs-stream-feed .sys {
+  flex: none;
   display: flex;
   align-items: center;
   gap: 8px;
   padding: 6px 14px;
   color: var(--color-text-muted);
   font: var(--font-size-body) var(--font-ui);
+}
+
+:root .bs .bs-stream-feed .sys {
+  border-radius: var(--radius-control);
+}
+
+:root .bs .bs-stream-feed .sys .material-symbols-outlined {
+  font-size: 14px;
+}
+
+:root .bs .bs-stream-feed .sys.ok {
+  background: var(--color-success-soft);
+  color: var(--color-success);
+}
+
+:root .bs .bs-stream-feed .sys.warn {
+  background: var(--color-warning-soft);
+  color: var(--color-warning);
+}
+
+:root .bs .bs-stream-feed .sys.warn button {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: 600 var(--font-size-caption) var(--font-ui);
 }
 
 :root .bs .bs-stream-feed .waiting .dot {
@@ -689,7 +862,15 @@
   background: var(--color-success);
 }
 
-:root .bs .bs-stream-feed .msg.err .no {
+:root .bs .bs-stream-feed .waiting.open {
+  color: var(--color-var);
+}
+
+:root .bs .bs-stream-feed .waiting.open .dot {
+  background: var(--color-var);
+}
+
+:root .bs .bs-stream-feed .msg.err .dir {
   color: var(--color-danger);
 }
 
@@ -697,8 +878,87 @@
   background: var(--color-text-muted);
 }
 
-:root .bs .bs-stream-feed .msg.sent .no {
-  color: var(--color-action);
+:root .bs .bs-stpill.open {
+  background: var(--color-var-soft);
+  color: var(--color-var);
+}
+
+/* ST3: the picked message in full. */
+:root .bs .bs-stream-msg {
+  flex: 0 0 380px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px 14px;
+  border-left: 1px solid var(--color-border-subtle);
+  overflow: auto;
+}
+
+:root .bs .bs-stream-msg .hd {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--color-text);
+  font: 600 var(--font-size-ui) var(--font-ui);
+}
+
+:root .bs .bs-stream-msg .hd > .material-symbols-outlined {
+  font-size: 14px;
+  color: var(--color-text-secondary);
+}
+
+:root .bs .bs-stream-msg .meta {
+  display: flex;
+  gap: 14px;
+  color: var(--color-text);
+  font: var(--font-size-body) var(--font-code);
+}
+
+:root .bs .bs-stream-msg .meta span {
+  display: block;
+  margin-bottom: 3px;
+  color: var(--color-text-muted);
+  font: 500 9.5px var(--font-code);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+:root .bs .bs-stream-msg .type {
+  color: var(--color-text-muted);
+  font: var(--font-size-caption) var(--font-code);
+}
+
+:root .bs .bs-stream-msg .json {
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: 14px;
+  background: var(--color-field);
+  font: var(--font-size-body) / 20px var(--font-code);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+:root .bs .bs-stream-msg .json .k {
+  color: var(--sk);
+}
+
+:root .bs .bs-stream-msg .json .s {
+  color: var(--ss);
+}
+
+:root .bs .bs-stream-msg .json .n {
+  color: var(--sn);
+}
+
+:root .bs .bs-stream-msg .json .p {
+  color: var(--syntax-punct, var(--color-text-muted));
+}
+
+:root .bs .bs-stream-msg .nav {
+  color: var(--color-text-muted);
+  font: var(--font-size-caption) var(--font-ui);
 }
 
 :root .lb-tools .bs-ric {

@@ -201,7 +201,6 @@
                 }}
                 onclick={() => select(m.symbol)}
                 type="button"
-                title={m.clientStreaming ? t('grpc.picker.noClientStream') : undefined}
               >
                 <span class="mp-line">
                   <span class="mp-name">{m.name}</span>

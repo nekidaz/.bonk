@@ -169,8 +169,17 @@ export interface Tab {
   response?: HttpResponse;
   grpc?: GrpcTabState;
   grpcResult?: GrpcResult;
-  /** Live / last server stream for this tab (runtime-only). */
-  grpcStream?: { messages: GrpcStreamMessage[]; done: boolean; startedAt: number; headers?: Record<string, string> };
+  /** Live / last stream for this tab (runtime-only). */
+  grpcStream?: {
+    messages: GrpcStreamMessage[];
+    done: boolean;
+    startedAt: number;
+    headers?: Record<string, string>;
+    /** Which side streams; absent on a stream started before this field existed (= server). */
+    kind?: 'server' | 'client' | 'bidi';
+    /** Client/bidi: when «Завершить» half-closed our side. */
+    halfClosedAt?: number;
+  };
   git?: GitTabState;
   /** Query-parameter rows for the Params table; appended to the URL on send. */
   params?: Param[];
@@ -421,7 +430,7 @@ export interface GrpcService {
 export interface ServiceTree {
   services: GrpcService[];
 }
-/** One message of a server stream (S20). */
+/** One message of a stream (S20, Flow · gRPC Stream). */
 export interface GrpcStreamMessage {
   index: number;
   atMs: number;

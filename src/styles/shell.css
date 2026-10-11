@@ -1229,7 +1229,8 @@
     display: block;
   }
 
-  :root .bs button.bs-send kbd {
+  :root .bs button.bs-send kbd,
+  :root .bs .bs-stream-btn kbd {
     display: none;
   }
 
