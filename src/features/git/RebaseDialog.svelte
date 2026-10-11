@@ -82,6 +82,7 @@
     return i === -1 ? rows.length - 1 : i;
   }
   function dragStart(e: PointerEvent, i: number): void {
+    e.preventDefault(); // no text selection across the rows while dragging
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
     drag = { from: i, to: i };
   }

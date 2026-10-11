@@ -64,6 +64,12 @@
   <button role="menuitem" onclick={() => run({ kind: 'patch' })}
     ><span class="material-symbols-outlined">draft</span>{t('git.graph.patch')}</button
   >
+  {#if one && onCurrent && current && !commits[0].refs.some((r) => r.kind === 'head')}
+    <!-- Rewrite our own commits above this one: `rebase -i <commit>`. -->
+    <button role="menuitem" onclick={() => run({ kind: 'interactive', branch: commits[0].short })}
+      ><span class="material-symbols-outlined">format_list_numbered</span>{t('git.graph.interactiveHere')}</button
+    >
+  {/if}
 
   {#if branch}
     <div class="sep"></div>
@@ -147,6 +153,8 @@
     font: var(--font-size-ui) var(--font-ui);
     text-align: left;
     white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
   button:hover:not(:disabled) {
     background: var(--color-hover);

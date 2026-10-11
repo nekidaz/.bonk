@@ -137,7 +137,8 @@
     {:else if loading}
       <div class="bs-gview-empty">{t('git.diff.loading')}</div>
     {:else if !diffText.trim()}
-      <div class="bs-gview-empty">{t('git.diff.noText')}</div>
+      <!-- A file no longer in the status (committed, discarded) simply has nothing to show. -->
+      <div class="bs-gview-empty">{!file && !rev ? t('git.diff.clean') : t('git.diff.noText')}</div>
     {:else}
       <FileDiff
         {path}

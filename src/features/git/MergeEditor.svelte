@@ -345,6 +345,8 @@
   // A block typed by hand took neither side as it was: both read as set aside.
   const stateOf = (r: Resolution, side: 'mine' | 'theirs', c: Chunk) =>
     r.edited ? 'rejected' : c.kind === 'change' && c.conflict && r[side] === 'pending' ? 'conflict' : r[side];
+  /** A request file keeps everything under `request`: say the field without that prefix. */
+  const fieldName = (label: string) => (label.startsWith('request.') ? label.slice('request.'.length) : label);
   /** A field cell's colour: what this side offers and whether it was taken. */
   function fieldState(f: Field, c: FieldChoice, side: 'mine' | 'theirs'): string {
     const other = side === 'mine' ? 'theirs' : 'mine';
@@ -501,7 +503,7 @@
             {@const c = choices[i]}
             {@const hot = ffocus === i && f.kind !== 'same' ? ' focus' : ''}
             <div class="fp{hot}" data-field={i} title={f.label}>
-              <span class="lbl">{f.label}</span>
+              <span class="lbl">{fieldName(f.label)}</span>
               {#if guessHead.has(i)}
                 <span class="guess" title={t('git.mg.guessHint')}>{t('git.mg.guess')}</span>
                 <button class="split" title={t('git.mg.splitHint')} onclick={() => splitGuess(f.guess!)}
@@ -657,6 +659,8 @@
     overflow: auto;
     display: grid;
     grid-template-columns: minmax(0, 1fr) 64px minmax(0, 1fr) 64px minmax(0, 1fr);
+    /* Each row as tall as its tallest cell: a file taller than the window must not squeeze rows. */
+    grid-auto-rows: max-content;
     align-content: start;
     border: 1px solid var(--color-border-subtle);
     border-radius: var(--radius-card);
@@ -664,7 +668,7 @@
     font: 13px/26px var(--font-code);
   }
   .grid.fields {
-    grid-template-columns: minmax(140px, 0.6fr) minmax(0, 1fr) 64px minmax(0, 1fr) 64px minmax(0, 1fr);
+    grid-template-columns: minmax(180px, 0.8fr) minmax(0, 1fr) 64px minmax(0, 1fr) 64px minmax(0, 1fr);
     row-gap: 4px;
   }
   .fp,
