@@ -1,0 +1,254 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#f0f0f0" />
+    <title>Documentation — Bonk</title>
+    <meta
+      name="description"
+      content="Get started with Bonk: install the app, create an HTTP or gRPC request, use environments and scripts, run collections, and connect an MCP client."
+    />
+    <link rel="canonical" href="https://nekidaz.github.io/.bonk/docs/" />
+    <link rel="icon" href="../favicon.svg" />
+    <link rel="stylesheet" href="../landing.css" />
+  </head>
+  <body class="docs-page">
+    <a class="skip-link" href="#main">Skip to content</a>
+    <header class="site-header">
+      <div class="shell header-inner">
+        <a class="brand" href="../" aria-label="Bonk home"
+          ><span class="brand-mark" aria-hidden="true">↗</span><span>bonk</span></a
+        >
+        <nav class="site-nav" aria-label="Main navigation">
+          <a href="../#workflow">How it works</a><a href="../#features">Features</a><a href="../#mcp">AI / MCP</a
+          ><a href="./" aria-current="page">Docs</a>
+        </nav>
+        <a class="header-download" href="https://github.com/nekidaz/.bonk/releases/latest"
+          >Download <span aria-hidden="true">↗</span></a
+        >
+      </div>
+    </header>
+    <main class="shell docs-layout" id="main">
+      <nav class="docs-sidebar" aria-label="Documentation sections">
+        <p class="sidebar-heading">DOCUMENTATION</p>
+        <a href="#quick-start">Quick start</a>
+        <a href="#workspace-files">Workspace files</a>
+        <a href="#http-grpc">HTTP &amp; gRPC</a>
+        <a href="#variables-scripts">Variables &amp; scripts</a>
+        <a href="#runner-cli">Runner &amp; CLI</a>
+        <a href="#ai-mcp">AI / MCP</a>
+        <a href="#import-export">Import &amp; export</a>
+        <span class="sidebar-divider" aria-hidden="true"></span>
+        <a href="https://github.com/nekidaz/.bonk">Source on GitHub ↗</a>
+      </nav>
+      <div class="docs-content">
+        <div class="docs-intro">
+          <p class="eyebrow">BONK / DOCUMENTATION</p>
+          <h1>From first request to shared workflow.</h1>
+          <p>
+            Open a local folder, send an API call, and save the request as a file. These guides cover the desktop app,
+            CLI, and MCP server.
+          </p>
+          <div class="docs-quick-links">
+            <a class="button button-primary" href="#quick-start">Get started <span aria-hidden="true">↓</span></a
+            ><a class="button button-secondary" href="https://github.com/nekidaz/.bonk/releases/latest"
+              >Download Bonk <span aria-hidden="true">↗</span></a
+            >
+          </div>
+        </div>
+
+        <section class="docs-section" id="quick-start" aria-labelledby="quick-start-title">
+          <p class="eyebrow">01 / START HERE</p>
+          <h2 id="quick-start-title">Your first request</h2>
+          <p>
+            Download Bonk for <a href="https://github.com/nekidaz/.bonk/releases/latest">macOS, Windows, or Linux</a>.
+            On Apple Silicon macOS you can also install it with Homebrew:
+          </p>
+          <pre><code>brew install --cask nekidaz/tap/bonk</code></pre>
+          <ol>
+            <li><strong>Open a folder.</strong> Any empty directory can become a workspace.</li>
+            <li>
+              <strong>Create an HTTP request.</strong> Enter an address such as
+              <code>http://localhost:8080/health</code>.
+            </li>
+            <li><strong>Send it.</strong> Read the status, body, headers, and timing in the response pane.</li>
+            <li>
+              <strong>Save it.</strong> Press <code>⌘S</code> on macOS or <code>Ctrl+S</code> on Windows and Linux, then
+              choose a folder.
+            </li>
+          </ol>
+          <div class="docs-note">
+            <p>
+              Editing and organizing a workspace works offline. Sending requests and checking for updates use the
+              network.
+            </p>
+          </div>
+        </section>
+
+        <section class="docs-section" id="workspace-files" aria-labelledby="workspace-files-title">
+          <p class="eyebrow">02 / LOCAL WORKSPACE</p>
+          <h2 id="workspace-files-title">Collections are folders. Requests are files.</h2>
+          <p>
+            A saved request is a readable <code>.bonk.json</code> file. Bonk uses the directory as the source of truth,
+            so the workspace can live beside your code and be reviewed in Git.
+          </p>
+          <pre><code>payments-api/
+├── payments/
+│   ├── list-payments.bonk.json
+│   └── create-payment.bonk.json
+└── grpc/
+    └── say-hello.bonk.json</code></pre>
+          <p>A minimal HTTP request looks like this:</p>
+          <pre><code>{
+  "name": "List payments",
+  "protocol": "http",
+  "request": {
+    "method": "GET",
+    "url": "{{baseUrl}}/v1/payments",
+    "headers": {}
+  }
+}</code></pre>
+          <p>
+            Folder auth can be saved in <code>.folder.bonk.json</code>. App preferences and history live separately in
+            the OS application-data directory. Review request files before committing them if you entered credentials
+            directly.
+          </p>
+        </section>
+
+        <section class="docs-section" id="http-grpc" aria-labelledby="http-grpc-title">
+          <p class="eyebrow">03 / PROTOCOLS</p>
+          <h2 id="http-grpc-title">HTTP and gRPC in one app</h2>
+          <h3>HTTP</h3>
+          <p>
+            Set query parameters, headers, auth, and a body. Bonk supports JSON, text, forms, multipart, binary data,
+            and GraphQL. The response view includes formatted content, cookies, status, size, and timing. You can search
+            JSON responses and use JSONPath filters.
+          </p>
+          <h3>gRPC</h3>
+          <p>
+            Connect to a server with reflection or load local <code>.proto</code> files. Pick a service and method, edit
+            a message template, and invoke it. Bonk also supports metadata, deadlines, TLS/mTLS, and streaming calls in
+            the desktop app.
+          </p>
+          <p>
+            <a class="text-link" href="../screenshots/grpc.jpg"
+              >See the gRPC editor <span aria-hidden="true">↗</span></a
+            >
+          </p>
+        </section>
+
+        <section class="docs-section" id="variables-scripts" aria-labelledby="variables-scripts-title">
+          <p class="eyebrow">04 / REUSE</p>
+          <h2 id="variables-scripts-title">Variables, environments, and tests</h2>
+          <p>
+            Create a named environment with <code>baseUrl = http://localhost:8080</code>, then use
+            <code>{{baseUrl}}/health</code> in a request. Globals and environment variables can be edited in the app.
+            Secret variables use the OS keychain when available.
+          </p>
+          <p>Use <strong>Scripts → Tests</strong> to add an assertion after a response:</p>
+          <pre><code>pm.test("Service is healthy", () => {
+  pm.expect(pm.response).to.have.status(200);
+});</code></pre>
+          <p>
+            Send the request again and open the <strong>Tests</strong> response tab. Pre-request scripts can prepare
+            values before a call; response scripts can inspect results and update variables.
+          </p>
+          <div class="docs-note">
+            <p>
+              Scripts run in a sandbox with supported <code>pm.*</code> helpers. Bonk does not implement every Postman
+              script API.
+            </p>
+          </div>
+        </section>
+
+        <section class="docs-section" id="runner-cli" aria-labelledby="runner-cli-title">
+          <p class="eyebrow">05 / REPEAT</p>
+          <h2 id="runner-cli-title">Run a collection in the app or CI</h2>
+          <p>
+            In <strong>Runner</strong>, select requests, put them in order, choose an environment, and set iterations,
+            CSV/JSON data, delays, and stop-on-failure behavior. Inspect results and export a report. You can save a
+            portable workspace scenario in <code>.bonk/scenarios.json</code>.
+          </p>
+          <p>
+            The Bonk CLI uses the same request engine. Install it separately, then run a workspace or a saved scenario:
+          </p>
+          <pre><code>brew install nekidaz/tap/bonk
+bonk run --workspace ./api
+BONK_VAR_TOKEN="$TOKEN" bonk run --workspace ./api --scenario smoke --junit report.xml</code></pre>
+          <p>
+            Use <code>BONK_VAR_*</code> for secrets in CI. See the
+            <a href="https://github.com/nekidaz/.bonk/blob/main/docs/CLI.md">CLI reference</a> for flags, network
+            settings, exit codes, and scenario behavior.
+          </p>
+        </section>
+
+        <section class="docs-section" id="ai-mcp" aria-labelledby="ai-mcp-title">
+          <p class="eyebrow">06 / AI TOOLS</p>
+          <h2 id="ai-mcp-title">Connect a client through MCP</h2>
+          <p>
+            Bonk ships a headless MCP server. Compatible clients can browse saved requests, edit the workspace, explore
+            gRPC schemas, and execute API calls. The desktop app does not need to stay open for a configured headless
+            server.
+          </p>
+          <ol>
+            <li>Open the workspace the client should use.</li>
+            <li>Go to <strong>Settings → AI / MCP</strong>.</li>
+            <li>Choose whether to allow workspace edits and API calls. Add a target-host allowlist if needed.</li>
+            <li>Select <strong>Install for all clients</strong>, then restart the configured apps.</li>
+          </ol>
+          <p>
+            The installer supports Claude Desktop, Claude Code, and ChatGPT/Codex local clients. For manual STDIO or
+            Streamable HTTP setup, variables, redaction, and permission details, read the
+            <a href="https://github.com/nekidaz/.bonk/blob/main/docs/MCP.md">MCP reference</a>.
+          </p>
+          <div class="docs-note">
+            <p>
+              ChatGPT web does not read your local MCP configuration. A local desktop client or separately hosted
+              connection is required.
+            </p>
+          </div>
+        </section>
+
+        <section class="docs-section" id="import-export" aria-labelledby="import-export-title">
+          <p class="eyebrow">07 / BRING YOUR WORK</p>
+          <h2 id="import-export-title">Import existing requests</h2>
+          <p>
+            Import OpenAPI/Swagger, Postman, Insomnia, HAR, or cURL through the desktop app. You can provide a file,
+            link, paste, or drop and preview the result before importing. Re-import can update a collection while
+            preserving your edits.
+          </p>
+          <p>
+            Bonk can export collections and generate language-specific snippets for individual requests. The CLI can
+            import a Bonk workspace export; other import formats use the desktop app.
+          </p>
+        </section>
+
+        <div class="docs-end">
+          <p>
+            Need implementation details? Read the
+            <a href="https://github.com/nekidaz/.bonk/blob/main/README.md">project README</a>,
+            <a href="https://github.com/nekidaz/.bonk/blob/main/docs/CLI.md">CLI reference</a>, or
+            <a href="https://github.com/nekidaz/.bonk/blob/main/docs/MCP.md">MCP reference</a>.
+          </p>
+        </div>
+      </div>
+    </main>
+    <footer class="site-footer">
+      <div class="shell footer-main">
+        <div>
+          <a class="brand" href="../"><span class="brand-mark" aria-hidden="true">↗</span><span>bonk</span></a>
+          <p>API requests, right next to your code.</p>
+        </div>
+        <nav aria-label="Footer navigation">
+          <a href="../">Home</a><a href="https://github.com/nekidaz/.bonk/releases/latest">Downloads</a
+          ><a href="https://github.com/nekidaz/.bonk/blob/main/CHANGELOG.md">Changelog</a
+          ><a href="https://github.com/nekidaz/.bonk">GitHub</a>
+        </nav>
+      </div>
+      <div class="shell footer-bottom">
+        <span>Open source under the MIT license.</span><span>Built for local work.</span>
+      </div>
+    </footer>
+  </body>
+</html>
