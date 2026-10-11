@@ -3,7 +3,8 @@
    * G8: three-way merge of one conflicted file, as in GoLand — mine · result · theirs. Each change
    * is one aligned row across the columns: » / « take a side into the result, × rejects it,
    * «Слить непересекающиеся» takes every side that doesn't collide. Apply writes the result and
-   * marks the file resolved once nothing is left to decide.
+   * marks the file resolved once nothing is left to decide. «Поля» merges a JSON request field by
+   * field instead (mergeFields.ts): the same columns, one row per changed field.
    */
   import { untrack } from 'svelte';
   import { findNode, workspace } from '$entities/workspace';
@@ -21,6 +22,17 @@
     type Chunk,
     type Resolution,
   } from './merge3';
+  import {
+    autoChoices,
+    fields as fieldsOf,
+    initialChoices,
+    mergeFields,
+    parseSide,
+    type Field,
+    type FieldChoice,
+    type Obj,
+  } from './mergeFields';
+  import { mergeMode } from './store.svelte';
 
   let { tab, onClose }: { tab: Tab; onClose: () => void } = $props();
 
@@ -30,6 +42,17 @@
   let missing = $state(false);
   let focus = $state(0);
   let loadedFor = '';
+
+  // «Поля»: the same file as fields, when all three sides are JSON objects.
+  let fs = $state.raw<Field[]>([]);
+  let choices = $state.raw<FieldChoice[]>([]);
+  let fAuto = $state.raw<boolean[]>([]);
+  let fieldsOk = $state(false);
+  let showSame = $state(false);
+  let ffocus = $state(0);
+  let mineObj: Obj = {};
+  let trailing = false;
+  const fieldsMode = $derived(fieldsOk && mergeMode.current === 'fields');
 
   const path = $derived(tab.git?.path ?? '');
   const info = $derived(describeFile(path, git.prefix, (id) => findNode(workspace.tree, id)));
@@ -49,6 +72,16 @@
       chunks = merge3(split(f.base), split(f.mine), split(f.theirs));
       res = chunks.map(initialResolution);
       focus = Math.max(0, nextPending(-1));
+      const [b, m, th] = [parseSide(f.base), parseSide(f.mine), parseSide(f.theirs)];
+      fieldsOk = !!(b && m && th);
+      if (b && m && th) {
+        mineObj = m;
+        trailing = (f.mine ?? '').endsWith('\n');
+        fs = fieldsOf(b, m, th);
+        choices = initialChoices(fs);
+        fAuto = fs.map(() => false);
+        ffocus = Math.max(0, fNext(-1));
+      }
     });
   });
 
@@ -62,6 +95,54 @@
   const left = $derived(changes.filter((i) => isPending(res[i])).length);
   const autoCount = $derived(res.filter((r) => r.auto).length);
   const result = $derived(mergedText(chunks, res));
+
+  const fChanged = $derived(fs.map((_, i) => i).filter((i) => fs[i].kind !== 'same'));
+  const fConflicts = $derived(fChanged.filter((i) => fs[i].kind === 'conflict'));
+  const fLeft = $derived(fChanged.filter((i) => choices[i] === null).length);
+  const sameCount = $derived(fs.length - fChanged.length);
+  const fResult = $derived(fieldsOk ? mergeFields(mineObj, fs, choices, trailing) : null);
+  // What the header and footer show, for whichever mode is on.
+  const view = $derived(
+    fieldsMode
+      ? {
+          conflicts: fConflicts,
+          focus: ffocus,
+          left: fLeft,
+          total: fChanged.length,
+          auto: fAuto.filter(Boolean).length,
+          result: fResult,
+        }
+      : { conflicts, focus, left, total: changes.length, auto: autoCount, result },
+  );
+
+  function fNext(from: number, dir = 1): number {
+    const n = fs.length;
+    for (let k = 1; k <= n; k++) {
+      const i = (((from + dir * k) % n) + n) % n;
+      if (fs[i]?.kind !== 'same' && choices[i] === null) return i;
+    }
+    return -1;
+  }
+
+  function choose(i: number, c: FieldChoice): void {
+    choices = choices.map((x, k) => (k === i ? c : x));
+    fAuto = fAuto.map((a, k) => (k === i ? false : a));
+    const next = fNext(i);
+    ffocus = next === -1 ? i : next;
+  }
+
+  function autoAll(): void {
+    // Afterwards the focus moves to the first thing still undecided, so ⌥←/⌥→ never overwrite an auto pick.
+    if (!fieldsMode) {
+      res = autoResolve(chunks, res);
+      focus = Math.max(0, nextPending(-1));
+      return;
+    }
+    const next = autoChoices(fs, choices);
+    fAuto = fAuto.map((a, i) => a || (choices[i] === null && next[i] !== null));
+    choices = next;
+    ffocus = Math.max(0, fNext(-1));
+  }
 
   function nextPending(from: number, dir = 1): number {
     const n = chunks.length;
@@ -82,12 +163,23 @@
   }
 
   function all(side: 'mine' | 'theirs'): void {
+    if (fieldsMode) {
+      choices = fs.map((f, i) => (f.kind === 'same' || f.kind === 'both' ? choices[i] : side));
+      return;
+    }
     const take: Resolution =
       side === 'mine' ? { mine: 'taken', theirs: 'rejected' } : { mine: 'rejected', theirs: 'taken' };
     res = chunks.map((c, i) => (c.kind === 'change' ? take : res[i]));
   }
 
   function go(dir: 1 | -1): void {
+    if (fieldsMode) {
+      const i = fNext(ffocus, dir);
+      if (i === -1) return;
+      ffocus = i;
+      document.querySelector(`[data-field="${i}"]`)?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      return;
+    }
     const i = nextPending(focus, dir);
     if (i !== -1) {
       focus = i;
@@ -96,14 +188,24 @@
   }
 
   async function apply(): Promise<void> {
-    if (result === null) return;
-    if (await resolveFile(path, result)) {
+    const text = view.result;
+    if (text === null) return;
+    if (await resolveFile(path, text)) {
       onClose();
       openConflictsTab();
     }
   }
 
   function onKey(e: KeyboardEvent): void {
+    if (fieldsMode && e.altKey && fs[ffocus]) {
+      if (e.key === 'ArrowLeft') choose(ffocus, 'mine');
+      else if (e.key === 'ArrowRight') choose(ffocus, 'theirs');
+      else if (e.key === 'ArrowDown') go(1);
+      else if (e.key === 'ArrowUp') go(-1);
+      else return;
+      e.preventDefault();
+      return;
+    }
     if (!e.altKey || chunks[focus]?.kind !== 'change') return;
     if (e.key === 'ArrowLeft') set(focus, 'mine', 'taken');
     else if (e.key === 'ArrowRight') set(focus, 'theirs', 'taken');
@@ -126,6 +228,13 @@
   });
   const stateOf = (r: Resolution, side: 'mine' | 'theirs', c: Chunk) =>
     c.kind === 'change' && c.conflict && r[side] === 'pending' ? 'conflict' : r[side];
+  /** A field cell's colour: what this side offers and whether it was taken. */
+  function fieldState(f: Field, c: FieldChoice, side: 'mine' | 'theirs'): string {
+    const other = side === 'mine' ? 'theirs' : 'mine';
+    if (f.kind === 'same' || f.kind === other) return '';
+    if (c === null) return f.kind === 'conflict' ? 'conflict' : 'pending';
+    return c === side || f.kind === 'both' ? 'taken' : 'rejected';
+  }
 </script>
 
 <svelte:window onkeydown={onKey} />
@@ -134,6 +243,11 @@
   <div class="cell {cls}">
     {#each ls as l, k (k)}<div class="ln"><span class="no">{from + k}</span><code>{l}</code></div>{/each}
   </div>
+{/snippet}
+
+{#snippet val(v: Field['mine'])}
+  {#if v === undefined}<span class="none">{t('git.mg.absent')}</span>{:else}<code>{JSON.stringify(v, null, 2)}</code
+    >{/if}
 {/snippet}
 
 <div class="bs-gview">
@@ -145,11 +259,11 @@
             >{info.method}</b
           >{/if}
         <h2>{info.name}</h2>
-        {#if conflicts.length}
+        {#if view.conflicts.length}
           <span class="bs-gtag bad"
             >{t('git.mg.counter', {
-              i: Math.max(1, conflicts.indexOf(focus) + 1),
-              n: conflicts.length,
+              i: Math.max(1, view.conflicts.indexOf(view.focus) + 1),
+              n: view.conflicts.length,
             })}</span
           >
         {/if}
@@ -163,14 +277,102 @@
         ><span class="material-symbols-outlined">keyboard_arrow_down</span></button
       >
     </div>
-    <button class="bs-gbtn" onclick={() => (res = autoResolve(chunks, res))}
+    <button class="bs-gbtn" onclick={autoAll}
       ><span class="material-symbols-outlined">auto_fix_high</span>{t('git.mg.auto')}</button
     >
+    <div class="bs-gseg" role="group" aria-label={t('git.mg.mode')}>
+      <button class:on={!fieldsMode} aria-pressed={!fieldsMode} onclick={() => (mergeMode.current = 'json')}
+        >JSON</button
+      >
+      <button
+        class:on={fieldsMode}
+        aria-pressed={fieldsMode}
+        disabled={!fieldsOk}
+        title={fieldsOk ? t('git.mg.fieldsHint') : t('git.mg.notJson')}
+        onclick={() => (mergeMode.current = 'fields')}>{t('git.mg.fields')}</button
+      >
+    </div>
   </div>
 
   <div class="bs-gview-body">
     {#if missing}
       <div class="bs-gview-empty">{t('git.mg.missing')}</div>
+    {:else if fieldsMode}
+      <div class="grid fields">
+        <div class="hd"><span class="eb">{t('git.mg.field')}</span></div>
+        <div class="hd mine">
+          <span class="eb">{`${t('git.cf.mine')}  ·  ${op?.mine ?? ''}`}</span><span class="hash"
+            >{git.log[0]?.short ?? ''}</span
+          >
+        </div>
+        <div class="hd g"></div>
+        <div class="hd">
+          <span class="eb"><span class="material-symbols-outlined">merge</span>{t('git.mg.result')}</span><span
+            class="hash">{t('git.mg.status', { i: view.total - view.left, n: view.total, auto: view.auto })}</span
+          >
+        </div>
+        <div class="hd g"></div>
+        <div class="hd theirs">
+          <span class="eb">{`${t('git.cf.theirs')}  ·  ${op?.theirs ?? ''}`}</span><span class="hash"
+            >{(op?.hash ?? '').slice(0, 7)}</span
+          >
+        </div>
+        {#each fs as f, i (f.path.join('\u0000'))}
+          {#if f.kind !== 'same' || showSame}
+            {@const c = choices[i]}
+            {@const hot = ffocus === i && f.kind !== 'same' ? ' focus' : ''}
+            <div class="fp{hot}" data-field={i} title={f.path.join('.')}>{f.path.join('.')}</div>
+            <div class="fv {fieldState(f, c, 'mine')}{hot}">{@render val(f.mine)}</div>
+            <div class="g">
+              {#if f.kind === 'mine' || f.kind === 'conflict'}
+                {#if c === 'mine'}<span class="ok material-symbols-outlined"
+                    >{fAuto[i] ? 'auto_fix_high' : 'check'}</span
+                  >{:else}<button title={t('git.mg.takeMine')} onclick={() => choose(i, 'mine')}>»</button>{/if}
+                {#if f.kind === 'mine' && c === null}<button
+                    title={t('git.mg.reject')}
+                    onclick={() => choose(i, 'theirs')}>×</button
+                  >{/if}
+              {/if}
+            </div>
+            <div
+              class="fv res {c === null
+                ? f.kind === 'conflict'
+                  ? 'conflict'
+                  : 'pending'
+                : f.kind === 'same'
+                  ? ''
+                  : 'taken'}{hot}"
+            >
+              {#if c === null}
+                {#if f.kind === 'conflict'}<i class="ask">{t('git.mg.choose')}</i>{/if}
+              {:else}
+                {@render val(c === 'theirs' ? f.theirs : f.mine)}{#if fAuto[i]}<span class="auto"
+                    >{t('git.mg.autoTag')}</span
+                  >{/if}
+              {/if}
+            </div>
+            <div class="g">
+              {#if f.kind === 'theirs' || f.kind === 'conflict'}
+                {#if f.kind === 'theirs' && c === null}<button
+                    title={t('git.mg.reject')}
+                    onclick={() => choose(i, 'mine')}>×</button
+                  >{/if}
+                {#if c === 'theirs'}<span class="ok material-symbols-outlined"
+                    >{fAuto[i] ? 'auto_fix_high' : 'check'}</span
+                  >{:else}<button title={t('git.mg.takeTheirs')} onclick={() => choose(i, 'theirs')}>«</button>{/if}
+              {/if}
+            </div>
+            <div class="fv {fieldState(f, c, 'theirs')}{hot}">{@render val(f.theirs)}</div>
+          {/if}
+        {/each}
+        {#if sameCount}
+          <button class="sameb" onclick={() => (showSame = !showSame)}
+            ><span class="material-symbols-outlined">{showSame ? 'unfold_less' : 'unfold_more'}</span>{showSame
+              ? t('git.mg.hideSame', { n: sameCount })
+              : t('git.mg.showSame', { n: sameCount })}</button
+          >
+        {/if}
+      </div>
     {:else}
       <div class="grid">
         <div class="hd mine">
@@ -249,9 +451,9 @@
       <button class="bs-gbtn" onclick={onClose}>{t('common.cancel')}</button>
       <button class="bs-gbtn" disabled={missing} onclick={() => all('mine')}>» {t('git.cf.allMine')}</button>
       <button class="bs-gbtn" disabled={missing} onclick={() => all('theirs')}>« {t('git.cf.allTheirs')}</button>
-      <button class="bs-gbtn inv" disabled={result === null || git.busy} onclick={apply}
-        ><span class="material-symbols-outlined">check</span>{left
-          ? t('git.mg.applyLeft', { n: left })
+      <button class="bs-gbtn inv" disabled={view.result === null || git.busy} onclick={apply}
+        ><span class="material-symbols-outlined">check</span>{view.left
+          ? t('git.mg.applyLeft', { n: view.left })
           : t('git.mg.apply')}</button
       >
     </div>
@@ -277,6 +479,58 @@
     border-radius: var(--radius-card);
     background: var(--color-field);
     font: 13px/26px var(--font-code);
+  }
+  .grid.fields {
+    grid-template-columns: minmax(140px, 0.6fr) minmax(0, 1fr) 64px minmax(0, 1fr) 64px minmax(0, 1fr);
+    row-gap: 4px;
+  }
+  .fp,
+  .fv {
+    min-width: 0;
+    padding: 4px 14px;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+  .fp {
+    color: var(--color-text-secondary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .fv.conflict {
+    background: var(--color-danger-soft);
+  }
+  .fv.pending {
+    background: var(--color-selected);
+  }
+  .fv.taken {
+    background: var(--color-success-soft);
+  }
+  .fv.rejected {
+    background: var(--color-hover);
+    color: var(--color-text-muted);
+  }
+  .none {
+    color: var(--color-text-muted);
+    font-style: italic;
+  }
+  .sameb {
+    grid-column: 1 / -1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    height: 36px;
+    margin: 6px 6px 8px;
+    border-radius: 12px;
+    color: var(--color-text-secondary);
+    font: var(--font-size-body) var(--font-ui);
+  }
+  .sameb:hover {
+    background: var(--color-hover);
+  }
+  .sameb .material-symbols-outlined {
+    font-size: 16px;
   }
   .hd {
     position: sticky;
