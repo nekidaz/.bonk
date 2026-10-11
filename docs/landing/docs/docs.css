@@ -439,6 +439,9 @@
     font-size: 14px;
     cursor: pointer;
   }
+  .docs-nav {
+    margin-bottom: 8px;
+  }
   .docs-nav[open] > summary {
     margin-bottom: 12px;
   }

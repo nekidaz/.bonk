@@ -4742,8 +4742,12 @@ img {
     font-size: 22px;
     line-height: 27px;
   }
+  .demo-more {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 20px 12px;
+  }
   .demo-more img {
-    height: 110px;
+    height: 96px;
   }
 }
 
@@ -4915,4 +4919,17 @@ img {
   color: var(--muted);
   font-size: 13px;
   text-align: center;
+}
+/* Flex children default to min-width: auto — let the tab strip scroll instead of widening the page. */
+.demo {
+  width: 100%;
+  min-width: 0;
+}
+.demo > *,
+.demo-bar .demo-tabs {
+  min-width: 0;
+}
+/* The user bubble is a fixed 440px in Pen: cap it so it wraps inside the session on phones. */
+[data-design-id="F7epeu"] {
+  max-width: 100%;
 }
