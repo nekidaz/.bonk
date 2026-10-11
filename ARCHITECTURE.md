@@ -14,12 +14,14 @@ layers with a deliberately thin boundary between them:
   (`http_prepare` / `http_resolve` / `grpc_prepare`) and bonk-mcp both send through it.
   `application/runner.rs` is the Collection Runner (scripts, `{{vars}}` carried between
   requests, iterations, stop/pause); the network comes in through its `Transport` trait.
-  The app runs collections and Flow request blocks through it (`runner_run`).
+  The app runs collections and Flow request blocks through it (`runner_run`), and
+  bonk-mcp runs its HTTP/gRPC tools through it too.
 - **`crates/bonk-mcp/`** — headless Model Context Protocol server. Reuses
   `bonk-core` and exposes workspace resources/tools over STDIO or Streamable HTTP.
   `server.rs` holds the MCP surface, `runtime.rs` the `BonkRuntime` operations, and
   helpers live in `vars.rs` (app env/globals + keychain), `request_prep.rs`
-  (HTTP client, target-host policy), `scripts.rs`, and `redact.rs` (secret scrubbing).
+  (HTTP client, target-host policy) and `redact.rs` (secret scrubbing). Requests run
+  through bonk-core's runner; `runtime.rs`'s `McpTransport` adds the server's policy.
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
