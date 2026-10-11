@@ -1906,16 +1906,48 @@ pub fn resolve_side(root: &str, paths: &[String], side: &str) -> Result<(), Stri
     Ok(())
 }
 
-/// Bring the conflict back for already-resolved paths.
+/// Bring the conflict back for already-resolved paths, whichever way they were
+/// resolved. Resolving records the unmerged entries in the index's resolve-undo
+/// data; `update-index --unresolve` puts them back. Then the working tree: with
+/// both sides present `checkout -m` rewrites the conflict markers; a path one
+/// side deleted (resolved by keeping it deleted) gets the surviving side back,
+/// as git leaves a modify/delete conflict. Four processes at most.
 pub fn unresolve(root: &str, paths: &[String]) -> Result<(), String> {
     if paths.is_empty() {
         return Ok(());
     }
     paths.iter().try_for_each(|p| check_rel_path(p))?;
     let top = toplevel(root)?;
-    let mut a = vec!["checkout", "-m", "--"];
+    let mut a = vec!["update-index", "--unresolve", "--"];
     a.extend(paths.iter().map(String::as_str));
-    git(&top, &a).map(|_| ())
+    git(&top, &a)?;
+
+    let mut stages: HashMap<String, (bool, bool)> = HashMap::new();
+    for (path, stage, _) in unmerged(&top)? {
+        let e = stages.entry(path).or_default();
+        match stage {
+            2 => e.0 = true,
+            3 => e.1 = true,
+            _ => {}
+        }
+    }
+    let (mut both, mut ours, mut theirs) = (Vec::new(), Vec::new(), Vec::new());
+    for p in paths {
+        match stages.get(p) {
+            Some((true, true)) => both.push(p.as_str()),
+            Some((true, false)) => ours.push(p.as_str()),
+            Some((false, true)) => theirs.push(p.as_str()),
+            _ => return Err(format!("{p}: no conflict to bring back")),
+        }
+    }
+    for (flag, group) in [("-m", both), ("--ours", ours), ("--theirs", theirs)] {
+        if !group.is_empty() {
+            let mut a = vec!["checkout", flag, "--"];
+            a.extend(group);
+            git(&top, &a)?;
+        }
+    }
+    Ok(())
 }
 
 /// Skip the commit that stopped a cherry-pick / revert / rebase.
@@ -3008,8 +3040,19 @@ mod tests {
         resolve_side(r, &p, "mine").unwrap();
         assert!(!dir.join("a.txt").exists());
         assert!(conflicts(r).unwrap().is_empty());
-        // A removed path has no index entry left, so it can't be re-conflicted.
-        assert!(unresolve(r, &p).is_err());
+        // Resolved by deleting: «Сбросить» brings the conflict back, with the
+        // surviving side in the working tree as git leaves a modify/delete.
+        unresolve(r, &p).unwrap();
+        let c = conflicts(r).unwrap();
+        assert_eq!(c.len(), 1);
+        assert!(c[0].mine.is_none());
+        assert_eq!(fs::read_to_string(dir.join("a.txt")).unwrap(), "other\n");
+        // And it can be resolved the other way now.
+        resolve_side(r, &p, "theirs").unwrap();
+        assert_eq!(fs::read_to_string(dir.join("a.txt")).unwrap(), "other\n");
+        assert!(conflicts(r).unwrap().is_empty());
+        // A path that was never in conflict has nothing to bring back.
+        assert!(unresolve(r, &["b.txt".to_string()]).is_err());
         let _ = fs::remove_dir_all(dir);
     }
 
