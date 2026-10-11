@@ -569,7 +569,18 @@ pub fn push(root: &str) -> Result<String, String> {
 
 /// Run `git pull` (see [`push`] for the combined-output rationale).
 pub fn pull(root: &str) -> Result<String, String> {
-    run_combined(root, &["pull"])
+    // With no pull strategy configured, git refuses a diverged branch («You have divergent
+    // branches…») and the UI has nowhere to go: merge then, as git did by default before. A
+    // configured pull.rebase / pull.ff is the user's choice and wins. Uncommitted changes
+    // ride along either way (autostash).
+    let configured = ["pull.rebase", "pull.ff"]
+        .iter()
+        .any(|k| git(root, &["config", "--get", k]).is_ok());
+    let mut args = vec!["pull", "--autostash"];
+    if !configured {
+        args.extend(["--no-rebase", "--no-edit"]);
+    }
+    run_combined(root, &args)
 }
 
 /// Run a git command and return `stdout + stderr` concatenated, both on success
@@ -1189,7 +1200,13 @@ fn parse_refs(decor: &str) -> Vec<GitRef> {
 /// One page of history for the graph: 3 git processes regardless of size.
 pub fn graph_log(root: &str, all: bool, skip: u32, limit: u32) -> Result<GraphPage, String> {
     let top = toplevel(root)?;
-    let range = if all { "--all" } else { "HEAD" };
+    // Every branch, remote and tag — but not refs/stash: a stash is two commits git keeps
+    // there, not history, and `--all` alone would draw them.
+    let range: &[&str] = if all {
+        &["--exclude=refs/stash", "--all"]
+    } else {
+        &["HEAD"]
+    };
     let skip_arg = format!("--skip={skip}");
     let limit_arg = format!("-n{limit}");
     let out = match git(
@@ -1201,8 +1218,11 @@ pub fn graph_log(root: &str, all: bool, skip: u32, limit: u32) -> Result<GraphPa
             "--format=%H%x1f%P%x1f%an%x1f%ae%x1f%at%x1f%s%x1f%D%x1e",
             &skip_arg,
             &limit_arg,
-            range,
-        ],
+        ]
+        .iter()
+        .chain(range)
+        .copied()
+        .collect::<Vec<_>>(),
     ) {
         Ok(o) => o,
         // Unborn branch: `log HEAD` fails, that is an empty history, not an error.
@@ -1237,7 +1257,7 @@ pub fn graph_log(root: &str, all: bool, skip: u32, limit: u32) -> Result<GraphPa
         });
     }
 
-    let total = git(&top, &["rev-list", "--count", range])
+    let total = git(&top, &[&["rev-list", "--count"][..], range].concat())
         .ok()
         .and_then(|s| s.trim().parse().ok())
         .unwrap_or(0);
@@ -2802,6 +2822,92 @@ mod tests {
         assert_eq!(p2.commits.len(), 1);
         assert_eq!(p2.total, 4);
         let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn graph_log_leaves_out_stash_commits() {
+        let dir = init_repo();
+        let r = dir.to_str().unwrap();
+        commit_file(r, "a.txt", "1\n", "base");
+        fs::write(dir.join("a.txt"), "2\n").unwrap();
+        stash_push(r, "wip", false, false, false).unwrap();
+        let page = graph_log(r, true, 0, 50).unwrap();
+        // A stash is two commits git keeps under refs/stash; they aren't history.
+        assert_eq!(
+            page.commits
+                .iter()
+                .map(|c| c.subject.as_str())
+                .collect::<Vec<_>>(),
+            ["base"]
+        );
+        assert_eq!(page.total, 1);
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    /// A clone of a repo whose branch and origin both moved on: local `mine`, origin `theirs`.
+    fn diverged_clone() -> (std::path::PathBuf, std::path::PathBuf, std::path::PathBuf) {
+        let (dir, remote) = plan_repo();
+        let r = dir.to_str().unwrap();
+        git(r, &["push", "-q", "origin", "main"]).unwrap();
+        let other = temp_dir();
+        Command::new("git")
+            .args([
+                "clone",
+                "-q",
+                remote.to_str().unwrap(),
+                other.to_str().unwrap(),
+            ])
+            .output()
+            .unwrap();
+        let o = other.to_str().unwrap();
+        git(o, &["config", "user.email", "o@e.com"]).unwrap();
+        git(o, &["config", "user.name", "Other"]).unwrap();
+        commit_file(o, "theirs.txt", "t\n", "theirs");
+        git(o, &["push", "-q", "origin", "main"]).unwrap();
+        commit_file(r, "mine.txt", "m\n", "mine");
+        git(r, &["branch", "-q", "--set-upstream-to=origin/main"]).unwrap();
+        (dir, remote, other)
+    }
+
+    #[test]
+    fn pull_merges_a_diverged_branch_without_a_strategy() {
+        let (dir, remote, other) = diverged_clone();
+        let r = dir.to_str().unwrap();
+        // An uncommitted change elsewhere rides along (autostash).
+        fs::write(dir.join("base.txt"), "dirty\n").unwrap();
+        pull(r).unwrap();
+        let s = subjects(r);
+        assert!(s.contains(&"mine".to_string()) && s.contains(&"theirs".to_string()));
+        assert_eq!(fs::read_to_string(dir.join("base.txt")).unwrap(), "dirty\n");
+        let configured = git(r, &["config", "--get", "pull.rebase"]).is_ok();
+        let parents = git(r, &["log", "-1", "--format=%P"]).unwrap();
+        if !configured {
+            assert_eq!(parents.split_whitespace().count(), 2, "a merge commit");
+        }
+        for d in [dir, remote, other] {
+            let _ = fs::remove_dir_all(d);
+        }
+    }
+
+    #[test]
+    fn pull_keeps_a_configured_rebase() {
+        let (dir, remote, other) = diverged_clone();
+        let r = dir.to_str().unwrap();
+        git(r, &["config", "pull.rebase", "true"]).unwrap();
+        pull(r).unwrap();
+        // Rebased: mine on top of theirs, no merge commit.
+        let s = subjects(r);
+        assert_eq!(&s[s.len() - 2..], ["theirs", "mine"]);
+        assert_eq!(
+            git(r, &["log", "-1", "--format=%P"])
+                .unwrap()
+                .split_whitespace()
+                .count(),
+            1
+        );
+        for d in [dir, remote, other] {
+            let _ = fs::remove_dir_all(d);
+        }
     }
 
     #[test]
