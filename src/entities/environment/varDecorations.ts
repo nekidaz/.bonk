@@ -21,8 +21,14 @@ import {
   type ViewUpdate,
 } from '@codemirror/view';
 import { t } from '$shared/i18n';
-import { findVariables, isDynamicName, isKnownDynamic } from '$shared/model';
-import { type DynamicUiOptions, dynamicTipDom, dynamicVarExtensions, unknownDynamicTipDom } from './dynamicVarUi';
+import { findVariables, isDynamicName, isKnownDynamic, nearestDynamic } from '$shared/model';
+import {
+  type DynamicUiOptions,
+  dynamicSuggestionDom,
+  dynamicTipDom,
+  dynamicVarExtensions,
+  unknownDynamicTipDom,
+} from './dynamicVarUi';
 
 /** Where a variable lives: an environment (name + CSS colour of its dot) or Globals. */
 export interface VarSource {
@@ -277,7 +283,12 @@ function resolvedDom(view: EditorView, name: string, info: VarScopeInfo, opts: V
 }
 
 /** Popover for an unresolved variable: value input + where it does exist + Add. */
-function unresolvedDom(view: EditorView, name: string, opts: VariableHighlightOptions): HTMLElement {
+function unresolvedDom(
+  view: EditorView,
+  name: string,
+  range: { from: number; to: number },
+  opts: VariableHighlightOptions,
+): HTMLElement {
   const root = el('div', 'cm-var-tip missing');
   const target = opts.addTarget();
   const close = () => view.dispatch({ effects: closeHoverTooltips });
@@ -330,6 +341,14 @@ function unresolvedDom(view: EditorView, name: string, opts: VariableHighlightOp
     }
     root.appendChild(foot);
   }
+  // `{{guid}}` typed without the `$`: offer the dynamic variable.
+  const dynamic = nearestDynamic(`$${name}`);
+  if (dynamic) {
+    root.append(
+      el('div', 'cm-var-tip-note', tr('dyn.tip.maybe_dynamic')),
+      dynamicSuggestionDom(view, dynamic, range.from, range.to),
+    );
+  }
   root.appendChild(actionsDom(tr('code.tip.enter_add'), tr('code.tip.add'), close, add));
   return root;
 }
@@ -357,7 +376,7 @@ function varHover(opts: VariableHighlightOptions): Extension {
         pos: hit.from,
         end: hit.to,
         create: (v) => ({
-          dom: info ? resolvedDom(v, hit.name, info, opts) : unresolvedDom(v, hit.name, opts),
+          dom: info ? resolvedDom(v, hit.name, info, opts) : unresolvedDom(v, hit.name, hit, opts),
         }),
       };
     },
