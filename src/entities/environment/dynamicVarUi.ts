@@ -1,6 +1,7 @@
 /**
- * `{{$dynamic}}` variables in CodeMirror (Flow · Динамические переменные): the `{{$` completion
- * list (DV1), the hover card with an example (DV2) and the typo card (DV6). Framework-free like
+ * `{{$dynamic}}` variables in CodeMirror (Flow · Динамические переменные): the `{{` completion
+ * list (DV1: environment variables, then dynamic ones), the hover card with an example (DV2) and
+ * the typo card (DV6). Framework-free like
  * varDecorations.ts, which mounts these next to the `{{var}}` decorations; the host passes callbacks.
  */
 import type { Extension } from '@codemirror/state';
@@ -24,39 +25,56 @@ export interface DynamicUiOptions {
   /** Fresh examples for every name. */
   refreshSamples(): Promise<void>;
   onOpenCatalog(): void;
+  /** Environment + global variables in scope (secret values already masked). */
+  variables(): { name: string; value: string }[];
 }
 
-type DynCompletion = Completion & { dyn?: true };
+type DynCompletion = Completion & { dyn?: true; env?: true };
 
-/** Text after `{{$` up to the cursor; also matches `{{ $`. */
-const TRIGGER = /\{\{\s*\$[^{}\s]*/;
+/** Text after `{{` up to the cursor (`{{ba`, `{{$gu`, `{{ $gu`). */
+const TRIGGER = /\{\{\s*[^{}\s]*/;
+
+/** Replace the typed `{{…` with `{{name}}`, swallowing a `}}` already after the cursor. */
+function insertVariable(view: EditorView, name: string, from: number, to: number): void {
+  const close = /^\s*\}\}/.exec(view.state.sliceDoc(to, to + 8))?.[0].length ?? 0;
+  const insert = `{{${name}}}`;
+  view.dispatch({ changes: { from, to: to + close, insert }, selection: { anchor: from + insert.length } });
+}
 
 function completionSource(opts: DynamicUiOptions): CompletionSource {
   return (ctx) => {
     const typed = ctx.matchBefore(TRIGGER);
     if (!typed) return null;
-    const query = typed.text.replace(/^\{\{\s*\$/, '');
+    const query = typed.text.replace(/^\{\{\s*/, '');
     const result = () => completions(opts, query, typed.from);
     return opts.samplesLoaded() ? result() : opts.refreshSamples().then(result);
   };
 }
 
 function completions(opts: DynamicUiOptions, query: string, from: number): CompletionResult {
-  const rows = searchDynamic(query, (name) => t(`dyn.${name}`));
-  const options: DynCompletion[] = rows.map((v, i) => ({
+  // `{{$…` asks for dynamic ones only; plain `{{…` lists the scope's variables first.
+  const q = query.toLowerCase();
+  const vars = q.startsWith('$') ? [] : opts.variables().filter((v) => v.name.toLowerCase().includes(q));
+  const options: DynCompletion[] = vars.map((v, i) => ({
     label: v.name,
-    detail: opts.sample(v.name),
-    dyn: true,
-    // Catalog order inside a group (the list is not re-sorted by name).
+    detail: v.value,
+    env: true,
     boost: -Math.min(i, 99),
-    section: { name: t(`dyn.group.${v.group}`), rank: DYNAMIC_GROUPS.indexOf(v.group) },
-    apply: (view, _c, from, to) => {
-      // Swallow a `}}` already typed after the cursor.
-      const close = /^\s*\}\}/.exec(view.state.sliceDoc(to, to + 8))?.[0].length ?? 0;
-      const insert = `{{${v.name}}}`;
-      view.dispatch({ changes: { from, to: to + close, insert }, selection: { anchor: from + insert.length } });
-    },
+    section: { name: t('dyn.group.vars'), rank: -1 },
+    apply: (view, _c, from, to) => insertVariable(view, v.name, from, to),
   }));
+  const rows = searchDynamic(query, (name) => t(`dyn.${name}`));
+  options.push(
+    ...rows.map((v, i): DynCompletion => ({
+      label: v.name,
+      detail: opts.sample(v.name),
+      dyn: true,
+      // Catalog order inside a group (the list is not re-sorted by name).
+      boost: -Math.min(i, 99),
+      section: { name: t(`dyn.group.${v.group}`), rank: DYNAMIC_GROUPS.indexOf(v.group) },
+      apply: (view, _c, from, to) => insertVariable(view, v.name, from, to),
+    })),
+  );
   options.push({
     label: t('dyn.ac.all', { n: DYNAMIC_VARS.length }),
     section: { name: t('dyn.ac.footer'), rank: 99 },
@@ -94,6 +112,19 @@ function iconButton(name: string, title: string, onClick: () => void): HTMLButto
 
 const badge = () => el('span', 'cm-dyn-badge', '$');
 
+/** «Did you mean `{{$guid}}`?» under an unresolved `{{guid}}`: badge, name, «Заменить». */
+export function dynamicSuggestionDom(view: EditorView, suggestion: string, from: number, to: number): HTMLElement {
+  const row = el('div', 'cm-dyn-tip-example');
+  const replace = el('button', 'cm-dyn-tip-btn', t('dyn.tip.replace'));
+  replace.type = 'button';
+  replace.addEventListener('mousedown', (e) => e.preventDefault());
+  replace.addEventListener('click', () =>
+    view.dispatch({ changes: { from, to, insert: `{{${suggestion}}}` }, effects: closeHoverTooltips }),
+  );
+  row.append(badge(), el('span', 'cm-dyn-tip-value strong', suggestion), replace);
+  return row;
+}
+
 /** DV2: what the variable is, an example (refreshable), «a new value on every send». */
 export function dynamicTipDom(view: EditorView, name: string, opts: DynamicUiOptions): HTMLElement {
   const root = el('div', 'cm-dyn-tip');
@@ -128,17 +159,7 @@ export function unknownDynamicTipDom(view: EditorView, name: string, from: numbe
   const suggestion = nearestDynamic(name);
   const text = t('dyn.tip.unknown_text', { name: `{{${name}}}` });
   root.append(head, el('div', 'cm-dyn-tip-text', suggestion ? `${text} ${t('dyn.tip.maybe')}` : text));
-  if (suggestion) {
-    const row = el('div', 'cm-dyn-tip-example');
-    const replace = el('button', 'cm-dyn-tip-btn', t('dyn.tip.replace'));
-    replace.type = 'button';
-    replace.addEventListener('mousedown', (e) => e.preventDefault());
-    replace.addEventListener('click', () =>
-      view.dispatch({ changes: { from, to, insert: `{{${suggestion}}}` }, effects: closeHoverTooltips }),
-    );
-    row.append(badge(), el('span', 'cm-dyn-tip-value strong', suggestion), replace);
-    root.appendChild(row);
-  }
+  if (suggestion) root.appendChild(dynamicSuggestionDom(view, suggestion, from, to));
   return root;
 }
 
@@ -188,6 +209,11 @@ const dynTheme = EditorView.baseTheme({
     fontFamily: 'var(--font-code)',
     fontSize: '10px',
     fontWeight: '700',
+  },
+  '.cm-dyn-badge.env': {
+    color: 'var(--orange)',
+    background: 'color-mix(in srgb, var(--orange) 12%, transparent)',
+    fontSize: '9px',
   },
   '.cm-dyn-tip-example': {
     display: 'flex',
@@ -301,8 +327,16 @@ export function dynamicVarExtensions(opts: DynamicUiOptions): Extension[] {
     EditorState.languageData.of(() => [{ autocomplete: source }]),
     completionExtras.of(source),
     autocompletion({
-      optionClass: (c) => ((c as DynCompletion).dyn ? 'bs-ac-dyn' : ''),
-      addToOptions: [{ position: 20, render: (c) => ((c as DynCompletion).dyn ? badge() : null) }],
+      optionClass: (c) => ((c as DynCompletion).dyn || (c as DynCompletion).env ? 'bs-ac-dyn' : ''),
+      addToOptions: [
+        {
+          position: 20,
+          render: (c) => {
+            if ((c as DynCompletion).dyn) return badge();
+            return (c as DynCompletion).env ? el('span', 'cm-dyn-badge env', '{}') : null;
+          },
+        },
+      ],
     }),
     dynTheme,
     // Variable cards and the `{{$` list outgrow the editor; the request pane clips (contain: paint).

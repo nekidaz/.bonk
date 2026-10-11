@@ -54,6 +54,15 @@ export function requestVariableHighlight(
       samplesLoaded: dynamicSamplesLoaded,
       refreshSamples: refreshDynamicSamples,
       onOpenCatalog: openDynamicCatalog,
+      variables() {
+        // The active environment wins over globals, like resolution; `$` names are reserved.
+        const scope = new Map<string, string>();
+        for (const row of [...globalRows, ...(active?.vars ?? [])]) {
+          const key = row.key.trim();
+          if (row.enabled && key && !key.startsWith('$')) scope.set(key, row.secret ? '••••••••' : row.value);
+        }
+        return [...scope].map(([name, value]) => ({ name, value }));
+      },
     },
     onAdd(name, value) {
       const key = name.trim();
