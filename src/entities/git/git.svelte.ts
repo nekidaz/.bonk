@@ -9,7 +9,7 @@
  * switches or closes.
  */
 import { untrack } from 'svelte';
-import type { GitCommit, GitStash, GitStatus, ResetMode } from '$shared/model';
+import type { GitCommit, GitStash, GitStatus, OperationInfo, RebaseAction, ResetMode } from '$shared/model';
 import {
   gitStatus as gitStatusApi,
   gitStage,
@@ -40,8 +40,15 @@ import {
   gitFetch,
   gitOperationAbort,
   gitOperationContinue,
+  gitOperationSkip,
+  gitOperationInfo,
+  gitResolveFile,
+  gitResolveSide,
+  gitUnresolve,
+  gitRebaseInteractive,
 } from '$shared/ipc';
-import { statusByPath } from './gitStatus';
+import { isConflict, statusByPath } from './gitStatus';
+import { openConflictsTab } from './diffTabs';
 import { workspace } from '$entities/workspace';
 
 /**
@@ -92,6 +99,13 @@ class Git {
   branchMenu = $state.raw<{ x: number; y: number; up: boolean } | null>(null);
   /** G10: where the «Stash changes» popover is anchored, null when closed. */
   stashMenu = $state.raw<{ x: number; y: number } | null>(null);
+  /**
+   * G7: every file that was in conflict during the running operation — those no longer unmerged
+   * were resolved and are listed as such. Cleared when the operation ends.
+   */
+  opConflicts = $state.raw<string[]>([]);
+  /** G7: what the stopped operation is applying, null when none is running. */
+  op = $state.raw<OperationInfo | null>(null);
   /** G11: the switch dialog's target, null when closed. */
   pendingSwitch = $state.raw<PendingSwitch | null>(null);
 }
@@ -117,10 +131,19 @@ export async function refreshGit(): Promise<void> {
   }
   try {
     const status = await gitStatusApi(path);
-    const [log, stashes] = status.isRepo ? await Promise.all([gitLog(path, LOG_LIMIT), gitStashList(path)]) : [[], []];
+    const [log, stashes, op] = status.isRepo
+      ? await Promise.all([
+          gitLog(path, LOG_LIMIT),
+          gitStashList(path),
+          status.operation ? gitOperationInfo(path) : null,
+        ])
+      : [[], [], null];
     git.status = status;
     git.log = log;
     git.stashes = stashes;
+    const now = status.files.filter(isConflict).map((f) => f.path);
+    git.op = op;
+    git.opConflicts = status.operation ? [...new Set([...git.opConflicts, ...now])] : [];
     git.version++;
   } catch (err) {
     console.error('git: status failed', err);
@@ -260,11 +283,27 @@ export async function stashBranch(name: string, index: number): Promise<boolean>
 
 /** Apply commits on top of the current branch, oldest first like the history they came from. */
 export const cherryPick = (hashes: string[]) =>
-  runGit('cherry-pick', (root) => gitCherryPick(root, [...hashes].reverse()));
+  replay('cherry-pick', (root) => gitCherryPick(root, [...hashes].reverse()));
 /** Undo commits with new commits, newest first so each revert applies cleanly. */
-export const revertCommits = (hashes: string[]) => runGit('revert', (root) => gitRevert(root, hashes));
-export const mergeBranch = (branch: string) => runGit('merge', (root) => gitMerge(root, branch));
-export const rebaseOnto = (branch: string) => runGit('rebase', (root) => gitRebase(root, branch));
+export const revertCommits = (hashes: string[]) => replay('revert', (root) => gitRevert(root, hashes));
+export const mergeBranch = (branch: string) => replay('merge', (root) => gitMerge(root, branch));
+export const rebaseOnto = (branch: string) => replay('rebase', (root) => gitRebase(root, branch));
+/** G9: rewrite the commits above `onto` by the plan (pick / reword / squash / fixup / drop, in order). */
+export const rebaseInteractive = (onto: string, steps: RebaseAction[]) =>
+  replay('rebase', (root) => gitRebaseInteractive(root, onto, steps));
+
+/**
+ * An op that replays commits and may stop on conflicts. When it does, the git error is not the
+ * news: the conflicts are, so their tab opens instead of a toast.
+ */
+async function replay(name: string, fn: (root: string) => Promise<unknown>): Promise<boolean> {
+  const ok = await runGit(name, fn);
+  if (!ok && git.status?.operation) {
+    git.error = '';
+    openConflictsTab();
+  }
+  return ok;
+}
 export const checkoutCommit = (hash: string) => runGit('checkout', (root) => gitCheckoutDetached(root, hash));
 export const resetTo = (hash: string, mode: ResetMode) => runGit('reset', (root) => gitReset(root, hash, mode));
 export const createTag = (name: string, hash: string) => runGit('tag', (root) => gitCreateTag(root, name.trim(), hash));
@@ -272,7 +311,16 @@ export const createBranchAt = (name: string, hash: string) =>
   runGit('branch', (root) => gitCreateBranchAt(root, name.trim(), hash));
 /** G7: give up on, or go on with, a cherry-pick / merge / rebase / revert that stopped on conflicts. */
 export const abortOperation = () => runGit('abort', gitOperationAbort);
-export const continueOperation = () => runGit('continue', gitOperationContinue);
+export const continueOperation = () => replay('continue', gitOperationContinue);
+export const skipOperation = () => replay('skip', gitOperationSkip);
+/** Take one side for whole files; a side that deleted the file deletes it. */
+export const resolveSide = (paths: string[], side: 'mine' | 'theirs') =>
+  runGit('resolve', (root) => gitResolveSide(root, paths, side));
+/** G8: write the merged text and mark the file resolved. */
+export const resolveFile = (path: string, content: string) =>
+  runGit('resolve', (root) => gitResolveFile(root, path, content));
+/** Bring a resolved file's conflict back. */
+export const unresolve = (paths: string[]) => runGit('unresolve', (root) => gitUnresolve(root, paths));
 
 /**
  * Pull or push the current branch. Returns git's output (e.g. "Everything up-to-date")

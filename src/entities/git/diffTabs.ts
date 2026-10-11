@@ -58,6 +58,20 @@ export function openGraphTab(hash?: string): void {
   if (hash) tabs.updateById(tabs.activeId, (x) => (x.git ? { ...x, git: { ...x.git, rev: hash } } : x));
 }
 
+/** G7: open (or focus) the list of conflicted files of the stopped operation. */
+export function openConflictsTab(): void {
+  openGitTab((g) => g.view === 'conflicts', { path: '', mode: 'working', view: 'conflicts' }, t('git.tab.conflicts'));
+}
+
+/** G8: open (or focus) the three-way merge of one conflicted file. */
+export function openMergeTab(path: string, name: string): void {
+  openGitTab(
+    (g) => g.view === 'merge' && g.path === path,
+    { path, mode: 'working', view: 'merge' },
+    t('git.tab.merge', { name }),
+  );
+}
+
 /** G4b·E: open (or focus) the commit-message editor tab. */
 export function openCommitEditorTab(): void {
   openGitTab((g) => g.view === 'commit', { path: '', mode: 'working', view: 'commit' }, t('git.tab.commit'));

@@ -35,7 +35,12 @@ class Layout {
   // S36: the Runner tab auto-hides the sidebar without touching the user's choice;
   // showing it there explicitly (⌘\, grip) holds until the tab changes.
   runnerReveal = $state(false);
-  sidebarShown = $derived(!this.sidebarHidden && (tabs.active?.protocol !== 'runner' || this.runnerReveal));
+  // The Runner and the G8 three-way merge need the width: the sidebar steps aside for them.
+  sidebarShown = $derived(
+    !this.sidebarHidden &&
+      (tabs.active?.protocol !== 'runner' || this.runnerReveal) &&
+      tabs.active?.git?.view !== 'merge',
+  );
   sidebarWidth = $state(SIDEBAR_DEFAULT);
   sidebarCssWidth = $derived(
     `clamp(${SIDEBAR_MIN}px, calc(${this.sidebarWidth}px + 100vw - ${SQUEEZE_BELOW}px), ${this.sidebarWidth}px)`,

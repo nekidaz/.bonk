@@ -27,6 +27,7 @@
   import { t, tp, uiLanguage } from '$shared/i18n';
   import CommitMenu from './CommitMenu.svelte';
   import CommitPanel from './CommitPanel.svelte';
+  import RebaseDialog from './RebaseDialog.svelte';
   import { commitDate, firstParentChain, initials, layoutGraph, type CommitAction, type Segment } from './graph';
 
   let { tab }: { tab: Tab } = $props();
@@ -58,6 +59,8 @@
   let menu = $state<{ x: number; y: number } | null>(null);
   let prompt = $state<{ kind: 'tag' | 'branch'; hash: string } | null>(null);
   let promptValue = $state('');
+  /** G9: the branch an interactive rebase goes onto while its dialog is open. */
+  let rebaseTarget = $state<string | null>(null);
   let loadSeq = 0;
 
   const now = $derived.by(() => (void git.version, Date.now()));
@@ -210,6 +213,9 @@
         break;
       case 'rebase':
         await rebaseOnto(a.branch);
+        break;
+      case 'interactive':
+        rebaseTarget = a.branch;
         break;
       case 'reset':
         if (
@@ -399,6 +405,10 @@
     onAction={act}
     onClose={() => (menu = null)}
   />
+{/if}
+
+{#if rebaseTarget}
+  <RebaseDialog onto={rebaseTarget} onClose={() => (rebaseTarget = null)} />
 {/if}
 
 {#if prompt}

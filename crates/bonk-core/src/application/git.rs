@@ -1482,10 +1482,13 @@ pub fn fetch(root: &str) -> Result<String, String> {
 /// Which operation is stopped mid-way ("" when none), from marker files in the
 /// git dir.
 fn operation_at(top: &str) -> String {
-    let Ok(dir) = git(top, &["rev-parse", "--absolute-git-dir"]) else {
-        return String::new();
-    };
-    let dir = std::path::Path::new(dir.trim());
+    match git(top, &["rev-parse", "--absolute-git-dir"]) {
+        Ok(dir) => operation_in(std::path::Path::new(dir.trim())),
+        Err(_) => String::new(),
+    }
+}
+
+fn operation_in(dir: &std::path::Path) -> String {
     let has = |n: &str| dir.join(n).exists();
     let op = if has("rebase-merge") || has("rebase-apply") {
         "rebase"
@@ -1523,6 +1526,543 @@ pub fn operation_continue(root: &str) -> Result<(), String> {
     } else {
         git_noedit(&top, &[&op, "--continue"])
     }
+}
+
+/// One conflicted file: the text of each side (lossy UTF-8). `None` means that
+/// side has no version (deleted, or added only on the other side).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ConflictFile {
+    pub path: String,
+    pub base: Option<String>,
+    pub mine: Option<String>,
+    pub theirs: Option<String>,
+}
+
+/// The stopped operation, for the conflict screen.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct OperationInfo {
+    /// "" | "merge" | "rebase" | "cherry-pick" | "revert".
+    pub kind: String,
+    /// 1-based position in a multi-commit operation, 0 when unknown.
+    pub step: u32,
+    pub total: u32,
+    /// The commit being applied ("" if unknown) and its subject.
+    pub hash: String,
+    pub subject: String,
+    /// Labels for the two sides.
+    pub mine: String,
+    pub theirs: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RebaseStep {
+    pub hash: String,
+    pub short: String,
+    pub subject: String,
+    /// Reachable from some remote-tracking branch.
+    pub pushed: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RebasePlan {
+    pub onto: String,
+    pub onto_short: String,
+    pub onto_subject: String,
+    /// Oldest first, merge commits excluded.
+    pub commits: Vec<RebaseStep>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RebaseAction {
+    pub hash: String,
+    /// pick | reword | squash | fixup | drop
+    pub action: String,
+    /// New message, reword only.
+    pub message: Option<String>,
+}
+
+/// Index stage holding the UI's "mine" / "theirs" side. In a rebase git
+/// replays our commits onto upstream, so the roles swap: stage 2 (`--ours`) is
+/// the upstream, stage 3 (`--theirs`) is the user's own commit.
+fn side_stage(op: &str, side: &str) -> Result<u8, String> {
+    let rebase = op == "rebase";
+    match (side, rebase) {
+        ("mine", false) | ("theirs", true) => Ok(2),
+        ("theirs", false) | ("mine", true) => Ok(3),
+        _ => Err(format!("invalid side: {side}")),
+    }
+}
+
+/// Unmerged index entries as (path, stage, blob), from one `ls-files -u -z`.
+fn unmerged(top: &str) -> Result<Vec<(String, u8, String)>, String> {
+    let out = git(top, &["ls-files", "-u", "-z"])?;
+    let mut v = Vec::new();
+    for rec in out.split('\0').filter(|r| !r.is_empty()) {
+        // "<mode> <blob> <stage>\t<path>"
+        let (meta, path) = rec.split_once('\t').ok_or("bad ls-files output")?;
+        let mut it = meta.split(' ');
+        let (_mode, blob, stage) = (it.next(), it.next(), it.next());
+        let (Some(blob), Some(stage)) = (blob, stage.and_then(|s| s.parse::<u8>().ok())) else {
+            return Err("bad ls-files output".to_string());
+        };
+        v.push((path.to_string(), stage, blob.to_string()));
+    }
+    Ok(v)
+}
+
+/// Contents of blobs by id through ONE `git cat-file --batch` process.
+fn read_blobs(top: &str, ids: &[&str]) -> Result<HashMap<String, String>, String> {
+    use std::io::Write;
+    let mut child = Command::new("git")
+        .arg("-C")
+        .arg(top)
+        .args(["cat-file", "--batch"])
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::null())
+        .spawn()
+        .map_err(|e| format!("failed to run git: {e}"))?;
+    let mut stdin = child.stdin.take().ok_or("no stdin")?;
+    let input: String = ids.iter().map(|i| format!("{i}\n")).collect();
+    // Write on a thread: a big reply could fill the stdout pipe while we are
+    // still writing, which would deadlock a single-threaded write-then-read.
+    let writer = std::thread::spawn(move || {
+        let _ = stdin.write_all(input.as_bytes());
+    });
+    let mut out = Vec::new();
+    if let Some(mut so) = child.stdout.take() {
+        let _ = so.read_to_end(&mut out);
+    }
+    let _ = writer.join();
+    let _ = child.wait();
+
+    // Records: "<oid> <type> <size>\n<content>\n" (or "<oid> missing\n").
+    let mut map = HashMap::new();
+    let mut pos = 0;
+    while pos < out.len() {
+        let nl = out[pos..]
+            .iter()
+            .position(|&b| b == b'\n')
+            .ok_or("bad cat-file output")?;
+        let header = String::from_utf8_lossy(&out[pos..pos + nl]).into_owned();
+        pos += nl + 1;
+        let mut it = header.split(' ');
+        let (Some(oid), Some(kind)) = (it.next(), it.next()) else {
+            return Err("bad cat-file output".to_string());
+        };
+        if kind == "missing" {
+            continue;
+        }
+        let size: usize = it
+            .next()
+            .and_then(|s| s.parse().ok())
+            .ok_or("bad cat-file output")?;
+        let end = pos + size;
+        if end > out.len() {
+            return Err("truncated cat-file output".to_string());
+        }
+        map.insert(
+            oid.to_string(),
+            String::from_utf8_lossy(&out[pos..end]).into_owned(),
+        );
+        pos = end + 1;
+    }
+    Ok(map)
+}
+
+/// Conflicted files with base/mine/theirs texts: two processes after
+/// `toplevel`, however many files.
+pub fn conflicts(root: &str) -> Result<Vec<ConflictFile>, String> {
+    let top = toplevel(root)?;
+    let op = operation_at(&top);
+    // "mine" falls back to stage 2 outside an operation (plain unmerged index).
+    let (mine_st, theirs_st) = (side_stage(&op, "mine")?, side_stage(&op, "theirs")?);
+    let entries = unmerged(&top)?;
+    let mut ids: Vec<&str> = entries.iter().map(|e| e.2.as_str()).collect();
+    ids.sort_unstable();
+    ids.dedup();
+    let blobs = if ids.is_empty() {
+        HashMap::new()
+    } else {
+        read_blobs(&top, &ids)?
+    };
+    let mut files: std::collections::BTreeMap<&str, ConflictFile> = Default::default();
+    for (path, stage, blob) in &entries {
+        let f = files.entry(path).or_insert_with(|| ConflictFile {
+            path: path.clone(),
+            base: None,
+            mine: None,
+            theirs: None,
+        });
+        let text = blobs.get(blob).cloned();
+        if *stage == 1 {
+            f.base = text;
+        } else if *stage == mine_st {
+            f.mine = text;
+        } else if *stage == theirs_st {
+            f.theirs = text;
+        }
+    }
+    Ok(files.into_values().collect())
+}
+
+fn read_trim(path: std::path::PathBuf) -> Option<String> {
+    std::fs::read_to_string(path)
+        .ok()
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty())
+}
+
+/// `<short hash>\t<subject>` of a commit (one process).
+fn short_subject(top: &str, rev: &str) -> (String, String) {
+    match git(top, &["log", "-1", "--format=%h%x09%s", rev]) {
+        Ok(o) => {
+            let (h, s) = o.trim_end().split_once('\t').unwrap_or((o.trim(), ""));
+            (h.to_string(), s.to_string())
+        }
+        Err(_) => (String::new(), String::new()),
+    }
+}
+
+/// What is stopped, which commit, how far along, and the labels of both sides.
+/// Reads the git dir's marker files directly.
+pub fn operation_info(root: &str) -> Result<OperationInfo, String> {
+    let top = toplevel(root)?;
+    let dir = git(&top, &["rev-parse", "--absolute-git-dir"])?;
+    let dir = std::path::Path::new(dir.trim());
+    let kind = operation_in(dir);
+    let mut info = OperationInfo {
+        kind: kind.clone(),
+        step: 0,
+        total: 0,
+        hash: String::new(),
+        subject: String::new(),
+        mine: String::new(),
+        theirs: String::new(),
+    };
+    if kind.is_empty() {
+        return Ok(info);
+    }
+    let head_label = |dir: &std::path::Path| {
+        // HEAD is "ref: refs/heads/x" on a branch, a hash when detached.
+        match read_trim(dir.join("HEAD"))
+            .and_then(|h| h.strip_prefix("ref: refs/heads/").map(str::to_string))
+        {
+            Some(b) => b,
+            None => "HEAD".to_string(),
+        }
+    };
+    let theirs_rev: String;
+    match kind.as_str() {
+        "rebase" => {
+            let rm = dir.join("rebase-merge");
+            if rm.exists() {
+                info.step = read_trim(rm.join("msgnum"))
+                    .and_then(|s| s.parse().ok())
+                    .unwrap_or(0);
+                info.total = read_trim(rm.join("end"))
+                    .and_then(|s| s.parse().ok())
+                    .unwrap_or(0);
+                info.hash = read_trim(rm.join("stopped-sha")).unwrap_or_default();
+                info.mine = read_trim(rm.join("head-name"))
+                    .map(|n| n.strip_prefix("refs/heads/").unwrap_or(&n).to_string())
+                    .filter(|n| n != "detached HEAD")
+                    .unwrap_or_else(|| "HEAD".to_string());
+                theirs_rev = read_trim(rm.join("onto")).unwrap_or_default();
+            } else {
+                let ra = dir.join("rebase-apply");
+                info.step = read_trim(ra.join("next"))
+                    .and_then(|s| s.parse().ok())
+                    .unwrap_or(0);
+                info.total = read_trim(ra.join("last"))
+                    .and_then(|s| s.parse().ok())
+                    .unwrap_or(0);
+                info.mine = read_trim(ra.join("head-name"))
+                    .map(|n| n.strip_prefix("refs/heads/").unwrap_or(&n).to_string())
+                    .filter(|n| n != "detached HEAD")
+                    .unwrap_or_else(|| "HEAD".to_string());
+                theirs_rev = read_trim(ra.join("onto")).unwrap_or_default();
+            }
+        }
+        "merge" => {
+            info.mine = head_label(dir);
+            info.hash = read_trim(dir.join("MERGE_HEAD")).unwrap_or_default();
+            theirs_rev = info.hash.clone();
+        }
+        _ => {
+            info.mine = head_label(dir);
+            let marker = if kind == "revert" {
+                "REVERT_HEAD"
+            } else {
+                "CHERRY_PICK_HEAD"
+            };
+            info.hash = read_trim(dir.join(marker)).unwrap_or_default();
+            theirs_rev = info.hash.clone();
+            // sequencer/todo holds the stopped commit plus the rest; the
+            // finished ones show up as commits made since sequencer/head.
+            let remaining = std::fs::read_to_string(dir.join("sequencer/todo"))
+                .map(|t| {
+                    t.lines()
+                        .filter(|l| !l.trim().is_empty() && !l.starts_with('#'))
+                        .count() as u32
+                })
+                .unwrap_or(0);
+            if remaining == 0 {
+                info.step = 1;
+                info.total = 1;
+            } else {
+                let done = read_trim(dir.join("sequencer/head"))
+                    .filter(|h| check_hash(h).is_ok())
+                    .and_then(|h| git(&top, &["rev-list", "--count", &format!("{h}..HEAD")]).ok())
+                    .and_then(|c| c.trim().parse::<u32>().ok())
+                    .unwrap_or(0);
+                info.step = done + 1;
+                info.total = done + remaining;
+            }
+        }
+    }
+    if !info.hash.is_empty() {
+        info.subject = short_subject(&top, &info.hash).1;
+    }
+    // Merge: "Merge branch 'x'" in MERGE_MSG names the branch; otherwise the hash.
+    let merged_branch = (kind == "merge")
+        .then(|| read_trim(dir.join("MERGE_MSG")))
+        .flatten()
+        .and_then(|m| {
+            let first = m.lines().next()?.to_string();
+            let rest = first.strip_prefix("Merge branch '")?;
+            Some(rest.split('\'').next()?.to_string())
+        });
+    info.theirs = match merged_branch {
+        Some(b) => b,
+        None if theirs_rev.is_empty() => String::new(),
+        None => short_subject(&top, &theirs_rev).0,
+    };
+    Ok(info)
+}
+
+/// Reject absolute paths and `..` components: these functions write files.
+fn check_rel_path(path: &str) -> Result<(), String> {
+    let p = std::path::Path::new(path);
+    let bad = path.is_empty()
+        || p.is_absolute()
+        || path.starts_with('/')
+        || path.starts_with('\\')
+        || path.split(['/', '\\']).any(|c| c == "..");
+    if bad {
+        Err(format!("invalid path: {path}"))
+    } else {
+        Ok(())
+    }
+}
+
+/// Write the merged text to the file and stage it (marks it resolved).
+pub fn resolve_file(root: &str, path: &str, content: &str) -> Result<(), String> {
+    check_rel_path(path)?;
+    let top = toplevel(root)?;
+    std::fs::write(std::path::Path::new(&top).join(path), content)
+        .map_err(|e| format!("failed to write {path}: {e}"))?;
+    git(&top, &["add", "--", path]).map(|_| ())
+}
+
+/// Take one side ("mine" | "theirs") for every path. A path whose chosen side
+/// was deleted is removed. A constant number of processes.
+pub fn resolve_side(root: &str, paths: &[String], side: &str) -> Result<(), String> {
+    let top = toplevel(root)?;
+    let stage = side_stage(&operation_at(&top), side)?;
+    let entries = unmerged(&top)?;
+    let mut present: Vec<&str> = Vec::new();
+    let mut absent: Vec<&str> = Vec::new();
+    for p in paths {
+        check_rel_path(p)?;
+        if !entries.iter().any(|e| &e.0 == p) {
+            return Err(format!("not in conflict: {p}"));
+        }
+        if entries.iter().any(|e| &e.0 == p && e.1 == stage) {
+            present.push(p);
+        } else {
+            absent.push(p);
+        }
+    }
+    if !present.is_empty() {
+        let flag = if stage == 2 { "--ours" } else { "--theirs" };
+        let mut a = vec!["checkout", flag, "--"];
+        a.extend(&present);
+        git(&top, &a)?;
+        let mut a = vec!["add", "--"];
+        a.extend(&present);
+        git(&top, &a)?;
+    }
+    if !absent.is_empty() {
+        let mut a = vec!["rm", "-q", "--"];
+        a.extend(&absent);
+        git(&top, &a)?;
+    }
+    Ok(())
+}
+
+/// Bring the conflict back for already-resolved paths.
+pub fn unresolve(root: &str, paths: &[String]) -> Result<(), String> {
+    if paths.is_empty() {
+        return Ok(());
+    }
+    paths.iter().try_for_each(|p| check_rel_path(p))?;
+    let top = toplevel(root)?;
+    let mut a = vec!["checkout", "-m", "--"];
+    a.extend(paths.iter().map(String::as_str));
+    git(&top, &a).map(|_| ())
+}
+
+/// Skip the commit that stopped a cherry-pick / revert / rebase.
+pub fn operation_skip(root: &str) -> Result<(), String> {
+    let (top, op) = current_operation(root)?;
+    if op == "merge" {
+        return Err("a merge can't be skipped".to_string());
+    }
+    git_noedit(&top, &[&op, "--skip"])
+}
+
+/// What an interactive rebase onto `onto` would replay: oldest first, merges
+/// excluded, each flagged as pushed or not (3 processes).
+pub fn rebase_plan(root: &str, onto: &str) -> Result<RebasePlan, String> {
+    check_name(onto)?;
+    let top = toplevel(root)?;
+    let range = format!("{onto}..HEAD");
+    // Unit separator between fields, record separator between commits.
+    let log = git(
+        &top,
+        &[
+            "log",
+            "--reverse",
+            "--no-merges",
+            "--format=%H%x1f%h%x1f%s%x1e",
+            &range,
+            "--",
+        ],
+    )?;
+    let unpushed: HashSet<String> = git(&top, &["rev-list", &range, "--not", "--remotes", "--"])?
+        .lines()
+        .map(str::to_string)
+        .collect();
+    let target = format!("{onto}^{{commit}}");
+    let o = git(
+        &top,
+        &["log", "-1", "--format=%H%x1f%h%x1f%s", &target, "--"],
+    )?;
+    let mut of = o.trim_end().splitn(3, '\x1f');
+    let (onto_full, onto_short, onto_subject) = (
+        of.next().unwrap_or("").to_string(),
+        of.next().unwrap_or("").to_string(),
+        of.next().unwrap_or("").to_string(),
+    );
+    let commits = log
+        .split('\x1e')
+        .filter_map(|rec| {
+            let mut f = rec.trim_start_matches('\n').splitn(3, '\x1f');
+            let hash = f.next().filter(|h| !h.is_empty())?.to_string();
+            Some(RebaseStep {
+                pushed: !unpushed.contains(&hash),
+                short: f.next().unwrap_or("").to_string(),
+                subject: f.next().unwrap_or("").to_string(),
+                hash,
+            })
+        })
+        .collect();
+    Ok(RebasePlan {
+        onto: onto_full,
+        onto_short,
+        onto_subject,
+        commits,
+    })
+}
+
+/// Run an interactive rebase non-interactively with a todo we build.
+/// `sequence.editor` is `cp '<todo>'`: git appends its own todo path, so the
+/// copy overwrites it (on Windows `cp` comes from Git's own sh). A reword is a
+/// `pick` plus `exec git commit --amend -F <file>`. `core.editor=true` keeps
+/// git's combined message for squash. Temp files are removed afterwards.
+pub fn rebase_interactive(root: &str, onto: &str, steps: &[RebaseAction]) -> Result<(), String> {
+    check_name(onto)?;
+    let mut first_kept = true;
+    for s in steps {
+        check_hash(&s.hash)?;
+        match s.action.as_str() {
+            "pick" | "drop" => {}
+            "reword" => {
+                if s.message.as_deref().is_none_or(|m| m.trim().is_empty()) {
+                    return Err("a reworded commit needs a message".to_string());
+                }
+            }
+            "squash" | "fixup" => {
+                if first_kept {
+                    return Err("the first commit can't be squashed or fixed up".to_string());
+                }
+            }
+            a => return Err(format!("invalid action: {a}")),
+        }
+        if s.action != "drop" {
+            first_kept = false;
+        }
+    }
+    let top = toplevel(root)?;
+    static SEQ: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+    let tag = format!(
+        "bonk-rebase-{}-{}",
+        std::process::id(),
+        SEQ.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+    );
+    let tmp = std::env::temp_dir();
+    let todo_path = tmp.join(format!("{tag}-todo"));
+    let mut files = vec![todo_path.clone()];
+    let mut todo = String::new();
+    let mut result = Ok(());
+    for (i, s) in steps.iter().enumerate() {
+        if s.action != "reword" {
+            todo.push_str(&format!("{} {}\n", s.action, s.hash));
+            continue;
+        }
+        let msg_path = tmp.join(format!("{tag}-msg{i}"));
+        if let Err(e) = std::fs::write(&msg_path, s.message.as_deref().unwrap_or("")) {
+            result = Err(format!("failed to write temp file: {e}"));
+            break;
+        }
+        files.push(msg_path.clone());
+        todo.push_str(&format!(
+            "pick {}\nexec git commit --amend -F '{}'\n",
+            s.hash,
+            msg_path.display()
+        ));
+    }
+    if result.is_ok() {
+        result = std::fs::write(&todo_path, todo)
+            .map_err(|e| format!("failed to write temp file: {e}"))
+            .and_then(|_| {
+                let editor = format!("sequence.editor=cp '{}'", todo_path.display());
+                git(
+                    &top,
+                    &[
+                        "-c",
+                        &editor,
+                        "-c",
+                        "core.editor=true",
+                        "rebase",
+                        "-i",
+                        "--autostash",
+                        onto,
+                    ],
+                )
+                .map(|_| ())
+            });
+    }
+    for f in files {
+        let _ = std::fs::remove_file(f);
+    }
+    result
 }
 
 #[cfg(test)]
@@ -2350,6 +2890,259 @@ mod tests {
         operation_abort(r).unwrap();
         assert_eq!(status(r).unwrap().operation, "");
         assert!(operation_abort(r).is_err());
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    /// main has "main\n" in a.txt, branch `other` has "other\n" (base "base\n").
+    /// Returns the repo and other's tip; HEAD is on main.
+    fn conflict_repo() -> (std::path::PathBuf, String) {
+        let dir = init_repo();
+        let r = dir.to_str().unwrap();
+        commit_file(r, "a.txt", "base\n", "base");
+        git(r, &["branch", "-M", "main"]).unwrap();
+        git(r, &["switch", "-c", "other"]).unwrap();
+        commit_file(r, "a.txt", "other\n", "other change");
+        let h = rev(r, "HEAD");
+        git(r, &["switch", "main"]).unwrap();
+        commit_file(r, "a.txt", "main\n", "main change");
+        (dir, h)
+    }
+
+    #[test]
+    fn conflicts_and_operation_info_for_cherry_pick() {
+        let (dir, h) = conflict_repo();
+        let r = dir.to_str().unwrap();
+        assert!(cherry_pick(r, std::slice::from_ref(&h)).is_err());
+        let c = conflicts(r).unwrap();
+        assert_eq!(c.len(), 1);
+        assert_eq!(c[0].path, "a.txt");
+        assert_eq!(c[0].base.as_deref(), Some("base\n"));
+        assert_eq!(c[0].mine.as_deref(), Some("main\n"));
+        assert_eq!(c[0].theirs.as_deref(), Some("other\n"));
+        let i = operation_info(r).unwrap();
+        assert_eq!(i.kind, "cherry-pick");
+        assert_eq!(i.hash, h);
+        assert_eq!(i.subject, "other change");
+        assert_eq!(i.mine, "main");
+        assert_eq!(i.theirs, h[..i.theirs.len()]);
+        assert_eq!((i.step, i.total), (1, 1));
+        operation_abort(r).unwrap();
+        assert_eq!(operation_info(r).unwrap().kind, "");
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn operation_info_second_of_two_picks() {
+        let dir = init_repo();
+        let r = dir.to_str().unwrap();
+        commit_file(r, "a.txt", "base\n", "base");
+        git(r, &["branch", "-M", "main"]).unwrap();
+        git(r, &["switch", "-c", "other"]).unwrap();
+        commit_file(r, "b.txt", "b\n", "ob");
+        commit_file(r, "a.txt", "other\n", "oa");
+        let (h1, h2) = (rev(r, "HEAD~1"), rev(r, "HEAD"));
+        git(r, &["switch", "main"]).unwrap();
+        commit_file(r, "a.txt", "main\n", "ma");
+        assert!(cherry_pick(r, &[h1, h2.clone()]).is_err());
+        let i = operation_info(r).unwrap();
+        assert_eq!((i.step, i.total), (2, 2));
+        assert_eq!(i.hash, h2);
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn resolve_side_mine_and_theirs_then_unresolve() {
+        let (dir, h) = conflict_repo();
+        let r = dir.to_str().unwrap();
+        let p = vec!["a.txt".to_string()];
+        assert!(cherry_pick(r, &[h]).is_err());
+        resolve_side(r, &p, "theirs").unwrap();
+        assert!(conflicts(r).unwrap().is_empty());
+        assert_eq!(fs::read_to_string(dir.join("a.txt")).unwrap(), "other\n");
+        unresolve(r, &p).unwrap();
+        assert_eq!(conflicts(r).unwrap().len(), 1);
+        resolve_side(r, &p, "mine").unwrap();
+        assert!(conflicts(r).unwrap().is_empty());
+        assert_eq!(fs::read_to_string(dir.join("a.txt")).unwrap(), "main\n");
+        assert!(resolve_side(r, &p, "bogus").is_err());
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn modify_delete_conflict_sides() {
+        let dir = init_repo();
+        let r = dir.to_str().unwrap();
+        commit_file(r, "a.txt", "base\n", "base");
+        git(r, &["branch", "-M", "main"]).unwrap();
+        git(r, &["switch", "-c", "other"]).unwrap();
+        commit_file(r, "a.txt", "other\n", "modify");
+        let h = rev(r, "HEAD");
+        git(r, &["switch", "main"]).unwrap();
+        git(r, &["rm", "-q", "a.txt"]).unwrap();
+        git(r, &["commit", "-m", "delete"]).unwrap();
+        let p = vec!["a.txt".to_string()];
+        assert!(cherry_pick(r, &[h]).is_err());
+        let c = conflicts(r).unwrap();
+        assert!(c[0].mine.is_none());
+        assert_eq!(c[0].theirs.as_deref(), Some("other\n"));
+        resolve_side(r, &p, "mine").unwrap();
+        assert!(!dir.join("a.txt").exists());
+        assert!(conflicts(r).unwrap().is_empty());
+        // A removed path has no index entry left, so it can't be re-conflicted.
+        assert!(unresolve(r, &p).is_err());
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn resolve_file_writes_and_stages_and_rejects_bad_paths() {
+        let (dir, h) = conflict_repo();
+        let r = dir.to_str().unwrap();
+        assert!(cherry_pick(r, &[h]).is_err());
+        assert!(resolve_file(r, "../x", "z").is_err());
+        assert!(resolve_file(r, "/abs", "z").is_err());
+        assert!(resolve_file(r, "sub/../x", "z").is_err());
+        resolve_file(r, "a.txt", "merged\n").unwrap();
+        assert!(conflicts(r).unwrap().is_empty());
+        assert_eq!(fs::read_to_string(dir.join("a.txt")).unwrap(), "merged\n");
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn operation_skip_cherry_pick_and_merge() {
+        let (dir, h) = conflict_repo();
+        let r = dir.to_str().unwrap();
+        assert!(cherry_pick(r, &[h]).is_err());
+        operation_skip(r).unwrap();
+        assert_eq!(status(r).unwrap().operation, "");
+        assert_eq!(fs::read_to_string(dir.join("a.txt")).unwrap(), "main\n");
+        assert!(merge(r, "other").is_err());
+        let i = operation_info(r).unwrap();
+        assert_eq!((i.kind.as_str(), i.theirs.as_str()), ("merge", "other"));
+        assert_eq!(i.mine, "main");
+        assert!(operation_skip(r).is_err());
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn rebase_conflict_swaps_sides() {
+        let (dir, _) = conflict_repo();
+        let r = dir.to_str().unwrap();
+        // Rebase `other` (its commit says "other") onto main (says "main").
+        git(r, &["switch", "other"]).unwrap();
+        assert!(rebase(r, "main").is_err());
+        let i = operation_info(r).unwrap();
+        assert_eq!(i.kind, "rebase");
+        assert_eq!(i.mine, "other");
+        assert_eq!(i.theirs, rev(r, "main")[..i.theirs.len()]);
+        assert_eq!(i.subject, "other change");
+        assert_eq!((i.step, i.total), (1, 1));
+        let c = conflicts(r).unwrap();
+        assert_eq!(c[0].mine.as_deref(), Some("other\n"));
+        assert_eq!(c[0].theirs.as_deref(), Some("main\n"));
+        resolve_side(r, &["a.txt".to_string()], "mine").unwrap();
+        assert_eq!(fs::read_to_string(dir.join("a.txt")).unwrap(), "other\n");
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    /// base -> c1 -> c2 -> c3 on main, with c1 pushed to a bare "origin".
+    fn plan_repo() -> (std::path::PathBuf, std::path::PathBuf) {
+        let dir = init_repo();
+        let r = dir.to_str().unwrap();
+        commit_file(r, "base.txt", "b\n", "base");
+        git(r, &["branch", "-M", "main"]).unwrap();
+        commit_file(r, "f1.txt", "1\n", "c1");
+        let remote = temp_dir();
+        fs::create_dir_all(&remote).unwrap();
+        git(remote.to_str().unwrap(), &["init", "-q", "--bare"]).unwrap();
+        git(r, &["remote", "add", "origin", remote.to_str().unwrap()]).unwrap();
+        git(r, &["push", "-q", "origin", "main"]).unwrap();
+        git(r, &["fetch", "-q", "origin"]).unwrap();
+        commit_file(r, "f2.txt", "2\n", "c2");
+        commit_file(r, "f3.txt", "3\n", "c3");
+        (dir, remote)
+    }
+
+    fn subjects(r: &str) -> Vec<String> {
+        git(r, &["log", "--format=%s", "--reverse"])
+            .unwrap()
+            .lines()
+            .map(str::to_string)
+            .collect()
+    }
+
+    #[test]
+    fn rebase_plan_lists_oldest_first_with_pushed() {
+        let (dir, remote) = plan_repo();
+        let r = dir.to_str().unwrap();
+        let plan = rebase_plan(r, "HEAD~3").unwrap();
+        assert_eq!(plan.onto, rev(r, "HEAD~3"));
+        assert_eq!(plan.onto_subject, "base");
+        let got: Vec<_> = plan
+            .commits
+            .iter()
+            .map(|c| (c.subject.as_str(), c.pushed))
+            .collect();
+        assert_eq!(got, [("c1", true), ("c2", false), ("c3", false)]);
+        assert_eq!(plan.commits[2].hash, rev(r, "HEAD"));
+        assert!(rebase_plan(r, "--x").is_err());
+        let _ = fs::remove_dir_all(dir);
+        let _ = fs::remove_dir_all(remote);
+    }
+
+    fn act(r: &str, rev_: &str, action: &str, msg: Option<&str>) -> RebaseAction {
+        RebaseAction {
+            hash: rev(r, rev_),
+            action: action.to_string(),
+            message: msg.map(str::to_string),
+        }
+    }
+
+    #[test]
+    fn rebase_interactive_reorder_drop_squash_reword_fixup() {
+        let dir = init_repo();
+        let r = dir.to_str().unwrap();
+        commit_file(r, "base.txt", "b\n", "base");
+        for n in 1..=5 {
+            commit_file(r, &format!("f{n}.txt"), "x\n", &format!("c{n}"));
+        }
+        // c1..c5 -> [c3 reworded, c2 + c4 squashed, c1 dropped, c5 fixed up]
+        let steps = [
+            act(r, "HEAD~2", "reword", Some("three renamed")),
+            act(r, "HEAD~3", "pick", None),
+            act(r, "HEAD~1", "squash", None),
+            act(r, "HEAD~4", "drop", None),
+            act(r, "HEAD", "fixup", None),
+        ];
+        rebase_interactive(r, "HEAD~5", &steps).unwrap();
+        let s = subjects(r);
+        assert_eq!(s, ["base", "three renamed", "c2"]);
+        // c4 and c5 content landed; c1 did not.
+        assert!(dir.join("f4.txt").exists() && dir.join("f5.txt").exists());
+        assert!(!dir.join("f1.txt").exists());
+        assert_eq!(status(r).unwrap().operation, "");
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn rebase_interactive_rejects_bad_input() {
+        let dir = init_repo();
+        let r = dir.to_str().unwrap();
+        commit_file(r, "a.txt", "1\n", "one");
+        commit_file(r, "b.txt", "2\n", "two");
+        let before = rev(r, "HEAD");
+        let squash_first = [
+            act(r, "HEAD", "squash", None),
+            act(r, "HEAD~1", "pick", None),
+        ];
+        assert!(rebase_interactive(r, "HEAD~2", &squash_first).is_err());
+        let dropped_first = [
+            act(r, "HEAD~1", "drop", None),
+            act(r, "HEAD", "fixup", None),
+        ];
+        assert!(rebase_interactive(r, "HEAD~2", &dropped_first).is_err());
+        assert!(rebase_interactive(r, "HEAD~2", &[act(r, "HEAD", "reword", Some(" "))]).is_err());
+        assert!(rebase_interactive(r, "HEAD~2", &[act(r, "HEAD", "bogus", None)]).is_err());
+        assert_eq!(rev(r, "HEAD"), before);
         let _ = fs::remove_dir_all(dir);
     }
 }
