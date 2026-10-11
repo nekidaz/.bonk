@@ -1,30 +1,107 @@
 use super::http::{finish_cancel, register_cancel};
 use crate::state::AppState;
-use std::time::Duration;
+use std::collections::HashMap;
+use std::process::Stdio;
+use std::sync::atomic::{AtomicUsize, Ordering};
+use tauri::ipc::Channel;
 use tauri::State;
+use tokio::io::{AsyncBufReadExt, AsyncRead, BufReader};
 
-const TERMINAL_TIMEOUT: Duration = Duration::from_secs(120);
 const TERMINAL_OUTPUT_LIMIT: usize = 1024 * 1024;
 
+/// How a command ended; its output was already streamed line by line (`TerminalLine`).
 #[derive(serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TerminalOutput {
-    stdout: String,
-    stderr: String,
     status: i32,
     elapsed_ms: u128,
     cwd: String,
 }
 
+/// One output line, sent while the command runs (CT5).
+#[derive(Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TerminalLine {
+    stderr: bool,
+    text: String,
+}
+
 const TERMINAL_CWD_MARKER: &str = "__BONK_CWD_62E892D1__";
 
-fn terminal_output_text(bytes: &[u8]) -> String {
-    if bytes.len() <= TERMINAL_OUTPUT_LIMIT {
-        return String::from_utf8_lossy(bytes).into_owned();
+/// Holds back blank stdout lines until something visible follows, so the blank
+/// line printed before the cwd marker never reaches the panel, and picks the cwd
+/// out of the marker line.
+#[derive(Default)]
+struct StdoutFilter {
+    blank: usize,
+    cwd: Option<String>,
+}
+
+impl StdoutFilter {
+    fn push(&mut self, line: String) -> Vec<String> {
+        if let Some(at) = line.find(TERMINAL_CWD_MARKER) {
+            let cwd = line[at + TERMINAL_CWD_MARKER.len()..].trim();
+            if !cwd.is_empty() {
+                self.cwd = Some(cwd.to_string());
+            }
+            return Vec::new();
+        }
+        if line.trim().is_empty() {
+            self.blank += 1;
+            return Vec::new();
+        }
+        let mut out = vec![String::new(); std::mem::take(&mut self.blank)];
+        out.push(line);
+        out
     }
-    let mut text = String::from_utf8_lossy(&bytes[..TERMINAL_OUTPUT_LIMIT]).into_owned();
-    text.push_str("\n… output truncated at 1 MiB");
-    text
+}
+
+/// Only `BONK_*` names: the request → terminal hand-off passes secrets this way (CT6),
+/// it must not be able to override PATH and friends.
+fn valid_env_name(name: &str) -> bool {
+    name.len() > 5
+        && name.starts_with("BONK_")
+        && name
+            .bytes()
+            .all(|b| b.is_ascii_uppercase() || b.is_ascii_digit() || b == b'_')
+}
+
+/// Reads `reader` line by line, strips terminal controls and sends each line until
+/// the shared 1 MiB budget runs out.
+async fn pump<R: AsyncRead + Unpin>(
+    reader: R,
+    stderr: bool,
+    on_line: &Channel<TerminalLine>,
+    budget: &AtomicUsize,
+    mut filter: Option<&mut StdoutFilter>,
+) {
+    let mut reader = BufReader::new(reader);
+    let mut buf = Vec::new();
+    loop {
+        buf.clear();
+        match reader.read_until(b'\n', &mut buf).await {
+            Ok(0) | Err(_) => break,
+            Ok(_) => {}
+        }
+        let line = strip_terminal_controls(String::from_utf8_lossy(&buf).into_owned());
+        let line = line.trim_end_matches('\n').to_string();
+        let lines = match filter.as_deref_mut() {
+            Some(f) => f.push(line),
+            None => vec![line],
+        };
+        for text in lines {
+            let used = budget.fetch_add(text.len() + 1, Ordering::Relaxed);
+            if used >= TERMINAL_OUTPUT_LIMIT {
+                continue;
+            }
+            let text = if used + text.len() + 1 >= TERMINAL_OUTPUT_LIMIT {
+                "… output truncated at 1 MiB".to_string()
+            } else {
+                text
+            };
+            let _ = on_line.send(TerminalLine { stderr, text });
+        }
+    }
 }
 
 /// The panel is a text renderer rather than a full VT emulator. Strip ANSI
@@ -124,35 +201,24 @@ pub fn terminal_default_cwd() -> Result<String, String> {
     Ok(terminal_default_dir()?.to_string_lossy().into_owned())
 }
 
-fn terminal_cwd_from_output(stdout: &mut String, fallback: &std::path::Path) -> String {
-    let mut cwd = fallback.to_string_lossy().into_owned();
-    if let Some(marker) = stdout.rfind(TERMINAL_CWD_MARKER) {
-        let value_start = marker + TERMINAL_CWD_MARKER.len();
-        let value_end = stdout[value_start..]
-            .find(['\r', '\n'])
-            .map(|offset| value_start + offset)
-            .unwrap_or(stdout.len());
-        let next = stdout[value_start..value_end].trim();
-        if !next.is_empty() {
-            cwd = next.to_string();
-        }
-        let trim_at = stdout[..marker].trim_end_matches(['\r', '\n']).len();
-        stdout.truncate(trim_at);
-    }
-    cwd
-}
-
 /// Execute one explicit command in a persistent frontend terminal session.
 /// The shell reports its final cwd through a private marker, allowing `cd`,
 /// `cd ..`, and compound commands such as `cd src && ls` to carry their
-/// directory into the next invocation.
+/// directory into the next invocation. Output streams through `on_line`; there is
+/// no timeout, a long command runs until it ends or ⌃C / ■ Остановить cancels it.
 #[tauri::command]
 pub async fn terminal_run(
     cwd: Option<String>,
     command: String,
     run_id: Option<String>,
+    env: Option<HashMap<String, String>>,
+    on_line: Channel<TerminalLine>,
     state: State<'_, AppState>,
 ) -> Result<TerminalOutput, String> {
+    let env = env.unwrap_or_default();
+    if let Some(bad) = env.keys().find(|name| !valid_env_name(name)) {
+        return Err(format!("invalid terminal variable name: {bad}"));
+    }
     let cwd_path = match cwd.filter(|value| !value.is_empty()) {
         Some(value) => {
             let path = std::path::PathBuf::from(value);
@@ -238,14 +304,34 @@ pub async fn terminal_run(
         child
     };
 
-    child.current_dir(&cwd_path).kill_on_drop(true);
+    child
+        .current_dir(&cwd_path)
+        .envs(&env)
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .kill_on_drop(true);
     let started = std::time::Instant::now();
+    let mut child = child
+        .spawn()
+        .map_err(|error| format!("failed to run command: {error}"))?;
+    let (Some(stdout), Some(stderr)) = (child.stdout.take(), child.stderr.take()) else {
+        return Err("failed to capture command output".to_string());
+    };
     // ⌃C: `cancel_request(run_id)` fires the receiver; dropping the future kills the
     // child (kill_on_drop). ponytail: on macOS that is the `script` PTY wrapper, whose
     // shell gets SIGHUP when the PTY closes; process-group kill if grandchildren linger.
     let cancel = register_cancel(&state, &run_id)?;
-    let run = tokio::time::timeout(TERMINAL_TIMEOUT, child.output());
-    let output = if let Some(cancel) = cancel {
+    let mut filter = StdoutFilter::default();
+    let budget = AtomicUsize::new(0);
+    let run = async {
+        tokio::join!(
+            pump(stdout, false, &on_line, &budget, Some(&mut filter)),
+            pump(stderr, true, &on_line, &budget, None),
+        );
+        child.wait().await
+    };
+    let status = if let Some(cancel) = cancel {
         tokio::select! {
             res = run => Some(res),
             _ = cancel => None,
@@ -254,26 +340,22 @@ pub async fn terminal_run(
         Some(run.await)
     };
     finish_cancel(&state, &run_id);
-    let output = output
+    let status = status
         .ok_or_else(|| "interrupted".to_string())?
-        .map_err(|_| "command timed out after 120 seconds".to_string())?
         .map_err(|error| format!("failed to run command: {error}"))?;
 
-    let mut stdout = strip_terminal_controls(terminal_output_text(&output.stdout));
-    let cwd = terminal_cwd_from_output(&mut stdout, &cwd_path);
     Ok(TerminalOutput {
-        stdout,
-        stderr: strip_terminal_controls(terminal_output_text(&output.stderr)),
-        status: output.status.code().unwrap_or(-1),
+        status: status.code().unwrap_or(-1),
         elapsed_ms: started.elapsed().as_millis(),
-        cwd,
+        cwd: filter
+            .cwd
+            .unwrap_or_else(|| cwd_path.to_string_lossy().into_owned()),
     })
 }
 
 #[cfg(test)]
 mod terminal_tests {
-    use super::{strip_terminal_controls, terminal_cwd_from_output, TERMINAL_CWD_MARKER};
-    use std::path::Path;
+    use super::{strip_terminal_controls, valid_env_name, StdoutFilter, TERMINAL_CWD_MARKER};
 
     #[test]
     fn strips_ansi_and_osc_shell_markers() {
@@ -282,10 +364,27 @@ mod terminal_tests {
     }
 
     #[test]
-    fn extracts_persistent_cwd_from_stdout() {
-        let mut output = format!("files\n\n{TERMINAL_CWD_MARKER}/tmp/example\n");
-        let cwd = terminal_cwd_from_output(&mut output, Path::new("/fallback"));
-        assert_eq!(cwd, "/tmp/example");
-        assert_eq!(output, "files");
+    fn stdout_filter_hides_marker_and_trailing_blank_lines() {
+        let mut f = StdoutFilter::default();
+        let mut shown = Vec::new();
+        for line in [
+            "files",
+            "",
+            "more",
+            "",
+            format!("{TERMINAL_CWD_MARKER}/tmp/example").as_str(),
+        ] {
+            shown.extend(f.push(line.to_string()));
+        }
+        assert_eq!(shown, ["files", "", "more"]);
+        assert_eq!(f.cwd.as_deref(), Some("/tmp/example"));
+    }
+
+    #[test]
+    fn only_bonk_env_names_pass() {
+        assert!(valid_env_name("BONK_TOKEN"));
+        assert!(!valid_env_name("PATH"));
+        assert!(!valid_env_name("BONK_"));
+        assert!(!valid_env_name("BONK_x"));
     }
 }

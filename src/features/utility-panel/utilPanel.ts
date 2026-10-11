@@ -64,3 +64,52 @@ export function shortCwd(cwd: string, home: string): string {
   if (under) return parts.length === 0 ? '~' : parts.length === 1 ? `~/${parts[0]}` : `~/…/${parts.at(-1)}`;
   return parts.length <= 2 ? cwd : `…/${parts.slice(-2).join('/')}`;
 }
+
+/** CT3 quick filters. */
+export type ConsoleQuick = 'all' | 'http' | 'grpc' | 'errors' | 'scripts';
+export const CONSOLE_QUICK: ConsoleQuick[] = ['all', 'http', 'grpc', 'errors', 'scripts'];
+
+export function matchesQuick(e: Pick<AppConsoleEntry, 'protocol' | 'ok' | 'scripted'>, q: ConsoleQuick): boolean {
+  if (q === 'http') return e.protocol !== 'grpc';
+  if (q === 'grpc') return e.protocol === 'grpc';
+  if (q === 'errors') return !e.ok;
+  if (q === 'scripts') return !!e.scripted;
+  return true;
+}
+
+/** Headers whose values are credentials: shown masked, handed to the shell as `$BONK_*`. */
+export const isSecretHeader = (name: string): boolean =>
+  /^(authorization|proxy-authorization|cookie)$|token|secret|api-?key|password/i.test(name);
+
+/** `Bearer abcdef4f2a` → `Bearer ••••4f2a`. */
+export function maskSecret(value: string): string {
+  const [, scheme = '', secret = value] = /^((?:Bearer|Basic|Token|Digest)\s+)?(.*)$/i.exec(value) ?? [];
+  return `${scheme}••••${secret.length > 8 ? secret.slice(-4) : ''}`;
+}
+
+const sq = (s: string) => `'${s.replace(/'/g, "'\\''")}'`;
+
+/**
+ * CT6: the sent request as a `curl` command for the panel's shell. Secret header values never
+ * appear in the text: each becomes a `BONK_*` variable passed in `env` (`Bearer $BONK_TOKEN`).
+ */
+export function curlForShell(e: Pick<AppConsoleEntry, 'method' | 'url' | 'request'>): {
+  command: string;
+  env: Record<string, string>;
+} {
+  const env: Record<string, string> = {};
+  const lines = [`curl -X ${e.method} ${sq(e.url)}`];
+  for (const [name, value] of Object.entries(e.request?.headers ?? {})) {
+    if (!isSecretHeader(name)) {
+      lines.push(`-H ${sq(`${name}: ${value}`)}`);
+      continue;
+    }
+    const bearer = /^(Bearer|Token)\s+(.+)$/i.exec(value);
+    const key =
+      bearer && /^authorization$/i.test(name) ? 'BONK_TOKEN' : `BONK_${name.toUpperCase().replace(/[^A-Z0-9]+/g, '_')}`;
+    env[key] = bearer ? bearer[2] : value;
+    lines.push(`-H "${name.replace(/[^\w-]/g, '')}: ${bearer ? `${bearer[1]} ` : ''}$${key}"`);
+  }
+  if (e.request?.body) lines.push(`--data ${sq(e.request.body)}`);
+  return { command: lines.join(' \\\n  '), env };
+}

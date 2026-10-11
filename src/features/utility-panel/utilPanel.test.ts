@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { consoleStatus, formatElapsed, matchesConsoleFilter, shortCwd } from './utilPanel';
+import { consoleStatus, curlForShell, formatElapsed, maskSecret, matchesConsoleFilter, shortCwd } from './utilPanel';
 
 const e = (p: Partial<Parameters<typeof matchesConsoleFilter>[0]>) => ({
   protocol: 'http' as const,
@@ -50,5 +50,30 @@ describe('format helpers', () => {
     expect(shortCwd('/tmp', '/Users/a')).toBe('/tmp');
     expect(shortCwd('/var/log/nginx', '/Users/a')).toBe('…/log/nginx');
     expect(shortCwd('', '')).toBe('~');
+  });
+});
+
+describe('curlForShell', () => {
+  it('moves secret header values into BONK_* variables', () => {
+    const { command, env } = curlForShell({
+      method: 'GET',
+      url: "https://api.x/v1?q=it's",
+      request: { headers: { Accept: 'application/json', Authorization: 'Bearer s3cr3t', 'X-Api-Key': 'k1' } },
+    });
+    expect(env).toEqual({ BONK_TOKEN: 's3cr3t', BONK_X_API_KEY: 'k1' });
+    expect(command).not.toContain('s3cr3t');
+    expect(command).toBe(
+      [
+        `curl -X GET 'https://api.x/v1?q=it'\\''s'`,
+        `-H 'Accept: application/json'`,
+        `-H "Authorization: Bearer $BONK_TOKEN"`,
+        `-H "X-Api-Key: $BONK_X_API_KEY"`,
+      ].join(' \\\n  '),
+    );
+  });
+
+  it('masks secrets for display', () => {
+    expect(maskSecret('Bearer abcdefgh4f2a')).toBe('Bearer ••••4f2a');
+    expect(maskSecret('short')).toBe('••••');
   });
 });

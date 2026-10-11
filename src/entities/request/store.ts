@@ -249,6 +249,13 @@ export async function sendHttpRequest(
     elapsedMs: row.elapsedMs,
     message: row.error,
     logs: row.logs,
+    tests: row.tests,
+    scripted: !!(req.preRequestScript?.trim() || req.testScript?.trim()),
+    title: src?.title,
+    nodeId: src?.savedPath,
+    tabId,
+    request: { headers: resolved.headers ?? {}, body: resolved.body },
+    response: response ? { headers: response.headers, body: response.body, sizeBytes: response.size_bytes } : undefined,
   });
   if (!response) throw new Error(row.error ?? 'no response');
   addHistory({

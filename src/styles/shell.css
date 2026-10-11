@@ -1137,6 +1137,15 @@
   overflow: hidden;
 }
 
+/* CT12: Issues on the whole height (⇧⌘J); the request area steps aside. */
+:root .bs-util-host.full {
+  flex: 1 1 auto;
+  margin-top: 0;
+}
+:root .bs-main.util-full {
+  display: none;
+}
+
 :root .bs :is(.bs-tab-hit, .bs-trow):focus-visible {
   outline-offset: -2px;
   border-radius: var(--radius-control);

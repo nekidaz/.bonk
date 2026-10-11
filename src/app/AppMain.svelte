@@ -29,6 +29,7 @@
   import { EnvironmentsSheet } from '$features/environments/components';
   import { RunnerView } from '$features/runner/components';
   import { UtilityPanel } from '$features/utility-panel/components';
+  import { utilityUi } from '$features/utility-panel';
   import AppTabBar from './AppTabBar.svelte';
   import FocusBar from './FocusBar.svelte';
   import RequestHeader from './RequestHeader.svelte';
@@ -63,6 +64,7 @@
     <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_noninteractive_element_interactions -->
     <main
       class="bs-main"
+      class:util-full={shell.utilityMode === 'issues' && utilityUi.expanded}
       class:req-hidden={layout.requestHidden && !layout.sideBySide}
       class:side={layout.sideBySide}
       onfocusin={layout.autoFocusIn}
@@ -176,7 +178,11 @@
     </main>
 
     {#if shell.utilityMode}
-      <div class="bs-util-host" transition:slide={{ duration: PANEL_ANIM_MS, axis: 'y' }}>
+      <div
+        class="bs-util-host"
+        class:full={shell.utilityMode === 'issues' && utilityUi.expanded}
+        transition:slide={{ duration: PANEL_ANIM_MS, axis: 'y' }}
+      >
         <UtilityPanel
           mode={shell.utilityMode}
           bind:height={shell.utilityPanelHeight}

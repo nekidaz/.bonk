@@ -449,6 +449,10 @@
           elapsedMs: 0,
           message: pre.error,
           logs: logs(),
+          title: t0.title,
+          nodeId: t0.savedPath,
+          tabId,
+          scripted: true,
         });
         requestRuntime.setGrpcError(tabId, t('grpc.err.preRequest', { err: pre.error ?? '' }));
         requestRuntime.updateBusy((m) => (m[tabId]?.requestId === requestId ? omitKey(m, tabId) : m));
@@ -558,6 +562,11 @@
       elapsedMs: result.elapsed_ms,
       message: testError || (!result.ok ? result.body : undefined),
       logs: logs(),
+      tests: [...(pre?.tests ?? []), ...(post?.tests ?? [])],
+      scripted: !!(g.preRequestScript?.trim() || g.testScript?.trim()),
+      title: t0.title,
+      nodeId: t0.savedPath,
+      tabId,
     });
     addHistory({
       id: crypto.randomUUID(),
@@ -568,7 +577,7 @@
       grpc: grpcSnapshot(g),
       at: Date.now(),
       savedPath: tab.savedPath,
-      title: tab.title,
+      title: t0.title,
     });
   }
   // `{{var}}` inline highlight + hover quick-set, shared by the endpoint,

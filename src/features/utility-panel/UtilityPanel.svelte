@@ -1,19 +1,14 @@
 <script lang="ts">
-  import { tick } from 'svelte';
+  // Flow · Консоль, терминал, Issues: one bottom panel, three tabs. ⌘J opens/closes it; the height
+  // drags past the top edge and is remembered; ⇧⌘J (or ⤢) gives Issues the whole height.
   import { t } from '$shared/i18n';
-  import { cancelRequest, terminalDefaultCwd, terminalRun } from '$shared/ipc';
+  import { workspacePickFolder } from '$shared/ipc';
   import { snapPanelSize, type UtilityMode } from '$shared/ui';
-  import { consoleStatus, formatElapsed, matchesConsoleFilter, shortCwd } from './utilPanel';
-  import { clearAppConsole, appConsole } from '$entities/request';
-  import { workspace } from '$entities/workspace';
-
-  type TerminalLine = {
-    id: string;
-    kind: 'command' | 'stdout' | 'stderr' | 'meta';
-    text: string;
-    /** Directory the command was run in (shown before ❯). */
-    cwd?: string;
-  };
+  import { appConsole, clearAppConsole } from '$entities/request';
+  import ConsoleView from './ConsoleView.svelte';
+  import IssuesView from './IssuesView.svelte';
+  import TerminalView from './TerminalView.svelte';
+  import { terminal, utilityUi } from './store.svelte';
 
   let {
     mode,
@@ -31,108 +26,38 @@
 
   const PANEL_MIN = 140;
   const PANEL_COLLAPSE_AT = 80;
+  const TABS: UtilityMode[] = ['console', 'terminal', 'issues'];
   let collapsePreview = $state(false);
-  let command = $state('');
-  let running = $state(false);
-  let runId: string | null = null;
-  let filter = $state('');
-  let inputEl = $state<HTMLInputElement | null>(null);
-  let terminalOutputEl = $state<HTMLDivElement | null>(null);
-  let consoleOutputEl = $state<HTMLDivElement | null>(null);
-  let commandHistory = $state<string[]>([]);
-  let historyIndex = $state(0);
-  let currentDirectory = $state('');
-  let homeDirectory = $state('');
-  let directoryInitialized = $state(false);
-  let lines = $state<TerminalLine[]>([{ id: crypto.randomUUID(), kind: 'meta', text: t('util.terminal.welcome') }]);
 
-  const directoryLabel = $derived(
-    currentDirectory
-      ? homeDirectory && currentDirectory === homeDirectory
-        ? '~'
-        : currentDirectory
-      : workspace.path || '~',
+  const cwdLabel = $derived(
+    terminal.home && terminal.cwd.startsWith(terminal.home)
+      ? `~${terminal.cwd.slice(terminal.home.length)}`
+      : terminal.cwd || '~',
   );
-  const issueCount = $derived(appConsole.entries.filter((entry) => !entry.ok).length);
-  // C1: newest first.
-  const visibleConsoleEntries = $derived(
-    (mode === 'issues' ? appConsole.entries.filter((entry) => !entry.ok) : appConsole.entries)
-      .filter((entry) => matchesConsoleFilter(entry, filter))
-      .reverse(),
-  );
-  const promptDir = $derived(shortCwd(currentDirectory || workspace.path, homeDirectory));
 
-  function addLine(kind: TerminalLine['kind'], text: string, cwd?: string): void {
-    if (!text) return;
-    lines = [...lines, { id: crypto.randomUUID(), kind, text, cwd }];
-  }
+  // CT12 applies to the Issues tab only.
+  const full = $derived(mode === 'issues' && utilityUi.expanded);
+
+  $effect(() => terminal.init());
 
   function clearCurrent(): void {
-    if (mode === 'terminal') lines = [];
+    if (mode === 'terminal') terminal.clear();
+    else if (mode === 'issues') utilityUi.clearedAt = Date.now();
     else clearAppConsole();
   }
 
-  async function runCommand(event: SubmitEvent): Promise<void> {
-    event.preventDefault();
-    const next = command.trim();
-    if (!next || running) return;
-    command = '';
-    commandHistory = [...commandHistory.filter((item) => item !== next), next].slice(-100);
-    historyIndex = commandHistory.length;
-    if (next === 'clear') {
-      lines = [];
+  /** ⌘K clears the open tab (it must not open the command palette from here). */
+  function keys(event: KeyboardEvent): void {
+    if (mode === 'terminal' || event.key.toLowerCase() !== 'k' || !(event.metaKey || event.ctrlKey) || event.altKey)
       return;
-    }
-    addLine('command', next, promptDir);
-    running = true;
-    runId = crypto.randomUUID();
-    try {
-      const result = await terminalRun(currentDirectory || workspace.path || null, next, runId ?? undefined);
-      currentDirectory = result.cwd;
-      addLine('stdout', result.stdout.replace(/\s+$/, ''));
-      addLine('stderr', result.stderr.replace(/\s+$/, ''));
-      if (result.status !== 0)
-        addLine('meta', t('util.terminal.exited', { code: result.status, ms: result.elapsedMs }));
-    } catch (error) {
-      const text = String(error);
-      if (text === 'interrupted') addLine('meta', '^C');
-      else addLine('stderr', text.includes('__TAURI_INTERNALS__') ? t('util.terminal.desktop_only') : text);
-    } finally {
-      running = false;
-      runId = null;
-      await tick();
-      inputEl?.focus();
-    }
-  }
-
-  /** ⌘K clears (and must not open the global command palette); ⌃C interrupts the running command. */
-  function terminalShortcuts(event: KeyboardEvent): void {
-    const key = event.key.toLowerCase();
-    if (key === 'k' && (event.metaKey || event.ctrlKey) && !event.altKey) {
-      event.preventDefault();
-      event.stopPropagation();
-      lines = [];
-    } else if (key === 'c' && event.ctrlKey && !event.metaKey) {
-      if (running && runId) {
-        event.preventDefault();
-        event.stopPropagation();
-        void cancelRequest(runId).catch(() => {});
-      } else if (!window.getSelection()?.toString()) {
-        // Like a shell: abandon the line being typed (keeps Ctrl+C = copy when text is selected).
-        event.preventDefault();
-        if (command) addLine('command', `${command}^C`, promptDir);
-        command = '';
-      }
-    }
-  }
-
-  function terminalKeydown(event: KeyboardEvent): void {
-    if (event.key !== 'ArrowUp' && event.key !== 'ArrowDown') return;
-    if (commandHistory.length === 0) return;
     event.preventDefault();
-    if (event.key === 'ArrowUp') historyIndex = Math.max(0, historyIndex - 1);
-    else historyIndex = Math.min(commandHistory.length, historyIndex + 1);
-    command = historyIndex < commandHistory.length ? commandHistory[historyIndex] : '';
+    event.stopPropagation();
+    clearCurrent();
+  }
+
+  async function pickCwd(): Promise<void> {
+    const dir = await workspacePickFolder().catch(() => null);
+    if (dir) terminal.cwd = dir;
   }
 
   function startResize(event: PointerEvent): void {
@@ -159,105 +84,91 @@
     window.addEventListener('pointerup', onUp);
     window.addEventListener('pointercancel', onUp);
   }
-
-  function timeLabel(value: number): string {
-    return new Date(value).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-  }
-
-  $effect(() => {
-    if (mode !== 'terminal') return;
-    void tick().then(() => inputEl?.focus());
-  });
-
-  $effect(() => {
-    if (directoryInitialized) return;
-    directoryInitialized = true;
-    const root = workspace.path;
-    void terminalDefaultCwd()
-      .then((home) => {
-        homeDirectory = home;
-        currentDirectory = root || home;
-      })
-      .catch(() => {
-        currentDirectory = root;
-      });
-  });
-
-  $effect(() => {
-    void lines.length;
-    void tick().then(() => terminalOutputEl?.scrollTo({ top: terminalOutputEl.scrollHeight }));
-  });
-
-  $effect(() => {
-    void appConsole.entries.length;
-    void tick().then(() => consoleOutputEl?.scrollTo({ top: 0 }));
-  });
 </script>
 
+<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
 <section
   class="bs-utility-panel"
   class:collapsing={collapsePreview}
-  style="height:{height}px"
+  class:expanded={full}
+  style:height={full ? null : `${height}px`}
   aria-label={t('util.aria')}
+  onkeydown={keys}
 >
-  <div
-    class="bs-utility-resize"
-    role="separator"
-    aria-label={t('util.resize_aria')}
-    onpointerdown={startResize}
-    ondblclick={() => {
-      height = 220;
-      onResizeEnd();
-    }}
-  ></div>
+  {#if !full}
+    <div
+      class="bs-utility-resize"
+      role="separator"
+      aria-label={t('util.resize_aria')}
+      onpointerdown={startResize}
+      ondblclick={() => {
+        height = 220;
+        onResizeEnd();
+      }}
+    ></div>
+  {/if}
   <header class="bs-utility-head">
     <div class="bs-utility-tabs" role="tablist" aria-label={t('util.aria')}>
-      <button
-        type="button"
-        role="tab"
-        class:on={mode === 'console'}
-        aria-selected={mode === 'console'}
-        onclick={() => onSelect('console')}
-      >
-        {t('util.tab.console')}
-        {#if appConsole.entries.length}<span class="bs-utility-count">{appConsole.entries.length}</span>{/if}
-      </button>
-      <button
-        type="button"
-        role="tab"
-        class:on={mode === 'terminal'}
-        aria-selected={mode === 'terminal'}
-        onclick={() => onSelect('terminal')}
-      >
-        {t('util.tab.terminal')}
-      </button>
-      <button
-        type="button"
-        role="tab"
-        class:on={mode === 'issues'}
-        aria-selected={mode === 'issues'}
-        onclick={() => onSelect('issues')}
-      >
-        {t('util.tab.issues')}
-        {#if issueCount}<span class="bs-utility-count error">{issueCount}</span>{/if}
-      </button>
+      {#each TABS as tab (tab)}
+        <button
+          type="button"
+          role="tab"
+          class:on={mode === tab}
+          aria-selected={mode === tab}
+          onclick={() => onSelect(tab)}
+        >
+          {t(`util.tab.${tab}`)}
+          {#if tab === 'console' && appConsole.entries.length}<span class="bs-utility-count"
+              >{appConsole.entries.length}</span
+            >{/if}
+          {#if tab === 'terminal' && terminal.running}<span class="bs-utility-live" aria-hidden="true"></span>{/if}
+          {#if tab === 'issues' && utilityUi.issues.length}<span class="bs-utility-count error"
+              >{utilityUi.issues.length}</span
+            >{/if}
+        </button>
+      {/each}
     </div>
     <div class="bs-spacer"></div>
-    {#if mode !== 'terminal'}
+    {#if mode === 'terminal'}
+      <button class="bs-utility-cwd" type="button" title={terminal.cwd} onclick={() => void pickCwd()}>
+        <span class="material-symbols-outlined" aria-hidden="true">folder_open</span>
+        <span>{cwdLabel}</span>
+      </button>
+    {:else}
       <label class="bs-utility-filter">
-        <span class="material-symbols-outlined" aria-hidden="true">search</span>
-        <input
-          type="search"
-          bind:value={filter}
-          placeholder={t('util.filter.placeholder')}
-          aria-label={t('util.filter.placeholder')}
-          autocomplete="off"
-          spellcheck="false"
-        />
+        <span class="material-symbols-outlined" aria-hidden="true">filter_list</span>
+        {#if mode === 'issues'}
+          <input
+            type="search"
+            bind:value={utilityUi.issuesFilter}
+            placeholder={t('issues.filter')}
+            aria-label={t('issues.filter')}
+            autocomplete="off"
+            spellcheck="false"
+          />
+        {:else}
+          <input
+            type="search"
+            bind:value={utilityUi.consoleFilter}
+            placeholder={t('util.filter.placeholder')}
+            aria-label={t('util.filter.placeholder')}
+            autocomplete="off"
+            spellcheck="false"
+          />
+        {/if}
       </label>
     {/if}
-    {#if mode === 'terminal'}<span class="bs-utility-context" title={currentDirectory}>{directoryLabel}</span>{/if}
-    <button class="bs-utility-action" type="button" onclick={clearCurrent}>{t('util.clear')}</button>
+    {#if mode === 'issues'}
+      <button
+        class="bs-utility-icon"
+        type="button"
+        aria-label={t(utilityUi.expanded ? 'issues.collapse' : 'issues.expand')}
+        title={t(utilityUi.expanded ? 'issues.collapse' : 'issues.expand')}
+        onclick={() => (utilityUi.expanded = !utilityUi.expanded)}
+      >
+        <span class="material-symbols-outlined">{utilityUi.expanded ? 'close_fullscreen' : 'open_in_full'}</span>
+      </button>
+    {/if}
     <button
       class="bs-utility-icon"
       type="button"
@@ -272,71 +183,21 @@
       type="button"
       aria-label={t('util.close_aria')}
       title={t('common.close')}
-      onclick={onClose}
+      onclick={() => {
+        utilityUi.expanded = false;
+        onClose();
+      }}
     >
       <span class="material-symbols-outlined">close</span>
     </button>
   </header>
 
   {#if mode === 'terminal'}
-    <!-- svelte-ignore a11y_no_static_element_interactions -->
-    <div class="bs-terminal-body" onkeydown={terminalShortcuts}>
-      <div class="bs-terminal-output" bind:this={terminalOutputEl} role="log" aria-live="polite">
-        {#each lines as line (line.id)}
-          <div
-            class="bs-terminal-line"
-            class:command={line.kind === 'command'}
-            class:stderr={line.kind === 'stderr'}
-            class:meta={line.kind === 'meta'}
-          >
-            {#if line.kind === 'command'}{#if line.cwd}<span class="cwd">{line.cwd}</span>{/if}<span class="prompt"
-                >❯</span
-              >{/if}
-            <pre>{line.text}</pre>
-          </div>
-        {/each}
-      </div>
-      <form class="bs-terminal-prompt" onsubmit={runCommand}>
-        <span class="workspace" title={currentDirectory}>{promptDir}</span><span class="prompt">❯</span>
-        <input
-          bind:this={inputEl}
-          bind:value={command}
-          aria-label={t('util.terminal.command_aria')}
-          autocomplete="off"
-          spellcheck="false"
-          readonly={running}
-          placeholder={running ? t('util.terminal.running') : t('util.terminal.placeholder')}
-          onkeydown={terminalKeydown}
-        />
-        {#if running}<span class="bs-terminal-running material-symbols-outlined">progress_activity</span>{/if}
-      </form>
-      <div class="bs-terminal-hint">{t('util.terminal.hint')}</div>
-    </div>
+    <TerminalView />
+  {:else if mode === 'issues'}
+    <IssuesView />
   {:else}
-    <div class="bs-console-output" bind:this={consoleOutputEl} role="log" aria-live="polite">
-      {#if visibleConsoleEntries.length === 0}
-        <div class="bs-utility-empty">
-          <span class="material-symbols-outlined">data_object</span>
-          <div>{mode === 'issues' ? t('util.empty.issues') : t('util.empty.console')}</div>
-        </div>
-      {:else}
-        {#each visibleConsoleEntries as entry (entry.id)}
-          {@const st = consoleStatus(entry)}
-          <article class="bs-console-entry" class:error={!entry.ok}>
-            <div class="bs-console-row">
-              <time>{timeLabel(entry.at)}</time>
-              <span class="protocol">{entry.protocol === 'grpc' ? 'gRPC' : 'HTTP'}</span>
-              <span class="method">{entry.method}</span>
-              <span class="url" title={entry.url}>{entry.url || '—'}</span>
-              <span class="status {st.tone}">{st.label}</span>
-              <span class="elapsed">{formatElapsed(entry.elapsedMs)}</span>
-            </div>
-            {#if entry.message}<pre class="bs-console-detail error">{entry.message}</pre>{/if}
-            {#each entry.logs ?? [] as log}<pre class="bs-console-detail">{log}</pre>{/each}
-          </article>
-        {/each}
-      {/if}
-    </div>
+    <ConsoleView onTerminal={() => onSelect('terminal')} />
   {/if}
 </section>
 
@@ -351,6 +212,9 @@
     color: var(--text);
     background: var(--canvas, var(--surface));
     border-top: 1px solid var(--sep);
+  }
+  .bs-utility-panel.expanded {
+    height: 100%;
   }
   .bs-utility-panel.collapsing {
     /* Beats the inline `height` the resizer sets. */
@@ -376,251 +240,96 @@
     );
   }
   .bs-utility-head {
-    flex: 0 0 34px;
-    display: flex;
-    align-items: center;
-    gap: 5px;
-    padding: 0 7px 0 10px;
-    background: var(--tb);
-    border-bottom: 1px solid var(--sepsoft);
-  }
-  .bs-utility-tabs {
-    align-self: stretch;
-    display: flex;
-    align-items: stretch;
-    gap: 14px;
-  }
-  .bs-utility-tabs button {
-    position: relative;
+    flex: 0 0 40px;
     display: flex;
     align-items: center;
     gap: 6px;
-    padding: 0 2px;
-    color: var(--t2);
-    font-size: 11.5px;
+    padding: 0 8px 0 10px;
   }
-  .bs-utility-tabs button::after {
-    content: '';
-    position: absolute;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    height: 2px;
-    background: transparent;
+  .bs-utility-tabs {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    padding: 3px;
+    border-radius: var(--radius-control);
+    background: var(--inset);
+  }
+  .bs-utility-tabs button {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    height: 26px;
+    padding: 0 12px;
+    border-radius: var(--radius-control);
+    color: var(--t2);
+    font-size: 12px;
+  }
+  .bs-utility-tabs button:hover {
+    color: var(--text);
   }
   .bs-utility-tabs button.on {
     color: var(--text);
-  }
-  .bs-utility-tabs button.on::after {
-    background: var(--accent);
+    background: var(--hover2);
+    font-weight: 600;
   }
   .bs-utility-count {
-    min-width: 16px;
-    height: 16px;
+    min-width: 18px;
+    height: 18px;
     display: grid;
     place-items: center;
-    padding: 0 4px;
+    padding: 0 5px;
     color: var(--t2);
     background: var(--hover);
-    border-radius: 8px;
-    font-size: 9px;
+    border-radius: 9px;
+    font-family: var(--mono);
+    font-size: 10px;
+    font-weight: 400;
   }
   .bs-utility-count.error {
     color: var(--red);
+    background: color-mix(in srgb, var(--red) 16%, transparent);
   }
-  .bs-utility-context {
-    max-width: 240px;
-    overflow: hidden;
-    color: var(--t3);
-    font-family: var(--mono);
-    font-size: 10px;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+  .bs-utility-live {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--green);
   }
-  .bs-utility-action {
-    height: 22px;
-    padding: 0 7px;
-    color: var(--t2);
-    border-radius: 3px;
-    font-size: 10.5px;
-  }
-  .bs-utility-icon {
-    width: 22px;
-    height: 22px;
-    display: grid;
-    place-items: center;
-    color: var(--t3);
-    border-radius: 3px;
-  }
-  .bs-utility-action:hover,
-  .bs-utility-icon:hover {
-    color: var(--text);
-    background: var(--hover);
-  }
-  .bs-utility-icon .material-symbols-outlined {
-    font-size: 14px;
-  }
-  .bs-terminal-body {
-    min-height: 0;
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    font-family: var(--mono);
-  }
-  .bs-terminal-output {
-    min-height: 0;
-    flex: 1;
-    overflow: auto;
-    padding: 9px 12px 4px;
-    scrollbar-gutter: stable;
-  }
-  .bs-terminal-line {
-    display: flex;
-    align-items: flex-start;
-    gap: 8px;
-    min-height: 19px;
-    color: var(--t2);
-    font-size: 11.5px;
-    line-height: 1.55;
-  }
-  .bs-terminal-line.command {
-    color: var(--text);
-  }
-  .bs-terminal-line.stderr {
-    color: var(--red);
-  }
-  .bs-terminal-line.meta {
-    color: var(--t3);
-  }
-  .bs-terminal-line pre,
-  .bs-console-detail {
-    margin: 0;
-    white-space: pre-wrap;
-    overflow-wrap: anywhere;
-    font: inherit;
-  }
-  .prompt {
-    flex: none;
-    color: var(--green);
-    font-weight: 700;
-  }
-  .bs-terminal-prompt {
-    flex: 0 0 32px;
-    display: flex;
-    align-items: center;
-    gap: 7px;
-    padding: 0 12px;
-    border-top: 1px solid var(--sepsoft);
-    font-family: var(--mono);
-    font-size: 11.5px;
-  }
-  .bs-terminal-prompt .workspace {
-    max-width: 200px;
-    overflow: hidden;
-    color: var(--accent);
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-  .bs-terminal-prompt input {
-    min-width: 0;
-    flex: 1;
-    height: 100%;
-    color: var(--text);
-    background: transparent;
-    border: 0;
-    outline: 0;
-    font: inherit;
-  }
-  .bs-terminal-prompt input::placeholder {
-    color: var(--t3);
-  }
-  .bs-terminal-running {
-    color: var(--accent);
-    font-size: 14px;
-    animation: bs-terminal-spin 900ms linear infinite;
-  }
-  @keyframes bs-terminal-spin {
-    to {
-      transform: rotate(360deg);
-    }
-  }
-  .bs-console-output {
-    min-height: 0;
-    flex: 1;
-    overflow: auto;
-    font-family: var(--mono);
-    scrollbar-gutter: stable;
-  }
-  .bs-console-entry {
-    padding: 7px 11px;
-    border-bottom: 1px solid var(--sepsoft);
-  }
-  .bs-console-row {
-    display: grid;
-    grid-template-columns: 64px 42px minmax(70px, auto) minmax(140px, 1fr) auto 62px;
-    align-items: center;
-    gap: 9px;
-    min-height: 18px;
-    font-size: 10.5px;
-  }
-  .bs-console-row time,
-  .bs-console-row .elapsed {
-    color: var(--t3);
-  }
-  .bs-console-row .protocol {
-    color: var(--purple);
-    font-weight: 700;
-  }
-  .bs-console-row .method {
-    color: var(--green);
-    font-weight: 700;
-  }
-  .bs-console-row .url {
-    overflow: hidden;
-    color: var(--t2);
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-  .bs-console-row .status {
-    justify-self: end;
-    height: 17px;
-    padding: 0 7px;
-    border-radius: 999px;
-    color: var(--green);
-    background: color-mix(in srgb, var(--green) 14%, transparent);
-    font-weight: 700;
-    line-height: 17px;
-    white-space: nowrap;
-  }
-  .bs-console-row .status.info,
-  .bs-console-row .status.muted {
-    color: var(--t2);
-    background: var(--hover);
-  }
-  .bs-console-row .status.warn {
-    color: var(--orange, var(--yellow, #d9a441));
-    background: color-mix(in srgb, var(--orange, var(--yellow, #d9a441)) 14%, transparent);
-  }
-  .bs-console-row .status.err {
-    color: var(--red);
-    background: color-mix(in srgb, var(--red) 14%, transparent);
-  }
+  .bs-utility-cwd,
   .bs-utility-filter {
     display: flex;
     align-items: center;
-    gap: 5px;
-    width: 220px;
-    height: 22px;
-    padding: 0 8px;
+    gap: 6px;
+    height: 28px;
+    padding: 0 12px;
     border: 1px solid var(--sepsoft);
     border-radius: 999px;
     color: var(--t3);
+    background: var(--inset);
+  }
+  .bs-utility-cwd {
+    max-width: 320px;
+    color: var(--t2);
+    font-family: var(--mono);
+    font-size: 11px;
+  }
+  .bs-utility-cwd span:last-child {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .bs-utility-cwd:hover {
+    color: var(--text);
+  }
+  .bs-utility-cwd .material-symbols-outlined,
+  .bs-utility-filter .material-symbols-outlined {
+    font-size: 14px;
+  }
+  .bs-utility-filter {
+    width: 200px;
   }
   .bs-utility-filter:focus-within {
     border-color: var(--t3);
-  }
-  .bs-utility-filter .material-symbols-outlined {
-    font-size: 13px;
   }
   .bs-utility-filter input {
     min-width: 0;
@@ -632,41 +341,57 @@
     border: 0;
     outline: 0;
     box-shadow: none;
-    font: 10.5px var(--mono);
+    font-size: 12px;
   }
   .bs-utility-filter input::-webkit-search-cancel-button {
     display: none;
   }
-  .bs-terminal-line .cwd {
-    flex: none;
-    color: var(--accent);
-  }
-  .bs-terminal-hint {
-    flex: none;
-    padding: 3px 12px 6px;
+  .bs-utility-icon {
+    width: 24px;
+    height: 24px;
+    display: grid;
+    place-items: center;
     color: var(--t3);
-    font-size: 10px;
+    border-radius: var(--radius-sm);
   }
-  .bs-console-detail {
-    margin: 4px 0 0 117px;
+  .bs-utility-icon:hover {
+    color: var(--text);
+    background: var(--hover);
+  }
+  .bs-utility-icon .material-symbols-outlined {
+    font-size: 15px;
+  }
+  /* Shared by the three views. */
+  .bs-utility-panel :global(.bs-chip) {
+    display: inline-flex;
+    align-items: center;
+    height: 22px;
+    padding: 0 9px;
+    border-radius: var(--radius-control);
     color: var(--t2);
-    font-size: 10.5px;
-    line-height: 1.5;
+    font-size: 11.5px;
   }
-  .bs-console-detail.error {
-    color: var(--red);
+  .bs-utility-panel :global(.bs-chip:hover) {
+    color: var(--text);
+    background: var(--hover);
   }
-  .bs-utility-empty {
+  .bs-utility-panel :global(.bs-chip.on) {
+    color: var(--text);
+    background: var(--hover2);
+    font-weight: 600;
+  }
+  .bs-utility-panel :global(.bs-utility-empty) {
     height: 100%;
+    min-height: 80px;
     display: grid;
     place-content: center;
     justify-items: center;
     gap: 7px;
     color: var(--t3);
-    font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+    font-family: var(--font-ui);
     font-size: 11.5px;
   }
-  .bs-utility-empty .material-symbols-outlined {
+  .bs-utility-panel :global(.bs-utility-empty .material-symbols-outlined) {
     font-size: 24px;
   }
 </style>

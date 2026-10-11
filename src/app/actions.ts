@@ -29,6 +29,7 @@ import { t, tp } from '$shared/i18n';
 import type { ImportResult } from '$features/import';
 import { methodColor, toCurl, type RequestProtocol } from '$shared/model';
 import { requestConfirm, type UtilityMode } from '$shared/ui';
+import { utilityUi } from '$features/utility-panel';
 import { layout } from './layout.svelte';
 import { shell } from './shell.svelte';
 
@@ -297,7 +298,20 @@ export function toggleCodePanel(): void {
   shell.codePanelTabId = shell.codeOpen ? undefined : active.id;
 }
 
-export function toggleUtilityPanel(mode: UtilityMode): void {
-  shell.utilityMode = shell.utilityMode === mode ? null : mode;
+let lastUtilityMode: UtilityMode = 'console';
+
+/** Open the panel on `mode`, or close it if it's showing that tab. No `mode` (⌘J): toggle on the last tab. */
+export function toggleUtilityPanel(mode?: UtilityMode): void {
+  const current = shell.utilityMode;
+  if (current) lastUtilityMode = current;
+  shell.utilityMode = current && (!mode || current === mode) ? null : (mode ?? lastUtilityMode);
   if (shell.utilityMode) queueMicrotask(layout.clampResponseToViewport);
+  else utilityUi.expanded = false;
+}
+
+/** ⇧⌘J: Issues on the whole height, and back (CT12). */
+export function toggleIssuesFull(): void {
+  const full = shell.utilityMode === 'issues' && utilityUi.expanded;
+  shell.utilityMode = 'issues';
+  utilityUi.expanded = !full;
 }

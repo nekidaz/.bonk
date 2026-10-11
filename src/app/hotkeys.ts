@@ -11,6 +11,7 @@ import {
   openSaveDialog,
   smartSave,
   toggleCodePanel,
+  toggleIssuesFull,
   toggleUtilityPanel,
 } from './actions';
 import { layout } from './layout.svelte';
@@ -108,8 +109,17 @@ export function globalKeydown(e: KeyboardEvent): void {
     case 'showHistory':
       layout.showSidebar('history');
       break;
+    case 'utilityPanel':
+      toggleUtilityPanel();
+      break;
     case 'terminal':
       toggleUtilityPanel('terminal');
+      break;
+    case 'issues':
+      toggleUtilityPanel('issues');
+      break;
+    case 'issuesFull':
+      toggleIssuesFull();
       break;
     case 'workspaceMenu':
       shell.workspaceMenuOpen = !shell.workspaceMenuOpen;

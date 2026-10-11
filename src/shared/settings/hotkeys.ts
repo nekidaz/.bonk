@@ -10,6 +10,8 @@ export type HotkeyCommand = { id: string; label: string; group: string; def: Bin
 
 const TAB_NEXT = IS_MAC ? 'Ctrl+Tab' : 'Mod+Tab';
 const TAB_PREV = IS_MAC ? 'Ctrl+Shift+Tab' : 'Mod+Shift+Tab';
+// ⌃` like VS Code; Ctrl is Mod off the mac.
+const TERMINAL = IS_MAC ? 'Ctrl+Backquote' : 'Mod+Backquote';
 
 export const HOTKEY_COMMANDS: HotkeyCommand[] = [
   { id: 'send', label: 'hotkeys.cmd.send', group: 'hotkeys.group.request', def: 'Mod+Enter' },
@@ -29,7 +31,10 @@ export const HOTKEY_COMMANDS: HotkeyCommand[] = [
   { id: 'sidebarAlt', label: 'hotkeys.cmd.sidebarAlt', group: 'hotkeys.group.nav', def: 'Mod+B' },
   { id: 'showCollections', label: 'hotkeys.cmd.showCollections', group: 'hotkeys.group.nav', def: 'Mod+1' },
   { id: 'showHistory', label: 'hotkeys.cmd.showHistory', group: 'hotkeys.group.nav', def: 'Mod+2' },
-  { id: 'terminal', label: 'hotkeys.cmd.terminal', group: 'hotkeys.group.nav', def: 'Mod+J' },
+  { id: 'utilityPanel', label: 'hotkeys.cmd.utilityPanel', group: 'hotkeys.group.nav', def: 'Mod+J' },
+  { id: 'terminal', label: 'hotkeys.cmd.terminal', group: 'hotkeys.group.nav', def: TERMINAL },
+  { id: 'issues', label: 'hotkeys.cmd.issues', group: 'hotkeys.group.nav', def: 'Mod+Shift+M' },
+  { id: 'issuesFull', label: 'hotkeys.cmd.issuesFull', group: 'hotkeys.group.nav', def: 'Mod+Shift+J' },
   { id: 'workspaceMenu', label: 'hotkeys.cmd.workspaceMenu', group: 'hotkeys.group.nav', def: 'Mod+Shift+O' },
   { id: 'openFolder', label: 'hotkeys.cmd.openFolder', group: 'hotkeys.group.nav', def: 'Mod+O' },
   { id: 'settings', label: 'hotkeys.cmd.settings', group: 'hotkeys.group.nav', def: 'Mod+Comma' },
@@ -78,6 +83,7 @@ const KEY_LABEL: Record<string, string> = {
   ArrowRight: '→',
   Space: '␣',
   Comma: ',',
+  Backquote: '`',
 };
 
 /** Key caps, e.g. 'Mod+Shift+T' → ['⇧','⌘','T'] on mac, ['Ctrl','Shift','T'] elsewhere. */

@@ -244,6 +244,11 @@ export async function sendGrpcRequest(tab: Tab, requestId: string, context = cap
     elapsedMs: row.elapsedMs,
     message: row.error,
     logs: row.logs,
+    tests: row.tests,
+    scripted: !!(g.preRequestScript?.trim() || g.testScript?.trim()),
+    title: tab.title,
+    nodeId: tab.savedPath,
+    tabId: tab.id,
   });
   if (details.grpcResult)
     addHistory({

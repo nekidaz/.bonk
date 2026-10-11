@@ -47,7 +47,7 @@ import {
 import { isArrayOf, loadState, saveState, saveStateDebounced } from '$shared/persist';
 import { tabs } from '$entities/tab';
 import { environments, setActiveEnvironment } from '$entities/environment';
-import { runOne, runRequests, captureExecutionContext } from '$entities/request';
+import { addAppConsoleEntry, runOne, runRequests, captureExecutionContext } from '$entities/request';
 
 /**
  * The Collection Runner: runs a whole folder of saved requests (HTTP + gRPC) in
@@ -383,6 +383,22 @@ export function clearData(): void {
 /** Append a streamed result row (new array so Svelte reactivity fires). */
 function pushRow(row: RunResultRow): void {
   runner.updateRun((r) => ({ ...r, results: [...r.results, row], completed: r.completed + 1, current: null }));
+  // Flow · Консоль: Runner sends share the request feed.
+  addAppConsoleEntry({
+    protocol: row.protocol,
+    method: row.method,
+    url: row.target,
+    ok: row.ok,
+    status: String(row.status),
+    elapsedMs: row.elapsedMs,
+    message: row.error,
+    logs: row.logs,
+    tests: row.tests,
+    scripted: row.tests.length > 0 || row.logs.length > 0,
+    title: row.requestName,
+    nodeId: row.nodeId,
+    runner: true,
+  });
 }
 
 /** Close the run and record it in the persisted history. */

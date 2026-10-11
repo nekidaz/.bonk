@@ -49,6 +49,7 @@
     utilityMode={shell.utilityMode}
     onTerminal={() => toggleUtilityPanel('terminal')}
     onConsole={() => toggleUtilityPanel('console')}
+    onIssues={() => toggleUtilityPanel('issues')}
   />
 
   <AppOverlays />

@@ -5,6 +5,8 @@
   import { runner } from '$features/runner';
   import { cookieJar } from '$entities/cookies';
   import { git, GIT_ENABLED } from '$entities/git';
+  import { groupIssues, utilityUi } from '$features/utility-panel';
+  import { formatBinding, hotkeys } from '$shared/settings';
   import { layout } from './layout.svelte';
   import { t } from '$shared/i18n';
 
@@ -13,12 +15,33 @@
     utilityMode,
     onTerminal,
     onConsole,
+    onIssues,
   }: {
     onRunner: () => void;
     utilityMode: UtilityMode | null;
     onTerminal: () => void;
     onConsole: () => void;
+    onIssues: () => void;
   } = $props();
+
+  // CT9: the Issues chip; hovering it lists what failed in the last hour.
+  const issueCount = $derived(utilityUi.issues.length);
+  let peek = $state(false);
+  let peekTimer: ReturnType<typeof setTimeout> | undefined;
+  const recent = $derived(
+    peek
+      ? groupIssues(
+          utilityUi.issues.filter((x) => Date.now() - x.entry.at < 3_600_000),
+          'cause',
+        ).slice(0, 4)
+      : [],
+  );
+  function setPeek(on: boolean): void {
+    clearTimeout(peekTimer);
+    peekTimer = setTimeout(() => (peek = on && issueCount > 0), on ? 250 : 150);
+  }
+  /** `CreateBatch`, `DELETE /v1/payments/{id}`. */
+  const short = (target: string) => (target.includes(' ') ? target : (target.split('/').at(-1) ?? target));
 
   const runnerOn = $derived(tabs.active?.protocol === 'runner');
   const cookieCount = $derived(cookieJar.list.length);
@@ -43,10 +66,10 @@
 <div class="bs-status">
   <button
     class="bs-status-link"
-    class:on={utilityMode === 'console' || utilityMode === 'issues'}
+    class:on={utilityMode === 'console'}
     type="button"
     aria-label={t('nav.status.console')}
-    aria-pressed={utilityMode === 'console' || utilityMode === 'issues'}
+    aria-pressed={utilityMode === 'console'}
     onclick={onConsole}
     ><span class="material-symbols-outlined" aria-hidden="true">data_object</span><span class="lbl"
       >{t('nav.status.console')}</span
@@ -63,6 +86,48 @@
       >{t('nav.status.terminal')}</span
     ></button
   >
+  {#if issueCount || utilityMode === 'issues'}
+    <!-- svelte-ignore a11y_no_static_element_interactions -->
+    <div class="bs-status-issues" onmouseenter={() => setPeek(true)} onmouseleave={() => setPeek(false)}>
+      <button
+        class="bs-status-link issues"
+        class:on={utilityMode === 'issues'}
+        class:has={issueCount > 0}
+        type="button"
+        aria-pressed={utilityMode === 'issues'}
+        onclick={() => {
+          peek = false;
+          onIssues();
+        }}
+        ><span class="material-symbols-outlined" aria-hidden="true">error</span><span class="lbl"
+          >{issueCount ? `${t('nav.status.issues')} ${issueCount}` : t('nav.status.issues')}</span
+        ></button
+      >
+      {#if peek && recent.length}
+        <div class="bs-status-peek" role="tooltip">
+          <div class="head">
+            <span>{t('issues.recent')}</span><span>{formatBinding(hotkeys.current.utilityPanel).join('')}</span>
+          </div>
+          {#each recent as g (g.key)}
+            <div class="row">
+              <span class="material-symbols-outlined {g.kind === '4xx' ? 'warn' : 'err'}" aria-hidden="true"
+                >{g.icon}</span
+              >
+              <span class="name">{t(g.title, { name: g.arg ?? '' })} · {short(g.issues[0].target)}</span>
+              <span class="n">×{g.count}</span>
+            </div>
+          {/each}
+          <button
+            type="button"
+            onclick={() => {
+              peek = false;
+              if (utilityMode !== 'issues') onIssues();
+            }}>{t('issues.open')} <span aria-hidden="true">→</span></button
+          >
+        </div>
+      {/if}
+    </div>
+  {/if}
   {#if gitStatus}
     <button
       class="bs-status-link branch"
@@ -116,6 +181,68 @@
     .spin {
       animation: none;
     }
+  }
+  .bs-status-issues {
+    position: relative;
+  }
+  .bs-status-link.issues.has {
+    color: var(--red);
+  }
+  .bs-status-peek {
+    position: absolute;
+    z-index: 30;
+    bottom: calc(100% + 6px);
+    left: 0;
+    width: 330px;
+    padding: 8px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-card);
+    background: var(--color-raised);
+    box-shadow: var(--shadow-panel);
+    font-size: 12px;
+  }
+  .bs-status-peek .head {
+    display: flex;
+    justify-content: space-between;
+    padding: 2px 6px 6px;
+    color: var(--t3);
+    font-size: 9.5px;
+    letter-spacing: var(--tracking-eyebrow);
+    text-transform: uppercase;
+  }
+  .bs-status-peek .row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    height: 26px;
+    padding: 0 6px;
+  }
+  .bs-status-peek .row .material-symbols-outlined {
+    font-size: 14px;
+  }
+  .bs-status-peek .err {
+    color: var(--red);
+  }
+  .bs-status-peek .warn {
+    color: var(--orange);
+  }
+  .bs-status-peek .name {
+    min-width: 0;
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .bs-status-peek .n {
+    color: var(--t3);
+    font-family: var(--font-code);
+    font-size: 10.5px;
+  }
+  .bs-status-peek button {
+    margin-top: 4px;
+    padding: 4px 6px;
+    color: var(--text);
+    font-size: 12px;
   }
   .branch .lbl {
     font-family: var(--font-code);
