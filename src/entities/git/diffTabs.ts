@@ -21,15 +21,18 @@ function openGitTab(same: (g: GitTabState) => boolean, git: GitTabState, title: 
   tabs.activeId = tab.id;
 }
 
-/** Open (or focus) the diff tab of one file; `name` is what the tab says (the request name). */
-export function openGitDiffTab(path: string, mode: GitDiffMode = 'working', name?: string): void {
+/**
+ * Open (or focus) the diff tab of one file; `name` is what the tab says (the request name).
+ * With `rev` it is the file as a past commit changed it.
+ */
+export function openGitDiffTab(path: string, mode: GitDiffMode = 'working', name?: string, rev?: string): void {
   const clean = path.trim();
   if (!clean) return;
   const label = name || clean.split('/').filter(Boolean).at(-1) || clean;
   openGitTab(
-    (g) => (g.view ?? 'file') === 'file' && g.path === clean,
-    { path: clean, mode },
-    t('git.tab.diff', { name: label }),
+    (g) => (g.view ?? 'file') === 'file' && g.path === clean && g.rev === rev,
+    { path: clean, mode, rev },
+    rev ? t('git.tab.commitDiff', { name: label, rev: rev.slice(0, 7) }) : t('git.tab.diff', { name: label }),
   );
   // One tab per file: re-opening it from the other list switches its Working tree | Staged mode.
   tabs.updateById(tabs.activeId, (x) => (x.git && x.git.mode !== mode ? { ...x, git: { ...x.git, mode } } : x));
@@ -47,6 +50,12 @@ export function openStashTab(hash: string, message: string): void {
     { path: hash, mode: 'working', view: 'stash' },
     t('git.tab.stash', { name: message }),
   );
+}
+
+/** G5: open (or focus) the commit graph, selecting `hash` when given. */
+export function openGraphTab(hash?: string): void {
+  openGitTab((g) => g.view === 'graph', { path: '', mode: 'working', view: 'graph' }, t('git.tab.graph'));
+  if (hash) tabs.updateById(tabs.activeId, (x) => (x.git ? { ...x, git: { ...x.git, rev: hash } } : x));
 }
 
 /** G4b·E: open (or focus) the commit-message editor tab. */

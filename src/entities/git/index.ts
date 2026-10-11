@@ -1,8 +1,19 @@
 // Public API of entities/git (like the exported names of a Go package).
 // Code outside src/entities/git/ imports only from here; files inside use relative paths.
 
-export { openCommitEditorTab, openGitDiffTab, openProjectDiffTab, openStashTab } from './diffTabs';
+export { openCommitEditorTab, openGitDiffTab, openGraphTab, openProjectDiffTab, openStashTab } from './diffTabs';
 export {
+  abortOperation,
+  checkoutCommit,
+  cherryPick,
+  continueOperation,
+  createBranchAt,
+  createTag,
+  fetchAll,
+  mergeBranch,
+  rebaseOnto,
+  resetTo,
+  revertCommits,
   commitChanges,
   createBranch,
   discardPaths,
@@ -30,6 +41,7 @@ export { MESSAGE_MAX_LINES, messageParts, SUBJECT_MAX } from './commitMessage';
 export {
   describeFile,
   folderChangeCount,
+  isConflict,
   relativeAgo,
   shortAgo,
   statusColor,

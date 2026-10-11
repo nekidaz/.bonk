@@ -24,6 +24,9 @@ import {
   type GitBranch,
   type GitStash,
   type StashFile,
+  type GraphPage,
+  type CommitDetail,
+  type ResetMode,
   type FileDiff,
   parseScriptResult,
   type ScriptPhase,
@@ -432,6 +435,28 @@ export const gitStashDrop = (root: string, index: number) => invoke<void>('git_s
 export const gitStashBranch = (root: string, name: string, index: number) =>
   invoke<void>('git_stash_branch', { root, name, index });
 export const gitStashShow = (root: string, index: number) => invoke<StashFile[]>('git_stash_show', { root, index });
+export const gitGraphLog = (root: string, all: boolean, skip: number, limit: number) =>
+  invoke<GraphPage>('git_graph_log', { root, all, skip, limit });
+export const gitCommitDetail = (root: string, hash: string) =>
+  invoke<CommitDetail>('git_commit_detail', { root, hash });
+export const gitCommitFileDiff = (root: string, hash: string, path: string) =>
+  invoke<string>('git_commit_file_diff', { root, hash, path });
+export const gitCherryPick = (root: string, hashes: string[]) => invoke<void>('git_cherry_pick', { root, hashes });
+export const gitRevert = (root: string, hashes: string[]) => invoke<void>('git_revert', { root, hashes });
+export const gitMerge = (root: string, branch: string) => invoke<void>('git_merge', { root, branch });
+export const gitRebase = (root: string, onto: string) => invoke<void>('git_rebase', { root, onto });
+export const gitCheckoutDetached = (root: string, hash: string) =>
+  invoke<void>('git_checkout_detached', { root, hash });
+export const gitReset = (root: string, hash: string, mode: ResetMode) =>
+  invoke<void>('git_reset', { root, hash, mode });
+export const gitCreateTag = (root: string, name: string, hash: string) =>
+  invoke<void>('git_create_tag', { root, name, hash });
+export const gitCreateBranchAt = (root: string, name: string, hash: string) =>
+  invoke<void>('git_create_branch_at', { root, name, hash });
+export const gitFormatPatch = (root: string, hashes: string[]) => invoke<string>('git_format_patch', { root, hashes });
+export const gitFetch = (root: string) => invoke<string>('git_fetch', { root });
+export const gitOperationAbort = (root: string) => invoke<void>('git_operation_abort', { root });
+export const gitOperationContinue = (root: string) => invoke<void>('git_operation_continue', { root });
 
 // OS keychain (secret env vars)
 export const secretGet = (key: string) => invoke<string | null>('secret_get', { key });

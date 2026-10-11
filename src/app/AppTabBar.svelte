@@ -55,7 +55,7 @@
     runner: 'play_arrow',
     flow: 'account_tree',
   };
-  const GIT_VIEW_ICON: Record<string, string> = { stash: 'inventory_2', commit: 'commit' };
+  const GIT_VIEW_ICON: Record<string, string> = { stash: 'inventory_2', commit: 'commit', graph: 'account_tree' };
   const tabIcon = (tb: Tab): string | undefined => GIT_VIEW_ICON[tb.git?.view ?? ''] ?? TAB_ICON[tb.protocol];
 
   function tabMethodLabel(t: Tab): string {

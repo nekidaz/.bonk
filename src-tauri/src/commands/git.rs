@@ -148,3 +148,87 @@ pub async fn git_stash_branch(root: String, name: String, index: u32) -> Result<
 pub async fn git_stash_show(root: String, index: u32) -> Result<Vec<git::StashFile>, String> {
     off_main(move || git::stash_show(&root, index)).await
 }
+
+#[tauri::command]
+pub async fn git_graph_log(
+    root: String,
+    all: bool,
+    skip: u32,
+    limit: u32,
+) -> Result<git::GraphPage, String> {
+    off_main(move || git::graph_log(&root, all, skip, limit)).await
+}
+
+#[tauri::command]
+pub async fn git_commit_detail(root: String, hash: String) -> Result<git::CommitDetail, String> {
+    off_main(move || git::commit_detail(&root, &hash)).await
+}
+
+#[tauri::command]
+pub async fn git_commit_file_diff(
+    root: String,
+    hash: String,
+    path: String,
+) -> Result<String, String> {
+    off_main(move || git::commit_file_diff(&root, &hash, &path)).await
+}
+
+#[tauri::command]
+pub async fn git_cherry_pick(root: String, hashes: Vec<String>) -> Result<(), String> {
+    off_main(move || git::cherry_pick(&root, &hashes)).await
+}
+
+#[tauri::command]
+pub async fn git_revert(root: String, hashes: Vec<String>) -> Result<(), String> {
+    off_main(move || git::revert(&root, &hashes)).await
+}
+
+#[tauri::command]
+pub async fn git_merge(root: String, branch: String) -> Result<(), String> {
+    off_main(move || git::merge(&root, &branch)).await
+}
+
+#[tauri::command]
+pub async fn git_rebase(root: String, onto: String) -> Result<(), String> {
+    off_main(move || git::rebase(&root, &onto)).await
+}
+
+#[tauri::command]
+pub async fn git_checkout_detached(root: String, hash: String) -> Result<(), String> {
+    off_main(move || git::checkout_detached(&root, &hash)).await
+}
+
+#[tauri::command]
+pub async fn git_reset(root: String, hash: String, mode: String) -> Result<(), String> {
+    off_main(move || git::reset(&root, &hash, &mode)).await
+}
+
+#[tauri::command]
+pub async fn git_create_tag(root: String, name: String, hash: String) -> Result<(), String> {
+    off_main(move || git::create_tag(&root, &name, &hash)).await
+}
+
+#[tauri::command]
+pub async fn git_create_branch_at(root: String, name: String, hash: String) -> Result<(), String> {
+    off_main(move || git::create_branch_at(&root, &name, &hash)).await
+}
+
+#[tauri::command]
+pub async fn git_format_patch(root: String, hashes: Vec<String>) -> Result<String, String> {
+    off_main(move || git::format_patch(&root, &hashes)).await
+}
+
+#[tauri::command]
+pub async fn git_fetch(root: String) -> Result<String, String> {
+    off_main(move || git::fetch(&root)).await
+}
+
+#[tauri::command]
+pub async fn git_operation_abort(root: String) -> Result<(), String> {
+    off_main(move || git::operation_abort(&root)).await
+}
+
+#[tauri::command]
+pub async fn git_operation_continue(root: String) -> Result<(), String> {
+    off_main(move || git::operation_continue(&root)).await
+}

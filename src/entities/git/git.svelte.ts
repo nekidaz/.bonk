@@ -9,7 +9,7 @@
  * switches or closes.
  */
 import { untrack } from 'svelte';
-import type { GitBranch, GitCommit, GitStash, GitStatus } from '$shared/model';
+import type { GitCommit, GitStash, GitStatus, ResetMode } from '$shared/model';
 import {
   gitStatus as gitStatusApi,
   gitStage,
@@ -29,6 +29,17 @@ import {
   gitStashPop,
   gitStashDrop,
   gitStashBranch,
+  gitCherryPick,
+  gitRevert,
+  gitMerge,
+  gitRebase,
+  gitCheckoutDetached,
+  gitReset,
+  gitCreateTag,
+  gitCreateBranchAt,
+  gitFetch,
+  gitOperationAbort,
+  gitOperationContinue,
 } from '$shared/ipc';
 import { statusByPath } from './gitStatus';
 import { workspace } from '$entities/workspace';
@@ -245,6 +256,24 @@ export async function stashBranch(name: string, index: number): Promise<boolean>
   return runGit('stash-branch', (root) => gitStashBranch(root, clean, index));
 }
 
+// ---- G6: commit actions from the graph. Hashes come in list order (newest first). ----
+
+/** Apply commits on top of the current branch, oldest first like the history they came from. */
+export const cherryPick = (hashes: string[]) =>
+  runGit('cherry-pick', (root) => gitCherryPick(root, [...hashes].reverse()));
+/** Undo commits with new commits, newest first so each revert applies cleanly. */
+export const revertCommits = (hashes: string[]) => runGit('revert', (root) => gitRevert(root, hashes));
+export const mergeBranch = (branch: string) => runGit('merge', (root) => gitMerge(root, branch));
+export const rebaseOnto = (branch: string) => runGit('rebase', (root) => gitRebase(root, branch));
+export const checkoutCommit = (hash: string) => runGit('checkout', (root) => gitCheckoutDetached(root, hash));
+export const resetTo = (hash: string, mode: ResetMode) => runGit('reset', (root) => gitReset(root, hash, mode));
+export const createTag = (name: string, hash: string) => runGit('tag', (root) => gitCreateTag(root, name.trim(), hash));
+export const createBranchAt = (name: string, hash: string) =>
+  runGit('branch', (root) => gitCreateBranchAt(root, name.trim(), hash));
+/** G7: give up on, or go on with, a cherry-pick / merge / rebase / revert that stopped on conflicts. */
+export const abortOperation = () => runGit('abort', gitOperationAbort);
+export const continueOperation = () => runGit('continue', gitOperationContinue);
+
 /**
  * Pull or push the current branch. Returns git's output (e.g. "Everything up-to-date")
  * or the error message so the UI can surface it. Sets git.busy for the duration.
@@ -268,6 +297,7 @@ async function sync(name: string, fn: (root: string) => Promise<string>): Promis
 }
 
 export const pull = (): Promise<string> => sync('pull', gitPull);
+export const fetchAll = (): Promise<string> => sync('fetch', gitFetch);
 export const push = (): Promise<string> => sync('push', gitPush);
 
 /**
