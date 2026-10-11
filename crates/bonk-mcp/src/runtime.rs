@@ -1,21 +1,29 @@
 use std::{
-    collections::{BTreeMap, HashMap},
+    collections::{BTreeMap, BTreeSet, HashMap},
     path::{Path, PathBuf},
-    sync::Arc,
+    sync::{Arc, Mutex},
     time::Duration,
 };
 
 use bonk_core::{
-    application::{grpc_native, http, workspace},
+    application::{
+        grpc_native, http,
+        runner::{
+            self, GrpcSchema, GrpcTarget, RunControl, RunEvent, RunPlan, RunResultRow, RunVars,
+            Transport,
+        },
+        workspace,
+    },
     conn::GrpcDescriptorCache,
     domain::{
-        http::{AuthConfig, HttpRequest, RequestSettings},
+        grpc::{GrpcPrefs, GrpcResult},
+        http::{HttpRequest, HttpResponse, RequestSettings},
         request_prep::{self, resolve_text},
         workspace::{GrpcTabState, Param, RequestNode, TreeNode},
     },
     infra::cookie_jar::{jar_path, CookieJar, JarProvider},
 };
-use serde_json::Value;
+use serde_json::{json, Value};
 
 use crate::{
     redact::{
@@ -23,12 +31,9 @@ use crate::{
         sanitize_http_response, sanitize_tests, sanitize_text,
     },
     request_prep::{build_http_client, collect_requests, count_tree, target_host_allowed},
-    scripts::{
-        apply_request_patch, grpc_script_context, http_script_context, run_script, ScriptState,
-    },
     types::{
-        GrpcCallOutput, GrpcSchemaArgs, HttpRunOutput, MutationResult, RequestSummary, TreeEntry,
-        ValidationResult, WorkspaceInfo,
+        GrpcCallOutput, GrpcSchemaArgs, HttpRunOutput, MutationResult, RequestSummary, ScriptTest,
+        TreeEntry, ValidationResult, WorkspaceInfo,
     },
     vars::{
         app_scopes, keychain_secret, load_app_vars, merged_scope, reject_unresolved,
@@ -451,7 +456,7 @@ impl BonkRuntime {
 
     pub async fn execute_http(
         &self,
-        mut request: HttpRequest,
+        request: HttpRequest,
         params: Option<Vec<Param>>,
         variables: BTreeMap<String, String>,
         environment: Option<&str>,
@@ -459,73 +464,42 @@ impl BonkRuntime {
         body_limit: usize,
     ) -> Result<HttpRunOutput, String> {
         self.require_network()?;
-        request_prep::materialize(&mut request, params.as_deref());
-        let (mut environment, mut globals, secrets) = self.scopes(variables, environment)?;
-        let mut state = ScriptState::default();
-
-        if let Some(code) = request
-            .pre_request_script
-            .as_deref()
-            .filter(|code| !code.trim().is_empty())
-        {
-            let context = http_script_context(&request, None, &environment, &globals);
-            let result = run_script("pre-request", code, context)
-                .await
-                .map_err(|error| sanitize_error(&error, &secrets))?;
-            state.apply(&result, &mut environment, &mut globals);
-            apply_request_patch(&mut request, result.request_patch);
-            if let Some(error) = result.error {
-                return Err(sanitize_text(&error, &secrets));
-            }
-        }
-
-        let scope = merged_scope(&globals, &environment);
-        request_prep::resolve(&mut request, &scope)?;
-        self.normalize_file_paths(&mut request)
-            .map_err(|error| sanitize_error(&error, &secrets))?;
-        let unresolved = unresolved_in_request(&request);
-        if !unresolved.is_empty() {
-            return Err(format!("unresolved variables: {}", unresolved.join(", ")));
-        }
-        self.check_http_target(&request.url)
-            .map_err(|error| sanitize_error(&error, &secrets))?;
-
-        let settings = settings.normalized();
-        let client = build_http_client(&settings, &self.config.target_hosts, self.read_only_jar())?;
-        let response = http::http_send(client, request.clone(), settings, None)
-            .await
-            .map_err(|error| sanitize_error(&error, &secrets))?;
-
-        if let Some(code) = request
-            .test_script
-            .as_deref()
-            .filter(|code| !code.trim().is_empty())
-        {
-            let context = http_script_context(&request, Some(&response), &environment, &globals);
-            let result = run_script("test", code, context)
-                .await
-                .map_err(|error| sanitize_error(&error, &secrets))?;
-            state.apply(&result, &mut environment, &mut globals);
-            state.script_error = result.error;
-        }
-
-        let tests_ok = state.tests.iter().all(|test| test.passed);
-        let script_ok = state.script_error.is_none();
+        let (environment, globals, secrets) = self.scopes(variables, environment)?;
+        let node = RequestNode {
+            id: String::new(),
+            name: "request".into(),
+            protocol: "http".into(),
+            request,
+            params,
+            grpc: None,
+            spec: None,
+        };
+        let run = self
+            .run_one(
+                node,
+                RunVars {
+                    environment,
+                    globals,
+                },
+                settings,
+                GRPC_TIMEOUT,
+            )
+            .await?;
+        // Nothing came back: the pre-request script, the policy or the network stopped it.
+        let Some(response) = run.http else {
+            return Err(run.failure(&secrets));
+        };
+        let row = run.row;
+        let tests_ok = row.tests.iter().all(|test| test.passed);
         let transport_ok = (200..400).contains(&response.status);
         Ok(HttpRunOutput {
-            ok: transport_ok && tests_ok && script_ok,
+            ok: transport_ok && tests_ok && row.error.is_none(),
             // Cut after sanitizing, so a secret is never split past the redaction.
             response: sanitize_http_response(response, &secrets).truncate_body(body_limit),
-            tests: sanitize_tests(state.tests, &secrets),
-            logs: state
-                .logs
-                .into_iter()
-                .map(|value| sanitize_text(&value, &secrets))
-                .collect(),
-            script_error: state
-                .script_error
-                .map(|value| sanitize_text(&value, &secrets)),
-            changed_variables: state.changed.into_iter().collect(),
+            tests: sanitize_tests(mcp_tests(row.tests), &secrets),
+            logs: sanitize_all(row.logs, &secrets),
+            script_error: row.error.map(|value| sanitize_text(&value, &secrets)),
+            changed_variables: run.changed,
         })
     }
 
@@ -539,25 +513,26 @@ impl BonkRuntime {
     ) -> Result<Value, String> {
         let tree = self.tree()?;
         let mut node = self.find_request(id)?;
+        // A request set to `inherit` sends its folder's auth, as in the app.
+        node.request.auth = Some(request_prep::effective_auth(
+            &tree,
+            id,
+            node.request.auth.as_ref(),
+        ));
+        if let Some(grpc) = node.grpc.as_mut() {
+            grpc.auth = Some(request_prep::effective_auth(&tree, id, grpc.auth.as_ref()));
+        }
         if node.protocol == "grpc" {
-            let grpc = node
-                .grpc
-                .ok_or_else(|| "saved gRPC request has no grpc configuration".to_string())?;
-            let auth = request_prep::effective_auth(&tree, id, grpc.auth.as_ref());
-            serde_json::to_value(
-                self.execute_saved_grpc(grpc, auth, variables, environment)
-                    .await?,
-            )
-            .map_err(|error| error.to_string())
+            if node.grpc.is_none() {
+                return Err("saved gRPC request has no grpc configuration".into());
+            }
+            let output = self
+                .execute_grpc(node, variables, environment, GRPC_TIMEOUT)
+                .await?;
+            serde_json::to_value(output).map_err(|error| error.to_string())
         } else {
-            // A request set to `inherit` sends its folder's auth, as in the app.
-            node.request.auth = Some(request_prep::effective_auth(
-                &tree,
-                id,
-                node.request.auth.as_ref(),
-            ));
-            serde_json::to_value(
-                self.execute_http(
+            let output = self
+                .execute_http(
                     node.request,
                     node.params,
                     variables,
@@ -565,10 +540,65 @@ impl BonkRuntime {
                     settings,
                     body_limit,
                 )
-                .await?,
-            )
-            .map_err(|error| error.to_string())
+                .await?;
+            serde_json::to_value(output).map_err(|error| error.to_string())
         }
+    }
+
+    /// One request through bonk-core's runner (the app's engine), behind this server's policy.
+    async fn run_one(
+        &self,
+        node: RequestNode,
+        mut vars: RunVars,
+        settings: RequestSettings,
+        grpc_timeout: Duration,
+    ) -> Result<RunOne, String> {
+        let transport = McpTransport {
+            runtime: self,
+            settings: settings.normalized(),
+            grpc_timeout,
+            http: Mutex::new(None),
+            grpc: Mutex::new(None),
+        };
+        let plan = RunPlan {
+            requests: vec![node],
+            workspace_root: self.root_str(),
+            ..RunPlan::default()
+        };
+        let events = Mutex::new(Vec::new());
+        runner::run_collection(
+            &plan,
+            &mut vars,
+            &transport,
+            &RunControl::default(),
+            &|event| {
+                if let Ok(mut events) = events.lock() {
+                    events.push(event);
+                }
+            },
+        )
+        .await;
+        let mut changed = BTreeSet::new();
+        let mut row = None;
+        for event in events
+            .into_inner()
+            .map_err(|_| "runner events lock poisoned")?
+        {
+            match event {
+                RunEvent::Vars(w) => {
+                    changed.extend(w.env_set.into_keys().chain(w.env_unset));
+                    changed.extend(w.globals_set.into_keys().chain(w.globals_unset));
+                }
+                RunEvent::Row(r) => row = Some(*r),
+                _ => {}
+            }
+        }
+        Ok(RunOne {
+            row: row.ok_or("the run produced no result")?,
+            changed: changed.into_iter().collect(),
+            http: transport.http.into_inner().ok().flatten(),
+            grpc: transport.grpc.into_inner().ok().flatten(),
+        })
     }
 
     pub async fn grpc_reflect(
@@ -616,179 +646,72 @@ impl BonkRuntime {
         metadata: BTreeMap<String, String>,
         timeout_ms: Option<u64>,
     ) -> Result<GrpcCallOutput, String> {
-        self.require_network()?;
-        let (endpoint, scope, secrets) = self.resolve_grpc_endpoint(&schema)?;
-        self.check_grpc_target(&endpoint)
-            .map_err(|error| sanitize_error(&error, &secrets))?;
-        let cache = self
-            .load_grpc_schema(&schema, &endpoint)
-            .await
-            .map_err(|error| sanitize_error(&error, &secrets))?;
-        let method = resolve_text(&method, &scope);
-        let message = resolve_text(
-            &serde_json::to_string(&message).map_err(|e| e.to_string())?,
-            &scope,
-        );
-        let metadata = metadata
-            .into_iter()
-            .map(|(key, value)| (resolve_text(&key, &scope), resolve_text(&value, &scope)))
-            .collect::<HashMap<_, _>>();
-        reject_unresolved_grpc(&endpoint, &method, &message, metadata.iter())?;
-        let channel = grpc_native::connect(&endpoint, schema.plaintext)
-            .await
-            .map_err(|error| sanitize_error(&error.message, &secrets))?;
+        let grpc = GrpcTabState {
+            endpoint: schema.endpoint,
+            plaintext: schema.plaintext,
+            connection_id: None,
+            method: Some(method),
+            message: serde_json::to_string(&message).map_err(|e| e.to_string())?,
+            metadata,
+            source: (!schema.proto_paths.is_empty()).then(|| "proto".to_string()),
+            proto_paths: Some(schema.proto_paths),
+            import_paths: Some(schema.import_paths),
+            pre_request_script: None,
+            test_script: None,
+            tls: None,
+            auth: None,
+            keep_auth_on_plaintext: None,
+        };
+        let node = RequestNode {
+            id: String::new(),
+            name: "call".into(),
+            protocol: "grpc".into(),
+            request: serde_json::from_value(json!({ "method": "POST", "url": "" }))
+                .map_err(|e| e.to_string())?,
+            params: None,
+            grpc: Some(grpc),
+            spec: None,
+        };
         let timeout = Duration::from_millis(timeout_ms.unwrap_or(30_000).min(600_000));
-        let result = tokio::time::timeout(
+        self.execute_grpc(
+            node,
+            schema.variables,
+            schema.environment.as_deref(),
             timeout,
-            grpc_native::call(channel, cache, &method, &message, &metadata),
         )
         .await
-        .map_err(|_| format!("gRPC call timed out after {} ms", timeout.as_millis()))?
-        .map_err(|error| sanitize_error(&error.message, &secrets))?;
-        Ok(GrpcCallOutput {
-            ok: result.ok,
-            status: result.status,
-            body: sanitize_text(&result.body, &secrets),
-            elapsed_ms: result.elapsed_ms,
-            size_bytes: result.size_bytes,
-            tests: vec![],
-            logs: vec![],
-            script_error: None,
-            changed_variables: vec![],
-        })
     }
 
-    async fn execute_saved_grpc(
+    async fn execute_grpc(
         &self,
-        grpc: GrpcTabState,
-        auth: AuthConfig,
+        node: RequestNode,
         variables: BTreeMap<String, String>,
         environment: Option<&str>,
+        timeout: Duration,
     ) -> Result<GrpcCallOutput, String> {
         self.require_network()?;
-        let (mut environment, mut globals, secrets) = self.scopes(variables, environment)?;
-        let mut state = ScriptState::default();
-        let mut endpoint = grpc.endpoint.clone();
-        let mut message = grpc.message.clone();
-        let mut metadata = grpc.metadata.clone();
-        let method = grpc
-            .method
-            .clone()
-            .ok_or_else(|| "saved gRPC request has no method".to_string())?;
-
-        if let Some(code) = grpc
-            .pre_request_script
-            .as_deref()
-            .filter(|code| !code.trim().is_empty())
-        {
-            let context = grpc_script_context(
-                &method,
-                &endpoint,
-                &message,
-                &metadata,
-                None,
-                &environment,
-                &globals,
-            );
-            let result = run_script("pre-request", code, context)
-                .await
-                .map_err(|error| sanitize_error(&error, &secrets))?;
-            state.apply(&result, &mut environment, &mut globals);
-            if let Some(patch) = result.request_patch {
-                if let Some(value) = patch.url {
-                    endpoint = value;
-                }
-                if let Some(value) = patch.body {
-                    message = value;
-                }
-                if let Some(value) = patch.headers {
-                    metadata = value;
-                }
-            }
-            if let Some(error) = result.error {
-                return Err(sanitize_text(&error, &secrets));
-            }
-        }
-
-        let scope = merged_scope(&globals, &environment);
-        endpoint = resolve_text(&endpoint, &scope);
-        let strip_authorization = grpc.plaintext && !grpc.keep_auth_on_plaintext.unwrap_or(false);
-        let outgoing = request_prep::grpc_prepare(
-            Some(&auth),
-            &message,
-            &metadata,
-            &scope,
-            strip_authorization,
-        );
-        message = outgoing.message;
-        metadata = outgoing.metadata;
-        let method = resolve_text(&method, &scope);
-        reject_unresolved_grpc(&endpoint, &method, &message, metadata.iter())?;
-        self.check_grpc_target(&endpoint)
-            .map_err(|error| sanitize_error(&error, &secrets))?;
-
-        let schema = GrpcSchemaArgs {
-            endpoint: endpoint.clone(),
-            plaintext: grpc.plaintext,
-            proto_paths: grpc.proto_paths.clone().unwrap_or_default(),
-            import_paths: grpc.import_paths.clone().unwrap_or_default(),
-            variables: BTreeMap::new(),
-            environment: None,
+        let (environment, globals, secrets) = self.scopes(variables, environment)?;
+        let vars = RunVars {
+            environment,
+            globals,
         };
-        let cache = self
-            .load_grpc_schema(&schema, &endpoint)
-            .await
-            .map_err(|error| sanitize_error(&error, &secrets))?;
-        let channel = grpc_native::connect(&endpoint, grpc.plaintext)
-            .await
-            .map_err(|error| sanitize_error(&error.message, &secrets))?;
-        let metadata_map = metadata.clone().into_iter().collect::<HashMap<_, _>>();
-        let result = tokio::time::timeout(
-            Duration::from_secs(30),
-            grpc_native::call(channel, cache, &method, &message, &metadata_map),
-        )
-        .await
-        .map_err(|_| "gRPC call timed out after 30000 ms".to_string())?
-        .map_err(|error| sanitize_error(&error.message, &secrets))?;
-
-        if let Some(code) = grpc
-            .test_script
-            .as_deref()
-            .filter(|code| !code.trim().is_empty())
-        {
-            let context = grpc_script_context(
-                &method,
-                &endpoint,
-                &message,
-                &metadata,
-                Some(&result),
-                &environment,
-                &globals,
-            );
-            let script_result = run_script("test", code, context)
-                .await
-                .map_err(|error| sanitize_error(&error, &secrets))?;
-            state.apply(&script_result, &mut environment, &mut globals);
-            state.script_error = script_result.error;
-        }
-
-        let tests_ok = state.tests.iter().all(|test| test.passed);
+        let run = self
+            .run_one(node, vars, RequestSettings::default(), timeout)
+            .await?;
+        let Some(result) = run.grpc else {
+            return Err(run.failure(&secrets));
+        };
+        let row = run.row;
         Ok(GrpcCallOutput {
-            ok: result.ok && tests_ok && state.script_error.is_none(),
+            ok: row.ok,
             status: result.status,
             body: sanitize_text(&result.body, &secrets),
             elapsed_ms: result.elapsed_ms,
             size_bytes: result.size_bytes,
-            tests: sanitize_tests(state.tests, &secrets),
-            logs: state
-                .logs
-                .into_iter()
-                .map(|value| sanitize_text(&value, &secrets))
-                .collect(),
-            script_error: state
-                .script_error
-                .map(|value| sanitize_text(&value, &secrets)),
-            changed_variables: state.changed.into_iter().collect(),
+            tests: sanitize_tests(mcp_tests(row.tests), &secrets),
+            logs: sanitize_all(row.logs, &secrets),
+            script_error: row.error.map(|value| sanitize_text(&value, &secrets)),
+            changed_variables: run.changed,
         })
     }
 
@@ -1055,6 +978,144 @@ fn compact(nodes: Vec<TreeNode>) -> Vec<TreeEntry> {
         .collect()
 }
 
+/// Unary gRPC deadline when the tool doesn't set one.
+const GRPC_TIMEOUT: Duration = Duration::from_secs(30);
+
+/// What one `run_one` produced: the row, and the raw response the transport saw.
+struct RunOne {
+    row: RunResultRow,
+    /// Variable names the scripts set or unset.
+    changed: Vec<String>,
+    http: Option<HttpResponse>,
+    grpc: Option<GrpcResult>,
+}
+
+impl RunOne {
+    /// Why nothing came back, redacted.
+    fn failure(&self, secrets: &[String]) -> String {
+        sanitize_error(
+            self.row.error.as_deref().unwrap_or("request failed"),
+            secrets,
+        )
+    }
+}
+
+fn mcp_tests(tests: Vec<runner::ScriptTest>) -> Vec<ScriptTest> {
+    tests
+        .into_iter()
+        .map(|t| ScriptTest {
+            name: t.name,
+            passed: t.passed,
+            error: t.error,
+        })
+        .collect()
+}
+
+fn sanitize_all(values: Vec<String>, secrets: &[String]) -> Vec<String> {
+    values
+        .into_iter()
+        .map(|value| sanitize_text(&value, secrets))
+        .collect()
+}
+
+/// bonk-core's runner network with this server's guard rails: the target-host policy,
+/// uploads and protos confined to the workspace, unresolved `{{vars}}` refused, the
+/// app's cookies read-only. Keeps the call's raw response for the tool output.
+struct McpTransport<'a> {
+    runtime: &'a BonkRuntime,
+    settings: RequestSettings,
+    grpc_timeout: Duration,
+    http: Mutex<Option<HttpResponse>>,
+    grpc: Mutex<Option<GrpcResult>>,
+}
+
+impl Transport for McpTransport<'_> {
+    /// The target (dialed per call, like before) and its loaded schema.
+    type Grpc = (GrpcTarget, GrpcDescriptorCache);
+
+    async fn send_http(&self, mut request: HttpRequest) -> Result<HttpResponse, String> {
+        self.runtime.normalize_file_paths(&mut request)?;
+        let unresolved = unresolved_in_request(&request);
+        if !unresolved.is_empty() {
+            return Err(format!("unresolved variables: {}", unresolved.join(", ")));
+        }
+        self.runtime.check_http_target(&request.url)?;
+        let client = build_http_client(
+            &self.settings,
+            &self.runtime.config.target_hosts,
+            self.runtime.read_only_jar(),
+        )?;
+        let response = http::http_send(client, request, self.settings.clone(), None).await?;
+        if let Ok(mut slot) = self.http.lock() {
+            *slot = Some(response.clone());
+        }
+        Ok(response)
+    }
+
+    async fn grpc_open(&self, target: GrpcTarget) -> Result<Self::Grpc, String> {
+        reject_unresolved(&[&target.endpoint])?;
+        self.runtime.check_grpc_target(&target.endpoint)?;
+        let cache = match &target.schema {
+            GrpcSchema::Reflection => grpc_native::reflect_with(
+                &target.endpoint,
+                target.plaintext,
+                &target.tls,
+                &GrpcPrefs::default(),
+            )
+            .await
+            .map_err(|e| e.message)?,
+            GrpcSchema::Proto { files, imports } => {
+                let files = self.runtime.normalize_proto_paths(files)?;
+                let includes = self.runtime.normalize_proto_paths(imports)?;
+                tokio::task::spawn_blocking(move || grpc_native::compile_protos(&files, &includes))
+                    .await
+                    .map_err(|error| format!("proto compile task failed: {error}"))??
+            }
+        };
+        Ok((target, cache))
+    }
+
+    async fn grpc_call(
+        &self,
+        conn: &Self::Grpc,
+        method: &str,
+        message: &str,
+        metadata: &BTreeMap<String, String>,
+    ) -> Result<GrpcResult, String> {
+        let (target, cache) = conn;
+        reject_unresolved_grpc(&target.endpoint, method, message, metadata.iter())?;
+        let metadata: HashMap<String, String> = metadata.clone().into_iter().collect();
+        let call = async {
+            let prefs = GrpcPrefs::default();
+            let channel =
+                grpc_native::connect_with(&target.endpoint, target.plaintext, &target.tls, &prefs)
+                    .await?;
+            grpc_native::call(channel, cache.clone(), method, message, &metadata).await
+        };
+        let result = tokio::time::timeout(self.grpc_timeout, call)
+            .await
+            .map_err(|_| {
+                format!(
+                    "gRPC call timed out after {} ms",
+                    self.grpc_timeout.as_millis()
+                )
+            })?
+            .map_err(|e| e.message)?;
+        if let Ok(mut slot) = self.grpc.lock() {
+            *slot = Some(result.clone());
+        }
+        Ok(result)
+    }
+
+    fn script_cookies(&self, url: &str, response: Option<&HttpResponse>) -> Vec<(String, String)> {
+        let set = response.map_or(&[][..], |r| r.cookies.as_slice());
+        self.runtime
+            .read_only_jar()
+            .map(|p| p.jar.script_cookies(url, set))
+            .unwrap_or_default()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1165,6 +1226,97 @@ mod tests {
             header_notes: None,
             disabled_headers: None,
         }
+    }
+
+    /// A one-shot HTTP server on localhost: answers with the request's `Authorization`
+    /// header as JSON. Returns its base URL.
+    async fn echo_auth_server() -> String {
+        use tokio::io::{AsyncReadExt, AsyncWriteExt};
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+        tokio::spawn(async move {
+            let (mut socket, _) = listener.accept().await.unwrap();
+            let mut buf = vec![0; 8192];
+            let n = socket.read(&mut buf).await.unwrap();
+            let head = String::from_utf8_lossy(&buf[..n]).to_string();
+            let auth = head
+                .lines()
+                .find_map(|l| {
+                    l.strip_prefix("authorization: ")
+                        .or(l.strip_prefix("Authorization: "))
+                })
+                .unwrap_or_default()
+                .to_string();
+            let body = serde_json::json!({ "auth": auth }).to_string();
+            let reply = format!(
+                "HTTP/1.1 200 OK\r\ncontent-type: application/json\r\ncontent-length: {}\r\nconnection: close\r\n\r\n{body}",
+                body.len()
+            );
+            socket.write_all(reply.as_bytes()).await.unwrap();
+        });
+        format!("http://{addr}")
+    }
+
+    /// The whole MCP path on bonk-core's runner: a saved request inherits its folder's
+    /// auth, `{{vars}}` resolve, the test script runs and its write is reported.
+    #[tokio::test]
+    async fn saved_request_runs_through_the_core_runner() {
+        let workspace = TestWorkspace::new();
+        let folder = workspace.0.join("api");
+        std::fs::create_dir(&folder).unwrap();
+        std::fs::write(
+            folder.join(".folder.bonk.json"),
+            r#"{"auth": {"type": "bearer", "bearerToken": "{{token}}"}}"#,
+        )
+        .unwrap();
+        std::fs::write(
+            folder.join("me.bonk.json"),
+            r#"{"name": "me", "protocol": "http", "request": {
+                "method": "GET", "url": "{{base}}/me", "headers": {},
+                "auth": {"type": "inherit"},
+                "testScript": "pm.environment.set('seen', pm.response.json().auth); pm.test('auth', function(){ pm.expect(pm.response.json().auth).to.equal('Bearer t1'); });"
+            }}"#,
+        )
+        .unwrap();
+        let base = echo_auth_server().await;
+        let variables = BTreeMap::from([
+            ("base".to_string(), base),
+            ("token".to_string(), "t1".to_string()),
+        ]);
+        let out = workspace
+            .runtime(false, true)
+            .run_saved_request(
+                "fs:api/me.bonk.json",
+                variables,
+                None,
+                RequestSettings::default(),
+                1 << 20,
+            )
+            .await
+            .expect("run saved request");
+        assert_eq!(out["ok"], true, "{out}");
+        assert_eq!(out["response"]["status"], 200);
+        assert_eq!(out["tests"][0]["passed"], true, "{out}");
+        assert_eq!(out["changedVariables"], serde_json::json!(["seen"]));
+    }
+
+    #[tokio::test]
+    async fn a_refused_target_is_an_error_not_a_result() {
+        let workspace = TestWorkspace::new();
+        let mut runtime = workspace.runtime(false, true);
+        Arc::make_mut(&mut runtime.config).target_hosts = vec!["allowed.test".into()];
+        let error = runtime
+            .execute_http(
+                request("http://127.0.0.1:9/x"),
+                None,
+                BTreeMap::new(),
+                None,
+                RequestSettings::default(),
+                1024,
+            )
+            .await
+            .expect_err("host outside --target-host");
+        assert!(error.starts_with(DENIED), "{error}");
     }
 
     #[test]

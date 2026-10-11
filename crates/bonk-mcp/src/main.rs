@@ -1,7 +1,6 @@
 mod redact;
 mod request_prep;
 mod runtime;
-mod scripts;
 mod server;
 mod types;
 mod vars;
