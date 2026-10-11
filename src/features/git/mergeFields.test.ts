@@ -207,6 +207,30 @@ describe('field merge of arrays', () => {
       expect(merge(b, m2, t, { 'items[1].b': 'mine' }).items).toEqual([e(1, 1), e(8, 5), e(3, 3)]);
     });
 
+    it('tells a replacement by its other shape: removed + added, not an edit', () => {
+      const b = { items: [e(1, 1), e(2, 2)] };
+      const t = { items: [e(1, 1), { url: '/x', method: 'GET' }] };
+      expect(kinds(b, b, t)).toMatchObject({ 'items[1]': 'theirs', 'items[2]': 'theirs' });
+      expect(merge(b, b, t).items).toEqual([e(1, 1), { url: '/x', method: 'GET' }]);
+    });
+
+    it('marks a pairing made only by place, and splits it on request', () => {
+      const b = { items: [e(1, 1), e(2, 2)] };
+      const t = { items: [e(1, 1), e(8, 9)] };
+      const guessed = fields(b, b, t).filter((f) => f.guess);
+      expect(guessed.map((f) => f.label)).toEqual(['items[1].a', 'items[1].b']);
+      // «Это замена»: the same element is now gone and a new one added.
+      const splits = new Set(guessed[0].guess);
+      const split = fields(b, b, t, splits);
+      expect(Object.fromEntries(split.map((f) => [f.label, f.kind]))).toMatchObject({
+        'items[1]': 'theirs',
+        'items[2]': 'theirs',
+      });
+      expect(split.some((f) => f.guess)).toBe(false);
+      const choices = autoChoices(split, initialChoices(split));
+      expect(JSON.parse(mergeFields(b, b, t, split, choices, false, splits)!).items).toEqual([e(1, 1), e(8, 9)]);
+    });
+
     it('pairs in place only between matched neighbours, leaving the extra one new', () => {
       const b = { items: [e(1, 1), e(2, 2)] };
       const t = { items: [e(1, 1), e(8, 8), e(9, 9)] };

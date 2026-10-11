@@ -54,6 +54,8 @@
   let showSame = $state(false);
   let ffocus = $state(0);
   let sides: [Obj, Obj, Obj] = [{}, {}, {}];
+  /** Pairings by place the user turned down («Это замена»). */
+  let splits = $state.raw<ReadonlySet<string>>(new Set());
   let trailing = false;
   const fieldsMode = $derived(fieldsOk && mergeMode.current === 'fields');
 
@@ -91,6 +93,7 @@
       if (b && m && th) {
         sides = [b, m, th];
         trailing = (f.mine ?? '').endsWith('\n');
+        splits = new Set();
         fs = fieldsOf(b, m, th);
         choices = initialChoices(fs);
         fAuto = fs.map(() => false);
@@ -114,7 +117,26 @@
   const fConflicts = $derived(fChanged.filter((i) => fs[i].kind === 'conflict'));
   const fLeft = $derived(fChanged.filter((i) => choices[i] === null).length);
   const sameCount = $derived(fs.length - fChanged.length);
-  const fResult = $derived(fieldsOk ? mergeFields(...sides, fs, choices, trailing) : null);
+  const fResult = $derived(fieldsOk ? mergeFields(...sides, fs, choices, trailing, splits) : null);
+  // The first row of each element matched only by place carries «≈ по месту» and «Это замена».
+  const guessHead = $derived(
+    new Set(fs.map((f, i) => (f.guess && fs.findIndex((g) => g.guess?.[0] === f.guess?.[0]) === i ? i : -1))),
+  );
+
+  /**
+   * «Это замена»: the element wasn't edited, it was swapped for another. Re-read the fields with
+   * that pairing turned down; every field that keeps its identity keeps its choice.
+   */
+  function splitGuess(keys: string[]): void {
+    splits = new Set([...splits, ...keys]);
+    const before = new Map(fs.map((f, i) => [f.id, { c: choices[i], a: fAuto[i] }]));
+    fs = fieldsOf(...sides, splits);
+    const fresh = initialChoices(fs);
+    choices = fs.map((f, i) => (before.has(f.id) ? before.get(f.id)!.c : fresh[i]));
+    fAuto = fs.map((f) => before.get(f.id)?.a ?? false);
+    editing = null;
+    ffocus = Math.max(0, fNext(-1));
+  }
   // What the header and footer show, for whichever mode is on.
   const view = $derived(
     fieldsMode
@@ -461,7 +483,15 @@
           {#if f.kind !== 'same' || showSame}
             {@const c = choices[i]}
             {@const hot = ffocus === i && f.kind !== 'same' ? ' focus' : ''}
-            <div class="fp{hot}" data-field={i} title={f.label}>{f.label}</div>
+            <div class="fp{hot}" data-field={i} title={f.label}>
+              <span class="lbl">{f.label}</span>
+              {#if guessHead.has(i)}
+                <span class="guess" title={t('git.mg.guessHint')}>{t('git.mg.guess')}</span>
+                <button class="split" title={t('git.mg.splitHint')} onclick={() => splitGuess(f.guess!)}
+                  >{t('git.mg.split')}</button
+                >
+              {/if}
+            </div>
             <div class="fv {fieldState(f, c, 'mine')}{hot}">{@render val(f.mine)}</div>
             <div class="g">
               {#if f.kind === 'mine' || f.kind === 'conflict'}
@@ -622,11 +652,40 @@
     white-space: pre-wrap;
     word-break: break-word;
   }
-  .fp {
-    color: var(--color-text-secondary);
+  .fp .lbl {
+    flex: 1 0 100%;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+  .guess,
+  .split {
+    flex: none;
+    margin-right: 6px;
+    padding: 0 7px;
+    border-radius: var(--radius-control);
+    font: 500 var(--font-size-micro) / 18px var(--font-ui);
+    white-space: nowrap;
+  }
+  .guess {
+    background: var(--color-warning-soft);
+    color: var(--color-warning);
+  }
+  .split {
+    border: 1px solid var(--color-border-subtle);
+    color: var(--color-text-secondary);
+  }
+  .split:hover {
+    background: var(--color-hover);
+    color: var(--color-text);
+  }
+  .fp {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    align-content: flex-start;
+    row-gap: 4px;
+    color: var(--color-text-secondary);
   }
   .fv.conflict {
     background: var(--color-danger-soft);
