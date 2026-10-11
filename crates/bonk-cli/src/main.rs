@@ -432,13 +432,17 @@ mod tests {
     use super::*;
 
     fn temp_dir() -> PathBuf {
+        // Atomic counter guarantees a unique path per test even when parallel
+        // tests call this within the same clock tick.
+        static SEQ: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
         let dir = std::env::temp_dir().join(format!(
-            "bonk-cli-test-{}-{}",
+            "bonk-cli-test-{}-{}-{}",
             std::process::id(),
             std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
                 .unwrap()
-                .as_nanos()
+                .as_nanos(),
+            SEQ.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
         ));
         std::fs::create_dir_all(&dir).unwrap();
         dir.canonicalize().unwrap()
