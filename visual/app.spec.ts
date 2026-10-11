@@ -14,8 +14,6 @@ type Scenario = {
   name: string;
   query?: string; // shim scenario, e.g. '&http=401'
   steps?: (page: Page) => Promise<void>;
-  // Elements that are genuinely live (timers); everything else must be deterministic.
-  mask?: (page: Page) => ReturnType<Page['locator']>[];
   hover?: boolean; // keep the mouse where the steps left it (hover states) instead of parking it in a corner
   viewport?: { width: number; height: number };
 };
@@ -382,7 +380,6 @@ const SCENARIOS: Scenario[] = [
   {
     name: 'runner-results',
     query: '&runner=1',
-    mask: (p) => [p.locator('.rn-wf')], // bar offsets come from real wall-clock timing, +-1px between runs
     steps: async (p) => {
       await p.getByRole('button', { name: /Runner/ }).click();
       await p.locator('.rp-item').filter({ hasText: 'Payments API' }).click();
@@ -424,7 +421,7 @@ for (const theme of THEMES) {
         );
         await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
         if (ORACLE) await dumpComputedStyles(page, ORACLE, `${theme}-${s.name}`);
-        else await expect(page).toHaveScreenshot(`${theme}-${s.name}.png`, { mask: s.mask?.(page) });
+        else await expect(page).toHaveScreenshot(`${theme}-${s.name}.png`);
         expect(errors).toEqual([]);
       });
     }
