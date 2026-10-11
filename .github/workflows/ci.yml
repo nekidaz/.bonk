@@ -1,13 +1,18 @@
 name: CI
 
+# Pushes to main run Linux only: private-repo minutes are billed, and macOS
+# costs 10x, Windows 2x. Tags and manual runs (`gh workflow run CI --ref <branch>`)
+# run all three.
 on:
-  pull_request:
   push:
     branches:
       - main
+    tags:
+      - 'v*'
+  workflow_dispatch:
 
 concurrency:
-  group: ci-${{ github.event.pull_request.number || github.ref }}
+  group: ci-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -15,7 +20,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-latest, ubuntu-22.04, windows-latest]
+        os: ${{ fromJSON(github.ref == 'refs/heads/main' && github.event_name == 'push' && '["ubuntu-22.04"]' || '["macos-latest", "ubuntu-22.04", "windows-latest"]') }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 45
     env:

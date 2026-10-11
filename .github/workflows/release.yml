@@ -1,6 +1,6 @@
 name: Release
 
-# Build macOS, Linux and Windows release binaries on main to warm the cache.
+# Build macOS, Linux and Windows release binaries (manual runs on main warm the cache).
 # Version tags also package them and upload a draft GitHub Release.
 #
 # This is the PRIVATE source repo (nekidaz/bonk-src). The release is cross-
@@ -18,22 +18,11 @@ name: Release
 #   TAURI_SIGNING_PRIVATE_KEY           contents of the updater private key
 #   TAURI_SIGNING_PRIVATE_KEY_PASSWORD  its password ("" if generated without one)
 on:
+  # Only tags build: a three-OS build on every main push burned the private
+  # repo's free Actions minutes.
   push:
-    branches:
-      - main
     tags:
       - 'v*'
-    # GitHub applies paths only to branch pushes; every version tag still builds.
-    paths:
-      - '.github/workflows/release.yml'
-      - '.cargo/**'
-      - 'Cargo.toml'
-      - 'Cargo.lock'
-      - 'rust-toolchain*'
-      - 'crates/**'
-      - 'src-tauri/**'
-      - 'package.json'
-      - 'package-lock.json'
   # Warm the cache manually, including before the first release after this change.
   # Dispatch never publishes, even when run against a tag.
   workflow_dispatch:
