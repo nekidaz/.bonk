@@ -7,6 +7,7 @@
   { "name": "$randomWeekday", "group": "time" },
   { "name": "$randomMonth", "group": "time" },
   { "name": "$guid", "group": "id" },
+  { "name": "$uuid", "group": "id" },
   { "name": "$randomUUID", "group": "id" },
   { "name": "$randomAlphaNumeric", "group": "id" },
   { "name": "$randomInt", "group": "numbers" },
