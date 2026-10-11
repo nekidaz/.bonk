@@ -1,4 +1,4 @@
-import type { GitFile } from '$shared/model';
+import { methodLabel, type GitFile, type TreeNode } from '$shared/model';
 
 /**
  * Single effective status letter for a file row:
@@ -30,8 +30,60 @@ export function folderChangeCount(folderRel: string, files: GitFile[]): number {
 
 /** CSS color for a status letter, matching the Git panel badge palette. */
 export function statusColor(letter: string): string {
-  if (letter === 'A' || letter === 'U') return 'var(--green)';
-  if (letter === 'D') return 'var(--red)';
-  if (letter === 'R') return 'var(--purple)';
-  return 'var(--orange)';
+  if (letter === 'A' || letter === 'U') return 'var(--color-success)';
+  if (letter === 'D') return 'var(--color-danger)';
+  if (letter === 'R') return 'var(--method-patch)';
+  return 'var(--color-warning)';
+}
+
+/** What a changed file is, for a Source Control row: the request it holds (when it is still in the tree) or its file name. */
+export interface FileInfo {
+  name: string;
+  /** Method label shown before the name ('GET', 'gRPC'…); '' for non-request files and deleted ones. */
+  method: string;
+  /** Parent folder name, '' at the workspace root. */
+  dir: string;
+}
+
+const REQUEST_EXT = '.bonk.json';
+
+/**
+ * Describe toplevel-relative `path` using the workspace tree. `prefix` is the workspace's path inside the
+ * repo (GitStatus.prefix); `find` looks a node up by its `fs:` id.
+ */
+export function describeFile(path: string, prefix: string, find: (id: string) => TreeNode | undefined): FileInfo {
+  const rel = prefix && path.startsWith(prefix) ? path.slice(prefix.length) : path;
+  const parts = rel.split('/');
+  const file = parts.at(-1) ?? rel;
+  const dir = parts.length > 1 ? parts[parts.length - 2] : '';
+  const node = find(`fs:${rel}`);
+  if (node?.kind === 'request')
+    return {
+      name: node.name,
+      method: node.protocol === 'grpc' ? 'gRPC' : methodLabel(node.request.method),
+      dir,
+    };
+  return { name: file.endsWith(REQUEST_EXT) ? file.slice(0, -REQUEST_EXT.length) : file, method: '', dir };
+}
+
+/** Compact age for commit/stash rows: «сейчас», «5м», «2ч», «вчера», «3д», then a date. */
+export function shortAgo(timeSec: number, nowMs: number, lang: 'ru' | 'en'): string {
+  const s = Math.max(0, nowMs / 1000 - timeSec);
+  const ru = lang === 'ru';
+  if (s < 60) return ru ? 'сейчас' : 'now';
+  if (s < 3600) return `${Math.floor(s / 60)}${ru ? 'м' : 'm'}`;
+  if (s < 86400) return `${Math.floor(s / 3600)}${ru ? 'ч' : 'h'}`;
+  const days = Math.floor(s / 86400);
+  if (days === 1) return ru ? 'вчера' : 'yday';
+  if (days < 30) return `${days}${ru ? 'д' : 'd'}`;
+  return new Date(timeSec * 1000).toISOString().slice(0, 10);
+}
+
+/** «2 часа назад» / «5 minutes ago» in the UI language, in the largest whole unit. */
+export function relativeAgo(timeSec: number, nowMs: number, lang: 'ru' | 'en'): string {
+  const s = Math.max(0, nowMs / 1000 - timeSec);
+  const fmt = new Intl.RelativeTimeFormat(lang, { numeric: 'auto' });
+  if (s < 3600) return fmt.format(-Math.floor(s / 60), 'minute');
+  if (s < 86400) return fmt.format(-Math.floor(s / 3600), 'hour');
+  return fmt.format(-Math.floor(s / 86400), 'day');
 }

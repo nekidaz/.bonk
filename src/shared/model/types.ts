@@ -339,15 +339,45 @@ export interface GitCommit {
   subject: string;
   author: string;
   date: string;
+  /** Committer time, unix seconds. */
+  time: number;
+}
+
+/** A local or remote-tracking branch with its position against its upstream. */
+export interface GitBranch {
+  name: string;
+  remote: boolean;
+  current: boolean;
+  upstream: string | null;
+  ahead: number;
+  behind: number;
+}
+
+/** One `git stash` entry; `index` is N in `stash@{N}`. */
+export interface GitStash {
+  index: number;
+  hash: string;
+  short: string;
+  message: string;
+  branch: string;
+  time: number;
+}
+
+/** One file inside a stash, with its full-context diff. */
+export interface StashFile {
+  path: string;
+  status: string;
+  diff: string;
 }
 
 export type GitDiffMode = 'working' | 'staged';
 
 export interface GitTabState {
+  /** The file (view 'file'), or the stash commit hash (view 'stash'). */
   path: string;
   mode: GitDiffMode;
-  /** 'file' = single-file diff (default); 'project' = the aggregate Project Diff. */
-  view?: 'file' | 'project';
+  /** 'file' = single-file diff (default); 'project' = the aggregate Project Diff; 'stash' = one stash; 'commit' = the commit-message editor. */
+  view?: 'file' | 'project' | 'stash' | 'commit';
 }
 
 export interface FileDiff {

@@ -3,6 +3,8 @@
   import { tabs } from '$entities/tab';
   import { runner } from '$features/runner';
   import { cookieJar } from '$entities/cookies';
+  import { git, GIT_ENABLED } from '$entities/git';
+  import { layout } from './layout.svelte';
   import { t } from '$shared/i18n';
 
   let {
@@ -19,6 +21,22 @@
 
   const runnerOn = $derived(tabs.active?.protocol === 'runner');
   const cookieCount = $derived(cookieJar.list.length);
+
+  // G3: the branch chip opens the branch popover above it; without a repo it says so and opens the Git tab.
+  const gitStatus = $derived(GIT_ENABLED ? git.status : null);
+  const sync = $derived(
+    gitStatus
+      ? `${gitStatus.behind ? `↓${gitStatus.behind}` : ''} ${gitStatus.ahead ? `↑${gitStatus.ahead}` : ''}`.trim()
+      : '',
+  );
+  function onBranch(e: MouseEvent): void {
+    if (!gitStatus?.isRepo) {
+      layout.showSidebar('git');
+      return;
+    }
+    const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    git.branchMenu = { x: r.left, y: r.top - 6, up: true };
+  }
 </script>
 
 <div class="bs-status">
@@ -44,6 +62,20 @@
       >{t('nav.status.terminal')}</span
     ></button
   >
+  {#if gitStatus}
+    <button
+      class="bs-status-link branch"
+      class:on={!!git.branchMenu?.up}
+      type="button"
+      aria-label={t('git.branch.switch')}
+      onclick={onBranch}
+      ><span class="material-symbols-outlined" aria-hidden="true">fork_right</span><span class="lbl"
+        >{gitStatus.isRepo
+          ? `${gitStatus.branch || t('git.noBranch')}${sync ? `  ${sync}` : ''}`
+          : t('git.noRepo')}</span
+      ></button
+    >
+  {/if}
   <div class="bs-spacer"></div>
   <!-- Flow · Cookies: the jar's size; opens the jar window. -->
   <button
@@ -84,6 +116,11 @@
       animation: none;
     }
   }
+  .branch .lbl {
+    font-family: var(--font-code);
+    white-space: pre;
+  }
+  .branch.on,
   .runner.on {
     height: 21px;
     padding: 0 10px;

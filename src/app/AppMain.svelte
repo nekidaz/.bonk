@@ -8,14 +8,14 @@
   import { applyCurlToActiveTab, openSavedRequest, requestGrpcEditorAction, scriptUi } from '$entities/request';
   import { clock, historyDay, matchSaved, searchRequests } from '$entities/environment';
   import { history } from '$entities/history';
-  import { newTab } from '$features/tabs';
+  import { newTab, requestCloseTab } from '$features/tabs';
   import { t } from '$shared/i18n';
   import { saveState } from '$shared/persist';
   import { focusMode } from '$shared/ui';
   import { ResponseStrip, ResponsePane } from '$features/response/components';
   import { GrpcEditor } from '$features/grpc/components';
   import { HttpRequestEditor } from '$features/http/components';
-  import { GitDiffView, ProjectDiffView } from '$features/git/components';
+  import { CommitEditor, GitDiffView, ProjectDiffView, StashView } from '$features/git/components';
   import { EnvironmentsSheet } from '$features/environments/components';
   import { RunnerView } from '$features/runner/components';
   import { FlowView } from '$features/flow/components';
@@ -75,6 +75,10 @@
         {#if active.protocol === 'git'}
           {#if active.git?.view === 'project'}
             <ProjectDiffView />
+          {:else if active.git?.view === 'stash'}
+            <StashView tab={active} />
+          {:else if active.git?.view === 'commit'}
+            <CommitEditor onClose={() => requestCloseTab(active.id)} />
           {:else}
             <GitDiffView tab={active} />
           {/if}

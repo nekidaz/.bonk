@@ -18,6 +18,9 @@ import {
   type RunResultRow,
   type GitStatus,
   type GitCommit,
+  type GitBranch,
+  type GitStash,
+  type StashFile,
   type FileDiff,
   parseScriptResult,
   type ScriptPhase,
@@ -398,7 +401,8 @@ export const workspaceTrash = (root: string) => invoke<void>('workspace_trash', 
 export const gitStatus = (root: string) => invoke<GitStatus>('git_status', { root });
 export const gitStage = (root: string, paths: string[]) => invoke<void>('git_stage', { root, paths });
 export const gitUnstage = (root: string, paths: string[]) => invoke<void>('git_unstage', { root, paths });
-export const gitCommit = (root: string, message: string) => invoke<string>('git_commit', { root, message });
+export const gitCommit = (root: string, message: string, amend = false) =>
+  invoke<string>('git_commit', { root, message, amend });
 export const gitInit = (root: string) => invoke<void>('git_init', { root });
 export const gitBranches = (root: string) => invoke<string[]>('git_branches', { root });
 export const gitCheckout = (root: string, name: string) => invoke<void>('git_checkout', { root, name });
@@ -411,6 +415,20 @@ export const gitLog = (root: string, limit: number) => invoke<GitCommit[]>('git_
 export const gitGraph = (root: string, limit: number) => invoke<string[]>('git_graph', { root, limit });
 export const gitStatusDiffs = (root: string) => invoke<FileDiff[]>('git_status_diffs', { root });
 export const gitDiscard = (root: string, paths: string[]) => invoke<void>('git_discard', { root, paths });
+export const gitBranchList = (root: string) => invoke<GitBranch[]>('git_branch_list', { root });
+export const gitCheckoutRemote = (root: string, name: string) => invoke<void>('git_checkout_remote', { root, name });
+export const gitStashList = (root: string) => invoke<GitStash[]>('git_stash_list', { root });
+export const gitStashPush = (
+  root: string,
+  message: string,
+  o: { includeUntracked: boolean; stagedOnly: boolean; keepIndex: boolean },
+) => invoke<void>('git_stash_push', { root, message, ...o });
+export const gitStashApply = (root: string, index: number) => invoke<void>('git_stash_apply', { root, index });
+export const gitStashPop = (root: string, index: number) => invoke<void>('git_stash_pop', { root, index });
+export const gitStashDrop = (root: string, index: number) => invoke<void>('git_stash_drop', { root, index });
+export const gitStashBranch = (root: string, name: string, index: number) =>
+  invoke<void>('git_stash_branch', { root, name, index });
+export const gitStashShow = (root: string, index: number) => invoke<StashFile[]>('git_stash_show', { root, index });
 
 // OS keychain (secret env vars)
 export const secretGet = (key: string) => invoke<string | null>('secret_get', { key });

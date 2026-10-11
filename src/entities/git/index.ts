@@ -1,9 +1,8 @@
 // Public API of entities/git (like the exported names of a Go package).
 // Code outside src/entities/git/ imports only from here; files inside use relative paths.
 
-export { openGitDiffTab, openProjectDiffTab } from './diffTabs';
+export { openCommitEditorTab, openGitDiffTab, openProjectDiffTab, openStashTab } from './diffTabs';
 export {
-  checkoutBranch,
   commitChanges,
   createBranch,
   discardPaths,
@@ -13,8 +12,27 @@ export {
   pull,
   push,
   refreshGit,
+  requestCheckout,
   stagePaths,
+  stashApply,
+  stashBranch,
+  stashDrop,
+  stashPop,
+  stashPush,
+  switchBranch,
   unstagePaths,
   watchGitWorkspace,
+  type PendingSwitch,
+  type StashOptions,
+  type SwitchChoice,
 } from './git.svelte';
-export { folderChangeCount, statusColor } from './gitStatus';
+export { MESSAGE_MAX_LINES, messageParts, SUBJECT_MAX } from './commitMessage';
+export {
+  describeFile,
+  folderChangeCount,
+  relativeAgo,
+  shortAgo,
+  statusColor,
+  statusLetter,
+  type FileInfo,
+} from './gitStatus';

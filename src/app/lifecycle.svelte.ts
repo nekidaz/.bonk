@@ -1,6 +1,6 @@
-import { onDestroy, onMount } from 'svelte';
+import { onDestroy, onMount, untrack } from 'svelte';
 import { watchCookieJar } from '$entities/cookies';
-import { watchGitWorkspace } from '$entities/git';
+import { git, watchGitWorkspace } from '$entities/git';
 import { watchHistoryRetention } from '$entities/history';
 import { watchDocumentLang } from '$shared/i18n';
 import { flushPendingSaves } from '$shared/persist';
@@ -15,6 +15,7 @@ import {
 } from '$shared/settings';
 import { checkForUpdate } from '$shared/updater';
 import { layout } from './layout.svelte';
+import { shell } from './shell.svelte';
 import { hydrate } from './persistence.svelte';
 
 /**
@@ -31,6 +32,12 @@ export function startApp(): void {
   onDestroy(watchCookieJar());
 
   layout.startEffects();
+
+  // A failed git op (push rejected, checkout blocked…) says what git said.
+  $effect(() => {
+    const text = git.error;
+    if (text) untrack(() => shell.showToast({ text, icon: 'error', iconColor: 'var(--color-danger)' }));
+  });
 
   // Settings → Внешний вид: text size shifts the whole type scale (13 = design default),
   // the code font/size feed --font-code and the editors, density sets row heights.

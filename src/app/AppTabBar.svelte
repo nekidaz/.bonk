@@ -55,6 +55,8 @@
     runner: 'play_arrow',
     flow: 'account_tree',
   };
+  const GIT_VIEW_ICON: Record<string, string> = { stash: 'inventory_2', commit: 'commit' };
+  const tabIcon = (tb: Tab): string | undefined => GIT_VIEW_ICON[tb.git?.view ?? ''] ?? TAB_ICON[tb.protocol];
 
   function tabMethodLabel(t: Tab): string {
     return t.protocol === 'grpc' ? 'gRPC' : t.request.method;
@@ -165,8 +167,8 @@
           onclick={() => (tabs.activeId = tb.id)}
           onkeydown={(e) => onTabKey(e, tb.id)}
         >
-          {#if TAB_ICON[tb.protocol]}
-            <span class="mi material-symbols-outlined" aria-hidden="true">{TAB_ICON[tb.protocol]}</span>
+          {#if tabIcon(tb)}
+            <span class="mi material-symbols-outlined" aria-hidden="true">{tabIcon(tb)}</span>
           {:else}
             <span class="m" style="color:{tabMethodColor(tb)}">{tabMethodLabel(tb)}</span>
           {/if}
@@ -235,9 +237,8 @@
           tabs.activeId = tb.id;
         }}
       >
-        <span class="tm" style:color={TAB_ICON[tb.protocol] ? undefined : tabMethodColor(tb)}
-          >{#if TAB_ICON[tb.protocol]}<span class="material-symbols-outlined" aria-hidden="true"
-              >{TAB_ICON[tb.protocol]}</span
+        <span class="tm" style:color={tabIcon(tb) ? undefined : tabMethodColor(tb)}
+          >{#if tabIcon(tb)}<span class="material-symbols-outlined" aria-hidden="true">{tabIcon(tb)}</span
             >{:else if tb.protocol === 'grpc'}gRPC{:else}{methodLabel(tb.request.method)}{/if}</span
         >
         <span class="lb">{tb.title === HTTP_DEFAULT_TITLE ? t('tabs.untitled') : tb.title}</span>

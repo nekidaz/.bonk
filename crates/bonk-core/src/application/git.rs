@@ -55,6 +55,45 @@ pub struct GitCommit {
     pub subject: String,
     pub author: String,
     pub date: String,
+    /// Committer date, unix seconds.
+    pub time: i64,
+}
+
+/// One branch (local or remote-tracking) with its upstream position.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GitBranch {
+    /// Short name: `"main"` or `"origin/fix/x"`.
+    pub name: String,
+    pub remote: bool,
+    pub current: bool,
+    pub upstream: Option<String>,
+    pub ahead: u32,
+    pub behind: u32,
+}
+
+/// One entry of `git stash list`.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GitStash {
+    pub index: u32,
+    pub hash: String,
+    pub short: String,
+    /// The user's message (for a WIP stash: `"<hash> <subject>"`).
+    pub message: String,
+    /// Branch the stash was made on, `""` if unknown.
+    pub branch: String,
+    pub time: i64,
+}
+
+/// One file inside a stash, with its full-file diff.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct StashFile {
+    pub path: String,
+    /// `"A"` | `"M"` | `"D"` | `"R"`.
+    pub status: String,
+    pub diff: String,
 }
 
 /// One changed file plus its unified diff, for the Project Diff view.
@@ -383,8 +422,13 @@ pub fn discard(root: &str, paths: &[String]) -> Result<(), String> {
 
 /// Commit the staged index with `message`; returns the new short hash. Surfaces
 /// git's own error when nothing is staged or `user.name`/`user.email` is unset.
-pub fn commit(root: &str, message: &str) -> Result<String, String> {
-    git(root, &["commit", "-m", message])?;
+/// `amend` rewrites the last commit instead (works with nothing staged).
+pub fn commit(root: &str, message: &str, amend: bool) -> Result<String, String> {
+    if amend {
+        git(root, &["commit", "--amend", "-m", message])?;
+    } else {
+        git(root, &["commit", "-m", message])?;
+    }
     let short = git(root, &["rev-parse", "--short", "HEAD"])?;
     Ok(short.trim().to_string())
 }
@@ -442,6 +486,61 @@ pub fn branches(root: &str) -> Result<Vec<String>, String> {
 /// begins with `-` from being parsed as a flag.
 pub fn checkout(root: &str, name: &str) -> Result<(), String> {
     git(root, &["switch", "--end-of-options", name])?;
+    Ok(())
+}
+
+/// All local and remote-tracking branches with upstream/ahead/behind. Locals
+/// first (current one first), then remotes.
+pub fn branch_list(root: &str) -> Result<Vec<GitBranch>, String> {
+    let fmt = "--format=%(refname)\x1f%(refname:short)\x1f%(HEAD)\x1f%(upstream:short)\x1f%(upstream:track,nobracket)";
+    let out = git(root, &["for-each-ref", fmt, "refs/heads/", "refs/remotes/"])?;
+    let mut locals = Vec::new();
+    let mut remotes = Vec::new();
+    for line in out.lines() {
+        let f: Vec<&str> = line.split('\x1f').collect();
+        if f.len() < 5 {
+            continue;
+        }
+        let remote = f[0].starts_with("refs/remotes/");
+        // `origin/HEAD` is a symbolic alias, not a branch.
+        if remote && f[0].ends_with("/HEAD") {
+            continue;
+        }
+        let (mut ahead, mut behind) = (0, 0);
+        for part in f[4].split(',') {
+            let part = part.trim();
+            if let Some(n) = part.strip_prefix("ahead ") {
+                ahead = n.parse().unwrap_or(0);
+            } else if let Some(n) = part.strip_prefix("behind ") {
+                behind = n.parse().unwrap_or(0);
+            }
+        }
+        let b = GitBranch {
+            name: f[1].to_string(),
+            remote,
+            current: f[2] == "*",
+            upstream: (!f[3].is_empty()).then(|| f[3].to_string()),
+            ahead,
+            behind,
+        };
+        if remote {
+            remotes.push(b);
+        } else {
+            locals.push(b);
+        }
+    }
+    locals.sort_by_key(|b| !b.current);
+    locals.extend(remotes);
+    Ok(locals)
+}
+
+/// Create a local tracking branch from a remote one (`origin/fix/x`) and switch
+/// to it.
+pub fn checkout_remote(root: &str, name: &str) -> Result<(), String> {
+    if name.starts_with('-') {
+        return Err(format!("invalid branch name: {name}"));
+    }
+    git(root, &["switch", "--track", "--end-of-options", name])?;
     Ok(())
 }
 
@@ -548,30 +647,50 @@ fn run_combined(root: &str, args: &[&str]) -> Result<String, String> {
     }
 }
 
-/// Unified diff for `path`: unstaged changes, the staged diff if the working
-/// tree has none (so a freshly-staged file still shows a diff), and finally the
-/// whole file as an addition when it's untracked (plain `diff` is empty for
-/// files git doesn't track yet).
+// ponytail: -U100000 ships the whole file to the UI; fine because request
+// files are small JSON. Revisit if big files ever go through here.
+const FULL: &str = "--unified=100000";
+
+/// Full-file diff of `path` against HEAD (staged or not), so the UI can render
+/// the whole file with line numbers. An untracked file shows as all additions.
 ///
 /// `path` is toplevel-relative (what [`status`] emits), so we resolve and run
 /// against the toplevel — see [`toplevel`].
 pub fn diff(root: &str, path: &str) -> Result<String, String> {
     let top = toplevel(root)?;
-    diff_working_at(&top, path)
+    if git(&top, &["rev-parse", "--verify", "-q", "HEAD"]).is_err() {
+        return diff_working_at(&top, path, &[FULL]);
+    }
+    let tracked = git(&top, &["ls-files", "--error-unmatch", "--", path]).is_ok();
+    if !tracked && std::path::Path::new(&top).join(path).exists() {
+        return diff_untracked_at(&top, path);
+    }
+    git(&top, &["diff", FULL, "HEAD", "--", path])
 }
 
-/// Staged (index-vs-HEAD) diff for `path`. `path` is toplevel-relative.
+/// Staged (index-vs-HEAD) full-file diff for `path`. `path` is toplevel-relative.
 pub fn diff_staged(root: &str, path: &str) -> Result<String, String> {
     let top = toplevel(root)?;
-    git(&top, &["diff", "--cached", "--", path])
+    git(&top, &["diff", "--cached", FULL, "--", path])
 }
 
-fn diff_working_at(top: &str, path: &str) -> Result<String, String> {
-    let unstaged = git(top, &["diff", "--", path])?;
+/// Unstaged diff, else staged diff, else the untracked file; `extra` flags go
+/// right after `diff`.
+fn diff_working_at(top: &str, path: &str, extra: &[&str]) -> Result<String, String> {
+    let run = |cached: bool| {
+        let mut args = vec!["diff"];
+        args.extend_from_slice(extra);
+        if cached {
+            args.push("--cached");
+        }
+        args.extend(["--", path]);
+        git(top, &args)
+    };
+    let unstaged = run(false)?;
     if !unstaged.trim().is_empty() {
         return Ok(unstaged);
     }
-    let staged = git(top, &["diff", "--cached", "--", path])?;
+    let staged = run(true)?;
     if !staged.trim().is_empty() {
         return Ok(staged);
     }
@@ -589,7 +708,7 @@ fn diff_working_at(top: &str, path: &str) -> Result<String, String> {
 /// where every tracked change is just-added content.
 fn diff_head_at(top: &str, path: &str) -> Result<String, String> {
     if git(top, &["rev-parse", "--verify", "-q", "HEAD"]).is_err() {
-        return diff_working_at(top, path);
+        return diff_working_at(top, path, &[]);
     }
     git(top, &["diff", "HEAD", "--", path])
 }
@@ -609,13 +728,60 @@ fn diff_untracked_at(top: &str, path: &str) -> Result<String, String> {
     let output = Command::new("git")
         .arg("-C")
         .arg(top)
-        .args(["diff", "--no-index", "--", NULL_DEVICE, path])
+        .args(["diff", "--no-index", FULL, "--", NULL_DEVICE, path])
         .output()
         .map_err(|e| format!("failed to run git: {e}"))?;
     match output.status.code() {
         Some(0) | Some(1) => Ok(String::from_utf8_lossy(&output.stdout).into_owned()),
         _ => Err(String::from_utf8_lossy(&output.stderr).trim().to_string()),
     }
+}
+
+/// Split a multi-file diff into one text per `diff --git` section.
+fn split_diff_sections(out: &str) -> Vec<String> {
+    // Split on the per-file "diff --git" marker. The very first section keeps its
+    // leading "diff --git " (split removed it only for subsequent ones);
+    // normalise so every section text is uniform.
+    let mut sections = Vec::new();
+    let mut first = true;
+    for raw in out.split("\ndiff --git ") {
+        if first {
+            first = false;
+            // Drop anything before the first header (there shouldn't be any).
+            if let Some(idx) = raw.find("diff --git ") {
+                sections.push(raw[idx..].to_string());
+            }
+        } else {
+            sections.push(format!("diff --git {raw}"));
+        }
+    }
+    sections
+}
+
+/// Every path a diff section names (`b/`/`a/` sides plus rename from/to).
+fn section_paths(section: &str) -> Vec<String> {
+    let mut paths = Vec::new();
+    for line in section.lines() {
+        if let Some(p) = line.strip_prefix("+++ b/") {
+            paths.push(p.to_string());
+        } else if let Some(p) = line.strip_prefix("--- a/") {
+            paths.push(p.to_string());
+        } else if let Some(p) = line.strip_prefix("rename to ") {
+            paths.push(p.to_string());
+        } else if let Some(p) = line.strip_prefix("rename from ") {
+            paths.push(p.to_string());
+        }
+    }
+    paths
+}
+
+/// The file a section is about: the `+++ b/` path, or `--- a/` for deletions.
+fn section_main_path(section: &str) -> Option<String> {
+    let find = |prefix: &str| section.lines().find_map(|l| l.strip_prefix(prefix));
+    find("+++ b/")
+        .or_else(|| find("--- a/"))
+        .or_else(|| find("rename to "))
+        .map(str::to_string)
 }
 
 /// All tracked HEAD-vs-worktree diffs in ONE `git diff HEAD`, split into a
@@ -637,36 +803,8 @@ fn all_head_diffs(top: &str) -> Result<Option<HashMap<String, String>>, String> 
     let out = git(top, &["-c", "core.quotepath=false", "diff", "HEAD"])?;
 
     let mut map: HashMap<String, String> = HashMap::new();
-    // Split on the per-file "diff --git" marker. The first chunk before the first
-    // marker is empty (or absent) and yields no paths, so it's harmless.
-    // The very first section keeps its leading "diff --git " (split removed it
-    // only for subsequent ones); normalise so every section text is uniform.
-    let mut first = true;
-    for raw in out.split("\ndiff --git ") {
-        let section = if first {
-            first = false;
-            // Drop anything before the first header (there shouldn't be any).
-            match raw.find("diff --git ") {
-                Some(idx) => raw[idx..].to_string(),
-                None => continue,
-            }
-        } else {
-            format!("diff --git {raw}")
-        };
-
-        // Collect the paths this section refers to from its header lines.
-        let mut paths: Vec<String> = Vec::new();
-        for line in section.lines() {
-            if let Some(p) = line.strip_prefix("+++ b/") {
-                paths.push(p.to_string());
-            } else if let Some(p) = line.strip_prefix("--- a/") {
-                paths.push(p.to_string());
-            } else if let Some(p) = line.strip_prefix("rename to ") {
-                paths.push(p.to_string());
-            } else if let Some(p) = line.strip_prefix("rename from ") {
-                paths.push(p.to_string());
-            }
-        }
+    for section in split_diff_sections(&out) {
+        let paths = section_paths(&section);
         let text = section.trim_end_matches('\n').to_string();
         for p in paths {
             map.entry(p).or_insert_with(|| text.clone());
@@ -727,7 +865,7 @@ pub fn log(root: &str, limit: u32) -> Result<Vec<GitCommit>, String> {
     // 0x1f (unit separator) between fields, newline between commits — neither
     // appears in hashes, short refs, author names, or short dates, and a subject
     // can't contain a newline.
-    let fmt = "--pretty=format:%H\x1f%h\x1f%s\x1f%an\x1f%ad";
+    let fmt = "--pretty=format:%H\x1f%h\x1f%s\x1f%an\x1f%ad\x1f%ct";
     let out = match git(root, &["log", "-n", &n, fmt, "--date=short"]) {
         Ok(out) => out,
         // A repo with no commits errors ("does not have any commits yet"); treat
@@ -746,15 +884,152 @@ pub fn log(root: &str, limit: u32) -> Result<Vec<GitCommit>, String> {
         let subject = parts.next().unwrap_or("").to_string();
         let author = parts.next().unwrap_or("").to_string();
         let date = parts.next().unwrap_or("").to_string();
+        let time = parts.next().and_then(|t| t.parse().ok()).unwrap_or(0);
         commits.push(GitCommit {
             hash,
             short,
             subject,
             author,
             date,
+            time,
         });
     }
     Ok(commits)
+}
+
+fn stash_ref(index: u32) -> String {
+    format!("stash@{{{index}}}")
+}
+
+/// `git stash list`, newest first. No stashes / no commits yields an empty vec.
+pub fn stash_list(root: &str) -> Result<Vec<GitStash>, String> {
+    let top = toplevel(root)?;
+    let out = git(
+        &top,
+        &["stash", "list", "--format=%gd\x1f%H\x1f%h\x1f%gs\x1f%ct"],
+    )?;
+    let mut stashes = Vec::new();
+    for line in out.lines() {
+        let f: Vec<&str> = line.split('\x1f').collect();
+        if f.len() < 5 {
+            continue;
+        }
+        let Some(index) = f[0]
+            .strip_prefix("stash@{")
+            .and_then(|r| r.strip_suffix('}'))
+            .and_then(|n| n.parse().ok())
+        else {
+            continue;
+        };
+        // `%gs` is "On <branch>: <msg>" or "WIP on <branch>: <hash> <subject>".
+        let subject = f[3];
+        let on = subject
+            .strip_prefix("On ")
+            .or_else(|| subject.strip_prefix("WIP on "));
+        let (branch, message) = match on.and_then(|r| r.split_once(": ")) {
+            Some((b, m)) => (b.to_string(), m.to_string()),
+            None => (String::new(), subject.to_string()),
+        };
+        stashes.push(GitStash {
+            index,
+            hash: f[1].to_string(),
+            short: f[2].to_string(),
+            message,
+            branch,
+            time: f[4].parse().unwrap_or(0),
+        });
+    }
+    Ok(stashes)
+}
+
+/// `git stash push` with the usual switches; an empty `message` uses git's default.
+pub fn stash_push(
+    root: &str,
+    message: &str,
+    include_untracked: bool,
+    staged_only: bool,
+    keep_index: bool,
+) -> Result<(), String> {
+    let top = toplevel(root)?;
+    let mut args = vec!["stash", "push"];
+    if include_untracked {
+        args.push("-u");
+    }
+    if staged_only {
+        args.push("--staged");
+    }
+    if keep_index {
+        args.push("--keep-index");
+    }
+    if !message.is_empty() {
+        args.extend(["-m", message]);
+    }
+    git(&top, &args)?;
+    Ok(())
+}
+
+pub fn stash_apply(root: &str, index: u32) -> Result<(), String> {
+    let top = toplevel(root)?;
+    git(&top, &["stash", "apply", &stash_ref(index)])?;
+    Ok(())
+}
+
+pub fn stash_pop(root: &str, index: u32) -> Result<(), String> {
+    let top = toplevel(root)?;
+    git(&top, &["stash", "pop", &stash_ref(index)])?;
+    Ok(())
+}
+
+pub fn stash_drop(root: &str, index: u32) -> Result<(), String> {
+    let top = toplevel(root)?;
+    git(&top, &["stash", "drop", &stash_ref(index)])?;
+    Ok(())
+}
+
+/// Create a branch from a stash's base commit, apply the stash and drop it.
+pub fn stash_branch(root: &str, name: &str, index: u32) -> Result<(), String> {
+    if name.starts_with('-') {
+        return Err(format!("invalid branch name: {name}"));
+    }
+    let top = toplevel(root)?;
+    git(&top, &["stash", "branch", name, &stash_ref(index)])?;
+    Ok(())
+}
+
+/// Files in a stash (untracked ones included) with full-file diffs.
+pub fn stash_show(root: &str, index: u32) -> Result<Vec<StashFile>, String> {
+    let top = toplevel(root)?;
+    let r = stash_ref(index);
+    let base = ["-c", "core.quotepath=false", "stash", "show", "-p", FULL];
+    let run = |extra: &[&str]| {
+        let mut args = base.to_vec();
+        args.extend_from_slice(extra);
+        args.push(&r);
+        git(&top, &args)
+    };
+    // Old git rejects --include-untracked here; retry without it.
+    let out = run(&["--include-untracked"]).or_else(|_| run(&[]))?;
+    let mut files = Vec::new();
+    for section in split_diff_sections(&out) {
+        let Some(path) = section_main_path(&section) else {
+            continue;
+        };
+        let status = if section.contains("\nnew file mode") {
+            "A"
+        } else if section.contains("\ndeleted file mode") {
+            "D"
+        } else if section.contains("\nrename from ") {
+            "R"
+        } else {
+            "M"
+        };
+        files.push(StashFile {
+            path,
+            status: status.to_string(),
+            diff: section.trim_end_matches('\n').to_string(),
+        });
+    }
+    Ok(files)
 }
 
 /// Raw decorated commit graph lines, exactly as git draws them.
@@ -869,7 +1144,7 @@ mod tests {
         assert_eq!(f.index, "A");
         assert_eq!(f.worktree, " ");
 
-        let short = commit(root, "first commit").unwrap();
+        let short = commit(root, "first commit", false).unwrap();
         assert!(!short.is_empty(), "commit should return a short hash");
         assert!(short.len() >= 4, "short hash looks too short: {short}");
 
@@ -885,7 +1160,7 @@ mod tests {
         // Need an initial commit before branching is meaningful.
         fs::write(dir.join("a.bonk.json"), "{}").unwrap();
         stage(root, &[]).unwrap();
-        commit(root, "init").unwrap();
+        commit(root, "init", false).unwrap();
 
         create_branch(root, "feature").unwrap();
         assert_eq!(current_branch(root).unwrap(), "feature");
@@ -913,7 +1188,7 @@ mod tests {
 
         fs::write(dir.join("a.bonk.json"), "{}").unwrap();
         stage(root, &[]).unwrap();
-        commit(root, "hello world").unwrap();
+        commit(root, "hello world", false).unwrap();
 
         let entries = log(root, 10).unwrap();
         assert_eq!(entries.len(), 1);
@@ -931,7 +1206,7 @@ mod tests {
         let root = dir.to_str().unwrap();
         fs::write(dir.join("a.bonk.json"), "{\"v\":1}\n").unwrap();
         stage(root, &[]).unwrap();
-        commit(root, "init").unwrap();
+        commit(root, "init", false).unwrap();
 
         // Modify the tracked file → unstaged diff should show it.
         fs::write(dir.join("a.bonk.json"), "{\"v\":2}\n").unwrap();
@@ -956,7 +1231,7 @@ mod tests {
         let root = dir.to_str().unwrap();
         fs::write(dir.join("a.bonk.json"), "{\"v\":1}\n").unwrap();
         stage(root, &[]).unwrap();
-        commit(root, "init").unwrap();
+        commit(root, "init", false).unwrap();
 
         fs::write(dir.join("a.bonk.json"), "{\"v\":2}\n").unwrap();
         stage(root, &[]).unwrap();
@@ -986,7 +1261,7 @@ mod tests {
         let root = dir.to_str().unwrap();
         fs::write(dir.join("a.bonk.json"), "{}").unwrap();
         stage(root, &[]).unwrap();
-        commit(root, "init").unwrap();
+        commit(root, "init", false).unwrap();
 
         let lines = graph(root, 10).unwrap();
         assert_eq!(lines.len(), 1);
@@ -1032,7 +1307,7 @@ mod tests {
         // Committed, then modified in the working tree (tracked, unstaged).
         fs::write(dir.join("tracked.bonk.json"), "{\"v\":1}\n").unwrap();
         stage(root, &[]).unwrap();
-        commit(root, "init").unwrap();
+        commit(root, "init", false).unwrap();
         fs::write(dir.join("tracked.bonk.json"), "{\"v\":2}\n").unwrap();
         // Staged-only new file.
         fs::write(dir.join("staged.bonk.json"), "{\"s\":1}\n").unwrap();
@@ -1066,7 +1341,7 @@ mod tests {
         let root = dir.to_str().unwrap();
         fs::write(dir.join("tracked.bonk.json"), "{\"v\":1}\n").unwrap();
         stage(root, &[]).unwrap();
-        commit(root, "init").unwrap();
+        commit(root, "init", false).unwrap();
 
         // Modify a tracked file, add an untracked one, stage a brand-new one.
         fs::write(dir.join("tracked.bonk.json"), "{\"v\":999}\n").unwrap();
@@ -1107,7 +1382,7 @@ mod tests {
         // Commit a file, then rename it (git mv stages the rename).
         fs::write(dir.join("old.bonk.json"), "{\"v\":1}\n").unwrap();
         stage(root, &[]).unwrap();
-        commit(root, "init").unwrap();
+        commit(root, "init", false).unwrap();
         git(root, &["mv", "old.bonk.json", "new.bonk.json"]).unwrap();
 
         // Discard the rename via the new (index) path.
@@ -1172,7 +1447,7 @@ mod tests {
         fs::create_dir_all(repo.join("collections")).unwrap();
         fs::write(repo.join("collections/a.bonk.json"), "{\"v\":1}\n").unwrap();
         stage(repo_root, &[]).unwrap();
-        commit(repo_root, "init").unwrap();
+        commit(repo_root, "init", false).unwrap();
 
         // The workspace the app opens is the subdir, not the repo root.
         let ws = repo.join("collections");
@@ -1234,7 +1509,7 @@ mod tests {
         // line1 committed; we add line2 (staged) and line3 (unstaged worktree).
         fs::write(dir.join("a.bonk.json"), "line1\n").unwrap();
         stage(root, &[]).unwrap();
-        commit(root, "init").unwrap();
+        commit(root, "init", false).unwrap();
 
         // Stage the addition of line2.
         fs::write(dir.join("a.bonk.json"), "line1\nline2\n").unwrap();
@@ -1265,6 +1540,137 @@ mod tests {
         );
         // Not fully staged (worktree is dirty) → UI offers "Stage", not "Unstage".
         assert!(!e.staged, "MM file is not fully staged");
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    fn big_file(change: &str) -> String {
+        let mut lines: Vec<String> = (0..200).map(|i| format!("line {i}")).collect();
+        lines[100] = change.to_string();
+        lines.join("\n") + "\n"
+    }
+
+    #[test]
+    fn diff_is_full_file_head_vs_worktree() {
+        let dir = init_repo();
+        let root = dir.to_str().unwrap();
+        fs::write(dir.join("a.txt"), big_file("orig")).unwrap();
+        stage(root, &["a.txt".to_string()]).unwrap();
+        commit(root, "init", false).unwrap();
+        fs::write(dir.join("a.txt"), big_file("changed")).unwrap();
+        stage(root, &["a.txt".to_string()]).unwrap();
+        let d = diff(root, "a.txt").unwrap();
+        assert!(d.contains("+changed") && d.contains(" line 0\n") && d.contains(" line 199\n"));
+        let ds = diff_staged(root, "a.txt").unwrap();
+        assert!(ds.contains(" line 0\n"));
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn diff_untracked_file_is_all_additions() {
+        let dir = init_repo();
+        let root = dir.to_str().unwrap();
+        fs::write(dir.join("a.txt"), "x\n").unwrap();
+        stage(root, &["a.txt".to_string()]).unwrap();
+        commit(root, "init", false).unwrap();
+        fs::write(dir.join("new.txt"), "hello\nworld\n").unwrap();
+        let d = diff(root, "new.txt").unwrap();
+        assert!(d.contains("+hello") && d.contains("+world"));
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn commit_amend_rewrites_last_commit() {
+        let dir = init_repo();
+        let root = dir.to_str().unwrap();
+        fs::write(dir.join("a.txt"), "x\n").unwrap();
+        stage(root, &["a.txt".to_string()]).unwrap();
+        commit(root, "first", false).unwrap();
+        commit(root, "renamed", true).unwrap();
+        let l = log(root, 10).unwrap();
+        assert_eq!(l.len(), 1);
+        assert_eq!(l[0].subject, "renamed");
+        assert!(l[0].time > 0);
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn branch_list_current_first_and_tracking() {
+        let dir = init_repo();
+        let root = dir.to_str().unwrap();
+        fs::write(dir.join("a.txt"), "x\n").unwrap();
+        stage(root, &["a.txt".to_string()]).unwrap();
+        commit(root, "init", false).unwrap();
+        // A second repo clones the first so we get a remote + upstream.
+        let clone = temp_dir();
+        git(root, &["clone", "-q", root, clone.to_str().unwrap()]).unwrap();
+        let c = clone.to_str().unwrap();
+        git(c, &["config", "user.email", "t@e.com"]).unwrap();
+        git(c, &["config", "user.name", "Test"]).unwrap();
+        git(root, &["branch", "fix/x"]).unwrap();
+        git(c, &["fetch", "-q"]).unwrap();
+        fs::write(clone.join("b.txt"), "y\n").unwrap();
+        stage(c, &["b.txt".to_string()]).unwrap();
+        commit(c, "local", false).unwrap();
+        create_branch(c, "other").unwrap();
+        checkout(c, "other").unwrap();
+        checkout(
+            c,
+            &branches(c)
+                .unwrap()
+                .into_iter()
+                .find(|b| b != "other")
+                .unwrap(),
+        )
+        .unwrap();
+
+        let list = branch_list(c).unwrap();
+        assert!(list[0].current && !list[0].remote);
+        assert_eq!(list[0].ahead, 1);
+        assert!(list[0].upstream.as_deref().unwrap().starts_with("origin/"));
+        assert!(list.iter().any(|b| b.name == "other" && !b.current));
+        assert!(list.iter().all(|b| !b.name.ends_with("/HEAD")));
+        assert!(list.iter().any(|b| b.remote && b.name == "origin/fix/x"));
+
+        checkout_remote(c, "origin/fix/x").unwrap();
+        assert_eq!(current_branch(c).unwrap(), "fix/x");
+        assert!(checkout_remote(c, "-bad").is_err());
+        let _ = fs::remove_dir_all(dir);
+        let _ = fs::remove_dir_all(clone);
+    }
+
+    #[test]
+    fn stash_round_trip_with_untracked() {
+        let dir = init_repo();
+        let root = dir.to_str().unwrap();
+        assert!(stash_list(root).unwrap().is_empty(), "unborn repo");
+        fs::write(dir.join("a.txt"), "one\n").unwrap();
+        stage(root, &["a.txt".to_string()]).unwrap();
+        commit(root, "init", false).unwrap();
+        assert!(stash_list(root).unwrap().is_empty());
+
+        fs::write(dir.join("a.txt"), "two\n").unwrap();
+        fs::write(dir.join("new.txt"), "fresh\n").unwrap();
+        stash_push(root, "my work", true, false, false).unwrap();
+        assert!(!dir.join("new.txt").exists());
+
+        let list = stash_list(root).unwrap();
+        assert_eq!(list.len(), 1);
+        assert_eq!(list[0].index, 0);
+        assert_eq!(list[0].message, "my work");
+        assert_eq!(list[0].branch, "main");
+        assert!(list[0].time > 0);
+
+        let files = stash_show(root, 0).unwrap();
+        let a = files.iter().find(|f| f.path == "a.txt").unwrap();
+        assert_eq!(a.status, "M");
+        assert!(a.diff.contains("+two"));
+        let n = files.iter().find(|f| f.path == "new.txt").unwrap();
+        assert_eq!(n.status, "A");
+
+        stash_pop(root, 0).unwrap();
+        assert!(dir.join("new.txt").exists());
+        assert!(stash_list(root).unwrap().is_empty());
+        assert!(stash_branch(root, "-x", 0).is_err());
         let _ = fs::remove_dir_all(dir);
     }
 }

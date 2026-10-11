@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { diffRows, diffStats, diffLineClass } from './diff';
+import { diffRows, diffStats, diffLineClass, fileLines, splitRows, changedSpan } from './diff';
 
 const SAMPLE = [
   'diff --git a/a.json b/a.json',
@@ -75,5 +75,55 @@ describe('diff parser', () => {
     // 2 additions (+added1, +added2) and 2 deletions (-gone1, -gone2); the
     // '--- a/b.json' and '+++ b/b.json' header lines must not be counted.
     expect(diffStats(MULTI_HUNK)).toEqual({ additions: 2, deletions: 2 });
+  });
+});
+
+describe('full-file diff rows', () => {
+  const text = [
+    'diff --git a/x.json b/x.json',
+    'index 1..2 100644',
+    '--- a/x.json',
+    '+++ b/x.json',
+    '@@ -1,4 +1,5 @@',
+    ' {',
+    '-  "url": "/v1",',
+    '+  "url": "/v1?limit=20",',
+    '+  "accept": "json",',
+    '   "x": 1',
+    ' }',
+    '\\ No newline at end of file',
+  ].join('\n');
+
+  it('numbers every line of the file and drops the headers', () => {
+    const lines = fileLines(text);
+    expect(lines.map((l) => [l.kind, l.old, l.new])).toEqual([
+      ['ctx', 1, 1],
+      ['del', 2, undefined],
+      ['add', undefined, 2],
+      ['add', undefined, 3],
+      ['ctx', 3, 4],
+      ['ctx', 4, 5],
+    ]);
+    expect(lines[1].text).toBe('  "url": "/v1",');
+  });
+
+  it('pairs removed and added lines, padding the shorter side', () => {
+    const rows = splitRows(fileLines(text));
+    expect(rows.map((r) => [r.left?.old, r.right?.new])).toEqual([
+      [1, 1],
+      [2, 2],
+      [undefined, 3],
+      [3, 4],
+      [4, 5],
+    ]);
+  });
+
+  it('finds the changed middle of a line', () => {
+    const a = '"/v1/payments",';
+    const b = '"/v1/payments?limit=20",';
+    const [s, ea, eb] = changedSpan(a, b);
+    expect(a.slice(s, ea)).toBe('');
+    expect(b.slice(s, eb)).toBe('?limit=20');
+    expect(changedSpan('same', 'same')).toEqual([4, 4, 4]);
   });
 });

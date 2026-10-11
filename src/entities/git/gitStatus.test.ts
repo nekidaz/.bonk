@@ -1,6 +1,15 @@
 import { describe, it, expect } from 'vitest';
-import { statusLetter, statusByPath, folderChangeCount, statusColor } from './gitStatus';
-import type { GitFile } from '$shared/model';
+import {
+  statusLetter,
+  statusByPath,
+  folderChangeCount,
+  statusColor,
+  describeFile,
+  relativeAgo,
+  shortAgo,
+} from './gitStatus';
+import type { GitFile, TreeNode } from '$shared/model';
+import { findNode } from '$entities/workspace';
 
 const f = (path: string, index: string, worktree: string): GitFile => ({ path, index, worktree });
 
@@ -54,11 +63,68 @@ describe('gitStatus helpers', () => {
   });
 
   it('maps a letter to a CSS var color', () => {
-    expect(statusColor('A')).toBe('var(--green)');
-    expect(statusColor('U')).toBe('var(--green)');
-    expect(statusColor('D')).toBe('var(--red)');
-    expect(statusColor('R')).toBe('var(--purple)');
-    expect(statusColor('M')).toBe('var(--orange)');
-    expect(statusColor('Z')).toBe('var(--orange)'); // unknown letter falls back to orange
+    expect(statusColor('A')).toBe('var(--color-success)');
+    expect(statusColor('U')).toBe('var(--color-success)');
+    expect(statusColor('D')).toBe('var(--color-danger)');
+    expect(statusColor('R')).toBe('var(--method-patch)');
+    expect(statusColor('M')).toBe('var(--color-warning)');
+    expect(statusColor('Z')).toBe('var(--color-warning)'); // unknown letter falls back to warning
+  });
+});
+
+describe('describeFile', () => {
+  const tree: TreeNode[] = [
+    {
+      kind: 'folder',
+      id: 'fs:payments',
+      name: 'Payments API',
+      expanded: true,
+      children: [
+        {
+          kind: 'request',
+          id: 'fs:payments/list.bonk.json',
+          name: 'List payments',
+          protocol: 'http',
+          request: { method: 'GET', url: '', headers: {} },
+        } as TreeNode,
+      ],
+    } as TreeNode,
+  ];
+  const find = (id: string) => findNode(tree, id);
+
+  it('uses the request name and method when the file is in the tree', () => {
+    expect(describeFile('api/payments/list.bonk.json', 'api/', find)).toEqual({
+      name: 'List payments',
+      method: 'GET',
+      dir: 'payments',
+    });
+  });
+
+  it('falls back to the file name for deleted or non-request files', () => {
+    expect(describeFile('webhooks/old-webhook.bonk.json', '', find)).toEqual({
+      name: 'old-webhook',
+      method: '',
+      dir: 'webhooks',
+    });
+    expect(describeFile('README.md', '', find)).toEqual({ name: 'README.md', method: '', dir: '' });
+  });
+});
+
+describe('shortAgo', () => {
+  const now = Date.UTC(2026, 9, 11, 12, 0, 0);
+  const ago = (s: number) => now / 1000 - s;
+  it('steps from minutes to dates', () => {
+    expect(shortAgo(ago(10), now, 'en')).toBe('now');
+    expect(shortAgo(ago(300), now, 'ru')).toBe('5м');
+    expect(shortAgo(ago(7200), now, 'en')).toBe('2h');
+    expect(shortAgo(ago(90000), now, 'ru')).toBe('вчера');
+    expect(shortAgo(ago(3 * 86400), now, 'en')).toBe('3d');
+    expect(shortAgo(ago(40 * 86400), now, 'en')).toBe('2026-09-01');
+  });
+
+  it('says a longer age in the largest whole unit', () => {
+    expect(relativeAgo(ago(300), now, 'en')).toBe('5 minutes ago');
+    expect(relativeAgo(ago(7200), now, 'ru')).toBe('2 часа назад');
+    expect(relativeAgo(ago(3 * 86400), now, 'en')).toBe('3 days ago');
   });
 });
