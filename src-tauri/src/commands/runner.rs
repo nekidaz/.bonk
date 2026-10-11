@@ -55,6 +55,7 @@ pub async fn runner_run(
         settings,
         jar,
         grpc,
+        connection_id: None,
     };
     let mut vars = vars;
     let status = runner::run_collection(&plan, &mut vars, &transport, &control, &|event| {
@@ -64,7 +65,48 @@ pub async fn runner_run(
     if let Ok(mut runs) = state.runs.lock() {
         runs.remove(&run_id);
     }
-    Ok(status)
+    status
+}
+
+/// Interactive Send/Invoke uses the collection engine, retaining the editor's full response.
+#[allow(clippy::too_many_arguments)]
+#[tauri::command]
+pub async fn request_run(
+    request_id: String,
+    node: bonk_core::domain::workspace::RequestNode,
+    mut plan: RunPlan,
+    mut vars: RunVars,
+    settings: RequestSettings,
+    grpc: GrpcRunSettings,
+    connection_id: Option<String>,
+    on_event: Channel<RunEvent>,
+    app: tauri::AppHandle,
+    state: State<'_, AppState>,
+) -> Result<runner::RequestExecution, String> {
+    let settings = settings.normalized();
+    let jar = super::cookies::jar(&app, &state, &settings.cookie_jar)?;
+    jar.set_keep_session(settings.cookies_keep_session);
+    plan.client_certs = settings.client_certs.clone();
+    let transport = AppTransport {
+        state: &state,
+        settings,
+        jar,
+        grpc,
+        connection_id,
+    };
+    let id = Some(request_id);
+    let cancel = super::http::register_cancel(&state, &id)?;
+    let emit = |event| {
+        let _ = on_event.send(event);
+    };
+    let execution = runner::execute_node(&plan, &node, &mut vars, &transport, &emit);
+    let result = if let Some(cancel) = cancel {
+        tokio::select! { result = execution => Ok(result), _ = cancel => Err("request cancelled".to_string()) }
+    } else {
+        Ok(execution.await)
+    };
+    super::http::finish_cancel(&state, &id);
+    result
 }
 
 /// «Пауза» / «Продолжить»: the run holds before its next call.
@@ -105,6 +147,7 @@ struct AppTransport<'a> {
     settings: RequestSettings,
     jar: Arc<CookieJar>,
     grpc: GrpcRunSettings,
+    connection_id: Option<String>,
 }
 
 impl Transport for AppTransport<'_> {
@@ -130,6 +173,9 @@ impl Transport for AppTransport<'_> {
     }
 
     async fn grpc_open(&self, target: GrpcTarget) -> Result<String, String> {
+        if let Some(id) = &self.connection_id {
+            return Ok(id.clone());
+        }
         let id = super::grpc::open(
             self.state,
             target.endpoint,
@@ -173,6 +219,13 @@ impl Transport for AppTransport<'_> {
             )
             .await
             .map_err(|e| e.message)
+        }
+    }
+
+    fn clear_script_cookies(&self, url: &str) {
+        self.jar.clear_for_url(url);
+        if let Err(e) = self.jar.save() {
+            eprintln!("{e}");
         }
     }
 

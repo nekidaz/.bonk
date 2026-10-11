@@ -8,7 +8,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use serde::{Deserialize, Serialize};
 
 /// How dynamic values are generated (Settings → Variables).
-#[derive(Debug, Clone, PartialEq, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
 pub struct DynamicOptions {
     /// "ru": Russian/Kazakh names, Kazakhstan cities, streets and +7 phones. Anything else: English (US).

@@ -1,3 +1,4 @@
+import type { Scenario } from '$shared/model';
 /** A saved Runner setup (R2 «Сохранить как пресет»): scope, selection, order and run settings. */
 export interface RunnerPreset {
   /** Display name; also the identity (saving the same name again updates it). */
@@ -11,6 +12,7 @@ export interface RunnerPreset {
   saveResponses: boolean;
   /** Environment to activate; null = none. Ignored if it no longer exists. */
   envId: string | null;
+  scenario?: Scenario;
 }
 
 export const PRESET_LIMIT = 20;

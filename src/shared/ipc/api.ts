@@ -2,6 +2,7 @@ import { Channel, invoke } from '@tauri-apps/api/core';
 import {
   type DynamicOptions,
   type DynamicValue,
+  type Scenario,
   type HttpRequest,
   type HttpResponse,
   type CookieInfo,
@@ -292,6 +293,7 @@ export interface RunPlan {
   globalImportPaths: string[];
   /** How `{{$dynamic}}` values are generated (Settings → Variables). */
   dynamic?: DynamicOptions;
+  requiredVariables?: string[];
 }
 
 /** Script writes of a run, for the env/globals stores (and cookie clears). */
@@ -324,6 +326,48 @@ export function runnerRun(
 }
 export const runnerPause = (runId: string, paused: boolean) => invoke<void>('runner_pause', { runId, paused });
 export const runnerStop = (runId: string) => invoke<void>('runner_stop', { runId });
+
+export interface RequestExecution {
+  row: RunResultRow;
+  details: {
+    request: HttpRequest | null;
+    response: HttpResponse | null;
+    grpcResult: GrpcResult | null;
+    pre: unknown;
+    post: unknown;
+    postMs: number | null;
+    oauth: OAuthEnsured | null;
+    dynamic: DynamicValue[];
+  };
+}
+
+export function requestRun(
+  requestId: string,
+  node: RequestNode,
+  plan: RunPlan,
+  vars: { environment: Record<string, string>; globals: Record<string, string> },
+  settings: RequestSettings,
+  grpc: { prefs: GrpcPrefs; connectTimeoutMs?: number; deadlineMs?: number },
+  onEvent: (event: RunEvent) => void,
+  connectionId?: string,
+): Promise<RequestExecution> {
+  const channel = new Channel<RunEvent>();
+  channel.onmessage = onEvent;
+  return invoke('request_run', {
+    requestId,
+    node,
+    plan,
+    vars,
+    settings,
+    grpc,
+    onEvent: channel,
+    connectionId: connectionId ?? null,
+  });
+}
+
+export const scenariosLoad = (root: string) => invoke<Scenario[]>('scenarios_load', { root });
+export const scenariosSave = (root: string, scenario: Scenario) => invoke<void>('scenarios_save', { root, scenario });
+export const scenariosDelete = (root: string, name: string) => invoke<void>('scenarios_delete', { root, name });
 
 /** Client/bidi: send more messages (an object or an array) into the open stream `requestId`. */
 export const grpcStreamSend = (requestId: string, jsonBody: string) =>
@@ -517,3 +561,8 @@ export const oauthLoginWait = (flowId: string, settings?: RequestSettings) =>
 export const oauthLoginInput = (flowId: string, input: string | null) =>
   invoke<void>('oauth_login_input', { flowId, input });
 export const openUrl = (url: string) => invoke<void>('open_url', { url });
+
+export const workspaceImportCollection = (
+  root: string,
+  collection: { name: string; children: TreeNode[]; auth?: AuthConfig; source?: ImportSource },
+) => invoke<string>('workspace_import_collection', { root, collection });

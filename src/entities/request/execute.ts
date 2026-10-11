@@ -1,10 +1,14 @@
-import type { RequestNode, RunResultRow } from '$shared/model';
-import { mergeScope } from '$shared/model';
+import type { RequestNode, RequestSettings, RunResultRow, TreeNode, Tab, DynamicOptions } from '$shared/model';
+import { mergeScope, parseScriptResult, collectScriptRun } from '$shared/model';
 import { currentGrpcPrefs, dynamicOptions, withGlobalImports, requestPrefs } from '$shared/settings';
-import { runnerRun, type RunEvent, type RunPlan } from '$shared/ipc';
+import { runnerRun, requestRun, type RunEvent, type RunPlan } from '$shared/ipc';
+import { tabs, grpcSnapshot } from '$entities/tab';
+import { addHistory } from '$entities/history';
+import { addAppConsoleEntry } from './console.svelte';
 import { effectiveAuth, workspace } from '$entities/workspace';
 import { environments } from '$entities/environment';
-import { currentRequestSettings, applyScriptVars } from './store';
+import { methodShort } from './grpc';
+import { currentRequestSettings, applyScriptVars } from './executionState';
 
 /**
  * Collection Runner execution: saved requests (HTTP + gRPC) run in bonk-core's runner
@@ -25,9 +29,27 @@ function globalsMap(): Record<string, string> {
   return mergeScope(environments.globals, undefined);
 }
 
+export interface ExecutionContext {
+  environmentId: string | null;
+  variables: { environment: Record<string, string>; globals: Record<string, string> };
+  workspaceRoot: string;
+  tree: TreeNode[];
+  dynamic: DynamicOptions;
+}
+
+/** Capture before an awaited gRPC connect, so its send uses the same workspace and variables. */
+export function captureExecutionContext(): ExecutionContext {
+  return {
+    environmentId: environments.activeId,
+    variables: { environment: activeEnvMap(), globals: globalsMap() },
+    workspaceRoot: workspace.path,
+    tree: workspace.tree,
+    dynamic: dynamicOptions(),
+  };
+}
+
 /** `node` as the runner gets it: auth resolved (own or the folder's), no in-memory gRPC state. */
-function forRun(node: RequestNode): RequestNode {
-  const tree = workspace.tree;
+function forRun(node: RequestNode, tree = workspace.tree): RequestNode {
   const g = node.grpc;
   return {
     ...node,
@@ -37,6 +59,7 @@ function forRun(node: RequestNode): RequestNode {
 }
 
 export interface RunOptions {
+  dynamic?: DynamicOptions;
   /** Pause / stop it with `runnerPause` / `runnerStop`. */
   runId?: string;
   iterations?: number;
@@ -44,6 +67,8 @@ export interface RunOptions {
   dataRows?: Record<string, string>[];
   delayMs?: number;
   stopOnFailure?: boolean;
+  requiredVariables?: string[];
+  variables?: { environment: Record<string, string>; globals: Record<string, string> };
 }
 
 /** Run `nodes`; `onEvent` gets progress and rows. Resolves with how the run ended. */
@@ -52,15 +77,17 @@ export function runRequests(
   opts: RunOptions,
   onEvent: (event: RunEvent) => void,
 ): Promise<'done' | 'stopped'> {
+  const environmentId = environments.activeId;
   const plan: RunPlan = {
-    requests: nodes.map(forRun),
+    requests: nodes.map((node) => forRun(node)),
+    requiredVariables: opts.requiredVariables ?? [],
     iterations: opts.iterations ?? 1,
     dataRows: opts.dataRows ?? [],
     delayMs: opts.delayMs ?? 0,
     stopOnFailure: opts.stopOnFailure ?? false,
     workspaceRoot: workspace.path ?? '',
     globalImportPaths: withGlobalImports([]),
-    dynamic: dynamicOptions(),
+    dynamic: opts.dynamic ?? dynamicOptions(),
   };
   const grpc = {
     prefs: currentGrpcPrefs(),
@@ -70,11 +97,14 @@ export function runRequests(
   return runnerRun(
     opts.runId ?? crypto.randomUUID(),
     plan,
-    { environment: activeEnvMap(), globals: globalsMap() },
+    {
+      environment: { ...opts.variables?.environment, ...activeEnvMap() },
+      globals: { ...globalsMap(), ...opts.variables?.globals },
+    },
     currentRequestSettings(),
     grpc,
     (event) => {
-      if (event.kind === 'vars') applyScriptVars(event);
+      if (event.kind === 'vars') applyScriptVars(event, environmentId, false);
       onEvent(event);
     },
   );
@@ -88,10 +118,11 @@ export async function runOne(
   node: RequestNode,
   iteration: number,
   data: Record<string, string>,
+  options: Pick<RunOptions, 'variables' | 'requiredVariables' | 'dynamic'> = {},
 ): Promise<RunResultRow> {
   let row: RunResultRow | undefined;
   try {
-    await runRequests([node], { dataRows: [data] }, (e) => {
+    await runRequests([node], { ...options, dataRows: [data] }, (e) => {
       if (e.kind === 'row') {
         const { kind: _kind, ...r } = e;
         row = r;
@@ -119,4 +150,111 @@ function failedRow(node: RequestNode, iteration: number, error: string): RunResu
     error,
     nodeId: node.id,
   };
+}
+
+/** An editor send uses the collection pipeline, with full response and script details. */
+export function executeRequest(
+  node: RequestNode,
+  requestId: string,
+  settings: RequestSettings,
+  connectionId?: string,
+  context = captureExecutionContext(),
+) {
+  const environmentId = context.environmentId;
+  return requestRun(
+    requestId,
+    forRun(node, context.tree),
+    {
+      requests: [],
+      iterations: 1,
+      dataRows: [],
+      delayMs: 0,
+      stopOnFailure: false,
+      workspaceRoot: context.workspaceRoot,
+      globalImportPaths: withGlobalImports([]),
+      dynamic: context.dynamic,
+    },
+    context.variables,
+    settings,
+    {
+      prefs: currentGrpcPrefs(),
+      connectTimeoutMs: requestPrefs.requestTimeoutMs,
+      deadlineMs: requestPrefs.grpcDeadlineMs,
+    },
+    (event) => {
+      if (event.kind === 'vars') applyScriptVars(event, environmentId, false);
+    },
+    connectionId,
+  );
+}
+
+/** Keep a unary call's response and history on its originating tab. */
+export async function sendGrpcRequest(tab: Tab, requestId: string, context = captureExecutionContext()): Promise<void> {
+  const g = tab.grpc;
+  if (!g) return;
+  const { row, details } = await executeRequest(
+    {
+      kind: 'request',
+      id: tab.savedPath ?? '',
+      name: tab.title,
+      protocol: 'grpc',
+      request: tab.request,
+      grpc: g,
+    },
+    requestId,
+    currentRequestSettings(),
+    g.connectionId,
+    context,
+  );
+  const pre = details.pre ? parseScriptResult(JSON.stringify(details.pre)) : undefined;
+  const post = details.post ? parseScriptResult(JSON.stringify(details.post)) : undefined;
+  const result = details.grpcResult ?? {
+    ok: false,
+    status: 'ERROR',
+    body: row.error ?? '',
+    elapsed_ms: 0,
+    size_bytes: 0,
+  };
+  const testResults = collectScriptRun({
+    pre,
+    post,
+    postMs: details.postMs ?? undefined,
+    at: Date.now(),
+    send: details.grpcResult
+      ? {
+          t: Date.now(),
+          text: `${methodShort(g.method ?? '')} ${g.endpoint}`,
+          status: result.status,
+          ms: result.elapsed_ms,
+        }
+      : undefined,
+  });
+  tabs.updateById(tab.id, (t) => ({
+    ...t,
+    testResults,
+    grpcResult: pre?.error ? undefined : result,
+    grpcStream: undefined,
+  }));
+  addAppConsoleEntry({
+    protocol: 'grpc',
+    method: methodShort(g.method ?? '') || 'gRPC',
+    url: g.endpoint,
+    ok: row.ok,
+    status: pre?.error ? 'SCRIPT ERROR' : result.status,
+    elapsedMs: row.elapsedMs,
+    message: row.error,
+    logs: row.logs,
+  });
+  if (details.grpcResult)
+    addHistory({
+      id: crypto.randomUUID(),
+      protocol: 'grpc',
+      request: { method: 'GRPC', url: g.endpoint + ' ' + (g.method ?? ''), headers: {} },
+      status: 0,
+      ok: row.ok,
+      grpc: grpcSnapshot(g),
+      at: Date.now(),
+      savedPath: tab.savedPath,
+      title: tab.title,
+    });
 }

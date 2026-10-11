@@ -8,7 +8,7 @@ use std::{
     io::IsTerminal,
     path::{Path, PathBuf},
     process::ExitCode,
-    sync::Mutex,
+    sync::{Arc, Mutex},
     time::Duration,
 };
 
@@ -16,13 +16,14 @@ use bonk_core::{
     application::{
         app_vars, http, run_data,
         runner::{self, GrpcTarget, RunControl, RunPlan, RunStatus, RunVars, Transport},
-        workspace,
+        scenarios, workspace,
     },
     conn::GrpcDescriptorCache,
     domain::{
         grpc::GrpcResult,
         http::{HttpRequest, HttpResponse, RequestSettings},
     },
+    infra::cookie_jar::{CookieJar, JarProvider},
 };
 use clap::{Args, Parser, Subcommand};
 
@@ -40,7 +41,46 @@ struct Cli {
 #[derive(Subcommand)]
 enum Command {
     /// Run saved requests (folders, request files, or the whole workspace) with their scripts and tests.
-    Run(RunArgs),
+    Run(Box<RunArgs>),
+    /// Import request definitions from a Bonk JSON workspace export.
+    Import(ImportArgs),
+}
+
+#[derive(Args)]
+struct ImportArgs {
+    file: PathBuf,
+    #[arg(long, short = 'w', value_name = "DIR")]
+    workspace: PathBuf,
+}
+
+fn import(args: ImportArgs) -> Result<bool, String> {
+    let root = args
+        .workspace
+        .canonicalize()
+        .map_err(|e| format!("workspace: {e}"))?;
+    let text =
+        std::fs::read_to_string(&args.file).map_err(|e| format!("{}: {e}", args.file.display()))?;
+    let export: serde_json::Value = serde_json::from_str(&text).map_err(|e| e.to_string())?;
+    if export["format"] != "bonk-workspace" || export["version"] != 1 {
+        return Err("expected a Bonk workspace export (version 1)".into());
+    }
+    let name = export["name"]
+        .as_str()
+        .filter(|s| !s.trim().is_empty())
+        .ok_or("workspace export has no name")?;
+    let children = serde_json::from_value(export["collections"].clone())
+        .map_err(|e| format!("collections: {e}"))?;
+    let id = workspace::import_collection(
+        &root.to_string_lossy(),
+        workspace::ImportCollection {
+            name: name.into(),
+            children,
+            auth: None,
+            source: None,
+        },
+    )?;
+    println!("Imported request definitions into {id}. Environment values stay local; use a scenario for portable defaults.");
+    Ok(true)
 }
 
 #[derive(Args, Default)]
@@ -50,6 +90,9 @@ struct RunArgs {
     /// Workspace root (the folder you open in Bonk). Default: the current directory.
     #[arg(long, short = 'w', value_name = "DIR")]
     workspace: Option<PathBuf>,
+    /// A committed scenario in .bonk/scenarios.json (paths and settings come from it).
+    #[arg(long, value_name = "NAME", conflicts_with = "paths")]
+    scenario: Option<String>,
     /// Environment saved in the Bonk app, by name.
     #[arg(long, short = 'e', value_name = "NAME")]
     env: Option<String>,
@@ -60,11 +103,11 @@ struct RunArgs {
     #[arg(long, short = 'd', value_name = "FILE")]
     data: Option<PathBuf>,
     /// Run everything this many times (ignored with --data).
-    #[arg(long, short = 'n', default_value_t = 1)]
-    iterations: u32,
+    #[arg(long, short = 'n')]
+    iterations: Option<u32>,
     /// Pause between requests, ms.
-    #[arg(long, default_value_t = 0, value_name = "MS")]
-    delay: u64,
+    #[arg(long, value_name = "MS")]
+    delay: Option<u64>,
     /// Stop at the first failed request.
     #[arg(long)]
     bail: bool,
@@ -97,8 +140,11 @@ const VAR_PREFIX: &str = "BONK_VAR_";
 
 #[tokio::main]
 async fn main() -> ExitCode {
-    let Command::Run(args) = Cli::parse().command;
-    match run(&args).await {
+    let result = match Cli::parse().command {
+        Command::Run(args) => run(&args).await,
+        Command::Import(args) => import(args),
+    };
+    match result {
         Ok(true) => ExitCode::SUCCESS,
         Ok(false) => ExitCode::from(1),
         Err(error) => {
@@ -116,40 +162,64 @@ async fn run(args: &RunArgs) -> Result<bool, String> {
         .unwrap_or_else(|| PathBuf::from("."))
         .canonicalize()
         .map_err(|e| format!("workspace: {e}"))?;
-    let tree = workspace::load(&root.to_string_lossy())?;
-    let ids = if args.paths.is_empty() {
-        vec!["fs:".to_string()]
+    let scenario = match &args.scenario {
+        Some(name) => Some(
+            scenarios::load(&root)?
+                .into_iter()
+                .find(|s| &s.name == name)
+                .ok_or_else(|| format!("scenario `{name}` was not found"))?,
+        ),
+        None => None,
+    };
+    let mut plan = if let Some(scenario) = &scenario {
+        scenario.plan(&root)?
     } else {
-        args.paths
-            .iter()
-            .map(|path| node_id(&root, path))
-            .collect::<Result<_, _>>()?
-    };
-    let requests = runner::plan_requests(&tree, &ids)?;
-    if requests.is_empty() {
-        return Err("no requests to run".into());
-    }
-    let data_rows = match &args.data {
-        Some(path) => {
-            let text =
-                std::fs::read_to_string(path).map_err(|e| format!("{}: {e}", path.display()))?;
-            run_data::parse_data_file(&path.to_string_lossy(), &text)?
+        let tree = workspace::load(&root.to_string_lossy())?;
+        let ids = if args.paths.is_empty() {
+            vec!["fs:".to_string()]
+        } else {
+            args.paths
+                .iter()
+                .map(|path| node_id(&root, &root.join(path)))
+                .collect::<Result<_, _>>()?
+        };
+        let requests = runner::plan_requests(&tree, &ids)?;
+        if requests.is_empty() {
+            return Err("no requests to run".into());
         }
-        None => Vec::new(),
+        RunPlan {
+            requests,
+            iterations: args.iterations.unwrap_or(1),
+            delay_ms: args.delay.unwrap_or(0),
+            stop_on_failure: args.bail,
+            workspace_root: root.to_string_lossy().into_owned(),
+            ..RunPlan::default()
+        }
     };
-    let plan = RunPlan {
-        requests,
-        iterations: args.iterations,
-        data_rows,
-        delay_ms: args.delay,
-        stop_on_failure: args.bail,
-        workspace_root: root.to_string_lossy().into_owned(),
-        ..RunPlan::default()
-    };
-    let (mut vars, secrets) = variables(args)?;
+    // Explicit data overrides embedded rows. Other scenario settings are preserved;
+    // --bail can additionally make a scenario stricter.
+    if let Some(path) = &args.data {
+        let text = std::fs::read_to_string(path).map_err(|e| format!("{}: {e}", path.display()))?;
+        plan.data_rows = run_data::parse_data_file(&path.to_string_lossy(), &text)?;
+    }
+    if let Some(iterations) = args.iterations {
+        plan.iterations = iterations;
+    }
+    if let Some(delay) = args.delay {
+        plan.delay_ms = delay;
+    }
+    plan.stop_on_failure |= args.bail;
+    let (mut vars, secrets) = variables(args, scenario.as_ref())?;
+    if let Some(scenario) = &scenario {
+        scenario.require_variables(&vars)?;
+    }
     let transport = CliTransport::new(args)?;
     let color = std::io::stdout().is_terminal() && std::env::var_os("NO_COLOR").is_none();
-    let report = Mutex::new(report::Report::new(plan.iteration_count(), color, secrets));
+    let mut report = report::Report::new(plan.iteration_count(), color, secrets);
+    if let Some(scenario) = &scenario {
+        report.protect_variables(&scenario.required_variables);
+    }
+    let report = Mutex::new(report);
     let status = runner::run_collection(
         &plan,
         &mut vars,
@@ -161,7 +231,7 @@ async fn run(args: &RunArgs) -> Result<bool, String> {
             }
         },
     )
-    .await;
+    .await?;
     let report = report.into_inner().map_err(|_| "report lock poisoned")?;
     report.print_summary(status);
     if let Some(path) = &args.junit {
@@ -193,21 +263,44 @@ fn node_id(root: &Path, path: &Path) -> Result<String, String> {
     Ok(format!("fs:{}", rel.join("/")))
 }
 
-/// Globals and the chosen environment from the app, `BONK_VAR_*` over the globals and
+/// Globals and the chosen environment from the app, `BONK_VAR_*` over the environment and
 /// `--var` over the environment (as in bonk-mcp), plus the secret values to redact from
 /// the output: the app's secret variables and every `BONK_VAR_*` (CI secrets go there).
-fn variables(args: &RunArgs) -> Result<(RunVars, Vec<String>), String> {
-    let state = args.app_state.clone().or_else(default_state_path);
+fn variables(
+    args: &RunArgs,
+    scenario: Option<&scenarios::Scenario>,
+) -> Result<(RunVars, Vec<String>), String> {
+    // A portable run must not accidentally depend on this machine's app state.
+    let state = args.app_state.clone().or_else(|| {
+        if scenario.is_none() || args.env.is_some() {
+            default_state_path()
+        } else {
+            None
+        }
+    });
     let app = app_vars::load_app_vars(state.as_deref());
     let (mut environment, mut globals, mut secrets) =
         app_vars::app_scopes(&app, args.env.as_deref(), &app_vars::keychain_secret)?;
+    if let Some(scenario) = scenario {
+        let overrides = environment;
+        environment = scenario.variables.environment.clone();
+        environment.extend(overrides);
+        globals.extend(scenario.variables.globals.clone());
+    }
     for (name, value) in std::env::vars() {
         if let Some(name) = name.strip_prefix(VAR_PREFIX).filter(|n| !n.is_empty()) {
             secrets.push(value.clone());
-            globals.insert(name.to_string(), value);
+            environment.insert(name.to_string(), value);
         }
     }
     environment.extend(args.vars.iter().cloned());
+    if let Some(scenario) = scenario {
+        for key in &scenario.required_variables {
+            if let Some(value) = environment.get(key).or_else(|| globals.get(key)) {
+                secrets.push(value.clone());
+            }
+        }
+    }
     let vars = RunVars {
         environment,
         globals,
@@ -239,14 +332,21 @@ struct CliTransport {
     settings: RequestSettings,
     timeout: Duration,
     insecure: bool,
+    jar: Arc<CookieJar>,
 }
 
 impl CliTransport {
     fn new(args: &RunArgs) -> Result<Self, String> {
         let timeout = Duration::from_millis(args.timeout);
+        let jar = Arc::new(CookieJar::memory());
         let client = reqwest::Client::builder()
             .user_agent(concat!("bonk-cli/", env!("CARGO_PKG_VERSION")))
-            .cookie_store(true)
+            .cookie_provider(Arc::new(JarProvider {
+                jar: jar.clone(),
+                save: true,
+                send: true,
+                exclude: Vec::new(),
+            }))
             .timeout(timeout)
             .danger_accept_invalid_certs(args.insecure)
             .build()
@@ -261,6 +361,7 @@ impl CliTransport {
             settings: settings.normalized(),
             timeout,
             insecure: args.insecure,
+            jar,
         })
     }
 }
@@ -269,7 +370,21 @@ impl Transport for CliTransport {
     type Grpc = (GrpcTarget, GrpcDescriptorCache);
 
     async fn send_http(&self, request: HttpRequest) -> Result<HttpResponse, String> {
-        http::http_send(self.client.clone(), request, self.settings.clone(), None).await
+        http::http_send(
+            self.client.clone(),
+            request,
+            self.settings.clone(),
+            Some(&self.jar),
+        )
+        .await
+    }
+
+    fn script_cookies(&self, url: &str, response: Option<&HttpResponse>) -> Vec<(String, String)> {
+        self.jar
+            .script_cookies(url, response.map_or(&[], |r| r.cookies.as_slice()))
+    }
+    fn clear_script_cookies(&self, url: &str) {
+        self.jar.clear_for_url(url);
     }
 
     async fn grpc_open(&self, mut target: GrpcTarget) -> Result<Self::Grpc, String> {
@@ -387,7 +502,7 @@ mod tests {
             paths: vec![api.clone()],
             workspace: Some(root.clone()),
             vars: vec![("base".into(), echo_auth_server().await)],
-            iterations: 1,
+            iterations: Some(1),
             timeout: 5_000,
             app_state: Some(root.join("no-state.json")),
             junit: Some(junit.clone()),

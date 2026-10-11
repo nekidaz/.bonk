@@ -5,7 +5,14 @@ export { addAppConsoleEntry, appConsole, type AppConsoleEntry, clearAppConsole }
 export { requestProductionSend, requestSaveDialog } from './dialogs.svelte';
 export { isParamChanged } from './dirty';
 export { dirtyTabIds } from './dirtyTabs.svelte';
-export { runOne, runRequests, type RunOptions } from './execute';
+export {
+  runOne,
+  runRequests,
+  executeRequest,
+  sendGrpcRequest,
+  captureExecutionContext,
+  type RunOptions,
+} from './execute';
 export {
   atTopLevelKey,
   checkGrpcMessage,

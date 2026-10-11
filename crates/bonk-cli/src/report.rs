@@ -9,6 +9,7 @@ pub struct Report {
     color: bool,
     /// Values never printed or written: CI logs and report artifacts are widely readable.
     secrets: Vec<String>,
+    secret_keys: Vec<String>,
     rows: Vec<RunResultRow>,
 }
 
@@ -19,13 +20,23 @@ impl Report {
             color,
             secrets: secrets.into_iter().filter(|s| !s.is_empty()).collect(),
             rows: Vec::new(),
+            secret_keys: Vec::new(),
         }
+    }
+
+    pub fn protect_variables(&mut self, keys: &[String]) {
+        self.secret_keys = keys.to_vec();
     }
 
     /// `text` with every secret (as is, or URL-encoded) replaced by `<redacted>`.
     fn redact(&self, text: &str) -> String {
         self.secrets.iter().fold(text.to_string(), |text, secret| {
+            let escaped = serde_json::to_string(secret).unwrap_or_default();
+            let escaped = escaped
+                .get(1..escaped.len().saturating_sub(1))
+                .unwrap_or(secret);
             text.replace(secret, "<redacted>")
+                .replace(escaped, "<redacted>")
                 .replace(&encode_uri_component(secret), "<redacted>")
         })
     }
@@ -48,6 +59,13 @@ impl Report {
     /// Print a runner event as it happens; keep the rows for the summary and reports.
     pub fn event(&mut self, event: RunEvent) {
         match event {
+            RunEvent::Vars(w) => {
+                for (key, value) in w.env_set.into_iter().chain(w.globals_set) {
+                    if self.secret_keys.contains(&key) && !value.is_empty() {
+                        self.secrets.push(value);
+                    }
+                }
+            }
             RunEvent::Iteration { index, .. } if self.iterations > 1 => {
                 println!(
                     "\n{}",
@@ -286,13 +304,23 @@ mod tests {
     #[test]
     fn secrets_never_reach_the_output() {
         let mut report = Report::new(1, false, vec!["s3 cret".into()]);
+        report.protect_variables(&["TOKEN".into()]);
+        let refreshed = "refreshed\"token";
+        report.event(RunEvent::Vars(bonk_core::application::runner::VarWrites {
+            env_set: [("TOKEN".into(), refreshed.into())].into(),
+            ..Default::default()
+        }));
         let mut leaky = row(false);
         leaky.target = "https://x/?key=s3%20cret".into();
         leaky.error = Some("401 for token s3 cret".into());
+        leaky
+            .logs
+            .push(serde_json::json!({ "token": refreshed }).to_string());
         report.event(RunEvent::Row(Box::new(leaky)));
         let (xml, json) = (report.junit(), report.json(RunStatus::Done));
         assert!(!xml.contains("s3") && !json.contains("s3"), "{xml}\n{json}");
         assert!(xml.contains("key=&lt;redacted&gt;"), "{xml}");
+        assert!(!json.contains("refreshed"), "{json}");
     }
 
     #[test]

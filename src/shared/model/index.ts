@@ -124,3 +124,5 @@ export {
   searchDynamic,
   unknownDynamicCount,
 } from './dynamicVars';
+
+export { scenarioVariables, type Scenario } from './scenario';

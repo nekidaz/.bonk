@@ -38,6 +38,16 @@ describe('isTabDirty', () => {
       isParamChanged(tab(), saved, 1),
     ]).toEqual([true, false, false]);
   });
+  it('keeps an opened workspace upload clean until a different file is chosen', () => {
+    const stored = {
+      ...saved,
+      request: { ...saved.request, bodyMode: 'binary' as const, binaryFilePath: 'payload.bin' },
+    };
+    const opened = tab({ request: { ...stored.request, binaryFilePath: '/clone/api/payload.bin' } });
+    expect(isTabDirty(opened, stored, '/clone/api')).toBe(false);
+    opened.request.binaryFilePath = '/clone/api/other.bin';
+    expect(isTabDirty(opened, stored, '/clone/api')).toBe(true);
+  });
 });
 
 describe('isScratchDirty', () => {

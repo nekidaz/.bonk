@@ -6,6 +6,22 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+- Portable workspace scenarios shared by Runner, `bonk run --scenario` and MCP
+  `run_scenario`, with public defaults, required secret names and data rows.
+- CLI import of Bonk JSON request definitions through the desktop's core importer.
+- A real importer → auth → run → Git commit → clean clone → CLI/MCP integration check.
+
+### Changed
+- HTTP Send and unary gRPC Invoke now use the same execution pipeline as collections,
+  CLI and MCP, including scripts, OAuth, variable writes and test outcomes.
+- Headless runs expose session cookies to scripts and apply script cookie clears;
+  body-upload references inside the workspace are portable.
+
+### Fixed
+- Retain pre-script output on network failures and report the actual patched wire URL.
+- Keep script writes on the originating environment when the selection changes mid-call.
+
 ### Removed
 - Flows canvas, block execution and its UI entry points. Collection Runner and
   HTTP/gRPC request scripts remain available.
