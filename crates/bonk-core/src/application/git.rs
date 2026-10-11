@@ -821,8 +821,8 @@ pub fn clone(url: &str, parent: &str) -> Result<String, String> {
     check_url(url)?;
     let url = url.trim();
     let name = url
-        .trim_end_matches('/')
-        .rsplit(['/', ':'])
+        .trim_end_matches(['/', '\\'])
+        .rsplit(['/', '\\', ':'])
         .next()
         .unwrap_or("")
         .trim_end_matches(".git")
@@ -2816,12 +2816,13 @@ mod tests {
     }
 
     /// Init a repo and set a local identity so commits don't depend on the
-    /// machine's global git config.
+    /// machine's global git config (nor its core.autocrlf: Windows runners set it).
     fn init_repo() -> std::path::PathBuf {
         let dir = temp_dir();
         fs::create_dir_all(&dir).unwrap();
         let root = dir.to_str().unwrap();
         init(root).unwrap();
+        git(root, &["config", "core.autocrlf", "false"]).unwrap();
         git(root, &["config", "user.email", "t@e.com"]).unwrap();
         git(root, &["config", "user.name", "Test"]).unwrap();
         dir
@@ -3352,7 +3353,18 @@ mod tests {
         commit(root, "init", false).unwrap();
         // A second repo clones the first so we get a remote + upstream.
         let clone = temp_dir();
-        git(root, &["clone", "-q", root, clone.to_str().unwrap()]).unwrap();
+        git(
+            root,
+            &[
+                "clone",
+                "-q",
+                "-c",
+                "core.autocrlf=false",
+                root,
+                clone.to_str().unwrap(),
+            ],
+        )
+        .unwrap();
         let c = clone.to_str().unwrap();
         git(c, &["config", "user.email", "t@e.com"]).unwrap();
         git(c, &["config", "user.name", "Test"]).unwrap();
@@ -3515,6 +3527,8 @@ mod tests {
             .args([
                 "clone",
                 "-q",
+                "-c",
+                "core.autocrlf=false",
                 remote.to_str().unwrap(),
                 other.to_str().unwrap(),
             ])

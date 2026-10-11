@@ -1021,6 +1021,12 @@ mod tests {
 
     #[test]
     fn builds_restricted_server_args() {
+        // Joined natively: `\` on Windows.
+        let state = Path::new("/data").join("state.json").display().to_string();
+        let journal = Path::new("/data")
+            .join("mcp-journal.jsonl")
+            .display()
+            .to_string();
         assert_eq!(
             mcp_args(
                 Path::new("/tmp/workspace"),
@@ -1043,9 +1049,9 @@ mod tests {
                 "--client",
                 "claude-code",
                 "--app-state",
-                "/data/state.json",
+                state.as_str(),
                 "--journal",
-                "/data/mcp-journal.jsonl"
+                journal.as_str()
             ]
         );
     }
