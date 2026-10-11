@@ -218,7 +218,18 @@ pub async fn call(
         if tls.insecure {
             cmd.arg("-insecure");
         }
-        if let Some(ca) = &tls.ca_cert {
+        if !tls.ca_paths.is_empty() || tls.disable_system_cas {
+            let mut pem = Vec::new();
+            for path in tls.ca_cert.iter().chain(tls.ca_paths.iter()) {
+                pem.extend(std::fs::read(path).map_err(|e| format!("CA {path}: {e}"))?);
+                pem.push(b'\n');
+            }
+            if pem.is_empty() {
+                return Err("no gRPC CA certificates configured".into());
+            }
+            let dir = secret_dir.insert(SecretDir::create()?);
+            cmd.arg("-cacert").arg(dir.write("ca.pem", &pem)?);
+        } else if let Some(ca) = &tls.ca_cert {
             cmd.arg("-cacert").arg(ca);
         }
         if tls.client_p12.as_deref().is_some_and(|p| !p.is_empty()) {
@@ -227,7 +238,10 @@ pub async fn call(
             let (cert, key) = tls
                 .client_identity_pem()?
                 .ok_or("client identity missing")?;
-            let dir = secret_dir.insert(SecretDir::create()?);
+            let dir = match &mut secret_dir {
+                Some(dir) => dir,
+                None => secret_dir.insert(SecretDir::create()?),
+            };
             cmd.arg("-cert").arg(dir.write("cert.pem", &cert)?);
             cmd.arg("-key").arg(dir.write("key.pem", &key)?);
         } else if let (Some(cert), Some(key)) = (&tls.client_cert, &tls.client_key) {

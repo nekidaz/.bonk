@@ -26,6 +26,8 @@ function mcp(binary: string, workspace: string, env: NodeJS.ProcessEnv, extra: s
     ['--workspace', workspace, '--target-host', '127.0.0.1', '--mutating-methods', 'allow', ...extra, 'stdio'],
     { env },
   );
+  // Windows keeps the executable locked until the process and its pipes close.
+  const closed = new Promise<void>((resolve) => child.once('close', () => resolve()));
   let id = 0;
   const pending = new Map<
     number,
@@ -66,11 +68,12 @@ function mcp(binary: string, workspace: string, env: NodeJS.ProcessEnv, extra: s
     request,
     initialized: () =>
       child.stdin.write(JSON.stringify({ jsonrpc: '2.0', method: 'notifications/initialized' }) + '\n'),
-    close: () => {
+    close: async () => {
       for (const waiter of pending.values()) clearTimeout(waiter.timer);
       pending.clear();
       lines.close();
       child.kill();
+      await closed;
     },
   };
 }
@@ -287,7 +290,7 @@ it('imports, configures auth, runs, commits and repeats the same scenario from a
     expect(mcpResult.ok).toBe(true);
     expect(stable(mcpResult)).toEqual(stable(ci));
     expect(JSON.stringify(tool)).not.toContain(secret);
-    client.close();
+    await client.close();
     const callsBeforeDenial = seen.length;
     client = mcp(mcpBin, clone, env, ['--no-network']);
     await client.request('initialize', {
@@ -309,7 +312,7 @@ it('imports, configures auth, runs, commits and repeats the same scenario from a
     expect(guids[0]).not.toBe(guids[1]);
     expect(seen.find((r) => r.path === '/seed/first')?.auth).toBe(`Bearer ${secret}`);
   } finally {
-    client?.close();
+    await client?.close();
     await new Promise<void>((resolve) => server.close(() => resolve()));
     await rm(dir, { recursive: true, force: true });
   }
