@@ -4,6 +4,7 @@
 export {
   openCommitEditorTab,
   openFileHistoryTab,
+  openCompareTab,
   openConflictsTab,
   openGitDiffTab,
   openGraphTab,
@@ -17,6 +18,10 @@ export {
   cherryPick,
   continueOperation,
   undoRebase,
+  undoLast,
+  watchGitAutoFetch,
+  gitAutoFetch,
+  AUTO_FETCH_MINUTES,
   deleteBranch,
   deleteRemoteBranch,
   renameBranch,

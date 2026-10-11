@@ -415,12 +415,150 @@ fn staged_renames(top: &str) -> HashMap<String, String> {
 /// (un-staging the delete-side) and the new path is dropped — so the tree ends
 /// clean rather than losing the file. Tracked-modify, untracked, and staged-new
 /// files are handled as above.
-pub fn discard(root: &str, paths: &[String]) -> Result<(), String> {
+///
+/// Returns a snapshot of what was thrown away (a tree of the paths' working
+/// copies, "" when it couldn't be taken) for [`restore_snapshot`].
+pub fn discard(root: &str, paths: &[String]) -> Result<String, String> {
     if paths.is_empty() {
-        return Ok(());
+        return Ok(String::new());
     }
     // `paths` are toplevel-relative, so resolve the toplevel and run/join there.
     let top = toplevel(root)?;
+    let snapshot = snapshot_paths(&top, paths).unwrap_or_default();
+    discard_at(&top, paths)?;
+    Ok(snapshot)
+}
+
+/// The working copies of `paths` (untracked ones and deletions included) as a
+/// tree, written into a throwaway index so the real one is untouched. The
+/// objects stay until git's gc prunes unreachable ones (two weeks by default).
+fn snapshot_paths(top: &str, paths: &[String]) -> Result<String, String> {
+    let git_dir = git(top, &["rev-parse", "--absolute-git-dir"])?;
+    static SEQ: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+    let index = std::path::Path::new(git_dir.trim()).join(format!(
+        "bonk-snapshot-{}-{}",
+        std::process::id(),
+        SEQ.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+    ));
+    let run = |args: &[&str]| -> Result<String, String> {
+        let out = Command::new("git")
+            .arg("-C")
+            .arg(top)
+            .args(args)
+            .env("GIT_INDEX_FILE", &index)
+            .output()
+            .map_err(|e| format!("failed to run git: {e}"))?;
+        if out.status.success() {
+            Ok(String::from_utf8_lossy(&out.stdout).into_owned())
+        } else {
+            Err(String::from_utf8_lossy(&out.stderr).trim().to_string())
+        }
+    };
+    let result = (|| {
+        // Start from HEAD (an unborn branch has nothing to start from).
+        if git(top, &["rev-parse", "-q", "--verify", "HEAD"]).is_ok() {
+            run(&["read-tree", "HEAD"])?;
+        }
+        let mut args = vec!["add", "-A", "--"];
+        args.extend(paths.iter().map(String::as_str));
+        run(&args)?;
+        run(&["write-tree"]).map(|t| t.trim().to_string())
+    })();
+    let _ = std::fs::remove_file(&index);
+    result
+}
+
+/// Bring back what [`discard`] threw away: each path as the snapshot had it,
+/// or gone again if it had been deleted. Only the working copies; the index
+/// stays as it is (staged and unstaged changes come back as unstaged).
+pub fn restore_snapshot(root: &str, snapshot: &str, paths: &[String]) -> Result<(), String> {
+    check_hash(snapshot)?;
+    let top = toplevel(root)?;
+    let mut args = vec!["ls-tree", "-r", "--name-only", "-z", snapshot, "--"];
+    args.extend(paths.iter().map(String::as_str));
+    let present: HashSet<String> = git(&top, &args)?
+        .split('\0')
+        .filter(|p| !p.is_empty())
+        .map(str::to_string)
+        .collect();
+    let back: Vec<&str> = paths
+        .iter()
+        .filter(|p| present.contains(*p))
+        .map(String::as_str)
+        .collect();
+    if !back.is_empty() {
+        let source = format!("--source={snapshot}");
+        let mut args = vec!["restore", "--worktree", &source, "--"];
+        args.extend(&back);
+        git(&top, &args)?;
+    }
+    for p in paths.iter().filter(|p| !present.contains(*p)) {
+        let _ = std::fs::remove_file(std::path::Path::new(&top).join(p));
+    }
+    Ok(())
+}
+
+/// The full HEAD hash, "" on an unborn branch: what an undo goes back to.
+pub fn head(root: &str) -> Result<String, String> {
+    let top = toplevel(root)?;
+    Ok(git(&top, &["rev-parse", "-q", "--verify", "HEAD"])
+        .map(|h| h.trim().to_string())
+        .unwrap_or_default())
+}
+
+/// Undo a commit or a reset: move HEAD from `expected` back to `to`, but only
+/// if HEAD is still `expected` (nothing happened since). `mode` "soft" keeps
+/// the index and files, "mixed" the files, "keep" refuses to lose local changes.
+pub fn move_head(root: &str, expected: &str, to: &str, mode: &str) -> Result<(), String> {
+    check_hash(expected)?;
+    check_hash(to)?;
+    let flag = match mode {
+        "soft" => "--soft",
+        "mixed" => "--mixed",
+        "keep" => "--keep",
+        _ => return Err(format!("invalid mode: {mode}")),
+    };
+    let top = toplevel(root)?;
+    if head(&top)? != expected {
+        return Err("The branch has moved since: nothing to undo.".to_string());
+    }
+    git_noedit(&top, &["reset", flag, to])
+}
+
+/// The files that differ between two commits or branches, as in a commit's
+/// details: what `target` has that `base` hasn't.
+pub fn compare(root: &str, base: &str, target: &str) -> Result<Vec<CommitFile>, String> {
+    let top = toplevel(root)?;
+    let (b, t) = (commit_of(&top, base)?, commit_of(&top, target)?);
+    changed_files(&top, Some(&b), &t)
+}
+
+/// One file's full diff between two commits or branches.
+pub fn compare_file_diff(
+    root: &str,
+    base: &str,
+    target: &str,
+    path: &str,
+) -> Result<String, String> {
+    let top = toplevel(root)?;
+    let (b, t) = (commit_of(&top, base)?, commit_of(&top, target)?);
+    git(&top, &["diff", FULL, &b, &t, "--", path])
+}
+
+/// A branch, tag or hash from the UI as a full commit hash.
+fn commit_of(top: &str, rev: &str) -> Result<String, String> {
+    check_name(rev)?;
+    git(
+        top,
+        &["rev-parse", "--verify", "-q", &format!("{rev}^{{commit}}")],
+    )
+    .map(|h| h.trim().to_string())
+    .map_err(|_| format!("unknown commit or branch: {rev:?}"))
+}
+
+/// The removal itself (see [`discard`]).
+fn discard_at(top: &str, paths: &[String]) -> Result<(), String> {
+    let top = top.to_string();
     let renames = staged_renames(&top);
     // Which paths HEAD has, in one `ls-tree` (the `--` keeps a path that starts
     // with `-` from being read as a flag; an unborn HEAD has none). A constant
@@ -647,9 +785,16 @@ fn push_remote(top: &str) -> Result<String, String> {
 
 /// Delete a local branch. Without `force` git refuses one whose commits
 /// aren't merged anywhere (the UI then asks and retries with `force`).
-pub fn delete_branch(root: &str, name: &str, force: bool) -> Result<(), String> {
+/// Returns the tip it pointed at, so the UI can bring it back.
+pub fn delete_branch(root: &str, name: &str, force: bool) -> Result<String, String> {
     check_name(name)?;
-    git_noedit(root, &["branch", if force { "-D" } else { "-d" }, name])
+    let tip = git(
+        root,
+        &["rev-parse", "--verify", "-q", &format!("refs/heads/{name}")],
+    )
+    .map_err(|_| format!("no branch named {name:?}"))?;
+    git_noedit(root, &["branch", if force { "-D" } else { "-d" }, name])?;
+    Ok(tip.trim().to_string())
 }
 
 /// Delete a branch on its remote: `remote_branch` is `origin/x`.
@@ -1525,34 +1670,13 @@ fn diff_tree_args<'a>(parent: Option<&'a str>, hash: &'a str, flags: &[&'a str])
     a
 }
 
-/// Metadata, changed files (vs first parent) and containing branches: 4 processes.
-pub fn commit_detail(root: &str, hash: &str) -> Result<CommitDetail, String> {
-    check_hash(hash)?;
-    let top = toplevel(root)?;
-    let meta = git(
-        &top,
-        &[
-            "show",
-            "-s",
-            "--format=%H%x1f%P%x1f%an%x1f%ae%x1f%at%x1f%s%x1f%b",
-            hash,
-        ],
-    )?;
-    let f: Vec<&str> = meta.splitn(7, '\x1f').collect();
-    if f.len() < 7 {
-        return Err("unexpected git output".to_string());
-    }
-    let full = f[0].to_string();
-    let parents: Vec<String> = f[1].split_whitespace().map(str::to_string).collect();
-    let first_parent = parents.first().map(String::as_str);
-
+/// The files `hash` changed against `parent` (none = a root commit): status
+/// letter and line counts, joined by (new) path. Two processes.
+fn changed_files(top: &str, parent: Option<&str>, hash: &str) -> Result<Vec<CommitFile>, String> {
     // name-status gives the letter, numstat the counts; both list files in the
     // same order, joined here by (new) path.
-    let ns = git(
-        &top,
-        &diff_tree_args(first_parent, &full, &["--name-status"]),
-    )?;
-    let nu = git(&top, &diff_tree_args(first_parent, &full, &["--numstat"]))?;
+    let ns = git(top, &diff_tree_args(parent, hash, &["--name-status"]))?;
+    let nu = git(top, &diff_tree_args(parent, hash, &["--numstat"]))?;
 
     let mut counts: HashMap<String, (u32, u32)> = HashMap::new();
     let mut recs = nu.split('\0').filter(|r| !r.is_empty());
@@ -1603,6 +1727,32 @@ pub fn commit_detail(root: &str, hash: &str) -> Result<CommitDetail, String> {
             deletions,
         });
     }
+
+    Ok(files)
+}
+
+/// Metadata, changed files (vs first parent) and containing branches: 4 processes.
+pub fn commit_detail(root: &str, hash: &str) -> Result<CommitDetail, String> {
+    check_hash(hash)?;
+    let top = toplevel(root)?;
+    let meta = git(
+        &top,
+        &[
+            "show",
+            "-s",
+            "--format=%H%x1f%P%x1f%an%x1f%ae%x1f%at%x1f%s%x1f%b",
+            hash,
+        ],
+    )?;
+    let f: Vec<&str> = meta.splitn(7, '\x1f').collect();
+    if f.len() < 7 {
+        return Err("unexpected git output".to_string());
+    }
+    let full = f[0].to_string();
+    let parents: Vec<String> = f[1].split_whitespace().map(str::to_string).collect();
+    let first_parent = parents.first().map(String::as_str);
+
+    let files = changed_files(&top, first_parent, &full)?;
 
     let refs = git(
         &top,
@@ -3711,7 +3861,8 @@ mod tests {
         assert!(rename_branch(r, "feature/wip", "bad..name").is_err());
         // Unmerged: refused unless forced.
         assert!(delete_branch(r, "feature/wip", false).is_err());
-        delete_branch(r, "feature/wip", true).unwrap();
+        let tip = rev(r, "feature/wip");
+        assert_eq!(delete_branch(r, "feature/wip", true).unwrap(), tip);
         assert!(git(r, &["rev-parse", "--verify", "-q", "feature/wip"]).is_err());
         assert!(
             delete_branch(r, "main", true).is_err(),
@@ -3756,6 +3907,81 @@ mod tests {
         assert_eq!(who[..2], [("1", "add"), ("2", "edit")]);
         assert_eq!(b[2].text, "3");
         assert!(b[2].hash.bytes().all(|c| c == b'0'), "not committed yet");
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn discard_snapshot_brings_everything_back() {
+        let dir = init_repo();
+        let r = dir.to_str().unwrap();
+        commit_file(r, "kept.txt", "1\n", "base");
+        commit_file(r, "gone.txt", "g\n", "base 2");
+        fs::write(dir.join("kept.txt"), "1 edited\n").unwrap();
+        fs::remove_file(dir.join("gone.txt")).unwrap();
+        fs::write(dir.join("new.txt"), "new\n").unwrap();
+        stage(r, &["new.txt".to_string()]).unwrap();
+        let paths: Vec<String> = ["kept.txt", "gone.txt", "new.txt"]
+            .map(str::to_string)
+            .to_vec();
+        let snap = discard(r, &paths).unwrap();
+        assert!(status(r).unwrap().files.is_empty());
+        restore_snapshot(r, &snap, &paths).unwrap();
+        assert_eq!(
+            fs::read_to_string(dir.join("kept.txt")).unwrap(),
+            "1 edited\n"
+        );
+        assert_eq!(fs::read_to_string(dir.join("new.txt")).unwrap(), "new\n");
+        assert!(!dir.join("gone.txt").exists());
+        // The real index was never touched by the snapshot: nothing is staged now.
+        assert!(status(r)
+            .unwrap()
+            .files
+            .iter()
+            .all(|f| f.index == " " || f.index == "?"));
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn move_head_undoes_a_commit_only_while_nothing_moved() {
+        let dir = init_repo();
+        let r = dir.to_str().unwrap();
+        commit_file(r, "a.txt", "a\n", "a");
+        let before = head(r).unwrap();
+        commit_file(r, "b.txt", "b\n", "b");
+        let after = head(r).unwrap();
+        assert!(
+            move_head(r, &before, &before, "soft").is_err(),
+            "HEAD is not where the undo expects"
+        );
+        move_head(r, &after, &before, "soft").unwrap();
+        assert_eq!(head(r).unwrap(), before);
+        // Soft: the commit's change is staged again.
+        let st = status(r).unwrap();
+        assert!(st.files.iter().any(|f| f.path == "b.txt" && f.index == "A"));
+        assert!(move_head(r, &before, &after, "bogus").is_err());
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn compare_lists_what_target_has_that_base_hasnt() {
+        let dir = init_repo();
+        let r = dir.to_str().unwrap();
+        commit_file(r, "a.txt", "1\n", "a");
+        git(r, &["branch", "-M", "main"]).unwrap();
+        git(r, &["switch", "-q", "-c", "topic"]).unwrap();
+        commit_file(r, "a.txt", "1\n2\n", "edit a");
+        commit_file(r, "b.txt", "b\n", "add b");
+        let files = compare(r, "main", "topic").unwrap();
+        let got: Vec<_> = files
+            .iter()
+            .map(|f| (f.path.as_str(), f.status.as_str(), f.additions))
+            .collect();
+        assert_eq!(got, [("a.txt", "M", 1), ("b.txt", "A", 1)]);
+        assert!(compare_file_diff(r, "main", "topic", "a.txt")
+            .unwrap()
+            .contains("+2"));
+        assert!(compare(r, "main", "nope").is_err());
+        assert!(compare(r, "--all", "topic").is_err());
         let _ = fs::remove_dir_all(dir);
     }
 

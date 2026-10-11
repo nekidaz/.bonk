@@ -16,6 +16,7 @@
     openCommitEditorTab,
     openGitDiffTab,
     openGraphTab,
+    undoLast,
     isConflict,
     abortOperation,
     continueOperation,
@@ -108,7 +109,15 @@
   }
 
   async function discardAll(): Promise<void> {
-    if (await requestConfirm(t('git.discardAll.confirm', { n: changes.length }), t('git.discard')))
+    if (
+      await requestConfirm(
+        t('git.discardAll.confirm', {
+          n: changes.length,
+          files: tp(changes.length, ['файле', 'файлах', 'файлах'], ['file', 'files']),
+        }),
+        t('git.discard'),
+      )
+    )
       await discardPaths(changes.map((f) => f.path));
   }
 
@@ -210,6 +219,12 @@
           <span class="material-symbols-outlined" aria-hidden="true">arrow_downward</span>{status.behind}
           <span class="material-symbols-outlined" aria-hidden="true">arrow_upward</span>{status.ahead}
         </button>
+      {/if}
+      {#if git.undo}
+        <!-- GitKraken's Undo: takes back the last action (commit, checkout, discard, reset, branch). -->
+        <button class="sync" title={git.undo.label} aria-label={git.undo.label} disabled={git.busy} onclick={undoLast}
+          ><span class="material-symbols-outlined" aria-hidden="true">undo</span></button
+        >
       {/if}
     </div>
 

@@ -16,6 +16,8 @@
     pushTag,
     fetchAll,
     undoRebase,
+    undoLast,
+    openCompareTab,
     git,
     mergeBranch,
     openProjectDiffTab,
@@ -268,6 +270,11 @@
       case 'copy':
         await navigator.clipboard.writeText(hashes.join('\n'));
         break;
+      case 'compare':
+        // Two commits: older → newer (the list is newest first). One: it → HEAD.
+        if (hashes.length === 2) openCompareTab(hashes[1], hashes[0]);
+        else openCompareTab(hashes[0], 'HEAD');
+        break;
     }
   }
 
@@ -343,7 +350,12 @@
       <button class:on={all} aria-pressed={all} onclick={() => (all = true)}>{t('git.graph.all')}</button>
       <button class:on={!all} aria-pressed={!all} onclick={() => (all = false)}>{t('git.graph.current')}</button>
     </div>
-    {#if git.status?.undoRebase}
+    {#if git.undo}
+      <button class="bs-gbtn" disabled={git.busy} onclick={undoLast}
+        ><span class="material-symbols-outlined">undo</span>{git.undo.label}</button
+      >
+    {:else if git.status?.undoRebase}
+      <!-- Survives restarts: read from the branch's reflog, not from this session's last action. -->
       <button
         class="bs-gbtn"
         disabled={git.busy}

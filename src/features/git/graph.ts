@@ -9,7 +9,7 @@ import type { ResetMode } from '$shared/model';
 
 /** What the G6 commit menu (or the detail panel's buttons) asks the graph to do. */
 export type CommitAction =
-  | { kind: 'cherry-pick' | 'revert' | 'patch' | 'checkout' | 'tag' | 'branch' | 'copy' }
+  | { kind: 'cherry-pick' | 'revert' | 'patch' | 'checkout' | 'tag' | 'branch' | 'copy' | 'compare' }
   | { kind: 'merge' | 'rebase' | 'interactive'; branch: string }
   | { kind: 'push-tag' | 'delete-tag'; tag: string }
   | { kind: 'reset'; mode: ResetMode };

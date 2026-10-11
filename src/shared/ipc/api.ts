@@ -30,6 +30,7 @@ import {
   type GraphPage,
   type CommitDetail,
   type FileCommit,
+  type CommitFile,
   type BlameLine,
   type ResetMode,
   type ConflictFile,
@@ -493,7 +494,20 @@ export const gitDiff = (root: string, path: string, cached = false) =>
 export const gitLog = (root: string, limit: number) => invoke<GitCommit[]>('git_log', { root, limit });
 export const gitGraph = (root: string, limit: number) => invoke<string[]>('git_graph', { root, limit });
 export const gitStatusDiffs = (root: string) => invoke<FileDiff[]>('git_status_diffs', { root });
-export const gitDiscard = (root: string, paths: string[]) => invoke<void>('git_discard', { root, paths });
+/** Returns a snapshot of what was thrown away ('' if none could be taken), for gitRestoreSnapshot. */
+export const gitDiscard = (root: string, paths: string[]) => invoke<string>('git_discard', { root, paths });
+export const gitRestoreSnapshot = (root: string, snapshot: string, paths: string[]) =>
+  invoke<void>('git_restore_snapshot', { root, snapshot, paths });
+/** The full HEAD hash, '' on an unborn branch. */
+export const gitHead = (root: string) => invoke<string>('git_head', { root });
+/** Undo a commit / reset: HEAD from `expected` back to `to`, refused if HEAD moved meanwhile. */
+export const gitMoveHead = (root: string, expected: string, to: string, mode: 'soft' | 'mixed' | 'keep') =>
+  invoke<void>('git_move_head', { root, expected, to, mode });
+/** What `target` (a commit or branch) has that `base` hasn't, file by file. */
+export const gitCompare = (root: string, base: string, target: string) =>
+  invoke<CommitFile[]>('git_compare', { root, base, target });
+export const gitCompareFileDiff = (root: string, base: string, target: string, path: string) =>
+  invoke<string>('git_compare_file_diff', { root, base, target, path });
 export const gitBranchList = (root: string) => invoke<GitBranch[]>('git_branch_list', { root });
 export const gitCheckoutRemote = (root: string, name: string) => invoke<void>('git_checkout_remote', { root, name });
 export const gitStashList = (root: string) => invoke<GitStash[]>('git_stash_list', { root });
@@ -543,9 +557,9 @@ export const gitRebaseInteractive = (root: string, onto: string, steps: RebaseAc
   invoke<void>('git_rebase_interactive', { root, onto, steps });
 /** Put the branch back where it was before the last rebase (`before` = GitStatus.undoRebase). */
 export const gitRebaseUndo = (root: string, before: string) => invoke<void>('git_rebase_undo', { root, before });
-/** `force` deletes a branch whose commits aren't merged anywhere. */
+/** `force` deletes a branch whose commits aren't merged anywhere. Returns the tip it pointed at. */
 export const gitDeleteBranch = (root: string, name: string, force: boolean) =>
-  invoke<void>('git_delete_branch', { root, name, force });
+  invoke<string>('git_delete_branch', { root, name, force });
 /** `name` is `origin/x`. */
 export const gitDeleteRemoteBranch = (root: string, name: string) =>
   invoke<string>('git_delete_remote_branch', { root, name });

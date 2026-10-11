@@ -2,7 +2,8 @@
   import { t } from '$shared/i18n';
   import { openWorkspaceFolder, renameWorkspaceFolder, deleteWorkspace, workspace } from '$entities/workspace';
   import { requestConfirm } from '$shared/ui';
-  import { row } from './ui.svelte';
+  import { AUTO_FETCH_MINUTES, GIT_ENABLED, git, gitAutoFetch } from '$entities/git';
+  import { row, seg } from './ui.svelte';
 
   const name = $derived(workspace.path.split(/[\\/]/).filter(Boolean).at(-1) ?? '');
   let draft = $state('');
@@ -51,3 +52,19 @@
   {/if}
   {#if error}<div class="st-err">{error}</div>{/if}
 </div>
+
+{#if GIT_ENABLED && git.status?.isRepo}
+  <div class="st-group">Git</div>
+  <div class="st-card">
+    {#snippet af()}{@render seg(
+        t('settings.git.autoFetch'),
+        String(gitAutoFetch.current),
+        AUTO_FETCH_MINUTES.map((m) => ({
+          label: m ? t('settings.git.minutes', { n: m }) : t('settings.git.off'),
+          value: String(m),
+        })),
+        (v) => (gitAutoFetch.current = Number(v)),
+      )}{/snippet}
+    {@render row(t('settings.git.autoFetch'), t('settings.git.autoFetch.desc'), af)}
+  </div>
+{/if}
