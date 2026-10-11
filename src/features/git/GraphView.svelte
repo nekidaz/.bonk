@@ -5,7 +5,7 @@
    * G6: click selects, ⇧-click a range, ⌘-click toggles; right-click opens the commit menu.
    */
   import { untrack } from 'svelte';
-  import { workspace } from '$entities/workspace';
+  import { filterTree, idToRel, workspace } from '$entities/workspace';
   import { tabs } from '$entities/tab';
   import {
     checkoutCommit,
@@ -18,17 +18,19 @@
     undoRebase,
     undoLast,
     openCompareTab,
+    openReflogTab,
     git,
     mergeBranch,
     openProjectDiffTab,
     rebaseOnto,
+    requestCheckout,
     resetTo,
     revertCommits,
   } from '$entities/git';
-  import { gitCommitDetail, gitFormatPatch, gitGraphLog, openapiExportSave } from '$shared/ipc';
+  import { gitCommitDetail, gitCommitsTouching, gitFormatPatch, gitGraphLog, openapiExportSave } from '$shared/ipc';
   import { requestChoice, requestConfirm } from '$shared/ui';
   import { GitBranchIcon } from '$shared/ui/components';
-  import type { CommitDetail, GitRef, GraphCommit, Tab } from '$shared/model';
+  import type { CommitDetail, GitRef, GraphCommit, Tab, TreeNode } from '$shared/model';
   import { t, tp, uiLanguage } from '$shared/i18n';
   import CommitMenu from './CommitMenu.svelte';
   import CommitPanel from './CommitPanel.svelte';
@@ -85,10 +87,35 @@
             c.subject.toLowerCase().includes(q) ||
             c.hash.startsWith(q) ||
             c.author.toLowerCase().includes(q) ||
-            c.email.toLowerCase().includes(q),
+            c.email.toLowerCase().includes(q) ||
+            fileHits.has(c.hash),
         )
       : commits,
   );
+
+  // Search by file too: commits that touched a path containing the query, or a request whose name
+  // matches it (its file may be named otherwise). Asked of git a moment after typing stops.
+  let fileHits = $state.raw<Set<string>>(new Set());
+  const requestPaths = (list: TreeNode[]): string[] =>
+    list.flatMap((n) => (n.kind === 'folder' ? requestPaths(n.children) : [git.prefix + idToRel(n.id)]));
+  $effect(() => {
+    const root = workspace.path;
+    const query = q;
+    const range = all;
+    if (!root || !query) {
+      fileHits = new Set();
+      return;
+    }
+    const paths = untrack(() => requestPaths(filterTree(workspace.tree, query)));
+    const timer = setTimeout(() => {
+      void gitCommitsTouching(root, query, paths, range)
+        .then((h) => {
+          if (q === query) fileHits = new Set(h);
+        })
+        .catch(() => {});
+    }, 250);
+    return () => clearTimeout(timer);
+  });
   const selection = $derived(commits.filter((c) => selected.includes(c.hash)));
   const laneOf = $derived(new Map(nodes.map((n, i) => [n.hash, lanes[i]])));
 
@@ -296,6 +323,53 @@
     return `M${x1} ${y1}C${x1} ${m} ${x2} ${m} ${x2} ${y2}`;
   }
   const color = (i: number) => COLORS[i % COLORS.length];
+  // ---- Drag a branch label onto another branch's row: merge it there, or rebase that one onto it.
+  // Pointer events: HTML5 drag & drop never fires in the macOS webview. ----
+  type Drag = { src: string; x0: number; y0: number; x: number; y: number; on: boolean; over: string };
+  let drag = $state<Drag | null>(null);
+  let dropMenu = $state<{ x: number; y: number; src: string; dst: string } | null>(null);
+  /** A drag just ended on a row: its click must not select it. */
+  let swallowClick = false;
+  const branchOf = (c: GraphCommit | undefined) =>
+    (c?.refs.find((r) => r.kind === 'head') ?? c?.refs.find((r) => r.kind === 'branch'))?.name;
+  const rowAt = (x: number, y: number) =>
+    document.elementFromPoint(x, y)?.closest<HTMLElement>('.bs-graphview [data-hash]')?.dataset.hash ?? '';
+
+  function dragStart(e: PointerEvent, ref: GitRef): void {
+    if (e.button !== 0 || ref.kind === 'tag') return;
+    e.preventDefault(); // no text selection while dragging
+    drag = { src: ref.name, x0: e.clientX, y0: e.clientY, x: e.clientX, y: e.clientY, on: false, over: '' };
+    window.addEventListener('pointermove', dragMove);
+    window.addEventListener('pointerup', dragEnd, { once: true });
+  }
+  function dragMove(e: PointerEvent): void {
+    if (!drag) return;
+    const on = drag.on || Math.hypot(e.clientX - drag.x0, e.clientY - drag.y0) > 5;
+    drag = { ...drag, x: e.clientX, y: e.clientY, on, over: on ? rowAt(e.clientX, e.clientY) : '' };
+  }
+  function dragEnd(e: PointerEvent): void {
+    window.removeEventListener('pointermove', dragMove);
+    const d = drag;
+    drag = null;
+    if (!d?.on) return;
+    swallowClick = true;
+    setTimeout(() => (swallowClick = false));
+    const dst = branchOf(commits.find((c) => c.hash === rowAt(e.clientX, e.clientY)));
+    if (dst && dst !== d.src) dropMenu = { x: e.clientX, y: e.clientY, src: d.src, dst };
+  }
+
+  /** Merge `src` into `dst`, or rebase `dst` onto `src` — switching to `dst` first when it isn't current. */
+  async function dropAction(kind: 'merge' | 'rebase', src: string, dst: string): Promise<void> {
+    dropMenu = null;
+    if (dst !== current) {
+      await requestCheckout(dst);
+      // Uncommitted changes open the switch dialog instead; the drop waits for a clean switch.
+      if (git.status?.branch !== dst) return;
+    }
+    if (kind === 'merge') await mergeBranch(src);
+    else await rebaseOnto(src);
+  }
+
   const refIcon = (r: GitRef) => (r.kind === 'remote' ? 'cloud' : r.kind === 'tag' ? 'sell' : '');
   // Labels: the checked-out branch first, then local branches, remotes, tags; a remote that just
   // mirrors a local label at the same commit is still shown, like the design.
@@ -344,7 +418,13 @@
     </div>
     <label class="search">
       <span class="material-symbols-outlined" aria-hidden="true">search</span>
-      <input bind:value={query} placeholder={t('git.graph.search')} aria-label={t('git.graph.search')} />
+      <input
+        bind:value={query}
+        placeholder={t('git.graph.search')}
+        aria-label={t('git.graph.search')}
+        autocomplete="off"
+        spellcheck="false"
+      />
     </label>
     <div class="bs-gseg" role="group" aria-label={t('git.graph.range')}>
       <button class:on={all} aria-pressed={all} onclick={() => (all = true)}>{t('git.graph.all')}</button>
@@ -364,6 +444,9 @@
         ><span class="material-symbols-outlined">undo</span>{t('git.graph.undoRebase')}</button
       >
     {/if}
+    <button class="bs-gbtn" title={t('git.reflog.open')} onclick={openReflogTab}
+      ><span class="material-symbols-outlined">manage_history</span>Reflog</button
+    >
     <button class="bs-gbtn" disabled={git.busy} onclick={() => fetchAll()}
       ><span class="material-symbols-outlined" class:spin={git.busy}>sync</span>Fetch</button
     >
@@ -398,14 +481,20 @@
             class:sel={selected.includes(c.hash)}
             class:merge={c.parents.length > 1}
             data-hash={c.hash}
-            onclick={(e) => pick(e, c.hash)}
+            class:drop={drag?.on && drag.over === c.hash && !!branchOf(c) && branchOf(c) !== drag.src}
+            onclick={(e) => !swallowClick && pick(e, c.hash)}
             oncontextmenu={(e) => openMenu(e, c.hash)}
           >
             {@render graph(c.hash, isHead ? 'head' : c.parents.length > 1 ? 'merge' : 'commit')}
             <span class="msg">
               <span class="subj">{c.subject}</span>
               {#each sortedRefs(c.refs) as ref (ref.kind + ref.name)}
-                <span class="ref {ref.kind}" style:--lc={ref.kind === 'head' || ref.kind === 'branch' ? lc : undefined}
+                <!-- svelte-ignore a11y_no_static_element_interactions -->
+                <span
+                  class="ref {ref.kind}"
+                  style:--lc={ref.kind === 'head' || ref.kind === 'branch' ? lc : undefined}
+                  title={ref.kind === 'tag' ? undefined : t('git.graph.dragHint')}
+                  onpointerdown={(e) => dragStart(e, ref)}
                   >{#if refIcon(ref)}<span class="material-symbols-outlined">{refIcon(ref)}</span>{:else}<GitBranchIcon
                       size={11}
                     />{/if}{ref.name}</span
@@ -439,6 +528,30 @@
     {/if}
   </div>
 </div>
+
+{#if drag?.on}
+  <div class="bs-graph-ghost" style:left="{drag.x + 12}px" style:top="{drag.y + 10}px">
+    <GitBranchIcon size={12} />{drag.src}
+  </div>
+{/if}
+{#if dropMenu}
+  {@const m = dropMenu}
+  <div class="bs-gitlayer" role="presentation" onpointerdown={() => (dropMenu = null)}></div>
+  <div class="bs-dropmenu" role="menu" style:left="{m.x}px" style:top="{m.y}px">
+    <button role="menuitem" onclick={() => dropAction('merge', m.src, m.dst)}
+      ><span class="material-symbols-outlined">merge</span>{t('git.graph.dropMerge', {
+        src: m.src,
+        dst: m.dst,
+      })}</button
+    >
+    <button role="menuitem" onclick={() => dropAction('rebase', m.src, m.dst)}
+      ><span class="material-symbols-outlined">low_priority</span>{t('git.graph.dropRebase', {
+        src: m.src,
+        dst: m.dst,
+      })}</button
+    >
+  </div>
+{/if}
 
 {#if menu && selection.length}
   <CommitMenu
@@ -623,6 +736,58 @@
     color: var(--color-warning);
     font: 500 var(--font-size-caption) var(--font-code);
     white-space: nowrap;
+  }
+  .r.drop {
+    box-shadow: inset 0 0 0 2px var(--method-patch);
+  }
+  .ref:not(.tag) {
+    cursor: grab;
+  }
+  .bs-graph-ghost {
+    position: fixed;
+    z-index: 70;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    height: 24px;
+    padding: 0 10px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-control);
+    background: var(--color-raised);
+    box-shadow: 0 8px 24px var(--color-shadow);
+    color: var(--color-text);
+    font: var(--font-size-caption) var(--font-code);
+    pointer-events: none;
+  }
+  .bs-dropmenu {
+    position: fixed;
+    z-index: 61;
+    min-width: 260px;
+    padding: 6px;
+    border: 1px solid var(--color-border-subtle);
+    border-radius: var(--radius-card);
+    background: var(--color-raised);
+    box-shadow: 0 18px 48px var(--color-shadow);
+  }
+  .bs-dropmenu button {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    height: 34px;
+    padding: 0 12px;
+    border-radius: var(--radius-control);
+    color: var(--color-text);
+    font: var(--font-size-ui) var(--font-ui);
+    text-align: left;
+    white-space: nowrap;
+  }
+  .bs-dropmenu button:hover {
+    background: var(--color-hover);
+  }
+  .bs-dropmenu .material-symbols-outlined {
+    font-size: 16px;
+    color: var(--color-text-muted);
   }
   .ref {
     flex: 0 1 auto;

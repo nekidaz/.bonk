@@ -1,6 +1,7 @@
 <script lang="ts">
   import { openWorkspaceFolder, switchWorkspace, workspace } from '$entities/workspace';
   import { environments } from '$entities/environment';
+  import { GIT_ENABLED, git } from '$entities/git';
   import { hotkeys, formatBinding } from '$shared/settings';
   import { mcpIntegrationStatus, revealPath } from '$shared/ipc';
   import { mcpConnected, pathParts, recentWorkspaceChoices, workspaceInitials, workspaceName } from '$shared/ui';
@@ -167,6 +168,17 @@
         <span class="text"><span class="main">{t('workspace.openFolder')}</span></span>
         {#if hotkeys.current.openFolder}<kbd>{formatBinding(hotkeys.current.openFolder).join('')}</kbd>{/if}
       </button>
+      {#if GIT_ENABLED}
+        <button
+          class="bs-work-item action"
+          type="button"
+          role="menuitem"
+          onclick={() => run(() => (git.cloneOpen = true))}
+        >
+          <span class="material-symbols-outlined" aria-hidden="true">download</span>
+          <span class="text"><span class="main">{t('git.clone.menu')}</span></span>
+        </button>
+      {/if}
       {#if workspace.path}
         <button
           class="bs-work-item action"
