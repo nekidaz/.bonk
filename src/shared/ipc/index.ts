@@ -74,6 +74,7 @@ export {
   grpcTlsInspect,
   httpPrepare,
   httpResolve,
+  dynamicSamples,
   httpSend,
   installMcpIntegration,
   mcpClientConfig,

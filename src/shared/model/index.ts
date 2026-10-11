@@ -111,3 +111,16 @@ export {
   resolveRequestVars,
   resolveVars,
 } from './vars';
+export {
+  DYNAMIC_GROUPS,
+  DYNAMIC_VARS,
+  type DynamicGroup,
+  type DynamicOptions,
+  type DynamicValue,
+  type DynamicVar,
+  isDynamicName,
+  isKnownDynamic,
+  nearestDynamic,
+  searchDynamic,
+  unknownDynamicCount,
+} from './dynamicVars';

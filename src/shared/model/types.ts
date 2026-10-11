@@ -1,3 +1,4 @@
+import type { DynamicValue } from './dynamicVars';
 export type RequestProtocol = 'http' | 'grpc';
 /**
  * Tab kinds: the two request protocols plus the special full-pane tabs —
@@ -244,6 +245,8 @@ export interface Tab {
   params?: Param[];
   /** Latest pre-request + test script output for this tab (runtime-only). */
   testResults?: TabTestResults;
+  /** The last request as it went on the wire + its `{{$dynamic}}` values: the Timeline (runtime-only). */
+  sent?: { request: HttpRequest; dynamic: DynamicValue[] };
   /** Per-request overrides of timeout / redirects / TLS verification (session-only, not saved to the file). */
   settings?: RequestOverrides;
   /** S17b: pinned tabs lead the strip and survive «Закрыть остальные / справа / все». */

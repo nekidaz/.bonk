@@ -3,7 +3,7 @@ import type { HttpRequest, HttpResponse, OAuthEnsured } from '$shared/model';
 
 vi.mock('$shared/ipc/api', () => ({
   httpSend: vi.fn(),
-  httpResolve: vi.fn(async (req: unknown) => req),
+  httpResolve: vi.fn(async (req: unknown) => ({ request: req, dynamic: [] })),
   oauthToken: vi.fn(),
   runScript: vi.fn(),
   filePick: vi.fn(),

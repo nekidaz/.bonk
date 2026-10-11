@@ -56,3 +56,4 @@ export {
 } from './cookiePrefs.svelte';
 export { requestPrefs } from './requestPrefs.svelte';
 export { applyStoredTheme, isDarkTheme, setTheme, theme } from './theme.svelte';
+export { dynamicOptions, dynKeepSent, dynLocale, dynPerRequest, dynSeed, dynSeedOn } from './dynamicPrefs.svelte';

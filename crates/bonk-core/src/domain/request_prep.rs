@@ -13,6 +13,7 @@ use serde::Serialize;
 use serde_json::Value;
 
 use super::{
+    dynamic_vars::Dynamic,
     http::{AuthConfig, BodyParam, HttpRequest, OAuthConfig},
     workspace::{Param, TreeNode},
 };
@@ -92,12 +93,17 @@ pub fn materialize(request: &mut HttpRequest, params: Option<&[Param]>) {
 /// Step 2, after the pre-request script: resolve `{{vars}}` everywhere they can appear,
 /// wrap a GraphQL query with its variables, then add auth (on resolved values: a Basic
 /// header is base64, a `{{var}}` inside it could never be resolved later).
-/// Unknown names stay visible as `{{name}}`. Mirrors `resolveRequestVars`.
-pub fn resolve(request: &mut HttpRequest, scope: &Scope) -> Result<(), String> {
-    let text = |value: &str| resolve_text(value, scope);
+/// Unknown names stay visible as `{{name}}`. `{{$name}}` comes from `dynamic` (a fresh
+/// value per send). Mirrors `resolveRequestVars`.
+pub fn resolve(
+    request: &mut HttpRequest,
+    scope: &Scope,
+    dynamic: &mut Dynamic,
+) -> Result<(), String> {
+    let mut text = |value: &str| resolve_text_with(value, scope, dynamic);
     request.url = text(&request.url);
-    request.body = request.body.as_deref().map(text);
-    request.binary_file_path = request.binary_file_path.as_deref().map(text);
+    request.body = request.body.as_deref().map(&mut text);
+    request.binary_file_path = request.binary_file_path.as_deref().map(&mut text);
     request.headers = std::mem::take(&mut request.headers)
         .into_iter()
         .map(|(key, value)| (text(&key), text(&value)))
@@ -105,7 +111,7 @@ pub fn resolve(request: &mut HttpRequest, scope: &Scope) -> Result<(), String> {
     for row in request.body_params.iter_mut().flatten() {
         row.key = text(&row.key);
         row.value = text(&row.value);
-        row.file_path = row.file_path.as_deref().map(text);
+        row.file_path = row.file_path.as_deref().map(&mut text);
     }
     if let Some(auth) = request.auth.as_mut() {
         for value in [
@@ -115,7 +121,7 @@ pub fn resolve(request: &mut HttpRequest, scope: &Scope) -> Result<(), String> {
             &mut auth.api_key_name,
             &mut auth.api_key_value,
         ] {
-            *value = value.as_deref().map(text);
+            *value = value.as_deref().map(&mut text);
         }
         if let Some(oauth) = auth.oauth.as_mut() {
             resolve_oauth(oauth, scope);
@@ -123,7 +129,8 @@ pub fn resolve(request: &mut HttpRequest, scope: &Scope) -> Result<(), String> {
     }
     if request.body_mode.as_deref() == Some("graphql") {
         if let Some(query) = request.body.take() {
-            let variables = graphql_variables(request.graphql_variables.as_deref(), scope)?;
+            let variables =
+                graphql_variables(request.graphql_variables.as_deref(), scope, dynamic)?;
             // ponytail: serde_json sorts object keys where JSON.stringify keeps the typed
             // order; same JSON to a server, different bytes. Enable `preserve_order` if it matters.
             request.body =
@@ -151,14 +158,22 @@ pub fn resolve_oauth(oauth: &mut OAuthConfig, scope: &Scope) {
     }
 }
 
+/// `{{vars}}` in one string, with default dynamic values (endpoints, OAuth settings).
 pub fn resolve_text(value: &str, scope: &Scope) -> String {
+    resolve_text_with(value, scope, &mut Dynamic::default())
+}
+
+/// `{{name}}` from `scope`; `{{$name}}` from `dynamic` only: names with `$` are reserved,
+/// an environment can't override them. Unknown names stay as written.
+pub fn resolve_text_with(value: &str, scope: &Scope, dynamic: &mut Dynamic) -> String {
     VAR_RE
         .replace_all(value, |captures: &regex::Captures<'_>| {
             let name = captures.get(1).map_or("", |m| m.as_str()).trim();
-            scope
-                .get(name)
-                .cloned()
-                .unwrap_or_else(|| captures[0].to_string())
+            let found = match name.starts_with('$') {
+                true => dynamic.value(name),
+                false => scope.get(name).cloned(),
+            };
+            found.unwrap_or_else(|| captures[0].to_string())
         })
         .into_owned()
 }
@@ -216,15 +231,16 @@ pub fn grpc_prepare(
     metadata: &BTreeMap<String, String>,
     scope: &Scope,
     strip_authorization: bool,
+    dynamic: &mut Dynamic,
 ) -> GrpcOutgoing {
-    let message = resolve_text(message, scope);
+    let message = resolve_text_with(message, scope, dynamic);
     let message = match message.trim() {
         "" => "{}".to_string(),
         trimmed => trimmed.to_string(),
     };
     GrpcOutgoing {
         message,
-        metadata: grpc_metadata(auth, metadata, scope, strip_authorization),
+        metadata: grpc_metadata(auth, metadata, scope, strip_authorization, dynamic),
     }
 }
 
@@ -233,11 +249,12 @@ fn grpc_metadata(
     metadata: &BTreeMap<String, String>,
     scope: &Scope,
     strip_authorization: bool,
+    dynamic: &mut Dynamic,
 ) -> BTreeMap<String, String> {
-    let text = |value: &str| resolve_text(value, scope);
+    let mut text = |value: &str| resolve_text_with(value, scope, dynamic);
     let mut out = BTreeMap::new();
     let Some(auth) = auth else {
-        return explicit_metadata(out, metadata, scope, strip_authorization);
+        return explicit_metadata(out, metadata, scope, strip_authorization, dynamic);
     };
     match auth.auth_type.as_str() {
         "bearer" | "oauth2" => {
@@ -264,7 +281,7 @@ fn grpc_metadata(
         }
         _ => {}
     }
-    explicit_metadata(out, metadata, scope, strip_authorization)
+    explicit_metadata(out, metadata, scope, strip_authorization, dynamic)
 }
 
 fn explicit_metadata(
@@ -272,9 +289,13 @@ fn explicit_metadata(
     metadata: &BTreeMap<String, String>,
     scope: &Scope,
     strip_authorization: bool,
+    dynamic: &mut Dynamic,
 ) -> BTreeMap<String, String> {
     for (key, value) in metadata {
-        out.insert(resolve_text(key, scope), resolve_text(value, scope));
+        out.insert(
+            resolve_text_with(key, scope, dynamic),
+            resolve_text_with(value, scope, dynamic),
+        );
     }
     if strip_authorization {
         out.retain(|key, _| !key.eq_ignore_ascii_case("authorization"));
@@ -349,7 +370,11 @@ fn apply_auth(request: &mut HttpRequest) -> Result<(), String> {
 }
 
 /// The GraphQL Variables editor text as a JSON object with `{{vars}}` resolved in its strings.
-fn graphql_variables(source: Option<&str>, scope: &Scope) -> Result<Value, String> {
+fn graphql_variables(
+    source: Option<&str>,
+    scope: &Scope,
+    dynamic: &mut Dynamic,
+) -> Result<Value, String> {
     let source = source.unwrap_or_default().trim();
     if source.is_empty() {
         return Ok(Value::Object(Default::default()));
@@ -359,19 +384,21 @@ fn graphql_variables(source: Option<&str>, scope: &Scope) -> Result<Value, Strin
     if !value.is_object() {
         return Err("GraphQL variables must be a JSON object.".into());
     }
-    fn walk(value: Value, scope: &Scope) -> Value {
+    fn walk(value: Value, scope: &Scope, dynamic: &mut Dynamic) -> Value {
         match value {
-            Value::String(text) => Value::String(resolve_text(&text, scope)),
+            Value::String(text) => Value::String(resolve_text_with(&text, scope, dynamic)),
             Value::Array(items) => {
-                Value::Array(items.into_iter().map(|v| walk(v, scope)).collect())
+                Value::Array(items.into_iter().map(|v| walk(v, scope, dynamic)).collect())
             }
-            Value::Object(map) => {
-                Value::Object(map.into_iter().map(|(k, v)| (k, walk(v, scope))).collect())
-            }
+            Value::Object(map) => Value::Object(
+                map.into_iter()
+                    .map(|(k, v)| (k, walk(v, scope, dynamic)))
+                    .collect(),
+            ),
             other => other,
         }
     }
-    Ok(walk(value, scope))
+    Ok(walk(value, scope, dynamic))
 }
 
 /// The raw body's format is JSON: the explicit one, else sniffed like `currentRawFormat`.
@@ -482,7 +509,7 @@ mod tests {
         for case in cases {
             let mut request = case.request;
             materialize(&mut request, Some(&case.params));
-            resolve(&mut request, &case.scope).unwrap();
+            resolve(&mut request, &case.scope, &mut Dynamic::default()).unwrap();
             let got = serde_json::json!({
                 "url": request.url,
                 "headers": request.headers,
@@ -568,7 +595,14 @@ mod tests {
             ("authorization".into(), "Custom {{token}}".into()),
             ("x".into(), "{{token}}".into()),
         ]);
-        let out = grpc_prepare(Some(&bearer), "  ", &explicit, &scope, false);
+        let out = grpc_prepare(
+            Some(&bearer),
+            "  ",
+            &explicit,
+            &scope,
+            false,
+            &mut Dynamic::default(),
+        );
         assert_eq!(out.message, "{}");
         assert_eq!(
             out.metadata,
@@ -578,10 +612,24 @@ mod tests {
             ])
         );
         let none = BTreeMap::new();
-        let out = grpc_prepare(Some(&bearer), r#"{"a":"{{token}}"}"#, &none, &scope, false);
+        let out = grpc_prepare(
+            Some(&bearer),
+            r#"{"a":"{{token}}"}"#,
+            &none,
+            &scope,
+            false,
+            &mut Dynamic::default(),
+        );
         assert_eq!(out.message, r#"{"a":"T"}"#);
         assert_eq!(out.metadata.get("authorization").unwrap(), "Bearer T");
-        let plaintext = grpc_prepare(Some(&bearer), "{}", &explicit, &scope, true);
+        let plaintext = grpc_prepare(
+            Some(&bearer),
+            "{}",
+            &explicit,
+            &scope,
+            true,
+            &mut Dynamic::default(),
+        );
         assert_eq!(
             plaintext.metadata,
             BTreeMap::from([("x".into(), "T".into())])
@@ -592,7 +640,15 @@ mod tests {
     fn grpc_auth_kinds_map_to_metadata() {
         let none = BTreeMap::new();
         let md = |auth: AuthConfig| {
-            grpc_prepare(Some(&auth), "{}", &none, &Scope::new(), false).metadata
+            grpc_prepare(
+                Some(&auth),
+                "{}",
+                &none,
+                &Scope::new(),
+                false,
+                &mut Dynamic::default(),
+            )
+            .metadata
         };
         let basic = AuthConfig {
             basic_username: Some("a".into()),
@@ -618,9 +674,35 @@ mod tests {
         .unwrap();
         let scope = Scope::from([("k".into(), "name".into()), ("v".into(), "bonk".into())]);
         materialize(&mut request, None);
-        resolve(&mut request, &scope).unwrap();
+        resolve(&mut request, &scope, &mut Dynamic::default()).unwrap();
         let row = &request.body_params.unwrap()[0];
         assert_eq!((row.key.as_str(), row.value.as_str()), ("name", "bonk"));
+    }
+
+    #[test]
+    fn dynamic_vars_are_reserved_and_shared_within_a_request() {
+        let mut request: HttpRequest = serde_json::from_value(serde_json::json!({
+            "method": "POST", "url": "http://x/{{$guid}}", "body": "{{$guid}} {{$nope}} {{ $randomInt }}",
+            "headers": {"Idempotency-Key": "{{$guid}}"},
+        }))
+        .unwrap();
+        // An environment can't override a `$` name, and an unknown one stays as written.
+        let scope = Scope::from([
+            ("$guid".into(), "env".into()),
+            ("$nope".into(), "env".into()),
+        ]);
+        let mut dynamic = Dynamic::default();
+        resolve(&mut request, &scope, &mut dynamic).unwrap();
+        let guid = request.headers["Idempotency-Key"].clone();
+        assert_eq!(guid.len(), 36);
+        assert_eq!(request.url, format!("http://x/{guid}"));
+        let body = request.body.unwrap();
+        assert!(
+            body.starts_with(&format!("{guid} {{{{$nope}}}} ")),
+            "{body}"
+        );
+        let names: Vec<_> = dynamic.used().iter().map(|v| v.name.as_str()).collect();
+        assert_eq!(names, ["$guid", "$randomInt"]);
     }
 
     #[test]

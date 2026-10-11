@@ -10,6 +10,8 @@ import {
   cookiesSend,
   cookiesKeepSession,
   cookiesExclude,
+  dynamicOptions,
+  dynKeepSent,
 } from '$shared/settings';
 import { dirtyTabIds } from './dirtyTabs.svelte';
 import {
@@ -27,6 +29,7 @@ import {
   collectScriptRun,
   scriptFailure,
   type ScriptResult,
+  type DynamicValue,
 } from '$shared/model';
 import { withOverrides } from './requestSettings';
 import { httpResolve, httpSend, workspaceSaveRequest, runScript } from '$shared/ipc';
@@ -331,7 +334,7 @@ export async function sendHttpRequest(
         activeEnvMap(),
         globalsMap(),
         {},
-        cookieJar.scriptCookies((await httpResolve(req, currentVarScope())).url),
+        cookieJar.scriptCookies((await httpResolve(req, currentVarScope())).request.url),
       ),
     );
     applyScriptVars(pre);
@@ -358,6 +361,8 @@ export async function sendHttpRequest(
   const settings = withOverrides(currentRequestSettings(), tabs.list.find((t) => t.id === tabId)?.settings);
   const scope = currentVarScope();
   const oauthKey = outgoing.auth?.type === 'oauth2' ? oauthCardKey(outgoing.auth, environments.activeId) : '';
+  const dynamic = dynamicOptions();
+  let dynamicValues: DynamicValue[] = [];
   const withToken = async (force: boolean): Promise<HttpRequest> => {
     const { auth, ensured } = await withOAuthToken(outgoing.auth, scope, settings, force);
     if (ensured?.renewed) {
@@ -369,7 +374,9 @@ export async function sendHttpRequest(
         tokenUrl: outgoing.auth?.oauth?.tokenUrl ?? '',
       });
     } else if (ensured && !force) oauthRuntime.setRenewal(tabId, undefined);
-    return httpResolve({ ...outgoing, auth }, scope);
+    const out = await httpResolve({ ...outgoing, auth }, scope, dynamic);
+    dynamicValues = out.dynamic;
+    return out.request;
   };
   let resolved: HttpRequest;
   try {
@@ -444,7 +451,8 @@ export async function sendHttpRequest(
   if (renewal && !renewal.sent) {
     oauthRuntime.setRenewal(tabId, { ...renewal, sent: { text: send.text, status: res.status, ms: res.elapsed_ms } });
   }
-  tabs.updateById(tabId, (t) => ({ ...t, response: res, testResults }));
+  const sent = dynKeepSent.current ? { request: resolved, dynamic: dynamicValues } : undefined;
+  tabs.updateById(tabId, (t) => ({ ...t, response: res, testResults, sent }));
   addAppConsoleEntry({
     protocol: 'http',
     method: resolved.method || 'HTTP',
