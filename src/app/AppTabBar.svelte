@@ -60,6 +60,7 @@
     graph: 'account_tree',
     conflicts: 'warning',
     merge: 'merge',
+    history: 'history',
   };
   const tabIcon = (tb: Tab): string | undefined => GIT_VIEW_ICON[tb.git?.view ?? ''] ?? TAB_ICON[tb.protocol];
 

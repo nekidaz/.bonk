@@ -42,6 +42,8 @@ export {
   type FolderNode,
   type ImportSource,
   type CommitDetail,
+  type FileCommit,
+  type BlameLine,
   type ConflictFile,
   type OperationInfo,
   type RebaseAction,

@@ -11,6 +11,7 @@ import type { ResetMode } from '$shared/model';
 export type CommitAction =
   | { kind: 'cherry-pick' | 'revert' | 'patch' | 'checkout' | 'tag' | 'branch' | 'copy' }
   | { kind: 'merge' | 'rebase' | 'interactive'; branch: string }
+  | { kind: 'push-tag' | 'delete-tag'; tag: string }
   | { kind: 'reset'; mode: ResetMode };
 
 export interface GraphNodeInput {

@@ -7,7 +7,16 @@
   import { GitBranchIcon } from '$shared/ui/components';
   import { untrack } from 'svelte';
   import { workspace } from '$entities/workspace';
-  import { createBranch, git, pull, push, requestCheckout } from '$entities/git';
+  import {
+    createBranch,
+    deleteBranch,
+    deleteRemoteBranch,
+    git,
+    pull,
+    push,
+    renameBranch,
+    requestCheckout,
+  } from '$entities/git';
   import { gitBranchList } from '$shared/ipc';
   import type { GitBranch } from '$shared/model';
   import { t, tp } from '$shared/i18n';
@@ -64,6 +73,41 @@
   }
 
   const close = () => (git.branchMenu = null);
+
+  // ---- Rename / delete (the row's buttons) ----
+  let renaming = $state('');
+  let renameValue = $state('');
+
+  function startRename(b: GitBranch): void {
+    renaming = b.name;
+    renameValue = b.name;
+    requestAnimationFrame(() => document.querySelector<HTMLInputElement>('.bs-branchmenu .rename')?.select());
+  }
+
+  async function commitRename(): Promise<void> {
+    const from = renaming;
+    renaming = '';
+    if (renameValue.trim() && renameValue.trim() !== from && (await renameBranch(from, renameValue))) await load();
+  }
+
+  function renameKey(e: KeyboardEvent): void {
+    e.stopPropagation();
+    if (e.key === 'Enter') void commitRename();
+    else if (e.key === 'Escape') renaming = '';
+  }
+
+  async function remove(b: GitBranch): Promise<void> {
+    if (b.remote) {
+      if (!(await requestConfirm(t('git.branch.deleteRemoteConfirm', { name: b.name }), t('git.branch.delete'))))
+        return;
+      await deleteRemoteBranch(b.name);
+    } else if (!(await deleteBranch(b.name, false, true))) {
+      // Not merged anywhere: its commits would only stay in the reflog.
+      if (!(await requestConfirm(t('git.branch.deleteUnmerged', { name: b.name }), t('git.branch.delete')))) return;
+      await deleteBranch(b.name, true);
+    }
+    await load();
+  }
 
   function pick(b: GitBranch): void {
     close();
@@ -122,22 +166,53 @@
       {#if locals.length}
         <div class="eyebrow">{t('git.branch.local')}</div>
         {#each locals as b (b.name)}
-          <button class="item" class:cur={b.name === current} onclick={() => pick(b)}>
-            {#if b.name === current}<span class="material-symbols-outlined" aria-hidden="true">check</span>{:else}<span
-                class="ic"><GitBranchIcon size={14} /></span
-              >{/if}
-            <span class="nm">{b.name}</span>
-            <span class="tr">{track(b)}</span>
-          </button>
+          <div class="row">
+            {#if renaming === b.name}
+              <span class="ic"><GitBranchIcon size={14} /></span>
+              <!-- svelte-ignore a11y_autofocus -->
+              <input
+                class="rename"
+                bind:value={renameValue}
+                autofocus
+                aria-label={t('git.branch.rename')}
+                onkeydown={renameKey}
+                onblur={() => void commitRename()}
+              />
+            {:else}
+              <button class="item" class:cur={b.name === current} onclick={() => pick(b)}>
+                {#if b.name === current}<span class="material-symbols-outlined" aria-hidden="true">check</span
+                  >{:else}<span class="ic"><GitBranchIcon size={14} /></span>{/if}
+                <span class="nm">{b.name}</span>
+                <span class="tr">{track(b)}</span>
+              </button>
+              <button class="act" title={t('git.branch.rename')} disabled={git.busy} onclick={() => startRename(b)}
+                ><span class="material-symbols-outlined">edit</span></button
+              >
+              <button
+                class="act"
+                title={b.name === current ? t('git.branch.deleteCurrent') : t('git.branch.delete')}
+                disabled={git.busy || b.name === current}
+                onclick={() => void remove(b)}><span class="material-symbols-outlined">delete</span></button
+              >
+            {/if}
+          </div>
         {/each}
       {/if}
       {#if remotes.length}
         <div class="eyebrow">{`${t('git.branch.remote')}  ·  ${remoteName}`}</div>
         {#each remotes as b (b.name)}
-          <button class="item" onclick={() => pick(b)}>
-            <span class="material-symbols-outlined" aria-hidden="true">cloud</span>
-            <span class="nm">{b.name}</span>
-          </button>
+          <div class="row">
+            <button class="item" onclick={() => pick(b)}>
+              <span class="material-symbols-outlined" aria-hidden="true">cloud</span>
+              <span class="nm">{b.name}</span>
+            </button>
+            <button
+              class="act"
+              title={t('git.branch.deleteRemote', { name: b.name })}
+              disabled={git.busy}
+              onclick={() => void remove(b)}><span class="material-symbols-outlined">delete</span></button
+            >
+          </div>
         {/each}
       {/if}
       {#if !locals.length && !remotes.length && q}
@@ -166,11 +241,17 @@
       <button
         class="bs-gbtn"
         disabled={git.busy}
-        title={diverged ? 'git push --force-with-lease' : undefined}
+        title={diverged
+          ? 'git push --force-with-lease'
+          : git.status && !git.status.upstream
+            ? t('git.branch.publishHint', { branch: current })
+            : undefined}
         onclick={pushNow}
         ><span class="material-symbols-outlined">arrow_upward</span>{diverged
           ? 'Force push'
-          : 'Push'}{#if git.status?.ahead}<span class="n">{git.status.ahead}</span>{/if}</button
+          : git.status && !git.status.upstream
+            ? t('git.branch.publish')
+            : 'Push'}{#if git.status?.ahead}<span class="n">{git.status.ahead}</span>{/if}</button
       >
     </div>
   </div>
@@ -241,6 +322,56 @@
   }
   .item:hover {
     background: var(--color-hover);
+  }
+  .row {
+    position: relative;
+    display: flex;
+    align-items: center;
+  }
+  .row .item {
+    flex: 1;
+    min-width: 0;
+  }
+  /* Rename / delete: shown on the row's hover or focus. */
+  .act {
+    flex: none;
+    display: inline-flex;
+    opacity: 0;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    border-radius: var(--radius-control);
+    color: var(--color-text-muted);
+  }
+  .row:hover .act,
+  .row:focus-within .act {
+    opacity: 1;
+  }
+  .act:hover:not(:disabled) {
+    background: var(--color-hover);
+    color: var(--color-text);
+  }
+  .row:hover .act:disabled {
+    opacity: 0.35;
+  }
+  .act .material-symbols-outlined {
+    font-size: 15px;
+  }
+  .row > .ic {
+    margin: 0 10px 0 12px;
+  }
+  .rename {
+    flex: 1;
+    min-width: 0;
+    height: 30px;
+    padding: 0 10px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-control);
+    outline: none;
+    background: var(--color-field);
+    color: var(--color-text);
+    font: var(--font-size-body) var(--font-code);
   }
   .item .ic {
     display: inline-flex;

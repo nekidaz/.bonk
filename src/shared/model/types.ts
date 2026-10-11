@@ -454,6 +454,26 @@ export interface CommitDetail {
 
 export type ResetMode = 'soft' | 'mixed' | 'hard';
 
+/** One commit of a file's history; `path` is where the file was in it (renames followed). */
+export interface FileCommit {
+  hash: string;
+  short: string;
+  subject: string;
+  author: string;
+  time: number;
+  path: string;
+  status: 'A' | 'M' | 'D' | 'R';
+}
+
+/** One line of blame: the commit that last changed it (all zeros = not committed yet). */
+export interface BlameLine {
+  hash: string;
+  author: string;
+  time: number;
+  summary: string;
+  text: string;
+}
+
 /** G7: one unmerged file with each side's text; null = that side has no version (deleted there). */
 export interface ConflictFile {
   path: string;
@@ -542,11 +562,11 @@ export interface StashFile {
 export type GitDiffMode = 'working' | 'staged';
 
 export interface GitTabState {
-  /** The file (view 'file'), or the stash commit hash (view 'stash'). */
+  /** The file (views 'file', 'merge', 'history'), or the stash commit hash (view 'stash'). */
   path: string;
   mode: GitDiffMode;
-  /** 'file' = single-file diff (default); 'project' = the aggregate Project Diff; 'stash' = one stash; 'commit' = the commit-message editor; 'graph' = the commit graph. */
-  view?: 'file' | 'project' | 'stash' | 'commit' | 'graph' | 'conflicts' | 'merge';
+  /** 'file' = single-file diff (default); 'project' = the aggregate Project Diff; 'stash' = one stash; 'commit' = the commit-message editor; 'graph' = the commit graph; 'history' = one file's commits and blame. */
+  view?: 'file' | 'project' | 'stash' | 'commit' | 'graph' | 'conflicts' | 'merge' | 'history';
   /** View 'file' of a past commit: its hash (the diff is against its first parent). View 'graph': the commit to select. */
   rev?: string;
 }

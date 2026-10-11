@@ -12,6 +12,8 @@
     cherryPick,
     createBranchAt,
     createTag,
+    deleteTag,
+    pushTag,
     fetchAll,
     undoRebase,
     git,
@@ -22,7 +24,7 @@
     revertCommits,
   } from '$entities/git';
   import { gitCommitDetail, gitFormatPatch, gitGraphLog, openapiExportSave } from '$shared/ipc';
-  import { requestConfirm } from '$shared/ui';
+  import { requestChoice, requestConfirm } from '$shared/ui';
   import { GitBranchIcon } from '$shared/ui/components';
   import type { CommitDetail, GitRef, GraphCommit, Tab } from '$shared/model';
   import { t, tp, uiLanguage } from '$shared/i18n';
@@ -236,6 +238,18 @@
         )
           await resetTo(hashes[0], a.mode);
         break;
+      case 'push-tag':
+        await pushTag(a.tag);
+        break;
+      case 'delete-tag': {
+        const how = await requestChoice(
+          t('git.graph.deleteTagConfirm', { name: a.tag }),
+          t('git.branch.delete'),
+          t('git.graph.deleteTagRemote'),
+        );
+        if (how) await deleteTag(a.tag, how === 'alt');
+        break;
+      }
       case 'tag':
       case 'branch':
         promptValue = '';

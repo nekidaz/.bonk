@@ -1,7 +1,8 @@
 <script lang="ts">
   /**
    * G6: right-click menu for the selected commits — cherry-pick, revert, save as patch; merge or
-   * rebase with the clicked commit's branch; checkout, reset (soft / mixed / hard), tag; copy hashes.
+   * rebase with the clicked commit's branch; push / delete its tags; checkout, reset (soft / mixed /
+   * hard), tag; copy hashes.
    * Actions that need one commit are disabled for a range. The parent runs every action.
    */
   import type { GraphCommit } from '$shared/model';
@@ -83,6 +84,19 @@
     <button role="menuitem" disabled={!current} onclick={() => run({ kind: 'interactive', branch })}
       ><span class="material-symbols-outlined">format_list_numbered</span>{t('git.graph.interactive')}</button
     >
+  {/if}
+
+  {#if one}
+    {#each commits[0].refs.filter((r) => r.kind === 'tag') as tag (tag.name)}
+      <div class="sep"></div>
+      <div class="eb">{`${t('git.graph.tagSection')}  ${tag.name}`}</div>
+      <button role="menuitem" onclick={() => run({ kind: 'push-tag', tag: tag.name })}
+        ><span class="material-symbols-outlined">cloud_upload</span>{t('git.graph.pushTag')}</button
+      >
+      <button role="menuitem" onclick={() => run({ kind: 'delete-tag', tag: tag.name })}
+        ><span class="material-symbols-outlined">delete</span>{t('git.graph.deleteTag')}</button
+      >
+    {/each}
   {/if}
 
   <div class="sep"></div>

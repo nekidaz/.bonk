@@ -282,6 +282,46 @@ pub async fn git_rebase_interactive(
 }
 
 #[tauri::command]
+pub async fn git_delete_branch(root: String, name: String, force: bool) -> Result<(), String> {
+    off_main(move || git::delete_branch(&root, &name, force)).await
+}
+
+#[tauri::command]
+pub async fn git_delete_remote_branch(root: String, name: String) -> Result<String, String> {
+    off_main(move || git::delete_remote_branch(&root, &name)).await
+}
+
+#[tauri::command]
+pub async fn git_rename_branch(root: String, old: String, new: String) -> Result<(), String> {
+    off_main(move || git::rename_branch(&root, &old, &new)).await
+}
+
+#[tauri::command]
+pub async fn git_delete_tag(root: String, name: String, remote: bool) -> Result<(), String> {
+    off_main(move || git::delete_tag(&root, &name, remote)).await
+}
+
+#[tauri::command]
+pub async fn git_push_tag(root: String, name: String) -> Result<String, String> {
+    off_main(move || git::push_tag(&root, &name)).await
+}
+
+#[tauri::command]
+pub async fn git_file_log(
+    root: String,
+    path: String,
+    skip: u32,
+    limit: u32,
+) -> Result<Vec<git::FileCommit>, String> {
+    off_main(move || git::file_log(&root, &path, skip, limit)).await
+}
+
+#[tauri::command]
+pub async fn git_blame(root: String, path: String) -> Result<Vec<git::BlameLine>, String> {
+    off_main(move || git::blame(&root, &path)).await
+}
+
+#[tauri::command]
 pub async fn git_rebase_undo(root: String, before: String) -> Result<(), String> {
     off_main(move || git::rebase_undo(&root, &before)).await
 }
