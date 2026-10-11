@@ -143,7 +143,7 @@ class Layout {
   toggleSidebar = (): void => {
     this.setSidebarShown(!this.sidebarShown);
   };
-  showSidebar = (panel: 'collections' | 'history' | 'flows'): void => {
+  showSidebar = (panel: 'collections' | 'history' | 'flows' | 'git'): void => {
     shell.sidebarPanel = panel;
     this.setSidebarShown(true);
   };

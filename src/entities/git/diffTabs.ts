@@ -1,16 +1,10 @@
 import { t } from '$shared/i18n';
-import type { GitDiffMode, Tab } from '$shared/model';
+import type { GitDiffMode, GitTabState, Tab } from '$shared/model';
 import { tabs } from '$entities/tab';
 
-function basename(path: string): string {
-  const parts = path.replace(/\/+$/, '').split('/');
-  return parts[parts.length - 1] || path;
-}
-
-export function openGitDiffTab(path: string, mode: GitDiffMode = 'working'): void {
-  const clean = path.trim();
-  if (!clean) return;
-  const existing = tabs.list.find((t) => t.protocol === 'git' && t.git?.path === clean && t.git.mode === mode);
+/** Focus the first git tab matching `same`, or open a new one with `git` state and `title`. */
+function openGitTab(same: (g: GitTabState) => boolean, git: GitTabState, title: string): void {
+  const existing = tabs.list.find((x) => x.protocol === 'git' && x.git && same(x.git));
   if (existing) {
     tabs.activeId = existing.id;
     return;
@@ -18,30 +12,44 @@ export function openGitDiffTab(path: string, mode: GitDiffMode = 'working'): voi
   const tab: Tab = {
     id: crypto.randomUUID(),
     protocol: 'git',
-    title: mode === 'staged' ? t('git.tab.staged', { name: basename(clean) }) : basename(clean),
+    title,
     manualTitle: true,
-    request: { method: 'DIFF', url: clean, headers: {} },
-    git: { path: clean, mode },
+    request: { method: 'DIFF', url: git.path, headers: {} },
+    git,
   };
   tabs.update((list) => [...list, tab]);
   tabs.activeId = tab.id;
+}
+
+/** Open (or focus) the diff tab of one file; `name` is what the tab says (the request name). */
+export function openGitDiffTab(path: string, mode: GitDiffMode = 'working', name?: string): void {
+  const clean = path.trim();
+  if (!clean) return;
+  const label = name || clean.split('/').filter(Boolean).at(-1) || clean;
+  openGitTab(
+    (g) => (g.view ?? 'file') === 'file' && g.path === clean,
+    { path: clean, mode },
+    t('git.tab.diff', { name: label }),
+  );
+  // One tab per file: re-opening it from the other list switches its Working tree | Staged mode.
+  tabs.updateById(tabs.activeId, (x) => (x.git && x.git.mode !== mode ? { ...x, git: { ...x.git, mode } } : x));
 }
 
 /** Open (or focus) the single aggregate Project Diff tab. */
 export function openProjectDiffTab(): void {
-  const existing = tabs.list.find((t) => t.protocol === 'git' && t.git?.view === 'project');
-  if (existing) {
-    tabs.activeId = existing.id;
-    return;
-  }
-  const tab: Tab = {
-    id: crypto.randomUUID(),
-    protocol: 'git',
-    title: t('git.tab.changes'),
-    manualTitle: true,
-    request: { method: 'DIFF', url: '', headers: {} },
-    git: { path: '', mode: 'working', view: 'project' },
-  };
-  tabs.update((list) => [...list, tab]);
-  tabs.activeId = tab.id;
+  openGitTab((g) => g.view === 'project', { path: '', mode: 'working', view: 'project' }, t('git.tab.changes'));
+}
+
+/** G10: open (or focus) the tab of one stash, keyed by its commit hash (stash@{N} indexes shift). */
+export function openStashTab(hash: string, message: string): void {
+  openGitTab(
+    (g) => g.view === 'stash' && g.path === hash,
+    { path: hash, mode: 'working', view: 'stash' },
+    t('git.tab.stash', { name: message }),
+  );
+}
+
+/** G4b·E: open (or focus) the commit-message editor tab. */
+export function openCommitEditorTab(): void {
+  openGitTab((g) => g.view === 'commit', { path: '', mode: 'working', view: 'commit' }, t('git.tab.commit'));
 }

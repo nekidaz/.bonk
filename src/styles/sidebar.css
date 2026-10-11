@@ -1286,13 +1286,23 @@
   white-space: nowrap;
 }
 
+/* Flow · Git: three rail tabs — only the active one is wide and labelled, the rest are icons. */
+:root .bs .bs-ri:not(.on) {
+  flex: 0 0 36px;
+  padding: 0;
+}
+
+:root .bs .bs-ri:not(.on) .bs-ri-label {
+  display: none;
+}
+
 @container railrow (max-width: 225px) {
   :root .bs .bs-ri {
     gap: 0;
     padding: 0 8px;
   }
 
-  :root .bs .bs-ri .material-symbols-outlined {
+  :root .bs .bs-ri.on .material-symbols-outlined {
     display: none;
   }
 }

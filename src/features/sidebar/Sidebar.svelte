@@ -408,7 +408,8 @@
           class:on={panel === 'git'}
           title={t('sidebar.sourceControl')}
           onclick={() => (panel = 'git')}
-          ><span class="material-symbols-outlined">folder_open</span><span class="bs-ri-label">Git</span></button
+          ><span class="material-symbols-outlined">fork_right</span><span class="bs-ri-label">Git</span
+          >{#if gitFiles.length}<span class="bs-ri-badge">{gitFiles.length}</span>{/if}</button
         >
       {/if}
     </div>
@@ -434,39 +435,41 @@
         <button type="button" class="undo" onclick={runUndo}>{t('sidebar.undo')} ⌘Z</button>
       </div>
     {/if}
-    <div class="bs-filterrow">
-      <div class="bs-fbox">
-        <span class="material-symbols-outlined">search</span>
-        <input
-          class="bs-fbox-input"
-          placeholder={panel === 'history' ? t('sidebar.filterHistory') : t('sidebar.filter')}
-          aria-label={t('sidebar.filterAria')}
-          bind:value={filter}
-          onkeydown={(e) => {
-            if (e.key === 'Escape') {
-              e.preventDefault();
-              filter = '';
-            }
-          }}
-        />
-        {#if filterActive}
-          <button
-            class="bs-fbox-clear"
-            title={t('sidebar.clearFilter')}
-            aria-label={t('sidebar.clearFilter')}
-            onclick={() => (filter = '')}
-          >
-            <span class="material-symbols-outlined" style="font-size:13px">close</span>
-          </button>
-        {/if}
+    {#if panel !== 'git'}
+      <div class="bs-filterrow">
+        <div class="bs-fbox">
+          <span class="material-symbols-outlined">search</span>
+          <input
+            class="bs-fbox-input"
+            placeholder={panel === 'history' ? t('sidebar.filterHistory') : t('sidebar.filter')}
+            aria-label={t('sidebar.filterAria')}
+            bind:value={filter}
+            onkeydown={(e) => {
+              if (e.key === 'Escape') {
+                e.preventDefault();
+                filter = '';
+              }
+            }}
+          />
+          {#if filterActive}
+            <button
+              class="bs-fbox-clear"
+              title={t('sidebar.clearFilter')}
+              aria-label={t('sidebar.clearFilter')}
+              onclick={() => (filter = '')}
+            >
+              <span class="material-symbols-outlined" style="font-size:13px">close</span>
+            </button>
+          {/if}
+        </div>
+        <button
+          class="bs-fi"
+          title={t('sidebar.new')}
+          aria-label={t('sidebar.new')}
+          onclick={(e) => openMenu('create', e)}><span class="material-symbols-outlined">add</span></button
+        >
       </div>
-      <button
-        class="bs-fi"
-        title={t('sidebar.new')}
-        aria-label={t('sidebar.new')}
-        onclick={(e) => openMenu('create', e)}><span class="material-symbols-outlined">add</span></button
-      >
-    </div>
+    {/if}
 
     {#snippet node(n: TreeNode, depth: number)}
       {#if n.kind === 'folder'}
@@ -504,10 +507,9 @@
             />{:else}<span class="bs-nm" title={n.name}>{n.name}</span>{/if}
           {#if dropAt?.id === n.id && dropAt.pos === 'into'}
             <span class="bs-tcount bs-tcount-drop">{n.children.length} → {n.children.length + 1}</span>
-          {:else if changed > 0}
-            <span class="bs-git-treecount">{changed}</span>
-          {:else if n.children.length > 0}
-            <span class="bs-tcount">{n.children.length}</span>
+          {:else}
+            {#if changed > 0}<span class="bs-git-treecount">{changed}</span>{/if}
+            {#if n.children.length > 0}<span class="bs-tcount">{n.children.length}</span>{/if}
           {/if}
           <span
             class="bs-act"
