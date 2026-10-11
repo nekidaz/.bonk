@@ -30,7 +30,9 @@
 
   let methodMenu = $state<HTMLDivElement>();
   $effect(() => {
-    if (methodOpen && methodMenu) methodMenu.querySelector<HTMLButtonElement>('button.on, button')?.focus();
+    // `.on` alone: 'button.on, button' matches in document order, so the first method won.
+    if (methodOpen && methodMenu)
+      (methodMenu.querySelector<HTMLButtonElement>('button.on') ?? methodMenu.querySelector('button'))?.focus();
   });
 
   // ↑↓ move, a letter jumps to the next method starting with it (P: POST → PUT → PATCH), ↵ picks.
