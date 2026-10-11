@@ -479,6 +479,12 @@ export async function runCollection(): Promise<void> {
   runner.viewing = null;
   const config = runner.config;
   const scenario = runner.activeScenario;
+  const missing = scenario?.paths.find((path) => !findNode(workspace.tree, `fs:${path}`));
+  if (missing) {
+    runner.error = t('runner.scenario.missingPath', { path: missing });
+    setRunnerStage('setup');
+    return;
+  }
   const requests = plannedRequests(config, workspace.tree);
   const n = (runner.history.at(-1)?.n ?? 0) + 1;
   if (requests.length === 0) {

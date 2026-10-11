@@ -145,8 +145,8 @@ function flattenRequests(nodes: TreeNode[]): RequestNode[] {
 
 /** Resolve the configured folders to the request list to run (none = whole tree). */
 export function collectRequests(folderIds: string[], tree: TreeNode[]): RequestNode[] {
+  if (folderIds.length === 0 || folderIds.includes(RUNNER_ROOT)) return flattenRequests(tree);
   const ids = folderIds.filter((id) => id !== RUNNER_ROOT && findNode(tree, id));
-  if (ids.length === 0) return flattenRequests(tree);
   const out = ids.flatMap((id) => flattenRequests([findNode(tree, id)!]));
   return out.filter((n, i) => out.indexOf(n) === i); // a nested pick must not run twice
 }
