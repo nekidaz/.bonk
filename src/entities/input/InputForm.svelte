@@ -24,6 +24,7 @@
     onsubmit,
     oncancel,
     onskip,
+    submitLabel,
   }: {
     request: InputRequest;
     variant?: 'popover' | 'card';
@@ -32,7 +33,12 @@
     oncancel?: () => void;
     /** The card's «Пропустить шаг». */
     onskip?: () => void;
+    /** A sign-in popover's primary button (default «Войти и повторить»: the send goes out again). */
+    submitLabel?: string;
   } = $props();
+
+  // A session's sign-in (Flow · Сессия SE5): the popover gets a header with the scenario and its steps.
+  const session = $derived(variant === 'popover' ? request.session : undefined);
 
   let values = $state<Record<string, string>>({});
   let touched = $state<Record<string, boolean>>({});
@@ -200,7 +206,10 @@
 <form class="form {variant}" class:retry bind:this={root} {onkeydown} onsubmit={(e) => (e.preventDefault(), submit())}>
   <header>
     <span class="badge"><span class="material-symbols-outlined" aria-hidden="true">keyboard</span></span>
-    {#if variant === 'popover'}
+    {#if session}
+      <b class="ttl">{t('sessionrun.prompt.title')}</b>
+      <code class="scn">{session.scenario}</code>
+    {:else if variant === 'popover'}
       <b class="ttl">{heading}</b>
       {#if single}<code class="var">{`{{${single.name}}}`}</code>{/if}
     {:else}
@@ -210,6 +219,23 @@
         ><span class="where">{request.method} {request.requestName}</span>{/if}
     {/if}
   </header>
+
+  {#if session}
+    <div class="steps">
+      {#each session.steps as step (step.name)}
+        <span class="step {step.state}"
+          ><span class="material-symbols-outlined" aria-hidden="true"
+            >{step.state === 'done'
+              ? 'check_circle'
+              : step.state === 'now'
+                ? 'keyboard'
+                : 'radio_button_unchecked'}</span
+          >{step.name}</span
+        >
+      {/each}
+    </div>
+    {#if retry}<p class="msg bad" role="alert">{heading}{request.error ? ` · ${request.error}` : ''}</p>{/if}
+  {/if}
 
   {#if variant === 'card' && single}
     <div class="sub">
@@ -254,6 +280,12 @@
             />
           {/each}
         </div>
+        {#if session && f.hint}
+          <div class="clip">
+            <span class="material-symbols-outlined" aria-hidden="true">content_paste</span>
+            <span class="t">{`${f.hint} · ⌘V`}</span>
+          </div>
+        {/if}
         {#if clip}
           <div class="clip" class:stale={clipStale}>
             <span class="material-symbols-outlined" aria-hidden="true">content_paste</span>
@@ -419,8 +451,12 @@
   <footer>
     {#if variant === 'popover'}
       <span class="sp"></span>
-      <button class="btn quiet" type="button" onclick={() => oncancel?.()}>{t('input.form.cancel')}</button>
-      <button class="btn primary" type="submit">{t('input.form.send')}<kbd>⏎</kbd></button>
+      <button class="btn quiet" type="button" onclick={() => oncancel?.()}
+        >{session ? t('sessionrun.prompt.later') : t('input.form.cancel')}</button
+      >
+      <button class="btn primary" type="submit"
+        >{session ? (submitLabel ?? t('sessionrun.prompt.retry')) : t('input.form.send')}<kbd>⏎</kbd></button
+      >
     {:else}
       <button class="btn quiet" type="button" onclick={() => onskip?.()}>
         <span class="material-symbols-outlined" aria-hidden="true">skip_next</span>{t('input.form.skip')}
@@ -493,6 +529,37 @@
     font-family: var(--font-code);
     font-size: var(--font-size-caption);
     color: var(--color-ask);
+  }
+  .scn {
+    flex: none;
+    font-family: var(--font-code);
+    font-size: var(--font-size-caption);
+    color: var(--color-ask);
+  }
+  .steps {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 12px;
+    font-size: var(--font-size-caption);
+  }
+  .step {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    color: var(--color-text-muted);
+  }
+  .step .material-symbols-outlined {
+    font-size: 14px;
+  }
+  .step.done {
+    color: var(--color-text-secondary);
+  }
+  .step.done .material-symbols-outlined {
+    color: var(--color-success);
+  }
+  .step.now {
+    color: var(--color-ask);
+    font-weight: var(--weight-semibold);
   }
   .state {
     flex: none;

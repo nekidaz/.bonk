@@ -22,6 +22,7 @@
   import { formatBinding, hotkeys } from '$shared/settings';
   import AppPopoverMenu from './AppPopoverMenu.svelte';
   import SendInputPrompt from './SendInputPrompt.svelte';
+  import SessionSignInPrompt from './SessionSignInPrompt.svelte';
   import {
     addReq,
     collAddFolder,
@@ -139,6 +140,7 @@
 <DynamicCatalog />
 <AskHost />
 <SendInputPrompt />
+<SessionSignInPrompt />
 <CookieJarSheet onCleared={(text) => shell.showToast({ text, icon: 'delete_sweep' })} />
 
 <BranchMenu />

@@ -30,6 +30,7 @@ import {
   type RunSummary,
 } from './runnerStats';
 import { isPreset, type RunnerPreset } from './runnerPreset';
+import { offerSession, sessionOffer } from './sessionOffer.svelte';
 import {
   DEFAULT_CONFIG,
   DEFAULT_RUN,
@@ -550,6 +551,7 @@ export async function runCollection(): Promise<void> {
   if (runner.run.status === 'running') return;
   await loadRunnerState();
   runner.error = '';
+  sessionOffer.current = null;
   setRunnerStage('run');
   runner.viewing = null;
   const config = runner.config;
@@ -612,6 +614,7 @@ export async function runCollection(): Promise<void> {
     status = 'stopped';
   }
   finishRun(status);
+  if (status === 'done') void offerSession(scenario?.name, n, runner.run.results);
 }
 
 /** Re-run `rows` in place (same iteration data, same waterfall slot). */

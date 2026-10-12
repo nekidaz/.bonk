@@ -295,7 +295,15 @@
 {/snippet}
 
 {#snippet waitingForResponse(grpc: boolean)}
-  {#if waitingForInput}
+  {#if waitingForInput?.session}
+    <div class="bs-empty-resp bs-response-waiting">
+      <span class="mark" aria-hidden="true"><span class="material-symbols-outlined">hourglass_empty</span></span>
+      <strong
+        >{t('sessionrun.waiting.title', { request: `${tab?.request.method ?? ''} ${tab?.title ?? ''}`.trim() })}</strong
+      >
+      <p>{t('sessionrun.waiting.sub')}</p>
+    </div>
+  {:else if waitingForInput}
     {@const code = waitingForInput.fields.length === 1 && waitingForInput.fields[0].type === 'code'}
     <div class="bs-empty-resp bs-response-waiting">
       <span class="mark" aria-hidden="true"><span class="material-symbols-outlined">hourglass_empty</span></span>
@@ -714,7 +722,8 @@
     id="bs-resppanel"
     aria-labelledby="bs-resptab-{respTab}"
   >
-    {#if !tab.response}
+    <!-- A send waiting for the sign-in code replaces even an older response: the request goes out again. -->
+    {#if !tab.response || waitingForInput?.session}
       {#if !sending || waitingForInput}{@render waitingForResponse(false)}{/if}
     {:else if preFailed && testResults && (respTab === 'body' || respTab === 'headers' || respTab === 'cookies')}
       {@render preFailedView(testResults, true)}
