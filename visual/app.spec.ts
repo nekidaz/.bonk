@@ -49,8 +49,25 @@ const openOtp = async (p: Page) => {
   await openRequest(p, 'Verify OTP');
   await rtab(p, 'body');
 };
+// A real right-click would move the editor's caret (it blinks, and the active line changes): send the event itself.
+const contextOnPhone = (p: Page) =>
+  p
+    .locator('.cm-var-ok, .cm-var-missing')
+    .filter({ hasText: '{{phone}}' })
+    .first()
+    .evaluate((el) => {
+      const r = el.getBoundingClientRect();
+      el.dispatchEvent(
+        new MouseEvent('contextmenu', {
+          bubbles: true,
+          cancelable: true,
+          clientX: r.left + r.width / 2,
+          clientY: r.top + r.height / 2,
+        }),
+      );
+    });
 const askOnPhone = async (p: Page) => {
-  await p.locator('.cm-var-ok, .cm-var-missing').filter({ hasText: '{{phone}}' }).first().click({ button: 'right' });
+  await contextOnPhone(p);
   await p.getByRole('menuitem', { name: 'Спрашивать при отправке' }).click();
   await p.locator('.ask').waitFor();
 };
@@ -422,11 +439,7 @@ const SCENARIOS: Scenario[] = [
     query: '&inputs=1',
     steps: async (p) => {
       await openOtp(p);
-      await p
-        .locator('.cm-var-ok, .cm-var-missing')
-        .filter({ hasText: '{{phone}}' })
-        .first()
-        .click({ button: 'right' });
+      await contextOnPhone(p);
       await p.getByRole('menuitem').first().waitFor();
     },
     hover: true,
