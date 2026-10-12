@@ -154,6 +154,20 @@ pub fn scenarios_delete(root: String, name: String) -> Result<(), String> {
 }
 
 #[tauri::command]
+pub fn inputs_load(root: String) -> Result<bonk_core::application::inputs::Inputs, String> {
+    require_absolute_root(&root)?;
+    bonk_core::application::inputs::load(std::path::Path::new(&root))
+}
+#[tauri::command]
+pub fn inputs_save(
+    root: String,
+    inputs: bonk_core::application::inputs::Inputs,
+) -> Result<(), String> {
+    require_absolute_root(&root)?;
+    bonk_core::application::inputs::save(std::path::Path::new(&root), inputs)
+}
+
+#[tauri::command]
 pub fn workspace_import_collection(
     root: String,
     collection: bonk_core::application::workspace::ImportCollection,

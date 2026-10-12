@@ -52,6 +52,16 @@ pub struct AppState {
     pub grpc_streams: Mutex<HashMap<String, bonk_core::application::grpc_native::StreamSender>>,
     /// Collection Runner runs in progress by run id (pause / stop).
     pub runs: Mutex<HashMap<String, Arc<bonk_core::application::runner::RunControl>>>,
+    /// Forms a run waits on, by input id: the run that asked and where the answer goes.
+    pub inputs: Mutex<
+        HashMap<
+            String,
+            (
+                String,
+                oneshot::Sender<bonk_core::application::runner::InputAnswer>,
+            ),
+        >,
+    >,
     /// OAuth browser logins waiting for their redirect, by flow id.
     pub oauth_logins: Mutex<HashMap<String, Arc<crate::commands::oauth::Login>>>,
 }
@@ -151,6 +161,7 @@ impl Default for AppState {
             cancels: Mutex::new(HashMap::new()),
             grpc_streams: Mutex::new(HashMap::new()),
             runs: Mutex::new(HashMap::new()),
+            inputs: Mutex::new(HashMap::new()),
             oauth_logins: Mutex::new(HashMap::new()),
         }
     }

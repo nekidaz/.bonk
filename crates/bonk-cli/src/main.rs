@@ -15,8 +15,8 @@ use std::{
 
 use bonk_core::{
     application::{
-        app_vars, http, http_client, run_data,
-        runner::{self, GrpcTarget, RunControl, RunPlan, RunStatus, RunVars, Transport},
+        app_vars, http, http_client, inputs, run_data,
+        runner::{self, GrpcTarget, InputMode, RunControl, RunPlan, RunStatus, RunVars, Transport},
         scenarios, workspace,
     },
     conn::GrpcDescriptorCache,
@@ -100,6 +100,10 @@ struct RunArgs {
     /// A variable; wins over the environment. Repeatable. `BONK_VAR_<NAME>` env vars work too.
     #[arg(long = "var", value_name = "NAME=VALUE", value_parser = parse_var)]
     vars: Vec<(String, String)>,
+    /// Value of an «ask on send» variable (`.bonk/inputs.json`), e.g. an SMS code; a step that
+    /// needs one nobody gave fails. Repeatable. `BONK_INPUT_<NAME>` env vars work too.
+    #[arg(long = "input", value_name = "NAME=VALUE", value_parser = parse_var)]
+    inputs: Vec<(String, String)>,
     /// CSV or JSON data file: one iteration per row (`pm.iterationData`).
     #[arg(long, short = 'd', value_name = "FILE")]
     data: Option<PathBuf>,
@@ -140,6 +144,8 @@ fn parse_var(s: &str) -> Result<(String, String), String> {
 
 /// Process variables with this prefix become `{{NAME}}` (CI secrets), as in bonk-mcp.
 const VAR_PREFIX: &str = "BONK_VAR_";
+/// Process variables with this prefix answer an «ask on send» variable.
+const INPUT_PREFIX: &str = "BONK_INPUT_";
 
 #[tokio::main]
 async fn main() -> ExitCode {
@@ -212,7 +218,10 @@ async fn run(args: &RunArgs) -> Result<bool, String> {
         plan.delay_ms = delay;
     }
     plan.stop_on_failure |= args.bail;
+    let mut input_secrets = Vec::new();
+    plan_inputs(&mut plan, &root, args, &mut input_secrets)?;
     let (mut vars, mut secrets) = variables(args, scenario.as_ref())?;
+    secrets.extend(input_secrets);
     if let Some(scenario) = &scenario {
         scenario.require_variables(&vars)?;
     }
@@ -247,6 +256,40 @@ async fn run(args: &RunArgs) -> Result<bool, String> {
             .map_err(|e| format!("{}: {e}", path.display()))?;
     }
     Ok(status == RunStatus::Done && report.all_ok())
+}
+
+/// The workspace's «ask on send» fields and the values given for them. No person is
+/// there to ask, so a step with a missing value fails. Returns the values to redact.
+fn plan_inputs(
+    plan: &mut RunPlan,
+    root: &Path,
+    args: &RunArgs,
+    secrets: &mut Vec<String>,
+) -> Result<(), String> {
+    plan.inputs = inputs::load(root)?;
+    plan.input_mode = InputMode::Fail;
+    let mut given: Vec<(String, String)> = std::env::vars()
+        .filter_map(|(name, value)| {
+            let name = name.strip_prefix(INPUT_PREFIX).filter(|n| !n.is_empty())?;
+            Some((name.to_string(), value))
+        })
+        .collect();
+    given.extend(args.inputs.iter().cloned());
+    for (name, value) in given {
+        let Some(def) = plan.inputs.get(&name) else {
+            return Err(format!(
+                "--input {name}: not an «ask on send» variable of this workspace (.bonk/inputs.json)"
+            ));
+        };
+        let value = def.normalize(&value);
+        def.check(&value)
+            .map_err(|e| format!("--input {name}: {e}"))?;
+        if def.sensitive() {
+            secrets.push(value.clone());
+        }
+        plan.input_values.insert(name, value);
+    }
+    Ok(())
 }
 
 /// The workspace id (`fs:<relative path>`) of a folder or request file inside `root`.

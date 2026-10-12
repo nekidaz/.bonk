@@ -277,6 +277,8 @@ mod tests {
             start_offset_ms: None,
             size_bytes: None,
             end_ms: None,
+            inputs: Default::default(),
+            waited_ms: None,
         }
     }
 

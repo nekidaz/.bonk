@@ -5,7 +5,8 @@ use std::future::Future;
 use std::sync::Arc;
 
 use bonk_core::application::runner::{
-    self, GrpcSchema, GrpcTarget, RunControl, RunEvent, RunPlan, RunStatus, RunVars, Transport,
+    self, GrpcSchema, GrpcTarget, InputAnswer, InputRequest, RunControl, RunEvent, RunPlan,
+    RunStatus, RunVars, Transport,
 };
 use bonk_core::domain::grpc::{GrpcPrefs, GrpcResult};
 use bonk_core::domain::http::{HttpRequest, HttpResponse, RequestSettings};
@@ -56,6 +57,7 @@ pub async fn runner_run(
         jar,
         grpc,
         connection_id: None,
+        run_id: run_id.clone(),
     };
     let mut vars = vars;
     let status = runner::run_collection(&plan, &mut vars, &transport, &control, &|event| {
@@ -65,6 +67,7 @@ pub async fn runner_run(
     if let Ok(mut runs) = state.runs.lock() {
         runs.remove(&run_id);
     }
+    drop_inputs(&state, &run_id);
     status
 }
 
@@ -93,6 +96,7 @@ pub async fn request_run(
         jar,
         grpc,
         connection_id,
+        run_id: request_id.clone(),
     };
     let id = Some(request_id);
     let cancel = super::http::register_cancel(&state, &id)?;
@@ -106,6 +110,9 @@ pub async fn request_run(
         Ok(execution.await)
     };
     super::http::finish_cancel(&state, &id);
+    if let Some(id) = &id {
+        drop_inputs(&state, id);
+    }
     result
 }
 
@@ -131,6 +138,31 @@ pub fn runner_stop(run_id: String, state: State<'_, AppState>) -> Result<(), Str
     Ok(())
 }
 
+/// A person's reply to the form the run `input_id` belongs to waits on.
+#[tauri::command]
+pub fn runner_input_answer(
+    input_id: String,
+    answer: InputAnswer,
+    state: State<'_, AppState>,
+) -> Result<(), String> {
+    let (_, reply) = state
+        .inputs
+        .lock()
+        .map_err(|_| "runner lock poisoned".to_string())?
+        .remove(&input_id)
+        .ok_or_else(|| "the form is no longer waiting".to_string())?;
+    reply
+        .send(answer)
+        .map_err(|_| "the run has already ended".to_string())
+}
+
+/// Forget the forms of a finished run.
+fn drop_inputs(state: &AppState, run_id: &str) {
+    if let Ok(mut inputs) = state.inputs.lock() {
+        inputs.retain(|_, (owner, _)| owner != run_id);
+    }
+}
+
 fn control(state: &AppState, run_id: &str) -> Result<Option<Arc<RunControl>>, String> {
     Ok(state
         .runs
@@ -148,6 +180,8 @@ struct AppTransport<'a> {
     jar: Arc<CookieJar>,
     grpc: GrpcRunSettings,
     connection_id: Option<String>,
+    /// Owner of the forms this run opens (`AppState.inputs`).
+    run_id: String,
 }
 
 impl Transport for AppTransport<'_> {
@@ -220,6 +254,21 @@ impl Transport for AppTransport<'_> {
             .await
             .map_err(|e| e.message)
         }
+    }
+
+    async fn ask_input(
+        &self,
+        request: InputRequest,
+        emit: &(dyn Fn(RunEvent) + Sync),
+    ) -> Result<InputAnswer, String> {
+        let (reply, answer) = tokio::sync::oneshot::channel();
+        self.state
+            .inputs
+            .lock()
+            .map_err(|_| "runner lock poisoned".to_string())?
+            .insert(request.id.clone(), (self.run_id.clone(), reply));
+        emit(RunEvent::Input(Box::new(request)));
+        answer.await.map_err(|_| "the form was closed".to_string())
     }
 
     fn clear_script_cookies(&self, url: &str) {
