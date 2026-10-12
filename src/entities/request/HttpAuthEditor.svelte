@@ -8,6 +8,13 @@
   import OAuthPanel from './OAuthPanel.svelte';
   import OAuthInheritedRows from './OAuthInheritedRows.svelte';
   import { oauthSummary } from './oauthFormat';
+  import { inputPrompts } from '$entities/input';
+  import { requestRuntime } from './requestRuntime.svelte';
+  import { sessionRuntime } from './session.svelte';
+  import { nodeLabel } from './sessionView';
+  import SessionPanel from './SessionPanel.svelte';
+  import SessionInheritedRows from './SessionInheritedRows.svelte';
+  import SessionSendBanner from './SessionSendBanner.svelte';
 
   // Edits the request's auth (`tab`; gRPC tabs keep it on `tab.grpc`) or, in the folder dialog, a draft `value` (`onChange`).
   let {
@@ -15,12 +22,18 @@
     value,
     onChange,
     where,
+    onSaved,
+    onOpenRunner,
   }: {
     tab?: Tab;
     value?: AuthConfig;
     onChange?: (a: AuthConfig) => void;
     /** Where `value` is set (the folder dialog's collection), for OAuth's «Все токены». */
     where?: string;
+    /** Session (folder dialog): a sign-in from the card finished, for the app's toast. */
+    onSaved?: (text: string) => void;
+    /** Session (folder dialog): «Открыть в Runner» on the sign-in scenario. */
+    onOpenRunner?: (scenario: string) => void;
   } = $props();
   const isGrpc = $derived(tab?.protocol === 'grpc');
 
@@ -30,6 +43,7 @@
     { key: 'basic', label: 'http.auth.basic', hint: 'http.auth.basic.hint' },
     { key: 'apiKey', label: 'http.auth.apikey', hint: 'http.auth.apikey.hint' },
     { key: 'oauth2', label: 'http.auth.oauth2', hint: 'http.auth.oauth2.hint' },
+    { key: 'session', label: 'session.type', hint: 'session.hint' },
     { key: 'none', label: 'http.auth.none', hint: 'http.auth.none.hint' },
   ];
   type AuthStringField = 'bearerToken' | 'basicUsername' | 'basicPassword' | 'apiKeyName' | 'apiKeyValue';
@@ -64,10 +78,12 @@
         'basic',
         'apiKey',
         'oauth2',
+        // Flow · Сессия: set on a collection; a request inherits it (one it already has stays shown).
+        ...(!tab || ownType === 'session' ? ['session'] : []),
       ] as AuthType[]
     ).map((key) => ({ key, label: typeLabel(key), icon: typeIcons[key] })),
   );
-  const current = $derived(authTypes.find((a) => a.key === auth.type) ?? authTypes[4]);
+  const current = $derived(authTypes.find((a) => a.key === auth.type) ?? authTypes.find((a) => a.key === 'none')!);
   // OAuth: with a token the settings fold into a summary on the Type row (OA4/OA5).
   let oauthConfigOpen = $state(false);
   let oauthFolded = $state(false);
@@ -76,6 +92,38 @@
     void environments.activeId;
     const scope = currentVarScope();
     return oauthSummary(auth.oauth, (s) => resolveVars(s, scope));
+  });
+  // Session: the collection edits it (SE2); a request shows it read-only (SE3), or how its last send got the token (SE4/SE5).
+  let sessionConfigOpen = $state(false);
+  let sessionFolded = $state(false);
+  const sessionCfg = $derived(auth.type === 'session' ? auth.session : undefined);
+  const sessionSummary = $derived(
+    sessionCfg?.login
+      ? [
+          t('session.summary', { login: sessionCfg.login }),
+          sessionCfg.renewRequest
+            ? t('session.summary.renew', { name: nodeLabel(workspace.tree, sessionCfg.renewRequest) })
+            : t('session.summary.noRenew'),
+        ].join('  ·  ')
+      : t('session.summary.unset'),
+  );
+  const sessionCompact = $derived(
+    sessionCfg
+      ? [
+          inheriting ? t('session.inh.compact') : t('session.inh.own'),
+          sessionCfg.login ? t('session.inh.login', { login: sessionCfg.login }) : '',
+          sessionCfg.renewRequest
+            ? t('session.inh.renew', { name: nodeLabel(workspace.tree, sessionCfg.renewRequest) })
+            : '',
+        ]
+          .filter(Boolean)
+          .join('  ·  ')
+      : '',
+  );
+  const sessionSending = $derived.by(() => {
+    if (!tab || auth.type !== 'session') return false;
+    const requestId = requestRuntime.busy[tab.id]?.requestId;
+    return !!sessionRuntime.uses[tab.id] || !!(requestId && inputPrompts.byRequest[requestId]?.session);
   });
   const secretField = $derived<AuthStringField | null>(
     auth.type === 'bearer'
@@ -150,81 +198,143 @@
 {/snippet}
 
 <div class="bs-pwrap bs-auth-wrap">
-  {#if inheriting}
-    <div class="bs-auth-inherit">
-      <span class="material-symbols-outlined" aria-hidden="true">account_tree</span>
-      <span class="msg">{t('http.auth.inherited_msg', { name: parent?.name ?? '' })}</span>
-      <button type="button" onclick={() => write({ ...auth })}>{t('http.auth.override')}</button>
-    </div>
-  {/if}
-  <div class="bs-auth-card">
-    <div class="row">
-      <span class="lbl">{t('http.auth.type')}</span>
-      <AuthTypeMenu options={typeOptions} value={selectValue} label={typeLabel(selectValue)} onSelect={setAuthType} />
-      {#if auth.type === 'oauth2' && (oauthFolded || inheriting)}
-        <span class="hint grow">{oauthLine}</span>
-        {#if !inheriting}
-          <button
-            class="bs-oa-settings"
-            type="button"
-            aria-expanded={oauthConfigOpen}
-            onclick={() => (oauthConfigOpen = !oauthConfigOpen)}
-            ><span class="material-symbols-outlined" aria-hidden="true">tune</span>{t('oauth.settings')}</button
+  {#if sessionSending && tab}
+    <div class="se-send">
+      <div class="bs-auth-card se-compact">
+        <div class="row">
+          <span class="lbl">{t('http.auth.type')}</span>
+          <span class="se-type"
+            ><span class="material-symbols-outlined" aria-hidden="true">{typeIcons.session}</span>{t(
+              'session.type',
+            )}</span
           >
+          <span class="hint grow">{sessionCompact}</span>
+        </div>
+      </div>
+      <SessionSendBanner {tab} {auth} />
+    </div>
+  {:else}
+    {#if inheriting}
+      <div class="bs-auth-inherit">
+        <span class="material-symbols-outlined" aria-hidden="true">account_tree</span>
+        <span class="msg">{t('http.auth.inherited_msg', { name: parent?.name ?? '' })}</span>
+        <button type="button" onclick={() => write({ ...auth })}>{t('http.auth.override')}</button>
+      </div>
+    {/if}
+    <div class="bs-auth-card">
+      <div class="row">
+        <span class="lbl">{t('http.auth.type')}</span>
+        {#if auth.type === 'session' && inheriting}
+          <span class="se-type"
+            ><span class="material-symbols-outlined" aria-hidden="true">{typeIcons.session}</span>{t(
+              'session.inh.type',
+              {
+                login: sessionCfg?.login || '—',
+              },
+            )}</span
+          >
+        {:else}
+          <AuthTypeMenu
+            options={typeOptions}
+            value={selectValue}
+            label={typeLabel(selectValue)}
+            onSelect={setAuthType}
+          />
         {/if}
-      {:else}
-        <span class="hint">{selectValue === 'inherit' ? '' : t(current.hint)}</span>
+        {#if auth.type === 'session' && !tab}
+          <span class="hint grow">{sessionFolded ? sessionSummary : t('session.hint')}</span>
+          {#if sessionFolded}
+            <button
+              class="bs-oa-settings"
+              type="button"
+              aria-expanded={sessionConfigOpen}
+              onclick={() => (sessionConfigOpen = !sessionConfigOpen)}
+              >{t('oauth.settings')}<span class="material-symbols-outlined" aria-hidden="true"
+                >{sessionConfigOpen ? 'keyboard_arrow_up' : 'keyboard_arrow_down'}</span
+              ></button
+            >
+          {/if}
+        {:else if auth.type === 'session'}
+          {#if !inheriting}<span class="hint grow">{t('session.hint')}</span>{/if}
+        {:else if auth.type === 'oauth2' && (oauthFolded || inheriting)}
+          <span class="hint grow">{oauthLine}</span>
+          {#if !inheriting}
+            <button
+              class="bs-oa-settings"
+              type="button"
+              aria-expanded={oauthConfigOpen}
+              onclick={() => (oauthConfigOpen = !oauthConfigOpen)}
+              ><span class="material-symbols-outlined" aria-hidden="true">tune</span>{t('oauth.settings')}</button
+            >
+          {/if}
+        {:else}
+          <span class="hint">{selectValue === 'inherit' ? '' : t(current.hint)}</span>
+        {/if}
+      </div>
+      {#if auth.type === 'oauth2' && inheriting}
+        <OAuthInheritedRows {auth} folder={parent} />
+      {/if}
+      {#if auth.type === 'session' && tab}
+        <SessionInheritedRows {auth} />
+      {/if}
+      {#if auth.type === 'bearer'}
+        {@render field(t('http.auth.token'), 'bearerToken', true)}
+      {:else if auth.type === 'basic'}
+        {@render field(t('http.auth.username'), 'basicUsername')}
+        {@render field(t('http.auth.password'), 'basicPassword', true)}
+      {:else if auth.type === 'apiKey'}
+        <div class="row">
+          <span class="lbl">{t('http.auth.add_to')}</span>
+          <span class="bs-auth-seg" role="radiogroup" aria-label={t('http.auth.loc_aria')}>
+            {#each [['header', 'http.auth.loc.header'], ['query', 'http.auth.loc.query']] as [key, label] (key)}
+              <button
+                type="button"
+                role="radio"
+                class:on={(auth.apiKeyIn ?? 'header') === key}
+                aria-checked={(auth.apiKeyIn ?? 'header') === key}
+                disabled={inheriting}
+                onclick={() => setApiKeyLocation(key as ApiKeyLocation)}>{t(label)}</button
+              >
+            {/each}
+          </span>
+        </div>
+        {@render field(t('http.auth.key'), 'apiKeyName')}
+        {@render field(t('http.auth.value'), 'apiKeyValue', true)}
+      {/if}
+      {#if resolved && auth.type !== 'oauth2'}
+        <div class="row resolves">
+          <span class="lbl">{t('http.auth.resolves')}</span>
+          <span class="secret">{reveal ? resolved : mask(resolved)}</span>
+          {#if envName}
+            <span class="env tone-{envToneOf(activeEnv)}"
+              >{#if envToneOf(activeEnv) === 'production'}<span class="material-symbols-outlined" aria-hidden="true"
+                  >lock</span
+                >{/if}{envName}</span
+            >
+          {/if}
+        </div>
       {/if}
     </div>
-    {#if auth.type === 'oauth2' && inheriting}
-      <OAuthInheritedRows {auth} folder={parent} />
+    {#if auth.type === 'oauth2' && !inheriting}
+      <OAuthPanel
+        {auth}
+        onChange={write}
+        tabId={tab?.id}
+        where={where ?? tab?.title ?? ''}
+        bind:configOpen={oauthConfigOpen}
+        bind:folded={oauthFolded}
+      />
     {/if}
-    {#if auth.type === 'bearer'}
-      {@render field(t('http.auth.token'), 'bearerToken', true)}
-    {:else if auth.type === 'basic'}
-      {@render field(t('http.auth.username'), 'basicUsername')}
-      {@render field(t('http.auth.password'), 'basicPassword', true)}
-    {:else if auth.type === 'apiKey'}
-      <div class="row">
-        <span class="lbl">{t('http.auth.add_to')}</span>
-        <span class="bs-auth-seg" role="radiogroup" aria-label={t('http.auth.loc_aria')}>
-          {#each [['header', 'http.auth.loc.header'], ['query', 'http.auth.loc.query']] as [key, label] (key)}
-            <button
-              type="button"
-              role="radio"
-              class:on={(auth.apiKeyIn ?? 'header') === key}
-              aria-checked={(auth.apiKeyIn ?? 'header') === key}
-              disabled={inheriting}
-              onclick={() => setApiKeyLocation(key as ApiKeyLocation)}>{t(label)}</button
-            >
-          {/each}
-        </span>
-      </div>
-      {@render field(t('http.auth.key'), 'apiKeyName')}
-      {@render field(t('http.auth.value'), 'apiKeyValue', true)}
+    {#if auth.type === 'session' && !tab}
+      <SessionPanel
+        {auth}
+        onChange={write}
+        where={where ?? ''}
+        {onSaved}
+        {onOpenRunner}
+        bind:configOpen={sessionConfigOpen}
+        bind:folded={sessionFolded}
+      />
     {/if}
-    {#if resolved && auth.type !== 'oauth2'}
-      <div class="row resolves">
-        <span class="lbl">{t('http.auth.resolves')}</span>
-        <span class="secret">{reveal ? resolved : mask(resolved)}</span>
-        {#if envName}
-          <span class="env tone-{envToneOf(activeEnv)}"
-            >{#if envToneOf(activeEnv) === 'production'}<span class="material-symbols-outlined" aria-hidden="true"
-                >lock</span
-              >{/if}{envName}</span
-          >
-        {/if}
-      </div>
-    {/if}
-  </div>
-  {#if auth.type === 'oauth2' && !inheriting}
-    <OAuthPanel
-      {auth}
-      onChange={write}
-      tabId={tab?.id}
-      where={where ?? tab?.title ?? ''}
-      bind:configOpen={oauthConfigOpen}
-      bind:folded={oauthFolded}
-    />
   {/if}
 </div>

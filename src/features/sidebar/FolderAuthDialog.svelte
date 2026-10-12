@@ -5,7 +5,17 @@
   import { t } from '$shared/i18n';
 
   // Collection-level auth (S11): requests set to "inherit" use it. `folderId` open = shown.
-  let { folderId = $bindable() }: { folderId: string | undefined } = $props();
+  let {
+    folderId = $bindable(),
+    onSaved,
+    onOpenRunner,
+  }: {
+    folderId: string | undefined;
+    /** Session: a sign-in from the card finished (the app shows a toast). */
+    onSaved?: (text: string) => void;
+    /** Session: «Открыть в Runner» on the sign-in scenario (the app owns the Runner). */
+    onOpenRunner?: (scenario: string) => void;
+  } = $props();
 
   const folder = $derived(folderId ? findNode(workspace.tree, folderId) : undefined);
   let draft = $state<AuthConfig | undefined>(undefined);
@@ -21,7 +31,7 @@
 
 {#if folder?.kind === 'folder'}
   <div class="bs-overlay" role="dialog" aria-modal="true">
-    <div class="bs-modal">
+    <div class="bs-modal" class:bs-session-modal={draft?.type === 'session'}>
       <div class="bs-modal-h">
         <span class="t">{t('dialog.auth.title', { name: folder.name })}</span>
         <button class="x" aria-label={t('common.close')} onclick={() => (folderId = undefined)}
@@ -29,7 +39,16 @@
         >
       </div>
       <div class="bs-modal-b">
-        <HttpAuthEditor value={draft} onChange={(a) => (draft = a)} where={folder.name} />
+        <HttpAuthEditor
+          value={draft}
+          onChange={(a) => (draft = a)}
+          where={folder.name}
+          {onSaved}
+          onOpenRunner={(name) => {
+            folderId = undefined;
+            onOpenRunner?.(name);
+          }}
+        />
       </div>
       <div class="bs-modal-f">
         <div class="grow"></div>

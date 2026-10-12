@@ -1755,7 +1755,8 @@
 /* OA1: the auth type menu (portaled to <body>, so not under .bs). */
 :root .bs-auth-menu {
   position: fixed;
-  z-index: 90;
+  /* Above .bs-overlay (100): the folder auth dialog opens this menu too. */
+  z-index: 110;
   display: flex;
   flex-direction: column;
   gap: 2px;
@@ -3241,4 +3242,336 @@
   grid-column: 1;
   grid-row: 8;
   min-height: 0;
+}
+
+/* Flow · Сессия (SE2–SE5): the session card, its details and settings, a send's banner and timeline. */
+:root .bs .bs-modal.bs-session-modal {
+  width: 940px;
+}
+
+:root .bs .se-send {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+:root .bs .se-card .se-badge {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 12px;
+  background: var(--color-selected);
+  color: var(--color-text-secondary);
+}
+
+:root .bs .se-card .se-badge .material-symbols-outlined {
+  font-size: 18px;
+}
+
+:root .bs .se-card .se-badge .spin {
+  animation: bs-oa-spin 1s linear infinite;
+}
+
+:root .bs .se-card.tone-success .se-badge {
+  background: var(--color-success-soft);
+  color: var(--color-success);
+}
+
+:root .bs .se-card.tone-warning .se-badge {
+  background: var(--color-warning-soft);
+  color: var(--color-warning);
+}
+
+:root .bs .se-card.tone-danger .se-badge,
+:root .bs .se-card.se-dead .se-badge {
+  background: var(--color-danger-soft);
+  color: var(--color-danger);
+}
+
+:root .bs .se-card.tone-accent .se-badge,
+:root .bs .se-card.tone-var .se-badge {
+  background: var(--color-var-soft);
+  color: var(--color-var);
+}
+
+:root .bs .se-card.tone-ask .se-badge {
+  background: var(--color-ask-soft);
+  color: var(--color-ask);
+}
+
+:root .bs .se-card.se-banner {
+  padding: 10px 12px 10px 14px;
+}
+
+:root .bs .se-card.se-banner .se-badge {
+  width: 30px;
+  height: 30px;
+  border-radius: 10px;
+}
+
+:root .bs .se-card.se-banner .se-badge .material-symbols-outlined {
+  font-size: 16px;
+}
+
+:root .bs .se-card .badge.dead,
+:root .bs .se-card.se-dead .badge,
+:root .bs .bs-oa-pill.dead {
+  background: var(--color-danger-soft);
+  color: var(--color-danger);
+}
+
+:root .bs .se-card .sub.wrap {
+  white-space: normal;
+}
+
+:root .bs .se-card .acts {
+  align-items: center;
+}
+
+:root .bs .se-type {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--color-text);
+  font: 500 var(--font-size-body) var(--font-ui);
+  white-space: nowrap;
+}
+
+:root .bs .se-type .material-symbols-outlined {
+  font-size: 15px;
+  color: var(--color-text-secondary);
+}
+
+:root .bs .bs-auth-card.se-compact .row {
+  min-height: 40px;
+  padding: 4px 0;
+}
+
+:root .bs .bs-auth-card .row .bs-oa-pill + .env {
+  margin-left: 0;
+}
+
+:root .bs .se-chip {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 22px;
+  padding: 0 9px;
+  border-radius: 999px;
+  background: var(--color-raised);
+  color: var(--color-text);
+  font: 500 var(--font-size-caption) var(--font-ui);
+  white-space: nowrap;
+}
+
+:root .bs .se-chip.dim {
+  color: var(--color-text-secondary);
+}
+
+:root .bs .se-chip.ok {
+  background: var(--color-success-soft);
+  color: var(--color-success);
+}
+
+:root .bs .se-chip.bad {
+  background: var(--color-danger-soft);
+  color: var(--color-danger);
+}
+
+:root .bs .se-chip .material-symbols-outlined {
+  font-size: 13px;
+}
+
+:root .bs .se-method {
+  flex: none;
+  font: 600 var(--font-size-caption) var(--font-code);
+}
+
+:root .bs .se-name {
+  flex: none;
+  color: var(--color-text);
+  font: var(--font-size-body) var(--font-ui);
+}
+
+:root .bs .bs-auth-card .hint.se-mono {
+  font-family: var(--font-code);
+}
+
+:root .bs .se-ellipsis {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+:root .bs .se-nowrap {
+  flex: none;
+  white-space: nowrap;
+}
+
+:root .bs .se-var {
+  display: inline-flex;
+  align-items: center;
+  height: 22px;
+  margin-left: 2px;
+  padding: 0 9px;
+  border-radius: 999px;
+  background: var(--color-var-soft);
+  color: var(--color-var);
+  font: 500 var(--font-size-caption) var(--font-code);
+}
+
+:root .bs .bs-auth-input.se-select {
+  position: relative;
+  flex: 0 1 220px;
+  padding-right: 30px;
+}
+
+:root .bs .bs-auth-input.se-select select {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  outline: none;
+  appearance: none;
+  background: transparent;
+  color: var(--color-text);
+  font: var(--font-size-body) var(--font-ui);
+  cursor: pointer;
+}
+
+:root .bs .bs-auth-input.se-select select:focus-visible {
+  outline: none;
+}
+
+:root .bs .bs-auth-input.se-select .material-symbols-outlined {
+  position: absolute;
+  right: 10px;
+  color: var(--color-text-muted);
+  pointer-events: none;
+}
+
+:root .bs .bs-auth-input.se-path {
+  flex: 1 1 150px;
+}
+
+:root .bs .bs-auth-input.se-num {
+  flex: 0 0 72px;
+  padding: 0 10px;
+}
+
+:root .bs .bs-auth-input.se-select.se-add {
+  flex: 0 0 auto;
+  height: 24px;
+  padding: 0 10px;
+  background: transparent;
+}
+
+:root .bs .bs-auth-input.se-select.se-add select {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-caption);
+}
+
+:root .bs .bs-auth-card .row.se-missing {
+  gap: 8px;
+  min-height: 40px;
+  color: var(--color-warning);
+  font: var(--font-size-caption) var(--font-ui);
+}
+
+:root .bs .bs-auth-card .row.se-missing .material-symbols-outlined {
+  font-size: 16px;
+}
+
+:root .bs .bs-auth-card .row.se-note {
+  min-height: 0;
+  padding: 0 0 8px;
+}
+
+:root .bs .bs-auth-card .row.se-note .hint {
+  font-size: var(--font-size-caption);
+}
+
+:root .bs .se-timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 14px;
+  outline: 1px solid var(--color-border-subtle);
+  outline-offset: -1px;
+  border-radius: var(--radius-card);
+  background: var(--color-field);
+}
+
+:root .bs .se-timeline .ev {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 3px 0;
+  font: var(--font-size-caption) var(--font-code);
+}
+
+:root .bs .se-timeline .at {
+  flex: 0 0 92px;
+  color: var(--color-text-muted);
+}
+
+:root .bs .se-timeline .ic {
+  flex: none;
+  font-size: 14px;
+}
+
+:root .bs .se-timeline .what {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: pre;
+  color: var(--color-text);
+  font-size: var(--font-size-body);
+}
+
+:root .bs .se-timeline .meta {
+  flex: none;
+  white-space: pre;
+}
+
+:root .bs .se-timeline .tone-muted {
+  color: var(--color-text-muted);
+}
+
+:root .bs .se-timeline .ic.tone-muted {
+  color: var(--color-text-secondary);
+}
+
+:root .bs .se-timeline .tone-warning {
+  color: var(--color-warning);
+}
+
+:root .bs .se-timeline .tone-var {
+  color: var(--color-var);
+}
+
+:root .bs .se-timeline .tone-danger {
+  color: var(--color-danger);
+}
+
+:root .bs .se-timeline .tone-success {
+  color: var(--color-success);
+}
+
+:root .bs .se-timeline .tone-ask {
+  color: var(--color-ask);
+}
+
+:root .bs .bs-auth-card .row:has(+ .row.se-note) {
+  border-bottom: 0;
+}
+
+:root .bs .se-card.se-banner .sub {
+  color: var(--color-text-secondary);
 }

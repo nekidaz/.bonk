@@ -3,11 +3,11 @@
   // the command palette and the update banner. Which one is open lives in `shell`.
   import { tabs } from '$entities/tab';
   import { openWorkspaceFolder } from '$entities/workspace';
-  import { openEnvironmentsTab } from '$entities/environment';
+  import { environments, openEnvironmentsTab } from '$entities/environment';
   import { DynamicCatalog } from '$entities/environment/components';
   import { SaveRequestDialog, ProductionGuard } from '$entities/request/components';
   import { AskHost } from '$entities/input/components';
-  import { openRunnerTab } from '$features/runner';
+  import { applyPreset, openRunnerTab, runner } from '$features/runner';
   import { MoveDialog, FolderAuthDialog } from '$features/sidebar/components';
   import { SettingsModal } from '$features/settings/components';
   import { EnvironmentsSheet } from '$features/environments/components';
@@ -166,7 +166,16 @@
 <CommandPalette bind:open={shell.paletteOpen} commands={paletteCommands} />
 
 <MoveDialog bind:open={shell.moveOpen} sourceId={shell.moveSourceId ?? ''} />
-<FolderAuthDialog bind:folderId={shell.authFolderId} />
+<FolderAuthDialog
+  bind:folderId={shell.authFolderId}
+  onSaved={(text) => shell.showToast({ text })}
+  onOpenRunner={(name) => {
+    // Flow · Сессия: the sign-in scenario's setup, in the environment the session is kept for.
+    const preset = runner.presets.find((p) => p.name === name);
+    openRunnerTab();
+    if (preset) applyPreset({ ...preset, envId: environments.activeId });
+  }}
+/>
 
 <SettingsModal bind:open={shell.settingsOpen} />
 <ImportDialog onImported={importDone} onUpdated={importUpdated} />
