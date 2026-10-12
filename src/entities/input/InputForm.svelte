@@ -760,14 +760,6 @@
     align-items: center;
     gap: 8px;
   }
-  /* A tall card scrolls; its buttons stay in reach. */
-  .card footer {
-    position: sticky;
-    bottom: -14px;
-    margin: 0 -14px -14px;
-    padding: 10px 14px 14px;
-    background: var(--color-panel);
-  }
   .sp {
     flex: 1;
   }
@@ -785,8 +777,13 @@
     font-weight: var(--weight-medium);
   }
   .btn.quiet {
+    min-width: 0;
+    padding: 0 8px;
     background: transparent;
     color: var(--color-text-secondary);
+  }
+  .btn.primary {
+    flex: none;
   }
   .btn.quiet:hover {
     background: var(--color-hover);
