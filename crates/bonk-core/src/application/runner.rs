@@ -254,6 +254,8 @@ pub enum RunEvent {
     Row(Box<RunResultRow>),
     /// The step waits for typed input (again, after a rejected try).
     Input(Box<InputRequest>),
+    /// «Отправить заново» ran the step before again: its new row replaces the old one.
+    Resent(Box<RunResultRow>),
 }
 
 /// One field of the input form.
@@ -295,6 +297,10 @@ pub struct InputRequest {
     pub error: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub last: Option<InputAttempt>,
+    /// The step before this one («Send OTP»), which «Отправить заново» runs again: it is what
+    /// sent the code. None on a first step and for a single Send.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub resend: Option<String>,
 }
 
 /// A person's reply to an `InputRequest`.
@@ -306,6 +312,8 @@ pub enum InputAnswer {
     },
     /// Skip this step, keep running.
     Skip,
+    /// Run the step before again (the code was lost or expired), then ask again.
+    Resend,
     /// End the run here.
     Stop,
 }
@@ -552,21 +560,67 @@ pub async fn run_collection<T: Transport>(
                 method: display_method(node),
             });
             let start_offset = iteration_start.elapsed().saturating_sub(idle);
-            let step = execute(
-                plan,
-                node,
-                iteration_args(index, data),
-                vars,
-                transport,
-                emit,
-                Some(control),
-                false,
-            )
-            .await;
+            // Time this step waited for a person, over every «Отправить заново» round.
+            let mut waited_here = Duration::ZERO;
+            let step = loop {
+                let before = j.checked_sub(1).map(|k| &plan.requests[k]);
+                let step = execute(
+                    plan,
+                    node,
+                    iteration_args(index, data),
+                    vars,
+                    transport,
+                    emit,
+                    Some(control),
+                    before.map(|n| n.name.as_str()),
+                    false,
+                )
+                .await;
+                idle += step.waited;
+                waited_here += step.waited;
+                let Some(before) = before.filter(|_| step.resend) else {
+                    break step;
+                };
+                // «Отправить заново»: the step that sent the code runs again, then the form returns.
+                emit(RunEvent::Call {
+                    node_id: before.id.clone(),
+                    name: before.name.clone(),
+                    method: display_method(before),
+                });
+                let again_start = iteration_start.elapsed().saturating_sub(idle);
+                let again = execute(
+                    plan,
+                    before,
+                    iteration_args(index, data),
+                    vars,
+                    transport,
+                    emit,
+                    Some(control),
+                    None,
+                    false,
+                )
+                .await;
+                idle += again.waited;
+                waited_here += again.waited;
+                let mut row = again.execution.row;
+                row.start_offset_ms = Some(millis(again_start));
+                row.end_ms = Some(millis(started.elapsed()));
+                emit(RunEvent::Resent(Box::new(row)));
+                if again.halt || control.stopped() {
+                    return Ok(RunStatus::Stopped);
+                }
+                emit(RunEvent::Call {
+                    node_id: node.id.clone(),
+                    name: node.name.clone(),
+                    method: display_method(node),
+                });
+            };
             let mut row = step.execution.row;
             row.start_offset_ms = Some(millis(start_offset));
             row.end_ms = Some(millis(started.elapsed()));
-            idle += step.waited;
+            if !waited_here.is_zero() {
+                row.waited_ms = Some(millis(waited_here));
+            }
             let ok = row.ok;
             emit(RunEvent::Row(Box::new(row)));
             if step.halt || control.stopped() || (plan.stop_on_failure && !ok) {
@@ -601,6 +655,7 @@ pub async fn run_node<T: Transport>(
         transport,
         emit,
         None,
+        None,
         false,
     )
     .await
@@ -623,6 +678,7 @@ pub async fn execute_node<T: Transport>(
         vars,
         transport,
         emit,
+        None,
         None,
         true,
     )
@@ -648,6 +704,8 @@ struct Step {
     waited: Duration,
     /// The person ended the run at the prompt.
     halt: bool,
+    /// The person asked for the step before to run again; nothing of this step was sent.
+    resend: bool,
 }
 
 /// The step with its input (when it has any): ask, check, send, and ask again after a 4xx.
@@ -660,6 +718,7 @@ async fn execute<T: Transport>(
     transport: &T,
     emit: &(dyn Fn(RunEvent) + Sync),
     control: Option<&RunControl>,
+    resend: Option<&str>,
     capture: bool,
 ) -> Step {
     let fields = input_fields(plan, node);
@@ -671,6 +730,7 @@ async fn execute<T: Transport>(
             execution,
             waited,
             halt,
+            resend: false,
         }
     };
     if fields.is_empty() {
@@ -689,6 +749,7 @@ async fn execute<T: Transport>(
             execution,
             waited: Duration::ZERO,
             halt: false,
+            resend: false,
         };
     }
     let mut values: Scope = plan
@@ -740,6 +801,7 @@ async fn execute<T: Transport>(
                     max_attempts: attempts,
                     error: error.take(),
                     last: last.clone(),
+                    resend: resend.map(str::to_string),
                 };
                 let asked = Instant::now();
                 let answer = ask(transport, request, emit, control).await;
@@ -755,6 +817,13 @@ async fn execute<T: Transport>(
                             false,
                         );
                     }
+                    Ok(InputAnswer::Resend) if resend.is_some() => {
+                        let mut step = skipped(BTreeMap::new(), waited, "", true, false);
+                        step.resend = true;
+                        return step;
+                    }
+                    // Nothing to run again here (a single Send): ask once more.
+                    Ok(InputAnswer::Resend) => continue,
                     Ok(InputAnswer::Stop) => {
                         return skipped(
                             BTreeMap::new(),
@@ -820,6 +889,7 @@ async fn execute<T: Transport>(
             execution,
             waited,
             halt: false,
+            resend: false,
         };
     }
     unreachable!("the loop returns on its last attempt")
@@ -2301,6 +2371,62 @@ mod tests {
         let (status, _) = run(&plan, &mut base_vars(), &fake).await;
         assert_eq!(status, RunStatus::Stopped);
         assert!(fake.sent.lock().unwrap().is_empty());
+    }
+
+    #[tokio::test]
+    async fn resend_runs_the_step_before_again_and_asks_again() {
+        let send = http(
+            "send",
+            json!({ "method": "POST", "url": "{{base}}/otp/send" }),
+        );
+        let mut plan = otp_plan();
+        plan.requests.insert(0, send);
+        let fake = Fake::default();
+        *fake.answers.lock().unwrap() = vec![InputAnswer::Resend, typed(&[("otp", "482913")])];
+        let (status, events) = run(&plan, &mut base_vars(), &fake).await;
+
+        assert_eq!(status, RunStatus::Done);
+        let urls: Vec<String> = fake
+            .sent
+            .lock()
+            .unwrap()
+            .iter()
+            .map(|r| r.url.clone())
+            .collect();
+        assert_eq!(
+            urls,
+            [
+                "https://api.test/otp/send",
+                "https://api.test/otp/send",
+                "https://api.test/verify?c=482913"
+            ]
+        );
+        let resent: Vec<_> = events
+            .iter()
+            .filter_map(|e| match e {
+                RunEvent::Resent(row) => Some(row.request_name.as_str()),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(resent, ["send"]);
+        assert_eq!(rows(&events).len(), 2); // a resend is not another row
+        let asked = fake.asked.lock().unwrap();
+        assert_eq!(asked.len(), 2);
+        assert_eq!(asked[0].resend.as_deref(), Some("send"));
+        assert_eq!((asked[1].attempt, asked[1].error.clone()), (1, None));
+    }
+
+    #[tokio::test]
+    async fn resend_on_a_first_step_just_asks_again() {
+        let plan = otp_plan();
+        let fake = Fake::default();
+        *fake.answers.lock().unwrap() = vec![InputAnswer::Resend, typed(&[("otp", "482913")])];
+        let (_, events) = run(&plan, &mut base_vars(), &fake).await;
+
+        assert_eq!(fake.asked.lock().unwrap().len(), 2);
+        assert!(fake.asked.lock().unwrap()[0].resend.is_none());
+        assert_eq!(fake.sent.lock().unwrap().len(), 1);
+        assert!(rows(&events)[0].ok);
     }
 
     fn rows_len(events: &[RunEvent]) -> usize {

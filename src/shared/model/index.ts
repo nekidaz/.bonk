@@ -8,6 +8,7 @@ export { methodColor, methodLabel } from './method';
 export {
   checkInput,
   codeLength,
+  countdown,
   guessInput,
   INPUT_FORMATS,
   INPUT_ICON,

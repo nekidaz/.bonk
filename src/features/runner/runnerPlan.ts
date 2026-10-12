@@ -62,6 +62,8 @@ export interface RunnerRun {
   waitedMs: number;
   /** How many times a rejected value opened the form again. */
   retries: number;
+  /** When the code the open form asks for was sent: a rejected try keeps it, «Отправить заново» renews it. */
+  codeAt: { nodeId: string; at: number } | null;
 }
 
 export const DEFAULT_CONFIG: RunnerConfig = {
@@ -92,6 +94,7 @@ export const DEFAULT_RUN: RunnerRun = {
   waiting: null,
   waitedMs: 0,
   retries: 0,
+  codeAt: null,
 };
 
 export const isRecord = (v: unknown): v is RunRecord =>

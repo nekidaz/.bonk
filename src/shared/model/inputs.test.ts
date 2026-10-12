@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   checkInput,
+  countdown,
   guessInput,
   inputNamesOf,
   isSensitive,
@@ -68,6 +69,15 @@ describe('inputNamesOf', () => {
     };
     expect(inputNamesOf(node, defs)).toEqual(['amount', 'otp']);
     expect(inputNamesOf(node, {})).toEqual([]);
+  });
+});
+
+describe('countdown', () => {
+  it('counts down in m:ss and stops at zero', () => {
+    expect(countdown(258_000)).toBe('4:18');
+    expect(countdown(300_000)).toBe('5:00');
+    expect(countdown(500)).toBe('0:01');
+    expect(countdown(-4000)).toBe('0:00');
   });
 });
 

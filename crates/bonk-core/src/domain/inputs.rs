@@ -49,6 +49,9 @@ pub struct InputDef {
     pub step: Option<f64>,
     /// `Code`: how many cells (0 = 6).
     pub length: u32,
+    /// `Code`: how long the code lives, seconds (0 = unknown). The form counts it down from the
+    /// moment it opens, and an expired code is a hint to ask for a new one.
+    pub ttl: u32,
 }
 
 impl Default for InputDef {
@@ -67,6 +70,7 @@ impl Default for InputDef {
             max: None,
             step: None,
             length: 0,
+            ttl: 0,
         }
     }
 }
@@ -297,6 +301,9 @@ mod tests {
     fn a_definition_round_trips_and_rejects_unknown_fields() {
         let d: InputDef = serde_json::from_str(r#"{"type":"code","label":"SMS"}"#).unwrap();
         assert_eq!(d.kind, InputKind::Code);
+        assert_eq!(d.ttl, 0);
+        let d: InputDef = serde_json::from_str(r#"{"type":"code","ttl":300}"#).unwrap();
+        assert_eq!(d.ttl, 300);
         assert!(d.required);
         assert!(serde_json::from_str::<InputDef>(r#"{"kind":"code"}"#).is_err());
         assert!(valid_name("otp") && !valid_name("$guid") && !valid_name("a b"));

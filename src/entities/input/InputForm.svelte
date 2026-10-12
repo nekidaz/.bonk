@@ -12,6 +12,7 @@
     checkInput,
     codeLength,
     inputLabel,
+    countdown,
     normalizeInput,
     type InputField,
     type InputRequest,
@@ -24,6 +25,8 @@
     onsubmit,
     oncancel,
     onskip,
+    onresend,
+    since,
   }: {
     request: InputRequest;
     variant?: 'popover' | 'card';
@@ -32,6 +35,10 @@
     oncancel?: () => void;
     /** The card's «Пропустить шаг». */
     onskip?: () => void;
+    /** The card's «Отправить заново»: run the step before again (offered when the request has `resend`). */
+    onresend?: () => void;
+    /** When the code was sent, ms; the countdown runs from it (default: when the form opened). */
+    since?: number;
   } = $props();
 
   let values = $state<Record<string, string>>({});
@@ -39,6 +46,9 @@
   let submitted = $state(false);
   let shown = $state<Record<string, boolean>>({});
   let root = $state<HTMLElement>();
+  // The code's lifetime counts down from the moment the form opens (the step that sent it just ended).
+  let openedAt = $state(Date.now());
+  let now = $state(Date.now());
 
   // A new form (the next step, or the same one after a rejected try) starts from its defaults.
   $effect(() => {
@@ -49,8 +59,21 @@
       touched = {};
       submitted = false;
       shown = {};
+      now = Date.now();
+      openedAt = since ?? now;
     });
     void tick().then(() => root?.querySelector<HTMLElement>('input:not([type=hidden]), textarea, button.seg')?.focus());
+  });
+
+  const ttl = $derived(
+    variant === 'card' ? Math.max(0, ...request.fields.filter((f) => f.type === 'code').map((f) => f.ttl)) : 0,
+  );
+  const left = $derived(ttl * 1000 - (now - openedAt));
+  const expired = $derived(ttl > 0 && left <= 0);
+  $effect(() => {
+    if (ttl === 0) return;
+    const id = setInterval(() => (now = Date.now()), 250);
+    return () => clearInterval(id);
   });
 
   const single = $derived(request.fields.length === 1 ? request.fields[0] : undefined);
@@ -208,6 +231,18 @@
       {#if request.fields.length > 1}<span class="n"
           >{request.fields.length} {tp(request.fields.length, ['поле', 'поля', 'полей'], ['field', 'fields'])}</span
         ><span class="where">{request.method} {request.requestName}</span>{/if}
+      {#if request.resend}<button
+          class="hbtn"
+          type="button"
+          title={t('input.form.skip')}
+          aria-label={t('input.form.skip')}
+          onclick={() => onskip?.()}><span class="material-symbols-outlined" aria-hidden="true">skip_next</span></button
+        >{/if}
+      {#if ttl > 0}<span class="timer" class:expired
+          ><span class="material-symbols-outlined" aria-hidden="true">timer</span>{expired
+            ? t('input.form.expired')
+            : countdown(left)}</span
+        >{/if}
     {/if}
   </header>
 
@@ -421,6 +456,20 @@
       <span class="sp"></span>
       <button class="btn quiet" type="button" onclick={() => oncancel?.()}>{t('input.form.cancel')}</button>
       <button class="btn primary" type="submit">{t('input.form.send')}<kbd>⏎</kbd></button>
+    {:else if request.resend}
+      <button
+        class="btn quiet resend"
+        class:hot={expired}
+        type="button"
+        title={t('input.form.resendTitle', { name: request.resend })}
+        onclick={() => onresend?.()}
+      >
+        <span class="material-symbols-outlined" aria-hidden="true">refresh</span>{request.attempt > 1
+          ? t('input.form.newCode')
+          : t('input.form.resend')}
+      </button>
+      <span class="sp"></span>
+      <button class="btn primary" type="submit">{t('input.form.continue')}<kbd>⏎</kbd></button>
     {:else}
       <button class="btn quiet" type="button" onclick={() => onskip?.()}>
         <span class="material-symbols-outlined" aria-hidden="true">skip_next</span>{t('input.form.skip')}
@@ -784,6 +833,59 @@
   }
   .btn.primary {
     flex: none;
+  }
+
+  .btn.quiet.resend {
+    flex: none;
+  }
+  /* The card is narrow: «Отправить заново» and «Продолжить» must fit side by side. */
+  .card footer .btn {
+    gap: 4px;
+    font-size: var(--font-size-body);
+  }
+  .card footer .btn.primary {
+    padding: 0 12px;
+  }
+  .btn.quiet.resend.hot {
+    background: var(--color-ask-soft);
+    color: var(--color-ask);
+  }
+  .hbtn {
+    margin-left: auto;
+    display: grid;
+    place-items: center;
+    width: 22px;
+    height: 22px;
+    padding: 0;
+    border: 0;
+    border-radius: var(--radius-control);
+    background: transparent;
+    color: var(--color-text-muted);
+  }
+  .hbtn:hover {
+    background: var(--color-hover);
+    color: var(--color-text);
+  }
+  .hbtn .material-symbols-outlined {
+    font-size: 15px;
+  }
+  .hbtn + .timer {
+    margin-left: 0;
+  }
+  .timer {
+    margin-left: auto;
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    color: var(--color-text-muted);
+    font: 11px var(--font-code);
+  }
+  .timer.expired {
+    color: var(--color-danger);
+  }
+  .timer .material-symbols-outlined {
+    font-size: 13px;
   }
   .btn.quiet:hover {
     background: var(--color-hover);
