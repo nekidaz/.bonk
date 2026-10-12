@@ -5,7 +5,8 @@
   import { openWorkspaceFolder } from '$entities/workspace';
   import { openEnvironmentsTab } from '$entities/environment';
   import { DynamicCatalog } from '$entities/environment/components';
-  import { SaveRequestDialog, ProductionGuard } from '$entities/request/components';
+  import { SaveRequestDialog, ProductionGuard, SessionsDialog } from '$entities/request/components';
+  import { closeSessions, sessionRuntime } from '$entities/request';
   import { AskHost } from '$entities/input/components';
   import { openRunnerTab } from '$features/runner';
   import { MoveDialog, FolderAuthDialog } from '$features/sidebar/components';
@@ -149,6 +150,10 @@
 <ConfirmDialog />
 
 <ProductionGuard />
+
+{#if sessionRuntime.dialog}
+  <SessionsDialog auth={sessionRuntime.dialog.auth} where={sessionRuntime.dialog.where} onClose={closeSessions} />
+{/if}
 
 {#if shell.toast}
   <div class="bs-toast" role="status">
