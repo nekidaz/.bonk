@@ -2364,6 +2364,86 @@
   font: var(--font-size-caption) var(--font-ui);
 }
 
+:root .bs-oa-tokens .pill.dead {
+  background: var(--color-danger-soft);
+  color: var(--color-danger);
+}
+
+/* Flow · Сессия SE6: the Sessions dialog reuses the OAuth tokens table. */
+:root .bs-sessions .bs-modal-h {
+  flex: none;
+  align-items: flex-start;
+  padding: 16px 20px 0;
+}
+
+:root .bs-sessions .bs-modal-h .head {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+:root .bs-sessions .eyebrow {
+  color: var(--color-text-muted);
+  font: 500 var(--font-size-micro) var(--font-code);
+  letter-spacing: var(--tracking-eyebrow);
+  text-transform: uppercase;
+}
+
+:root .bs-sessions .bs-modal-h .t {
+  font: 600 var(--font-size-heading) var(--font-ui);
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+:root .bs-sessions .bs-modal-b {
+  padding: 16px 20px;
+}
+
+:root .bs-sessions .tr {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr) minmax(0, 1.2fr) minmax(0, 1.7fr) 110px;
+}
+
+:root .bs-sessions .who {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+:root .bs-sessions .who .material-symbols-outlined {
+  font-size: 15px;
+  color: var(--color-text-muted);
+}
+
+:root .bs-sessions .icon:disabled,
+:root .bs-sessions .bs-btn:disabled {
+  opacity: 0.4;
+  pointer-events: none;
+}
+
+:root .bs-sessions .acts .spin {
+  font-size: 17px;
+  color: var(--color-text-muted);
+  animation: send-spin 1s linear infinite;
+}
+
+:root .bs-sessions .fail {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+  color: var(--color-danger);
+  font: var(--font-size-caption) var(--font-ui);
+}
+
+:root .bs-sessions .fail .material-symbols-outlined {
+  font-size: 15px;
+}
+
+:root .bs-sessions .signout .bs-btn .material-symbols-outlined {
+  margin-right: 6px;
+  font-size: 15px;
+}
+
 :root .bs-oa-tokens .note {
   display: inline-flex;
   align-items: center;
