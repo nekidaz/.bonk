@@ -117,13 +117,21 @@ pub enum TreeNode {
 
 impl RequestFile {
     pub fn into_node(self, id: String) -> RequestNode {
+        let mut grpc = self.grpc;
+        // `protoPaths` without `source` (a hand-edited file, or one saved by an agent
+        // through bonk-mcp) means "compile these", not "ask the server".
+        if let Some(g) = grpc.as_mut() {
+            if g.source.is_none() && g.proto_paths.as_ref().is_some_and(|p| !p.is_empty()) {
+                g.source = Some("proto".into());
+            }
+        }
         RequestNode {
             id,
             name: self.name,
             protocol: self.protocol,
             request: self.request,
             params: self.params,
-            grpc: self.grpc,
+            grpc,
             spec: self.spec,
         }
     }

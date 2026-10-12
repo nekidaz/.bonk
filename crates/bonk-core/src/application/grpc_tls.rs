@@ -19,10 +19,10 @@ fn provider() -> Arc<CryptoProvider> {
 
 /// `host:port` of an endpoint (scheme dropped, IPv6 brackets kept off the host).
 pub(crate) fn host_port(endpoint: &str) -> (String, u16) {
-    let rest = endpoint
+    let rest = super::grpc_native::split_endpoint(endpoint)
+        .0
         .trim_start_matches("https://")
-        .trim_start_matches("http://")
-        .trim_end_matches('/');
+        .trim_start_matches("http://");
     let (host, port) = if let Some(v6) = rest.strip_prefix('[') {
         let (h, tail) = v6.split_once(']').unwrap_or((v6, ""));
         (h, tail.strip_prefix(':'))
@@ -358,6 +358,7 @@ mod tests {
             ("api.example.com".into(), 443)
         );
         assert_eq!(host_port("https://h:8443/"), ("h".into(), 8443));
+        assert_eq!(host_port("h:8443/api/v1"), ("h".into(), 8443));
         assert_eq!(host_port("[::1]:50051"), ("::1".into(), 50051));
     }
 

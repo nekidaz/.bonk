@@ -1,9 +1,9 @@
+use crate::application::grpc_native::GrpcChannel;
 use std::collections::HashMap;
-use tonic::transport::Channel;
 
 #[derive(Clone)]
 pub struct GrpcConn {
-    pub channel: Option<Channel>,
+    pub channel: Option<GrpcChannel>,
     pub cache: Option<GrpcDescriptorCache>,
     pub endpoint: String,
     pub plaintext: bool,

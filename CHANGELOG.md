@@ -6,6 +6,16 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+- **gRPC.** An endpoint may carry a path prefix (`host:443/api/svc`) when a
+  gateway mounts the services below a path: every RPC, reflection included,
+  goes under it, in the app, Runner, CLI and MCP. Before, the path broke the
+  TLS config or was dropped and the gateway's 404 surfaced as
+  `compression flag: 52`.
+- **MCP.** A saved gRPC request with `protoPaths` but no `source` compiles its
+  protos instead of asking the server for reflection, so `run_saved_request`
+  behaves like `grpc_call` with the same settings.
+
 ## [0.2.0] - 2026-10-11
 
 ### Added

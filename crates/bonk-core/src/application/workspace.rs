@@ -1212,6 +1212,28 @@ mod tests {
     }
 
     #[test]
+    fn proto_paths_without_source_load_as_the_proto_source() {
+        // Written by hand or by an agent through bonk-mcp: `protoPaths` set, `source` omitted.
+        let root = temp_root();
+        fs::create_dir_all(&root).unwrap();
+        fs::write(
+            root.join("Say.bonk.json"),
+            r#"{"name":"Say","protocol":"grpc","request":{"method":"POST","url":""},
+                "grpc":{"endpoint":"h:443","plaintext":false,"method":"demo.Echo.Say",
+                "message":"{}","metadata":{},"protoPaths":["protos/echo.proto"]}}"#,
+        )
+        .unwrap();
+
+        let tree = load(root.to_str().unwrap()).unwrap();
+        let TreeNode::Request(node) = &tree[0] else {
+            panic!("expected a request");
+        };
+        assert_eq!(node.grpc.as_ref().unwrap().source.as_deref(), Some("proto"));
+
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
     fn rename_folder_to_same_name_is_noop() {
         let root = temp_root();
 

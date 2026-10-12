@@ -38,7 +38,44 @@ fn tls_domain(endpoint: &str) -> &str {
     }
 }
 
-pub async fn connect(endpoint: &str, plaintext: bool) -> Result<Channel, GrpcError> {
+/// `host:443/api/svc` → (`host:443`, `/api/svc`): what to dial, and the path a gateway
+/// mounts the services under. A scheme stays on the dial side.
+pub fn split_endpoint(endpoint: &str) -> (&str, &str) {
+    let start = endpoint.find("://").map_or(0, |i| i + 3);
+    match endpoint[start..].find('/') {
+        Some(i) => {
+            let (dial, path) = endpoint.split_at(start + i);
+            (dial, path.trim_end_matches('/'))
+        }
+        None => (endpoint, ""),
+    }
+}
+
+/// The prefix as the origin tonic puts before every RPC path (`/api/svc` +
+/// `/pkg.Service/Method`); the channel itself keeps only scheme and authority.
+fn origin(prefix: &str) -> Result<http::Uri, GrpcError> {
+    if prefix.is_empty() {
+        return Ok(http::Uri::default());
+    }
+    prefix
+        .parse()
+        .map_err(|e| invalid(format!("invalid endpoint path {prefix}: {e}")))
+}
+
+/// A dialed endpoint and the path prefix its RPCs go under.
+#[derive(Clone, Debug)]
+pub struct GrpcChannel {
+    channel: Channel,
+    origin: http::Uri,
+}
+
+impl GrpcChannel {
+    fn grpc(&self) -> tonic::client::Grpc<Channel> {
+        tonic::client::Grpc::with_origin(self.channel.clone(), self.origin.clone())
+    }
+}
+
+pub async fn connect(endpoint: &str, plaintext: bool) -> Result<GrpcChannel, GrpcError> {
     connect_with(
         endpoint,
         plaintext,
@@ -54,17 +91,20 @@ pub async fn connect_with(
     plaintext: bool,
     tls: &GrpcTls,
     prefs: &GrpcPrefs,
-) -> Result<Channel, GrpcError> {
+) -> Result<GrpcChannel, GrpcError> {
+    let (authority, prefix) = split_endpoint(endpoint);
+    let origin = origin(prefix)?;
     let secure = !plaintext && !endpoint.starts_with("http://");
     if secure && tls.insecure {
-        return super::grpc_tls::connect_insecure(endpoint, tls, prefs).await;
+        let channel = super::grpc_tls::connect_insecure(authority, tls, prefs).await?;
+        return Ok(GrpcChannel { channel, origin });
     }
-    let uri = if endpoint.starts_with("http://") || endpoint.starts_with("https://") {
-        endpoint.to_string()
+    let uri = if authority.starts_with("http://") || authority.starts_with("https://") {
+        authority.to_string()
     } else if plaintext {
-        format!("http://{endpoint}")
+        format!("http://{authority}")
     } else {
-        format!("https://{endpoint}")
+        format!("https://{authority}")
     };
     let mut builder = Endpoint::from_shared(uri.clone())
         .map_err(|e| invalid(format!("invalid endpoint {uri}: {e}")))?
@@ -77,7 +117,7 @@ pub async fn connect_with(
             .keep_alive_while_idle(true);
     }
     if !plaintext {
-        let mut config = ClientTlsConfig::new().domain_name(tls_domain(endpoint));
+        let mut config = ClientTlsConfig::new().domain_name(tls_domain(authority));
         if !tls.disable_system_cas {
             config = config.with_enabled_roots();
         }
@@ -92,10 +132,11 @@ pub async fn connect_with(
             .tls_config(config)
             .map_err(|e| format!("tls config failed: {e}"))?;
     }
-    builder
+    let channel = builder
         .connect()
         .await
-        .map_err(|e| unavailable(format!("connect failed: {e}")))
+        .map_err(|e| unavailable(format!("connect failed: {e}")))?;
+    Ok(GrpcChannel { channel, origin })
 }
 
 pub(crate) fn invalid(message: String) -> GrpcError {
@@ -402,7 +443,7 @@ fn metadata_strings(map: &MetadataMap) -> std::collections::BTreeMap<String, Str
 }
 
 pub async fn call(
-    channel: Channel,
+    channel: GrpcChannel,
     cache: GrpcDescriptorCache,
     method_symbol: &str,
     json_body: &str,
@@ -420,7 +461,7 @@ pub async fn call(
 }
 
 pub async fn call_with(
-    channel: Channel,
+    channel: GrpcChannel,
     cache: GrpcDescriptorCache,
     method_symbol: &str,
     json_body: &str,
@@ -451,7 +492,8 @@ pub async fn call_with(
     // Cap the inbound message size so a peer can't make us buffer an unbounded
     // response. tonic's default ceiling is only 4MB, which bonk routinely needs
     // to exceed, so raise it to the HTTP body cap rather than removing it.
-    let mut grpc = tonic::client::Grpc::new(channel)
+    let mut grpc = channel
+        .grpc()
         .max_decoding_message_size(prefs.max_message_bytes())
         .max_encoding_message_size(prefs.max_message_bytes());
     grpc.ready()
@@ -655,7 +697,7 @@ pub type StreamReceiver = tokio::sync::mpsc::UnboundedReceiver<DynamicMessage>;
 /// stream (all messages as a JSON array, total size, headers + trailers).
 #[allow(clippy::too_many_arguments)]
 pub async fn call_stream<F: FnMut(GrpcStreamMessage) + Send>(
-    channel: Channel,
+    channel: GrpcChannel,
     cache: GrpcDescriptorCache,
     method_symbol: &str,
     json_body: &str,
@@ -684,7 +726,8 @@ pub async fn call_stream<F: FnMut(GrpcStreamMessage) + Send>(
         output: method.output(),
         wire_size: wire_size.clone(),
     };
-    let mut grpc = tonic::client::Grpc::new(channel)
+    let mut grpc = channel
+        .grpc()
         .max_decoding_message_size(prefs.max_message_bytes())
         .max_encoding_message_size(prefs.max_message_bytes());
     grpc.ready()
@@ -791,13 +834,17 @@ fn insert_metadata(md: &mut MetadataMap, key: &str, value: &str) -> Result<(), S
 // submodule and `$label` is the version prefix used in every error message.
 macro_rules! reflect_impl {
     ($name:ident, $module:ident, $label:literal) => {
-        async fn $name(channel: Channel) -> Result<GrpcDescriptorCache, String> {
+        async fn $name(channel: GrpcChannel) -> Result<GrpcDescriptorCache, String> {
             use tonic_reflection::pb::$module::{
                 server_reflection_client::ServerReflectionClient, server_reflection_request,
                 server_reflection_response, ServerReflectionRequest,
             };
 
-            let mut client = ServerReflectionClient::new(channel.clone());
+            let new_client = || {
+                let GrpcChannel { channel, origin } = channel.clone();
+                ServerReflectionClient::with_origin(channel, origin)
+            };
+            let mut client = new_client();
             let response = client
                 .server_reflection_info(tokio_stream::iter(vec![ServerReflectionRequest {
                     host: String::new(),
@@ -841,7 +888,7 @@ macro_rules! reflect_impl {
             // per service, all in flight at once) so this is ~1 round-trip, not N.
             let mut handles = Vec::new();
             for service in &services {
-                let mut client = ServerReflectionClient::new(channel.clone());
+                let mut client = new_client();
                 let service = service.clone();
                 handles.push(tokio::spawn(async move {
                     let response = client
@@ -1208,6 +1255,34 @@ mod tests {
         assert_eq!(tls_domain("https://api.example.com:443"), "api.example.com");
         assert_eq!(tls_domain("[::1]:8080"), "::1");
         assert_eq!(tls_domain("[2001:db8::1]:443"), "2001:db8::1");
+    }
+
+    #[test]
+    fn split_endpoint_separates_the_gateway_prefix() {
+        assert_eq!(
+            split_endpoint("api.example.com:443"),
+            ("api.example.com:443", "")
+        );
+        assert_eq!(
+            split_endpoint("api.example.com:443/api/svc/"),
+            ("api.example.com:443", "/api/svc")
+        );
+        assert_eq!(
+            split_endpoint("https://h/api/svc"),
+            ("https://h", "/api/svc")
+        );
+        assert_eq!(split_endpoint("[::1]:8080/x"), ("[::1]:8080", "/x"));
+        assert_eq!(split_endpoint("h:443/"), ("h:443", ""));
+    }
+
+    #[test]
+    fn origin_keeps_only_a_valid_prefix() {
+        assert_eq!(origin("").unwrap().path(), "/");
+        assert_eq!(origin("/api/svc").unwrap().path(), "/api/svc");
+        assert_eq!(
+            origin("/a b").unwrap_err().code,
+            GrpcErrorCode::InvalidArgument
+        );
     }
 
     #[test]
@@ -1685,5 +1760,45 @@ service RootService { rpc RootCall (dep.Ping) returns (dep.Ping); }
                 .unwrap_err();
             assert_eq!(bad.code, GrpcErrorCode::InvalidArgument, "{bad}");
         });
+    }
+
+    #[test]
+    fn rpcs_go_under_the_endpoint_path_prefix() {
+        // A gateway that mounts gRPC below /api/svc: it records every path it sees,
+        // strips the prefix and hands the rest to a reflection server.
+        let seen = Arc::new(std::sync::Mutex::new(Vec::new()));
+        let log = seen.clone();
+        let gateway =
+            tower::util::MapRequestLayer::new(move |mut req: http::Request<tonic::body::Body>| {
+                let path = req.uri().path().to_string();
+                log.lock().unwrap().push(path.clone());
+                if let Some(rest) = path.strip_prefix("/api/svc") {
+                    let mut parts = req.uri().clone().into_parts();
+                    parts.path_and_query = rest.parse().ok();
+                    *req.uri_mut() = http::Uri::from_parts(parts).unwrap();
+                }
+                req
+            });
+        let reflection = tonic_reflection::server::Builder::configure()
+            .register_encoded_file_descriptor_set(tonic_reflection::pb::v1::FILE_DESCRIPTOR_SET)
+            .build_v1()
+            .unwrap();
+        tokio::runtime::Runtime::new().unwrap().block_on(async {
+            let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+            let port = listener.local_addr().unwrap().port();
+            tokio::spawn(
+                tonic::transport::Server::builder()
+                    .layer(gateway)
+                    .add_service(reflection)
+                    .serve_with_incoming(tonic::transport::server::TcpIncoming::from(listener)),
+            );
+            reflect(&format!("127.0.0.1:{port}/api/svc"), true)
+                .await
+                .unwrap();
+        });
+        assert_eq!(
+            seen.lock().unwrap()[0],
+            "/api/svc/grpc.reflection.v1.ServerReflection/ServerReflectionInfo"
+        );
     }
 }

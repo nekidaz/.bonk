@@ -167,6 +167,7 @@ impl From<ParamSpec> for Param {
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct GrpcRequestSpec {
+    /// `host:port`, optionally with a scheme and a path prefix (`host:443/api/svc`) when a gateway mounts the services below a path.
     pub endpoint: String,
     #[serde(default)]
     pub plaintext: bool,
@@ -176,10 +177,13 @@ pub struct GrpcRequestSpec {
     pub message: String,
     #[serde(default)]
     pub metadata: BTreeMap<String, String>,
+    /// `proto` compiles protoPaths; `reflection` (the default) asks the server. Inferred as `proto` when protoPaths is set.
     #[serde(default)]
     pub source: Option<String>,
+    /// Workspace-relative or absolute .proto files, for servers without reflection.
     #[serde(default)]
     pub proto_paths: Option<Vec<String>>,
+    /// Extra import roots for the proto compiler.
     #[serde(default)]
     pub import_paths: Option<Vec<String>>,
     #[serde(default)]
@@ -417,12 +421,15 @@ pub struct ValidateHttpArgs {
 #[derive(Debug, Clone, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct GrpcSchemaArgs {
+    /// `host:port`, optionally with a scheme and a path prefix (`host:443/api/svc`) when a gateway mounts the services below a path.
     #[serde(default)]
     pub endpoint: String,
     #[serde(default)]
     pub plaintext: bool,
+    /// Workspace-relative or absolute .proto files; when set, they are compiled instead of asking the server for reflection.
     #[serde(default)]
     pub proto_paths: Vec<String>,
+    /// Extra import roots for the proto compiler.
     #[serde(default)]
     pub import_paths: Vec<String>,
     #[serde(default)]

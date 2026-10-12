@@ -413,9 +413,13 @@ pub(crate) async fn call(
         .ok_or_else(|| "reflection cache is not loaded".to_string())?;
     let cancel = register_cancel(state, request_id)?;
     // Prefer grpcurl (fresh connection per call); the long-lived tonic channel
-    // is only the fallback when grpcurl isn't installed.
+    // is only the fallback when grpcurl isn't installed. grpcurl dials a bare
+    // host:port, so an endpoint with a path prefix always goes native.
+    let native_only = !bonk_core::application::grpc_native::split_endpoint(&conn.endpoint)
+        .1
+        .is_empty();
     let call = async {
-        match bonk_core::application::grpcurl::find_grpcurl() {
+        match bonk_core::application::grpcurl::find_grpcurl().filter(|_| !native_only) {
             Some(bin) => {
                 bonk_core::application::grpcurl::call(
                     &bin,
