@@ -162,38 +162,6 @@
     fillCode(f, e.clipboardData?.getData('text') ?? '');
   }
 
-  // The clipboard hint: a code copied from the SMS is one ⌘V away.
-  let clip = $state('');
-  $effect(() => {
-    void request.id;
-    clip = '';
-    const code = request.fields.find((f) => f.type === 'code');
-    if (!code || !navigator.clipboard?.readText) return;
-    let live = true;
-    navigator.clipboard
-      .readText()
-      .then((text) => {
-        const plain = text.trim().replace(/\s+/g, '');
-        if (live && checkInput(code, plain) === null) clip = plain;
-      })
-      .catch(() => {});
-    return () => {
-      live = false;
-    };
-  });
-  const clipStale = $derived.by(() => {
-    const code = request.fields.find((f) => f.type === 'code');
-    return (
-      !!code &&
-      !!clip &&
-      request.last?.inputs[code.name] !== undefined &&
-      request.last.inputs[code.name] === maskLike(clip)
-    );
-  });
-  // Same mask the backend shows: `••••` + the last two characters.
-  const maskLike = (v: string) => (v.length <= 4 ? '••••' : `••••${v.slice(-2)}`);
-  const clipText = $derived(clip.length === 6 ? `${clip.slice(0, 3)} ${clip.slice(3)}` : clip);
-
   // ---- Number ----
   function step(f: InputField, dir: 1 | -1): void {
     const n = Number(normalizeInput(f, val(f))) || 0;
@@ -356,15 +324,12 @@
             <span class="t">{`${f.hint} · ⌘V`}</span>
           </div>
         {/if}
-        {#if clip}
-          <div class="clip" class:stale={clipStale}>
+        {#if !(session && f.hint)}
+          <!-- Not «В буфере: 482 913»: reading the clipboard from a webview pops a native «Paste» bubble. -->
+          <div class="clip">
             <span class="material-symbols-outlined" aria-hidden="true">content_paste</span>
-            <span class="t"
-              >{clipStale ? t('input.form.clipboardStale') : t('input.form.clipboard', { code: clipText })}</span
-            >
-            {#if !clipStale}<button type="button" class="kbd" onclick={() => fillCode(f, clip)}
-                >{t('input.form.paste')}</button
-              >{/if}
+            <span class="t">{t('input.form.pasteHint')}</span>
+            <kbd class="kbd">{t('input.form.paste')}</kbd>
           </div>
         {/if}
       {:else if f.type === 'secret' || (f.secret && (f.type === 'text' || f.type === 'number'))}

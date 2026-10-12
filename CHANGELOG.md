@@ -6,6 +6,11 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+- **Input form in the app.** The code card no longer reads the clipboard when it opens: in the macOS
+  webview that raised a native «Paste» bubble and made the window look frozen. ⌘V into a cell still
+  spreads the whole code; the card says so instead of showing what is on the clipboard.
+
 ### Added
 - **MCP: inputs for `send_http` and `grpc_call`.** Inline requests take `inputs` and elicitation like saved
   ones; `validate_http` reports an «ask on send» variable as `askedVariables` instead of unresolved.
