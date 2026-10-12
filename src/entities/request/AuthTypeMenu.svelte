@@ -4,7 +4,7 @@
   import type { AuthType } from '$shared/model';
 
   // OA1: the auth type picker. Not a native <select>: macOS draws that menu itself, without the
-  // icons, the «новое» mark and OAuth's hint. The menu lives in <body> (rows clip what overflows).
+  // icons, the «новое» mark and the hints of OAuth and Session. The menu lives in <body> (rows clip what overflows).
   let {
     options,
     value,
@@ -105,10 +105,11 @@
       >
         <span class="material-symbols-outlined ic" aria-hidden="true">{o.icon}</span>
         <span class="t">{o.label}</span>
-        {#if o.key === 'oauth2'}<span class="new">{t('http.auth.new')}</span>{/if}
+        {#if o.key === 'oauth2' || o.key === 'session'}<span class="new">{t('http.auth.new')}</span>{/if}
         {#if o.key === value}<span class="material-symbols-outlined check" aria-hidden="true">check</span>{/if}
       </button>
       {#if o.key === 'oauth2'}<div class="hint">{t('http.auth.oauth2.menu_hint')}</div>{/if}
+      {#if o.key === 'session'}<div class="hint">{t('session.menu_hint')}</div>{/if}
     {/each}
   </div>
 {/if}
