@@ -78,6 +78,21 @@ const runUntilInput = async (p: Page) => {
   await p.locator('form.form.card').waitFor();
 };
 
+// Session auth (?session=1): Payments API signs in through «Auth · OTP»; Staging's session is `&sstate`.
+const openFolderAuth = async (p: Page) => {
+  await row(p, 'Payments API').click({ button: 'right' });
+  await p.locator('.bs-menu .mi').filter({ hasText: 'Авторизация коллекции' }).click();
+  await p.locator('.bs-session-modal').waitFor();
+};
+const sendFromAuthTab = async (p: Page) => {
+  await rtab(p, 'auth');
+  await p.locator('button.bs-send').click();
+};
+const SESSION_CODE = async (p: Page) => {
+  await p.locator('form.form.popover').waitFor();
+  await p.keyboard.type('482913');
+};
+
 const SCENARIOS: Scenario[] = [
   // HTTP request editor tabs
   { name: 'http-params' },
@@ -495,6 +510,69 @@ const SCENARIOS: Scenario[] = [
       await runUntilInput(p);
       await p.keyboard.type('111111');
       await p.locator('form.form.card.retry').waitFor();
+    },
+  },
+  // Session auth (Flow · Сессия: вошёл один раз)
+  { name: 'session-folder-card', query: '&session=1', steps: openFolderAuth },
+  { name: 'session-folder-dead', query: '&session=1&sstate=dead', steps: openFolderAuth },
+  {
+    name: 'session-folder-settings',
+    query: '&session=1',
+    steps: async (p) => {
+      await openFolderAuth(p);
+      await p
+        .locator('.bs-session-modal')
+        .getByRole('button', { name: /Настройки/ })
+        .click();
+    },
+  },
+  { name: 'session-inherited', query: '&session=1', steps: (p) => rtab(p, 'auth') },
+  {
+    name: 'session-renewed',
+    query: '&session=1&sstate=renew',
+    steps: async (p) => {
+      await sendFromAuthTab(p);
+      await p.locator('.se-banner').waitFor();
+    },
+  },
+  {
+    name: 'session-relogin',
+    query: '&session=1&sstate=dead',
+    steps: async (p) => {
+      await sendFromAuthTab(p);
+      await p.locator('form.form.popover').waitFor();
+    },
+    hover: true,
+  },
+  {
+    name: 'session-relogin-done',
+    query: '&session=1&sstate=dead',
+    steps: async (p) => {
+      await sendFromAuthTab(p);
+      await SESSION_CODE(p);
+      await p.locator('.se-banner').waitFor();
+    },
+  },
+  {
+    name: 'sessions-dialog',
+    query: '&session=1',
+    steps: async (p) => {
+      await openFolderAuth(p);
+      await p.locator('.bs-session-modal').getByText('Все сессии').click();
+      await p.locator('.bs-sessions').waitFor();
+    },
+  },
+  {
+    name: 'session-runner-offer',
+    query: '&session=1&runner=1',
+    steps: async (p) => {
+      await p.getByRole('button', { name: /Runner/ }).click();
+      // The saved scenario (not the folder): the Runner knows which sign-in it just ran.
+      await p.locator('.rp-pbody').filter({ hasText: 'Auth · OTP' }).click();
+      await p.locator('.rn-btn.primary').click();
+      await p.locator('form.form.card').waitFor();
+      await p.keyboard.type('482913');
+      await p.locator('.offer').waitFor();
     },
   },
   // empty states
