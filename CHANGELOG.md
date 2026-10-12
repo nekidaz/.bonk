@@ -6,52 +6,35 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
-### Fixed
-- **Input form in the app.** The code card no longer reads the clipboard when it opens: in the macOS
-  webview that raised a native «Paste» bubble and made the window look frozen. ⌘V into a cell still
-  spreads the whole code; the card says so instead of showing what is on the clipboard.
+## [0.3.0] - 2026-10-12
 
 ### Added
-- **MCP: inputs for `send_http` and `grpc_call`.** Inline requests take `inputs` and elicitation like saved
-  ones; `validate_http` reports an «ask on send» variable as `askedVariables` instead of unresolved.
-
-### Added
-- **MCP: «ask on send» values.** `list_inputs` shows the workspace's fields; `run_saved_request` and
-  `run_scenario` take `inputs`, and a variable left out is asked from the user through MCP elicitation
-  (one form per step, with a «Новый код» switch). Confirmations are never taken from `inputs`, files must
-  be inside the workspace, and codes and secrets are scrubbed from the results. A client without
-  elicitation gets `input required: …`.
-
-### Added
-- **Scenario with input: search in a long list.** A choice field with more than four options is a
-  combobox: type to filter, ↑↓ move, ⏎ picks, Esc closes the list (and not the run).
-
-### Added
-- **Scenario with input: a file in JSON.** A file field sends a path where a request takes a file
-  (a multipart file row, a binary body) and the file's content as base64 where `{{variable}}` sits in
-  text (a raw or GraphQL body, a text form field, a gRPC message). Files up to 10 MB; the sent-request
-  view, history and console show `‹invoice.pdf · 182 KB›` instead of the base64. In the CLI,
-  `--input invoice=./invoice.pdf` takes the path from the shell's directory.
-
-### Added
-- **Scenario with input: «Отправить заново» and the code timer.** A code field can have a
-  lifetime («Срок кода», seconds): the Runner card counts it down and says «код истёк» at zero.
-  «Отправить заново» (after a wrong code, «Новый код») runs the step before again, the one
-  that sent the code, replaces its row and asks again with a fresh timer; a wrong value keeps
-  the same code's timer running. The first step has nothing to resend, so it has no button;
-  the old «Пропустить шаг» moves to a small icon in the card header.
-
-### Fixed
-- **gRPC.** An endpoint may carry a path prefix (`host:443/api/svc`) when a
-  gateway mounts the services below a path: every RPC, reflection included,
-  goes under it, in the app, Runner, CLI and MCP. Before, the path broke the
-  TLS config or was dropped and the gateway's 404 surfaced as
-  `compression flag: 52`.
-- **MCP.** A saved gRPC request with `protoPaths` but no `source` compiles its
-  protos instead of asking the server for reflection, so `run_saved_request`
-  behaves like `grpc_call` with the same settings.
-
-### Added
+- **Scenario with input** (Flow · Сценарий с вводом). Any `{{variable}}` can be «ask on send»:
+  right-click it in the URL, headers or body → «Спрашивать при отправке», and give it a type
+  (text, number, code, secret, choice, yes/no, JSON, file), a label and checks. Send opens a small
+  form by the button; the Runner stops at that step, shows the form in the run log (several
+  variables of one step make one form) and goes on after the answer. A 4xx on a step with typed
+  input opens the form again (3 tries by default). The value lives only in that run: it is not
+  written to environments, history, run records or the log (a code shows as `••••13`). The
+  definitions are `.bonk/inputs.json` — commit it.
+  - A code field can have a lifetime («Срок кода», seconds): the Runner card counts it down and says
+    «код истёк» at zero. «Отправить заново» (after a wrong code, «Новый код») runs the step before
+    again, the one that sent the code, replaces its row and asks again with a fresh timer; a wrong
+    value keeps the same code's timer running.
+  - A file field sends a path where a request takes a file (a multipart file row, a binary body) and the
+    file's content as base64 where `{{variable}}` sits in text (a raw or GraphQL body, a text form
+    field, a gRPC message). Files up to 10 MB; the sent-request view, history and console show
+    `‹invoice.pdf · 182 KB›` instead of the base64.
+  - A choice field with more than four options is a combobox: type to filter, ↑↓ move, ⏎ picks, Esc
+    closes the list (and not the run).
+  - CLI: `bonk run --input otp=123456` (or `BONK_INPUT_otp`) gives the value; a step without one
+    fails with a clear error. `--input invoice=./invoice.pdf` takes the path from the shell's directory.
+  - MCP: `list_inputs` shows the fields; `run_saved_request`, `run_scenario`, `send_http` and
+    `grpc_call` take `inputs`, and a variable left out is asked from the user through MCP
+    elicitation (one form per step, with a «Новый код» switch). Confirmations are never taken from
+    `inputs`, files must be inside the workspace, codes and secrets are scrubbed from the results, and
+    a client without elicitation gets `input required: …`. `validate_http` reports such a variable as
+    `askedVariables` instead of unresolved.
 - **Session: sign in once** (Flow · Сессия: вошёл один раз). A new auth type, «Сессия», for a collection:
   sign in through a Runner scenario (`Auth · OTP`: Login → Send OTP → Verify OTP), say which responses
   hold the access and refresh tokens, and bonk keeps them in the keychain, one session per environment.
@@ -62,20 +45,24 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   Runner offers «Запомнить вход?» after the scenario; «Все сессии» lists every environment. In the CLI a
   stored session works like in the app (`--env` picks it); a sign-in step needs `--input otp=…`. Tokens
   never reach workspace files, git, exports, history or the UI; the folder auth holds only the setup.
-- **Scenario with input** (Flow · Сценарий с вводом). Any `{{variable}}` can be «ask on send»:
-  right-click it in the URL, headers or body → «Спрашивать при отправке», and give it a type
-  (text, number, code, secret, choice, yes/no, JSON, file), a label and checks. Send opens a small
-  form by the button; the Runner stops at that step, shows the form in the run log (several
-  variables of one step make one form) and goes on after the answer. A 4xx on a step with typed
-  input opens the form again (3 tries by default). The value lives only in that run: it is not
-  written to environments, history, run records or the log (a code shows as `••••13`). The
-  definitions are `.bonk/inputs.json` — commit it. The CLI never asks: `bonk run --input otp=123456`
-  (or `BONK_INPUT_otp`) gives the value, a step without one fails with a clear error.
 - **Environments from JSON** (Flow · Окружения из JSON). A Table / JSON switch over the
   variables of an environment; pasting a JSON object into the table previews what it adds
   and changes; «New environment → From JSON… / From file…» reads a flat object, a nested
   config (`auth.token`), a Postman environment or an Insomnia export. Syntax errors are
   pointed at by line and column, secrets stay masked, «Copy as JSON» leaves them empty.
+
+### Fixed
+- **Input form in the app.** The code card no longer reads the clipboard when it opens: in the macOS
+  webview that raised a native «Paste» bubble and made the window look frozen. ⌘V into a cell still
+  spreads the whole code; the card says so instead of showing what is on the clipboard.
+- **gRPC.** An endpoint may carry a path prefix (`host:443/api/svc`) when a
+  gateway mounts the services below a path: every RPC, reflection included,
+  goes under it, in the app, Runner, CLI and MCP. Before, the path broke the
+  TLS config or was dropped and the gateway's 404 surfaced as
+  `compression flag: 52`.
+- **MCP.** A saved gRPC request with `protoPaths` but no `source` compiles its
+  protos instead of asking the server for reflection, so `run_saved_request`
+  behaves like `grpc_call` with the same settings.
 
 ## [0.2.0] - 2026-10-11
 

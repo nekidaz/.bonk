@@ -5,6 +5,8 @@
 
 
 
+
+
 const Q = new URLSearchParams(location.search);
 window.isTauri = true; // native-macOS header inset, like the real window
 try { localStorage.setItem('bonk.theme', Q.get('theme') || 'smooth-dark'); localStorage.setItem('bonk.theme.version', '4'); } catch {}
@@ -55,6 +57,46 @@ const tree = Q.get('empty') ? [] : Q.get('big') ? BIG : [
       r('webhooks/delete', 'Delete webhook', 'DELETE', '/v1/webhooks/{{webhookId}}'),
     ] },
 ];
+
+const INPUT_DEF = (type, extra = {}) => ({ type, label: '', hint: '', required: true, default: '', remember: false, secret: false, options: [], pattern: '', min: null, max: null, step: null, length: 0, ttl: 0, ...extra });
+const INPUTS = Q.get('inputs') || Q.get('session')
+  ? {
+      otp: INPUT_DEF('code', { label: 'SMS code', hint: 'sent to +7 ··· 42 17', length: 6, ttl: Number(Q.get('ttl') ?? 300) }),
+      amount: INPUT_DEF('number', { label: 'Amount', hint: '₸', min: 100, max: 5000000, step: 100 }),
+      currency: INPUT_DEF('select', { label: 'Currency', options: ['KZT', 'USD', 'EUR'], default: 'KZT', remember: true }),
+      comment: INPUT_DEF('text', { label: 'Comment', required: false }),
+      confirm: INPUT_DEF('bool', { label: 'Confirm the charge?' }),
+      ...(Q.get('inputs') === 'all'
+        ? {
+            email: INPUT_DEF('text', { label: 'Recipient email', pattern: '.+@.+\\..+' }),
+            card_cvc: INPUT_DEF('secret', { label: 'Card CVC' }),
+            items: INPUT_DEF('json', { label: 'Order items' }),
+            invoice: INPUT_DEF('file', { label: 'Invoice' }),
+            region: INPUT_DEF('select', { label: 'Region', options: ['Lisbon', 'Porto', 'Faro', 'Braga', 'Aveiro'] }),
+          }
+        : {}),
+    }
+  : {};
+if (Q.get('inputs') === 'all') {
+  tree.splice(1, 0, { kind: 'folder', id: 'fs:types', name: 'Input types', expanded: true, children: [
+    r('types/all', 'All input types', 'POST', '/v1/everything', { bodyMode: 'raw', rawBodyFormat: 'JSON', body: '{\n  "otp": "{{otp}}",\n  "amount": {{amount}},\n  "currency": "{{currency}}",\n  "email": "{{email}}",\n  "cvc": "{{card_cvc}}",\n  "items": {{items}},\n  "invoice": "{{invoice}}",\n  "region": "{{region}}",\n  "confirm": {{confirm}}\n}' }),
+  ] });
+}
+if ((Q.get('inputs') || Q.get('session')) && !Q.get('empty') && !Q.get('big')) {
+  tree.splice(1, 0,
+    { kind: 'folder', id: 'fs:otp', name: 'Auth · OTP', expanded: true, children: [
+      r('otp/login', 'Login', 'POST', '/v1/auth/login'),
+      r('otp/send', 'Send OTP', 'POST', '/v1/auth/otp/send'),
+      r('otp/verify', 'Verify OTP', 'POST', '/v1/auth/otp/verify', { bodyMode: 'raw', rawBodyFormat: 'JSON', body: '{\n  "phone": "{{phone}}",\n  "code": "{{otp}}",\n  "device": "bonk-desktop"\n}' }),
+      r('otp/profile', 'Get profile', 'GET', '/v1/me'),
+    ] },
+    { kind: 'folder', id: 'fs:transfers', name: 'Transfers', expanded: false, children: [
+      r('transfers/balance', 'Get balance', 'GET', '/v1/balance'),
+      r('transfers/rates', 'Get rates', 'GET', '/v1/rates'),
+      r('transfers/create', 'Create transfer', 'POST', '/v1/transfers', { bodyMode: 'raw', rawBodyFormat: 'JSON', body: '{\n  "amount": {{amount}},\n  "currency": "{{currency}}",\n  "comment": "{{comment}}",\n  "confirm": {{confirm}}\n}' }),
+      r('transfers/status', 'Transfer status', 'GET', '/v1/transfers/last'),
+    ] });
+}
 
 const BODY = '{\n  "id": "pay_8f2k1",\n  "amount": 12900,\n  "currency": "KZT",\n  "status": "captured",\n  "customer": {\n    "email": "aru@example.com"\n  },\n  "refundable": true\n}';
 const HEADERS = {
@@ -204,7 +246,7 @@ const H = {
     ] });
     return { name: 'rose-pine.json', path: '/Users/aru/Downloads/rose-pine.json', size: text.length, text };
   },
-  'plugin:app|version': () => '0.2.0',
+  'plugin:app|version': () => '0.3.0',
   'plugin:window|is_fullscreen': () => false,
 
   http_prepare: (a) => a.req,
@@ -298,6 +340,19 @@ const H = {
 
 H.request_run = async (a) => {
   const node = a.node, isGrpc = node.protocol === 'grpc';
+  if (a.plan.inputs && Object.keys(a.plan.inputs).length) {
+    let shown = {};
+    const step = await askedStep(channel(a.onEvent), a.plan, node, 1, async (values) => {
+      const request = resolveReq(node.request, { ...a.vars.globals, ...a.vars.environment, ...values }, []);
+      const status = otpStatus(request.url, request.body);
+      const response = await H.http_send({ req: request });
+      return { status: status ?? response.status, ok: (status ?? response.status) < 400, response: { ...response, status: status ?? response.status }, request };
+    });
+    if (step.skipped || step.stopped) throw new Error('cancelled');
+    shown = step.inputs;
+    const row = { id: 'editor-row', iteration: 1, requestName: node.name, protocol: 'http', method: node.request.method, target: step.request.url, status: step.status, ok: step.ok, elapsedMs: 120, tests: [], logs: [], nodeId: node.id, inputs: shown };
+    return { row, details: { request: step.request, response: step.response, grpcResult: null, pre: null, post: null, postMs: null, oauth: null, dynamic: [] } };
+  }
   const scope = { ...a.vars.globals, ...a.vars.environment };
   const used = [];
   const request = resolveReq(node.request, scope, used);
@@ -314,6 +369,45 @@ H.request_run = async (a) => {
   return { row, details: { request: isGrpc ? null : request, response, grpcResult, pre, post, postMs: post ? 0 : null, oauth: null, dynamic: used } };
 };
 const SCENARIOS = [];
+H.inputs_load = () => structuredClone(INPUTS);
+H.inputs_save = (a) => { for (const k of Object.keys(INPUTS)) delete INPUTS[k]; Object.assign(INPUTS, a.inputs); return null; };
+
+const WAITING = new Map();
+H.runner_input_answer = (a) => { const done = WAITING.get(a.inputId); WAITING.delete(a.inputId); done?.(a.answer); return null; };
+
+
+async function askedStep(emit, plan, node, iteration, send, resend) {
+  const defs = plan.inputs ?? {};
+  const seen = [...JSON.stringify(node).matchAll(/\{\{\s*([^{}]+?)\s*\}\}/g)].map((m) => m[1]).filter((n, i, all) => n in defs && all.indexOf(n) === i);
+  if (!seen.length) return { ...(await send({})), inputs: {} };
+  const fields = seen.map((name) => ({ name, ...defs[name] }));
+  const attempts = plan.inputAttempts || 3;
+  const mask = (f, v) => (f.type === 'secret' || v.length <= 4 ? '••••' : '••••' + v.slice(-2));
+  let error, last, waited = 0;
+  for (let attempt = 1; attempt <= attempts; attempt++) {
+    const t0 = Date.now();
+    const id = crypto.randomUUID();
+    const answer = await new Promise((res) => {
+      WAITING.set(id, res);
+      emit({ kind: 'input', id, nodeId: node.id, requestName: node.name, method: node.request.method, iteration, fields, attempt, maxAttempts: attempts, error, last, resend });
+    });
+    waited += Date.now() - t0;
+    if (answer.kind === 'skip') return { skipped: true, status: 'SKIP', ok: true, waited };
+    if (answer.kind === 'resend') return { resend: true, waited };
+    if (answer.kind === 'stop') return { stopped: true, status: 'ERR', ok: false, waited };
+    const values = answer.values;
+    const shown = Object.fromEntries(fields.map((f) => [f.name, f.type === 'code' || f.type === 'secret' || f.secret ? mask(f, values[f.name] ?? '') : values[f.name] ?? '']));
+    const out = await send(values);
+    if (out.status >= 400 && out.status < 500 && attempt < attempts) {
+      error = `${out.status} invalid_code`;
+      last = { status: out.status, message: error, elapsedMs: out.elapsed ?? 0, inputs: shown };
+      continue;
+    }
+    return { ...out, inputs: shown, waited };
+  }
+}
+
+const otpStatus = (url, body) => (/\/auth\/otp\/verify/.test(url) ? (String(body).includes('482913') ? 201 : 401) : null);
 H.scenarios_load = () => SCENARIOS;
 H.scenarios_save = (a) => { const at = SCENARIOS.findIndex((s) => s.name === a.scenario.name); if (at < 0) SCENARIOS.push(a.scenario); else SCENARIOS[at] = a.scenario; return null; };
 H.scenarios_delete = (a) => { const at = SCENARIOS.findIndex((s) => s.name === a.name); if (at >= 0) SCENARIOS.splice(at, 1); return null; };
@@ -392,17 +486,94 @@ if (OAUTH) {
   for (const name of ['oauth_login_input', 'oauth_forget', 'oauth_revoke', 'open_url']) H[name] = () => null;
 }
 
+
+if (Q.get('session') && !Q.get('empty') && !Q.get('big')) {
+  const now = Math.floor(Date.now() / 1000);
+  const cfg = { login: 'Auth · OTP', access: { request: 'fs:otp/verify', path: 'body.access_token', ttlPath: 'body.expires_in' }, refresh: { request: 'fs:otp/verify', path: 'body.refresh_token', ttlPath: '' }, renewRequest: 'fs:auth/refresh', renewAccess: 'body.access_token', renewRefresh: '', who: { request: 'fs:otp/verify', path: 'body.phone', ttlPath: '' }, leadSecs: 60, retryOn401: true, autoRefresh: true, exclude: [] };
+  const auth = { type: 'session', session: cfg };
+  if (Q.get('session') !== 'none') tree[0].auth = auth;
+  STATE.activeEnvironmentId = 'env-staging';
+  SCENARIOS.push({ name: 'Auth · OTP', paths: ['otp'], variables: { environment: {}, globals: {} }, requiredVariables: [], environmentName: null, iterations: 1, dataRows: [], delayMs: 0, stopOnFailure: false });
+  const info = (extra) => ({ accessPreview: 'eyJhbGciOi…k9Pq2', hasRefresh: true, accessExp: now + 14 * 60, refreshExp: now + 29 * 86400, who: '+7 ··· 42 17', obtainedAt: now - 60, ...extra });
+  const state = Q.get('sstate') || 'valid';
+  const STAGING = { valid: info({}), renew: info({ accessExp: now - 120 }), dead: info({ accessExp: now - 3 * 3600, refreshExp: now - 2 * 3600 }), none: null }[state];
+  const SESS = { Production: info({ accessExp: now + 41 * 60 }), Staging: STAGING, Sandbox: info({ accessExp: now - 60, who: '+7 ··· 00 01  (test)' }), Local: null };
+  const trace = {
+    renewed: (at) => [{ kind: 'expired', at: at - 200, exp: now - 120, why: 'expired' }, { kind: 'renew', at, request: 'Refresh token', status: '200', ms: 140, ok: true }],
+    relogin: (at) => [{ kind: 'expired', at: at - 200, exp: now - 3 * 3600, why: 'expired' }, { kind: 'renew', at, request: 'Refresh token', status: '401', ms: 61, ok: false }],
+    login: (at) => ({ kind: 'login', at: at + 150, scenario: 'Auth · OTP', steps: [{ name: 'Login', status: '200', ms: 182, ok: true }, { name: 'Send OTP', status: '200', ms: 240, ok: true }, { name: 'Verify OTP', status: '201', ms: 312, ok: true }] }),
+  };
+  H.session_status = (a) => a.environments.map((environment) => ({ environment, info: SESS[environment] ?? null }));
+  H.session_forget = (a) => { for (const e of a.environments) SESS[e] = null; return null; };
+  H.session_peek = () => info({});
+  H.session_save_caught = (a) => (SESS[a.environment] = info({ accessExp: now + 15 * 60 }));
+  const prompt = (env, before) => ({ scenario: 'Auth · OTP', environment: env, steps: [{ name: 'Login', state: 'done' }, { name: 'Send OTP', state: 'done' }, { name: 'Verify OTP', state: 'now' }], trace: before });
+
+  const askCode = async (emit, env, before) => {
+    const fields = [{ name: 'otp', ...INPUT_DEF('code', { label: 'SMS code', hint: 'sent to +7 ··· 42 17', length: 6 }) }];
+    for (let attempt = 1; ; attempt++) {
+      const id = crypto.randomUUID();
+      const answer = await new Promise((res) => { WAITING.set(id, res); emit({ kind: 'input', id, nodeId: 'fs:otp/verify', requestName: 'Verify OTP', method: 'POST', iteration: 1, fields, attempt, maxAttempts: 3, session: prompt(env, before) }); });
+      if (answer.kind !== 'values') throw new Error('cancelled');
+      if (answer.values.otp === '482913') return;
+    }
+  };
+  H.session_run = async (a) => {
+    const env = a.plan.environmentName, emit = channel(a.onEvent), at = Date.now();
+    if (a.mode === 'signIn') {
+      await askCode(emit, env, []);
+      SESS[env] = info({ accessExp: now + 15 * 60 });
+      return { environment: env, login: 'Auth · OTP', outcome: 'signedIn', info: SESS[env], trace: [trace.login(at)] };
+    }
+    await new Promise((r) => setTimeout(r, 300));
+    SESS[env] = info({ accessExp: now + 15 * 60 });
+    return { environment: env, login: 'Auth · OTP', outcome: 'renewed', info: SESS[env], trace: trace.renewed(at) };
+  };
+
+  const sessionSend = async (a, plain) => {
+    const env = a.plan.environmentName, emit = channel(a.onEvent), at = Date.now();
+    const cur = SESS[env];
+    const dead = !cur || (cur.accessExp <= now && cur.refreshExp <= now);
+    let outcome = 'valid', tr = [];
+    if (dead) {
+      tr = cur ? trace.relogin(at) : [];
+      await askCode(emit, env, tr);
+      tr = [...tr, trace.login(at)];
+      outcome = 'signedIn';
+      SESS[env] = info({ accessExp: now + 15 * 60 });
+    } else if (cur.accessExp <= now) {
+      await new Promise((r) => setTimeout(r, 400));
+      tr = trace.renewed(at);
+      outcome = 'renewed';
+      SESS[env] = info({ accessExp: now + 15 * 60 });
+    }
+    const out = await plain(a);
+    out.details.session = { environment: env, login: 'Auth · OTP', outcome, info: SESS[env], trace: tr };
+    return out;
+  };
+  const plainRun = H.request_run;
+  H.request_run = (a) => (a.node.request.auth?.type === 'session' ? sessionSend(a, plainRun) : plainRun(a));
+}
+
 if (Q.get('runner')) {
   for (const f of tree) if (f.id === 'fs:payments' || f.id === 'fs:auth') for (const c of f.children) c.request.testScript = "pm.test('status is 2xx', () => {});";
   STATE.tabs = STATE.tabs.filter((t) => t.protocol !== 'env');
   STATE.activeEnvironmentId = 'env-staging';
-  STATE.runnerConfig = { folderIds: ['fs:payments', 'fs:auth'], iterations: 2, delayMs: 200, stopOnFailure: false };
+  STATE.runnerConfig = Q.get('inputs') || Q.get('session')
+    ? { folderIds: [Q.get('inputs') === 'transfers' ? 'fs:transfers' : 'fs:otp'], iterations: 1, delayMs: 200, stopOnFailure: false }
+    : { folderIds: ['fs:payments', 'fs:auth'], iterations: 2, delayMs: 200, stopOnFailure: false };
   const day = 864e5;
   STATE.runnerHistory = [4600, 4900, 4300, 5300, 3900, 4800, 5100, 4500, 5700].map((ms, i) => ({
     n: 33 + i, startedAt: Date.now() - (9 - i) * day, passed: i === 4 ? 14 : 16, total: 16, durationMs: ms, p95Ms: i === 8 ? 194 : 180 + i,
   }));
 
   const ROUTES = [
+    ...(Q.get('session') ? [
+      ['POST', /\/auth\/login$/, 120, 182, () => 200, '{"challenge":"ch_7f2a"}', 22],
+      ['POST', /\/auth\/otp\/send$/, 140, 240, () => 200, '{"sent":true,"phone":"+7 ··· 42 17"}', 34],
+      ['POST', /\/auth\/otp\/verify$/, 170, 312, () => 201, '{"access_token":"eyJhbGciOiJIUzI1NiJ9.eyJleHAiOjE3NjAyNTQ1ODF9.k9Pq2","refresh_token":"rt_8f2a91c4e7","expires_in":900,"phone":"+7 ··· 42 17"}', 188],
+      ['GET', /\/v1\/me$/, 96, 96, () => 200, '{"id":"usr_7f2a91"}', 40],
+    ] : []),
     ['GET', /\/v1\/payments\?/, 146, 128, () => 200, BODY, 2458],
     ['GET', /\/v1\/payments\/[^/]+$/, 135, 96, () => 200, BODY, 412],
     ['POST', /\/v1\/payments$/, 190, 212, () => 201, CREATED.body, 318],
@@ -435,9 +606,29 @@ if (Q.get('runner')) {
         const [, re, wait, elapsed, status, body, size] = ROUTES.find(([m, re]) => m === method && re.test(url)) ?? [, url, 100, 128, () => 200, BODY, 2458];
         const n = (calls.get(re) ?? 0) + 1;
         calls.set(re, n);
-        await sleep(wait);
+        let asked;
+        if (a.plan.inputs && Object.keys(a.plan.inputs).length) {
+          const play = async (values) => {
+            await sleep(wait);
+            const sent = fill(node.request.body ?? '', { ...scope, ...values });
+            const st = otpStatus(url, sent) ?? status(n);
+            return { status: st, elapsed, ok: st < 400 };
+          };
+          for (;;) {
+            asked = await askedStep(emit, a.plan, node, it, play, j > 0 ? requests[j - 1].name : undefined);
+            if (!asked.resend) break;
+
+            const prev = requests[j - 1];
+            emit({ kind: 'call', nodeId: prev.id, name: prev.name, method: prev.request.method });
+            await sleep(150);
+            emit({ kind: 'resent', id: crypto.randomUUID(), iteration: it, requestName: prev.name, protocol: 'http', method: prev.request.method, target: fill(prev.request.url, scope), status: 200, ok: true, elapsedMs: 128, tests: [], logs: [], nodeId: prev.id, startOffsetMs: 0, endMs: clock });
+            emit({ kind: 'call', nodeId: node.id, name: node.name, method });
+          }
+          if (asked.stopped) { emit({ kind: 'row', id: crypto.randomUUID(), iteration: it, requestName: node.name, protocol: 'http', method, target: url, status: 'ERR', ok: false, elapsedMs: 0, tests: [], logs: [], error: 'stopped at the input prompt', nodeId: node.id, startOffsetMs, inputs: {}, waitedMs: asked.waited }); return 'stopped'; }
+          if (asked.skipped) { emit({ kind: 'row', id: crypto.randomUUID(), iteration: it, requestName: node.name, protocol: 'http', method, target: url, status: 'SKIP', ok: true, elapsedMs: 0, tests: [], logs: [], nodeId: node.id, startOffsetMs, inputs: {}, waitedMs: asked.waited }); continue; }
+        } else await sleep(wait);
         clock += elapsed;
-        const s = status(n);
+        const s = asked ? asked.status : status(n);
         const passed = s >= 200 && s < 300;
         const tests = [{ name: 'status is 2xx', passed, error: passed ? undefined : `received ${s}` }, { name: 'response time < 500 ms', passed: elapsed < 500 }];
         const ok = tests.every((t) => t.passed);
@@ -445,6 +636,7 @@ if (Q.get('runner')) {
           kind: 'row', id: crypto.randomUUID(), iteration: it, requestName: node.name, protocol: 'http', method, target: url,
           status: s, ok, elapsedMs: elapsed, tests, logs: [], responseBody: typeof body === 'function' ? body(s) : body,
           nodeId: node.id, startOffsetMs, sizeBytes: s >= 400 ? 64 : size, endMs: clock,
+          ...(asked ? { inputs: asked.inputs, waitedMs: asked.waited } : {}),
         });
         if (stopOnFailure && !ok) return 'stopped';
         if (delayMs > 0 && !(it === iterations && j === requests.length - 1)) { await sleep(delayMs); clock += delayMs; idle += delayMs; }
