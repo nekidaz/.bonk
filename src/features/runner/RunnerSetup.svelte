@@ -219,7 +219,8 @@
       <span class="rs-hint">{t('runner.setup.drag')}</span>
     </div>
     <div class="rs-scroll">
-      {#each rows as r (r.kind === 'folder' ? `f:${r.id}` : r.node.id)}
+      <!-- A scenario may come back to a folder, so one folder can head several runs: key a header by its first request. -->
+      {#each rows as r (r.kind === 'folder' ? `f:${r.ids[0]}` : r.node.id)}
         {#if r.kind === 'folder'}
           <div class="rs-folder">
             {@render check(groupState(r.ids), (v) => setChecked(r.ids, v), r.name)}
