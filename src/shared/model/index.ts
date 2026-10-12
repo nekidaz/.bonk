@@ -107,6 +107,17 @@ export {
   type VarRow,
 } from './types';
 export {
+  diffEnvRows,
+  envFromJson,
+  envToJson,
+  type EnvJsonError,
+  type EnvJsonFormat,
+  lineCol,
+  mergeEnvRows,
+  type ParsedEnv,
+  type RowsDiff,
+} from './envJson';
+export {
   countRequestsUsingVars,
   findVariables,
   lookupVar,
