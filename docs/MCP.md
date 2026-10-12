@@ -124,6 +124,22 @@ safer design.
 Multipart files and `.proto` files are restricted to the configured workspace,
 including after symlink resolution.
 
+## Values the user types («ask on send»)
+
+A workspace can mark a variable «ask on send» in the Bonk app (an SMS code, an amount, a
+confirmation); the definitions live in `.bonk/inputs.json`. `list_inputs` lists them with their
+type, label and checks. `run_saved_request` and `run_scenario` take an `inputs` object for the
+values the user gave the agent. A variable left out is asked from the **user**, not the model,
+through MCP elicitation: one form per step, with a «Новый код» switch that runs the step that
+sent the code again. What the user types goes from the client to the server, never through the
+conversation. A client without elicitation gets a clear `input required: …` error instead.
+
+Rules the server enforces: a yes/no confirmation is `userOnly` — it is never taken from
+`inputs` (a model would confirm itself); a file input must be inside the workspace; values
+are checked against the field (a code needs its cells, a number its min/max/step); codes and
+secrets, given or typed, are scrubbed from the results. A 4xx on a single request is returned
+to the agent; in a scenario the form opens again (three tries).
+
 ## ChatGPT desktop and Codex
 
 If you are not using Bonk's one-click installer, build the release binary and

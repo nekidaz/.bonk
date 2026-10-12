@@ -7,6 +7,13 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [Unreleased]
 
 ### Added
+- **MCP: «ask on send» values.** `list_inputs` shows the workspace's fields; `run_saved_request` and
+  `run_scenario` take `inputs`, and a variable left out is asked from the user through MCP elicitation
+  (one form per step, with a «Новый код» switch). Confirmations are never taken from `inputs`, files must
+  be inside the workspace, and codes and secrets are scrubbed from the results. A client without
+  elicitation gets `input required: …`.
+
+### Added
 - **Scenario with input: search in a long list.** A choice field with more than four options is a
   combobox: type to filter, ↑↓ move, ⏎ picks, Esc closes the list (and not the run).
 
