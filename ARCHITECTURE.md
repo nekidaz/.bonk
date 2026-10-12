@@ -178,6 +178,18 @@ through `Transport::ask_input` before a step, keeps the typed values out of the 
 masks codes/secrets in rows and sent-request details; the app answers over `runner_input_answer`,
 the CLI over `--input`.
 
+**Session auth** (`type: "session"`, `application/session.rs` data and keychain format,
+`application/session_run.rs` engine, `SessionConfig` in `domain/http.rs`) signs in through a Runner
+scenario and reads the tokens out of the responses of its steps. Before a send, `NodeRun::with_auth`
+asks `session_run::prepare`: a fresh stored access token is reused; an expired one is traded by the
+saved renewal request (run with `{{session.access}}` / `{{session.refresh}}` in its scope); with no
+usable refresh token the sign-in scenario runs nested through `run_collection` (with `plan.session_off`, so
+its own requests never ask for a session), and its typed steps ask through `Transport::ask_input` as
+anywhere else; a 401 renews once and repeats. The keychain account is a hash of the workspace,
+environment name (`plan.environment_name`) and sign-in setup. The Sessions dialog, «Войти» /
+«Обновить» and the Runner's «Запомнить вход?» use the `session_*` commands in
+`src-tauri/src/commands/session.rs`.
+
 **Portable scenarios** live in `.bonk/scenarios.json` alongside this tree. They
 contain relative request/folder paths, execution order, public variable defaults,
 required secret names and run/data settings. The hidden directory is ignored by

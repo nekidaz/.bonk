@@ -239,6 +239,7 @@ sudo apt install ./bonk_*.deb</code></pre>
     <tr><td>Basic</td><td><code>Authorization: Basic</code> with base64 of <code>username:password</code>.</td></tr>
     <tr><td>API key</td><td>A named key, sent as a header or as a query parameter.</td></tr>
     <tr><td><a href="#oauth">OAuth 2.0</a></td><td>A token from the keychain, sent as a Bearer token.</td></tr>
+    <tr><td><a href="#session">Session</a></td><td>Sign in once through a Runner scenario; a token per environment, renewed by itself.</td></tr>
   </tbody></table>
   <p>An <code>Authorization</code> header you set yourself on the request is not overwritten.</p>
   <h2 id="inherit">Folder auth and inheritance</h2>
@@ -270,6 +271,19 @@ sudo apt install ./bonk_*.deb</code></pre>
   <h2 id="tokens">Tokens</h2>
   <p>Tokens live in the OS keychain, never in workspace files. The token key is a hash of the resolved settings (grant, token URL, client, scope, audience, user), so an environment with its own client gets its own token. bonk renews an expired token before sending and retries once on a 401. The same applies in the app, the <a href="#runner">Runner</a>, the <a href="#cli">CLI</a> and <a href="#mcp">MCP</a>.</p>
   <aside class="callout">For a code grant, bonk listens on a loopback address for the redirect. If the redirect URI is not a loopback address, paste the code or the whole redirect URL by hand.</aside>
+</article>
+
+<article id="session" data-title="Session" data-group="Send requests" data-lede="Sign in once, even with a code from an SMS, and let bonk keep the session alive." data-meta="Since 0.2.0|macOS · Windows · Linux|3 min read">
+  <h2 id="setup">Set it up</h2>
+  <p>Open a collection's authorization and choose <strong>Session</strong>. Pick the <a href="#runner">Runner</a> scenario that signs in (for example <code>Auth · OTP</code>: Login → Send OTP → Verify OTP, where the code is an «ask on send» variable), say which response holds the access token and which the refresh token, and pick the saved request that trades a refresh token for a new access token. Its body reads <code>{{session.refresh}}</code>. Requests of the collection then send <code>Authorization: Bearer {{session.access}}</code>, except the sign-in folder and the renewal request.</p>
+  <h2 id="keeping">How it is kept alive</h2>
+  <ul>
+    <li>The access token is renewed by itself a minute before it expires (a JWT's <code>exp</code>, or a field like <code>expires_in</code>), and once on a 401.</li>
+    <li>When the refresh token is dead too, the sign-in scenario runs again on its own; only the step that needs a code asks you, in a small form by <strong>Send</strong>.</li>
+    <li>After you run the sign-in scenario in the Runner, bonk offers <strong>Запомнить вход?</strong> to keep what it caught.</li>
+  </ul>
+  <h2 id="environments">One session per environment</h2>
+  <p>Signing in to Staging does not touch Production. <strong>All sessions</strong> lists every environment: who signed in, when the tokens end, renew, sign out. Sessions live in the OS keychain, not in workspace files, git or exports. In the <a href="#cli">CLI</a>, <code>--env</code> picks the session; a sign-in step needs <code>--input otp=123456</code>.</p>
 </article>
 
 <article id="variables" data-title="Variables" data-group="Send requests" data-lede="Reuse values with {{name}} in URLs, headers, bodies, auth and scripts." data-meta="Environments|3 min read">

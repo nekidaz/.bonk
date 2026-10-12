@@ -124,6 +124,20 @@ bad value is exit `2`. A step that needs input nobody gave fails with
 `input required: otp (Код из SMS)` and the run goes on (or stops with `--bail`).
 Codes and secrets are replaced by `<redacted>` in the output and the reports.
 
+## Sessions
+
+A collection whose auth is a «Сессия» signs in through a scenario and keeps its tokens in the
+keychain per environment, so `--env` decides which session a run uses:
+
+```bash
+bonk run payments --env Staging              # reuses / renews the session by itself
+bonk run payments --env Staging --input otp=123456   # the sign-in needs the code
+```
+
+A stored session is reused, and renewed by its refresh request when it expires; only a
+dead refresh token runs the sign-in scenario, and a typed step in it fails with
+`input required: otp` unless `--input` gave the value. Tokens are never printed.
+
 ## Portable workspace scenarios
 
 In Runner, configure the request selection/order, data rows and environment, then

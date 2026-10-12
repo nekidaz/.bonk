@@ -17,6 +17,16 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   behaves like `grpc_call` with the same settings.
 
 ### Added
+- **Session: sign in once** (Flow · Сессия: вошёл один раз). A new auth type, «Сессия», for a collection:
+  sign in through a Runner scenario (`Auth · OTP`: Login → Send OTP → Verify OTP), say which responses
+  hold the access and refresh tokens, and bonk keeps them in the keychain, one session per environment.
+  The access token is renewed by itself a minute before `exp` (a JWT's `exp`, or a `expires_in` field) with a
+  saved «Refresh token» request whose body reads `{{session.refresh}}`, and once on a 401. When the refresh
+  token dies too, the sign-in scenario runs again on its own and only the typed step (the OTP) asks a
+  person. The Authorization tab shows the active session, what a send renewed, and the sign-in prompt; the
+  Runner offers «Запомнить вход?» after the scenario; «Все сессии» lists every environment. In the CLI a
+  stored session works like in the app (`--env` picks it); a sign-in step needs `--input otp=…`. Tokens
+  never reach workspace files, git, exports, history or the UI; the folder auth holds only the setup.
 - **Scenario with input** (Flow · Сценарий с вводом). Any `{{variable}}` can be «ask on send»:
   right-click it in the URL, headers or body → «Спрашивать при отправке», and give it a type
   (text, number, code, secret, choice, yes/no, JSON, file), a label and checks. Send opens a small
