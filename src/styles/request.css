@@ -2673,6 +2673,17 @@
   word-break: normal;
 }
 
+/* A huge URL scrolls inside the card (~10 lines) instead of pushing the request pane off-screen. */
+:root .bs .bs-urlfield.expanded .cm-scroller {
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+/* The single-line editor theme hides its scrollbar; bring the global one back here. */
+:root .bs .bs-urlfield.expanded .cm-scroller::-webkit-scrollbar {
+  display: block;
+}
+
 :root .bs .bs-url-meta {
   display: flex;
   justify-content: space-between;
