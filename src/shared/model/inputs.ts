@@ -29,6 +29,8 @@ export interface InputDef {
   step: number | null;
   /** `code`: how many cells (0 = 6). */
   length: number;
+  /** `code`: how long the code lives, seconds (0 = unknown); the form counts it down. */
+  ttl: number;
 }
 
 export const INPUT_KINDS: InputKind[] = ['text', 'number', 'code', 'secret', 'select', 'bool', 'json', 'file'];
@@ -60,6 +62,7 @@ export function newInput(type: InputKind = 'code'): InputDef {
     max: null,
     step: null,
     length: type === 'code' ? 6 : 0,
+    ttl: 0,
   };
 }
 
@@ -186,6 +189,15 @@ export interface InputRequest {
   maxAttempts: number;
   error?: string;
   last?: InputAttempt;
+  /** The step before this one, which «Отправить заново» runs again (it sent the code). */
+  resend?: string;
 }
 
-export type InputAnswer = { kind: 'values'; values: Record<string, string> } | { kind: 'skip' } | { kind: 'stop' };
+export type InputAnswer =
+  { kind: 'values'; values: Record<string, string> } | { kind: 'skip' } | { kind: 'resend' } | { kind: 'stop' };
+
+/** `4:18` for a countdown (rounds up, so «0:01» is shown until the very end); negative = 0:00. */
+export function countdown(ms: number): string {
+  const s = Math.max(0, Math.ceil(ms / 1000));
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+}

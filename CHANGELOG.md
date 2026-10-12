@@ -6,6 +6,14 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+- **Scenario with input: «Отправить заново» and the code timer.** A code field can have a
+  lifetime («Срок кода», seconds): the Runner card counts it down and says «код истёк» at zero.
+  «Отправить заново» (after a wrong code, «Новый код») runs the step before again, the one
+  that sent the code, replaces its row and asks again with a fresh timer; a wrong value keeps
+  the same code's timer running. The first step has nothing to resend, so it has no button;
+  the old «Пропустить шаг» moves to a small icon in the card header.
+
 ### Fixed
 - **gRPC.** An endpoint may carry a path prefix (`host:443/api/svc`) when a
   gateway mounts the services below a path: every RPC, reflection included,

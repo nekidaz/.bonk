@@ -505,6 +505,8 @@
                 variant="card"
                 onsubmit={(values) => void answerWaiting({ kind: 'values', values })}
                 onskip={() => void answerWaiting({ kind: 'skip' })}
+                onresend={() => void answerWaiting({ kind: 'resend' })}
+                since={run.codeAt?.at}
                 oncancel={stopRun}
               />
             </div>
