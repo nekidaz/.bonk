@@ -513,7 +513,11 @@ impl BonkRuntime {
         self.normalize_file_paths(&mut request)
             .map_err(|error| sanitize_error(&error, &secrets))?;
 
-        let unresolved = unresolved_in_request(&request);
+        // An «ask on send» variable is typed when the request runs: not a missing value.
+        let defs = inputs::load(&self.config.root).unwrap_or_default();
+        let (asked, unresolved): (Vec<String>, Vec<String>) = unresolved_in_request(&request)
+            .into_iter()
+            .partition(|name| defs.contains_key(name));
         let mut warnings = Vec::new();
         if request.url.trim().is_empty() {
             warnings.push("URL is empty".into());
@@ -553,6 +557,7 @@ impl BonkRuntime {
             method: request.method,
             url: redact_url(&request.url, &secrets),
             unresolved_variables: unresolved,
+            asked_variables: asked,
             warnings,
         })
     }
@@ -836,6 +841,7 @@ impl BonkRuntime {
         message: Value,
         metadata: BTreeMap<String, String>,
         timeout_ms: Option<u64>,
+        input: &RunInput,
     ) -> Result<GrpcCallOutput, String> {
         let grpc = GrpcTabState {
             endpoint: schema.endpoint,
@@ -869,7 +875,7 @@ impl BonkRuntime {
             schema.variables,
             schema.environment.as_deref(),
             timeout,
-            &RunInput::default(),
+            input,
         )
         .await
     }
@@ -1641,6 +1647,43 @@ mod tests {
         let asked = asker.asked.lock().unwrap();
         assert_eq!(asked.len(), 1);
         assert_eq!(asked[0].fields[0].name, "otp");
+    }
+
+    #[tokio::test]
+    async fn an_inline_request_takes_inputs_and_validate_calls_them_asked_not_unresolved() {
+        let workspace = otp_workspace();
+        let runtime = workspace.runtime(false, true);
+        let base = code_server().await;
+        let mut inline = request(&format!("{base}/verify"));
+        inline.method = "POST".into();
+        inline.body = Some(r#"{"code":"{{otp}}"}"#.into());
+
+        let checked = runtime
+            .validate_http(inline.clone(), None, BTreeMap::new(), None)
+            .await
+            .unwrap();
+        assert_eq!(checked.asked_variables, ["otp"]);
+        assert!(checked.unresolved_variables.is_empty() && checked.valid);
+
+        let asker = Arc::new(FakeAsker {
+            code: "482913",
+            asked: Mutex::new(Vec::new()),
+        });
+        let input = runtime.run_input(BTreeMap::new(), Some(asker)).unwrap();
+        let out = runtime
+            .execute_http(
+                inline,
+                None,
+                BTreeMap::new(),
+                None,
+                RequestSettings::default(),
+                1 << 20,
+                &input,
+            )
+            .await
+            .expect("send");
+        assert!(out.response.body.contains("true"));
+        assert!(!serde_json::to_string(&out).unwrap().contains("482913"));
     }
 
     #[tokio::test]

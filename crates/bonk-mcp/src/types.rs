@@ -409,6 +409,9 @@ pub struct SendHttpArgs {
     pub environment: Option<String>,
     #[serde(default)]
     pub settings: RequestSettingsSpec,
+    /// Values for the workspace's «ask on send» variables (see list_inputs). A variable not given here is asked from the user through MCP elicitation; yes/no confirmations are always asked from the user, never taken from here.
+    #[serde(default)]
+    pub inputs: BTreeMap<String, String>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
@@ -465,6 +468,9 @@ pub struct GrpcCallArgs {
     pub metadata: BTreeMap<String, String>,
     #[serde(default)]
     pub timeout_ms: Option<u64>,
+    /// Values for the workspace's «ask on send» variables (see list_inputs). A variable not given here is asked from the user through MCP elicitation; yes/no confirmations are always asked from the user, never taken from here.
+    #[serde(default)]
+    pub inputs: BTreeMap<String, String>,
 }
 
 #[derive(Debug, Serialize, JsonSchema)]
@@ -550,6 +556,8 @@ pub struct ValidationResult {
     pub method: String,
     pub url: String,
     pub unresolved_variables: Vec<String>,
+    /// «Ask on send» variables the request uses: not unresolved, the user is asked when it runs.
+    pub asked_variables: Vec<String>,
     pub warnings: Vec<String>,
 }
 

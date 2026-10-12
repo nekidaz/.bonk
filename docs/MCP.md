@@ -129,7 +129,8 @@ including after symlink resolution.
 A workspace can mark a variable «ask on send» in the Bonk app (an SMS code, an amount, a
 confirmation); the definitions live in `.bonk/inputs.json`. `list_inputs` lists them with their
 type, label and checks. `run_saved_request` and `run_scenario` take an `inputs` object for the
-values the user gave the agent. A variable left out is asked from the **user**, not the model,
+values the user gave the agent. `send_http` and `grpc_call` take `inputs` too, for an inline request that uses such a variable
+(`validate_http` lists it under `askedVariables`, not as unresolved). A variable left out is asked from the **user**, not the model,
 through MCP elicitation: one form per step, with a «Новый код» switch that runs the step that
 sent the code again. What the user types goes from the client to the server, never through the
 conversation. A client without elicitation gets a clear `input required: …` error instead.
