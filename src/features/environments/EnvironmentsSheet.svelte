@@ -6,13 +6,46 @@
    * `embedded` renders the same editor inside the Environments tab (no scrim).
    */
   import { tick, untrack } from 'svelte';
+  import { getCurrentWebview } from '@tauri-apps/api/webview';
   import { t, tp } from '$shared/i18n';
   import { environments, ENV_COLORS, ENV_COLOR_VAR, envColor, isProtected, type EnvColor } from '$entities/environment';
   import { workspace } from '$entities/workspace';
+  import { importReadFile, openapiImportPick } from '$shared/ipc';
   import { confirmState, requestConfirm } from '$shared/ui';
-  import { type Environment, type VarRow, countRequestsUsingVars, maskSecret } from '$shared/model';
+  import {
+    type Environment,
+    type EnvJsonFormat,
+    type RowsDiff,
+    type VarRow,
+    countRequestsUsingVars,
+    diffEnvRows,
+    envFromJson,
+    envToJson,
+    maskSecret,
+    mergeEnvRows,
+  } from '$shared/model';
+  import EnvJsonEditor from './EnvJsonEditor.svelte';
 
   const { embedded = false }: { embedded?: boolean } = $props();
+
+  type Fmt = EnvJsonFormat | undefined;
+  /** «Из JSON…»: the new environment is a draft in the list until «Создать окружение». */
+  interface Creating {
+    id: string;
+    text: string;
+    fmt: Fmt;
+    /** The user typed a name: the one in the JSON no longer replaces it. */
+    nameTouched: boolean;
+    /** Where «Отмена» goes back to. */
+    prev: string;
+  }
+  /** ⌘V of a JSON object into the table: what the merge would do, shown before it is applied. */
+  interface Preview {
+    base: VarRow[];
+    merged: VarRow[];
+    diff: RowsDiff;
+    count: number;
+  }
 
   const COLOR_LABEL: Record<EnvColor, string> = {
     red: 'env.color.red',
@@ -34,6 +67,20 @@
   let opener: HTMLElement | null = null;
   let nameInput = $state<HTMLInputElement | null>(null);
   let searchInput = $state<HTMLInputElement | null>(null);
+  let root = $state<HTMLElement | null>(null);
+
+  // Table ⇄ JSON view of the open environment. In JSON mode a valid text is applied to the draft at once;
+  // `jsonBase` is what the environment was when the view opened (flags and real secret values come from it).
+  let view = $state<'table' | 'json'>('table');
+  let jsonText = $state('');
+  let jsonBase = $state.raw<VarRow[]>([]);
+  let preview = $state.raw<Preview | null>(null);
+  let addMenuOpen = $state(false);
+  let creating = $state<Creating | null>(null);
+  /** The environment made from JSON last, and the format it was read as (shown beside the variables). */
+  let createdFrom = $state<{ id: string; format: string } | null>(null);
+  let toast = $state<{ text: string; undo?: () => void } | null>(null);
+  let toastTimer: ReturnType<typeof setTimeout> | undefined;
 
   const env = $derived(draft.find((e) => e.id === selected));
   const rows = $derived(env ? env.vars : draftGlobals);
@@ -47,6 +94,19 @@
       workspace.tree,
       rows.map((r) => r.key),
     ),
+  );
+  const jsonResult = $derived(envFromJson(creating ? creating.text : jsonText, creating?.fmt));
+  /** The JSON on screen has an error: «Сохранить» / «Создать» wait for a fix. */
+  const jsonInvalid = $derived((creating !== null || view === 'json') && !jsonResult.ok);
+  const nameFromJson = $derived(creating !== null && !creating.nameTouched && jsonResult.ok && !!jsonResult.env.name);
+  const footNote = $derived(
+    creating
+      ? t('env.create.note')
+      : view === 'json'
+        ? t(jsonResult.ok ? 'env.json.note.ok' : 'env.json.note.err')
+        : preview
+          ? t('env.paste.note')
+          : t('env.secrets_note'),
   );
 
   /** «1 окружение · 2–4 окружения · 5+ окружений». */
@@ -73,16 +133,27 @@
       draftGlobals = environments.globals.map((r) => ({ ...r }));
       selected = draft.some((e) => e.id === environments.activeId) ? environments.activeId! : (draft[0]?.id ?? GLOBALS);
       query = '';
-      menuOpen = false;
-      revealed = [];
+      resetTransient();
     });
     if (!embedded) void tick().then(() => searchInput?.focus());
   });
 
+  /** Back to a plain table: no menus, no JSON view, no half-made environment. */
+  function resetTransient(): void {
+    menuOpen = false;
+    addMenuOpen = false;
+    revealed = [];
+    view = 'table';
+    preview = null;
+    creating = null;
+    createdFrom = null;
+    toast = null;
+  }
+
   function close(): void {
     if (embedded) {
       seed();
-      revealed = [];
+      resetTransient();
       return;
     }
     environments.sheetOpen = false;
@@ -90,6 +161,7 @@
   }
 
   function save(): void {
+    if (jsonInvalid) return;
     const ids = new Set(draft.map((e) => e.id));
     // Snapshots: the saved state gets plain copies, not the editor's live $state proxies.
     environments.list = $state.snapshot(draft).map((e) => ({ ...e, name: e.name.trim() || t('env.default_name') }));
@@ -99,18 +171,199 @@
   }
 
   function onKeydown(e: KeyboardEvent): void {
-    if (embedded || !environments.sheetOpen || e.key !== 'Escape' || confirmState.current) return;
-    e.preventDefault();
-    e.stopPropagation();
-    if (menuOpen) menuOpen = false;
-    else close();
+    if (!shown || confirmState.current) return;
+    if (e.key === 'Escape') {
+      // Innermost thing first: the pasted-JSON preview, the half-made environment, a menu, the sheet.
+      const handled = preview
+        ? ((preview = null), true)
+        : creating
+          ? (cancelCreate(), true)
+          : menuOpen || addMenuOpen
+            ? ((menuOpen = addMenuOpen = false), true)
+            : !embedded && (close(), true);
+      if (handled) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+      return;
+    }
+    // Shortcuts of the «Новое окружение» menu. The embedded tab shares the window: only while focus is in it.
+    if (embedded && !root?.contains(document.activeElement)) return;
+    const mod = e.metaKey || e.ctrlKey;
+    const key = e.key.toLowerCase();
+    if (mod && e.shiftKey && key === 'v') {
+      e.preventDefault();
+      startCreate();
+    } else if (mod && !e.shiftKey && !e.altKey && key === 'd' && env && !creating) {
+      e.preventDefault();
+      duplicate();
+    }
+  }
+
+  function onPointerdown(e: PointerEvent): void {
+    if (!(e.target instanceof Element) || e.target.closest('.menu, .more, .addwrap')) return;
+    menuOpen = addMenuOpen = false;
   }
 
   function select(id: string): void {
     selected = id;
     menuOpen = false;
     revealed = [];
+    preview = null;
+    createdFrom = null;
+    if (view === 'json') seedJson();
   }
+
+  function showToast(text: string, undo?: () => void): void {
+    toast = { text, undo };
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => (toast = null), 5000);
+  }
+
+  function seedJson(): void {
+    jsonBase = rows;
+    jsonText = envToJson(rows, 'mask');
+  }
+
+  function setView(next: 'table' | 'json'): void {
+    if (view === next) return;
+    view = next;
+    revealed = [];
+    preview = null;
+    if (next === 'json') seedJson();
+  }
+
+  /** A valid text goes into the draft at once; an invalid one leaves the last valid version in the table. */
+  function onJson(text: string): void {
+    jsonText = text;
+    const r = envFromJson(text);
+    if (r.ok) commitRows(mergeEnvRows(jsonBase, r.env.rows, 'replace'));
+  }
+
+  /** ⌘V of a JSON object on a key cell (or the empty last row) previews the merge instead of pasting a line. */
+  function onTablePaste(e: ClipboardEvent): void {
+    const target = e.target instanceof Element ? e.target : null;
+    if (!target || !(target.classList.contains('key') || target.closest('.tr.new'))) return;
+    const text = e.clipboardData?.getData('text/plain') ?? '';
+    if (!text.trimStart().startsWith('{')) return;
+    const r = envFromJson(text);
+    if (!r.ok || !r.env.rows.length) return;
+    e.preventDefault();
+    const merged = mergeEnvRows(rows, r.env.rows, 'merge');
+    preview = { base: rows, merged, diff: diffEnvRows(rows, merged), count: r.env.rows.length };
+  }
+
+  function applyPreview(): void {
+    if (!preview) return;
+    commitRows(preview.merged);
+    preview = null;
+    revealed = [];
+  }
+
+  async function copyJson(): Promise<void> {
+    menuOpen = false;
+    try {
+      await navigator.clipboard.writeText(envToJson(rows, 'blank'));
+      showToast(t('env.copied_json'));
+    } catch {
+      /* clipboard unavailable */
+    }
+  }
+
+  function uniqueName(taken: string[], base: string): string {
+    let name = base;
+    for (let n = 2; taken.includes(name); n++) name = `${base} ${n}`;
+    return name;
+  }
+
+  function startCreate(text = ''): void {
+    addMenuOpen = menuOpen = false;
+    preview = null;
+    view = 'table';
+    const id = crypto.randomUUID();
+    creating = { id, text, fmt: undefined, nameTouched: false, prev: selected };
+    draft = [...draft, { id, name: t('env.new'), vars: [] }];
+    query = '';
+    select(id);
+    updateCreate({});
+    void tick().then(() => root?.querySelector<HTMLElement>('.envjson .cm-content')?.focus());
+  }
+
+  /** New text / format for the draft; a name inside the JSON (Postman) becomes the environment's name. */
+  function updateCreate(patch: Partial<Creating>): void {
+    if (!creating) return;
+    const next = { ...creating, ...patch };
+    creating = next;
+    const r = envFromJson(next.text, next.fmt);
+    if (r.ok && r.env.name && !next.nameTouched) patchEnv({ name: r.env.name });
+  }
+
+  function confirmCreate(): void {
+    const c = creating;
+    const r = jsonResult;
+    if (!c || !r.ok) return;
+    const taken = draft.filter((e) => e.id !== c.id).map((e) => e.name);
+    const name = uniqueName(taken, env?.name.trim() || t('env.new'));
+    draft = draft.map((e) => (e.id === c.id ? { ...e, name, vars: r.env.rows } : e));
+    createdFrom = { id: c.id, format: t(`env.fmt.${r.env.format}`) };
+    creating = null;
+    const n = r.env.rows.length;
+    showToast(
+      t('env.create.done', {
+        name,
+        n,
+        word: tp(n, ['переменная', 'переменные', 'переменных'], ['variable', 'variables']),
+      }),
+      () => dropDraft(c.id, c.prev),
+    );
+  }
+
+  function dropDraft(id: string, back: string): void {
+    draft = draft.filter((e) => e.id !== id);
+    select(draft.some((e) => e.id === back) ? back : (draft[0]?.id ?? GLOBALS));
+  }
+
+  function cancelCreate(): void {
+    if (creating) dropDraft(creating.id, creating.prev);
+    creating = null;
+  }
+
+  async function startFromFile(): Promise<void> {
+    addMenuOpen = false;
+    try {
+      const f = await openapiImportPick();
+      if (f) startCreate(f.text || (await importReadFile(f.path)).text);
+    } catch {
+      showToast(t('env.file_error'));
+    }
+  }
+
+  // A .json dragged into the window while «Из JSON…» is open fills the editor. Tauri hands over file paths
+  // (HTML5 drop events never fire in the macOS webview); the import window's drop zone steps aside for [data-env-drop].
+  const dropOpen = $derived(creating !== null);
+  $effect(() => {
+    if (!dropOpen) return;
+    let off: (() => void) | undefined;
+    let cancelled = false;
+    try {
+      getCurrentWebview()
+        .onDragDropEvent((e) => {
+          const path = e.payload.type === 'drop' ? e.payload.paths.find((p) => /\.json$/i.test(p)) : undefined;
+          if (path)
+            void importReadFile(path)
+              .then((f) => updateCreate({ text: f.text }))
+              .catch(() => showToast(t('env.file_error')));
+        })
+        .then((fn) => (cancelled ? fn() : (off = fn)))
+        .catch(() => {});
+    } catch {
+      /* not inside Tauri (browser preview) */
+    }
+    return () => {
+      cancelled = true;
+      off?.();
+    };
+  });
 
   function patchEnv(patch: Partial<Environment>): void {
     draft = draft.map((e) => (e.id === selected ? { ...e, ...patch } : e));
@@ -138,6 +391,7 @@
   }
 
   async function addEnv(): Promise<void> {
+    addMenuOpen = false;
     const id = crypto.randomUUID();
     draft = [...draft, { id, name: t('env.new'), vars: [] }];
     query = '';
@@ -148,6 +402,7 @@
   }
 
   function duplicate(): void {
+    addMenuOpen = false;
     if (!env) return;
     const id = crypto.randomUUID();
     draft = [
@@ -178,10 +433,12 @@
     row.secret && !revealed.includes(i) && i < rows.length ? maskSecret(row.value) : row.value;
 </script>
 
-<svelte:window onkeydown={onKeydown} />
+<svelte:window onkeydown={onKeydown} onpointerdown={onPointerdown} />
 
 {#if embedded}
-  <div class="bs-envsheet embedded" role="region" aria-labelledby="bs-envsheet-title">{@render content()}</div>
+  <div bind:this={root} class="bs-envsheet embedded" role="region" aria-labelledby="bs-envsheet-title">
+    {@render content()}
+  </div>
 {:else if environments.sheetOpen}
   <div
     class="bs-overlay bs-envsheet-overlay"
@@ -190,7 +447,13 @@
       if (e.target === e.currentTarget) close();
     }}
   >
-    <div class="bs-modal bs-envsheet" role="dialog" aria-modal="true" aria-labelledby="bs-envsheet-title">
+    <div
+      bind:this={root}
+      class="bs-modal bs-envsheet"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="bs-envsheet-title"
+    >
       {@render content()}
     </div>
   </div>
@@ -222,18 +485,49 @@
           <button class="item" class:on={selected === e.id} type="button" onclick={() => select(e.id)}>
             <span class="dot" style:background={ENV_COLOR_VAR[envColor(e)]} aria-hidden="true"></span>
             <span class="label">{e.name}</span>
+            {#if creating?.id === e.id}<span class="draft">{t('env.create.draft')}</span>{/if}
             {#if isProtected(e)}<span class="material-symbols-outlined lock" role="img" aria-label={t('env.protected')}
                 >lock</span
               >{/if}
           </button>
         {/each}
       </div>
-      <button class="add" type="button" onclick={addEnv}
-        ><span class="material-symbols-outlined" aria-hidden="true">add</span>{t('env.new')}</button
-      >
+      <div class="addwrap">
+        {#if addMenuOpen}
+          <div class="menu addmenu" role="menu" aria-label={t('env.add.menu')}>
+            <div class="mhead">{t('env.add.menu')}</div>
+            <button type="button" role="menuitem" onclick={addEnv}
+              ><span class="material-symbols-outlined" aria-hidden="true">add</span>{t('env.add.empty')}</button
+            >
+            <button type="button" role="menuitem" disabled={!env} onclick={duplicate}
+              ><span class="material-symbols-outlined" aria-hidden="true">content_copy</span><span class="grow"
+                >{env ? t('env.add.dup', { name: env.name }) : t('env.duplicate')}</span
+              ><kbd>⌘D</kbd></button
+            >
+            <div class="msep" role="separator"></div>
+            <button type="button" role="menuitem" class="json" onclick={() => startCreate()}
+              ><span class="material-symbols-outlined" aria-hidden="true">data_object</span><span class="grow"
+                >{t('env.add.json')}</span
+              ><kbd>⇧⌘V</kbd></button
+            >
+            <button type="button" role="menuitem" onclick={startFromFile}
+              ><span class="material-symbols-outlined" aria-hidden="true">upload_file</span>{t('env.add.file')}</button
+            >
+            <div class="mhint">{t('env.add.file_hint')}</div>
+          </div>
+        {/if}
+        <button
+          class="add"
+          type="button"
+          aria-haspopup="menu"
+          aria-expanded={addMenuOpen}
+          onclick={() => (addMenuOpen = !addMenuOpen)}
+          ><span class="material-symbols-outlined" aria-hidden="true">add</span>{t('env.new')}</button
+        >
+      </div>
     </aside>
 
-    <section class="detail">
+    <section class="detail" data-env-drop={creating ? '' : undefined}>
       <div class="titlebar">
         {#if env}
           <!-- Grows with the text so the «Защищено» badge sits right after the name (S31). -->
@@ -243,7 +537,10 @@
               size="1"
               bind:this={nameInput}
               value={env.name}
-              oninput={(e) => patchEnv({ name: e.currentTarget.value })}
+              oninput={(e) => {
+                if (creating) creating = { ...creating, nameTouched: true };
+                patchEnv({ name: e.currentTarget.value });
+              }}
               onblur={() => {
                 if (!env?.name.trim()) patchEnv({ name: t('env.default_name') });
               }}
@@ -253,36 +550,45 @@
               aria-label={t('env.name_aria')}
             /></label
           >
-          {#if isProtected(env)}<span class="badge"
+          {#if nameFromJson}<span class="badge json"
+              ><span class="material-symbols-outlined" aria-hidden="true">data_object</span>{t(
+                'env.create.name_from_json',
+              )}</span
+            >{:else if isProtected(env)}<span class="badge"
               ><span class="material-symbols-outlined" aria-hidden="true">lock</span>{t('env.protected')}</span
             >{/if}
           <div class="grow"></div>
-          <button class="quiet" type="button" onclick={duplicate}
-            ><span class="material-symbols-outlined" aria-hidden="true">content_copy</span>{t('env.duplicate')}</button
-          >
-          <div class="more">
-            <button
-              class="icon"
-              type="button"
-              aria-label={t('env.more')}
-              aria-haspopup="menu"
-              aria-expanded={menuOpen}
-              onclick={() => (menuOpen = !menuOpen)}
-              ><span class="material-symbols-outlined" aria-hidden="true">more_horiz</span></button
+          {#if !creating}
+            <button class="quiet" type="button" onclick={duplicate}
+              ><span class="material-symbols-outlined" aria-hidden="true">content_copy</span>{t(
+                'env.duplicate',
+              )}</button
             >
-            {#if menuOpen}
-              <div class="menu" role="menu">
-                <button type="button" role="menuitem" onclick={startRename}>{t('env.rename')}</button>
-                <button type="button" role="menuitem" class="danger" onclick={removeEnv}>{t('common.delete')}</button>
-              </div>
-            {/if}
-          </div>
+            <div class="more">
+              <button
+                class="icon"
+                type="button"
+                aria-label={t('env.more')}
+                aria-haspopup="menu"
+                aria-expanded={menuOpen}
+                onclick={() => (menuOpen = !menuOpen)}
+                ><span class="material-symbols-outlined" aria-hidden="true">more_horiz</span></button
+              >
+              {#if menuOpen}
+                <div class="menu" role="menu">
+                  <button type="button" role="menuitem" onclick={startRename}>{t('env.rename')}</button>
+                  <button type="button" role="menuitem" onclick={copyJson}>{t('env.copy_json')}</button>
+                  <button type="button" role="menuitem" class="danger" onclick={removeEnv}>{t('common.delete')}</button>
+                </div>
+              {/if}
+            </div>
+          {/if}
         {:else}
           <h3 class="name static">Globals</h3>
         {/if}
       </div>
 
-      {#if env}
+      {#if env && !creating}
         <div class="cards">
           <div class="card">
             <div class="eyebrow">{t('env.protection')}</div>
@@ -318,87 +624,217 @@
         </div>
       {/if}
 
-      <div class="varhead">
-        <span class="eyebrow">{t('env.variables')}&nbsp;&nbsp;·&nbsp;&nbsp;{rows.length}</span>
-        <span class="used">{t('env.used_in', { n: usedIn, word: requestsWord(usedIn) })}</span>
-      </div>
-
-      <div class="table" role="table" aria-label={t('env.variables_aria')}>
-        <div class="tr th" role="row">
-          <span class="c-key" role="columnheader">{t('env.col.key')}</span>
-          <span class="c-val" role="columnheader">{t('env.col.value')}</span>
-          <span class="c-sec" role="columnheader">{t('env.col.secret')}</span>
+      {#if creating}
+        <div class="varhead">
+          <span class="eyebrow">{t('env.create.paste')}</span>
+          <span class="used">{t('env.create.drop')}</span>
         </div>
-        <div class="rows">
-          {#each viewRows as row, i (i)}
-            {@const isNew = i === rows.length}
-            <div class="tr" class:new={isNew} role="row">
-              <span class="c-key" role="cell"
-                ><input
-                  class="key"
-                  placeholder={t('env.new_var')}
-                  aria-label={t('env.key_aria')}
-                  value={row.key}
-                  oninput={(e) => patchRow(i, { key: e.currentTarget.value })}
-                /></span
+        <EnvJsonEditor
+          create
+          text={creating.text}
+          onChange={(text) => updateCreate({ text })}
+          result={jsonResult}
+          base={[]}
+          docId={creating.id}
+          format={creating.fmt}
+          onFormat={(fmt) => updateCreate({ fmt })}
+        />
+      {:else}
+        <div class="varhead">
+          <span class="eyebrow">{t('env.variables')}&nbsp;&nbsp;·&nbsp;&nbsp;{rows.length}</span>
+          <span class="right">
+            <span class="used"
+              >{createdFrom?.id === selected
+                ? t('env.created_from', { format: createdFrom.format })
+                : t('env.used_in', { n: usedIn, word: requestsWord(usedIn) })}</span
+            >
+            <span class="bs-seg" role="group" aria-label={t('env.view_aria')}>
+              <button
+                type="button"
+                class:on={view === 'table'}
+                aria-pressed={view === 'table'}
+                onclick={() => setView('table')}>{t('env.view.table')}</button
               >
-              <span class="c-val" role="cell">
-                <input
-                  class="val"
-                  placeholder={t('env.value_aria')}
-                  aria-label={t('env.value_aria')}
-                  value={valueShown(row, i)}
-                  readonly={!!row.secret && !revealed.includes(i) && !isNew}
-                  oninput={(e) => patchRow(i, { value: e.currentTarget.value })}
-                />
-              </span>
-              <span class="c-sec" role="cell">
-                {#if !isNew}
-                  <button
-                    class="icon sm del"
-                    type="button"
-                    aria-label={t('env.delete_var')}
-                    onclick={() => removeRow(i)}
-                    ><span class="material-symbols-outlined" aria-hidden="true">close</span></button
-                  >
-                  {#if row.secret}
-                    <button
-                      class="icon sm"
-                      type="button"
-                      aria-label={revealed.includes(i) ? t('env.hide_value') : t('env.show_value')}
-                      aria-pressed={revealed.includes(i)}
-                      onclick={() => toggleReveal(i)}
-                      ><span class="material-symbols-outlined" aria-hidden="true"
-                        >{revealed.includes(i) ? 'visibility_off' : 'visibility'}</span
-                      ></button
-                    >
-                  {/if}
-                  <button
-                    class="mono-switch"
-                    type="button"
-                    role="switch"
-                    aria-checked={!!row.secret}
-                    aria-label={t('env.secret')}
-                    onclick={() => {
-                      revealed = [];
-                      patchRow(i, { secret: !row.secret });
-                    }}
-                  ></button>
-                {/if}
-              </span>
-            </div>
-          {/each}
+              <button
+                type="button"
+                class:on={view === 'json'}
+                aria-pressed={view === 'json'}
+                onclick={() => setView('json')}>{t('env.view.json')}</button
+              >
+            </span>
+          </span>
         </div>
-      </div>
+
+        {#if view === 'json'}
+          <EnvJsonEditor text={jsonText} onChange={onJson} result={jsonResult} base={jsonBase} docId={selected} />
+        {:else}
+          {#if preview}
+            <div class="pv" role="status">
+              <span class="material-symbols-outlined" aria-hidden="true">content_paste</span>
+              <div class="pvtext">
+                <div class="pvtitle">
+                  {t('env.paste.title', {
+                    n: preview.count,
+                    word: tp(preview.count, ['ключ', 'ключа', 'ключей'], ['key', 'keys']),
+                  })}
+                </div>
+                <div class="pvstat">
+                  {#if preview.diff.added.length}<span class="s-new"
+                      >{t('env.paste.added', {
+                        n: preview.diff.added.length,
+                        word: tp(preview.diff.added.length, ['новая', 'новые', 'новых'], ['new', 'new']),
+                      })}</span
+                    >{/if}
+                  {#if preview.diff.changed.length}<span class="s-chg"
+                      >{t('env.paste.changed', { n: preview.diff.changed.length })}</span
+                    >{/if}
+                  {#if preview.diff.same}<span>{t('env.paste.same', { n: preview.diff.same })}</span>{/if}
+                </div>
+              </div>
+              <button class="quiet" type="button" onclick={() => (preview = null)}
+                >{t('env.paste.cancel')}&nbsp;&nbsp;<kbd>Esc</kbd></button
+              >
+              <button class="bs-btn primary" type="button" onclick={applyPreview}>{t('env.paste.apply')}</button>
+            </div>
+          {/if}
+
+          <div class="table" role="table" aria-label={t('env.variables_aria')} onpaste={onTablePaste}>
+            <div class="tr th" role="row">
+              {#if preview}<span class="c-mk" aria-hidden="true"></span>{/if}
+              <span class="c-key" role="columnheader">{t('env.col.key')}</span>
+              <span class="c-val" role="columnheader">{t('env.col.value')}</span>
+              <span class="c-sec" role="columnheader">{t('env.col.secret')}</span>
+            </div>
+            <div class="rows">
+              {#if preview}
+                {#each preview.merged as row (row.key)}
+                  {@const state = preview.diff.added.includes(row.key)
+                    ? 'new'
+                    : preview.diff.changed.includes(row.key)
+                      ? 'chg'
+                      : 'same'}
+                  {@const was = preview.base.find((r) => r.key === row.key)}
+                  <div class="tr pv-{state}" role="row">
+                    <span class="c-mk" aria-hidden="true">{state === 'new' ? '+' : state === 'chg' ? '~' : ''}</span>
+                    <span class="c-key static" role="cell">{row.key}</span>
+                    <span class="c-val static" role="cell"
+                      >{#if state === 'chg' && was}<span class="was"
+                          >{was.secret ? maskSecret(was.value) : was.value}</span
+                        >&nbsp;→&nbsp;{/if}<span class="now">{row.secret ? maskSecret(row.value) : row.value}</span
+                      ></span
+                    >
+                    <span class="c-sec" role="cell"
+                      ><button
+                        class="mono-switch"
+                        type="button"
+                        role="switch"
+                        disabled
+                        aria-checked={!!row.secret}
+                        aria-label={t('env.secret')}
+                      ></button></span
+                    >
+                  </div>
+                {/each}
+              {:else}
+                {#each viewRows as row, i (i)}
+                  {@const isNew = i === rows.length}
+                  <div class="tr" class:new={isNew} class:off={!row.enabled} role="row">
+                    <span class="c-key" role="cell"
+                      ><input
+                        class="key"
+                        placeholder={t('env.new_var')}
+                        aria-label={t('env.key_aria')}
+                        value={row.key}
+                        oninput={(e) => patchRow(i, { key: e.currentTarget.value })}
+                      /></span
+                    >
+                    <span class="c-val" role="cell">
+                      <input
+                        class="val"
+                        placeholder={t('env.value_aria')}
+                        aria-label={t('env.value_aria')}
+                        value={valueShown(row, i)}
+                        readonly={!!row.secret && !revealed.includes(i) && !isNew}
+                        oninput={(e) => patchRow(i, { value: e.currentTarget.value })}
+                      />
+                      {#if !row.enabled}<button
+                          class="offtag"
+                          type="button"
+                          title={t('env.enable_var')}
+                          onclick={() => patchRow(i, { enabled: true })}>{t('env.off')}</button
+                        >{/if}
+                    </span>
+                    <span class="c-sec" role="cell">
+                      {#if !isNew}
+                        <button
+                          class="icon sm del"
+                          type="button"
+                          aria-label={t('env.delete_var')}
+                          onclick={() => removeRow(i)}
+                          ><span class="material-symbols-outlined" aria-hidden="true">close</span></button
+                        >
+                        {#if row.secret}
+                          <button
+                            class="icon sm"
+                            type="button"
+                            aria-label={revealed.includes(i) ? t('env.hide_value') : t('env.show_value')}
+                            aria-pressed={revealed.includes(i)}
+                            onclick={() => toggleReveal(i)}
+                            ><span class="material-symbols-outlined" aria-hidden="true"
+                              >{revealed.includes(i) ? 'visibility_off' : 'visibility'}</span
+                            ></button
+                          >
+                        {/if}
+                        <button
+                          class="mono-switch"
+                          type="button"
+                          role="switch"
+                          aria-checked={!!row.secret}
+                          aria-label={t('env.secret')}
+                          onclick={() => {
+                            revealed = [];
+                            patchRow(i, { secret: !row.secret });
+                          }}
+                        ></button>
+                      {/if}
+                    </span>
+                  </div>
+                {/each}
+              {/if}
+            </div>
+          </div>
+        {/if}
+      {/if}
     </section>
   </div>
 
   <footer class="foot">
-    <span class="note">{t('env.secrets_note')}</span>
-    <button class="bs-btn ghost" type="button" onclick={close}>{t('common.cancel')}</button>
-    <button class="bs-btn primary" type="button" onclick={save}>{t('common.save')}</button>
+    <span class="note">{footNote}</span>
+    {#if creating}
+      <button class="bs-btn ghost" type="button" onclick={cancelCreate}>{t('common.cancel')}</button>
+      <button class="bs-btn primary" type="button" disabled={!jsonResult.ok} onclick={confirmCreate}
+        >{t('env.create.button')}</button
+      >
+    {:else}
+      <button class="bs-btn ghost" type="button" onclick={close}>{t('common.cancel')}</button>
+      <button class="bs-btn primary" type="button" disabled={jsonInvalid} onclick={save}>{t('common.save')}</button>
+    {/if}
   </footer>
 {/snippet}
+
+{#if toast}
+  <div class="bs-toast" role="status">
+    <span class="material-symbols-outlined" aria-hidden="true">check_circle</span>
+    <span class="text">{toast.text}</span>
+    {#if toast.undo}<button
+        type="button"
+        onclick={() => {
+          toast?.undo?.();
+          toast = null;
+        }}>{t('env.create.undo')}</button
+      >{/if}
+  </div>
+{/if}
 
 <style>
   /* Sizes follow the S31 mock (Pencil node «Environments sheet»). */
@@ -768,7 +1204,12 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    height: 13px;
+    min-height: 13px;
+  }
+  .varhead .right {
+    display: flex;
+    align-items: center;
+    gap: 12px;
   }
   .used {
     color: var(--color-text-muted);
@@ -805,6 +1246,9 @@
   .c-val {
     flex: 1;
     min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
     padding-right: 12px;
   }
   .c-sec {
@@ -848,6 +1292,155 @@
     opacity: 1;
   }
 
+  .item .draft {
+    flex: none;
+    color: var(--color-text-muted);
+    font: var(--font-size-caption) var(--font-ui);
+  }
+  .badge.json {
+    background: color-mix(in srgb, var(--color-var) 16%, transparent);
+    color: var(--color-var);
+  }
+  kbd {
+    color: var(--color-text-muted);
+    font: var(--font-size-micro) var(--font-code);
+  }
+
+  .addwrap {
+    position: relative;
+    flex: none;
+  }
+  .addwrap .add {
+    width: 100%;
+  }
+  .menu.addmenu {
+    top: auto;
+    bottom: calc(100% + 6px);
+    left: 0;
+    right: 0;
+  }
+  .addmenu button {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 0 10px;
+  }
+  .addmenu button:disabled {
+    opacity: 0.45;
+  }
+  .addmenu .material-symbols-outlined {
+    font-size: 15px;
+    color: var(--color-text-muted);
+  }
+  .addmenu .json .material-symbols-outlined {
+    color: var(--color-var);
+  }
+  .addmenu .grow {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .mhead {
+    padding: 6px 10px 4px;
+    color: var(--color-text-muted);
+    font: 500 var(--font-size-micro)/13px var(--font-code);
+    letter-spacing: var(--tracking-eyebrow);
+    text-transform: uppercase;
+  }
+  .msep {
+    height: 1px;
+    margin: 4px 0;
+    background: var(--color-border-subtle);
+  }
+  .mhint {
+    padding: 0 10px 6px 35px;
+    color: var(--color-text-muted);
+    font: var(--font-size-caption) var(--font-ui);
+  }
+
+  .pv {
+    flex: none;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 0 4px 0 14px;
+  }
+  .pv > .material-symbols-outlined {
+    font-size: 16px;
+    color: var(--color-text-muted);
+  }
+  .pvtext {
+    flex: 1;
+    min-width: 0;
+  }
+  .pvtitle {
+    font: 600 var(--font-size-body) var(--font-ui);
+  }
+  .pvstat {
+    display: flex;
+    gap: 12px;
+    color: var(--color-text-muted);
+    font: var(--font-size-caption) var(--font-ui);
+  }
+  .s-new {
+    color: var(--color-success);
+  }
+  .s-chg {
+    color: var(--color-warning);
+  }
+  .c-mk {
+    flex: none;
+    width: 22px;
+    font: var(--font-size-body) var(--font-code);
+  }
+  .pv-new {
+    background: var(--color-success-soft);
+  }
+  .pv-chg {
+    background: var(--color-warning-soft);
+  }
+  .pv-new .c-mk {
+    color: var(--color-success);
+  }
+  .pv-chg .c-mk {
+    color: var(--color-warning);
+  }
+  .c-key.static,
+  .c-val.static {
+    font: var(--font-size-body) var(--font-code);
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+  .c-key.static {
+    color: var(--color-var);
+  }
+  .pv-same .c-key.static,
+  .pv-same .c-val.static {
+    opacity: 0.6;
+  }
+  .was {
+    color: var(--color-text-muted);
+  }
+  .tr.off .key,
+  .tr.off .val {
+    opacity: 0.55;
+  }
+  .offtag {
+    flex: none;
+    height: 18px;
+    padding: 0 7px;
+    border-radius: var(--radius-control);
+    background: var(--color-hover);
+    color: var(--color-text-muted);
+    font: var(--font-size-micro) var(--font-ui);
+  }
+  .offtag:hover {
+    color: var(--color-text);
+  }
+
   .foot {
     flex: none;
     display: flex;
@@ -861,7 +1454,8 @@
     color: var(--color-text-muted);
     font: var(--font-size-caption) var(--font-ui);
   }
-  .foot :global(.bs-btn) {
+  .foot :global(.bs-btn),
+  .pv :global(.bs-btn) {
     height: 34px;
     padding: 0 16px;
     border: 0;
@@ -872,9 +1466,14 @@
     background: var(--color-panel);
     color: var(--color-text);
   }
-  .foot :global(.bs-btn.primary) {
+  .foot :global(.bs-btn.primary),
+  .pv :global(.bs-btn.primary) {
     background: var(--color-action);
     color: var(--color-on-action);
     font-weight: 600;
+  }
+  .foot :global(.bs-btn:disabled) {
+    opacity: 0.45;
+    cursor: default;
   }
 </style>

@@ -16,6 +16,13 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   protos instead of asking the server for reflection, so `run_saved_request`
   behaves like `grpc_call` with the same settings.
 
+### Added
+- **Environments from JSON** (Flow · Окружения из JSON). A Table / JSON switch over the
+  variables of an environment; pasting a JSON object into the table previews what it adds
+  and changes; «New environment → From JSON… / From file…» reads a flat object, a nested
+  config (`auth.token`), a Postman environment or an Insomnia export. Syntax errors are
+  pointed at by line and column, secrets stay masked, «Copy as JSON» leaves them empty.
+
 ## [0.2.0] - 2026-10-11
 
 ### Added
