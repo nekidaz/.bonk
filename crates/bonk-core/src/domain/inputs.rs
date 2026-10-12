@@ -38,6 +38,8 @@ pub struct InputDef {
     pub default: String,
     /// Fill the form with the value of the last send (never for a secret).
     pub remember: bool,
+    /// Mask the value in the form and the log whatever its type (`Secret` always is).
+    pub secret: bool,
     /// `Select`: the variants.
     pub options: Vec<String>,
     /// `Text`: a regex the whole value must match.
@@ -58,6 +60,7 @@ impl Default for InputDef {
             required: true,
             default: String::new(),
             remember: false,
+            secret: false,
             options: Vec::new(),
             pattern: String::new(),
             min: None,
@@ -82,13 +85,13 @@ impl InputDef {
 
     /// Codes and secrets are hidden in logs, history and the sent-request view.
     pub fn sensitive(&self) -> bool {
-        matches!(self.kind, InputKind::Code | InputKind::Secret)
+        self.secret || matches!(self.kind, InputKind::Code | InputKind::Secret)
     }
 
     /// What a log shows instead of `value`: `••••13` for a code, `••••` for a secret.
     pub fn mask(&self, value: &str) -> String {
         let count = value.chars().count();
-        if self.kind == InputKind::Secret || count <= 4 {
+        if self.kind == InputKind::Secret || self.secret || count <= 4 {
             return "••••".into();
         }
         let tail: String = value.chars().skip(count - 2).collect();
@@ -274,6 +277,12 @@ mod tests {
         assert_eq!(def(InputKind::Code).mask("123"), "••••");
         assert!(def(InputKind::Code).sensitive());
         assert!(!def(InputKind::Text).sensitive());
+        let hidden = InputDef {
+            secret: true,
+            ..def(InputKind::Select)
+        };
+        assert!(hidden.sensitive());
+        assert_eq!(hidden.mask("KZT-long"), "••••");
     }
 
     #[test]

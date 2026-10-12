@@ -45,6 +45,27 @@
   background: var(--color-danger-soft);
 }
 
+/* «Ask on send» variable (Flow · Сценарий с вводом): the blue chip with the keyboard glyph. */
+:root .bs .cm-var-ask {
+  color: var(--color-ask);
+  background: var(--color-ask-soft);
+  border-radius: 3px;
+}
+
+:root .bs .cm-var-ask::before {
+  content: 'keyboard';
+  margin-right: 4px;
+  font: 300 0.95em/1 'Material Symbols Outlined';
+  font-feature-settings: 'liga';
+  vertical-align: -0.12em;
+}
+
+:root .bs .bs-urlfield .cm-var-ask {
+  margin-right: 2px;
+  padding: 2px 9px;
+  border-radius: var(--radius-control);
+}
+
 /* Mono 3.0: booleans/null share the number colour (design syntax-number); --sb is the key colour. */
 [data-theme] .bs .bs-code .b2 {
   color: var(--sn);

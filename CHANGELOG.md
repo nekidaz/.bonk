@@ -17,6 +17,15 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   behaves like `grpc_call` with the same settings.
 
 ### Added
+- **Scenario with input** (Flow · Сценарий с вводом). Any `{{variable}}` can be «ask on send»:
+  right-click it in the URL, headers or body → «Спрашивать при отправке», and give it a type
+  (text, number, code, secret, choice, yes/no, JSON, file), a label and checks. Send opens a small
+  form by the button; the Runner stops at that step, shows the form in the run log (several
+  variables of one step make one form) and goes on after the answer. A 4xx on a step with typed
+  input opens the form again (3 tries by default). The value lives only in that run: it is not
+  written to environments, history, run records or the log (a code shows as `••••13`). The
+  definitions are `.bonk/inputs.json` — commit it. The CLI never asks: `bonk run --input otp=123456`
+  (or `BONK_INPUT_otp`) gives the value, a step without one fails with a clear error.
 - **Environments from JSON** (Flow · Окружения из JSON). A Table / JSON switch over the
   variables of an environment; pasting a JSON object into the table previews what it adds
   and changes; «New environment → From JSON… / From file…» reads a flat object, a nested

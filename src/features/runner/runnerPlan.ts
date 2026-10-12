@@ -4,7 +4,7 @@
  * edit plan. No store reads/writes, no IPC — store.ts wires these in.
  */
 import { t, type Translate } from '$shared/i18n';
-import type { RequestNode, RunResultRow, RunStatus, TreeNode } from '$shared/model';
+import type { InputRequest, RequestNode, RunResultRow, RunStatus, TreeNode } from '$shared/model';
 import type { IdBinding, RunRecord, RunSummary } from './runnerStats';
 import type { RunnerPreset } from './runnerPreset';
 import { findNode } from '$entities/workspace';
@@ -32,6 +32,8 @@ export interface RunnerConfig {
   orderIds: string[];
   /** Keep (truncated) response bodies in the saved run records and the exported report. */
   saveResponses: boolean;
+  /** A step with an «ask on send» variable: wait for a person, or fail (CI). */
+  inputMode: 'wait' | 'fail';
 }
 
 /** Which Runner screen the tab shows: R1 pick a collection, R2 set the run up, R3/R4 the run. */
@@ -54,6 +56,12 @@ export interface RunnerRun {
   current: { nodeId: string; name: string; method: string; startedAt: number } | null;
   /** Start of each iteration, ms since the run started (R3 log). */
   iterStarts: number[];
+  /** The step waiting for typed input, and when the wait began. */
+  waiting: { request: InputRequest; since: number } | null;
+  /** Time the run spent waiting for a person, ms. */
+  waitedMs: number;
+  /** How many times a rejected value opened the form again. */
+  retries: number;
 }
 
 export const DEFAULT_CONFIG: RunnerConfig = {
@@ -66,6 +74,7 @@ export const DEFAULT_CONFIG: RunnerConfig = {
   excludedIds: [],
   orderIds: [],
   saveResponses: true,
+  inputMode: 'wait',
 };
 
 export const DEFAULT_RUN: RunnerRun = {
@@ -80,6 +89,9 @@ export const DEFAULT_RUN: RunnerRun = {
   paused: false,
   current: null,
   iterStarts: [],
+  waiting: null,
+  waitedMs: 0,
+  retries: 0,
 };
 
 export const isRecord = (v: unknown): v is RunRecord =>
@@ -106,13 +118,14 @@ export function mergeSavedConfig(cur: RunnerConfig, saved: unknown): RunnerConfi
     delayMs: typeof c.delayMs === 'number' ? c.delayMs : cur.delayMs,
     stopOnFailure: typeof c.stopOnFailure === 'boolean' ? c.stopOnFailure : cur.stopOnFailure,
     saveResponses: typeof c.saveResponses === 'boolean' ? c.saveResponses : cur.saveResponses,
+    inputMode: c.inputMode === 'fail' || c.inputMode === 'wait' ? c.inputMode : cur.inputMode,
   };
 }
 
 /** The persisted subset of the config (no data file). */
 export function persistedConfig(c: RunnerConfig) {
-  const { folderIds, iterations, delayMs, stopOnFailure, excludedIds, orderIds, saveResponses } = c;
-  return { folderIds, iterations, delayMs, stopOnFailure, excludedIds, orderIds, saveResponses };
+  const { folderIds, iterations, delayMs, stopOnFailure, excludedIds, orderIds, saveResponses, inputMode } = c;
+  return { folderIds, iterations, delayMs, stopOnFailure, excludedIds, orderIds, saveResponses, inputMode };
 }
 
 /** Iteration count setting: a positive integer (non-finite → 1). */

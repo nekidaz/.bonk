@@ -2,6 +2,9 @@ import { Channel, invoke } from '@tauri-apps/api/core';
 import {
   type DynamicOptions,
   type DynamicValue,
+  type InputAnswer,
+  type InputDef,
+  type InputRequest,
   type Scenario,
   type HttpRequest,
   type HttpResponse,
@@ -320,6 +323,12 @@ export interface RunPlan {
   /** How `{{$dynamic}}` values are generated (Settings → Variables). */
   dynamic?: DynamicOptions;
   requiredVariables?: string[];
+  /** «Ask on send» variables of the workspace, by name (`.bonk/inputs.json`). */
+  inputs?: Record<string, InputDef>;
+  /** What a step does when it needs input nobody gave. */
+  inputMode?: 'wait' | 'fail';
+  /** Tries per step: a 4xx on a step with typed input opens the form again (0 = 3). */
+  inputAttempts?: number;
 }
 
 /** Script writes of a run, for the env/globals stores (and cookie clears). */
@@ -335,7 +344,8 @@ export type RunEvent =
   | { kind: 'iteration'; index: number; atMs: number }
   | { kind: 'call'; nodeId: string; name: string; method: string }
   | ({ kind: 'vars' } & RunVarWrites)
-  | ({ kind: 'row' } & RunResultRow);
+  | ({ kind: 'row' } & RunResultRow)
+  | ({ kind: 'input' } & InputRequest);
 
 /** Run `plan` in bonk-core (the same runner a CLI uses); events stream as it goes. */
 export function runnerRun(
@@ -352,6 +362,9 @@ export function runnerRun(
 }
 export const runnerPause = (runId: string, paused: boolean) => invoke<void>('runner_pause', { runId, paused });
 export const runnerStop = (runId: string) => invoke<void>('runner_stop', { runId });
+/** The reply to the form of an `input` event. */
+export const runnerInputAnswer = (inputId: string, answer: InputAnswer) =>
+  invoke<void>('runner_input_answer', { inputId, answer });
 
 export interface RequestExecution {
   row: RunResultRow;
@@ -394,6 +407,11 @@ export function requestRun(
 export const scenariosLoad = (root: string) => invoke<Scenario[]>('scenarios_load', { root });
 export const scenariosSave = (root: string, scenario: Scenario) => invoke<void>('scenarios_save', { root, scenario });
 export const scenariosDelete = (root: string, name: string) => invoke<void>('scenarios_delete', { root, name });
+/** The workspace's «ask on send» definitions (`.bonk/inputs.json`). */
+export const inputsLoad = (root: string) => invoke<Record<string, InputDef>>('inputs_load', { root });
+/** Replace the whole set; an empty one removes the file. */
+export const inputsSave = (root: string, inputs: Record<string, InputDef>) =>
+  invoke<void>('inputs_save', { root, inputs });
 
 /** Client/bidi: send more messages (an object or an array) into the open stream `requestId`. */
 export const grpcStreamSend = (requestId: string, jsonBody: string) =>

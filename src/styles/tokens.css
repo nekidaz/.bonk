@@ -74,6 +74,8 @@
   --danger-soft: #c930301a;
   --var: #0f766e;
   --var-soft: #0f766e1a;
+  --ask: #1f6feb;
+  --ask-soft: #1f6feb1a;
   color-scheme: light;
 }
 
@@ -148,6 +150,8 @@
   --danger-soft: #ff7a7a1f;
   --var: #5eead4;
   --var-soft: #5eead41f;
+  --ask: #6ea8fe;
+  --ask-soft: #6ea8fe24;
   color-scheme: dark;
 }
 
@@ -222,6 +226,8 @@
   --danger-soft: #fb493422;
   --var: #8ec07c;
   --var-soft: #8ec07c22;
+  --ask: #83a598;
+  --ask-soft: #83a59824;
   color-scheme: dark;
 }
 
@@ -295,6 +301,8 @@
   --danger-soft: #f38ba822;
   --var: #94e2d5;
   --var-soft: #94e2d522;
+  --ask: #89b4fa;
+  --ask-soft: #89b4fa24;
   color-scheme: dark;
 }
 
@@ -368,6 +376,8 @@
   --danger-soft: #bf616a2b;
   --var: #8fbcbb;
   --var-soft: #8fbcbb22;
+  --ask: #81a1c1;
+  --ask-soft: #81a1c124;
   color-scheme: dark;
 }
 
@@ -441,6 +451,8 @@
   --danger-soft: #dc322f1a;
   --var: #2aa198;
   --var-soft: #2aa1981f;
+  --ask: #268bd2;
+  --ask-soft: #268bd224;
   color-scheme: light;
 }
 
@@ -512,6 +524,8 @@
   --color-danger-soft: var(--danger-soft, var(--hover));
   --color-var: var(--var, var(--orange));
   --color-var-soft: var(--var-soft, var(--hover));
+  --color-ask: var(--ask, var(--method-get));
+  --color-ask-soft: var(--ask-soft, var(--hover));
 }
 
 /* The colour roles again on .bs and on every [data-theme] element, so they resolve against the palette declared there. */
@@ -544,6 +558,8 @@
   --color-danger-soft: var(--danger-soft, var(--hover));
   --color-var: var(--var, var(--orange));
   --color-var-soft: var(--var-soft, var(--hover));
+  --color-ask: var(--ask, var(--method-get));
+  --color-ask-soft: var(--ask-soft, var(--hover));
 }
 :root .bs {
   --mono: var(--font-code);

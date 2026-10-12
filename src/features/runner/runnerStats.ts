@@ -376,7 +376,8 @@ export function toRecord(
 ): RunRecord {
   const results = run.results
     .slice(0, RECORD_ROWS)
-    .map(({ responseBody, ...row }) =>
+    // Typed input stays in the live run only: a record in state.json never keeps it.
+    .map(({ responseBody, inputs: _typed, ...row }) =>
       keepBodies && responseBody !== undefined ? { ...row, responseBody: responseBody.slice(0, RECORD_BODY) } : row,
     );
   return { n: run.n, startedAt: run.startedAt, finishedAt: run.finishedAt, iterations: run.iterations, results };

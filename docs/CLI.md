@@ -109,6 +109,21 @@ Supply passwords through environment variables or the keychain; keep private key
 and password-bearing settings files out of Git.
 
 
+## Steps that ask for input
+
+A variable marked «ask on send» in the app (an SMS code, an amount, a confirmation) is
+described in `.bonk/inputs.json`. The CLI has nobody to ask, so give the value up front:
+
+```bash
+bonk run auth --input otp=123456
+BONK_INPUT_otp=123456 bonk run auth   # keeps it out of the process list
+```
+
+The value is checked against the field (a code needs its cells, a number its min/max/step); a
+bad value is exit `2`. A step that needs input nobody gave fails with
+`input required: otp (Код из SMS)` and the run goes on (or stops with `--bail`).
+Codes and secrets are replaced by `<redacted>` in the output and the reports.
+
 ## Portable workspace scenarios
 
 In Runner, configure the request selection/order, data rows and environment, then

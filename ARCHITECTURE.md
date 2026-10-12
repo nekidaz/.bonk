@@ -172,6 +172,12 @@ requests, each alphabetical). Mutations are granular fs ops
 (create/save/rename/delete/duplicate/move) — there is **no manifest**, which is
 what keeps it Git-friendly and self-healing. Node id = `fs:<relative path>`.
 
+**«Ask on send» variables** (`.bonk/inputs.json`, `application/inputs.rs`, types and checks in
+`domain/inputs.rs`) name the `{{vars}}` a person types at send time. The runner's `execute` asks
+through `Transport::ask_input` before a step, keeps the typed values out of the environment and
+masks codes/secrets in rows and sent-request details; the app answers over `runner_input_answer`,
+the CLI over `--input`.
+
 **Portable scenarios** live in `.bonk/scenarios.json` alongside this tree. They
 contain relative request/folder paths, execution order, public variable defaults,
 required secret names and run/data settings. The hidden directory is ignored by

@@ -62,12 +62,21 @@ export interface VariableHighlightOptions {
   onOpenEnvs(): void;
   /** `{{$dynamic}}`: examples and the reference dialog. */
   dynamic: DynamicUiOptions;
+  /** «Ask on send» variables: their chip, the right-click menu and the settings popover. */
+  ask: {
+    isAsked(name: string): boolean;
+    /** Right-click on `{{name}}` at the pointer. */
+    onContext(name: string, at: { x: number; y: number }): void;
+    /** Open the field settings under `rect` (the chip). */
+    onSettings(name: string, rect: { left: number; right: number; top: number; bottom: number }): void;
+  };
 }
 
 const okDeco = Decoration.mark({ class: 'cm-var-ok' });
 const missingDeco = Decoration.mark({ class: 'cm-var-missing' });
 const dynDeco = Decoration.mark({ class: 'cm-var-dyn' });
 const dynBadDeco = Decoration.mark({ class: 'cm-var-dyn-bad' });
+const askDeco = Decoration.mark({ class: 'cm-var-ask' });
 
 /** Same pattern as `resolveVars` (shared/model/vars.ts) so highlight == resolution. */
 const VAR_PATTERN = /\{\{\s*([^{}]*?)\s*\}\}/g;
@@ -78,6 +87,7 @@ function highlightPlugin(opts: VariableHighlightOptions): Extension {
     decoration: (match) => {
       const name = match[1].trim();
       if (isDynamicName(name)) return isKnownDynamic(name) ? dynDeco : dynBadDeco;
+      if (opts.ask.isAsked(name)) return askDeco;
       return opts.getScopeInfo(name) ? okDeco : missingDeco;
     },
   });
@@ -353,6 +363,43 @@ function unresolvedDom(
   return root;
 }
 
+/** Popover of an «ask on send» variable: what it is and the way to its field settings. */
+function askedDom(view: EditorView, name: string, hit: { from: number; to: number }, opts: VariableHighlightOptions) {
+  const root = el('div', 'cm-var-tip');
+  root.style.setProperty('--tip-tone', 'var(--color-ask)');
+  root.appendChild(headDom(name, 'keyboard', [], [el('span', 'cm-var-tip-env', tr('input.set.titleVar'))], opts));
+  const settings = () => {
+    const rect = view.coordsAtPos(hit.from) ?? { left: 0, right: 0, top: 0, bottom: 0 };
+    view.dispatch({ effects: closeHoverTooltips });
+    opts.ask.onSettings(name, rect);
+  };
+  root.appendChild(
+    actionsDom(
+      tr('input.set.note'),
+      tr('input.menu.settings'),
+      () => view.dispatch({ effects: closeHoverTooltips }),
+      settings,
+    ),
+  );
+  return root;
+}
+
+/** Right-click on a `{{var}}` opens the «Спрашивать при отправке» menu. */
+function askContext(opts: VariableHighlightOptions): Extension {
+  return EditorView.domEventHandlers({
+    contextmenu(event, view) {
+      const pos = view.posAtCoords({ x: event.clientX, y: event.clientY });
+      if (pos === null) return false;
+      const line = view.state.doc.lineAt(pos);
+      const hit = findVariables(line.text).find((m) => m.from + line.from <= pos && pos <= m.to + line.from);
+      if (!hit || isDynamicName(hit.name)) return false;
+      event.preventDefault();
+      opts.ask.onContext(hit.name, { x: event.clientX, y: event.clientY });
+      return true;
+    },
+  });
+}
+
 function varHover(opts: VariableHighlightOptions): Extension {
   return hoverTooltip(
     (view, pos): Tooltip | null => {
@@ -370,6 +417,9 @@ function varHover(opts: VariableHighlightOptions): Extension {
             dom: known ? dynamicTipDom(v, hit.name, opts.dynamic) : unknownDynamicTipDom(v, hit.name, hit.from, hit.to),
           }),
         };
+      }
+      if (opts.ask.isAsked(hit.name)) {
+        return { pos: hit.from, end: hit.to, create: (v) => ({ dom: askedDom(v, hit.name, hit, opts) }) };
       }
       const info = opts.getScopeInfo(hit.name);
       return {
@@ -548,5 +598,5 @@ const varTheme = EditorView.baseTheme({
  * quick-set popover. Rebuild (via a compartment) whenever the scope changes.
  */
 export function variableHighlight(opts: VariableHighlightOptions): Extension[] {
-  return [highlightPlugin(opts), varHover(opts), varTheme, dynamicVarExtensions(opts.dynamic)];
+  return [highlightPlugin(opts), varHover(opts), askContext(opts), varTheme, dynamicVarExtensions(opts.dynamic)];
 }

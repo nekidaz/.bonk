@@ -15,6 +15,7 @@
     setDelay,
     setStopOnFailure,
     setSaveResponses,
+    setInputMode,
     savePreset,
     loadDataRows,
     clearData,
@@ -24,7 +25,8 @@
   import { runnerScopeTitle, orderedRequests } from './runnerPlan';
   import { EnvironmentSelector } from '$entities/environment/components';
   import { parseDataFile } from './runnerData';
-  import { methodColor, type RequestNode } from '$shared/model';
+  import { inputLabel, inputNamesOf, methodColor, type RequestNode } from '$shared/model';
+  import { inputs } from '$entities/input';
   import { testCount, varLinks } from './runnerStats';
   import { t, tp } from '$shared/i18n';
 
@@ -39,6 +41,31 @@
   const links = $derived(varLinks(planned));
   const linkOf = (n: RequestNode) => links[planned.indexOf(n)];
   const methodOf = (n: RequestNode) => (n.protocol === 'grpc' ? 'gRPC' : n.request.method);
+
+  // Steps with an «ask on send» variable (Flow · Сценарий с вводом OT2): the run stops there and asks.
+  const askOf = (n: RequestNode) => inputNamesOf(n, inputs.defs);
+  const asking = $derived(planned.filter((n) => askOf(n).length > 0));
+  // «Login {{session}} → Send OTP {{otpId}} → ты {{otp}} → Verify OTP {{token}}»: what is handed along, and where a person types.
+  const chain = $derived(
+    asking.length === 0
+      ? []
+      : planned.flatMap((n, i) => {
+          const ask = askOf(n);
+          const step = { kind: 'step' as const, name: n.name, sets: links[i]?.sets ?? [] };
+          return ask.length > 0 ? [{ kind: 'you' as const, names: ask }, step] : [step];
+        }),
+  );
+  const askWhat = $derived.by(() => {
+    if (asking.length !== 1) return t('input.send.waitInput');
+    const names = askOf(asking[0]);
+    // «Код из SMS» → «код из SMS»: only the first letter drops to lower case.
+    return names
+      .map((name) => {
+        const label = inputLabel(name, inputs.defs[name]);
+        return label.charAt(0).toLowerCase() + label.slice(1);
+      })
+      .join(', ');
+  });
 
   // A folder header precedes each run of requests from a sub-folder of the scope.
   const rows = $derived.by(() => {
@@ -230,6 +257,13 @@
               >{methodOf(n)}</b
             >
             <span class="rs-name" title={n.name}>{n.name}</span>
+            {#if askOf(n).length > 0}
+              <span class="rs-var ask" title={askOf(n).join(', ')}
+                ><span class="material-symbols-outlined" aria-hidden="true">keyboard</span>{t('input.runner.tag', {
+                  names: askOf(n).join(', '),
+                })}</span
+              >
+            {/if}
             {#if link}
               {#each link.sets as v (v)}
                 <span class="rs-var sets" title={t('runner.setup.sets', { name: v })}
@@ -250,6 +284,25 @@
       {/each}
       {#if all.length === 0}<p class="rn-muted rs-empty">{t('runner.empty')}</p>{/if}
     </div>
+    {#if chain.length > 0}
+      <div class="rs-chain">
+        <div class="rn-eyebrow">{t('input.runner.chain')}</div>
+        <div class="flow">
+          {#each chain as c, i (i)}
+            {#if i > 0}<span class="material-symbols-outlined arrow" aria-hidden="true">arrow_forward</span>{/if}
+            {#if c.kind === 'you'}
+              <b class="you">{t('input.runner.you')}</b>
+              {#each c.names as name (name)}<span class="rs-var ask"
+                  ><span class="material-symbols-outlined" aria-hidden="true">keyboard</span>{`{{${name}}}`}</span
+                >{/each}
+            {:else}
+              <span class="step">{c.name}</span>
+              {#each c.sets as v (v)}<span class="rs-var">{`{{${v}}}`}</span>{/each}
+            {/if}
+          {/each}
+        </div>
+      </div>
+    {/if}
   </section>
 
   <aside class="rs-side">
@@ -258,6 +311,22 @@
         <span class="rs-lbl">{t('runner.setup.env')}</span>
         <span class="rs-env"><EnvironmentSelector /></span>
       </div>
+      {#if asking.length > 0}
+        <div class="rs-set">
+          <span class="rs-lbl">{t('input.runner.step')}<small>{t('input.runner.step.desc')}</small></span>
+          <div class="bs-seg" role="radiogroup" aria-label={t('input.runner.step')}>
+            {#each ['wait', 'fail'] as const as mode (mode)}
+              <button
+                type="button"
+                role="radio"
+                class:on={cfg.inputMode === mode}
+                aria-checked={cfg.inputMode === mode}
+                onclick={() => setInputMode(mode)}>{t(`input.runner.${mode}`)}</button
+              >
+            {/each}
+          </div>
+        </div>
+      {/if}
       <div class="rs-set">
         <span class="rs-lbl">{t('runner.setup.data')}<small>{t('runner.setup.dataDesc')}</small></span>
         {#if cfg.dataFileName}
@@ -332,9 +401,22 @@
       <div class="rn-eyebrow">{t('runner.setup.willSend')}</div>
       <div class="rs-sumrow">
         <b>{calls}</b><span
-          >{tp(calls, ['запрос', 'запроса', 'запросов'], ['request', 'requests'])} · ~{estimate} s</span
+          >{tp(calls, ['запрос', 'запроса', 'запросов'], ['request', 'requests'])} · ~{estimate} s{#if asking.length > 0}{' · '}{t(
+              'input.runner.willAsk',
+              { n: asking.length * iterations },
+            )}{/if}</span
         >
       </div>
+      {#if asking.length > 0}
+        <div class="rs-ask">
+          <span class="material-symbols-outlined" aria-hidden="true">keyboard</span>{cfg.inputMode === 'fail'
+            ? t('input.runner.failMode', { names: asking.flatMap(askOf).join(', ') })
+            : t('input.runner.willAskOn', {
+                name: asking.length === 1 ? asking[0].name : `${asking.length}`,
+                what: askWhat,
+              })}
+        </div>
+      {/if}
       {#if mutating.length > 0}
         <div class="rs-warn">
           <span class="material-symbols-outlined" aria-hidden="true">edit_note</span>{mutatingText}
@@ -561,6 +643,48 @@
   .rs-var.sets {
     background: none;
     box-shadow: inset 0 0 0 1px var(--color-var);
+  }
+  .rs-var.ask {
+    background: var(--color-ask-soft);
+    color: var(--color-ask);
+  }
+  .rs-chain {
+    flex: none;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin: 6px 5px 5px;
+    padding: 14px 16px;
+    border: 1px solid var(--color-border-subtle);
+    border-radius: var(--radius-card);
+    background: var(--color-panel);
+  }
+  .rs-chain .flow {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    font: 13px var(--font-ui);
+    color: var(--color-text);
+  }
+  .rs-chain .arrow {
+    font-size: 14px;
+    color: var(--color-text-muted);
+  }
+  .rs-chain .you {
+    color: var(--color-ask);
+    font-size: 11px;
+    font-weight: 600;
+  }
+  .rs-ask {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--color-ask);
+    font: 11px/14px var(--font-ui);
+  }
+  .rs-ask .material-symbols-outlined {
+    font-size: 14px;
   }
   .rs-var .material-symbols-outlined {
     font-size: 12px;

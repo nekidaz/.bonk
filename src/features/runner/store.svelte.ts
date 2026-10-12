@@ -1,7 +1,15 @@
 import { dynamicOptions } from '$shared/settings';
 import { untrack } from 'svelte';
 import { t } from '$shared/i18n';
-import { type Tab, type RunResultRow, type RunStatus, type Scenario, scenarioVariables } from '$shared/model';
+import {
+  type InputAnswer,
+  type InputRequest,
+  type Tab,
+  type RunResultRow,
+  type RunStatus,
+  type Scenario,
+  scenarioVariables,
+} from '$shared/model';
 import {
   runnerPause,
   runnerStop,
@@ -47,7 +55,9 @@ import {
 import { isArrayOf, loadState, saveState, saveStateDebounced } from '$shared/persist';
 import { tabs } from '$entities/tab';
 import { environments, setActiveEnvironment } from '$entities/environment';
+import { answerInput } from '$entities/input';
 import { addAppConsoleEntry, runOne, runRequests, captureExecutionContext } from '$entities/request';
+import type { RunEvent } from '$shared/ipc';
 
 /**
  * The Collection Runner: runs a whole folder of saved requests (HTTP + gRPC) in
@@ -261,6 +271,11 @@ export function setSaveResponses(saveResponses: boolean): void {
   runner.updateConfig((c) => ({ ...c, saveResponses }));
   persistConfig();
 }
+/** A step that needs typed input: wait for a person, or fail (for CI). */
+export function setInputMode(inputMode: 'wait' | 'fail'): void {
+  runner.updateConfig((c) => ({ ...c, inputMode }));
+  persistConfig();
+}
 
 // ---- Presets ----
 
@@ -380,9 +395,52 @@ export function clearData(): void {
   runner.updateConfig((c) => ({ ...c, dataFileName: null, dataRows: [] }));
 }
 
+/** The run stops at a step and waits for typed input (again, after a rejected value). */
+function waitForInput(request: InputRequest): void {
+  runner.updateRun((r) => ({
+    ...r,
+    waiting: { request, since: Date.now() },
+    retries: request.attempt > 1 ? r.retries + 1 : r.retries,
+  }));
+}
+
+/** Reply to the open form; the run goes on (or ends, on «stop»). */
+export async function answerWaiting(answer: InputAnswer): Promise<void> {
+  const waiting = runner.run.waiting;
+  if (!waiting) return;
+  runner.updateRun((r) => ({ ...r, waiting: null, waitedMs: r.waitedMs + (Date.now() - waiting.since) }));
+  try {
+    await answerInput(waiting.request, answer);
+  } catch (e) {
+    runner.error = String(e);
+  }
+}
+
+/** Events a run streams besides rows; shared by a whole run and an in-place re-run. */
+function onRunEvent(e: RunEvent): void {
+  if (e.kind === 'vars') runner.updateVariables(e);
+  else if (e.kind === 'iteration') runner.updateRun((r) => ({ ...r, iterStarts: [...r.iterStarts, e.atMs] }));
+  else if (e.kind === 'call')
+    runner.updateRun((r) => ({
+      ...r,
+      current: { nodeId: e.nodeId, name: e.name, method: e.method, startedAt: Date.now() },
+    }));
+  else if (e.kind === 'input') waitForInput(e);
+  else if (e.kind === 'row') {
+    const { kind: _kind, ...row } = e;
+    pushRow(row);
+  }
+}
+
 /** Append a streamed result row (new array so Svelte reactivity fires). */
 function pushRow(row: RunResultRow): void {
-  runner.updateRun((r) => ({ ...r, results: [...r.results, row], completed: r.completed + 1, current: null }));
+  runner.updateRun((r) => ({
+    ...r,
+    results: [...r.results, row],
+    completed: r.completed + 1,
+    current: null,
+    waiting: null,
+  }));
   // Flow · Консоль: Runner sends share the request feed.
   addAppConsoleEntry({
     protocol: row.protocol,
@@ -403,13 +461,14 @@ function pushRow(row: RunResultRow): void {
 
 /** Close the run and record it in the persisted history. */
 function finishRun(status: RunStatus): void {
-  runner.updateRun((r) => ({ ...r, status, finishedAt: Date.now(), paused: false, current: null }));
+  runner.updateRun((r) => ({ ...r, status, finishedAt: Date.now(), paused: false, current: null, waiting: null }));
   const r = runner.run;
   if (r.results.length === 0 || r.startedAt === null) return;
   const { folderIds } = runner.config;
   const envId = runner.runEnvironmentId;
   const summary = {
-    ...summarizeRun(r.n, r.startedAt, r.finishedAt ?? Date.now(), r.results),
+    // The time a person took to type is not the API's time: kept out of the duration.
+    ...summarizeRun(r.n, r.startedAt, (r.finishedAt ?? Date.now()) - r.waitedMs, r.results),
     title: runnerScopeTitle(folderIds, workspace.tree),
     folderIds,
     envId,
@@ -542,20 +601,9 @@ export async function runCollection(): Promise<void> {
         dataRows: config.dataRows,
         delayMs: config.delayMs,
         stopOnFailure: config.stopOnFailure,
+        inputMode: config.inputMode,
       },
-      (e) => {
-        if (e.kind === 'vars') runner.updateVariables(e);
-        else if (e.kind === 'iteration') runner.updateRun((r) => ({ ...r, iterStarts: [...r.iterStarts, e.atMs] }));
-        else if (e.kind === 'call')
-          runner.updateRun((r) => ({
-            ...r,
-            current: { nodeId: e.nodeId, name: e.name, method: e.method, startedAt: Date.now() },
-          }));
-        else if (e.kind === 'row') {
-          const { kind: _kind, ...row } = e;
-          pushRow(row);
-        }
-      },
+      onRunEvent,
     );
   } catch (e) {
     runner.error = String(e);
@@ -579,6 +627,8 @@ async function rerunRows(rows: RunResultRow[]): Promise<void> {
       dynamic: runner.activeScenario?.dynamic,
       variables: runner.variables ?? runner.activeScenario?.variables,
       requiredVariables: runner.activeScenario?.requiredVariables,
+      inputMode: config.inputMode,
+      onInput: waitForInput,
     });
     const row = { ...fresh, id: old.id, startOffsetMs: old.startOffsetMs, endMs: old.endMs };
     runner.updateRun((r) => ({ ...r, results: r.results.map((x) => (x.id === old.id ? row : x)) }));
