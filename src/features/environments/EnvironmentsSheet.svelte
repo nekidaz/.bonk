@@ -1,9 +1,8 @@
 <script lang="ts">
   /**
-   * S31 · Environments sheet: modal manager for environments and Globals.
+   * S31 · Environments editor for environments and Globals, shown in the Environments tab.
    * Edits go into a local draft (deep copy of `environments`) and are written back
-   * only on «Сохранить»; «Отмена» / Esc / scrim discard them.
-   * `embedded` renders the same editor inside the Environments tab (no scrim).
+   * only on «Сохранить»; «Отмена» discards them.
    */
   import { tick, untrack } from 'svelte';
   import { getCurrentWebview } from '@tauri-apps/api/webview';
@@ -25,8 +24,6 @@
     mergeEnvRows,
   } from '$shared/model';
   import EnvJsonEditor from './EnvJsonEditor.svelte';
-
-  const { embedded = false }: { embedded?: boolean } = $props();
 
   type Fmt = EnvJsonFormat | undefined;
   /** «Из JSON…»: the new environment is a draft in the list until «Создать окружение». */
@@ -64,9 +61,7 @@
   let menuOpen = $state(false);
   // Row indexes of secret values currently shown in clear text.
   let revealed = $state<number[]>([]);
-  let opener: HTMLElement | null = null;
   let nameInput = $state<HTMLInputElement | null>(null);
-  let searchInput = $state<HTMLInputElement | null>(null);
   let root = $state<HTMLElement | null>(null);
 
   // Table ⇄ JSON view of the open environment. In JSON mode a valid text is applied to the draft at once;
@@ -117,25 +112,28 @@
     return tp(n, ['запросе', 'запросах', 'запросах'], ['request', 'requests']);
   }
 
-  const shown = $derived(embedded || environments.sheetOpen);
+  // What the draft was copied from: our own save keeps the draft, a change made elsewhere while the tab
+  // is open (toolbar «+», sidebar, import) re-seeds it, so «Сохранить» never drops that change.
+  let seededList: Environment[] | null = null;
+  let seededGlobals: VarRow[] | null = null;
 
   function seed(): void {
+    seededList = environments.list;
+    seededGlobals = environments.globals;
     draft = environments.list.map((e) => ({ ...e, vars: e.vars.map((r) => ({ ...r })) }));
     draftGlobals = environments.globals.map((r) => ({ ...r }));
   }
 
-  // Seed the draft each time the sheet opens (and remember who to refocus on close).
   $effect(() => {
-    if (!shown) return;
+    const list = environments.list;
+    const globals = environments.globals;
     untrack(() => {
-      opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-      draft = environments.list.map((e) => ({ ...e, vars: e.vars.map((r) => ({ ...r })) }));
-      draftGlobals = environments.globals.map((r) => ({ ...r }));
+      if (list === seededList && globals === seededGlobals) return;
+      seed();
       selected = draft.some((e) => e.id === environments.activeId) ? environments.activeId! : (draft[0]?.id ?? GLOBALS);
       query = '';
       resetTransient();
     });
-    if (!embedded) void tick().then(() => searchInput?.focus());
   });
 
   /** Back to a plain table: no menus, no JSON view, no half-made environment. */
@@ -150,14 +148,9 @@
     toast = null;
   }
 
-  function close(): void {
-    if (embedded) {
-      seed();
-      resetTransient();
-      return;
-    }
-    environments.sheetOpen = false;
-    void tick().then(() => opener?.focus());
+  function discard(): void {
+    seed();
+    resetTransient();
   }
 
   function save(): void {
@@ -167,28 +160,29 @@
     environments.list = $state.snapshot(draft).map((e) => ({ ...e, name: e.name.trim() || t('env.default_name') }));
     environments.globals = $state.snapshot(draftGlobals);
     if (environments.activeId && !ids.has(environments.activeId)) environments.activeId = null;
-    if (!embedded) close();
+    seededList = environments.list;
+    seededGlobals = environments.globals;
   }
 
   function onKeydown(e: KeyboardEvent): void {
-    if (!shown || confirmState.current) return;
+    if (confirmState.current) return;
     if (e.key === 'Escape') {
-      // Innermost thing first: the pasted-JSON preview, the half-made environment, a menu, the sheet.
+      // Innermost thing first: the pasted-JSON preview, the half-made environment, a menu.
       const handled = preview
         ? ((preview = null), true)
         : creating
           ? (cancelCreate(), true)
           : menuOpen || addMenuOpen
             ? ((menuOpen = addMenuOpen = false), true)
-            : !embedded && (close(), true);
+            : false;
       if (handled) {
         e.preventDefault();
         e.stopPropagation();
       }
       return;
     }
-    // Shortcuts of the «Новое окружение» menu. The embedded tab shares the window: only while focus is in it.
-    if (embedded && !root?.contains(document.activeElement)) return;
+    // Shortcuts of the «Новое окружение» menu. The tab shares the window: only while focus is in it.
+    if (!root?.contains(document.activeElement)) return;
     const mod = e.metaKey || e.ctrlKey;
     const key = e.key.toLowerCase();
     if (mod && e.shiftKey && key === 'v') {
@@ -435,29 +429,9 @@
 
 <svelte:window onkeydown={onKeydown} onpointerdown={onPointerdown} />
 
-{#if embedded}
-  <div bind:this={root} class="bs-envsheet embedded" role="region" aria-labelledby="bs-envsheet-title">
-    {@render content()}
-  </div>
-{:else if environments.sheetOpen}
-  <div
-    class="bs-overlay bs-envsheet-overlay"
-    role="presentation"
-    onpointerdown={(e) => {
-      if (e.target === e.currentTarget) close();
-    }}
-  >
-    <div
-      bind:this={root}
-      class="bs-modal bs-envsheet"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="bs-envsheet-title"
-    >
-      {@render content()}
-    </div>
-  </div>
-{/if}
+<div bind:this={root} class="bs-envsheet embedded" role="region" aria-labelledby="bs-envsheet-title">
+  {@render content()}
+</div>
 
 {#snippet content()}
   <header class="head">
@@ -465,16 +439,13 @@
       <div class="kicker">{workspaceLabel}&nbsp;&nbsp;·&nbsp;&nbsp;{draft.length} {plural(draft.length)}</div>
       <h2 id="bs-envsheet-title">{t('env.title')}</h2>
     </div>
-    {#if !embedded}<button class="icon" type="button" aria-label={t('common.close')} onclick={close}
-        ><span class="material-symbols-outlined" aria-hidden="true">close</span></button
-      >{/if}
   </header>
 
   <div class="body">
     <aside class="list">
       <label class="search">
         <span class="material-symbols-outlined" aria-hidden="true">search</span>
-        <input bind:this={searchInput} bind:value={query} placeholder={t('env.find')} aria-label={t('env.find')} />
+        <input bind:value={query} placeholder={t('env.find')} aria-label={t('env.find')} />
       </label>
       <div class="items">
         <button class="item" class:on={selected === GLOBALS} type="button" onclick={() => select(GLOBALS)}>
@@ -816,7 +787,7 @@
         >{t('env.create.button')}</button
       >
     {:else}
-      <button class="bs-btn ghost" type="button" onclick={close}>{t('common.cancel')}</button>
+      <button class="bs-btn ghost" type="button" onclick={discard}>{t('common.cancel')}</button>
       <button class="bs-btn primary" type="button" disabled={jsonInvalid} onclick={save}>{t('common.save')}</button>
     {/if}
   </footer>
@@ -838,9 +809,6 @@
 
 <style>
   /* Sizes follow the S31 mock (Pencil node «Environments sheet»). */
-  .bs-envsheet-overlay {
-    background: var(--color-scrim);
-  }
   .bs-envsheet.embedded {
     width: 100%;
     height: 100%;
@@ -848,10 +816,6 @@
     border-radius: 0;
     background: transparent;
     box-shadow: none;
-  }
-  /* Centered over the workspace (below the header), as in the mock: y = 80 at 800 px. */
-  .bs-envsheet:not(.embedded) {
-    transform: translateY(10px);
   }
   .bs-envsheet.bs-envsheet {
     background: var(--color-raised);
@@ -896,9 +860,6 @@
     justify-content: center;
     border-radius: 50%;
     color: var(--color-text-secondary);
-  }
-  .head .icon {
-    margin-top: 4px;
   }
   .icon:hover {
     background: var(--color-hover);
