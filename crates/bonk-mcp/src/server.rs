@@ -1,27 +1,36 @@
 use std::{
     collections::BTreeMap,
     fs::OpenOptions,
+    future::Future,
     io::Write,
     path::Path,
+    pin::Pin,
+    sync::{Arc, Mutex},
     time::{Duration, SystemTime, UNIX_EPOCH},
+};
+
+use bonk_core::{
+    application::runner::{InputAnswer, InputField, InputRequest},
+    domain::inputs::InputKind,
 };
 
 use rmcp::{
     handler::server::{router::tool::ToolRouter, tool::ToolCallContext, wrapper::Parameters},
     model::{
         CallToolRequestParams, CallToolResponse, CallToolResult, ElicitRequestParams,
-        ElicitationAction, ElicitationSchema, Implementation, ListResourcesResult,
-        PaginatedRequestParams, ReadResourceRequestParams, ReadResourceResponse,
-        ReadResourceResult, Resource, ResourceContents, ServerCapabilities, ServerInfo,
+        ElicitationAction, ElicitationSchema, ElicitationSchemaBuilder, EnumSchemaBuilder,
+        Implementation, ListResourcesResult, PaginatedRequestParams, ReadResourceRequestParams,
+        ReadResourceResponse, ReadResourceResult, Resource, ResourceContents, ServerCapabilities,
+        ServerInfo,
     },
-    service::{ElicitationMode, RequestContext},
+    service::{ElicitationMode, Peer, RequestContext},
     tool, tool_handler, tool_router, ErrorData as McpError, Json, RoleServer, ServerHandler,
 };
 use serde_json::{json, Value};
 
 use crate::{
     redact::redact_sensitive_url,
-    runtime::{method_gate, BonkRuntime, MethodGate, DENIED},
+    runtime::{method_gate, BonkRuntime, InputAsker, MethodGate, RunInput, DENIED},
     types::{
         CreateFolderArgs, GetRequestArgs, GrpcCallArgs, GrpcTemplateArgs, JournalEntry, JsonOutput,
         ListRequestsArgs, ListWorkspaceArgs, MoveNodeArgs, MutationResult, NodeArgs,
@@ -30,9 +39,183 @@ use crate::{
     },
 };
 
-const INSTRUCTIONS: &str = "Bonk is the source of truth for API collections. Inspect workspace_info and list_workspace or list_requests before editing. Prefer placeholders such as {{TOKEN}} over literal secrets. Use validate_http before a new request. To use variables from a Bonk environment, pass its name (one of workspace_info.environments) as `environment`. Network tools can call external systems and workspace mutation tools change files; obtain user approval when the client requires it. get_request redacts credentials unless includeSecrets=true and the operator explicitly enabled --expose-secrets.";
+const INSTRUCTIONS: &str = "Bonk is the source of truth for API collections. Inspect workspace_info and list_workspace or list_requests before editing. Prefer placeholders such as {{TOKEN}} over literal secrets. Use validate_http before a new request. To use variables from a Bonk environment, pass its name (one of workspace_info.environments) as `environment`. Variables the workspace marks «ask on send» (list_inputs) are typed by the user: pass `inputs` only for values the user gave you; the rest is asked from the user through elicitation, and yes/no confirmations only ever by them. Network tools can call external systems and workspace mutation tools change files; obtain user approval when the client requires it. get_request redacts credentials unless includeSecrets=true and the operator explicitly enabled --expose-secrets.";
 const JOURNAL_MAX_BYTES: u64 = 1024 * 1024;
 const ELICITATION_TIMEOUT: Duration = Duration::from_secs(300);
+
+/// Asks the user for «ask on send» values through MCP elicitation: one form per step, the way the
+/// app's Runner shows one card. The answer goes from the client to this server, not through the
+/// model, so a code typed here never reaches the conversation.
+struct ElicitAsker {
+    peer: Peer<RoleServer>,
+    /// Codes and secrets typed so far: scrubbed from what the tool returns.
+    typed: Mutex<Vec<String>>,
+}
+
+/// The property that asks for a new code (runs the step that sent it again).
+const RESEND: &str = "_resend";
+
+impl ElicitAsker {
+    fn schema(request: &InputRequest) -> Result<ElicitationSchema, String> {
+        let mut builder = ElicitationSchemaBuilder::new();
+        for field in &request.fields {
+            builder = Self::property(builder, field)?;
+        }
+        if let Some(step) = &request.resend {
+            builder = builder.bool_property(RESEND, |b| {
+                b.title("Новый код")
+                    .description(format!("Отправить заново: шаг «{step}» выполнится ещё раз"))
+                    .with_default(false)
+            });
+        }
+        builder.build().map_err(str::to_string)
+    }
+
+    fn property(
+        builder: ElicitationSchemaBuilder,
+        f: &InputField,
+    ) -> Result<ElicitationSchemaBuilder, String> {
+        let name = f.name.clone();
+        let title = if f.def.label.trim().is_empty() {
+            f.name.clone()
+        } else {
+            f.def.label.clone()
+        };
+        let note = |extra: &str| {
+            [f.def.hint.as_str(), extra]
+                .iter()
+                .filter(|s| !s.is_empty())
+                .copied()
+                .collect::<Vec<_>>()
+                .join(" · ")
+        };
+        let optional = !f.def.required;
+        Ok(match f.def.kind {
+            InputKind::Number => {
+                let build = |mut s: rmcp::model::NumberSchema| {
+                    if let Some(min) = f.def.min {
+                        s = s.minimum(min);
+                    }
+                    if let Some(max) = f.def.max {
+                        s = s.maximum(max);
+                    }
+                    let step = f.def.step.map(|v| format!("шаг {v}")).unwrap_or_default();
+                    s.title(title.clone()).description(note(&step))
+                };
+                if optional {
+                    builder.number_property(name, build)
+                } else {
+                    builder.required_number_property(name, build)
+                }
+            }
+            InputKind::Bool => {
+                let build = |s: rmcp::model::BooleanSchema| {
+                    s.title(title.clone())
+                        .description(note("«Нет» остановит прогон"))
+                };
+                if optional {
+                    builder.bool_property(name, build)
+                } else {
+                    builder.required_bool_property(name, build)
+                }
+            }
+            InputKind::Select if !f.def.options.is_empty() => {
+                let mut schema = EnumSchemaBuilder::new(f.def.options.clone()).title(title);
+                if !f.def.hint.is_empty() {
+                    schema = schema.description(f.def.hint.clone());
+                }
+                if f.def.options.contains(&f.def.default) {
+                    schema = schema.with_default(f.def.default.clone())?;
+                }
+                let schema = schema.build();
+                if optional {
+                    builder.optional_enum_schema(name, schema)
+                } else {
+                    builder.required_enum_schema(name, schema)
+                }
+            }
+            kind => {
+                let extra = match kind {
+                    InputKind::Json => "JSON".to_string(),
+                    InputKind::File => "путь к файлу".to_string(),
+                    InputKind::Text if !f.def.pattern.is_empty() => {
+                        format!("формат {}", f.def.pattern)
+                    }
+                    _ => String::new(),
+                };
+                let code = (kind == InputKind::Code).then(|| f.def.code_length() as u32);
+                let build = |mut s: rmcp::model::StringSchema| {
+                    if let Some(n) = code {
+                        s = s.length(n, n);
+                    }
+                    s.title(title.clone()).description(note(&extra))
+                };
+                if optional {
+                    builder.string_property(name, build)
+                } else {
+                    builder.required_string_property(name, build)
+                }
+            }
+        })
+    }
+}
+
+impl InputAsker for ElicitAsker {
+    fn ask<'a>(
+        &'a self,
+        request: InputRequest,
+    ) -> Pin<Box<dyn Future<Output = Result<InputAnswer, String>> + Send + 'a>> {
+        Box::pin(async move {
+            let schema = Self::schema(&request)?;
+            let mut message = format!("Bonk · {} {}", request.method, request.request_name);
+            if let Some(error) = &request.error {
+                message.push_str(&format!(
+                    "\n{error} — введите значение ещё раз (попытка {} из {})",
+                    request.attempt, request.max_attempts
+                ));
+            }
+            let answer = self
+                .peer
+                .create_elicitation_with_timeout(
+                    ElicitRequestParams::FormElicitationParams {
+                        meta: None,
+                        message,
+                        requested_schema: schema,
+                    },
+                    Some(ELICITATION_TIMEOUT),
+                )
+                .await
+                .map_err(|error| format!("could not ask the user for input: {error}"))?;
+            if answer.action != ElicitationAction::Accept {
+                return Ok(InputAnswer::Stop);
+            }
+            let content = answer.content.unwrap_or_default();
+            if request.resend.is_some() && content[RESEND] == Value::Bool(true) {
+                return Ok(InputAnswer::Resend);
+            }
+            let mut values = BTreeMap::new();
+            for field in &request.fields {
+                let text = match &content[&field.name] {
+                    Value::String(s) => s.clone(),
+                    Value::Bool(b) => b.to_string(),
+                    Value::Number(n) => n.to_string(),
+                    _ => String::new(),
+                };
+                if field.def.sensitive() && !text.is_empty() {
+                    if let Ok(mut typed) = self.typed.lock() {
+                        typed.push(field.def.normalize(&text));
+                    }
+                }
+                values.insert(field.name.clone(), text);
+            }
+            Ok(InputAnswer::Values { values })
+        })
+    }
+
+    fn typed(&self) -> Vec<String> {
+        self.typed.lock().map(|t| t.clone()).unwrap_or_default()
+    }
+}
 
 #[derive(Clone)]
 pub struct BonkMcpServer {
@@ -46,6 +229,20 @@ impl BonkMcpServer {
             runtime,
             tool_router: Self::tool_router(),
         }
+    }
+
+    /// The user can be asked for «ask on send» values only when the client elicits forms.
+    fn asker(&self, context: &RequestContext<RoleServer>) -> Option<Arc<dyn InputAsker>> {
+        context
+            .peer
+            .supported_elicitation_modes()
+            .contains(&ElicitationMode::Form)
+            .then(|| {
+                Arc::new(ElicitAsker {
+                    peer: context.peer.clone(),
+                    typed: Mutex::new(Vec::new()),
+                }) as Arc<dyn InputAsker>
+            })
     }
 
     /// Apply --mutating-methods to an HTTP send, asking the user through
@@ -224,6 +421,22 @@ impl BonkMcpServer {
         };
         tree.map(|result| Json(JsonOutput { result }))
             .map_err(|error| error.to_string())
+    }
+
+    #[tool(
+        description = "List the workspace's «ask on send» variables (.bonk/inputs.json): name, type, label, checks. Give values to run_saved_request / run_scenario in `inputs`; a variable left out is asked from the user through elicitation. userOnly fields (yes/no confirmations) are never taken from `inputs`.",
+        annotations(
+            title = "List Bonk input fields",
+            read_only_hint = true,
+            destructive_hint = false,
+            idempotent_hint = true,
+            open_world_hint = false
+        )
+    )]
+    async fn list_inputs(&self) -> Result<Json<JsonOutput>, String> {
+        self.runtime
+            .list_inputs()
+            .map(|result| Json(JsonOutput { result }))
     }
 
     #[tool(
@@ -435,6 +648,7 @@ impl BonkMcpServer {
                 args.environment.as_deref(),
                 settings,
                 body_limit,
+                &RunInput::default(),
             )
             .await
             .map(Json)
@@ -469,6 +683,7 @@ impl BonkMcpServer {
         let settings = args
             .settings
             .into_core(self.runtime.config().max_response_body_bytes);
+        let input = self.runtime.run_input(args.inputs, self.asker(&context))?;
         self.runtime
             .run_saved_request(
                 &args.id,
@@ -476,6 +691,7 @@ impl BonkMcpServer {
                 args.environment.as_deref(),
                 settings,
                 body_limit,
+                &input,
             )
             .await
             .map(|result| Json(JsonOutput { result }))
@@ -514,6 +730,7 @@ impl BonkMcpServer {
         let settings = args
             .settings
             .into_core(self.runtime.config().max_response_body_bytes);
+        let input = self.runtime.run_input(args.inputs, self.asker(&context))?;
         self.runtime
             .run_scenario(
                 &args.name,
@@ -521,6 +738,7 @@ impl BonkMcpServer {
                 args.environment.as_deref(),
                 settings,
                 body_limit,
+                &input,
             )
             .await
             .map(|result| Json(JsonOutput { result }))
@@ -699,6 +917,78 @@ mod tests {
     use super::*;
     use crate::runtime::{MethodPolicy, RuntimeConfig};
     use rmcp::model::ContentBlock;
+
+    #[test]
+    fn the_elicitation_form_has_a_property_per_field_and_a_resend_switch() {
+        use bonk_core::domain::inputs::InputDef;
+        let field = |name: &str, def: InputDef| InputField {
+            name: name.into(),
+            def,
+        };
+        let def = |kind, patch: &dyn Fn(&mut InputDef)| {
+            let mut d = InputDef {
+                kind,
+                ..InputDef::default()
+            };
+            patch(&mut d);
+            d
+        };
+        let request = InputRequest {
+            id: "1".into(),
+            node_id: "fs:v".into(),
+            request_name: "Verify OTP".into(),
+            method: "POST".into(),
+            iteration: 1,
+            fields: vec![
+                field("otp", def(InputKind::Code, &|d| d.length = 4)),
+                field(
+                    "amount",
+                    def(InputKind::Number, &|d| {
+                        d.min = Some(100.0);
+                        d.max = Some(500.0);
+                    }),
+                ),
+                field(
+                    "currency",
+                    def(InputKind::Select, &|d| {
+                        d.options = vec!["KZT".into(), "USD".into()];
+                        d.default = "KZT".into();
+                    }),
+                ),
+                field("confirm", def(InputKind::Bool, &|_| {})),
+                field("note", def(InputKind::Text, &|d| d.required = false)),
+            ],
+            attempt: 1,
+            max_attempts: 3,
+            error: None,
+            last: None,
+            resend: Some("Send OTP".into()),
+        };
+        let schema = serde_json::to_value(ElicitAsker::schema(&request).unwrap()).unwrap();
+        let props = &schema["properties"];
+        assert_eq!(props["otp"]["type"], "string");
+        assert_eq!(
+            (
+                props["otp"]["minLength"].clone(),
+                props["otp"]["maxLength"].clone()
+            ),
+            (json!(4), json!(4))
+        );
+        assert_eq!(props["amount"]["type"], "number");
+        assert_eq!(props["amount"]["minimum"], 100.0);
+        assert_eq!(props["currency"]["enum"], json!(["KZT", "USD"]));
+        assert_eq!(props["confirm"]["type"], "boolean");
+        assert_eq!(props[RESEND]["type"], "boolean");
+        let required: Vec<&str> = schema["required"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter_map(Value::as_str)
+            .collect();
+        assert!(
+            required.contains(&"otp") && !required.contains(&"note") && !required.contains(&RESEND)
+        );
+    }
 
     #[test]
     fn journal_lines_are_camel_case_and_classify_denials() {

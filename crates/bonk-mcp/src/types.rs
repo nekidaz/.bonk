@@ -376,6 +376,9 @@ pub struct RunSavedRequestArgs {
     pub environment: Option<String>,
     #[serde(default)]
     pub settings: RequestSettingsSpec,
+    /// Values for the workspace's «ask on send» variables (see list_inputs). A variable not given here is asked from the user through MCP elicitation; yes/no confirmations are always asked from the user, never taken from here.
+    #[serde(default)]
+    pub inputs: BTreeMap<String, String>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
@@ -388,6 +391,9 @@ pub struct RunScenarioArgs {
     pub environment: Option<String>,
     #[serde(default)]
     pub settings: RequestSettingsSpec,
+    /// Values for the workspace's «ask on send» variables (see list_inputs). A variable not given here is asked from the user through MCP elicitation; yes/no confirmations are always asked from the user, never taken from here.
+    #[serde(default)]
+    pub inputs: BTreeMap<String, String>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]

@@ -430,6 +430,7 @@ BONK_VAR_TOKEN=$TOKEN bonk run api --bail --junit report.xml</code></pre>
     <li>Validate, send or run saved HTTP requests, with scripts and tests.</li>
     <li>Reflect gRPC schemas, compile local <code>.proto</code> files, generate examples and make unary calls.</li>
     <li>Run a saved scenario with <code>run_scenario</code>.</li>
+    <li>Steps that ask for input: <code>list_inputs</code> shows the fields, <code>inputs</code> carries values the user gave the agent, and a missing one is asked from the user through MCP elicitation (a confirmation always is).</li>
   </ul>
   <h2 id="permissions">Permissions</h2>
   <table><thead><tr><th>Option</th><th>Effect</th></tr></thead><tbody>
