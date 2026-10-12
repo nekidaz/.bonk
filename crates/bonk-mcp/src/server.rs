@@ -30,7 +30,7 @@ use serde_json::{json, Value};
 
 use crate::{
     redact::redact_sensitive_url,
-    runtime::{method_gate, BonkRuntime, InputAsker, MethodGate, RunInput, DENIED},
+    runtime::{method_gate, BonkRuntime, InputAsker, MethodGate, DENIED},
     types::{
         CreateFolderArgs, GetRequestArgs, GrpcCallArgs, GrpcTemplateArgs, JournalEntry, JsonOutput,
         ListRequestsArgs, ListWorkspaceArgs, MoveNodeArgs, MutationResult, NodeArgs,
@@ -639,6 +639,7 @@ impl BonkMcpServer {
         let settings = args
             .settings
             .into_core(self.runtime.config().max_response_body_bytes);
+        let input = self.runtime.run_input(args.inputs, self.asker(&context))?;
         self.runtime
             .execute_http(
                 args.request.into(),
@@ -648,7 +649,7 @@ impl BonkMcpServer {
                 args.environment.as_deref(),
                 settings,
                 body_limit,
-                &RunInput::default(),
+                &input,
             )
             .await
             .map(Json)
@@ -794,7 +795,9 @@ impl BonkMcpServer {
     async fn grpc_call(
         &self,
         Parameters(args): Parameters<GrpcCallArgs>,
+        context: RequestContext<RoleServer>,
     ) -> Result<Json<crate::types::GrpcCallOutput>, String> {
+        let input = self.runtime.run_input(args.inputs, self.asker(&context))?;
         self.runtime
             .grpc_call(
                 args.schema,
@@ -802,6 +805,7 @@ impl BonkMcpServer {
                 args.message,
                 args.metadata,
                 args.timeout_ms,
+                &input,
             )
             .await
             .map(Json)

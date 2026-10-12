@@ -7,6 +7,10 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [Unreleased]
 
 ### Added
+- **MCP: inputs for `send_http` and `grpc_call`.** Inline requests take `inputs` and elicitation like saved
+  ones; `validate_http` reports an «ask on send» variable as `askedVariables` instead of unresolved.
+
+### Added
 - **MCP: «ask on send» values.** `list_inputs` shows the workspace's fields; `run_saved_request` and
   `run_scenario` take `inputs`, and a variable left out is asked from the user through MCP elicitation
   (one form per step, with a «Новый код» switch). Confirmations are never taken from `inputs`, files must
