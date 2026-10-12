@@ -344,6 +344,15 @@ async fn login<T: Transport>(
                 rows.push(*row);
             }
         }
+        // «Отправить заново» ran the step before again: its new row replaces the old one.
+        RunEvent::Resent(row) => {
+            if let Ok(mut rows) = rows.lock() {
+                match rows.iter().rposition(|old| old.node_id == row.node_id) {
+                    Some(at) => rows[at] = *row,
+                    None => rows.push(*row),
+                }
+            }
+        }
         RunEvent::Input(mut request) => {
             let done = rows.lock().map(|rows| rows.len()).unwrap_or(0);
             request.session = Some(SessionPrompt {

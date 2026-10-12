@@ -6,6 +6,36 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+- **MCP: inputs for `send_http` and `grpc_call`.** Inline requests take `inputs` and elicitation like saved
+  ones; `validate_http` reports an «ask on send» variable as `askedVariables` instead of unresolved.
+
+### Added
+- **MCP: «ask on send» values.** `list_inputs` shows the workspace's fields; `run_saved_request` and
+  `run_scenario` take `inputs`, and a variable left out is asked from the user through MCP elicitation
+  (one form per step, with a «Новый код» switch). Confirmations are never taken from `inputs`, files must
+  be inside the workspace, and codes and secrets are scrubbed from the results. A client without
+  elicitation gets `input required: …`.
+
+### Added
+- **Scenario with input: search in a long list.** A choice field with more than four options is a
+  combobox: type to filter, ↑↓ move, ⏎ picks, Esc closes the list (and not the run).
+
+### Added
+- **Scenario with input: a file in JSON.** A file field sends a path where a request takes a file
+  (a multipart file row, a binary body) and the file's content as base64 where `{{variable}}` sits in
+  text (a raw or GraphQL body, a text form field, a gRPC message). Files up to 10 MB; the sent-request
+  view, history and console show `‹invoice.pdf · 182 KB›` instead of the base64. In the CLI,
+  `--input invoice=./invoice.pdf` takes the path from the shell's directory.
+
+### Added
+- **Scenario with input: «Отправить заново» and the code timer.** A code field can have a
+  lifetime («Срок кода», seconds): the Runner card counts it down and says «код истёк» at zero.
+  «Отправить заново» (after a wrong code, «Новый код») runs the step before again, the one
+  that sent the code, replaces its row and asks again with a fresh timer; a wrong value keeps
+  the same code's timer running. The first step has nothing to resend, so it has no button;
+  the old «Пропустить шаг» moves to a small icon in the card header.
+
 ### Fixed
 - **gRPC.** An endpoint may carry a path prefix (`host:443/api/svc`) when a
   gateway mounts the services below a path: every RPC, reflection included,

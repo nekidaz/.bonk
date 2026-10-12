@@ -261,6 +261,8 @@ pub enum RunEvent {
     Row(Box<RunResultRow>),
     /// The step waits for typed input (again, after a rejected try).
     Input(Box<InputRequest>),
+    /// «Отправить заново» ran the step before again: its new row replaces the old one.
+    Resent(Box<RunResultRow>),
 }
 
 /// One field of the input form.
@@ -305,6 +307,10 @@ pub struct InputRequest {
     /// Set when a session's sign-in asks: which scenario and how far it got.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub session: Option<session_run::SessionPrompt>,
+    /// The step before this one («Send OTP»), which «Отправить заново» runs again: it is what
+    /// sent the code. None on a first step and for a single Send.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub resend: Option<String>,
 }
 
 /// A person's reply to an `InputRequest`.
@@ -316,6 +322,8 @@ pub enum InputAnswer {
     },
     /// Skip this step, keep running.
     Skip,
+    /// Run the step before again (the code was lost or expired), then ask again.
+    Resend,
     /// End the run here.
     Stop,
 }
@@ -562,21 +570,67 @@ pub async fn run_collection<T: Transport>(
                 method: display_method(node),
             });
             let start_offset = iteration_start.elapsed().saturating_sub(idle);
-            let step = execute(
-                plan,
-                node,
-                iteration_args(index, data),
-                vars,
-                transport,
-                emit,
-                Some(control),
-                false,
-            )
-            .await;
+            // Time this step waited for a person, over every «Отправить заново» round.
+            let mut waited_here = Duration::ZERO;
+            let step = loop {
+                let before = j.checked_sub(1).map(|k| &plan.requests[k]);
+                let step = execute(
+                    plan,
+                    node,
+                    iteration_args(index, data),
+                    vars,
+                    transport,
+                    emit,
+                    Some(control),
+                    before.map(|n| n.name.as_str()),
+                    false,
+                )
+                .await;
+                idle += step.waited;
+                waited_here += step.waited;
+                let Some(before) = before.filter(|_| step.resend) else {
+                    break step;
+                };
+                // «Отправить заново»: the step that sent the code runs again, then the form returns.
+                emit(RunEvent::Call {
+                    node_id: before.id.clone(),
+                    name: before.name.clone(),
+                    method: display_method(before),
+                });
+                let again_start = iteration_start.elapsed().saturating_sub(idle);
+                let again = execute(
+                    plan,
+                    before,
+                    iteration_args(index, data),
+                    vars,
+                    transport,
+                    emit,
+                    Some(control),
+                    None,
+                    false,
+                )
+                .await;
+                idle += again.waited;
+                waited_here += again.waited;
+                let mut row = again.execution.row;
+                row.start_offset_ms = Some(millis(again_start));
+                row.end_ms = Some(millis(started.elapsed()));
+                emit(RunEvent::Resent(Box::new(row)));
+                if again.halt || control.stopped() {
+                    return Ok(RunStatus::Stopped);
+                }
+                emit(RunEvent::Call {
+                    node_id: node.id.clone(),
+                    name: node.name.clone(),
+                    method: display_method(node),
+                });
+            };
             let mut row = step.execution.row;
             row.start_offset_ms = Some(millis(start_offset));
             row.end_ms = Some(millis(started.elapsed()));
-            idle += step.waited;
+            if !waited_here.is_zero() {
+                row.waited_ms = Some(millis(waited_here));
+            }
             let ok = row.ok;
             emit(RunEvent::Row(Box::new(row)));
             if step.halt || control.stopped() || (plan.stop_on_failure && !ok) {
@@ -611,6 +665,7 @@ pub async fn run_node<T: Transport>(
         transport,
         emit,
         None,
+        None,
         false,
     )
     .await
@@ -633,6 +688,7 @@ pub async fn execute_node<T: Transport>(
         vars,
         transport,
         emit,
+        None,
         None,
         true,
     )
@@ -658,6 +714,8 @@ struct Step {
     waited: Duration,
     /// The person ended the run at the prompt.
     halt: bool,
+    /// The person asked for the step before to run again; nothing of this step was sent.
+    resend: bool,
 }
 
 /// The step with its input (when it has any): ask, check, send, and ask again after a 4xx.
@@ -670,6 +728,7 @@ async fn execute<T: Transport>(
     transport: &T,
     emit: &(dyn Fn(RunEvent) + Sync),
     control: Option<&RunControl>,
+    resend: Option<&str>,
     capture: bool,
 ) -> Step {
     let fields = input_fields(plan, node);
@@ -681,6 +740,7 @@ async fn execute<T: Transport>(
             execution,
             waited,
             halt,
+            resend: false,
         }
     };
     if fields.is_empty() {
@@ -699,6 +759,7 @@ async fn execute<T: Transport>(
             execution,
             waited: Duration::ZERO,
             halt: false,
+            resend: false,
         };
     }
     let mut values: Scope = plan
@@ -751,6 +812,7 @@ async fn execute<T: Transport>(
                     error: error.take(),
                     last: last.clone(),
                     session: None,
+                    resend: resend.map(str::to_string),
                 };
                 let asked = Instant::now();
                 let answer = ask(transport, request, emit, control).await;
@@ -766,6 +828,13 @@ async fn execute<T: Transport>(
                             false,
                         );
                     }
+                    Ok(InputAnswer::Resend) if resend.is_some() => {
+                        let mut step = skipped(BTreeMap::new(), waited, "", true, false);
+                        step.resend = true;
+                        return step;
+                    }
+                    // Nothing to run again here (a single Send): ask once more.
+                    Ok(InputAnswer::Resend) => continue,
                     Ok(InputAnswer::Stop) => {
                         return skipped(
                             BTreeMap::new(),
@@ -831,6 +900,7 @@ async fn execute<T: Transport>(
             execution,
             waited,
             halt: false,
+            resend: false,
         };
     }
     unreachable!("the loop returns on its last attempt")
@@ -1004,6 +1074,7 @@ async fn execute_once<T: Transport>(
         dynamic: Dynamic::new(&dynamic),
         details: ExecutionDetails::default(),
         target: None,
+        embedded: Vec::new(),
     };
     let row = if node.protocol == "grpc" {
         ctx.grpc(plan, node, iteration, transport).await
@@ -1012,6 +1083,7 @@ async fn execute_once<T: Transport>(
     };
     if capture {
         ctx.details.dynamic = ctx.dynamic.into_used();
+        hide_embedded(&ctx.embedded, &mut ctx.details.request);
     }
     RequestExecution {
         row,
@@ -1085,6 +1157,9 @@ struct NodeRun<'a> {
     capture: bool,
     details: ExecutionDetails,
     target: Option<String>,
+    /// Files embedded as base64 (`{{file input}}` in a text body): the text and what stands for it
+    /// in the sent-request view, so a megabyte of base64 doesn't reach history and the console.
+    embedded: Vec<(String, String)>,
 }
 
 impl NodeRun<'_> {
@@ -1138,6 +1213,15 @@ impl NodeRun<'_> {
             }
             pre.request_patch.unwrap_or_default().apply(&mut request);
         }
+        // A file input in a text body is its content in base64; in a file row it stays a path.
+        let mut texts: Vec<&mut String> = request.body.iter_mut().collect();
+        texts.extend(request.graphql_variables.iter_mut());
+        for row in request.body_params.iter_mut().flatten() {
+            if row.kind.as_deref() != Some("file") {
+                texts.push(&mut row.value);
+            }
+        }
+        self.embed_files(plan, texts)?;
         let mut scope = self.scope();
         let prepared = self
             .with_auth(plan, node, &request, &scope, transport, false)
@@ -1264,6 +1348,35 @@ impl NodeRun<'_> {
         Ok(())
     }
 
+    /// Replace `{{name}}` of every typed file input in `texts` by the file's base64 (a text body,
+    /// GraphQL variables, a gRPC message). Files are read only when something mentions them.
+    fn embed_files(&mut self, plan: &RunPlan, texts: Vec<&mut String>) -> Result<(), String> {
+        let files: Vec<(&String, &String)> = plan
+            .inputs
+            .iter()
+            .filter(|(_, def)| def.kind == InputKind::File)
+            .filter_map(|(name, _)| Some((name, self.inputs.get(name)?)))
+            .collect();
+        if files.is_empty() {
+            return Ok(());
+        }
+        let mut encoded: BTreeMap<String, String> = BTreeMap::new();
+        for text in texts {
+            for (name, path) in &files {
+                if !placeholders(text).contains(name) {
+                    continue;
+                }
+                if !encoded.contains_key(*name) {
+                    let (b64, label) = read_base64(path, &plan.workspace_root)?;
+                    self.embedded.push((b64.clone(), label));
+                    encoded.insert((*name).clone(), b64);
+                }
+            }
+            *text = embed_text(text, &encoded);
+        }
+        Ok(())
+    }
+
     fn note_oauth(&mut self, got: &oauth::Ensured) {
         if self.capture {
             self.details.oauth = Some(got.clone());
@@ -1351,6 +1464,7 @@ impl NodeRun<'_> {
                 metadata = headers;
             }
         }
+        self.embed_files(plan, vec![&mut message])?;
         let strip_authorization = g.plaintext && !g.keep_auth_on_plaintext.unwrap_or(false);
         let mut auth = g.auth.clone();
         let mut scope = self.scope();
@@ -1595,6 +1709,62 @@ impl RequestPatch {
         }
         if let Some(headers) = self.headers {
             request.headers = headers;
+        }
+    }
+}
+
+/// Files above this don't go inline: base64 grows them by a third and the whole body is held in memory.
+const MAX_EMBEDDED_FILE: u64 = 10 << 20;
+
+/// `{{name}}` → its base64 from `encoded`; other placeholders stay.
+fn embed_text(text: &str, encoded: &BTreeMap<String, String>) -> String {
+    if encoded.is_empty() {
+        return text.to_string();
+    }
+    request_prep::VAR_RE
+        .replace_all(text, |captures: &regex::Captures<'_>| {
+            encoded
+                .get(captures[1].trim())
+                .cloned()
+                .unwrap_or_else(|| captures[0].to_string())
+        })
+        .into_owned()
+}
+
+/// The file at `path` (workspace-relative or absolute) as base64, and its short label
+/// (`‹invoice-oct.pdf · 182 KB›`) for the sent-request view.
+fn read_base64(path: &str, root: &str) -> Result<(String, String), String> {
+    use base64::{engine::general_purpose::STANDARD, Engine};
+    let abs = to_abs(path, root);
+    let size = std::fs::metadata(&abs)
+        .map_err(|e| format!("file input {path}: {e}"))?
+        .len();
+    if size > MAX_EMBEDDED_FILE {
+        return Err(format!(
+            "file input {path} is {} MB, the most that goes inline is {} MB",
+            size >> 20,
+            MAX_EMBEDDED_FILE >> 20
+        ));
+    }
+    let bytes = std::fs::read(&abs).map_err(|e| format!("file input {path}: {e}"))?;
+    let name = std::path::Path::new(&abs)
+        .file_name()
+        .map_or_else(|| abs.clone(), |n| n.to_string_lossy().into_owned());
+    let label = format!("‹{name} · {} KB›", size.div_ceil(1024));
+    Ok((STANDARD.encode(bytes), label))
+}
+
+/// Swap embedded base64 in the sent-request view for its label.
+fn hide_embedded(embedded: &[(String, String)], request: &mut Option<HttpRequest>) {
+    let Some(request) = request.as_mut().filter(|_| !embedded.is_empty()) else {
+        return;
+    };
+    if let Ok(mut text) = serde_json::to_string(request) {
+        for (b64, label) in embedded {
+            text = text.replace(b64.as_str(), label);
+        }
+        if let Ok(clean) = serde_json::from_str(&text) {
+            *request = clean;
         }
     }
 }
@@ -2389,6 +2559,144 @@ mod tests {
         let (status, _) = run(&plan, &mut base_vars(), &fake).await;
         assert_eq!(status, RunStatus::Stopped);
         assert!(fake.sent.lock().unwrap().is_empty());
+    }
+
+    #[tokio::test]
+    async fn resend_runs_the_step_before_again_and_asks_again() {
+        let send = http(
+            "send",
+            json!({ "method": "POST", "url": "{{base}}/otp/send" }),
+        );
+        let mut plan = otp_plan();
+        plan.requests.insert(0, send);
+        let fake = Fake::default();
+        *fake.answers.lock().unwrap() = vec![InputAnswer::Resend, typed(&[("otp", "482913")])];
+        let (status, events) = run(&plan, &mut base_vars(), &fake).await;
+
+        assert_eq!(status, RunStatus::Done);
+        let urls: Vec<String> = fake
+            .sent
+            .lock()
+            .unwrap()
+            .iter()
+            .map(|r| r.url.clone())
+            .collect();
+        assert_eq!(
+            urls,
+            [
+                "https://api.test/otp/send",
+                "https://api.test/otp/send",
+                "https://api.test/verify?c=482913"
+            ]
+        );
+        let resent: Vec<_> = events
+            .iter()
+            .filter_map(|e| match e {
+                RunEvent::Resent(row) => Some(row.request_name.as_str()),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(resent, ["send"]);
+        assert_eq!(rows(&events).len(), 2); // a resend is not another row
+        let asked = fake.asked.lock().unwrap();
+        assert_eq!(asked.len(), 2);
+        assert_eq!(asked[0].resend.as_deref(), Some("send"));
+        assert_eq!((asked[1].attempt, asked[1].error.clone()), (1, None));
+    }
+
+    #[tokio::test]
+    async fn resend_on_a_first_step_just_asks_again() {
+        let plan = otp_plan();
+        let fake = Fake::default();
+        *fake.answers.lock().unwrap() = vec![InputAnswer::Resend, typed(&[("otp", "482913")])];
+        let (_, events) = run(&plan, &mut base_vars(), &fake).await;
+
+        assert_eq!(fake.asked.lock().unwrap().len(), 2);
+        assert!(fake.asked.lock().unwrap()[0].resend.is_none());
+        assert_eq!(fake.sent.lock().unwrap().len(), 1);
+        assert!(rows(&events)[0].ok);
+    }
+
+    fn file_plan(dir: &std::path::Path, node: RequestNode, path: &str) -> RunPlan {
+        let def = InputDef {
+            kind: InputKind::File,
+            ..InputDef::default()
+        };
+        RunPlan {
+            requests: vec![node],
+            inputs: BTreeMap::from([("invoice".to_string(), def)]),
+            input_values: Scope::from([("invoice".into(), path.into())]),
+            workspace_root: dir.to_string_lossy().into_owned(),
+            ..RunPlan::default()
+        }
+    }
+
+    fn temp_dir() -> std::path::PathBuf {
+        let dir = std::env::temp_dir().join(format!("bonk-file-input-{}", fastrand::u64(..)));
+        std::fs::create_dir(&dir).unwrap();
+        dir
+    }
+
+    #[tokio::test]
+    async fn a_file_input_is_base64_in_a_text_body_and_a_label_in_the_sent_view() {
+        let dir = temp_dir();
+        std::fs::write(dir.join("invoice.pdf"), b"hello").unwrap();
+        let node = http(
+            "upload",
+            json!({ "method": "POST", "url": "{{base}}/up", "body": r#"{"file":"{{invoice}}","n":1}"# }),
+        );
+        let plan = file_plan(&dir, node.clone(), "invoice.pdf");
+        let fake = Fake::default();
+        let done = execute_node(&plan, &node, &mut base_vars(), &fake, &|_| {}).await;
+
+        assert!(done.row.ok);
+        assert_eq!(
+            fake.sent.lock().unwrap()[0].body.as_deref(),
+            Some(r#"{"file":"aGVsbG8=","n":1}"#)
+        );
+        let seen = done.details.request.unwrap().body.unwrap();
+        assert_eq!(seen, r#"{"file":"‹invoice.pdf · 1 KB›","n":1}"#);
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[tokio::test]
+    async fn a_file_input_in_a_file_row_stays_a_path() {
+        let dir = temp_dir();
+        std::fs::write(dir.join("invoice.pdf"), b"hello").unwrap();
+        let node = http(
+            "upload",
+            json!({ "method": "POST", "url": "{{base}}/up", "bodyMode": "form-data",
+                "bodyParams": [{ "key": "f", "value": "{{invoice}}", "kind": "file", "enabled": true, "description": "" }] }),
+        );
+        let plan = file_plan(&dir, node.clone(), "invoice.pdf");
+        let fake = Fake::default();
+        execute_node(&plan, &node, &mut base_vars(), &fake, &|_| {}).await;
+
+        let sent = fake.sent.lock().unwrap();
+        let rows = sent[0].body_params.as_ref().unwrap();
+        assert_eq!(
+            rows[0].value,
+            format!("{}/invoice.pdf", dir.to_string_lossy())
+        );
+        drop(sent);
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[tokio::test]
+    async fn a_missing_file_sends_nothing() {
+        let dir = temp_dir();
+        let node = http(
+            "upload",
+            json!({ "method": "POST", "url": "{{base}}/up", "body": "{{invoice}}" }),
+        );
+        let plan = file_plan(&dir, node.clone(), "nope.pdf");
+        let fake = Fake::default();
+        let done = execute_node(&plan, &node, &mut base_vars(), &fake, &|_| {}).await;
+
+        assert!(!done.row.ok);
+        assert!(done.row.error.unwrap().contains("nope.pdf"));
+        assert!(fake.sent.lock().unwrap().is_empty());
+        std::fs::remove_dir_all(dir).unwrap();
     }
 
     fn rows_len(events: &[RunEvent]) -> usize {

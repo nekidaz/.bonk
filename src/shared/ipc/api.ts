@@ -351,7 +351,8 @@ export type RunEvent =
   | { kind: 'call'; nodeId: string; name: string; method: string }
   | ({ kind: 'vars' } & RunVarWrites)
   | ({ kind: 'row' } & RunResultRow)
-  | ({ kind: 'input' } & InputRequest);
+  | ({ kind: 'input' } & InputRequest)
+  | ({ kind: 'resent' } & RunResultRow);
 
 /** Run `plan` in bonk-core (the same runner a CLI uses); events stream as it goes. */
 export function runnerRun(

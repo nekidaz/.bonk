@@ -379,7 +379,7 @@ pm.environment.set('paymentId', pm.response.json().id);</code></pre>
   <h2 id="data">Data-driven runs</h2>
   <p>Attach a CSV or JSON file: each row is an iteration and each column is a variable, readable with <code>{{column}}</code> or <code>pm.iterationData</code>. A JSON file must be an array of objects. The row count sets the number of iterations.</p>
   <h2 id="input">Steps that ask for input</h2>
-  <p>Right-click any <code>{{variable}}</code> in a request and choose <strong>Ask on send</strong>: an SMS code, an amount, a currency, a confirmation. Pick a type (text, number, code, secret, choice, yes/no, JSON, file), a label and checks. <strong>Send</strong> opens a small form by the button; the Runner stops at that step, shows the form in the run log and goes on after the answer. A 4xx on a step with typed input opens the form again (three tries). The value lives only in that run: it is not saved to environments, history or run records, and a code is shown as <code>••••13</code> in the log. The field definitions are stored in <code>.bonk/inputs.json</code>, so commit it. In the <a href="#cli">CLI</a> nobody can type: pass the value with <code>--input otp=123456</code> or <code>BONK_INPUT_otp</code>, or the step fails.</p>
+  <p>Right-click any <code>{{variable}}</code> in a request and choose <strong>Ask on send</strong>: an SMS code, an amount, a currency, a confirmation. Pick a type (text, number, code, secret, choice, yes/no, JSON, file), a label and checks. <strong>Send</strong> opens a small form by the button; the Runner stops at that step, shows the form in the run log and goes on after the answer. A 4xx on a step with typed input opens the form again (three tries). A file field goes as a path where a request takes a file and as base64 where it sits in a text body (up to 10 MB). Give a code a lifetime and the card counts it down; <strong>Resend</strong> runs the step before again (the one that sent the code) and asks once more. The value lives only in that run: it is not saved to environments, history or run records, and a code is shown as <code>••••13</code> in the log. The field definitions are stored in <code>.bonk/inputs.json</code>, so commit it. In the <a href="#cli">CLI</a> nobody can type: pass the value with <code>--input otp=123456</code> or <code>BONK_INPUT_otp</code>, or the step fails.</p>
   <h2 id="settings">Run settings</h2>
   <ul>
     <li><strong>Stop on first failure</strong>.</li>
@@ -444,6 +444,7 @@ BONK_VAR_TOKEN=$TOKEN bonk run api --bail --junit report.xml</code></pre>
     <li>Validate, send or run saved HTTP requests, with scripts and tests.</li>
     <li>Reflect gRPC schemas, compile local <code>.proto</code> files, generate examples and make unary calls.</li>
     <li>Run a saved scenario with <code>run_scenario</code>.</li>
+    <li>Steps that ask for input: <code>list_inputs</code> shows the fields, <code>inputs</code> carries values the user gave the agent, and a missing one is asked from the user through MCP elicitation (a confirmation always is).</li>
   </ul>
   <h2 id="permissions">Permissions</h2>
   <table><thead><tr><th>Option</th><th>Effect</th></tr></thead><tbody>

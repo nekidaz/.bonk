@@ -280,6 +280,21 @@
               patch({ length: Math.min(12, Math.max(1, Math.trunc(Number(e.currentTarget.value)) || 6)) })}
           />
         </div>
+        <div class="row">
+          <label class="lbl" for="ask-ttl">{t('input.set.ttl')}</label>
+          <label class="field mini" title={t('input.set.ttlHint')}
+            ><input
+              id="ask-ttl"
+              type="number"
+              min="0"
+              max="3600"
+              value={def.ttl || ''}
+              placeholder="—"
+              oninput={(e) =>
+                patch({ ttl: Math.min(3600, Math.max(0, Math.trunc(Number(e.currentTarget.value)) || 0)) })}
+            /><span>{t('input.set.ttlUnit')}</span></label
+          >
+        </div>
       {:else if def.type === 'text'}
         <div class="row">
           <label class="lbl" for="ask-pattern">{t('input.set.pattern')}</label>

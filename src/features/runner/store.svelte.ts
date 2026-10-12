@@ -402,6 +402,11 @@ function waitForInput(request: InputRequest): void {
     ...r,
     waiting: { request, since: Date.now() },
     retries: request.attempt > 1 ? r.retries + 1 : r.retries,
+    // A wrong value leaves the same code alive; the first try, or one after «Отправить заново», is a new code.
+    codeAt:
+      request.attempt > 1 && r.codeAt?.nodeId === request.nodeId
+        ? r.codeAt
+        : { nodeId: request.nodeId, at: Date.now() },
   }));
 }
 
@@ -427,7 +432,18 @@ function onRunEvent(e: RunEvent): void {
       current: { nodeId: e.nodeId, name: e.name, method: e.method, startedAt: Date.now() },
     }));
   else if (e.kind === 'input') waitForInput(e);
-  else if (e.kind === 'row') {
+  else if (e.kind === 'resent') {
+    // «Отправить заново» ran the step before again: its new row replaces the old one, the count stays.
+    const { kind: _kind, ...row } = e;
+    runner.updateRun((r) => ({
+      ...r,
+      results: r.results.map((x) =>
+        x.nodeId === row.nodeId && x.iteration === row.iteration ? { ...row, id: x.id } : x,
+      ),
+      current: null,
+    }));
+    logRow(row);
+  } else if (e.kind === 'row') {
     const { kind: _kind, ...row } = e;
     pushRow(row);
   }
@@ -442,7 +458,11 @@ function pushRow(row: RunResultRow): void {
     current: null,
     waiting: null,
   }));
-  // Flow · Консоль: Runner sends share the request feed.
+  logRow(row);
+}
+
+/** Flow · Консоль: Runner sends share the request feed. */
+function logRow(row: RunResultRow): void {
   addAppConsoleEntry({
     protocol: row.protocol,
     method: row.method,

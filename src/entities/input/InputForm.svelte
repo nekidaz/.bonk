@@ -12,6 +12,7 @@
     checkInput,
     codeLength,
     inputLabel,
+    countdown,
     normalizeInput,
     type InputField,
     type InputRequest,
@@ -25,6 +26,8 @@
     oncancel,
     onskip,
     submitLabel,
+    onresend,
+    since,
   }: {
     request: InputRequest;
     variant?: 'popover' | 'card';
@@ -35,6 +38,10 @@
     onskip?: () => void;
     /** A sign-in popover's primary button (default «Войти и повторить»: the send goes out again). */
     submitLabel?: string;
+    /** The card's «Отправить заново»: run the step before again (offered when the request has `resend`). */
+    onresend?: () => void;
+    /** When the code was sent, ms; the countdown runs from it (default: when the form opened). */
+    since?: number;
   } = $props();
 
   // A session's sign-in (Flow · Сессия SE5): the popover gets a header with the scenario and its steps.
@@ -45,6 +52,9 @@
   let submitted = $state(false);
   let shown = $state<Record<string, boolean>>({});
   let root = $state<HTMLElement>();
+  // The code's lifetime counts down from the moment the form opens (the step that sent it just ended).
+  let openedAt = $state(Date.now());
+  let now = $state(Date.now());
 
   // A new form (the next step, or the same one after a rejected try) starts from its defaults.
   $effect(() => {
@@ -55,8 +65,21 @@
       touched = {};
       submitted = false;
       shown = {};
+      now = Date.now();
+      openedAt = since ?? now;
     });
     void tick().then(() => root?.querySelector<HTMLElement>('input:not([type=hidden]), textarea, button.seg')?.focus());
+  });
+
+  const ttl = $derived(
+    variant === 'card' ? Math.max(0, ...request.fields.filter((f) => f.type === 'code').map((f) => f.ttl)) : 0,
+  );
+  const left = $derived(ttl * 1000 - (now - openedAt));
+  const expired = $derived(ttl > 0 && left <= 0);
+  $effect(() => {
+    if (ttl === 0) return;
+    const id = setInterval(() => (now = Date.now()), 250);
+    return () => clearInterval(id);
   });
 
   const single = $derived(request.fields.length === 1 ? request.fields[0] : undefined);
@@ -181,6 +204,41 @@
     set(f, String(Math.round(next * 1e9) / 1e9));
   }
 
+  // ---- Select with a search (more than four options) ----
+  let comboOpen = $state<string | null>(null);
+  let comboQuery = $state('');
+  let comboActive = $state(0);
+  const comboList = (f: InputField): string[] => {
+    const q = comboQuery.trim().toLowerCase();
+    return q ? f.options.filter((o) => o.toLowerCase().includes(q)) : f.options;
+  };
+  function openCombo(f: InputField): void {
+    comboOpen = f.name;
+    comboQuery = '';
+    comboActive = Math.max(0, f.options.indexOf(val(f)));
+  }
+  function pickOption(f: InputField, o: string): void {
+    set(f, o);
+    comboOpen = null;
+  }
+  function comboKey(f: InputField, e: KeyboardEvent): void {
+    const list = comboList(f);
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      if (comboOpen !== f.name) return openCombo(f);
+      if (list.length) comboActive = (comboActive + (e.key === 'ArrowDown' ? 1 : -1) + list.length) % list.length;
+    } else if (e.key === 'Enter' && comboOpen === f.name) {
+      // Picks the highlighted option; the form's own ⏎ (send) must not fire.
+      e.preventDefault();
+      e.stopPropagation();
+      if (list[comboActive] !== undefined) pickOption(f, list[comboActive]);
+    } else if (e.key === 'Escape' && comboOpen === f.name) {
+      e.preventDefault();
+      e.stopPropagation();
+      comboOpen = null;
+    }
+  }
+
   async function pickFile(f: InputField): Promise<void> {
     const path = await filePick().catch(() => null);
     if (path) set(f, path);
@@ -217,6 +275,18 @@
       {#if request.fields.length > 1}<span class="n"
           >{request.fields.length} {tp(request.fields.length, ['поле', 'поля', 'полей'], ['field', 'fields'])}</span
         ><span class="where">{request.method} {request.requestName}</span>{/if}
+      {#if request.resend}<button
+          class="hbtn"
+          type="button"
+          title={t('input.form.skip')}
+          aria-label={t('input.form.skip')}
+          onclick={() => onskip?.()}><span class="material-symbols-outlined" aria-hidden="true">skip_next</span></button
+        >{/if}
+      {#if ttl > 0}<span class="timer" class:expired
+          ><span class="material-symbols-outlined" aria-hidden="true">timer</span>{expired
+            ? t('input.form.expired')
+            : countdown(left)}</span
+        >{/if}
     {/if}
   </header>
 
@@ -359,16 +429,65 @@
             {/each}
           </div>
         {:else}
-          <div class="box" class:bad={!!err}>
-            <select
-              class="in"
-              value={val(f)}
-              aria-label={inputLabel(f.name, f)}
-              onchange={(e) => set(f, e.currentTarget.value)}
-            >
-              <option value="" disabled>—</option>
-              {#each f.options as o (o)}<option value={o}>{o}</option>{/each}
-            </select>
+          <!-- More than four options: a combobox that filters as you type (↑↓ move, ⏎ picks, Esc closes). -->
+          <div class="combo">
+            <div class="box" class:bad={!!err}>
+              <input
+                class="in"
+                type="text"
+                role="combobox"
+                aria-expanded={comboOpen === f.name}
+                aria-controls="combo-{f.name}"
+                aria-autocomplete="list"
+                aria-invalid={err ? 'true' : undefined}
+                aria-label={inputLabel(f.name, f)}
+                autocomplete="off"
+                spellcheck="false"
+                placeholder={t('input.form.search')}
+                value={comboOpen === f.name ? comboQuery : val(f)}
+                onfocus={() => openCombo(f)}
+                onclick={() => comboOpen !== f.name && openCombo(f)}
+                oninput={(e) => {
+                  comboQuery = e.currentTarget.value;
+                  comboActive = 0;
+                }}
+                onkeydown={(e) => comboKey(f, e)}
+                onblur={() => (comboOpen = null)}
+              />
+              <button
+                type="button"
+                class="ico"
+                tabindex="-1"
+                aria-label={inputLabel(f.name, f)}
+                onpointerdown={(e) => e.preventDefault()}
+                onclick={(e) => {
+                  const input = e.currentTarget.parentElement?.querySelector('input');
+                  if (comboOpen === f.name) comboOpen = null;
+                  else input?.focus();
+                }}><span class="material-symbols-outlined" aria-hidden="true">expand_more</span></button
+              >
+            </div>
+            {#if comboOpen === f.name}
+              <ul class="opts" id="combo-{f.name}" role="listbox">
+                {#each comboList(f) as o, i (o)}
+                  <li
+                    role="option"
+                    aria-selected={val(f) === o}
+                    class:active={i === comboActive}
+                    onpointerdown={(e) => {
+                      e.preventDefault();
+                      pickOption(f, o);
+                    }}
+                    onpointerenter={() => (comboActive = i)}
+                  >
+                    {o}{#if val(f) === o}<span class="material-symbols-outlined tick" aria-hidden="true">check</span
+                      >{/if}
+                  </li>
+                {:else}
+                  <li class="none" role="presentation">{t('input.form.noMatch')}</li>
+                {/each}
+              </ul>
+            {/if}
           </div>
         {/if}
       {:else if f.type === 'bool'}
@@ -444,6 +563,8 @@
         </p>
       {:else if f.type === 'bool'}
         <p class="msg">{t('input.form.noStops')}</p>
+      {:else if f.type === 'file'}
+        <p class="msg">{t('input.form.fileMode')}</p>
       {/if}
     </div>
   {/each}
@@ -457,6 +578,20 @@
       <button class="btn primary" type="submit"
         >{session ? (submitLabel ?? t('sessionrun.prompt.retry')) : t('input.form.send')}<kbd>⏎</kbd></button
       >
+    {:else if request.resend}
+      <button
+        class="btn quiet resend"
+        class:hot={expired}
+        type="button"
+        title={t('input.form.resendTitle', { name: request.resend })}
+        onclick={() => onresend?.()}
+      >
+        <span class="material-symbols-outlined" aria-hidden="true">refresh</span>{request.attempt > 1
+          ? t('input.form.newCode')
+          : t('input.form.resend')}
+      </button>
+      <span class="sp"></span>
+      <button class="btn primary" type="submit">{t('input.form.continue')}<kbd>⏎</kbd></button>
     {:else}
       <button class="btn quiet" type="button" onclick={() => onskip?.()}>
         <span class="material-symbols-outlined" aria-hidden="true">skip_next</span>{t('input.form.skip')}
@@ -753,6 +888,47 @@
   .fi {
     font-size: 16px;
   }
+  .combo {
+    position: relative;
+  }
+  .opts {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: calc(100% + 4px);
+    z-index: 5;
+    max-height: 200px;
+    margin: 0;
+    padding: 4px;
+    overflow: auto;
+    list-style: none;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    background: var(--color-raised);
+    box-shadow: 0 10px 28px var(--color-shadow);
+  }
+  .opts li {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    min-height: 30px;
+    padding: 0 10px;
+    border-radius: var(--radius-sm);
+    color: var(--color-text);
+    font-size: var(--font-size-ui);
+    cursor: pointer;
+  }
+  .opts li.active {
+    background: var(--color-hover);
+  }
+  .opts li.none {
+    color: var(--color-text-muted);
+    cursor: default;
+  }
+  .opts .tick {
+    font-size: 15px;
+    color: var(--color-ask);
+  }
   .segs {
     display: flex;
     gap: 4px;
@@ -851,6 +1027,59 @@
   }
   .btn.primary {
     flex: none;
+  }
+
+  .btn.quiet.resend {
+    flex: none;
+  }
+  /* The card is narrow: «Отправить заново» and «Продолжить» must fit side by side. */
+  .card footer .btn {
+    gap: 4px;
+    font-size: var(--font-size-body);
+  }
+  .card footer .btn.primary {
+    padding: 0 12px;
+  }
+  .btn.quiet.resend.hot {
+    background: var(--color-ask-soft);
+    color: var(--color-ask);
+  }
+  .hbtn {
+    margin-left: auto;
+    display: grid;
+    place-items: center;
+    width: 22px;
+    height: 22px;
+    padding: 0;
+    border: 0;
+    border-radius: var(--radius-control);
+    background: transparent;
+    color: var(--color-text-muted);
+  }
+  .hbtn:hover {
+    background: var(--color-hover);
+    color: var(--color-text);
+  }
+  .hbtn .material-symbols-outlined {
+    font-size: 15px;
+  }
+  .hbtn + .timer {
+    margin-left: 0;
+  }
+  .timer {
+    margin-left: auto;
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    color: var(--color-text-muted);
+    font: 11px var(--font-code);
+  }
+  .timer.expired {
+    color: var(--color-danger);
+  }
+  .timer .material-symbols-outlined {
+    font-size: 13px;
   }
   .btn.quiet:hover {
     background: var(--color-hover);

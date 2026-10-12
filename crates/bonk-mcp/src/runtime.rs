@@ -1,6 +1,8 @@
 use std::{
     collections::{BTreeMap, BTreeSet},
+    future::Future,
     path::{Path, PathBuf},
+    pin::Pin,
     sync::{Arc, Mutex},
     time::Duration,
 };
@@ -8,9 +10,10 @@ use std::{
 use bonk_core::{
     application::{
         grpc_native, http,
+        inputs::{self, Inputs},
         runner::{
-            self, GrpcSchema, GrpcTarget, RunControl, RunEvent, RunPlan, RunResultRow, RunVars,
-            Transport,
+            self, GrpcSchema, GrpcTarget, InputAnswer, InputRequest, RunControl, RunEvent, RunPlan,
+            RunResultRow, RunVars, Transport,
         },
         workspace,
     },
@@ -19,6 +22,7 @@ use bonk_core::{
         dynamic_vars::Dynamic,
         grpc::GrpcResult,
         http::{HttpRequest, HttpResponse, RequestSettings},
+        inputs::InputKind,
         request_prep::{self, resolve_text},
         workspace::{GrpcTabState, Param, RequestNode, TreeNode},
     },
@@ -44,6 +48,50 @@ use crate::{
 
 /// (endpoint, merged scope, secret values to redact)
 type ResolvedGrpcScopes = (String, VariableMap, Vec<String>);
+
+/// Who can be asked for an «ask on send» value: the user, through the client (MCP elicitation).
+pub trait InputAsker: Send + Sync {
+    fn ask<'a>(
+        &'a self,
+        request: InputRequest,
+    ) -> Pin<Box<dyn Future<Output = Result<InputAnswer, String>> + Send + 'a>>;
+
+    /// Codes and secrets the user typed so far, to scrub from what the tool returns.
+    fn typed(&self) -> Vec<String>;
+}
+
+/// «Ask on send» variables of one tool call: the workspace's definitions, the values the caller
+/// gave in `inputs`, and the asker for the rest (None when the client can't elicit).
+#[derive(Clone, Default)]
+pub struct RunInput {
+    defs: Inputs,
+    given: BTreeMap<String, String>,
+    asker: Option<Arc<dyn InputAsker>>,
+    /// The saved request's name, so a form says «POST Verify OTP» and not «POST request».
+    name: Option<String>,
+}
+
+impl RunInput {
+    fn apply(&self, plan: &mut RunPlan, attempts: u32) {
+        plan.inputs = self.defs.clone();
+        plan.input_values = self.given.clone();
+        plan.input_attempts = attempts;
+    }
+
+    /// Values to scrub from the output: given codes/secrets and what the user typed.
+    fn secrets(&self) -> Vec<String> {
+        let mut out: Vec<String> = self
+            .given
+            .iter()
+            .filter(|(name, _)| self.defs.get(*name).is_some_and(|d| d.sensitive()))
+            .map(|(_, value)| value.clone())
+            .collect();
+        if let Some(asker) = &self.asker {
+            out.extend(asker.typed());
+        }
+        out
+    }
+}
 
 /// Prefix of every policy refusal; the journal records these as `denied`.
 pub const DENIED: &str = "Denied by Bonk settings: ";
@@ -159,6 +207,60 @@ impl BonkRuntime {
 
     fn root_str(&self) -> String {
         self.config.root.to_string_lossy().into_owned()
+    }
+
+    /// The workspace's «ask on send» definitions as a tool returns them.
+    pub fn list_inputs(&self) -> Result<Value, String> {
+        let defs = inputs::load(&self.config.root)?;
+        let list: Vec<Value> = defs
+            .iter()
+            .map(|(name, def)| {
+                let mut value = serde_json::to_value(def).unwrap_or_default();
+                value["name"] = json!(name);
+                value["sensitive"] = json!(def.sensitive());
+                // A confirmation is the user's: the model can't answer it.
+                value["userOnly"] = json!(def.kind == InputKind::Bool);
+                value
+            })
+            .collect();
+        Ok(Value::Array(list))
+    }
+
+    /// The inputs of a run: definitions, the checked values of `given`, and who can be asked.
+    /// A confirmation is never taken from the caller (a model would confirm itself) and a file
+    /// must be inside the workspace, like an upload.
+    pub fn run_input(
+        &self,
+        given: BTreeMap<String, String>,
+        asker: Option<Arc<dyn InputAsker>>,
+    ) -> Result<RunInput, String> {
+        let defs = inputs::load(&self.config.root)?;
+        let mut checked = BTreeMap::new();
+        for (name, value) in given {
+            let def = defs.get(&name).ok_or_else(|| {
+                format!(
+                    "`{name}` is not an «ask on send» variable of this workspace (see list_inputs)"
+                )
+            })?;
+            if def.kind == InputKind::Bool {
+                return Err(format!(
+                    "`{name}` is a confirmation only the user can give: it is asked through the client, never taken from `inputs`"
+                ));
+            }
+            let mut value = def.normalize(&value);
+            def.check(&value)
+                .map_err(|e| format!("input `{name}`: {e}"))?;
+            if def.kind == InputKind::File {
+                value = self.confine_upload_path(&value)?;
+            }
+            checked.insert(name, value);
+        }
+        Ok(RunInput {
+            defs,
+            given: checked,
+            asker,
+            name: None,
+        })
     }
 
     pub fn tree(&self) -> Result<Vec<TreeNode>, String> {
@@ -411,7 +513,11 @@ impl BonkRuntime {
         self.normalize_file_paths(&mut request)
             .map_err(|error| sanitize_error(&error, &secrets))?;
 
-        let unresolved = unresolved_in_request(&request);
+        // An «ask on send» variable is typed when the request runs: not a missing value.
+        let defs = inputs::load(&self.config.root).unwrap_or_default();
+        let (asked, unresolved): (Vec<String>, Vec<String>) = unresolved_in_request(&request)
+            .into_iter()
+            .partition(|name| defs.contains_key(name));
         let mut warnings = Vec::new();
         if request.url.trim().is_empty() {
             warnings.push("URL is empty".into());
@@ -451,10 +557,12 @@ impl BonkRuntime {
             method: request.method,
             url: redact_url(&request.url, &secrets),
             unresolved_variables: unresolved,
+            asked_variables: asked,
             warnings,
         })
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub async fn execute_http(
         &self,
         request: HttpRequest,
@@ -463,10 +571,11 @@ impl BonkRuntime {
         environment: Option<&str>,
         settings: RequestSettings,
         body_limit: usize,
+        input: &RunInput,
     ) -> Result<HttpRunOutput, String> {
         self.require_network()?;
         let env_name = environment.unwrap_or_default().to_string();
-        let (environment, globals, secrets) = self.scopes(variables, environment)?;
+        let (environment, globals, mut secrets) = self.scopes(variables, environment)?;
         let node = RequestNode {
             id: String::new(),
             name: "request".into(),
@@ -486,8 +595,10 @@ impl BonkRuntime {
                 settings,
                 GRPC_TIMEOUT,
                 &env_name,
+                input,
             )
             .await?;
+        secrets.extend(input.secrets());
         // Nothing came back: the pre-request script, the policy or the network stopped it.
         let Some(response) = run.http else {
             return Err(run.failure(&secrets));
@@ -511,6 +622,7 @@ impl BonkRuntime {
         environment: Option<&str>,
         settings: RequestSettings,
         body_limit: usize,
+        input: &RunInput,
     ) -> Result<Value, String> {
         let tree = self.tree()?;
         let mut node = self.find_request(id)?;
@@ -523,12 +635,17 @@ impl BonkRuntime {
         if let Some(grpc) = node.grpc.as_mut() {
             grpc.auth = Some(request_prep::effective_auth(&tree, id, grpc.auth.as_ref()));
         }
+        let named = RunInput {
+            name: Some(node.name.clone()),
+            ..input.clone()
+        };
+        let input = &named;
         if node.protocol == "grpc" {
             if node.grpc.is_none() {
                 return Err("saved gRPC request has no grpc configuration".into());
             }
             let output = self
-                .execute_grpc(node, variables, environment, GRPC_TIMEOUT)
+                .execute_grpc(node, variables, environment, GRPC_TIMEOUT, input)
                 .await?;
             serde_json::to_value(output).map_err(|error| error.to_string())
         } else {
@@ -540,6 +657,7 @@ impl BonkRuntime {
                     environment,
                     settings,
                     body_limit,
+                    input,
                 )
                 .await?;
             serde_json::to_value(output).map_err(|error| error.to_string())
@@ -563,6 +681,7 @@ impl BonkRuntime {
         environment: Option<&str>,
         settings: RequestSettings,
         body_limit: usize,
+        input: &RunInput,
     ) -> Result<Value, String> {
         self.require_network()?;
         let scenario = self.scenario(name)?;
@@ -571,6 +690,7 @@ impl BonkRuntime {
             .or(scenario.environment_name.as_deref())
             .unwrap_or_default()
             .to_string();
+        input.apply(&mut plan, 0);
         let (env, globals, mut secrets) = self.scopes(variables, environment)?;
         let mut vars = scenario.variables.clone();
         vars.globals = globals.into_iter().chain(vars.globals).collect();
@@ -581,7 +701,7 @@ impl BonkRuntime {
                 secrets.push(value.clone());
             }
         }
-        let transport = McpTransport::new(self, settings, GRPC_TIMEOUT);
+        let transport = McpTransport::new(self, settings, GRPC_TIMEOUT, input.asker.clone());
         let secrets = Mutex::new(secrets);
         let rows = Mutex::new(Vec::new());
         let status = runner::run_collection(
@@ -613,9 +733,10 @@ impl BonkRuntime {
             .map_err(|_| "scenario results lock poisoned")?;
         let mut result = json!({ "ok": status == runner::RunStatus::Done && rows.iter().all(|r| r.ok), "status": status, "results": rows });
         // Sanitize all fields, including responses, tests and logs, before returning a tool artifact.
-        let secrets = secrets
+        let mut secrets = secrets
             .into_inner()
             .map_err(|_| "scenario secrets lock poisoned")?;
+        secrets.extend(input.secrets());
         crate::redact::sanitize_json(&mut result, &secrets);
         if let Some(rows) = result["results"].as_array_mut() {
             for row in rows {
@@ -639,19 +760,25 @@ impl BonkRuntime {
     /// One request through bonk-core's runner (the app's engine), behind this server's policy.
     async fn run_one(
         &self,
-        node: RequestNode,
+        mut node: RequestNode,
         mut vars: RunVars,
         settings: RequestSettings,
         grpc_timeout: Duration,
         environment_name: &str,
+        input: &RunInput,
     ) -> Result<RunOne, String> {
-        let transport = McpTransport::new(self, settings, grpc_timeout);
-        let plan = RunPlan {
+        if let Some(name) = &input.name {
+            node.name.clone_from(name);
+        }
+        let transport = McpTransport::new(self, settings, grpc_timeout, input.asker.clone());
+        let mut plan = RunPlan {
             requests: vec![node],
             workspace_root: self.root_str(),
             environment_name: environment_name.to_string(),
             ..RunPlan::default()
         };
+        // One request: a 4xx goes back to the caller instead of asking the user again.
+        input.apply(&mut plan, 1);
         let events = Mutex::new(Vec::new());
         let execution =
             runner::execute_node(&plan, &plan.requests[0], &mut vars, &transport, &|event| {
@@ -722,6 +849,7 @@ impl BonkRuntime {
         message: Value,
         metadata: BTreeMap<String, String>,
         timeout_ms: Option<u64>,
+        input: &RunInput,
     ) -> Result<GrpcCallOutput, String> {
         let grpc = GrpcTabState {
             endpoint: schema.endpoint,
@@ -755,6 +883,7 @@ impl BonkRuntime {
             schema.variables,
             schema.environment.as_deref(),
             timeout,
+            input,
         )
         .await
     }
@@ -765,17 +894,26 @@ impl BonkRuntime {
         variables: BTreeMap<String, String>,
         environment: Option<&str>,
         timeout: Duration,
+        input: &RunInput,
     ) -> Result<GrpcCallOutput, String> {
         self.require_network()?;
         let env_name = environment.unwrap_or_default().to_string();
-        let (environment, globals, secrets) = self.scopes(variables, environment)?;
+        let (environment, globals, mut secrets) = self.scopes(variables, environment)?;
         let vars = RunVars {
             environment,
             globals,
         };
         let run = self
-            .run_one(node, vars, RequestSettings::default(), timeout, &env_name)
+            .run_one(
+                node,
+                vars,
+                RequestSettings::default(),
+                timeout,
+                &env_name,
+                input,
+            )
             .await?;
+        secrets.extend(input.secrets());
         let Some(result) = run.grpc else {
             return Err(run.failure(&secrets));
         };
@@ -1104,6 +1242,8 @@ struct McpTransport<'a> {
     settings: RequestSettings,
     grpc_timeout: Duration,
     jar: Arc<CookieJar>,
+    /// Asks the user for «ask on send» values; None when the client can't elicit.
+    asker: Option<Arc<dyn InputAsker>>,
 }
 
 impl<'a> McpTransport<'a> {
@@ -1111,6 +1251,7 @@ impl<'a> McpTransport<'a> {
         runtime: &'a BonkRuntime,
         mut settings: RequestSettings,
         grpc_timeout: Duration,
+        asker: Option<Arc<dyn InputAsker>>,
     ) -> Self {
         let existing = runtime.read_only_jar();
         let jar = existing
@@ -1137,6 +1278,7 @@ impl<'a> McpTransport<'a> {
             settings: settings.normalized(),
             grpc_timeout,
             jar: Arc::new(jar),
+            asker,
         }
     }
 }
@@ -1190,6 +1332,26 @@ impl Transport for McpTransport<'_> {
         let result =
             runner::call_grpc(target, cache, method, message, metadata, self.grpc_timeout).await?;
         Ok(result)
+    }
+
+    fn ask_input(
+        &self,
+        request: InputRequest,
+        _emit: &(dyn Fn(RunEvent) + Sync),
+    ) -> impl Future<Output = Result<InputAnswer, String>> + Send {
+        let asker = self.asker.clone();
+        async move {
+            match asker {
+                Some(asker) => asker.ask(request).await,
+                None => {
+                    let names: Vec<_> = request.fields.iter().map(|f| f.name.as_str()).collect();
+                    Err(format!(
+                        "input required: {}. Pass it in `inputs` (list_inputs shows the fields), or use a client that supports elicitation",
+                        names.join(", ")
+                    ))
+                }
+            }
+        }
     }
 
     fn clear_script_cookies(&self, url: &str) {
@@ -1377,6 +1539,7 @@ mod tests {
                 None,
                 RequestSettings::default(),
                 1 << 20,
+                &RunInput::default(),
             )
             .await
             .expect("run saved request");
@@ -1384,6 +1547,199 @@ mod tests {
         assert_eq!(out["response"]["status"], 200);
         assert_eq!(out["tests"][0]["passed"], true, "{out}");
         assert_eq!(out["changedVariables"], serde_json::json!(["seen"]));
+    }
+
+    /// A one-shot HTTP server: answers `{"seen": <the body contained the code>}`.
+    async fn code_server() -> String {
+        use tokio::io::{AsyncReadExt, AsyncWriteExt};
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+        tokio::spawn(async move {
+            let (mut socket, _) = listener.accept().await.unwrap();
+            let mut buf = vec![0; 8192];
+            let n = socket.read(&mut buf).await.unwrap();
+            let head = String::from_utf8_lossy(&buf[..n]).to_string();
+            let body = serde_json::json!({ "seen": head.contains("482913") }).to_string();
+            let reply = format!(
+                "HTTP/1.1 200 OK\r\ncontent-type: application/json\r\ncontent-length: {}\r\nconnection: close\r\n\r\n{body}",
+                body.len()
+            );
+            socket.write_all(reply.as_bytes()).await.unwrap();
+        });
+        format!("http://{addr}")
+    }
+
+    /// Answers every form with one fixed code and counts the forms.
+    struct FakeAsker {
+        code: &'static str,
+        asked: Mutex<Vec<InputRequest>>,
+    }
+
+    impl InputAsker for FakeAsker {
+        fn ask<'a>(
+            &'a self,
+            request: InputRequest,
+        ) -> Pin<Box<dyn Future<Output = Result<InputAnswer, String>> + Send + 'a>> {
+            self.asked.lock().unwrap().push(request);
+            let values = BTreeMap::from([("otp".to_string(), self.code.to_string())]);
+            Box::pin(async move { Ok(InputAnswer::Values { values }) })
+        }
+
+        fn typed(&self) -> Vec<String> {
+            vec![self.code.to_string()]
+        }
+    }
+
+    fn otp_workspace() -> TestWorkspace {
+        let workspace = TestWorkspace::new();
+        std::fs::create_dir(workspace.0.join(".bonk")).unwrap();
+        std::fs::write(
+            workspace.0.join(".bonk/inputs.json"),
+            r#"{"version":1,"inputs":{
+                "otp":{"type":"code","label":"Код из SMS"},
+                "confirm":{"type":"bool"},
+                "invoice":{"type":"file"}}}"#,
+        )
+        .unwrap();
+        std::fs::write(
+            workspace.0.join("verify.bonk.json"),
+            r#"{"name":"verify","protocol":"http","request":{
+                "method":"POST","url":"{{base}}/verify","headers":{},
+                "body":"{\"code\":\"{{otp}}\"}"}}"#,
+        )
+        .unwrap();
+        workspace
+    }
+
+    async fn run_verify(runtime: &BonkRuntime, input: &RunInput) -> Result<Value, String> {
+        let base = code_server().await;
+        runtime
+            .run_saved_request(
+                "fs:verify.bonk.json",
+                BTreeMap::from([("base".to_string(), base)]),
+                None,
+                RequestSettings::default(),
+                1 << 20,
+                input,
+            )
+            .await
+    }
+
+    #[tokio::test]
+    async fn a_given_input_is_sent_and_scrubbed_from_the_result() {
+        let workspace = otp_workspace();
+        let runtime = workspace.runtime(false, true);
+        let input = runtime
+            .run_input(BTreeMap::from([("otp".into(), "482913".into())]), None)
+            .unwrap();
+        let out = run_verify(&runtime, &input).await.expect("run");
+        assert_eq!(out["response"]["status"], 200, "{out}");
+        // The server saw the code, the tool result never shows it.
+        assert!(!out.to_string().contains("482913"), "{out}");
+        assert!(
+            out["response"]["body"].as_str().unwrap().contains("true"),
+            "{out}"
+        );
+    }
+
+    #[tokio::test]
+    async fn a_missing_input_is_asked_from_the_user_and_scrubbed() {
+        let workspace = otp_workspace();
+        let runtime = workspace.runtime(false, true);
+        let asker = Arc::new(FakeAsker {
+            code: "482913",
+            asked: Mutex::new(Vec::new()),
+        });
+        let input = runtime
+            .run_input(BTreeMap::new(), Some(asker.clone()))
+            .unwrap();
+        let out = run_verify(&runtime, &input).await.expect("run");
+
+        assert!(
+            out["response"]["body"].as_str().unwrap().contains("true"),
+            "{out}"
+        );
+        assert!(!out.to_string().contains("482913"), "{out}");
+        let asked = asker.asked.lock().unwrap();
+        assert_eq!(asked.len(), 1);
+        assert_eq!(asked[0].fields[0].name, "otp");
+    }
+
+    #[tokio::test]
+    async fn an_inline_request_takes_inputs_and_validate_calls_them_asked_not_unresolved() {
+        let workspace = otp_workspace();
+        let runtime = workspace.runtime(false, true);
+        let base = code_server().await;
+        let mut inline = request(&format!("{base}/verify"));
+        inline.method = "POST".into();
+        inline.body = Some(r#"{"code":"{{otp}}"}"#.into());
+
+        let checked = runtime
+            .validate_http(inline.clone(), None, BTreeMap::new(), None)
+            .await
+            .unwrap();
+        assert_eq!(checked.asked_variables, ["otp"]);
+        assert!(checked.unresolved_variables.is_empty() && checked.valid);
+
+        let asker = Arc::new(FakeAsker {
+            code: "482913",
+            asked: Mutex::new(Vec::new()),
+        });
+        let input = runtime.run_input(BTreeMap::new(), Some(asker)).unwrap();
+        let out = runtime
+            .execute_http(
+                inline,
+                None,
+                BTreeMap::new(),
+                None,
+                RequestSettings::default(),
+                1 << 20,
+                &input,
+            )
+            .await
+            .expect("send");
+        assert!(out.response.body.contains("true"));
+        assert!(!serde_json::to_string(&out).unwrap().contains("482913"));
+    }
+
+    #[tokio::test]
+    async fn without_a_value_or_a_client_that_can_ask_the_step_says_what_is_needed() {
+        let workspace = otp_workspace();
+        let runtime = workspace.runtime(false, true);
+        let input = runtime.run_input(BTreeMap::new(), None).unwrap();
+        let error = run_verify(&runtime, &input)
+            .await
+            .expect_err("nobody to ask");
+        assert!(error.contains("input required: otp"), "{error}");
+    }
+
+    #[test]
+    fn the_caller_cannot_confirm_for_the_user_or_name_what_is_not_asked() {
+        let workspace = otp_workspace();
+        let runtime = workspace.runtime(false, true);
+        let given =
+            |name: &str, value: &str| BTreeMap::from([(name.to_string(), value.to_string())]);
+        let confirm = runtime
+            .run_input(given("confirm", "true"), None)
+            .err()
+            .unwrap();
+        assert!(confirm.contains("only the user"), "{confirm}");
+        let unknown = runtime.run_input(given("nope", "1"), None).err().unwrap();
+        assert!(unknown.contains("not an «ask on send»"), "{unknown}");
+        let short = runtime.run_input(given("otp", "12"), None).err().unwrap();
+        assert!(short.contains("otp"), "{short}");
+        // A file must stay inside the workspace, like an upload.
+        let outside = runtime
+            .run_input(given("invoice", "/etc/hosts"), None)
+            .err()
+            .unwrap();
+        assert!(
+            outside.contains("workspace") || outside.contains("outside"),
+            "{outside}"
+        );
+        let list = runtime.list_inputs().unwrap();
+        assert_eq!(list.as_array().unwrap().len(), 3);
+        assert!(list.to_string().contains(r#""userOnly":true"#));
     }
 
     #[tokio::test]
@@ -1399,6 +1755,7 @@ mod tests {
                 None,
                 RequestSettings::default(),
                 1024,
+                &RunInput::default(),
             )
             .await
             .expect_err("host outside --target-host");

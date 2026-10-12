@@ -575,6 +575,22 @@ const SCENARIOS: Scenario[] = [
       await p.locator('.offer').waitFor();
     },
   },
+  {
+    name: 'input-select-search',
+    query: '&inputs=all&runner=1',
+    steps: async (p) => {
+      await p.getByRole('button', { name: /Runner/ }).click();
+      await p.locator('.rp-item').filter({ hasText: 'Input types' }).click();
+      await p.locator('.rn-btn.primary').click();
+      await p.locator('form.form.card').waitFor();
+      const region = p.getByRole('combobox', { name: 'Регион' });
+      await region.scrollIntoViewIfNeeded();
+      await region.click();
+      await p.keyboard.type('а');
+      await p.keyboard.press('ArrowDown');
+      await p.getByRole('option', { name: 'Астана' }).waitFor();
+    },
+  },
   // empty states
   { name: 'welcome-empty', query: '&empty=1' },
   { name: 'welcome-notabs', query: '&notabs=1' },

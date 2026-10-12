@@ -23,6 +23,7 @@ use bonk_core::{
     domain::{
         grpc::GrpcResult,
         http::{pick_client_cert, ClientCert, HttpRequest, HttpResponse, RequestSettings},
+        inputs::InputKind,
     },
     infra::cookie_jar::{CookieJar, JarProvider},
 };
@@ -287,9 +288,19 @@ fn plan_inputs(
                 "--input {name}: not an «ask on send» variable of this workspace (.bonk/inputs.json)"
             ));
         };
-        let value = def.normalize(&value);
+        let mut value = def.normalize(&value);
         def.check(&value)
             .map_err(|e| format!("--input {name}: {e}"))?;
+        if def.kind == InputKind::File {
+            // Like every path flag, a relative file resolves from the shell's directory.
+            let abs = std::env::current_dir()
+                .map_err(|e| e.to_string())?
+                .join(&value);
+            if !abs.is_file() {
+                return Err(format!("--input {name}: {} is not a file", abs.display()));
+            }
+            value = abs.to_string_lossy().into_owned();
+        }
         if def.sensitive() {
             secrets.push(value.clone());
         }
