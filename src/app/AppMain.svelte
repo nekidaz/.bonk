@@ -107,7 +107,7 @@
             <GitDiffView tab={active} />
           {/if}
         {:else if active.protocol === 'env'}
-          <EnvironmentsSheet embedded />
+          <EnvironmentsSheet />
         {:else if active.protocol === 'runner'}
           <RunnerView />
         {:else}

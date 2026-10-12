@@ -9,7 +9,7 @@ import { t } from '$shared/i18n';
 import type { Extension } from '@codemirror/state';
 import { type Environment, type VarRow, lookupVar } from '$shared/model';
 import { ENV_COLOR_VAR, envColor } from './palette';
-import { environments, openEnvironmentsSheet, setEnvVars, setGlobalVars } from './store.svelte';
+import { environments, openEnvironmentsTab, setEnvVars, setGlobalVars } from './store.svelte';
 import { variableHighlight } from './varDecorations';
 import { askUi, inputs } from '$entities/input';
 import { dynamicSample, dynamicSamplesLoaded, openDynamicCatalog, refreshDynamicSamples } from './dynamic.svelte';
@@ -51,7 +51,7 @@ export function requestVariableHighlight(
     },
     addTarget: () => (active ? source(active) : globalsSource),
     envsWith: (name) => envs.filter((e) => e !== active && findRow(e.vars, name.trim())).map(source),
-    onOpenEnvs: openEnvironmentsSheet,
+    onOpenEnvs: openEnvironmentsTab,
     ask: {
       isAsked: (name) => name in asked,
       onContext: (name, at) => askUi.openMenu(name, at),

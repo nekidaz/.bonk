@@ -2,7 +2,7 @@
   import { t } from '$shared/i18n';
   import type { Environment } from '$shared/model';
   import { ENV_COLOR_VAR, envColor, envShortcutTargets, envToneOf, pushRecent, type EnvTone } from './palette';
-  import { addEnvironment, environments, openEnvironmentsSheet, setActiveEnvironment } from './store.svelte';
+  import { addEnvironment, environments, openEnvironmentsTab, setActiveEnvironment } from './store.svelte';
 
   const RECENT_KEY = 'bonk.recentEnvironments';
   const TONE_ICON: Record<EnvTone, string> = {
@@ -62,12 +62,12 @@
     open = false;
   }
   function manage(): void {
-    openEnvironmentsSheet();
+    openEnvironmentsTab();
     open = false;
   }
   function create(): void {
     choose(addEnvironment());
-    openEnvironmentsSheet();
+    openEnvironmentsTab();
   }
 
   function toggle(): void {
