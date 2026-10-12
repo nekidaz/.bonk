@@ -447,6 +447,8 @@
         </p>
       {:else if f.type === 'bool'}
         <p class="msg">{t('input.form.noStops')}</p>
+      {:else if f.type === 'file'}
+        <p class="msg">{t('input.form.fileMode')}</p>
       {/if}
     </div>
   {/each}

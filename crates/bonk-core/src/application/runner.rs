@@ -1063,6 +1063,7 @@ async fn execute_once<T: Transport>(
         dynamic: Dynamic::new(&dynamic),
         details: ExecutionDetails::default(),
         target: None,
+        embedded: Vec::new(),
     };
     let row = if node.protocol == "grpc" {
         ctx.grpc(plan, node, iteration, transport).await
@@ -1071,6 +1072,7 @@ async fn execute_once<T: Transport>(
     };
     if capture {
         ctx.details.dynamic = ctx.dynamic.into_used();
+        hide_embedded(&ctx.embedded, &mut ctx.details.request);
     }
     RequestExecution {
         row,
@@ -1133,6 +1135,9 @@ struct NodeRun<'a> {
     capture: bool,
     details: ExecutionDetails,
     target: Option<String>,
+    /// Files embedded as base64 (`{{file input}}` in a text body): the text and what stands for it
+    /// in the sent-request view, so a megabyte of base64 doesn't reach history and the console.
+    embedded: Vec<(String, String)>,
 }
 
 impl NodeRun<'_> {
@@ -1186,6 +1191,15 @@ impl NodeRun<'_> {
             }
             pre.request_patch.unwrap_or_default().apply(&mut request);
         }
+        // A file input in a text body is its content in base64; in a file row it stays a path.
+        let mut texts: Vec<&mut String> = request.body.iter_mut().collect();
+        texts.extend(request.graphql_variables.iter_mut());
+        for row in request.body_params.iter_mut().flatten() {
+            if row.kind.as_deref() != Some("file") {
+                texts.push(&mut row.value);
+            }
+        }
+        self.embed_files(plan, texts)?;
         let scope = self.scope();
         let mut resolved = self.with_oauth(&request, &scope, transport, false).await?;
         request_prep::resolve(&mut resolved, &scope, &mut self.dynamic)?;
@@ -1256,6 +1270,35 @@ impl NodeRun<'_> {
             self.note_oauth(&got);
         }
         Ok(out)
+    }
+
+    /// Replace `{{name}}` of every typed file input in `texts` by the file's base64 (a text body,
+    /// GraphQL variables, a gRPC message). Files are read only when something mentions them.
+    fn embed_files(&mut self, plan: &RunPlan, texts: Vec<&mut String>) -> Result<(), String> {
+        let files: Vec<(&String, &String)> = plan
+            .inputs
+            .iter()
+            .filter(|(_, def)| def.kind == InputKind::File)
+            .filter_map(|(name, _)| Some((name, self.inputs.get(name)?)))
+            .collect();
+        if files.is_empty() {
+            return Ok(());
+        }
+        let mut encoded: BTreeMap<String, String> = BTreeMap::new();
+        for text in texts {
+            for (name, path) in &files {
+                if !placeholders(text).contains(name) {
+                    continue;
+                }
+                if !encoded.contains_key(*name) {
+                    let (b64, label) = read_base64(path, &plan.workspace_root)?;
+                    self.embedded.push((b64.clone(), label));
+                    encoded.insert((*name).clone(), b64);
+                }
+            }
+            *text = embed_text(text, &encoded);
+        }
+        Ok(())
     }
 
     fn note_oauth(&mut self, got: &oauth::Ensured) {
@@ -1344,6 +1387,7 @@ impl NodeRun<'_> {
                 metadata = headers;
             }
         }
+        self.embed_files(plan, vec![&mut message])?;
         let strip_authorization = g.plaintext && !g.keep_auth_on_plaintext.unwrap_or(false);
         let mut auth = g.auth.clone();
         let scope = self.scope();
@@ -1582,6 +1626,62 @@ impl RequestPatch {
         }
         if let Some(headers) = self.headers {
             request.headers = headers;
+        }
+    }
+}
+
+/// Files above this don't go inline: base64 grows them by a third and the whole body is held in memory.
+const MAX_EMBEDDED_FILE: u64 = 10 << 20;
+
+/// `{{name}}` → its base64 from `encoded`; other placeholders stay.
+fn embed_text(text: &str, encoded: &BTreeMap<String, String>) -> String {
+    if encoded.is_empty() {
+        return text.to_string();
+    }
+    request_prep::VAR_RE
+        .replace_all(text, |captures: &regex::Captures<'_>| {
+            encoded
+                .get(captures[1].trim())
+                .cloned()
+                .unwrap_or_else(|| captures[0].to_string())
+        })
+        .into_owned()
+}
+
+/// The file at `path` (workspace-relative or absolute) as base64, and its short label
+/// (`‹invoice-oct.pdf · 182 KB›`) for the sent-request view.
+fn read_base64(path: &str, root: &str) -> Result<(String, String), String> {
+    use base64::{engine::general_purpose::STANDARD, Engine};
+    let abs = to_abs(path, root);
+    let size = std::fs::metadata(&abs)
+        .map_err(|e| format!("file input {path}: {e}"))?
+        .len();
+    if size > MAX_EMBEDDED_FILE {
+        return Err(format!(
+            "file input {path} is {} MB, the most that goes inline is {} MB",
+            size >> 20,
+            MAX_EMBEDDED_FILE >> 20
+        ));
+    }
+    let bytes = std::fs::read(&abs).map_err(|e| format!("file input {path}: {e}"))?;
+    let name = std::path::Path::new(&abs)
+        .file_name()
+        .map_or_else(|| abs.clone(), |n| n.to_string_lossy().into_owned());
+    let label = format!("‹{name} · {} KB›", size.div_ceil(1024));
+    Ok((STANDARD.encode(bytes), label))
+}
+
+/// Swap embedded base64 in the sent-request view for its label.
+fn hide_embedded(embedded: &[(String, String)], request: &mut Option<HttpRequest>) {
+    let Some(request) = request.as_mut().filter(|_| !embedded.is_empty()) else {
+        return;
+    };
+    if let Ok(mut text) = serde_json::to_string(request) {
+        for (b64, label) in embedded {
+            text = text.replace(b64.as_str(), label);
+        }
+        if let Ok(clean) = serde_json::from_str(&text) {
+            *request = clean;
         }
     }
 }
@@ -2427,6 +2527,88 @@ mod tests {
         assert!(fake.asked.lock().unwrap()[0].resend.is_none());
         assert_eq!(fake.sent.lock().unwrap().len(), 1);
         assert!(rows(&events)[0].ok);
+    }
+
+    fn file_plan(dir: &std::path::Path, node: RequestNode, path: &str) -> RunPlan {
+        let def = InputDef {
+            kind: InputKind::File,
+            ..InputDef::default()
+        };
+        RunPlan {
+            requests: vec![node],
+            inputs: BTreeMap::from([("invoice".to_string(), def)]),
+            input_values: Scope::from([("invoice".into(), path.into())]),
+            workspace_root: dir.to_string_lossy().into_owned(),
+            ..RunPlan::default()
+        }
+    }
+
+    fn temp_dir() -> std::path::PathBuf {
+        let dir = std::env::temp_dir().join(format!("bonk-file-input-{}", fastrand::u64(..)));
+        std::fs::create_dir(&dir).unwrap();
+        dir
+    }
+
+    #[tokio::test]
+    async fn a_file_input_is_base64_in_a_text_body_and_a_label_in_the_sent_view() {
+        let dir = temp_dir();
+        std::fs::write(dir.join("invoice.pdf"), b"hello").unwrap();
+        let node = http(
+            "upload",
+            json!({ "method": "POST", "url": "{{base}}/up", "body": r#"{"file":"{{invoice}}","n":1}"# }),
+        );
+        let plan = file_plan(&dir, node.clone(), "invoice.pdf");
+        let fake = Fake::default();
+        let done = execute_node(&plan, &node, &mut base_vars(), &fake, &|_| {}).await;
+
+        assert!(done.row.ok);
+        assert_eq!(
+            fake.sent.lock().unwrap()[0].body.as_deref(),
+            Some(r#"{"file":"aGVsbG8=","n":1}"#)
+        );
+        let seen = done.details.request.unwrap().body.unwrap();
+        assert_eq!(seen, r#"{"file":"‹invoice.pdf · 1 KB›","n":1}"#);
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[tokio::test]
+    async fn a_file_input_in_a_file_row_stays_a_path() {
+        let dir = temp_dir();
+        std::fs::write(dir.join("invoice.pdf"), b"hello").unwrap();
+        let node = http(
+            "upload",
+            json!({ "method": "POST", "url": "{{base}}/up", "bodyMode": "form-data",
+                "bodyParams": [{ "key": "f", "value": "{{invoice}}", "kind": "file", "enabled": true, "description": "" }] }),
+        );
+        let plan = file_plan(&dir, node.clone(), "invoice.pdf");
+        let fake = Fake::default();
+        execute_node(&plan, &node, &mut base_vars(), &fake, &|_| {}).await;
+
+        let sent = fake.sent.lock().unwrap();
+        let rows = sent[0].body_params.as_ref().unwrap();
+        assert_eq!(
+            rows[0].value,
+            format!("{}/invoice.pdf", dir.to_string_lossy())
+        );
+        drop(sent);
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[tokio::test]
+    async fn a_missing_file_sends_nothing() {
+        let dir = temp_dir();
+        let node = http(
+            "upload",
+            json!({ "method": "POST", "url": "{{base}}/up", "body": "{{invoice}}" }),
+        );
+        let plan = file_plan(&dir, node.clone(), "nope.pdf");
+        let fake = Fake::default();
+        let done = execute_node(&plan, &node, &mut base_vars(), &fake, &|_| {}).await;
+
+        assert!(!done.row.ok);
+        assert!(done.row.error.unwrap().contains("nope.pdf"));
+        assert!(fake.sent.lock().unwrap().is_empty());
+        std::fs::remove_dir_all(dir).unwrap();
     }
 
     fn rows_len(events: &[RunEvent]) -> usize {

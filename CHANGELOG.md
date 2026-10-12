@@ -7,6 +7,13 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [Unreleased]
 
 ### Added
+- **Scenario with input: a file in JSON.** A file field sends a path where a request takes a file
+  (a multipart file row, a binary body) and the file's content as base64 where `{{variable}}` sits in
+  text (a raw or GraphQL body, a text form field, a gRPC message). Files up to 10 MB; the sent-request
+  view, history and console show `‹invoice.pdf · 182 KB›` instead of the base64. In the CLI,
+  `--input invoice=./invoice.pdf` takes the path from the shell's directory.
+
+### Added
 - **Scenario with input: «Отправить заново» and the code timer.** A code field can have a
   lifetime («Срок кода», seconds): the Runner card counts it down and says «код истёк» at zero.
   «Отправить заново» (after a wrong code, «Новый код») runs the step before again, the one
