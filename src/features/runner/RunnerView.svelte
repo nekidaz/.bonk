@@ -29,6 +29,8 @@
   import { openSavedRequest } from '$entities/request';
   import RunnerPick from './RunnerPick.svelte';
   import RunnerSetup from './RunnerSetup.svelte';
+  import RunnerSessionOffer from './RunnerSessionOffer.svelte';
+  import { sessionOffer } from './sessionOffer.svelte';
   import { methodColor, methodLabel, formatBytes, type RequestNode } from '$shared/model';
   import { highlightJson } from '$shared/editor';
   import {
@@ -105,6 +107,13 @@
   const clock = (ms: number) => `${Math.floor(ms / 60000)}:${String(Math.floor(ms / 1000) % 60).padStart(2, '0')}`;
   const waitText = $derived(waiting ? clock(Math.max(0, now - waiting.since)) : '');
   const rejected = $derived(!!waiting && waiting.request.attempt > 1);
+
+  // «Запомнить вход?»: a finished sign-in scenario offers to keep its tokens (Flow · Сессия SE1).
+  const offer = $derived(
+    !running && viewing === null && run.status === 'done' && sessionOffer.current?.run === run.n
+      ? sessionOffer.current
+      : null,
+  );
 
   // ---- R3: progress + log ----
   const curIter = $derived(run.iterStarts.length);
@@ -495,7 +504,7 @@
         </div>
       </section>
 
-      {#if running}
+      {#if running || (offer && !selCall)}
         <aside class="rn-detail rn-log" aria-label={t('runner.log')}>
           {@render eyebrow(t('runner.log'))}
           {#if waiting}
@@ -508,6 +517,19 @@
                 oncancel={stopRun}
               />
             </div>
+          {:else if offer}
+            <div class="rn-logcur rn-logdone">
+              <span class="rn-logstate"><i></i>{t('sessionrun.runner.passed')}</span>
+              <span class="rn-logcall"
+                >{t('sessionrun.runner.stats', {
+                  ok: okCount,
+                  total: run.results.length,
+                  time: ((current?.durationMs ?? 0) / 1000).toFixed(1),
+                  typing: clock(run.waitedMs),
+                })}</span
+              >
+            </div>
+            <RunnerSessionOffer {offer} />
           {:else}
             <div class="rn-logcur">
               <span class="rn-logstate"
@@ -956,6 +978,15 @@
     padding: 10px 12px;
     border: 1.5px solid var(--color-text);
     border-radius: 14px;
+  }
+  .rn-logdone {
+    border-color: var(--color-success);
+  }
+  .rn-logdone .rn-logstate {
+    color: var(--color-success);
+  }
+  .rn-logdone .rn-logstate i {
+    background: var(--color-success);
   }
   .rn-logstate {
     display: flex;
