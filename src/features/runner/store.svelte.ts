@@ -49,6 +49,9 @@ import {
   persistedConfig,
   plannedRequests,
   runnerScopeTitle,
+  withRequestAdded,
+  withRequestMoved,
+  withRequestRemoved,
   type RunnerConfig,
   type RunnerRun,
   type RunnerStage,
@@ -256,6 +259,28 @@ export function setRunOrder(orderIds: string[]): void {
   runner.updateConfig((c) => ({ ...c, orderIds }));
   persistConfig();
 }
+/** R2 «+ Запрос»: add a request from anywhere in the workspace to the end of the run. */
+export function addRunnerRequest(id: string): void {
+  runner.updateConfig((c) => withRequestAdded(c, id, workspace.tree));
+  persistConfig();
+  syncRunnerTabTitle();
+}
+/** Take a request added on its own out of the run. */
+export function removeRunnerRequest(id: string): void {
+  runner.updateConfig((c) => withRequestRemoved(c, id));
+  persistConfig();
+  syncRunnerTabTitle();
+}
+/** Move a request one step up (-1) or down (1) in `order`, the run as listed. */
+export function moveRunnerRequest(order: string[], id: string, delta: -1 | 1): void {
+  runner.updateConfig((c) => withRequestMoved(c, order, id, delta));
+  persistConfig();
+}
+/** R1 «Собрать из запросов»: start a new run from one request; R2 adds the rest. */
+export function composeFrom(id: string): void {
+  setRunnerFolders([id]);
+  setRunnerStage('setup');
+}
 export function setIterations(iterations: number): void {
   runner.updateConfig((c) => ({ ...c, iterations: clampIterations(iterations) }));
   persistConfig();
@@ -286,12 +311,11 @@ export function currentPresetName(): string {
   return `${runnerScopeTitle(runner.config.folderIds, workspace.tree)} · ${env?.name ?? t('runner.noEnv')}`;
 }
 
-/** Save the current setup as a preset (same name = update); returns its name. */
-export async function savePreset(): Promise<string> {
+/** Save the current setup as a preset under `name` (same name = update); returns its name. */
+export async function savePreset(name = runner.activeScenario?.name ?? currentPresetName()): Promise<string> {
   runner.error = '';
   const c = runner.config;
   const prior = runner.activeScenario;
-  const name = prior?.name ?? currentPresetName();
   const root = workspace.path;
   if (!root) throw new Error(t('runner.preset.workspaceRequired'));
   const defaults = scenarioVariables(environments.globals, environments.active?.vars ?? []);
