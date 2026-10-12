@@ -22,9 +22,9 @@ use crate::state::AppState;
 #[serde(rename_all = "camelCase")]
 pub struct GrpcRunSettings {
     #[serde(default)]
-    prefs: GrpcPrefs,
-    connect_timeout_ms: Option<u64>,
-    deadline_ms: Option<u64>,
+    pub(super) prefs: GrpcPrefs,
+    pub(super) connect_timeout_ms: Option<u64>,
+    pub(super) deadline_ms: Option<u64>,
 }
 
 /// Run `plan`, streaming rows, script variable writes and progress to `on_event`.
@@ -157,7 +157,7 @@ pub fn runner_input_answer(
 }
 
 /// Forget the forms of a finished run.
-fn drop_inputs(state: &AppState, run_id: &str) {
+pub(super) fn drop_inputs(state: &AppState, run_id: &str) {
     if let Ok(mut inputs) = state.inputs.lock() {
         inputs.retain(|_, (owner, _)| owner != run_id);
     }
@@ -174,14 +174,14 @@ fn control(state: &AppState, run_id: &str) -> Result<Option<Arc<RunControl>>, St
 
 /// The app's network: its HTTP client cache (proxy, CAs, mTLS), the workspace cookie jar,
 /// and its gRPC connections (grpcurl first, like the editor).
-struct AppTransport<'a> {
-    state: &'a AppState,
-    settings: RequestSettings,
-    jar: Arc<CookieJar>,
-    grpc: GrpcRunSettings,
-    connection_id: Option<String>,
+pub(super) struct AppTransport<'a> {
+    pub(super) state: &'a AppState,
+    pub(super) settings: RequestSettings,
+    pub(super) jar: Arc<CookieJar>,
+    pub(super) grpc: GrpcRunSettings,
+    pub(super) connection_id: Option<String>,
     /// Owner of the forms this run opens (`AppState.inputs`).
-    run_id: String,
+    pub(super) run_id: String,
 }
 
 impl Transport for AppTransport<'_> {

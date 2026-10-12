@@ -218,6 +218,12 @@ async fn run(args: &RunArgs) -> Result<bool, String> {
         plan.delay_ms = delay;
     }
     plan.stop_on_failure |= args.bail;
+    // A session is kept per environment.
+    plan.environment_name = args
+        .env
+        .clone()
+        .or_else(|| scenario.as_ref().and_then(|s| s.environment_name.clone()))
+        .unwrap_or_default();
     let mut input_secrets = Vec::new();
     plan_inputs(&mut plan, &root, args, &mut input_secrets)?;
     let (mut vars, mut secrets) = variables(args, scenario.as_ref())?;

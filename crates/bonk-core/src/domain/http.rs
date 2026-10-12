@@ -70,6 +70,54 @@ pub struct AuthConfig {
     /// the keychain and is put into `bearer_token` of the outgoing copy only.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub oauth: Option<OAuthConfig>,
+    /// Settings for `type: "session"`. Like OAuth, the tokens live in the keychain only.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub session: Option<SessionConfig>,
+}
+
+/// Where a session value comes from: a field of one request's response in the login
+/// scenario (`path` is `body.access_token`, `body.data.tokens[0]`…).
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct TokenSource {
+    /// Node id of the request (`fs:Auth/Verify OTP.bonk.json`). Empty: not set.
+    pub request: String,
+    pub path: String,
+    /// Seconds the token lives, for tokens that are not a JWT (`body.expires_in`).
+    pub ttl_path: String,
+}
+
+/// Session auth: sign in once through a Runner scenario, keep the tokens per environment,
+/// renew them by a saved request, sign in again (asking only for typed input) as a last resort.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct SessionConfig {
+    /// Name of the scenario in `.bonk/scenarios.json` that signs in.
+    pub login: String,
+    pub access: TokenSource,
+    /// Empty `request`: the login gives no refresh token.
+    pub refresh: TokenSource,
+    /// Saved request (node id) that trades the refresh token for a new access token. Its
+    /// body reads `{{session.refresh}}`.
+    pub renew_request: String,
+    /// Where the renewal answers with the access token; default `body.access_token`.
+    pub renew_access: String,
+    /// Where a rotated refresh token comes back; empty: the old one stays.
+    pub renew_refresh: String,
+    /// A response field naming who signed in, for the card (`body.user.phone`).
+    pub who: TokenSource,
+    /// Renew this many seconds before `exp`; default 60.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub lead_secs: Option<u64>,
+    /// On a 401, renew once and repeat the request; on unless `false`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub retry_on_401: Option<bool>,
+    /// Renew by itself before sending; on unless `false`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub auto_refresh: Option<bool>,
+    /// Workspace-relative folders/requests that never get the session (the login folder
+    /// and the renewal request are always left out).
+    pub exclude: Vec<String>,
 }
 
 /// OAuth 2.0 client settings (`{{vars}}` allowed everywhere). Empty strings mean "unset".

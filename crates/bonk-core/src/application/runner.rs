@@ -16,7 +16,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Map, Value};
 
 use super::oauth::{self, Keychain, TokenStore};
-use super::{grpc_native, scripts};
+use super::{grpc_native, scripts, session_run};
 use crate::conn::GrpcDescriptorCache;
 use crate::domain::{
     dynamic_vars::{Dynamic, DynamicOptions, DynamicValue},
@@ -108,6 +108,12 @@ pub struct RunPlan {
     /// Tries per step: a 4xx on a step with typed input opens the form again. 0 = 3.
     #[serde(default)]
     pub input_attempts: u32,
+    /// The selected environment's name: a session is kept per environment.
+    #[serde(default)]
+    pub environment_name: String,
+    /// Set while the sign-in or renewal of a session runs: no request in it asks for a session.
+    #[serde(skip)]
+    pub session_off: bool,
 }
 
 /// A step with an «ask on send» variable: wait for a person, or fail (CI).
@@ -212,6 +218,7 @@ pub struct ExecutionDetails {
     pub post: Option<Value>,
     pub post_ms: Option<u64>,
     pub oauth: Option<oauth::Ensured>,
+    pub session: Option<session_run::SessionUse>,
     pub dynamic: Vec<DynamicValue>,
 }
 
@@ -295,6 +302,9 @@ pub struct InputRequest {
     pub error: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub last: Option<InputAttempt>,
+    /// Set when a session's sign-in asks: which scenario and how far it got.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub session: Option<session_run::SessionPrompt>,
 }
 
 /// A person's reply to an `InputRequest`.
@@ -740,6 +750,7 @@ async fn execute<T: Transport>(
                     max_attempts: attempts,
                     error: error.take(),
                     last: last.clone(),
+                    session: None,
                 };
                 let asked = Instant::now();
                 let answer = ask(transport, request, emit, control).await;
@@ -1008,10 +1019,6 @@ async fn execute_once<T: Transport>(
     }
 }
 
-fn is_oauth(auth: Option<&crate::domain::http::AuthConfig>) -> bool {
-    auth.is_some_and(|auth| auth.auth_type == "oauth2")
-}
-
 fn display_method(node: &RequestNode) -> String {
     if node.protocol == "grpc" {
         "gRPC".into()
@@ -1047,6 +1054,21 @@ impl Outcome {
             size: None,
         }
     }
+}
+
+/// A request with its token in its auth, and what else the token brings.
+struct Prepared {
+    request: HttpRequest,
+    extra: Extra,
+}
+
+/// What a token brings beyond the header.
+#[derive(Default)]
+struct Extra {
+    /// `session.access` / `session.refresh` for `{{vars}}`.
+    scope: Scope,
+    /// A 401 is worth one renewal and a repeat.
+    renew_on_401: bool,
 }
 
 /// One request's run: the scope it reads and the tests/logs its scripts leave.
@@ -1116,8 +1138,13 @@ impl NodeRun<'_> {
             }
             pre.request_patch.unwrap_or_default().apply(&mut request);
         }
-        let scope = self.scope();
-        let mut resolved = self.with_oauth(&request, &scope, transport, false).await?;
+        let mut scope = self.scope();
+        let prepared = self
+            .with_auth(plan, node, &request, &scope, transport, false)
+            .await?;
+        let renew_on_401 = prepared.extra.renew_on_401;
+        let mut resolved = prepared.request;
+        scope.extend(prepared.extra.scope);
         request_prep::resolve(&mut resolved, &scope, &mut self.dynamic)?;
         resolve_upload_paths(&mut resolved, &plan.workspace_root);
         self.target = Some(resolved.url.clone());
@@ -1125,10 +1152,16 @@ impl NodeRun<'_> {
             self.details.request = Some(resolved.clone());
         }
         let mut response = transport.send_http(resolved.clone()).await?;
-        // A 401 with an OAuth token: renew it once and resend (the server may have revoked it).
-        if response.status == 401 && is_oauth(request.auth.as_ref()) {
-            match self.with_oauth(&request, &scope, transport, true).await {
-                Ok(mut retry) => {
+        // A 401 with an OAuth token or a session: renew it once and resend (the server may
+        // have revoked it).
+        if response.status == 401 && renew_on_401 {
+            match self
+                .with_auth(plan, node, &request, &scope, transport, true)
+                .await
+            {
+                Ok(prepared) => {
+                    let mut retry = prepared.request;
+                    scope.extend(prepared.extra.scope);
                     request_prep::resolve(&mut retry, &scope, &mut self.dynamic)?;
                     resolve_upload_paths(&mut retry, &plan.workspace_root);
                     response = transport.send_http(retry.clone()).await?;
@@ -1163,17 +1196,20 @@ impl NodeRun<'_> {
         })
     }
 
-    /// `request` with a valid OAuth token in its auth, when it uses OAuth.
-    async fn with_oauth<T: Transport>(
+    /// `request` with a valid OAuth token or session token in its auth, when it uses either.
+    async fn with_auth<T: Transport>(
         &mut self,
+        plan: &RunPlan,
+        node: &RequestNode,
         request: &HttpRequest,
         scope: &Scope,
         transport: &T,
         force: bool,
-    ) -> Result<HttpRequest, String> {
+    ) -> Result<Prepared, String> {
         let mut out = request.clone();
+        let mut extra = Extra::default();
         let send = |request| transport.send_http(request);
-        let got = oauth::prepare_auth(
+        if let Some(got) = oauth::prepare_auth(
             out.auth.as_mut(),
             scope,
             transport.token_store(),
@@ -1181,11 +1217,51 @@ impl NodeRun<'_> {
             force,
         )
         .await
-        .map_err(|e| e.to_string())?;
-        if let Some(got) = got {
+        .map_err(|e| e.to_string())?
+        {
             self.note_oauth(&got);
+            extra.renew_on_401 = true;
         }
-        Ok(out)
+        if let Some(auth) = out.auth.as_mut().filter(|a| a.auth_type == "session") {
+            self.prepare_session(plan, &node.id, auth, transport, force, &mut extra)
+                .await?;
+        }
+        Ok(Prepared {
+            request: out,
+            extra,
+        })
+    }
+
+    /// The session token of the request's environment into `auth`.
+    async fn prepare_session<T: Transport>(
+        &mut self,
+        plan: &RunPlan,
+        node_id: &str,
+        auth: &mut crate::domain::http::AuthConfig,
+        transport: &T,
+        force: bool,
+        extra: &mut Extra,
+    ) -> Result<(), String> {
+        let retries = auth.session.as_ref().is_none_or(|s| s.retries_on_401());
+        let emit = self.emit;
+        let got =
+            session_run::prepare(auth, node_id, plan, &mut *self.vars, transport, emit, force)
+                .await?;
+        if let Some((used, scope)) = got {
+            match used.outcome {
+                session_run::Outcome::Valid => {}
+                session_run::Outcome::Renewed => {
+                    self.logs.push("Session: renewed the access token".into())
+                }
+                session_run::Outcome::SignedIn => self.logs.push("Session: signed in again".into()),
+            }
+            extra.scope = scope;
+            extra.renew_on_401 = retries;
+            if self.capture {
+                self.details.session = Some(used);
+            }
+        }
+        Ok(())
     }
 
     fn note_oauth(&mut self, got: &oauth::Ensured) {
@@ -1212,7 +1288,7 @@ impl NodeRun<'_> {
         let target = format!("{endpoint} · {short}").trim().to_string();
         let outcome = match grpc {
             Some(g) if !g.endpoint.trim().is_empty() && !method.is_empty() => {
-                self.grpc_pipeline(plan, g, &endpoint, method, transport)
+                self.grpc_pipeline(plan, node, g, &endpoint, method, transport)
                     .await
             }
             _ => Err("gRPC request has no endpoint or method".into()),
@@ -1223,6 +1299,7 @@ impl NodeRun<'_> {
     async fn grpc_pipeline<T: Transport>(
         &mut self,
         plan: &RunPlan,
+        node: &RequestNode,
         g: &crate::domain::workspace::GrpcTabState,
         endpoint: &str,
         method: &str,
@@ -1276,7 +1353,7 @@ impl NodeRun<'_> {
         }
         let strip_authorization = g.plaintext && !g.keep_auth_on_plaintext.unwrap_or(false);
         let mut auth = g.auth.clone();
-        let scope = self.scope();
+        let mut scope = self.scope();
         let send = |request| transport.send_http(request);
         if let Some(got) =
             oauth::prepare_auth(auth.as_mut(), &scope, transport.token_store(), send, false)
@@ -1285,11 +1362,17 @@ impl NodeRun<'_> {
         {
             self.note_oauth(&got);
         }
+        if let Some(a) = auth.as_mut().filter(|a| a.auth_type == "session") {
+            let mut extra = Extra::default();
+            self.prepare_session(plan, &node.id, a, transport, false, &mut extra)
+                .await?;
+            scope.extend(extra.scope);
+        }
         let outgoing = request_prep::grpc_prepare(
             auth.as_ref(),
             &message,
             &metadata,
-            &self.scope(),
+            &scope,
             strip_authorization,
             &mut self.dynamic,
         );
@@ -1613,6 +1696,7 @@ fn to_abs(path: &str, root: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::application::{scenarios, session, workspace};
     use std::sync::Mutex;
 
     type GrpcCallSeen = (String, String, BTreeMap<String, String>);
@@ -1629,6 +1713,8 @@ mod tests {
         /// Replies of the «person», in order; the forms they were shown.
         answers: Mutex<Vec<InputAnswer>>,
         asked: Mutex<Vec<InputRequest>>,
+        /// The forms as the person's screen got them (through the event stream).
+        forms: Mutex<Vec<InputRequest>>,
     }
 
     impl Transport for Fake {
@@ -1641,8 +1727,10 @@ mod tests {
         fn ask_input(
             &self,
             request: InputRequest,
-            _emit: &(dyn Fn(RunEvent) + Sync),
+            emit: &(dyn Fn(RunEvent) + Sync),
         ) -> impl Future<Output = Result<InputAnswer, String>> + Send {
+            // Like the app: the form reaches the person through the run's event stream.
+            emit(RunEvent::Input(Box::new(request.clone())));
             self.asked.lock().unwrap().push(request);
             let mut answers = self.answers.lock().unwrap();
             let answer = if answers.is_empty() {
@@ -2314,5 +2402,314 @@ mod tests {
         assert_eq!(to_abs("C:\\p.proto", "/ws"), "C:\\p.proto");
         assert_eq!(to_abs("a.proto", "/ws/"), "/ws/a.proto");
         assert_eq!(to_abs("d/a.bin", r"\\?\C:\ws"), r"\\?\C:\ws\d\a.bin");
+    }
+
+    // --- session auth -------------------------------------------------------------------
+
+    struct Ws(std::path::PathBuf);
+    impl Drop for Ws {
+        fn drop(&mut self) {
+            let _ = std::fs::remove_dir_all(&self.0);
+        }
+    }
+
+    const VERIFY: &str = "fs:api/Auth/Verify OTP.bonk.json";
+    const RENEW: &str = "fs:api/Auth/Refresh token.bonk.json";
+    const LIST: &str = "fs:api/List payments.bonk.json";
+
+    /// A collection with a session on it, an `Auth` folder to sign in with and one request.
+    fn session_ws() -> (Ws, RunPlan, RequestNode) {
+        let dir = std::env::temp_dir().join(format!("bonk-session-{}", fastrand::u64(..)));
+        std::fs::create_dir(&dir).unwrap();
+        let root = dir.to_string_lossy().into_owned();
+        let req = |name: &str, method: &str, url: &str, body: Option<&str>| {
+            json!({ "kind": "request", "id": "", "name": name, "protocol": "http",
+                "request": { "method": method, "url": url, "body": body,
+                    "auth": { "type": "inherit" } } })
+        };
+        let collection = json!({
+            "name": "api",
+            "auth": { "type": "session", "session": {
+                "login": "Auth · OTP",
+                "access": { "request": VERIFY, "path": "body.access_token", "ttlPath": "body.expires_in" },
+                "refresh": { "request": VERIFY, "path": "body.refresh_token" },
+                "renewRequest": RENEW,
+            }},
+            "children": [
+                { "kind": "folder", "id": "", "name": "Auth", "expanded": true, "children": [
+                    req("Login", "POST", "{{base}}/login", None),
+                    req("Verify OTP", "POST", "{{base}}/verify", Some(r#"{"code":"{{otp}}"}"#)),
+                    req("Refresh token", "POST", "{{base}}/refresh", Some(r#"{"refresh_token":"{{session.refresh}}"}"#)),
+                ]},
+                req("List payments", "GET", "{{base}}/v1/payments", None),
+            ],
+        });
+        workspace::import_collection(&root, serde_json::from_value(collection).unwrap()).unwrap();
+        let scenario: scenarios::Scenario = serde_json::from_value(
+            json!({ "name": "Auth · OTP", "paths": ["api/Auth/Login.bonk.json", "api/Auth/Verify OTP.bonk.json"] }),
+        )
+        .unwrap();
+        scenarios::save(&dir, scenario).unwrap();
+        let tree = workspace::load(&root).unwrap();
+        let node = plan_requests(&tree, &[LIST.to_string()]).unwrap().remove(0);
+        let code = InputDef {
+            kind: InputKind::Code,
+            label: "Код".into(),
+            ..InputDef::default()
+        };
+        let plan = RunPlan {
+            workspace_root: root,
+            environment_name: "Staging".into(),
+            inputs: BTreeMap::from([("otp".to_string(), code)]),
+            input_attempts: 1,
+            ..RunPlan::default()
+        };
+        (Ws(dir), plan, node)
+    }
+
+    const SIGNED_IN: &str = r#"{"access_token":"acc1","refresh_token":"ref1","expires_in":900}"#;
+
+    async fn send(
+        plan: &RunPlan,
+        node: &RequestNode,
+        vars: &mut RunVars,
+        fake: &Fake,
+    ) -> RequestExecution {
+        execute_node(plan, node, vars, fake, &|event| {
+            if let RunEvent::Input(request) = event {
+                fake.forms.lock().unwrap().push(*request);
+            }
+        })
+        .await
+    }
+
+    fn urls(fake: &Fake) -> Vec<String> {
+        fake.sent
+            .lock()
+            .unwrap()
+            .iter()
+            .map(|r| {
+                format!(
+                    "{} {}",
+                    r.method,
+                    r.url.trim_start_matches("https://api.test")
+                )
+            })
+            .collect()
+    }
+
+    fn bearer(fake: &Fake, at: usize) -> Option<String> {
+        fake.sent.lock().unwrap()[at]
+            .headers
+            .get("Authorization")
+            .cloned()
+    }
+
+    fn account(plan: &RunPlan) -> String {
+        let tree = workspace::load(&plan.workspace_root).unwrap();
+        let node = plan_requests(&tree, &[LIST.to_string()]).unwrap().remove(0);
+        let cfg = node.request.auth.unwrap().session.unwrap();
+        session::account(&plan.workspace_root, &plan.environment_name, &cfg)
+    }
+
+    #[tokio::test]
+    async fn the_first_send_signs_in_asking_only_for_the_code_and_the_next_reuses_it() {
+        let (_ws, plan, node) = session_ws();
+        let fake = Fake::default();
+        *fake.responses.lock().unwrap() = vec![
+            (200, "{}".into()),
+            (200, SIGNED_IN.into()),
+            (200, "{}".into()),
+        ];
+        fake.answers
+            .lock()
+            .unwrap()
+            .push(typed(&[("otp", "482913")]));
+        let mut vars = base_vars();
+
+        let first = send(&plan, &node, &mut vars, &fake).await;
+        assert!(first.row.ok, "{:?}", first.row.error);
+        assert_eq!(
+            urls(&fake),
+            ["POST /login", "POST /verify", "GET /v1/payments"]
+        );
+        assert_eq!(bearer(&fake, 2).as_deref(), Some("Bearer acc1"));
+        let used = first.details.session.unwrap();
+        assert_eq!(used.outcome, session_run::Outcome::SignedIn);
+        assert_eq!(used.environment, "Staging");
+        // The form told which scenario asks and how far it got.
+        let (scenario, states) = {
+            let forms = fake.forms.lock().unwrap();
+            assert_eq!(forms.len(), 1);
+            let prompt = forms[0].session.as_ref().unwrap();
+            let states: Vec<_> = prompt.steps.iter().map(|s| s.state.clone()).collect();
+            (prompt.scenario.clone(), states)
+        };
+        assert_eq!(scenario, "Auth · OTP");
+        assert_eq!(states, ["done", "now"]);
+        // The code is in no token store and no variables.
+        assert!(!vars.environment.contains_key("otp"));
+
+        let second = send(&plan, &node, &mut vars, &fake).await;
+        assert_eq!(
+            second.details.session.unwrap().outcome,
+            session_run::Outcome::Valid
+        );
+        assert_eq!(urls(&fake).len(), 4);
+        assert_eq!(bearer(&fake, 3).as_deref(), Some("Bearer acc1"));
+    }
+
+    #[tokio::test]
+    async fn the_sign_in_folder_never_gets_the_session_and_the_environment_keeps_its_own() {
+        let (_ws, plan, _node) = session_ws();
+        let tree = workspace::load(&plan.workspace_root).unwrap();
+        let verify = plan_requests(&tree, &[VERIFY.to_string()])
+            .unwrap()
+            .remove(0);
+        let fake = Fake::default();
+        fake.answers
+            .lock()
+            .unwrap()
+            .push(typed(&[("otp", "123456")]));
+        let mut vars = base_vars();
+        let done = send(&plan, &verify, &mut vars, &fake).await;
+        assert!(done.row.ok, "{:?}", done.row.error);
+        assert!(done.details.session.is_none());
+        assert_eq!(bearer(&fake, 0), None);
+        assert_eq!(urls(&fake), ["POST /verify"]);
+        let mut production = plan.clone();
+        production.environment_name = "Production".into();
+        assert_ne!(account(&plan), account(&production));
+    }
+
+    #[tokio::test]
+    async fn an_expired_access_token_is_renewed_by_the_refresh_request_without_the_code() {
+        let (_ws, plan, node) = session_ws();
+        let fake = Fake::default();
+        let key = account(&plan);
+        let stale = session::Record {
+            access: "old".into(),
+            refresh: Some("ref1".into()),
+            access_exp: Some(session::now_secs() - 10),
+            refresh_exp: Some(session::now_secs() + 3600),
+            who: None,
+            obtained_at: 0,
+        };
+        session::save(&key, &fake.tokens, &stale).unwrap();
+        *fake.responses.lock().unwrap() = vec![
+            (200, r#"{"access_token":"acc2","expires_in":900}"#.into()),
+            (200, "{}".into()),
+        ];
+        let mut vars = base_vars();
+        let done = send(&plan, &node, &mut vars, &fake).await;
+
+        assert!(done.row.ok);
+        assert_eq!(urls(&fake), ["POST /refresh", "GET /v1/payments"]);
+        assert_eq!(
+            fake.sent.lock().unwrap()[0].body.as_deref(),
+            Some(r#"{"refresh_token":"ref1"}"#)
+        );
+        assert_eq!(bearer(&fake, 1).as_deref(), Some("Bearer acc2"));
+        assert!(fake.asked.lock().unwrap().is_empty());
+        let used = done.details.session.unwrap();
+        assert_eq!(used.outcome, session_run::Outcome::Renewed);
+        assert!(matches!(used.trace[0], session_run::Trace::Expired { .. }));
+        assert!(matches!(
+            used.trace[1],
+            session_run::Trace::Renew { ok: true, .. }
+        ));
+        let kept = session::stored(&key, &fake.tokens).unwrap();
+        assert_eq!(kept.access, "acc2");
+        assert_eq!(kept.refresh.as_deref(), Some("ref1"));
+    }
+
+    #[tokio::test]
+    async fn a_dead_refresh_token_falls_back_to_the_sign_in() {
+        let (_ws, plan, node) = session_ws();
+        let fake = Fake::default();
+        let stale = session::Record {
+            access: "old".into(),
+            refresh: Some("dead".into()),
+            access_exp: Some(session::now_secs() - 10),
+            refresh_exp: None,
+            who: None,
+            obtained_at: 0,
+        };
+        session::save(&account(&plan), &fake.tokens, &stale).unwrap();
+        *fake.responses.lock().unwrap() = vec![
+            (401, r#"{"error":"invalid_grant"}"#.into()),
+            (200, "{}".into()),
+            (200, SIGNED_IN.into()),
+            (200, "{}".into()),
+        ];
+        fake.answers
+            .lock()
+            .unwrap()
+            .push(typed(&[("otp", "111111")]));
+        let mut vars = base_vars();
+        let done = send(&plan, &node, &mut vars, &fake).await;
+
+        assert!(done.row.ok, "{:?}", done.row.error);
+        assert_eq!(
+            urls(&fake),
+            [
+                "POST /refresh",
+                "POST /login",
+                "POST /verify",
+                "GET /v1/payments"
+            ]
+        );
+        assert_eq!(bearer(&fake, 3).as_deref(), Some("Bearer acc1"));
+        let used = done.details.session.unwrap();
+        assert_eq!(used.outcome, session_run::Outcome::SignedIn);
+        assert!(matches!(
+            used.trace[1],
+            session_run::Trace::Renew { ok: false, .. }
+        ));
+        assert!(matches!(used.trace[2], session_run::Trace::Login { .. }));
+    }
+
+    #[tokio::test]
+    async fn a_401_renews_once_and_repeats_the_request() {
+        let (_ws, plan, node) = session_ws();
+        let fake = Fake::default();
+        let live = session::Record {
+            access: "revoked".into(),
+            refresh: Some("ref1".into()),
+            access_exp: Some(session::now_secs() + 3600),
+            refresh_exp: None,
+            who: None,
+            obtained_at: 0,
+        };
+        session::save(&account(&plan), &fake.tokens, &live).unwrap();
+        *fake.responses.lock().unwrap() = vec![
+            (401, "{}".into()),
+            (200, r#"{"access_token":"acc3"}"#.into()),
+            (200, "{}".into()),
+        ];
+        let mut vars = base_vars();
+        let done = send(&plan, &node, &mut vars, &fake).await;
+
+        assert_eq!(
+            urls(&fake),
+            ["GET /v1/payments", "POST /refresh", "GET /v1/payments"]
+        );
+        assert_eq!(bearer(&fake, 0).as_deref(), Some("Bearer revoked"));
+        assert_eq!(bearer(&fake, 2).as_deref(), Some("Bearer acc3"));
+        assert_eq!(done.row.status, RowStatus::Code(200));
+    }
+
+    #[tokio::test]
+    async fn without_a_person_a_missing_session_is_a_clear_error() {
+        let (_ws, mut plan, node) = session_ws();
+        plan.input_mode = InputMode::Fail;
+        let fake = Fake::default();
+        let mut vars = base_vars();
+        let done = send(&plan, &node, &mut vars, &fake).await;
+        assert!(!done.row.ok);
+        let error = done.row.error.unwrap();
+        assert!(error.contains("sign-in stopped at Verify OTP"), "{error}");
+        assert!(error.contains("input required: otp"), "{error}");
+        assert_eq!(urls(&fake), ["POST /login"]);
     }
 }

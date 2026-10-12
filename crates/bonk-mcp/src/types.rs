@@ -67,6 +67,7 @@ impl From<AuthSpec> for AuthConfig {
             api_key_value: value.api_key_value,
             api_key_in: value.api_key_in,
             oauth: None,
+            session: None,
         }
     }
 }

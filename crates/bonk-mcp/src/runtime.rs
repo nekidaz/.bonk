@@ -465,6 +465,7 @@ impl BonkRuntime {
         body_limit: usize,
     ) -> Result<HttpRunOutput, String> {
         self.require_network()?;
+        let env_name = environment.unwrap_or_default().to_string();
         let (environment, globals, secrets) = self.scopes(variables, environment)?;
         let node = RequestNode {
             id: String::new(),
@@ -484,6 +485,7 @@ impl BonkRuntime {
                 },
                 settings,
                 GRPC_TIMEOUT,
+                &env_name,
             )
             .await?;
         // Nothing came back: the pre-request script, the policy or the network stopped it.
@@ -564,7 +566,11 @@ impl BonkRuntime {
     ) -> Result<Value, String> {
         self.require_network()?;
         let scenario = self.scenario(name)?;
-        let plan = scenario.plan(&self.config.root)?;
+        let mut plan = scenario.plan(&self.config.root)?;
+        plan.environment_name = environment
+            .or(scenario.environment_name.as_deref())
+            .unwrap_or_default()
+            .to_string();
         let (env, globals, mut secrets) = self.scopes(variables, environment)?;
         let mut vars = scenario.variables.clone();
         vars.globals = globals.into_iter().chain(vars.globals).collect();
@@ -637,11 +643,13 @@ impl BonkRuntime {
         mut vars: RunVars,
         settings: RequestSettings,
         grpc_timeout: Duration,
+        environment_name: &str,
     ) -> Result<RunOne, String> {
         let transport = McpTransport::new(self, settings, grpc_timeout);
         let plan = RunPlan {
             requests: vec![node],
             workspace_root: self.root_str(),
+            environment_name: environment_name.to_string(),
             ..RunPlan::default()
         };
         let events = Mutex::new(Vec::new());
@@ -759,13 +767,14 @@ impl BonkRuntime {
         timeout: Duration,
     ) -> Result<GrpcCallOutput, String> {
         self.require_network()?;
+        let env_name = environment.unwrap_or_default().to_string();
         let (environment, globals, secrets) = self.scopes(variables, environment)?;
         let vars = RunVars {
             environment,
             globals,
         };
         let run = self
-            .run_one(node, vars, RequestSettings::default(), timeout)
+            .run_one(node, vars, RequestSettings::default(), timeout, &env_name)
             .await?;
         let Some(result) = run.grpc else {
             return Err(run.failure(&secrets));

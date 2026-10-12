@@ -257,7 +257,7 @@ fn grpc_metadata(
         return explicit_metadata(out, metadata, scope, strip_authorization, dynamic);
     };
     match auth.auth_type.as_str() {
-        "bearer" | "oauth2" => {
+        "bearer" | "oauth2" | "session" => {
             if let Some(token) = auth.bearer_token.as_deref().map(str::trim) {
                 if !token.is_empty() {
                     out.insert("authorization".into(), format!("Bearer {}", text(token)));
@@ -339,7 +339,7 @@ fn apply_auth(request: &mut HttpRequest) -> Result<(), String> {
     match auth.auth_type.as_str() {
         "none" | "" | "inherit" => {}
         // The send path puts the keychain token into `bearer_token` (application::oauth).
-        "bearer" | "oauth2" => {
+        "bearer" | "oauth2" | "session" => {
             if let Some(token) = auth.bearer_token.filter(|token| !token.trim().is_empty()) {
                 let value = format!("Bearer {}", token.trim());
                 set_header_if_missing(&mut request.headers, "Authorization", &value);

@@ -16,5 +16,7 @@ pub mod run_data;
 pub mod runner;
 pub mod scenarios;
 pub mod scripts;
+pub mod session;
+pub mod session_run;
 pub mod themes;
 pub mod workspace;
