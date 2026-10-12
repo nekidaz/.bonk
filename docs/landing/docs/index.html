@@ -364,6 +364,8 @@ pm.environment.set('paymentId', pm.response.json().id);</code></pre>
   <p>Open <strong>Runner</strong>, pick a collection or folder (or right-click one in the tree and choose <strong>Run in Runner</strong>), and set up the run. You can select and drag to reorder requests, choose an environment and set the delay between requests. Pause, resume or stop a run in progress.</p>
   <h2 id="data">Data-driven runs</h2>
   <p>Attach a CSV or JSON file: each row is an iteration and each column is a variable, readable with <code>{{column}}</code> or <code>pm.iterationData</code>. A JSON file must be an array of objects. The row count sets the number of iterations.</p>
+  <h2 id="input">Steps that ask for input</h2>
+  <p>Right-click any <code>{{variable}}</code> in a request and choose <strong>Ask on send</strong>: an SMS code, an amount, a currency, a confirmation. Pick a type (text, number, code, secret, choice, yes/no, JSON, file), a label and checks. <strong>Send</strong> opens a small form by the button; the Runner stops at that step, shows the form in the run log and goes on after the answer. A 4xx on a step with typed input opens the form again (three tries). The value lives only in that run: it is not saved to environments, history or run records, and a code is shown as <code>••••13</code> in the log. The field definitions are stored in <code>.bonk/inputs.json</code>, so commit it. In the <a href="#cli">CLI</a> nobody can type: pass the value with <code>--input otp=123456</code> or <code>BONK_INPUT_otp</code>, or the step fails.</p>
   <h2 id="settings">Run settings</h2>
   <ul>
     <li><strong>Stop on first failure</strong>.</li>

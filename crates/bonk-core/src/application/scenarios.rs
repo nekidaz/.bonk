@@ -48,17 +48,17 @@ struct File {
 
 /// A hidden path outside the request tree. Refuse symlinks so an imported/shared
 /// workspace cannot redirect reads or writes outside itself.
-fn file_path(root: &Path) -> Result<PathBuf, String> {
+pub(super) fn bonk_file(root: &Path, name: &str) -> Result<PathBuf, String> {
     let root = root.canonicalize().map_err(|e| format!("workspace: {e}"))?;
     if !root.is_dir() {
         return Err("workspace is not a directory".into());
     }
     let dir = root.join(".bonk");
-    let file = dir.join("scenarios.json");
+    let file = dir.join(name);
     for path in [&dir, &file] {
         match std::fs::symlink_metadata(path) {
             Ok(meta) if meta.file_type().is_symlink() => {
-                return Err(format!("scenario path is a symlink: {}", path.display()))
+                return Err(format!("{name} path is a symlink: {}", path.display()))
             }
             Err(e) if e.kind() != std::io::ErrorKind::NotFound => {
                 return Err(format!("{}: {e}", path.display()))
@@ -67,6 +67,10 @@ fn file_path(root: &Path) -> Result<PathBuf, String> {
         }
     }
     Ok(file)
+}
+
+fn file_path(root: &Path) -> Result<PathBuf, String> {
+    bonk_file(root, "scenarios.json")
 }
 
 fn path_id(path: &str) -> Result<String, String> {

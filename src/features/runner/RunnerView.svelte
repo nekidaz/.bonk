@@ -21,8 +21,10 @@
     stopRun,
     bindIdFrom,
     exportReport,
+    answerWaiting,
     runner,
   } from './store.svelte';
+  import { InputForm } from '$entities/input/components';
   import { runnerScopeTitle, plannedRequests } from './runnerPlan';
   import { openSavedRequest } from '$entities/request';
   import RunnerPick from './RunnerPick.svelte';
@@ -76,7 +78,15 @@
   const hasRun = $derived(run.n > 0 && run.startedAt !== null);
   const failedRows = $derived(run.results.filter((r) => !r.ok));
   const current = $derived(
-    hasRun ? summarizeRun(run.n, run.startedAt ?? 0, run.finishedAt ?? Date.now(), run.results) : undefined,
+    hasRun
+      ? summarizeRun(
+          run.n,
+          run.startedAt ?? 0,
+          // The time a person took to type is not the API's time.
+          (run.finishedAt ?? Date.now()) - (viewing === null ? run.waitedMs : 0),
+          run.results,
+        )
+      : undefined,
   );
   const prev = $derived(current ? runner.history.filter((h) => h.n < current.n).at(-1) : undefined);
   const bars = $derived(runBars(runner.history));
@@ -89,6 +99,12 @@
     const id = setInterval(() => (now = Date.now()), 100);
     return () => clearInterval(id);
   });
+
+  // ---- Waiting for typed input (Flow · Сценарий с вводом OT4-OT5) ----
+  const waiting = $derived(running ? run.waiting : null);
+  const clock = (ms: number) => `${Math.floor(ms / 60000)}:${String(Math.floor(ms / 1000) % 60).padStart(2, '0')}`;
+  const waitText = $derived(waiting ? clock(Math.max(0, now - waiting.since)) : '');
+  const rejected = $derived(!!waiting && waiting.request.attempt > 1);
 
   // ---- R3: progress + log ----
   const curIter = $derived(run.iterStarts.length);
@@ -219,7 +235,7 @@
       <div class="rn-crumb">
         {@render eyebrow(
           hasRun
-            ? `RUNNER  /  ${t('runner.runN', { n: run.n })}  ·  ${running ? t(run.paused ? 'runner.crumb.paused' : 'runner.crumb.live') : runTimeLabel(run.startedAt ?? 0, Date.now(), t)}`
+            ? `RUNNER  /  ${t('runner.runN', { n: run.n })}  ·  ${running ? (waiting ? t('input.runner.crumb') : t(run.paused ? 'runner.crumb.paused' : 'runner.crumb.live')) : runTimeLabel(run.startedAt ?? 0, Date.now(), t)}`
             : 'RUNNER',
         )}
         <div class="rn-titlerow">
@@ -306,14 +322,21 @@
           <span class="sp"></span>
           <span class="rn-pok">{okCount} ✓</span>
           {#if run.completed - okCount > 0}<span class="rn-pbad">{run.completed - okCount} ✗</span>{/if}
-          <span class="rn-ptime">{t('runner.progress.time', { el: elapsedS.toFixed(1), left: leftS.toFixed(1) })}</span>
+          {#if run.retries > 0}<span class="rn-pbad">{t('input.runner.retry', { n: run.retries })}</span>{/if}
+          <span class="rn-ptime"
+            >{t('runner.progress.time', { el: elapsedS.toFixed(1), left: leftS.toFixed(1) })}{#if waiting}<span
+                class="rn-pask"
+                class:bad={rejected}>{`  ·  ${t('input.runner.waitingFor', { time: waitText })}`}</span
+              >{/if}</span
+          >
         </div>
         <div class="rn-segs" class:dense={run.total > 60}>
           {#each { length: run.total } as _, i (i)}
             <i
               class:ok={run.results[i]?.ok}
-              class:bad={run.results[i] && !run.results[i].ok}
-              class:cur={i === run.completed}
+              class:cur={i === run.completed && !waiting}
+              class:ask={i === run.completed && !!waiting && !rejected}
+              class:bad={(run.results[i] && !run.results[i].ok) || (i === run.completed && rejected)}
             ></i>
           {/each}
         </div>
@@ -330,7 +353,10 @@
         <div class="rn-stat">
           {@render eyebrow(t('runner.stat.total'))}
           <div class="rn-stat-row">
-            <b>{current ? (current.durationMs / 1000).toFixed(1) : '—'}</b>{#if current}<span>s</span>{/if}
+            <b>{current ? (current.durationMs / 1000).toFixed(1) : '—'}</b>{#if current}<span>s</span
+              >{/if}{#if current && viewing === null && run.waitedMs > 0}<span class="rn-waited"
+                >{t('input.runner.waited', { time: clock(run.waitedMs) })}</span
+              >{/if}
             {@render delta(current ? durationDelta(current, prev) : null)}
           </div>
         </div>
@@ -382,6 +408,7 @@
             {@const call = row.cells[wfIter - 1]}
             {@const bar = bars2[ri]}
             {@const live = running && run.current?.nodeId === row.nodeId}
+            {@const asking = live && !!waiting}
             <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
             <div
               class="rn-grid rn-row"
@@ -404,6 +431,8 @@
                     class="rn-cell"
                     class:ok={c?.ok}
                     class:bad={c && !c.ok}
+                    class:ask={cur && asking && !rejected}
+                    class:err={cur && asking && rejected}
                     class:pending={running && !c}
                     class:cur
                     class:on={!running && ri === selIdx && sel?.iter === ci + 1}
@@ -416,21 +445,39 @@
                     onclick={(e) => {
                       e.stopPropagation();
                       sel = { key: row.key, iter: ci + 1 };
-                    }}>{c ? c.status : cur ? '···' : '—'}</button
+                    }}
+                    >{c
+                      ? c.status
+                      : cur
+                        ? asking
+                          ? rejected
+                            ? String(waiting?.request.last?.status ?? '···')
+                            : t('input.runner.pill')
+                          : '···'
+                        : '—'}</button
                   >
                 </span>
               {/each}
               <span class="rn-wf"
-                >{#if bar}<i class={bar.tone} style="left:{bar.left}%;width:{bar.width}%"></i>{/if}</span
+                >{#if bar}<i class={bar.tone} style="left:{bar.left}%;width:{bar.width}%"></i>{:else if asking}<i
+                    class="ask"
+                    class:bad={rejected}
+                    style="left:{Math.min(
+                      60,
+                      Math.max(0, ...bars2.filter(Boolean).map((b) => (b ? b.left + b.width : 0))),
+                    )}%;width:36%"
+                  ></i>{/if}</span
               >
-              <span class="rn-time r" class:slow={call && callTone(call) === 'slow'}>
+              <span class="rn-time r" class:slow={call && callTone(call) === 'slow'} class:ask={asking}>
                 {call
                   ? `${call.elapsedMs} ms`
-                  : live && run.current
-                    ? `${((now - run.current.startedAt) / 1000).toFixed(1)} s`
-                    : running
-                      ? '—'
-                      : ''}
+                  : asking
+                    ? waitText
+                    : live && run.current
+                      ? `${((now - run.current.startedAt) / 1000).toFixed(1)} s`
+                      : running
+                        ? '—'
+                        : ''}
               </span>
             </div>
           {/each}
@@ -438,8 +485,9 @@
             <span><i></i>{t('runner.legend.normal')}</span>
             <span><i class="slow"></i>{t('runner.legend.slow')}</span>
             <span><i class="error"></i>{t('runner.legend.error')}</span>
+            {#if run.waiting || run.waitedMs > 0}<span><i class="ask"></i>{t('input.runner.legend')}</span>{/if}
             <span class="sp"></span>
-            <span>{t('runner.legend.keys')}</span>
+            <span>{waiting ? t('input.runner.keys') : t('runner.legend.keys')}</span>
           </div>
           {#if rows.length === 0}
             <p class="rn-empty">{t('runner.empty')}</p>
@@ -450,14 +498,26 @@
       {#if running}
         <aside class="rn-detail rn-log" aria-label={t('runner.log')}>
           {@render eyebrow(t('runner.log'))}
-          <div class="rn-logcur">
-            <span class="rn-logstate"
-              ><i class:paused={run.paused}></i>{run.paused ? t('runner.log.paused') : t('runner.log.running')}</span
-            >
-            {#if run.current}<span class="rn-logcall"
-                >{run.current.method} {run.current.name} · {((now - run.current.startedAt) / 1000).toFixed(1)} s</span
-              >{/if}
-          </div>
+          {#if waiting}
+            <div class="rn-ask">
+              <InputForm
+                request={waiting.request}
+                variant="card"
+                onsubmit={(values) => void answerWaiting({ kind: 'values', values })}
+                onskip={() => void answerWaiting({ kind: 'skip' })}
+                oncancel={stopRun}
+              />
+            </div>
+          {:else}
+            <div class="rn-logcur">
+              <span class="rn-logstate"
+                ><i class:paused={run.paused}></i>{run.paused ? t('runner.log.paused') : t('runner.log.running')}</span
+              >
+              {#if run.current}<span class="rn-logcall"
+                  >{run.current.method} {run.current.name} · {((now - run.current.startedAt) / 1000).toFixed(1)} s</span
+                >{/if}
+            </div>
+          {/if}
           <div class="rn-logs">
             {#each log as e (e.kind === 'call' ? e.r.id : `i${e.n}`)}
               <div class="rn-logrow">
@@ -470,6 +530,12 @@
                         ? `${e.r.elapsedMs} ms`
                         : (e.r.error ?? t('runner.log.testFailed'))}</small
                     >
+                    {#each Object.entries(e.r.inputs ?? {}) as [name, shown] (name)}
+                      <small class="ask">{t('input.runner.typed', { name, value: shown })}</small>
+                    {/each}
+                    {#if Object.keys(e.r.inputs ?? {}).length > 0}<small class="mute"
+                        >{t('input.runner.typedNote')}</small
+                      >{/if}
                   </span>
                 {:else}
                   <span class="rn-logbody">
@@ -511,6 +577,14 @@
               >
             </div>
             {#if selCall.error}<div class="rn-err">{selCall.error}</div>{/if}
+            {#if Object.keys(selCall.inputs ?? {}).length > 0}
+              <div class="rn-typed">
+                {#each Object.entries(selCall.inputs ?? {}) as [name, shown] (name)}
+                  <span><span class="material-symbols-outlined" aria-hidden="true">keyboard</span>{name} {shown}</span>
+                {/each}
+                <small>{t('input.runner.typedNote')}</small>
+              </div>
+            {/if}
           </div>
 
           {#if insight}
@@ -833,10 +907,47 @@
   .rn-segs i.cur {
     background: var(--color-text);
   }
+  .rn-segs i.ask {
+    background: var(--color-ask);
+  }
+  .rn-typed {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px 10px;
+    color: var(--color-ask);
+    font: 11px var(--font-code);
+  }
+  .rn-typed .material-symbols-outlined {
+    font-size: 13px;
+    margin-right: 4px;
+    vertical-align: -2px;
+  }
+  .rn-typed small {
+    color: var(--color-text-muted);
+  }
+  .rn-waited {
+    color: var(--color-ask);
+    font: 11px var(--font-code);
+  }
+  .rn-pask {
+    color: var(--color-ask);
+    white-space: pre;
+  }
+  .rn-pask.bad {
+    color: var(--color-danger);
+  }
 
   /* R3: log */
   .rn-log {
     gap: 10px;
+  }
+  /* A form with many fields scrolls inside the panel instead of pushing the log out of it. */
+  .rn-ask {
+    flex: 0 1 auto;
+    min-height: 0;
+    overflow: auto;
+    border-radius: var(--radius-card);
   }
   .rn-logcur {
     display: flex;
@@ -902,6 +1013,9 @@
     color: var(--color-success);
     font: 10px/13px var(--font-code);
     overflow-wrap: anywhere;
+  }
+  .rn-logbody small.ask {
+    color: var(--color-ask);
   }
   .rn-logbody small.bad {
     color: var(--color-danger);
@@ -1126,6 +1240,15 @@
   .rn-cell.pending {
     box-shadow: inset 0 0 0 1px var(--color-border-subtle);
   }
+  .rn-cell.ask {
+    box-shadow: inset 0 0 0 1.5px var(--color-ask);
+    background: var(--color-ask-soft);
+    color: var(--color-ask);
+  }
+  .rn-cell.err {
+    background: var(--color-danger-soft);
+    color: var(--color-danger);
+  }
   .rn-cell.cur {
     box-shadow: inset 0 0 0 1.5px var(--color-text);
     color: var(--color-text);
@@ -1154,6 +1277,13 @@
   .rn-wf i.error {
     background: var(--color-danger);
   }
+  .rn-wf i.ask {
+    background: transparent;
+    box-shadow: inset 0 0 0 1.5px var(--color-ask);
+  }
+  .rn-wf i.ask.bad {
+    box-shadow: inset 0 0 0 1.5px var(--color-danger);
+  }
   .rn-time {
     color: var(--color-text-muted);
     font: 10px/13px var(--font-code);
@@ -1161,6 +1291,9 @@
   }
   .rn-time.slow {
     color: var(--color-warning);
+  }
+  .rn-time.ask {
+    color: var(--color-ask);
   }
   .rn-legend {
     display: flex;
@@ -1188,6 +1321,10 @@
   }
   .rn-legend i.error {
     background: var(--color-danger);
+  }
+  .rn-legend i.ask {
+    background: transparent;
+    box-shadow: inset 0 0 0 1.5px var(--color-ask);
   }
   .rn-legend .sp {
     flex: 1;

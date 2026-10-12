@@ -18,6 +18,8 @@ import {
   uiFontSize,
 } from '$shared/settings';
 import { checkForUpdate } from '$shared/updater';
+import { inputs, watchInputs } from '$entities/input';
+import { workspace } from '$entities/workspace';
 import { runner, watchRunnerWorkspace } from '$features/runner';
 import { layout } from './layout.svelte';
 import { shell } from './shell.svelte';
@@ -37,6 +39,7 @@ export function startApp(): void {
   onDestroy(watchGitAutoFetch());
   onDestroy(watchCookieJar());
   onDestroy(watchRunnerWorkspace());
+  onDestroy(watchInputs(() => workspace.path));
 
   layout.startEffects();
 
@@ -54,6 +57,15 @@ export function startApp(): void {
       shell.showToast({ text: n.text, undo: n.undo, undoLabel: n.undo ? t('git.rb.undo') : undefined, icon: 'commit' });
       git.notice = null;
     });
+  });
+
+  $effect(() => {
+    const text = inputs.error;
+    if (text)
+      untrack(() => {
+        shell.showToast({ text, icon: 'error', iconColor: 'var(--color-danger)' });
+        inputs.error = '';
+      });
   });
 
   $effect(() => {

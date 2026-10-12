@@ -22,6 +22,7 @@ use crate::domain::{
     dynamic_vars::{Dynamic, DynamicOptions, DynamicValue},
     grpc::{GrpcPrefs, GrpcResult, GrpcTls},
     http::{pick_client_cert, ClientCert, HttpRequest, HttpResponse},
+    inputs::{placeholders, InputDef, InputKind},
     request_prep::{self, Scope},
     workspace::{RequestNode, TreeNode},
 };
@@ -95,9 +96,38 @@ pub struct RunPlan {
     /// How `{{$dynamic}}` values are generated (Settings → Variables).
     #[serde(default)]
     pub dynamic: DynamicOptions,
+    /// «Ask on send» variables of the workspace, by name (`.bonk/inputs.json`).
+    #[serde(default)]
+    pub inputs: BTreeMap<String, InputDef>,
+    /// Input values given up front (`bonk run --input otp=123456`): not asked for.
+    #[serde(default)]
+    pub input_values: Scope,
+    /// What a step does when it needs input nobody gave.
+    #[serde(default)]
+    pub input_mode: InputMode,
+    /// Tries per step: a 4xx on a step with typed input opens the form again. 0 = 3.
+    #[serde(default)]
+    pub input_attempts: u32,
+}
+
+/// A step with an «ask on send» variable: wait for a person, or fail (CI).
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum InputMode {
+    #[default]
+    Wait,
+    Fail,
 }
 
 impl RunPlan {
+    fn attempts(&self) -> u32 {
+        if self.input_attempts == 0 {
+            3
+        } else {
+            self.input_attempts
+        }
+    }
+
     pub fn iteration_count(&self) -> u32 {
         if self.data_rows.is_empty() {
             self.iterations.max(1)
@@ -162,6 +192,12 @@ pub struct RunResultRow {
     /// When the call finished, ms since the run started.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub end_ms: Option<u64>,
+    /// Typed input of the step as a log shows it: a code is masked, a secret hidden.
+    #[serde(skip_serializing_if = "BTreeMap::is_empty")]
+    pub inputs: BTreeMap<String, String>,
+    /// How long the step waited for a person.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub waited_ms: Option<u64>,
 }
 
 /// Full execution details for an interactive editor. Collections keep only their row.
@@ -216,6 +252,62 @@ pub enum RunEvent {
     },
     Vars(VarWrites),
     Row(Box<RunResultRow>),
+    /// The step waits for typed input (again, after a rejected try).
+    Input(Box<InputRequest>),
+}
+
+/// One field of the input form.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct InputField {
+    pub name: String,
+    #[serde(flatten)]
+    pub def: InputDef,
+}
+
+/// What the previous try of the step got back, shown above the form.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct InputAttempt {
+    pub status: RowStatus,
+    pub message: String,
+    pub elapsed_ms: u64,
+    /// The input of that try, masked as the log shows it.
+    pub inputs: BTreeMap<String, String>,
+}
+
+/// The form a step needs before it can be sent.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct InputRequest {
+    /// The answer comes back under this id.
+    pub id: String,
+    pub node_id: String,
+    pub request_name: String,
+    pub method: String,
+    pub iteration: u32,
+    pub fields: Vec<InputField>,
+    /// 1-based; with `max_attempts` «attempt 2 of 3».
+    pub attempt: u32,
+    pub max_attempts: u32,
+    /// Why the form is open again: a rejected value or the server's answer.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub last: Option<InputAttempt>,
+}
+
+/// A person's reply to an `InputRequest`.
+#[derive(Debug, Clone, Deserialize)]
+#[serde(tag = "kind", rename_all = "camelCase")]
+pub enum InputAnswer {
+    Values {
+        values: Scope,
+    },
+    /// Skip this step, keep running.
+    Skip,
+    /// End the run here.
+    Stop,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
@@ -244,6 +336,13 @@ impl RunControl {
 
     fn stopped(&self) -> bool {
         self.stopped.load(Ordering::Relaxed)
+    }
+
+    /// Resolves once the run is stopped (to leave an input prompt nobody answers).
+    async fn wait_stopped(&self) {
+        while !self.stopped() {
+            tokio::time::sleep(Duration::from_millis(100)).await;
+        }
     }
 
     /// Wait out a pause; true when the run should stop instead.
@@ -301,6 +400,17 @@ pub trait Transport: Sync {
     /// Where OAuth tokens are kept (the keychain; memory in tests).
     fn token_store(&self) -> &dyn TokenStore {
         &Keychain
+    }
+
+    /// Show `request`'s form to a person and wait for the reply. `emit` is the run's event
+    /// stream: the app sends `RunEvent::Input` through it and parks until the answer
+    /// arrives. A transport without a person (CLI, MCP) can't ask.
+    fn ask_input(
+        &self,
+        _request: InputRequest,
+        _emit: &(dyn Fn(RunEvent) + Sync),
+    ) -> impl Future<Output = Result<InputAnswer, String>> + Send {
+        async { Err("this run can't ask for input".to_string()) }
     }
 
     /// Apply a script's cookie removal before the next stage/request.
@@ -442,12 +552,24 @@ pub async fn run_collection<T: Transport>(
                 method: display_method(node),
             });
             let start_offset = iteration_start.elapsed().saturating_sub(idle);
-            let mut row = run_node(plan, node, index, data, vars, transport, emit).await;
+            let step = execute(
+                plan,
+                node,
+                iteration_args(index, data),
+                vars,
+                transport,
+                emit,
+                Some(control),
+                false,
+            )
+            .await;
+            let mut row = step.execution.row;
             row.start_offset_ms = Some(millis(start_offset));
             row.end_ms = Some(millis(started.elapsed()));
+            idle += step.waited;
             let ok = row.ok;
             emit(RunEvent::Row(Box::new(row)));
-            if control.stopped() || (plan.stop_on_failure && !ok) {
+            if step.halt || control.stopped() || (plan.stop_on_failure && !ok) {
                 return Ok(RunStatus::Stopped);
             }
             let last = index == iterations && j + 1 == plan.requests.len();
@@ -471,9 +593,19 @@ pub async fn run_node<T: Transport>(
     transport: &T,
     emit: &(dyn Fn(RunEvent) + Sync),
 ) -> RunResultRow {
-    execute(plan, node, iteration, data, vars, transport, emit, false)
-        .await
-        .row
+    execute(
+        plan,
+        node,
+        iteration_args(iteration, data),
+        vars,
+        transport,
+        emit,
+        None,
+        false,
+    )
+    .await
+    .execution
+    .row
 }
 
 /// Interactive execution through the same pipeline used by collections, CLI and MCP.
@@ -484,20 +616,363 @@ pub async fn execute_node<T: Transport>(
     transport: &T,
     emit: &(dyn Fn(RunEvent) + Sync),
 ) -> RequestExecution {
-    execute(plan, node, 1, &Scope::new(), vars, transport, emit, true).await
+    execute(
+        plan,
+        node,
+        iteration_args(1, &Scope::new()),
+        vars,
+        transport,
+        emit,
+        None,
+        true,
+    )
+    .await
+    .execution
 }
 
+/// Which iteration a step runs in and its data row.
+#[derive(Clone, Copy)]
+struct IterationArgs<'a> {
+    iteration: u32,
+    data: &'a Scope,
+}
+
+fn iteration_args(iteration: u32, data: &Scope) -> IterationArgs<'_> {
+    IterationArgs { iteration, data }
+}
+
+/// A step's execution and what it cost beyond the network.
+struct Step {
+    execution: RequestExecution,
+    /// Time spent waiting for a person: kept out of the waterfall.
+    waited: Duration,
+    /// The person ended the run at the prompt.
+    halt: bool,
+}
+
+/// The step with its input (when it has any): ask, check, send, and ask again after a 4xx.
 #[allow(clippy::too_many_arguments)]
 async fn execute<T: Transport>(
     plan: &RunPlan,
     node: &RequestNode,
-    iteration: u32,
-    data: &Scope,
+    at: IterationArgs<'_>,
     vars: &mut RunVars,
     transport: &T,
     emit: &(dyn Fn(RunEvent) + Sync),
+    control: Option<&RunControl>,
+    capture: bool,
+) -> Step {
+    let fields = input_fields(plan, node);
+    let skipped = |inputs, waited, message: &str, ok, halt| {
+        let mut execution = refused(node, at.iteration, message, ok);
+        execution.row.inputs = inputs;
+        execution.row.waited_ms = Some(millis(waited));
+        Step {
+            execution,
+            waited,
+            halt,
+        }
+    };
+    if fields.is_empty() {
+        let execution = execute_once(
+            plan,
+            node,
+            at,
+            vars,
+            transport,
+            emit,
+            &Scope::new(),
+            capture,
+        )
+        .await;
+        return Step {
+            execution,
+            waited: Duration::ZERO,
+            halt: false,
+        };
+    }
+    let mut values: Scope = plan
+        .input_values
+        .iter()
+        .filter(|(name, _)| fields.iter().any(|f| &f.name == *name))
+        .map(|(name, value)| (name.clone(), value.clone()))
+        .collect();
+    let to_ask: Vec<InputField> = fields
+        .iter()
+        .filter(|f| !values.contains_key(&f.name))
+        .cloned()
+        .collect();
+    if !to_ask.is_empty() && plan.input_mode == InputMode::Fail {
+        let list = to_ask
+            .iter()
+            .map(|f| {
+                if f.def.label.is_empty() {
+                    f.name.clone()
+                } else {
+                    format!("{} ({})", f.name, f.def.label)
+                }
+            })
+            .collect::<Vec<_>>()
+            .join(", ");
+        let message = format!("input required: {list}. Pass it with --input NAME=VALUE");
+        return skipped(BTreeMap::new(), Duration::ZERO, &message, false, false);
+    }
+    let attempts = if to_ask.is_empty() {
+        1
+    } else {
+        plan.attempts()
+    };
+    let mut waited = Duration::ZERO;
+    let mut last: Option<InputAttempt> = None;
+    let mut error: Option<String> = None;
+    for attempt in 1..=attempts {
+        if !to_ask.is_empty() {
+            // Ask until the values pass their checks; a typo is not a try.
+            loop {
+                let request = InputRequest {
+                    id: new_id(),
+                    node_id: node.id.clone(),
+                    request_name: node.name.clone(),
+                    method: display_method(node),
+                    iteration: at.iteration,
+                    fields: to_ask.clone(),
+                    attempt,
+                    max_attempts: attempts,
+                    error: error.take(),
+                    last: last.clone(),
+                };
+                let asked = Instant::now();
+                let answer = ask(transport, request, emit, control).await;
+                waited += asked.elapsed();
+                let typed = match answer {
+                    Ok(InputAnswer::Values { values }) => values,
+                    Ok(InputAnswer::Skip) => {
+                        return skipped(
+                            shown(&fields, &values),
+                            waited,
+                            "skipped: no input given",
+                            true,
+                            false,
+                        );
+                    }
+                    Ok(InputAnswer::Stop) => {
+                        return skipped(
+                            BTreeMap::new(),
+                            waited,
+                            "stopped at the input prompt",
+                            false,
+                            true,
+                        );
+                    }
+                    Err(e) => return skipped(BTreeMap::new(), waited, &e, false, false),
+                };
+                let mut problem = None;
+                for field in &to_ask {
+                    let value = field
+                        .def
+                        .normalize(typed.get(&field.name).map_or("", String::as_str));
+                    match field.def.check(&value) {
+                        Ok(()) => {
+                            values.insert(field.name.clone(), value);
+                        }
+                        Err(e) => {
+                            problem = Some(format!("{}: {e}", field.name));
+                            break;
+                        }
+                    }
+                }
+                match problem {
+                    None => break,
+                    Some(e) => error = Some(e),
+                }
+            }
+            // A «no» to a confirmation ends the run instead of sending `false`.
+            if to_ask.iter().any(|f| {
+                f.def.kind == InputKind::Bool && values.get(&f.name).is_some_and(|v| v == "false")
+            }) {
+                return skipped(
+                    shown(&fields, &values),
+                    waited,
+                    "declined at the confirmation",
+                    false,
+                    true,
+                );
+            }
+        }
+        let mut execution =
+            execute_once(plan, node, at, vars, transport, emit, &values, capture).await;
+        redact(&fields, &values, &mut execution);
+        execution.row.inputs = shown(&fields, &values);
+        let rejected =
+            matches!(execution.row.status, RowStatus::Code(code) if (400..500).contains(&code));
+        if rejected && attempt < attempts {
+            last = Some(InputAttempt {
+                status: execution.row.status.clone(),
+                message: rejection(&execution.row),
+                elapsed_ms: execution.row.elapsed_ms,
+                inputs: execution.row.inputs.clone(),
+            });
+            error = Some(rejection(&execution.row));
+            continue;
+        }
+        execution.row.waited_ms = (!waited.is_zero()).then(|| millis(waited));
+        return Step {
+            execution,
+            waited,
+            halt: false,
+        };
+    }
+    unreachable!("the loop returns on its last attempt")
+}
+
+/// The form is shown through the transport; a stopped run closes it.
+async fn ask<T: Transport>(
+    transport: &T,
+    request: InputRequest,
+    emit: &(dyn Fn(RunEvent) + Sync),
+    control: Option<&RunControl>,
+) -> Result<InputAnswer, String> {
+    let answer = transport.ask_input(request, emit);
+    match control {
+        Some(control) => tokio::select! {
+            answer = answer => answer,
+            () = control.wait_stopped() => Ok(InputAnswer::Stop),
+        },
+        None => answer.await,
+    }
+}
+
+/// The «ask on send» variables `node` uses, in order of appearance.
+fn input_fields(plan: &RunPlan, node: &RequestNode) -> Vec<InputField> {
+    if plan.inputs.is_empty() {
+        return Vec::new();
+    }
+    let text = serde_json::to_string(node).unwrap_or_default();
+    placeholders(&text)
+        .into_iter()
+        .filter_map(|name| {
+            plan.inputs.get(&name).map(|def| InputField {
+                name,
+                def: def.clone(),
+            })
+        })
+        .collect()
+}
+
+/// A row for a step that never went out (refused, skipped, stopped).
+fn refused(node: &RequestNode, iteration: u32, message: &str, ok: bool) -> RequestExecution {
+    RequestExecution {
+        row: RunResultRow {
+            id: new_id(),
+            iteration,
+            request_name: node.name.clone(),
+            protocol: if node.protocol == "grpc" {
+                "grpc"
+            } else {
+                "http"
+            }
+            .into(),
+            method: display_method(node),
+            target: String::new(),
+            status: RowStatus::Text(if ok { "SKIP" } else { "ERR" }.into()),
+            ok,
+            elapsed_ms: 0,
+            tests: Vec::new(),
+            logs: Vec::new(),
+            error: (!ok).then(|| message.to_string()),
+            response_body: None,
+            node_id: node.id.clone(),
+            start_offset_ms: None,
+            size_bytes: None,
+            end_ms: None,
+            inputs: BTreeMap::new(),
+            waited_ms: None,
+        },
+        details: ExecutionDetails::default(),
+    }
+}
+
+/// Input as a log shows it: sensitive values masked.
+fn shown(fields: &[InputField], values: &Scope) -> BTreeMap<String, String> {
+    fields
+        .iter()
+        .filter_map(|f| {
+            let value = values.get(&f.name)?;
+            let text = if f.def.sensitive() {
+                f.def.mask(value)
+            } else {
+                value.chars().take(80).collect()
+            };
+            Some((f.name.clone(), text))
+        })
+        .collect()
+}
+
+/// Replace sensitive input values in everything a row or the sent-request view keeps.
+fn redact(fields: &[InputField], values: &Scope, execution: &mut RequestExecution) {
+    let mut subs: Vec<(String, String)> = fields
+        .iter()
+        .filter(|f| f.def.sensitive())
+        .filter_map(|f| {
+            let value = values.get(&f.name).filter(|v| !v.is_empty())?;
+            Some((value.clone(), f.def.mask(value)))
+        })
+        .collect();
+    if subs.is_empty() {
+        return;
+    }
+    subs.sort_by_key(|(raw, _)| std::cmp::Reverse(raw.len()));
+    let hide = |text: &mut String| {
+        for (raw, masked) in &subs {
+            *text = text.replace(raw.as_str(), masked);
+        }
+    };
+    let row = &mut execution.row;
+    hide(&mut row.target);
+    row.error.iter_mut().for_each(hide);
+    row.logs.iter_mut().for_each(hide);
+    // ponytail: JSON-escaped quotes/backslashes in a secret slip past this string replace.
+    if let Some(request) = execution.details.request.as_mut() {
+        if let Ok(mut text) = serde_json::to_string(request) {
+            hide(&mut text);
+            if let Ok(clean) = serde_json::from_str(&text) {
+                *request = clean;
+            }
+        }
+    }
+}
+
+/// «401 invalid_code» from a rejected answer: the status and the server's own reason.
+fn rejection(row: &RunResultRow) -> String {
+    let code = match &row.status {
+        RowStatus::Code(code) => code.to_string(),
+        RowStatus::Text(text) => text.clone(),
+    };
+    let reason = row
+        .response_body
+        .as_deref()
+        .and_then(|body| serde_json::from_str::<Value>(body).ok())
+        .and_then(|json| {
+            ["error_description", "error", "message", "code"]
+                .iter()
+                .find_map(|key| json.get(key)?.as_str().map(str::to_string))
+        })
+        .unwrap_or_default();
+    format!("{code} {reason}").trim().to_string()
+}
+
+#[allow(clippy::too_many_arguments)]
+async fn execute_once<T: Transport>(
+    plan: &RunPlan,
+    node: &RequestNode,
+    at: IterationArgs<'_>,
+    vars: &mut RunVars,
+    transport: &T,
+    emit: &(dyn Fn(RunEvent) + Sync),
+    inputs: &Scope,
     capture: bool,
 ) -> RequestExecution {
+    let IterationArgs { iteration, data } = at;
     // A fixed seed repeats the run, with distinct values per request/iteration.
     let mut dynamic = plan.dynamic.clone();
     dynamic.seed = dynamic.seed.map(|seed| {
@@ -509,6 +984,7 @@ async fn execute<T: Transport>(
     });
     let mut ctx = NodeRun {
         data,
+        inputs,
         vars,
         emit,
         tests: Vec::new(),
@@ -576,6 +1052,8 @@ impl Outcome {
 /// One request's run: the scope it reads and the tests/logs its scripts leave.
 struct NodeRun<'a> {
     data: &'a Scope,
+    /// Typed «ask on send» values: the last word in `{{var}}`, never written back.
+    inputs: &'a Scope,
     vars: &'a mut RunVars,
     emit: &'a (dyn Fn(RunEvent) + Sync),
     /// `{{$dynamic}}` values of this request: one per name, shared by the row and the send.
@@ -588,6 +1066,13 @@ struct NodeRun<'a> {
 }
 
 impl NodeRun<'_> {
+    /// `{{var}}` scope: typed input over iteration data over environment over globals.
+    fn scope(&self) -> Scope {
+        let mut scope = self.vars.scope(self.data);
+        scope.extend(self.inputs.clone());
+        scope
+    }
+
     async fn http<T: Transport>(
         &mut self,
         plan: &RunPlan,
@@ -601,7 +1086,7 @@ impl NodeRun<'_> {
             }
             _ => node.request.url.clone(),
         };
-        let target = request_prep::resolve_text(&url, &self.vars.scope(self.data));
+        let target = request_prep::resolve_text(&url, &self.scope());
         let outcome = self.http_pipeline(plan, node, transport).await;
         let target = self.target.take().unwrap_or(target);
         self.row(node, iteration, target, outcome, |o| match o.status {
@@ -620,11 +1105,7 @@ impl NodeRun<'_> {
         request_prep::materialize(&mut request, node.params.as_deref());
         if let Some(code) = script(&request.pre_request_script) {
             let mut probe = request.clone();
-            request_prep::resolve(
-                &mut probe,
-                &self.vars.scope(self.data),
-                &mut Dynamic::default(),
-            )?;
+            request_prep::resolve(&mut probe, &self.scope(), &mut Dynamic::default())?;
             let cookies = transport.script_cookies(&probe.url, None);
             let context = self.http_context(&request, None, &cookies);
             let pre = self
@@ -635,7 +1116,7 @@ impl NodeRun<'_> {
             }
             pre.request_patch.unwrap_or_default().apply(&mut request);
         }
-        let scope = self.vars.scope(self.data);
+        let scope = self.scope();
         let mut resolved = self.with_oauth(&request, &scope, transport, false).await?;
         request_prep::resolve(&mut resolved, &scope, &mut self.dynamic)?;
         resolve_upload_paths(&mut resolved, &plan.workspace_root);
@@ -724,10 +1205,8 @@ impl NodeRun<'_> {
         transport: &T,
     ) -> RunResultRow {
         let grpc = node.grpc.as_ref();
-        let endpoint = request_prep::resolve_text(
-            grpc.map_or("", |g| g.endpoint.as_str()),
-            &self.vars.scope(self.data),
-        );
+        let endpoint =
+            request_prep::resolve_text(grpc.map_or("", |g| g.endpoint.as_str()), &self.scope());
         let method = grpc.and_then(|g| g.method.as_deref()).unwrap_or_default();
         let short = method.rsplit('.').next().unwrap_or(method);
         let target = format!("{endpoint} · {short}").trim().to_string();
@@ -797,7 +1276,7 @@ impl NodeRun<'_> {
         }
         let strip_authorization = g.plaintext && !g.keep_auth_on_plaintext.unwrap_or(false);
         let mut auth = g.auth.clone();
-        let scope = self.vars.scope(self.data);
+        let scope = self.scope();
         let send = |request| transport.send_http(request);
         if let Some(got) =
             oauth::prepare_auth(auth.as_mut(), &scope, transport.token_store(), send, false)
@@ -810,7 +1289,7 @@ impl NodeRun<'_> {
             auth.as_ref(),
             &message,
             &metadata,
-            &self.vars.scope(self.data),
+            &self.scope(),
             strip_authorization,
             &mut self.dynamic,
         );
@@ -879,6 +1358,8 @@ impl NodeRun<'_> {
             start_offset_ms: None,
             size_bytes: outcome.size,
             end_ms: None,
+            inputs: BTreeMap::new(),
+            waited_ms: None,
         }
     }
 
@@ -1145,6 +1626,9 @@ mod tests {
         /// (method, message, metadata) per call.
         calls: Mutex<Vec<GrpcCallSeen>>,
         tokens: oauth::MemoryStore,
+        /// Replies of the «person», in order; the forms they were shown.
+        answers: Mutex<Vec<InputAnswer>>,
+        asked: Mutex<Vec<InputRequest>>,
     }
 
     impl Transport for Fake {
@@ -1152,6 +1636,21 @@ mod tests {
 
         fn token_store(&self) -> &dyn TokenStore {
             &self.tokens
+        }
+
+        fn ask_input(
+            &self,
+            request: InputRequest,
+            _emit: &(dyn Fn(RunEvent) + Sync),
+        ) -> impl Future<Output = Result<InputAnswer, String>> + Send {
+            self.asked.lock().unwrap().push(request);
+            let mut answers = self.answers.lock().unwrap();
+            let answer = if answers.is_empty() {
+                Err("nobody answers".to_string())
+            } else {
+                Ok(answers.remove(0))
+            };
+            async move { answer }
         }
 
         fn send_http(
@@ -1628,6 +2127,184 @@ mod tests {
             "bearer"
         );
         assert!(plan_requests(&tree, &["fs:nope".into()]).is_err());
+    }
+
+    fn typed(pairs: &[(&str, &str)]) -> InputAnswer {
+        InputAnswer::Values {
+            values: pairs
+                .iter()
+                .map(|(k, v)| (k.to_string(), v.to_string()))
+                .collect(),
+        }
+    }
+
+    fn otp_plan() -> RunPlan {
+        let verify = http(
+            "verify",
+            json!({
+                "method": "POST", "url": "{{base}}/verify?c={{otp}}",
+                "body": r#"{"code":"{{otp}}"}"#,
+            }),
+        );
+        let code = InputDef {
+            kind: InputKind::Code,
+            label: "Код из SMS".into(),
+            ..InputDef::default()
+        };
+        RunPlan {
+            requests: vec![verify],
+            inputs: BTreeMap::from([("otp".to_string(), code)]),
+            ..RunPlan::default()
+        }
+    }
+
+    fn base_vars() -> RunVars {
+        RunVars {
+            environment: Scope::from([("base".into(), "https://api.test".into())]),
+            globals: Scope::new(),
+        }
+    }
+
+    #[tokio::test]
+    async fn typed_input_is_sent_but_never_stored_or_shown() {
+        let plan = otp_plan();
+        let fake = Fake::default();
+        fake.answers
+            .lock()
+            .unwrap()
+            .push(typed(&[("otp", "482913")]));
+        let mut vars = base_vars();
+        let (status, events) = run(&plan, &mut vars, &fake).await;
+
+        assert_eq!(status, RunStatus::Done);
+        let sent = fake.sent.lock().unwrap();
+        assert_eq!(sent[0].url, "https://api.test/verify?c=482913");
+        assert_eq!(sent[0].body.as_deref(), Some(r#"{"code":"482913"}"#));
+        assert!(!vars.environment.contains_key("otp") && !vars.globals.contains_key("otp"));
+        let row = rows(&events)[0];
+        assert_eq!(row.target, "https://api.test/verify?c=••••13");
+        assert_eq!(row.inputs["otp"], "••••13");
+        let asked = fake.asked.lock().unwrap();
+        assert_eq!(asked.len(), 1);
+        assert_eq!(asked[0].fields[0].name, "otp");
+        assert_eq!((asked[0].attempt, asked[0].max_attempts), (1, 3));
+    }
+
+    #[tokio::test]
+    async fn a_rejected_code_opens_the_form_again_and_only_the_last_try_is_a_row() {
+        let plan = otp_plan();
+        let fake = Fake::default();
+        *fake.answers.lock().unwrap() =
+            vec![typed(&[("otp", "000071")]), typed(&[("otp", "482913")])];
+        *fake.responses.lock().unwrap() = vec![
+            (401, r#"{"error":"invalid_code"}"#.into()),
+            (200, "{}".into()),
+        ];
+        let mut vars = base_vars();
+        let (_, events) = run(&plan, &mut vars, &fake).await;
+
+        let rows = rows(&events);
+        assert_eq!(rows.len(), 1);
+        assert!(rows[0].ok);
+        assert_eq!(rows[0].status, RowStatus::Code(200));
+        let asked = fake.asked.lock().unwrap();
+        assert_eq!(asked.len(), 2);
+        assert_eq!(asked[1].attempt, 2);
+        assert_eq!(asked[1].error.as_deref(), Some("401 invalid_code"));
+        let last = asked[1].last.as_ref().unwrap();
+        assert_eq!(last.status, RowStatus::Code(401));
+        assert_eq!(last.inputs["otp"], "••••71");
+    }
+
+    #[tokio::test]
+    async fn after_the_last_try_the_rejection_stands() {
+        let mut plan = otp_plan();
+        plan.input_attempts = 2;
+        let fake = Fake::default();
+        *fake.answers.lock().unwrap() =
+            vec![typed(&[("otp", "111111")]), typed(&[("otp", "222222")])];
+        *fake.responses.lock().unwrap() = vec![(401, "{}".into()), (401, "{}".into())];
+        let mut vars = base_vars();
+        let (_, events) = run(&plan, &mut vars, &fake).await;
+
+        let rows = rows(&events);
+        assert_eq!(rows.len(), 1);
+        assert!(!rows[0].ok);
+        assert_eq!(fake.sent.lock().unwrap().len(), 2);
+    }
+
+    #[tokio::test]
+    async fn a_value_that_fails_its_check_is_asked_again_without_sending() {
+        let plan = otp_plan();
+        let fake = Fake::default();
+        *fake.answers.lock().unwrap() = vec![typed(&[("otp", "12")]), typed(&[("otp", "482913")])];
+        let mut vars = base_vars();
+        let (_, events) = run(&plan, &mut vars, &fake).await;
+
+        assert_eq!(rows(&events).len(), 1);
+        assert_eq!(fake.sent.lock().unwrap().len(), 1);
+        let asked = fake.asked.lock().unwrap();
+        assert_eq!(asked.len(), 2);
+        assert_eq!(asked[1].attempt, 1);
+        assert!(asked[1].error.as_deref().unwrap().starts_with("otp:"));
+    }
+
+    #[tokio::test]
+    async fn given_input_is_not_asked_for_and_fail_mode_refuses_without_it() {
+        let mut plan = otp_plan();
+        plan.input_values = Scope::from([("otp".into(), "482913".into())]);
+        let fake = Fake::default();
+        let (_, events) = run(&plan, &mut base_vars(), &fake).await;
+        assert!(rows(&events)[0].ok);
+        assert!(fake.asked.lock().unwrap().is_empty());
+
+        let mut plan = otp_plan();
+        plan.input_mode = InputMode::Fail;
+        let fake = Fake::default();
+        let (_, events) = run(&plan, &mut base_vars(), &fake).await;
+        let row = rows(&events)[0];
+        assert!(!row.ok);
+        assert!(row.error.as_deref().unwrap().contains("--input"));
+        assert!(fake.sent.lock().unwrap().is_empty() && fake.asked.lock().unwrap().is_empty());
+    }
+
+    #[tokio::test]
+    async fn skip_moves_on_and_stop_or_a_declined_confirmation_ends_the_run() {
+        let second = http("me", json!({ "method": "GET", "url": "{{base}}/me" }));
+        let mut plan = otp_plan();
+        plan.requests.push(second);
+        let fake = Fake::default();
+        fake.answers.lock().unwrap().push(InputAnswer::Skip);
+        let (status, events) = run(&plan, &mut base_vars(), &fake).await;
+        assert_eq!(status, RunStatus::Done);
+        let rows = rows(&events);
+        assert_eq!(rows[0].status, RowStatus::Text("SKIP".into()));
+        assert!(rows[0].ok && rows[1].ok);
+        assert_eq!(fake.sent.lock().unwrap().len(), 1);
+
+        let fake = Fake::default();
+        fake.answers.lock().unwrap().push(InputAnswer::Stop);
+        let (status, events) = run(&plan, &mut base_vars(), &fake).await;
+        assert_eq!(status, RunStatus::Stopped);
+        assert_eq!(rows_len(&events), 1);
+
+        let confirm = InputDef {
+            kind: InputKind::Bool,
+            ..InputDef::default()
+        };
+        plan.inputs.insert("otp".into(), confirm);
+        let fake = Fake::default();
+        fake.answers
+            .lock()
+            .unwrap()
+            .push(typed(&[("otp", "false")]));
+        let (status, _) = run(&plan, &mut base_vars(), &fake).await;
+        assert_eq!(status, RunStatus::Stopped);
+        assert!(fake.sent.lock().unwrap().is_empty());
+    }
+
+    fn rows_len(events: &[RunEvent]) -> usize {
+        rows(events).len()
     }
 
     #[test]

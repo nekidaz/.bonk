@@ -6,6 +6,26 @@ export { buildUrl, formatBytes, mergeParamsFromUrl, paramsFromUrl, syncUrlWithPa
 export { buildRequestForSend, currentBodyMode, currentRawFormat, enabledBodyParams } from './httpBody';
 export { methodColor, methodLabel } from './method';
 export {
+  checkInput,
+  codeLength,
+  guessInput,
+  INPUT_FORMATS,
+  INPUT_ICON,
+  INPUT_KINDS,
+  inputLabel,
+  inputNamesOf,
+  isSensitive,
+  maskInput,
+  newInput,
+  normalizeInput,
+  type InputAnswer,
+  type InputAttempt,
+  type InputDef,
+  type InputField,
+  type InputKind,
+  type InputRequest,
+} from './inputs';
+export {
   asOAuthFailure,
   decodeJwt,
   oauthFailureText,

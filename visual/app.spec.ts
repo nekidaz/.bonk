@@ -44,6 +44,40 @@ const settings = async (p: Page, index: number) => {
   await p.locator('.st-item').nth(index).click();
 };
 
+// «Ask on send» (?inputs=1): Auth · OTP/Verify OTP has `{{otp}}` in its body, the right code is 482913.
+const openOtp = async (p: Page) => {
+  await openRequest(p, 'Verify OTP');
+  await rtab(p, 'body');
+};
+// A real right-click would move the editor's caret (it blinks, and the active line changes): send the event itself.
+const contextOnPhone = (p: Page) =>
+  p
+    .locator('.cm-var-ok, .cm-var-missing')
+    .filter({ hasText: '{{phone}}' })
+    .first()
+    .evaluate((el) => {
+      const r = el.getBoundingClientRect();
+      el.dispatchEvent(
+        new MouseEvent('contextmenu', {
+          bubbles: true,
+          cancelable: true,
+          clientX: r.left + r.width / 2,
+          clientY: r.top + r.height / 2,
+        }),
+      );
+    });
+const askOnPhone = async (p: Page) => {
+  await contextOnPhone(p);
+  await p.getByRole('menuitem', { name: 'Спрашивать при отправке' }).click();
+  await p.locator('.ask').waitFor();
+};
+const runUntilInput = async (p: Page) => {
+  await p.getByRole('button', { name: /Runner/ }).click();
+  await p.locator('.rp-item').filter({ hasText: 'Auth · OTP' }).click();
+  await p.locator('.rn-btn.primary').click();
+  await p.locator('form.form.card').waitFor();
+};
+
 const SCENARIOS: Scenario[] = [
   // HTTP request editor tabs
   { name: 'http-params' },
@@ -396,6 +430,71 @@ const SCENARIOS: Scenario[] = [
       await p.locator('.rn-btn.primary').click();
       await p.locator('.rn-cell.bad').first().waitFor();
       await p.locator('.rn-cell.bad.on').waitFor(); // the failed cell opens the detail pane by itself
+    },
+  },
+  // «ask on send» input (Flow · Сценарий с вводом): chip, editor menu and settings, Send form, Runner pause
+  { name: 'input-chip', query: '&inputs=1', steps: openOtp },
+  {
+    name: 'input-menu',
+    query: '&inputs=1',
+    steps: async (p) => {
+      await openOtp(p);
+      await contextOnPhone(p);
+      await p.getByRole('menuitem').first().waitFor();
+    },
+    hover: true,
+  },
+  {
+    name: 'input-settings',
+    query: '&inputs=1',
+    steps: async (p) => {
+      await openOtp(p);
+      await askOnPhone(p);
+    },
+    hover: true,
+  },
+  {
+    name: 'input-settings-full',
+    query: '&inputs=1',
+    steps: async (p) => {
+      await openOtp(p);
+      await askOnPhone(p);
+      await p.locator('.ask header .more').click();
+      await p.locator('.ask .pick').first().click();
+      await p.locator('.types').waitFor();
+    },
+    hover: true,
+  },
+  {
+    name: 'input-send-form',
+    query: '&inputs=1&runner=1',
+    steps: async (p) => {
+      await openOtp(p);
+      await p.locator('button.bs-send').click();
+      await p.locator('form.form.popover').waitFor();
+    },
+    hover: true,
+  },
+  {
+    name: 'input-runner-setup',
+    query: '&inputs=1&runner=1',
+    steps: async (p) => {
+      await p.getByRole('button', { name: /Runner/ }).click();
+      await p.locator('.rp-item').filter({ hasText: 'Auth · OTP' }).click();
+    },
+  },
+  {
+    name: 'input-runner-waiting',
+    query: '&inputs=1&runner=1',
+    steps: runUntilInput,
+  },
+  {
+    name: 'input-runner-retry',
+    query: '&inputs=1&runner=1',
+    steps: async (p) => {
+      await runUntilInput(p);
+      await p.keyboard.type('111111');
+      await p.locator('form.form.card.retry').waitFor();
     },
   },
   // empty states

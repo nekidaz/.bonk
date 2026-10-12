@@ -11,6 +11,7 @@ import { type Environment, type VarRow, lookupVar } from '$shared/model';
 import { ENV_COLOR_VAR, envColor } from './palette';
 import { environments, openEnvironmentsSheet, setEnvVars, setGlobalVars } from './store.svelte';
 import { variableHighlight } from './varDecorations';
+import { askUi, inputs } from '$entities/input';
 import { dynamicSample, dynamicSamplesLoaded, openDynamicCatalog, refreshDynamicSamples } from './dynamic.svelte';
 
 /**
@@ -25,6 +26,8 @@ export function requestVariableHighlight(
   envs: Environment[],
   activeEnvId: string | null,
 ): Extension {
+  // Read here, not in the callbacks, so the caller's `$derived` rebuilds when a field is added or removed.
+  const asked = inputs.defs;
   const active = activeEnvId !== null ? envs.find((e) => e.id === activeEnvId) : undefined;
   const globalsSource = { name: t('env.scope_globals') };
   const source = (env: Environment) => ({ name: env.name, color: ENV_COLOR_VAR[envColor(env)] });
@@ -49,6 +52,11 @@ export function requestVariableHighlight(
     addTarget: () => (active ? source(active) : globalsSource),
     envsWith: (name) => envs.filter((e) => e !== active && findRow(e.vars, name.trim())).map(source),
     onOpenEnvs: openEnvironmentsSheet,
+    ask: {
+      isAsked: (name) => name in asked,
+      onContext: (name, at) => askUi.openMenu(name, at),
+      onSettings: (name, rect) => askUi.openSettings(name, rect),
+    },
     dynamic: {
       sample: dynamicSample,
       samplesLoaded: dynamicSamplesLoaded,

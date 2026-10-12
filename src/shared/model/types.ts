@@ -703,6 +703,10 @@ export interface RunResultRow {
   sizeBytes?: number;
   /** Runner: when the call finished, ms since the run started (R3 log). */
   endMs?: number;
+  /** Typed «ask on send» input as a log shows it: a code is masked, a secret hidden. */
+  inputs?: Record<string, string>;
+  /** How long the step waited for a person. */
+  waitedMs?: number;
 }
 
 /** Lifecycle of a Collection Runner run. */

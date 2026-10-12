@@ -6,6 +6,7 @@
   import { openEnvironmentsTab } from '$entities/environment';
   import { DynamicCatalog } from '$entities/environment/components';
   import { SaveRequestDialog, ProductionGuard } from '$entities/request/components';
+  import { AskHost } from '$entities/input/components';
   import { openRunnerTab } from '$features/runner';
   import { MoveDialog, FolderAuthDialog } from '$features/sidebar/components';
   import { SettingsModal } from '$features/settings/components';
@@ -20,6 +21,7 @@
   import { t } from '$shared/i18n';
   import { formatBinding, hotkeys } from '$shared/settings';
   import AppPopoverMenu from './AppPopoverMenu.svelte';
+  import SendInputPrompt from './SendInputPrompt.svelte';
   import {
     addReq,
     collAddFolder,
@@ -135,6 +137,8 @@
 <EnvironmentsSheet />
 
 <DynamicCatalog />
+<AskHost />
+<SendInputPrompt />
 <CookieJarSheet onCleared={(text) => shell.showToast({ text, icon: 'delete_sweep' })} />
 
 <BranchMenu />

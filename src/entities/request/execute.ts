@@ -1,4 +1,12 @@
-import type { RequestNode, RequestSettings, RunResultRow, TreeNode, Tab, DynamicOptions } from '$shared/model';
+import type {
+  DynamicOptions,
+  InputRequest,
+  RequestNode,
+  RequestSettings,
+  RunResultRow,
+  Tab,
+  TreeNode,
+} from '$shared/model';
 import { mergeScope, parseScriptResult, collectScriptRun } from '$shared/model';
 import { currentGrpcPrefs, dynamicOptions, withGlobalImports, requestPrefs } from '$shared/settings';
 import { runnerRun, requestRun, type RunEvent, type RunPlan } from '$shared/ipc';
@@ -7,6 +15,7 @@ import { addHistory } from '$entities/history';
 import { addAppConsoleEntry } from './console.svelte';
 import { effectiveAuth, workspace } from '$entities/workspace';
 import { environments } from '$entities/environment';
+import { closePrompt, inputs, openPrompt } from '$entities/input';
 import { methodShort } from './grpc';
 import { currentRequestSettings, applyScriptVars } from './executionState';
 
@@ -69,6 +78,10 @@ export interface RunOptions {
   stopOnFailure?: boolean;
   requiredVariables?: string[];
   variables?: { environment: Record<string, string>; globals: Record<string, string> };
+  /** What a step does when it needs typed input: wait for a person (default) or fail. */
+  inputMode?: 'wait' | 'fail';
+  /** Tries per step when a 4xx on typed input opens the form again. */
+  inputAttempts?: number;
 }
 
 /** Run `nodes`; `onEvent` gets progress and rows. Resolves with how the run ended. */
@@ -88,6 +101,9 @@ export function runRequests(
     workspaceRoot: workspace.path ?? '',
     globalImportPaths: withGlobalImports([]),
     dynamic: opts.dynamic ?? dynamicOptions(),
+    inputs: inputs.defs,
+    inputMode: opts.inputMode,
+    inputAttempts: opts.inputAttempts,
   };
   const grpc = {
     prefs: currentGrpcPrefs(),
@@ -118,15 +134,19 @@ export async function runOne(
   node: RequestNode,
   iteration: number,
   data: Record<string, string>,
-  options: Pick<RunOptions, 'variables' | 'requiredVariables' | 'dynamic'> = {},
+  options: Pick<RunOptions, 'variables' | 'requiredVariables' | 'dynamic' | 'inputMode'> & {
+    /** The step asks for typed input: show its form (the caller answers through `answerInput`). */
+    onInput?: (request: InputRequest) => void;
+  } = {},
 ): Promise<RunResultRow> {
   let row: RunResultRow | undefined;
+  const { onInput, ...rest } = options;
   try {
-    await runRequests([node], { ...options, dataRows: [data] }, (e) => {
+    await runRequests([node], { ...rest, dataRows: [data] }, (e) => {
       if (e.kind === 'row') {
         const { kind: _kind, ...r } = e;
         row = r;
-      }
+      } else if (e.kind === 'input') onInput?.(e);
     });
   } catch (e) {
     return failedRow(node, iteration, e instanceof Error ? e.message : String(e));
@@ -173,6 +193,9 @@ export function executeRequest(
       workspaceRoot: context.workspaceRoot,
       globalImportPaths: withGlobalImports([]),
       dynamic: context.dynamic,
+      // The editor shows a 4xx to the person instead of opening the form again.
+      inputs: inputs.defs,
+      inputAttempts: 1,
     },
     context.variables,
     settings,
@@ -183,9 +206,10 @@ export function executeRequest(
     },
     (event) => {
       if (event.kind === 'vars') applyScriptVars(event, environmentId, false);
+      else if (event.kind === 'input') openPrompt(requestId, event);
     },
     connectionId,
-  );
+  ).finally(() => closePrompt(requestId));
 }
 
 /** Keep a unary call's response and history on its originating tab. */

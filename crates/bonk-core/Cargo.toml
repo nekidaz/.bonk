@@ -26,7 +26,7 @@ url = "2"
 sha2 = "0.10"
 bytes = "1"
 http = "1"
-tokio = { version = "1", features = ["sync", "rt", "rt-multi-thread", "time", "process", "io-util", "net"] }
+tokio = { version = "1", features = ["sync", "rt", "rt-multi-thread", "time", "process", "io-util", "net", "macros"] }
 tokio-stream = "0.1"
 toml_edit = "0.25.12"
 # Already in the tree via tonic; used directly for the gRPC TLS probe / insecure connector.

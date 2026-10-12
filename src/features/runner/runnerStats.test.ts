@@ -186,6 +186,10 @@ describe('run records', () => {
     expect(toRecord(run(1, r), true).results[1]).not.toHaveProperty('responseBody');
     expect(toRecord(run(1, r), false).results[0]).not.toHaveProperty('responseBody');
   });
+  it('never saves what was typed into an «ask on send» field', () => {
+    const r = [row({ inputs: { otp: '••••13' } })];
+    expect(toRecord(run(1, r), true).results[0]).not.toHaveProperty('inputs');
+  });
   it('bounds the rows', () => {
     expect(
       toRecord(

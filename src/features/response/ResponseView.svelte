@@ -18,9 +18,11 @@
     GRPC_CODES,
     grpcStatusLabel,
     HTTP_STATUS_TEXT,
+    inputNamesOf,
     type Tab,
     type TabTestResults,
   } from '$shared/model';
+  import { inputPrompts, inputs } from '$entities/input';
   import { presentGrpcError, grpcErrorNote } from './grpcError';
   import {
     methodShort,
@@ -60,6 +62,13 @@
   // In-flight request for this tab: drives the "Sending…" meta and the live timer (S04).
   const busy = $derived(tab ? requestRuntime.busy[tab.id] : undefined);
   const sending = $derived(!!busy && busy.kind !== 'connect');
+  // «Ask on send» variables the request uses: the empty state says Send will ask, and waits while it does.
+  const askNames = $derived(
+    tab
+      ? inputNamesOf(tab.protocol === 'grpc' ? tab.grpc : { request: tab.request, params: tab.params }, inputs.defs)
+      : [],
+  );
+  const waitingForInput = $derived(busy?.requestId ? inputPrompts.byRequest[busy.requestId] : undefined);
   const tone = $derived(tab?.response ? responseTone(tab.response) : 'success');
   let now = $state(Date.now());
   $effect(() => {
@@ -286,21 +295,36 @@
 {/snippet}
 
 {#snippet waitingForResponse(grpc: boolean)}
-  <div class="bs-empty-resp bs-response-waiting">
-    <span class="mark" aria-hidden="true"><span class="material-symbols-outlined">send</span></span>
-    <strong>{t('response.empty.title')}</strong>
-    <p>
-      {grpc
-        ? t(
-            !tab?.grpc?.endpoint.trim()
-              ? 'response.empty.grpcNoAddress'
-              : !tab.grpc.method
-                ? 'response.empty.grpcNoMethod'
-                : 'response.empty.grpc',
-          )
-        : t('response.empty.http')}
-    </p>
-  </div>
+  {#if waitingForInput}
+    {@const code = waitingForInput.fields.length === 1 && waitingForInput.fields[0].type === 'code'}
+    <div class="bs-empty-resp bs-response-waiting">
+      <span class="mark" aria-hidden="true"><span class="material-symbols-outlined">hourglass_empty</span></span>
+      <strong>{t('input.send.title', { what: t(code ? 'input.send.waitCode' : 'input.send.waitInput') })}</strong>
+      <p>{t(code ? 'input.send.waitCodeBody' : 'input.send.waitBody')}</p>
+    </div>
+  {:else if askNames.length > 0}
+    <div class="bs-empty-resp bs-response-waiting">
+      <span class="mark" aria-hidden="true"><span class="material-symbols-outlined">keyboard</span></span>
+      <strong>{t('response.empty.title')}</strong>
+      <p>{t('input.send.noResponse', { names: askNames.map((n) => `{{${n}}}`).join(', ') })}</p>
+    </div>
+  {:else}
+    <div class="bs-empty-resp bs-response-waiting">
+      <span class="mark" aria-hidden="true"><span class="material-symbols-outlined">send</span></span>
+      <strong>{t('response.empty.title')}</strong>
+      <p>
+        {grpc
+          ? t(
+              !tab?.grpc?.endpoint.trim()
+                ? 'response.empty.grpcNoAddress'
+                : !tab.grpc.method
+                  ? 'response.empty.grpcNoMethod'
+                  : 'response.empty.grpc',
+            )
+          : t('response.empty.http')}
+      </p>
+    </div>
+  {/if}
 {/snippet}
 
 {#snippet sendingMeta()}
@@ -535,7 +559,7 @@
   {/if}
   <div
     class="bs-resppanel"
-    class:dim={sending && !tab.grpcStream}
+    class:dim={sending && !tab.grpcStream && !waitingForInput}
     role="tabpanel"
     id="bs-resppanel"
     aria-labelledby="bs-resptab-{respTab}"
@@ -562,7 +586,7 @@
           () => requestGrpcEditorAction(tab.id, 'reconnect'),
           () => requestGrpcEditorAction(tab.id, 'tls'),
         )}
-      {:else if !sending}{@render waitingForResponse(true)}{/if}
+      {:else if !sending || waitingForInput}{@render waitingForResponse(true)}{/if}
     {:else if respTab === 'tests' && testResults}
       {@render scriptTestsView(testResults)}
     {:else if respTab === 'console' && testResults}
@@ -685,13 +709,13 @@
   {/if}
   <div
     class="bs-resppanel"
-    class:dim={sending}
+    class:dim={sending && !waitingForInput}
     role="tabpanel"
     id="bs-resppanel"
     aria-labelledby="bs-resptab-{respTab}"
   >
     {#if !tab.response}
-      {#if !sending}{@render waitingForResponse(false)}{/if}
+      {#if !sending || waitingForInput}{@render waitingForResponse(false)}{/if}
     {:else if preFailed && testResults && (respTab === 'body' || respTab === 'headers' || respTab === 'cookies')}
       {@render preFailedView(testResults, true)}
     {:else if respTab === 'tests' && testResults}
