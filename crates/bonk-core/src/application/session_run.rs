@@ -154,10 +154,14 @@ pub async fn prepare<T: Transport>(
     emit: &(dyn Fn(RunEvent) + Sync),
     force: bool,
 ) -> Result<Option<(SessionUse, Scope)>, String> {
+    if plan.session_off {
+        auth.auth_type = "none".into();
+        return Ok(None);
+    }
     let config = auth.session.clone().unwrap_or_default();
     config.check()?;
     let scenario = find_scenario(&plan.workspace_root, &config.login)?;
-    if plan.session_off || config.leaves_out(node_id, &scenario.paths) {
+    if config.leaves_out(node_id, &scenario.paths) {
         auth.auth_type = "none".into();
         return Ok(None);
     }
@@ -220,11 +224,13 @@ pub async fn ensure<T: Transport>(
     }
     if mode != Mode::SignIn {
         if let Some(record) = &stored {
-            trace.push(Trace::Expired {
-                at: at_ms(),
-                exp: record.access_exp,
-                why: if force { "rejected" } else { "expired" }.into(),
-            });
+            if mode != Mode::Refresh {
+                trace.push(Trace::Expired {
+                    at: at_ms(),
+                    exp: record.access_exp,
+                    why: if force { "rejected" } else { "expired" }.into(),
+                });
+            }
             if config.can_renew() && record.refresh_usable(now) {
                 match renew(config, record, plan, vars, transport, emit, &mut trace).await {
                     Ok(next) => {
