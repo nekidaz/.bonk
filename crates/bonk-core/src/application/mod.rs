@@ -20,3 +20,4 @@ pub mod session;
 pub mod session_run;
 pub mod themes;
 pub mod workspace;
+pub mod workspace_watch;

@@ -24,6 +24,10 @@ export const isAsked = (name: string): boolean => name in inputs.defs;
 
 let saving: Promise<void> = Promise.resolve();
 let saveTimer: ReturnType<typeof setTimeout> | undefined;
+/** When the definitions were last edited here; a disk reload right after would undo typing. */
+let editedAt = 0;
+// ponytail: a time window, not write tracking; an outside edit within it waits for the next one.
+const EDIT_QUIET_MS = 1500;
 
 /** Ask for `name` with `def`, or stop asking (`null`); writes `.bonk/inputs.json` soon after. */
 export function setAsked(name: string, def: InputDef | null): void {
@@ -31,6 +35,7 @@ export function setAsked(name: string, def: InputDef | null): void {
   if (def) next[name] = def;
   else delete next[name];
   inputs.defs = next;
+  editedAt = Date.now();
   const root = inputs.root;
   if (!root) return;
   // Typing a label saves on every key: wait for a pause, and write one at a time, in order.
@@ -49,7 +54,7 @@ export function setAsked(name: string, def: InputDef | null): void {
  * Workspace changes reload the definitions; lifecycle owns this watcher and passes the open
  * workspace's path (entities/workspace imports the environments, which import this slice).
  */
-export function watchInputs(workspacePath: () => string | null): () => void {
+export function watchInputs(workspacePath: () => string | null, diskRev: () => number = () => 0): () => void {
   return $effect.root(() => {
     $effect(() => {
       const root = workspacePath();
@@ -67,6 +72,20 @@ export function watchInputs(workspacePath: () => string | null): () => void {
       return () => {
         cancelled = true;
       };
+    });
+    // `.bonk/inputs.json` changed on disk (bonk MCP, git): re-read it unless it is being edited here.
+    $effect(() => {
+      if (diskRev() === 0) return;
+      const root = untrack(() => inputs.root);
+      const quiet = () => Date.now() - editedAt >= EDIT_QUIET_MS;
+      if (!root || !quiet()) return;
+      void inputsLoad(root)
+        .then((defs) => {
+          if (inputs.root === root && quiet()) inputs.defs = defs;
+        })
+        .catch((e) => {
+          inputs.error = String(e);
+        });
     });
   });
 }

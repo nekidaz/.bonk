@@ -133,6 +133,7 @@ export {
   type ServiceTree,
   type Tab,
   type TreeNode,
+  type WorkspaceChange,
   type VarRow,
 } from './types';
 export {

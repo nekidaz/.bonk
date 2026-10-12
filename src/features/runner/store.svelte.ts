@@ -369,6 +369,22 @@ export function watchRunnerWorkspace(): () => void {
         cancelled = true;
       };
     });
+    // `.bonk/scenarios.json` changed on disk (bonk MCP, git): re-read it, keeping the setup open.
+    $effect(() => {
+      if (workspace.metaRev === 0) return;
+      const root = untrack(() => workspace.path);
+      if (!root) return;
+      void scenariosLoad(root)
+        .then((list) => {
+          if (workspace.path !== root) return;
+          runner.scenarios = list;
+          const active = runner.activeScenario;
+          if (active) runner.activeScenario = list.find((s) => s.name === active.name) ?? null;
+        })
+        .catch((e) => {
+          runner.error = String(e);
+        });
+    });
   });
 }
 

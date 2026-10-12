@@ -45,6 +45,53 @@ fn require_absolute_root(root: &str) -> Result<(), String> {
     }
 }
 
+/// The running folder watcher (dropping it stops it).
+pub type Watcher =
+    notify_debouncer_mini::Debouncer<notify_debouncer_mini::notify::RecommendedWatcher>;
+
+/// Report changes made to workspace `root` from outside the app (bonk MCP, git, an editor) on
+/// `on_change`, debounced; `root` = '' stops watching. One workspace is watched at a time.
+#[tauri::command]
+pub fn workspace_watch(
+    state: tauri::State<'_, crate::state::AppState>,
+    root: String,
+    on_change: tauri::ipc::Channel<bonk_core::application::workspace_watch::WorkspaceChange>,
+) -> Result<(), String> {
+    use notify_debouncer_mini::{new_debouncer, notify::RecursiveMode, DebounceEventResult};
+    let mut slot = state
+        .workspace_watcher
+        .lock()
+        .map_err(|_| "workspace watcher lock poisoned".to_string())?;
+    *slot = None;
+    if root.is_empty() {
+        return Ok(());
+    }
+    require_absolute_root(&root)?;
+    // The OS reports resolved paths (/private/var on macOS), so compare against the resolved root.
+    let base = std::path::Path::new(&root)
+        .canonicalize()
+        .map_err(|e| format!("{root}: {e}"))?;
+    let watch_root = base.clone();
+    let mut debouncer = new_debouncer(
+        std::time::Duration::from_millis(300),
+        move |res: DebounceEventResult| {
+            let Ok(events) = res else { return };
+            let paths: Vec<_> = events.into_iter().map(|e| e.path).collect();
+            let change = bonk_core::application::workspace_watch::classify(&base, &paths);
+            if !change.is_empty() {
+                let _ = on_change.send(change);
+            }
+        },
+    )
+    .map_err(|e| e.to_string())?;
+    debouncer
+        .watcher()
+        .watch(&watch_root, RecursiveMode::Recursive)
+        .map_err(|e| e.to_string())?;
+    *slot = Some(debouncer);
+    Ok(())
+}
+
 #[tauri::command]
 pub fn workspace_load(path: String) -> Result<Vec<bonk_core::domain::workspace::TreeNode>, String> {
     require_absolute_root(&path)?;

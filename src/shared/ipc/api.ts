@@ -27,6 +27,7 @@ import {
   type SessionUse,
   type ImportSource,
   type TreeNode,
+  type WorkspaceChange,
   type RequestNode,
   type RunResultRow,
   type GitStatus,
@@ -466,6 +467,12 @@ export const filePick = () => invoke<string | null>('file_pick');
 /** macOS: right edge (px) of the window's traffic lights; null elsewhere or in full screen. */
 export const trafficLightsRight = () => invoke<number | null>('traffic_lights_right');
 export const workspaceLoad = (path: string) => invoke<TreeNode[]>('workspace_load', { path });
+/** Watch workspace `root` for changes made outside the app ('' stops); one workspace at a time. */
+export function workspaceWatch(root: string, onChange: (change: WorkspaceChange) => void): Promise<void> {
+  const channel = new Channel<WorkspaceChange>();
+  channel.onmessage = onChange;
+  return invoke<void>('workspace_watch', { root, onChange: channel });
+}
 /** Children of folder `dir` ('' = root); subfolders listed in `keep` come back without their children. */
 export const workspaceLoadChildren = (root: string, dir: string, keep: string[]) =>
   invoke<TreeNode[]>('workspace_load_children', { root, dir, keep });
