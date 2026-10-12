@@ -53,6 +53,22 @@ export {
   revokeOAuthToken,
   withOAuthToken,
 } from './oauth.svelte';
+export {
+  activeEnvName,
+  cancelSessionRun,
+  closeSessions,
+  environmentNames,
+  openSessions,
+  runSession,
+  sessionAuthsFor,
+  sessionCardKey,
+  sessionRuntime,
+  type SessionRunning,
+  type SessionSend,
+  sessionStatuses,
+  signOutSessions,
+} from './session.svelte';
+export { sessionClock, sessionSpan, sessionStatusText } from './sessionFormat';
 export { type GrpcTabError, requestRuntime } from './requestRuntime.svelte';
 export {
   revealScriptLine,

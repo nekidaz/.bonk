@@ -13,6 +13,9 @@ import * as cookies from './cookies';
 import * as importer from './importer';
 import * as dynamic from './dynamic';
 import * as inputs from './inputs';
+import * as session from './session';
+import * as sessions from './sessions';
+import * as sessionrun from './sessionrun';
 // Each area owns a part file in ./i18n/ exporting `ru` and `en: Record<keyof typeof ru, string>`
 // (so a missing key is a type error); they are merged below.
 const parts = [
@@ -30,6 +33,9 @@ const parts = [
   importer,
   dynamic,
   inputs,
+  session,
+  sessions,
+  sessionrun,
 ];
 
 export const ru = Object.assign({}, ...parts.map((p) => p.ru)) as Record<string, string> & (typeof common)['ru'];

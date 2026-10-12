@@ -21,6 +21,10 @@ import {
   type OAuthEnsured,
   type OAuthLoginStarted,
   type OAuthTokenInfo,
+  type EnvSession,
+  type SessionConfig,
+  type SessionInfo,
+  type SessionUse,
   type ImportSource,
   type TreeNode,
   type RequestNode,
@@ -329,6 +333,8 @@ export interface RunPlan {
   inputMode?: 'wait' | 'fail';
   /** Tries per step: a 4xx on a step with typed input opens the form again (0 = 3). */
   inputAttempts?: number;
+  /** The selected environment's name: a session is kept per environment. */
+  environmentName?: string;
 }
 
 /** Script writes of a run, for the env/globals stores (and cookie clears). */
@@ -376,6 +382,7 @@ export interface RequestExecution {
     post: unknown;
     postMs: number | null;
     oauth: OAuthEnsured | null;
+    session?: SessionUse | null;
     dynamic: DynamicValue[];
   };
 }
@@ -672,3 +679,38 @@ export const workspaceImportCollection = (
   root: string,
   collection: { name: string; children: TreeNode[]; auth?: AuthConfig; source?: ImportSource },
 ) => invoke<string>('workspace_import_collection', { root, collection });
+
+// Session auth: tokens live in the keychain, one session per workspace + environment + sign-in setup.
+/** What is stored for each of `environments` (expired sessions too). */
+export const sessionStatus = (workspaceRoot: string, environments: string[], config: SessionConfig) =>
+  invoke<EnvSession[]>('session_status', { workspaceRoot, environments, config });
+/**
+ * «Войти» (`signIn`) or «Обновить» (`refresh`) now. The sign-in asks for typed input the way a
+ * send does: an `input` event, answered with `runnerInputAnswer`. Cancel with `cancelRequest`.
+ */
+export function sessionRun(
+  requestId: string,
+  mode: 'signIn' | 'refresh',
+  config: SessionConfig,
+  plan: RunPlan,
+  vars: { environment: Record<string, string>; globals: Record<string, string> },
+  settings: RequestSettings,
+  onEvent: (event: RunEvent) => void,
+): Promise<SessionUse> {
+  const channel = new Channel<RunEvent>();
+  channel.onmessage = onEvent;
+  return invoke('session_run', { requestId, mode, config, plan, vars, settings, onEvent: channel });
+}
+/** «Выйти»: forget the session of these environments. */
+export const sessionForget = (workspaceRoot: string, environments: string[], config: SessionConfig) =>
+  invoke<void>('session_forget', { workspaceRoot, environments, config });
+/** The Runner's «Запомнить вход?»: keep what a finished run of the sign-in caught. `rows` are `[node id, response body]`. */
+export const sessionSaveCaught = (
+  workspaceRoot: string,
+  environment: string,
+  config: SessionConfig,
+  rows: [string, string][],
+) => invoke<SessionInfo>('session_save_caught', { workspaceRoot, environment, config, rows });
+/** What a run would give, without keeping it; null when the run never reached the tokens. */
+export const sessionPeek = (config: SessionConfig, rows: [string, string][]) =>
+  invoke<SessionInfo | null>('session_peek', { config, rows });

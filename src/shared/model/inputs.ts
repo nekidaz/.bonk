@@ -1,4 +1,5 @@
 import { t } from '$shared/i18n';
+import type { SessionPrompt } from './types';
 import { findVariables } from './vars';
 
 /**
@@ -186,6 +187,8 @@ export interface InputRequest {
   maxAttempts: number;
   error?: string;
   last?: InputAttempt;
+  /** Set when a session's sign-in asks: which scenario, how far it got (Flow · Сессия SE5). */
+  session?: SessionPrompt;
 }
 
 export type InputAnswer = { kind: 'values'; values: Record<string, string> } | { kind: 'skip' } | { kind: 'stop' };

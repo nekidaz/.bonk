@@ -30,6 +30,7 @@ import { currentRequestSettings, applyScriptVars } from './executionState';
 export { currentRequestSettings, applyScriptVars } from './executionState';
 import { executeRequest } from './execute';
 import { oauthCardKey, oauthRuntime } from './oauth.svelte';
+import { sessionRuntime } from './session.svelte';
 
 /** Save the active tab into folder `folderId` (root if undefined). `asCopy` («Сохранить как…») writes a new file and points the tab at it, leaving the original untouched. */
 export async function saveActiveRequest(folderId?: string, name?: string, asCopy = false): Promise<void> {
@@ -240,6 +241,19 @@ export async function sendHttpRequest(
         : undefined,
     );
   }
+  // A send that renewed the session or signed in again leaves its timeline for the Authorization tab.
+  const used = details.session;
+  sessionRuntime.setUse(
+    tabId,
+    used && used.outcome !== 'valid'
+      ? {
+          ...used,
+          at: Date.now(),
+          sent: response ? { text: send?.text ?? '', status: response.status, ms: response.elapsed_ms } : undefined,
+        }
+      : undefined,
+  );
+  if (used && used.outcome !== 'valid') sessionRuntime.changed();
   addAppConsoleEntry({
     protocol: 'http',
     method: resolved.method || 'HTTP',

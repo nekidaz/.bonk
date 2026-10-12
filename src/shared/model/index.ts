@@ -34,6 +34,7 @@ export {
   urlHost,
   withOAuthBearer,
 } from './oauth';
+export { nodeName, sessionCanRenew, sessionConfigured, sessionTone, type SessionTone } from './session';
 export { elapsedLabel, GRPC_CODES, grpcStatusLabel, HTTP_STATUS_TEXT } from './statusLabel';
 export {
   allTestsPassed,
@@ -84,6 +85,13 @@ export {
   type OAuthGrant,
   type OAuthLoginStarted,
   type OAuthTokenInfo,
+  type EnvSession,
+  type SessionConfig,
+  type SessionInfo,
+  type SessionPrompt,
+  type SessionTrace,
+  type SessionUse,
+  type TokenSource,
   type GitCommit,
   type GitDiffMode,
   type GitFile,

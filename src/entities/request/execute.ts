@@ -40,6 +40,8 @@ function globalsMap(): Record<string, string> {
 
 export interface ExecutionContext {
   environmentId: string | null;
+  /** A session is kept per environment ('' = none selected). */
+  environmentName: string;
   variables: { environment: Record<string, string>; globals: Record<string, string> };
   workspaceRoot: string;
   tree: TreeNode[];
@@ -50,6 +52,7 @@ export interface ExecutionContext {
 export function captureExecutionContext(): ExecutionContext {
   return {
     environmentId: environments.activeId,
+    environmentName: environments.active?.name ?? '',
     variables: { environment: activeEnvMap(), globals: globalsMap() },
     workspaceRoot: workspace.path,
     tree: workspace.tree,
@@ -104,6 +107,7 @@ export function runRequests(
     inputs: inputs.defs,
     inputMode: opts.inputMode,
     inputAttempts: opts.inputAttempts,
+    environmentName: environments.active?.name ?? '',
   };
   const grpc = {
     prefs: currentGrpcPrefs(),
@@ -196,6 +200,7 @@ export function executeRequest(
       // The editor shows a 4xx to the person instead of opening the form again.
       inputs: inputs.defs,
       inputAttempts: 1,
+      environmentName: context.environmentName,
     },
     context.variables,
     settings,

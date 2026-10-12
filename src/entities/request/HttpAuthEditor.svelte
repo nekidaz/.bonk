@@ -51,6 +51,7 @@
     basic: 'badge',
     apiKey: 'vpn_key',
     oauth2: 'shield_person',
+    session: 'passkey',
   };
   const typeLabel = (key: AuthType) =>
     key === 'inherit' ? inheritLabel : t(authTypes.find((a) => a.key === key)?.label ?? 'http.auth.none');

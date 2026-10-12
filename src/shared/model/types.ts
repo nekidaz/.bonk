@@ -10,7 +10,7 @@ export type Protocol = RequestProtocol | 'git' | 'env' | 'runner';
 export type BodyMode = 'none' | 'form-data' | 'urlencoded' | 'raw' | 'binary' | 'graphql';
 export type RawBodyFormat = 'JSON' | 'Text' | 'JavaScript' | 'HTML' | 'XML';
 export type BodyParamKind = 'text' | 'file';
-export type AuthType = 'inherit' | 'none' | 'bearer' | 'basic' | 'apiKey' | 'oauth2';
+export type AuthType = 'inherit' | 'none' | 'bearer' | 'basic' | 'apiKey' | 'oauth2' | 'session';
 export type ApiKeyLocation = 'header' | 'query';
 
 export interface HttpRequest {
@@ -55,6 +55,89 @@ export interface AuthConfig {
   apiKeyIn?: ApiKeyLocation;
   /** `type: 'oauth2'`. The token is never saved here: it lives in the keychain. */
   oauth?: OAuthConfig;
+  /** `type: 'session'`. Tokens live in the keychain, one session per environment. */
+  session?: SessionConfig;
+}
+
+/** Where a session value comes from: a field of one request's response in the sign-in scenario. */
+export interface TokenSource {
+  /** Node id of the request (`fs:Auth/Verify OTP.bonk.json`); empty: not set. */
+  request?: string;
+  /** `body.access_token`, `body.data.tokens[0]`. */
+  path?: string;
+  /** Seconds the token lives, for tokens that are not a JWT (`body.expires_in`). */
+  ttlPath?: string;
+}
+
+/** Session auth: sign in once through a Runner scenario, renew by a saved request. Mirrors `SessionConfig` in http.rs. */
+export interface SessionConfig {
+  /** Name of the scenario in `.bonk/scenarios.json` that signs in. */
+  login?: string;
+  access?: TokenSource;
+  /** No `request`: the sign-in gives no refresh token. */
+  refresh?: TokenSource;
+  /** Saved request (node id) that trades the refresh token for a new access token; its body reads `{{session.refresh}}`. */
+  renewRequest?: string;
+  /** Where the renewal answers with the access token; default `body.access_token`. */
+  renewAccess?: string;
+  /** Where a rotated refresh token comes back; empty: the old one stays. */
+  renewRefresh?: string;
+  /** A response field naming who signed in. */
+  who?: TokenSource;
+  /** Renew this many seconds before `exp`; default 60. */
+  leadSecs?: number;
+  /** On a 401 renew once and repeat the request; on unless false. */
+  retryOn401?: boolean;
+  /** Renew by itself before sending; on unless false. */
+  autoRefresh?: boolean;
+  /** Workspace-relative folders/requests that never get the session (the sign-in folder and the renewal request are always left out). */
+  exclude?: string[];
+}
+
+/** A stored session as the UI sees it: never a token. Times are unix seconds. */
+export interface SessionInfo {
+  /** `eyJhbGciOi…k9Pq2` */
+  accessPreview: string;
+  hasRefresh: boolean;
+  accessExp: number | null;
+  refreshExp: number | null;
+  who: string | null;
+  obtainedAt: number;
+}
+
+/** What happened on the way to a valid token, oldest first (`session_run::Trace`). `at` is unix ms. */
+export type SessionTrace =
+  | { kind: 'expired'; at: number; exp: number | null; why: 'expired' | 'rejected' }
+  | { kind: 'renew'; at: number; request: string; status: string; ms: number; ok: boolean }
+  | {
+      kind: 'login';
+      at: number;
+      scenario: string;
+      steps: { name: string; status: string; ms: number; ok: boolean }[];
+    };
+
+/** The session behind a send (`ExecutionDetails.session`). */
+export interface SessionUse {
+  environment: string;
+  /** The sign-in scenario's name. */
+  login: string;
+  outcome: 'valid' | 'renewed' | 'signedIn';
+  info: SessionInfo;
+  trace: SessionTrace[];
+}
+
+/** Why a sign-in asks (`InputRequest.session`): the scenario, how far it got, what led to it. */
+export interface SessionPrompt {
+  scenario: string;
+  environment: string;
+  steps: { name: string; state: 'done' | 'now' | 'todo' }[];
+  trace: SessionTrace[];
+}
+
+/** One environment's session in the Sessions dialog. */
+export interface EnvSession {
+  environment: string;
+  info: SessionInfo | null;
 }
 
 export type OAuthGrant = 'authorization_code' | 'client_credentials' | 'password';
