@@ -1,4 +1,4 @@
-import { persisted } from '$shared/persist';
+import { setting } from '$shared/persist';
 import { themeDelete } from '$shared/ipc';
 import { customThemes } from './customThemes.svelte';
 import { isDarkTheme, isTheme, theme, themeInfo, type Theme } from './theme.svelte';
@@ -6,31 +6,41 @@ import { isDarkTheme, isTheme, theme, themeInfo, type Theme } from './theme.svel
 /** App preferences from Settings → Общие / Внешний вид (S32.1, S32.5). Self-persisting. */
 
 /** What a launch restores: the last open tabs, or an empty window. */
-export const startupOpen = persisted<'last' | 'empty'>(
+export const startupOpen = setting<'last' | 'empty'>(
+  'app.startup',
   'startupOpen',
   'last',
   (v): v is 'last' | 'empty' => v === 'last' || v === 'empty',
 );
-export const autoUpdateCheck = persisted('autoUpdateCheck', true);
+export const autoUpdateCheck = setting('app.checkForUpdates', 'autoUpdateCheck', true);
 /** Off: opening a saved request reuses the active tab when it has no unsaved changes. */
-export const openInNewTab = persisted('openInNewTab', true);
-export const confirmCloseUnsaved = persisted('confirmCloseUnsaved', true);
+export const openInNewTab = setting('tabs.openInNewTab', 'openInNewTab', true);
+export const confirmCloseUnsaved = setting('tabs.confirmCloseUnsaved', 'confirmCloseUnsaved', true);
 
 export const UI_FONT_SIZES = [12, 13, 14] as const;
-export const uiFontSize = persisted<number>('uiFontSize', 13, (v): v is number => UI_FONT_SIZES.includes(v as 12));
+export const uiFontSize = setting<number>('ui.fontSize', 'uiFontSize', 13, (v): v is number =>
+  UI_FONT_SIZES.includes(v as 12),
+);
 export const CODE_FONTS = ['JetBrains Mono', 'SF Mono', 'Menlo', 'Fira Code'] as const;
-export const codeFont = persisted<string>('codeFont', 'JetBrains Mono');
-export const codeFontSize = persisted<number>('codeFontSize', 12);
+export const codeFont = setting<string>('editor.fontFamily', 'codeFont', 'JetBrains Mono');
+export const codeFontSize = setting<number>('editor.fontSize', 'codeFontSize', 12);
 export type Density = 'compact' | 'normal';
-export const density = persisted<Density>('density', 'compact', (v): v is Density => v === 'compact' || v === 'normal');
+export const density = setting<Density>(
+  'ui.density',
+  'density',
+  'compact',
+  (v): v is Density => v === 'compact' || v === 'normal',
+);
 /** «Как в системе»: follow the OS light/dark appearance with the pair below (app/lifecycle.svelte.ts). */
-export const themeFollowSystem = persisted('themeFollowSystem', false);
-export const systemLightTheme = persisted<Theme>(
+export const themeFollowSystem = setting('ui.theme.followSystem', 'themeFollowSystem', false);
+export const systemLightTheme = setting<Theme>(
+  'ui.theme.light',
   'themeLight',
   'smooth-light',
   (v): v is Theme => isTheme(v) && !isDarkTheme(v),
 );
-export const systemDarkTheme = persisted<Theme>(
+export const systemDarkTheme = setting<Theme>(
+  'ui.theme.dark',
   'themeDark',
   'smooth-dark',
   (v): v is Theme => isTheme(v) && isDarkTheme(v),
@@ -45,35 +55,39 @@ export async function deleteCustomTheme(slug: string): Promise<void> {
   await themeDelete(slug);
   const id: Theme = `custom:${slug}`;
   const base = themeInfo(id).base;
-  customThemes.list = customThemes.list.filter((x) => x.slug !== slug);
+  // Before the list loses it: a setting naming a theme that isn't there reads as its default.
   if (theme.current === id) theme.current = base;
   if (systemLightTheme.current === id) systemLightTheme.current = 'smooth-light';
   if (systemDarkTheme.current === id) systemDarkTheme.current = 'smooth-dark';
+  customThemes.list = customThemes.list.filter((x) => x.slug !== slug);
 }
 
 // Settings → Внешний вид → «Раскладка запроса и ответа» (S32.5b, E1–E7).
 /** stack: request above, response below · side: side by side · focus: the pane in use fills, the other folds into a strip. */
 export type RequestLayout = 'stack' | 'side' | 'focus';
-export const requestLayout = persisted<RequestLayout>(
+export const requestLayout = setting<RequestLayout>(
+  'layout.mode',
   'requestLayout',
   'stack',
   (v): v is RequestLayout => v === 'stack' || v === 'side' || v === 'focus',
 );
 /** After a response arrives: leave the panes alone, or give the response the height (request folds into its strip). */
 export type AfterSend = 'keep' | 'expand';
-export const afterSend = persisted<AfterSend>(
+export const afterSend = setting<AfterSend>(
+  'layout.afterSend',
   'afterSend',
   'keep',
   (v): v is AfterSend => v === 'keep' || v === 'expand',
 );
 /** From SIDE_BY_SIDE_MIN px wide the request and response sit side by side whatever the layout above says.
  *  Off by default so the chosen layout wins; new key because the old `true` default was written to every install. */
-export const sideOnWide = persisted('sideOnWideOptIn', false);
+export const sideOnWide = setting('layout.sideBySideWhenWide', 'sideOnWideOptIn', false);
 export const SIDE_BY_SIDE_MIN = 1440;
 /** Arrays longer than this show only their first/last items; the middle folds into a «ещё N объектов» chip. */
 export const FOLD_ARRAYS_MIN = 5;
 export const FOLD_ARRAYS_MAX = 10_000;
-export const foldArraysOver = persisted<number>(
+export const foldArraysOver = setting<number>(
+  'response.foldArraysOver',
   'foldArraysOver',
   50,
   (v): v is number => Number.isInteger(v) && (v as number) >= FOLD_ARRAYS_MIN && (v as number) <= FOLD_ARRAYS_MAX,

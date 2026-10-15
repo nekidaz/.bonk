@@ -12,12 +12,12 @@
   // Shown only after the field was touched, so an empty fresh form isn't red.
   let proxyTouched = $state(false);
   const proxyError = $derived(
-    requestPrefs.proxyMode === 'manual' && (proxyTouched || requestPrefs.proxyUrl)
-      ? proxyUrlError(requestPrefs.proxyUrl, t)
+    requestPrefs.proxyMode.current === 'manual' && (proxyTouched || requestPrefs.proxyUrl.current)
+      ? proxyUrlError(requestPrefs.proxyUrl.current, t)
       : '',
   );
   const bypass = $derived(
-    requestPrefs.proxyBypass
+    requestPrefs.proxyBypass.current
       .split(',')
       .map((h) => h.trim())
       .filter(Boolean),
@@ -28,21 +28,21 @@
 <div class="st-card">
   {#snippet p1()}{@render seg(
       t('settings.proxy.mode.aria'),
-      requestPrefs.proxyMode,
+      requestPrefs.proxyMode.current,
       PROXY_MODES,
-      (v) => (requestPrefs.proxyMode = v as ProxyMode),
+      (v) => (requestPrefs.proxyMode.current = v as ProxyMode),
     )}{/snippet}
   {@render row(
     t('settings.proxy.source'),
-    requestPrefs.proxyMode === 'system'
+    requestPrefs.proxyMode.current === 'system'
       ? t('settings.proxy.source.system')
-      : requestPrefs.proxyMode === 'none'
+      : requestPrefs.proxyMode.current === 'none'
         ? t('settings.proxy.source.none')
         : t('settings.proxy.source.manual'),
     p1,
   )}
 </div>
-{#if requestPrefs.proxyMode === 'manual'}
+{#if requestPrefs.proxyMode.current === 'manual'}
   <div class="st-group">{t('settings.proxy.server')}</div>
   <div class="st-card">
     <div class="st-row st-col">
@@ -59,7 +59,7 @@
         aria-label={t('settings.proxy.addr')}
         aria-invalid={proxyError ? 'true' : undefined}
         aria-describedby={proxyError ? 'st-proxy-err' : undefined}
-        bind:value={requestPrefs.proxyUrl}
+        bind:value={requestPrefs.proxyUrl.current}
         onblur={() => (proxyTouched = true)}
       />
     </div>
@@ -102,7 +102,7 @@
         t('settings.proxy.bypass.aria'),
         bypass,
         t('settings.proxy.host'),
-        (items) => (requestPrefs.proxyBypass = items.join(', ')),
+        (items) => (requestPrefs.proxyBypass.current = items.join(', ')),
       )}
     </div>
   </div>

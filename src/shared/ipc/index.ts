@@ -129,6 +129,7 @@ export {
   sessionStatus,
   openReleases,
   openUrl,
+  settingsFileOpenExternal,
   type ProtoFileInfo,
   protoPick,
   protoPickFolder,

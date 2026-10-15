@@ -3,10 +3,10 @@ export type RequestProtocol = 'http' | 'grpc';
 /**
  * Tab kinds: the two request protocols plus the special full-pane tabs —
  * 'git' (diff / project-diff views), 'env' (the Environments manager),
- * 'runner' (the Collection Runner). Special tabs
+ * 'runner' (the Collection Runner), 'settings' (~/.bonk/settings.json). Special tabs
  * hold no request state and are never persisted.
  */
-export type Protocol = RequestProtocol | 'git' | 'env' | 'runner';
+export type Protocol = RequestProtocol | 'git' | 'env' | 'runner' | 'settings';
 export type BodyMode = 'none' | 'form-data' | 'urlencoded' | 'raw' | 'binary' | 'graphql';
 export type RawBodyFormat = 'JSON' | 'Text' | 'JavaScript' | 'HTML' | 'XML';
 export type BodyParamKind = 'text' | 'file';

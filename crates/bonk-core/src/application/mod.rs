@@ -18,5 +18,6 @@ pub mod scenarios;
 pub mod scripts;
 pub mod session;
 pub mod session_run;
+pub mod settings_file;
 pub mod themes;
 pub mod workspace;

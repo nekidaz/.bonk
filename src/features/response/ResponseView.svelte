@@ -54,9 +54,9 @@
   const { tab, onSettings = () => {} }: { tab: Tab | undefined; onSettings?: () => void } = $props();
 
   let respTab = $state<'body' | 'headers' | 'trailers' | 'cookies' | 'timeline' | 'tests' | 'console'>('body');
-  let respMode = $state<'pretty' | 'raw' | 'preview'>(requestPrefs.responsePrettyDefault ? 'pretty' : 'raw');
+  let respMode = $state<'pretty' | 'raw' | 'preview'>(requestPrefs.responsePrettyDefault.current ? 'pretty' : 'raw');
   /** gRPC responses get the same Pretty / Raw switch (E5). */
-  let grpcMode = $state<'pretty' | 'raw'>(requestPrefs.responsePrettyDefault ? 'pretty' : 'raw');
+  let grpcMode = $state<'pretty' | 'raw'>(requestPrefs.responsePrettyDefault.current ? 'pretty' : 'raw');
   let bodyInfo = $state<BodyInfo | undefined>(undefined);
 
   // In-flight request for this tab: drives the "Sending…" meta and the live timer (S04).

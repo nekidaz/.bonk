@@ -16,6 +16,7 @@
   import SettingsData from './SettingsData.svelte';
   import SettingsMcp from './SettingsMcp.svelte';
   import SettingsVariables from './SettingsVariables.svelte';
+  import { openSettingsFileTab } from './settingsFileTab.svelte';
 
   // Two-way bound from the parent (app/ `shell.settingsOpen` is the source of truth).
   let { open = $bindable() }: { open: boolean } = $props();
@@ -143,9 +144,23 @@
             <h2>{t(page.label)}</h2>
             <p>{t(page.sub)}</p>
           </div>
-          <button type="button" class="st-x" aria-label={t('common.close')} onclick={close}>
-            <span class="material-symbols-outlined" style="font-size:18px" aria-hidden="true">close</span>
-          </button>
+          <div style="display:flex;gap:4px">
+            <button
+              type="button"
+              class="st-x"
+              title={t('settingsFile.open')}
+              aria-label={t('settingsFile.open')}
+              onclick={() => {
+                close();
+                openSettingsFileTab();
+              }}
+            >
+              <span class="material-symbols-outlined" style="font-size:18px" aria-hidden="true">data_object</span>
+            </button>
+            <button type="button" class="st-x" aria-label={t('common.close')} onclick={close}>
+              <span class="material-symbols-outlined" style="font-size:18px" aria-hidden="true">close</span>
+            </button>
+          </div>
         </header>
         <div class="st-body">
           {#if page.view}<page.view />{:else}<SettingsGeneral {appVersion} />{/if}

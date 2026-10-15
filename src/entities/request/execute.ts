@@ -111,8 +111,8 @@ export function runRequests(
   };
   const grpc = {
     prefs: currentGrpcPrefs(),
-    connectTimeoutMs: requestPrefs.requestTimeoutMs,
-    deadlineMs: requestPrefs.grpcDeadlineMs,
+    connectTimeoutMs: requestPrefs.requestTimeoutMs.current,
+    deadlineMs: requestPrefs.grpcDeadlineMs.current,
   };
   return runnerRun(
     opts.runId ?? crypto.randomUUID(),
@@ -206,8 +206,8 @@ export function executeRequest(
     settings,
     {
       prefs: currentGrpcPrefs(),
-      connectTimeoutMs: requestPrefs.requestTimeoutMs,
-      deadlineMs: requestPrefs.grpcDeadlineMs,
+      connectTimeoutMs: requestPrefs.requestTimeoutMs.current,
+      deadlineMs: requestPrefs.grpcDeadlineMs.current,
     },
     (event) => {
       if (event.kind === 'vars') applyScriptVars(event, environmentId, false);

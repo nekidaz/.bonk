@@ -1,3 +1,4 @@
+import { setting } from '$shared/persist';
 import { customThemes, themeCssText, type CustomTheme, type ThemeColors } from './customThemes.svelte';
 
 /** Themes (Flow · Темы): a palette from tokens.css plus the shape and UI font it uses by default.
@@ -80,36 +81,41 @@ function readTheme(): Theme {
   return LEGACY_DARK.includes(v) ? 'smooth-dark' : DEFAULT_THEME;
 }
 
-/** A setting kept in localStorage (not state.json) so main.ts can apply it before mount, without a flash.
- *  Every assignment is saved and applied to <html>. */
-class Stored<T extends string> {
-  #value = $state() as T;
+const isShapePref = (v: unknown): v is Shape | 'theme' => v === 'theme' || SHAPES.includes(v as Shape);
+const isFontPref = (v: unknown): v is UiFont | 'theme' => v === 'theme' || UI_FONTS.includes(v as UiFont);
 
-  constructor(
-    readonly key: string,
-    value: T,
-  ) {
-    this.#value = value;
-    // A legacy or invalid stored value is rewritten right away.
-    write(key, value);
-  }
-
-  get current(): T {
-    return this.#value;
-  }
-
-  set current(v: T) {
-    this.#value = v;
-    write(this.key, v);
-    applyAppearance();
-  }
-}
-
+// Appearance lives in settings.json like every setting; localStorage keeps a copy (watchAppearance)
+// that is the value until the file is read, so main.ts paints the saved theme before mount, without a flash.
 /** The palette in use (`theme.current`). */
-export const theme = new Stored<Theme>('bonk.theme', readTheme());
+export const theme = setting<Theme>('ui.theme', 'theme', DEFAULT_THEME, isTheme, readTheme());
 /** 'theme' = the shape / UI font the theme comes with. */
-export const shapePref = new Stored<Shape | 'theme'>('bonk.shape', oneOf(read('bonk.shape'), SHAPES) ?? 'theme');
-export const fontPref = new Stored<UiFont | 'theme'>('bonk.font', oneOf(read('bonk.font'), UI_FONTS) ?? 'theme');
+export const shapePref = setting<Shape | 'theme'>(
+  'ui.shape',
+  'uiShape',
+  'theme',
+  isShapePref,
+  oneOf(read('bonk.shape'), SHAPES) ?? 'theme',
+);
+export const fontPref = setting<UiFont | 'theme'>(
+  'ui.font',
+  'uiFont',
+  'theme',
+  isFontPref,
+  oneOf(read('bonk.font'), UI_FONTS) ?? 'theme',
+);
+
+/** Keep <html> and the localStorage copy in step with the appearance settings (an edit of
+ *  settings.json included). Started once by the app; returns a stop function. */
+export function watchAppearance(): () => void {
+  return $effect.root(() => {
+    $effect(() => {
+      applyAppearance();
+      write('bonk.theme', theme.current);
+      write('bonk.shape', shapePref.current);
+      write('bonk.font', fontPref.current);
+    });
+  });
+}
 
 export const shapeOf = (t: Theme): Shape => (shapePref.current === 'theme' ? themeInfo(t).shape : shapePref.current);
 export const fontOf = (t: Theme): UiFont => (fontPref.current === 'theme' ? themeInfo(t).font : fontPref.current);

@@ -25,14 +25,14 @@
   async function addCa(): Promise<void> {
     certError = '';
     const path = await pickPem();
-    if (path && !requestPrefs.trustedCaPaths.includes(path))
-      requestPrefs.trustedCaPaths = [...requestPrefs.trustedCaPaths, path];
+    if (path && !requestPrefs.trustedCaPaths.current.includes(path))
+      requestPrefs.trustedCaPaths.current = [...requestPrefs.trustedCaPaths.current, path];
   }
 
   // "<subject CN> · до <date>" per CA file; falls back to the path when the file can't be parsed.
   let caInfo = $state<Record<string, string>>({});
   $effect(() => {
-    for (const path of requestPrefs.trustedCaPaths) {
+    for (const path of requestPrefs.trustedCaPaths.current) {
       if (caInfo[path] !== undefined) continue;
       caInfo[path] = path;
       certFileInfo(path)
@@ -94,7 +94,7 @@
     trustSystemCas.current ? t('settings.certs.system.on') : t('settings.certs.system.off'),
     sys,
   )}
-  {#each requestPrefs.trustedCaPaths as path (path)}
+  {#each requestPrefs.trustedCaPaths.current as path (path)}
     <div class="st-row">
       <div class="st-copy">
         <span class="st-name">{fileName(path)}</span><span class="st-desc" title={path}>{caInfo[path] ?? path}</span>
@@ -102,7 +102,8 @@
       <button
         type="button"
         class="bs-btn ghost danger"
-        onclick={() => (requestPrefs.trustedCaPaths = requestPrefs.trustedCaPaths.filter((x) => x !== path))}
+        onclick={() =>
+          (requestPrefs.trustedCaPaths.current = requestPrefs.trustedCaPaths.current.filter((x) => x !== path))}
         >{t('common.delete')}</button
       >
     </div>

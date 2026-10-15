@@ -8,6 +8,7 @@ pub(crate) mod oauth;
 pub(crate) mod runner;
 pub(crate) mod secrets;
 pub(crate) mod session;
+pub(crate) mod settings_file;
 pub(crate) mod terminal;
 pub(crate) mod themes;
 pub(crate) mod workspace;

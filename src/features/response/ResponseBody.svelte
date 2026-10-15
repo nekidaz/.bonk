@@ -73,7 +73,7 @@
         fill
         folding
         autoFold={mode === 'pretty'}
-        wrap={requestPrefs.responseLineWrap}
+        wrap={requestPrefs.responseLineWrap.current}
         docId={`r${sourceId}:${mode}`}
         ariaLabel={t('lb.section.response')}
       />
@@ -81,14 +81,14 @@
   {:else if legacy}
     <div class="bs-rbody pretty">
       {#if legacy.kind === 'plain'}
-        <div class="bs-response-editor" class:wrap={requestPrefs.responseLineWrap}>
+        <div class="bs-response-editor" class:wrap={requestPrefs.responseLineWrap.current}>
           <div class="bs-response-gutter" aria-hidden="true">
             {#each legacy.lines as n}<div>{n}</div>{/each}
           </div>
           <div class="bs-code">{@html legacy.html}</div>
         </div>
       {:else if legacy.kind === 'lines'}
-        <div class="bs-response-editor chunked" class:wrap={requestPrefs.responseLineWrap}>
+        <div class="bs-response-editor chunked" class:wrap={requestPrefs.responseLineWrap.current}>
           {#each legacy.chunks as c (c.firstLine)}
             <div class="bs-resp-chunk" style="contain-intrinsic-size: auto {c.estPx}px">
               <div class="bs-response-gutter" aria-hidden="true">

@@ -11,6 +11,7 @@
   import { applyPreset, openRunnerTab, runner } from '$features/runner';
   import { MoveDialog, FolderAuthDialog } from '$features/sidebar/components';
   import { SettingsModal } from '$features/settings/components';
+  import { openSettingsFileTab } from '$features/settings';
   import { EnvironmentsSheet } from '$features/environments/components';
   import { CookieJarSheet } from '$features/cookie-jar/components';
   import { cookieJar } from '$entities/cookies';
@@ -102,6 +103,7 @@
       shortcut: keys('settings'),
       run: () => (shell.settingsOpen = true),
     },
+    { label: t('settingsFile.open'), icon: 'data_object', run: openSettingsFileTab },
   ]);
 </script>
 

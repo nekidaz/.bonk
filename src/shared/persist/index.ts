@@ -3,3 +3,4 @@
 
 export { flushPendingSaves, isArrayOf, loadState, saveState, saveStateDebounced } from './persist';
 export { persisted, type Persisted } from './persisted.svelte';
+export { setting, type Setting, settingsFile, settingSpecs, type SettingSpec } from './settings.svelte';

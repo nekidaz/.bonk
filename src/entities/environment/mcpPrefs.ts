@@ -1,4 +1,4 @@
-import { persisted } from '$shared/persist';
+import { setting } from '$shared/persist';
 import type { McpMethodPolicy } from '$shared/ipc';
 import type { McpEnvScope } from './mcpEnvs';
 
@@ -35,4 +35,4 @@ const isPrefs = (v: unknown): v is McpPrefs =>
   typeof (v as McpPrefs).allowWrites === 'boolean' &&
   Array.isArray((v as McpPrefs).targetHosts);
 
-export const mcpPrefs = persisted<McpPrefs>('mcp.prefs', defaultMcpPrefs, isPrefs);
+export const mcpPrefs = setting<McpPrefs>('mcp.access', 'mcp.prefs', defaultMcpPrefs, isPrefs);

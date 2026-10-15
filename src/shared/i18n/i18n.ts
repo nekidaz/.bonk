@@ -16,6 +16,7 @@ import * as inputs from './inputs';
 import * as session from './session';
 import * as sessions from './sessions';
 import * as sessionrun from './sessionrun';
+import * as settingsfile from './settingsfile';
 // Each area owns a part file in ./i18n/ exporting `ru` and `en: Record<keyof typeof ru, string>`
 // (so a missing key is a type error); they are merged below.
 const parts = [
@@ -36,6 +37,7 @@ const parts = [
   session,
   sessions,
   sessionrun,
+  settingsfile,
 ];
 
 export const ru = Object.assign({}, ...parts.map((p) => p.ru)) as Record<string, string> & (typeof common)['ru'];

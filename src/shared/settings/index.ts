@@ -77,6 +77,7 @@ export {
   type ThemeInfo,
   THEMES,
   type UiFont,
+  watchAppearance,
 } from './theme.svelte';
 export { dynamicOptions, dynKeepSent, dynLocale, dynPerRequest, dynSeed, dynSeedOn } from './dynamicPrefs.svelte';
 export {

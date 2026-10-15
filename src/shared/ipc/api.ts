@@ -675,6 +675,8 @@ export const oauthLoginWait = (flowId: string, settings?: RequestSettings) =>
 export const oauthLoginInput = (flowId: string, input: string | null) =>
   invoke<void>('oauth_login_input', { flowId, input });
 export const openUrl = (url: string) => invoke<void>('open_url', { url });
+/** Open ~/.bonk/settings.json in the system text editor. */
+export const settingsFileOpenExternal = () => invoke<void>('settings_file_open_external');
 
 export const workspaceImportCollection = (
   root: string,

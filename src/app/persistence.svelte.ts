@@ -1,7 +1,7 @@
 import { untrack } from 'svelte';
-import type { ProxyMode, Tab, HistoryEntry, TreeNode, Environment, VarRow } from '$shared/model';
+import type { Tab, HistoryEntry, TreeNode, Environment, VarRow } from '$shared/model';
 import { loadState, saveState, saveStateDebounced } from '$shared/persist';
-import { startupOpen, requestPrefs } from '$shared/settings';
+import { startupOpen } from '$shared/settings';
 import { workspaceLoad, secretGet, secretSet, secretDelete } from '$shared/ipc';
 import { collectSecrets, mergeSecrets, secretAccountsOf, stripSecrets } from './secrets';
 import { normalizeTabTitleState, stripRuntimeTab, tabs } from '$entities/tab';
@@ -101,18 +101,6 @@ async function restoreState(): Promise<void> {
   workspace.recent = normalizeWorkspaceRecents(savedRecentWorkspacePaths);
   history.limit = await loadState<number>('historyLimit', 500);
   history.paused = await loadState<boolean>('historyPaused', false);
-  requestPrefs.responseLineWrap = await loadState<boolean>('responseLineWrap', true);
-  requestPrefs.requestTimeoutMs = await loadState<number>('requestTimeoutMs', 30_000);
-  requestPrefs.requestFollowRedirects = await loadState<boolean>('requestFollowRedirects', true);
-  requestPrefs.requestValidateTls = await loadState<boolean>('requestValidateTls', true);
-  requestPrefs.responseBodyLimitMb = await loadState<number>('responseBodyLimitMb', 25);
-  requestPrefs.responsePrettyDefault = await loadState<boolean>('responsePrettyDefault', true);
-  requestPrefs.proxyMode = await loadState<ProxyMode>('proxyMode', 'system');
-  requestPrefs.proxyUrl = await loadState<string>('proxyUrl', '');
-  requestPrefs.proxyBypass = await loadState<string>('proxyBypass', '');
-  requestPrefs.trustedCaPaths = await loadState<string[]>('trustedCaPaths', []);
-  requestPrefs.grpcDeadlineMs = await loadState<number>('grpcDeadlineMs', 30_000);
-  requestPrefs.grpcAutoReflect = await loadState<boolean>('grpcAutoReflect', true);
   // Postman-style variables. The array fallbacks make loadState reject a corrupt
   // non-array value; activeEnvironmentId falls back to null (No environment).
   const loaded = await loadSecrets(
@@ -193,18 +181,6 @@ function wirePersistence(): () => void {
       scheduleSecretSync();
     });
     $effect(() => saveStateDebounced('activeEnvironmentId', environments.activeId));
-    $effect(() => saveStateDebounced('responseLineWrap', requestPrefs.responseLineWrap));
-    $effect(() => saveStateDebounced('requestTimeoutMs', requestPrefs.requestTimeoutMs));
-    $effect(() => saveStateDebounced('requestFollowRedirects', requestPrefs.requestFollowRedirects));
-    $effect(() => saveStateDebounced('requestValidateTls', requestPrefs.requestValidateTls));
-    $effect(() => saveStateDebounced('responseBodyLimitMb', requestPrefs.responseBodyLimitMb));
-    $effect(() => saveStateDebounced('responsePrettyDefault', requestPrefs.responsePrettyDefault));
-    $effect(() => saveStateDebounced('proxyMode', requestPrefs.proxyMode));
-    $effect(() => saveStateDebounced('proxyUrl', requestPrefs.proxyUrl));
-    $effect(() => saveStateDebounced('proxyBypass', requestPrefs.proxyBypass));
-    $effect(() => saveStateDebounced('trustedCaPaths', requestPrefs.trustedCaPaths));
-    $effect(() => saveStateDebounced('grpcDeadlineMs', requestPrefs.grpcDeadlineMs));
-    $effect(() => saveStateDebounced('grpcAutoReflect', requestPrefs.grpcAutoReflect));
   });
 }
 

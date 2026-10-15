@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { tick } from 'svelte';
 import type { HistoryEntry } from '$shared/model';
+import { settingsFile } from '$shared/persist';
 import { history, addHistory } from './store.svelte';
 import { historyDays, watchHistoryRetention } from './dataPrefs.svelte';
 
@@ -63,7 +64,7 @@ describe('history retention', () => {
 
   it('drops entries older than historyDays once that setting has loaded', async () => {
     const stop = watchHistoryRetention();
-    await historyDays.ready;
+    await settingsFile.load();
     historyDays.current = 1;
     history.list = [entry('new'), entry('old', Date.now() - 3 * 86_400_000)];
     await tick();

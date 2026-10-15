@@ -1,18 +1,19 @@
-import { persisted } from '$shared/persist';
+import { setting } from '$shared/persist';
 import { pruneByAge } from './history';
 import { history } from './store.svelte';
 
 /** Export: include keychain secret values. Off by default. */
-export const exportIncludeSecrets = persisted<boolean>('exportIncludeSecrets', false);
+export const exportIncludeSecrets = setting<boolean>('export.includeSecrets', 'exportIncludeSecrets', false);
 /** Workspace export format: Bonk JSON or Postman Collection v2.1. */
 export type ExportFormat = 'bonk' | 'postman';
-export const exportFormat = persisted<ExportFormat>(
+export const exportFormat = setting<ExportFormat>(
+  'export.format',
   'exportFormat',
   'bonk',
   (v): v is ExportFormat => v === 'bonk' || v === 'postman',
 );
 /** History retention in days; 0 = forever. */
-export const historyDays = persisted<number>('historyDays', 30);
+export const historyDays = setting<number>('history.keepDays', 'historyDays', 30);
 
 /**
  * Drop entries older than `historyDays`: on every history change and when the setting changes, but

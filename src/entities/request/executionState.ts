@@ -20,22 +20,22 @@ function clampInt(value: number, min: number, max: number, fallback: number): nu
 }
 
 export function currentRequestSettings(): RequestSettings {
-  const timeoutMs = clampInt(requestPrefs.requestTimeoutMs, 0, 600_000, 30_000);
-  const maxResponseBodyMb = clampInt(requestPrefs.responseBodyLimitMb, 1, 250, 25);
-  const auth = requestPrefs.proxyMode === 'manual' && proxyAuth.current;
+  const timeoutMs = clampInt(requestPrefs.requestTimeoutMs.current, 0, 600_000, 30_000);
+  const maxResponseBodyMb = clampInt(requestPrefs.responseBodyLimitMb.current, 1, 250, 25);
+  const auth = requestPrefs.proxyMode.current === 'manual' && proxyAuth.current;
   return {
     timeoutMs,
-    followRedirects: requestPrefs.requestFollowRedirects,
-    validateTls: requestPrefs.requestValidateTls,
+    followRedirects: requestPrefs.requestFollowRedirects.current,
+    validateTls: requestPrefs.requestValidateTls.current,
     maxResponseBodyBytes: maxResponseBodyMb * 1024 * 1024,
     proxy: {
-      mode: requestPrefs.proxyMode,
-      url: requestPrefs.proxyUrl.trim(),
-      bypass: requestPrefs.proxyBypass.trim(),
+      mode: requestPrefs.proxyMode.current,
+      url: requestPrefs.proxyUrl.current.trim(),
+      bypass: requestPrefs.proxyBypass.current.trim(),
       username: auth ? proxyUser.current.trim() : '',
       password: auth ? proxyPassword.current : '',
     },
-    caPaths: requestPrefs.trustedCaPaths,
+    caPaths: requestPrefs.trustedCaPaths.current,
     trustSystemCas: trustSystemCas.current,
     clientCerts: activeClientCerts(),
     cookieJar: cookieJarKey(),

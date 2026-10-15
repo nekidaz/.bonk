@@ -1,6 +1,6 @@
 // Network settings added with the S32 Proxy / Certificates / gRPC sections.
 // Self-persisting; passwords live in the OS keychain and only in memory here.
-import { persisted, loadState, saveState } from '$shared/persist';
+import { setting, loadState, saveState } from '$shared/persist';
 import { secretGet, secretSet, secretDelete } from '$shared/ipc';
 import { pickClientCert, endpointHost, hasIdentity, type HostCert } from './proxy';
 import type { GrpcPrefs, GrpcTls, RequestSettings } from '$shared/model';
@@ -10,8 +10,8 @@ const isCerts = (v: unknown): v is HostCert[] =>
   v.every((c) => c && typeof c.host === 'string' && typeof c.certPath === 'string' && typeof c.keyPath === 'string');
 
 // --- Proxy ---
-export const proxyAuth = persisted('proxyAuth', false);
-export const proxyUser = persisted('proxyUser', '');
+export const proxyAuth = setting('proxy.auth', 'proxyAuth', false);
+export const proxyUser = setting('proxy.user', 'proxyUser', '');
 
 const PROXY_PW = 'net:proxy-password';
 
@@ -56,8 +56,8 @@ export const proxyPassword = new ProxyPassword();
 void proxyPassword.load();
 
 // --- Certificates ---
-export const trustSystemCas = persisted('trustSystemCas', true);
-export const clientCerts = persisted<HostCert[]>('clientCerts', [], isCerts);
+export const trustSystemCas = setting('tls.trustSystemCas', 'trustSystemCas', true);
+export const clientCerts = setting<HostCert[]>('tls.clientCerts', 'clientCerts', [], isCerts);
 
 /**
  * PKCS#12 passwords (.p12 path → password). They live in the OS keychain (one per path); this is
@@ -115,12 +115,12 @@ void clientCerts.ready.then(async () => {
 });
 
 // --- gRPC ---
-export const grpcImportPaths = persisted<string[]>('grpcImportPaths', []);
+export const grpcImportPaths = setting<string[]>('grpc.importPaths', 'grpcImportPaths', []);
 // 250 MB = the fixed cap bonk used before this was configurable.
-export const grpcMaxMessageMb = persisted('grpcMaxMessageMb', 250);
-export const grpcKeepaliveSecs = persisted('grpcKeepaliveSecs', 30);
-export const grpcEmitDefaults = persisted('grpcEmitDefaults', false);
-export const grpcInt64AsNumber = persisted('grpcInt64AsNumber', false);
+export const grpcMaxMessageMb = setting('grpc.maxMessageMb', 'grpcMaxMessageMb', 250);
+export const grpcKeepaliveSecs = setting('grpc.keepaliveSecs', 'grpcKeepaliveSecs', 30);
+export const grpcEmitDefaults = setting('grpc.emitDefaults', 'grpcEmitDefaults', false);
+export const grpcInt64AsNumber = setting('grpc.int64AsNumber', 'grpcInt64AsNumber', false);
 
 export function currentGrpcPrefs(): GrpcPrefs {
   return {

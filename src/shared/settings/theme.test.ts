@@ -27,20 +27,19 @@ describe('theme', () => {
   });
 });
 
-describe('persisted theme', () => {
+describe('theme before settings.json is read', () => {
   afterEach(() => {
     vi.unstubAllGlobals();
     vi.resetModules();
   });
 
-  function storedTheme(value: string): Map<string, string> {
+  function storedTheme(value: string): void {
     const values = new Map([['bonk.theme', value]]);
     vi.stubGlobal('localStorage', {
       getItem: (key: string) => values.get(key) ?? null,
       setItem: (key: string, next: string) => values.set(key, next),
     });
     vi.resetModules();
-    return values;
   }
 
   it.each([
@@ -56,10 +55,9 @@ describe('persisted theme', () => {
     ['tokyo-night', 'smooth-dark'],
     ['ayu-mirage', 'smooth-dark'],
     ['rose-pine', 'smooth-dark'],
-  ])('maps a stored %s to %s and persists it', async (stored, expected) => {
-    const values = storedTheme(stored);
+  ])('maps a stored %s to %s', async (stored, expected) => {
+    storedTheme(stored);
     const fresh = await import('./theme.svelte');
     expect(fresh.theme.current).toBe(expected);
-    expect(values.get('bonk.theme')).toBe(expected);
   });
 });

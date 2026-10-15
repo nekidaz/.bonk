@@ -3,20 +3,21 @@ import { watchCookieJar } from '$entities/cookies';
 import { git, watchGitAutoFetch, watchGitWorkspace } from '$entities/git';
 import { watchHistoryRetention } from '$entities/history';
 import { t, watchDocumentLang } from '$shared/i18n';
-import { flushPendingSaves } from '$shared/persist';
+import { flushPendingSaves, settingsFile } from '$shared/persist';
 import {
   autoUpdateCheck,
   codeFont,
   codeFontSize,
   density,
   setTheme,
-  applyAppearance,
   loadCustomThemes,
   systemDarkTheme,
   systemLightTheme,
   themeFollowSystem,
   uiFontSize,
+  watchAppearance,
 } from '$shared/settings';
+import { openSettingsFileTab } from '$features/settings';
 import { checkForUpdate } from '$shared/updater';
 import { inputs, watchInputs } from '$entities/input';
 import { workspace } from '$entities/workspace';
@@ -31,9 +32,13 @@ import { hydrate } from './persistence.svelte';
  * listeners belong to App and stop when it unmounts (like `defer` in a Go main).
  */
 export function startApp(): void {
+  // ~/.bonk/settings.json: every setting module is loaded by now, so the first run can fill it from state.json.
+  void settingsFile.load();
+
   // Watchers: each keeps something in sync with one slice's state for the whole session
   // (like goroutines started in main); onDestroy stops them.
   onDestroy(watchDocumentLang());
+  onDestroy(watchAppearance());
   onDestroy(watchHistoryRetention());
   onDestroy(watchGitWorkspace());
   onDestroy(watchGitAutoFetch());
@@ -108,9 +113,29 @@ export function startApp(): void {
 
   // User themes from ~/.bonk/themes; the localStorage copy already painted the saved one.
   onMount(() => {
-    loadCustomThemes()
-      .then(() => applyAppearance())
-      .catch(() => {});
+    loadCustomThemes().catch(() => {});
+  });
+
+  // settings.json edited in another editor: picked up when the window comes back.
+  onMount(() => {
+    const reload = () => void settingsFile.reload();
+    window.addEventListener('focus', reload);
+    return () => window.removeEventListener('focus', reload);
+  });
+
+  // A settings.json that doesn't parse (at start, after an edit, or when a change can't be written).
+  $effect(() => {
+    const error = settingsFile.error;
+    void settingsFile.unsaved;
+    if (error)
+      untrack(() =>
+        shell.showToast({
+          text: t('settingsFile.broken', { error }),
+          icon: 'error',
+          iconColor: 'var(--color-danger)',
+          action: { label: t('settingsFile.open'), run: openSettingsFileTab },
+        }),
+      );
   });
 
   onMount(async () => {
@@ -138,7 +163,7 @@ export function startApp(): void {
   });
 
   onMount(() => {
-    const flush = () => void flushPendingSaves();
+    const flush = () => void Promise.all([flushPendingSaves(), settingsFile.flush()]);
     const onVisibilityChange = () => {
       if (document.visibilityState === 'hidden') flush();
     };

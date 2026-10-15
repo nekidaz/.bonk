@@ -215,7 +215,7 @@
             endpoint,
             grpcPlaintext,
             grpcTlsFor(endpoint, t.grpc.tls),
-            requestPrefs.requestTimeoutMs,
+            requestPrefs.requestTimeoutMs.current,
             currentGrpcPrefs(),
           );
           break;
@@ -229,7 +229,7 @@
       const tree =
         t.grpc.source === 'proto'
           ? await grpcLoadProto(connId, t.grpc.protoPaths ?? [], withGlobalImports(t.grpc.importPaths ?? []))
-          : await grpcReflect(connId, requestPrefs.requestTimeoutMs);
+          : await grpcReflect(connId, requestPrefs.requestTimeoutMs.current);
       tabs.updateById(tabId, (x) => (x.grpc ? { ...x, grpc: { ...x.grpc, connectionId: connId, tree } } : x));
     } catch (e) {
       const message = grpcConnectFailureMessage(t.grpc?.source, stage, e);
@@ -263,13 +263,13 @@
     const cmd = parseGrpcurl(text);
     if (!cmd) return false;
     tabs.updateActive((t) => applyGrpcurlImport(t, cmd, titleFromUrl(cmd.endpoint, GRPC_DEFAULT_TITLE)));
-    if (requestPrefs.grpcAutoReflect) void tick().then(ensureConnected);
+    if (requestPrefs.grpcAutoReflect.current) void tick().then(ensureConnected);
     return true;
   }
   function chooseSource(source: 'reflection' | 'proto'): void {
     setSource(source);
     if (source === 'proto') importProto();
-    else if (requestPrefs.grpcAutoReflect) void tick().then(ensureConnected);
+    else if (requestPrefs.grpcAutoReflect.current) void tick().then(ensureConnected);
   }
   /** Set endpoint and drop any stale connection so the next action reconnects. */
   function setEndpoint(v: string): void {
@@ -609,7 +609,7 @@
       placeholder={t('grpc.endpointPlaceholder')}
       onPaste={endpointPaste}
       onBlur={() => {
-        if (requestPrefs.grpcAutoReflect) void ensureConnected();
+        if (requestPrefs.grpcAutoReflect.current) void ensureConnected();
       }}
       {varHighlight}
       docId={tab.id}

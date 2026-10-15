@@ -62,7 +62,7 @@ import { isConflict, statusByPath } from './gitStatus';
 import { openConflictsTab } from './diffTabs';
 import { workspace } from '$entities/workspace';
 import { t } from '$shared/i18n';
-import { persisted } from '$shared/persist';
+import { setting } from '$shared/persist';
 
 /**
  * Master switch for the Git feature. When false the source-control UI is hidden
@@ -517,7 +517,7 @@ async function sync(name: string, fn: (root: string) => Promise<string>): Promis
 
 /** How Pull joins a diverged branch: the repo's own setting (else merge), merge, rebase or fast-forward only. */
 export const PULL_MODES = ['auto', 'merge', 'rebase', 'ff-only'] as const;
-export const gitPullMode = persisted<PullMode>('gitPullMode', 'auto', (v): v is PullMode =>
+export const gitPullMode = setting<PullMode>('git.pullMode', 'gitPullMode', 'auto', (v): v is PullMode =>
   (PULL_MODES as readonly unknown[]).includes(v),
 );
 export const pull = (): Promise<string> => sync('pull', (root) => gitPull(root, gitPullMode.current));
@@ -526,7 +526,7 @@ export const push = (force = false): Promise<string> => sync('push', (root) => g
 
 /** Minutes between background fetches (GitKraken's auto-fetch); 0 = off. */
 export const AUTO_FETCH_MINUTES = [0, 1, 5, 15] as const;
-export const gitAutoFetch = persisted<number>('gitAutoFetch', 5, (v): v is number =>
+export const gitAutoFetch = setting<number>('git.autoFetchMinutes', 'gitAutoFetch', 5, (v): v is number =>
   (AUTO_FETCH_MINUTES as readonly unknown[]).includes(v),
 );
 

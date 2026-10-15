@@ -30,6 +30,7 @@ import type { ImportResult } from '$features/import';
 import { methodColor, toCurl, type RequestProtocol } from '$shared/model';
 import { requestConfirm, type UtilityMode } from '$shared/ui';
 import { utilityUi } from '$features/utility-panel';
+import { saveSettingsDraft } from '$features/settings';
 import { layout } from './layout.svelte';
 import { shell } from './shell.svelte';
 
@@ -267,6 +268,14 @@ export function openSaveDialog(copy = false): void {
  */
 export async function smartSave(): Promise<void> {
   const active = tabs.active;
+  if (active?.protocol === 'settings') {
+    try {
+      await saveSettingsDraft();
+    } catch (e) {
+      shell.showToast({ text: String(e), icon: 'error', iconColor: 'var(--color-danger)' });
+    }
+    return;
+  }
   if (!active || (active.protocol !== 'http' && active.protocol !== 'grpc')) return;
   if (active.savedPath) {
     const prev = findNode(workspace.tree, active.savedPath);

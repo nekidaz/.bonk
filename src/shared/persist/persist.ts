@@ -19,6 +19,9 @@ async function ensureLoaded(): Promise<Record<string, unknown>> {
   return loadPromise;
 }
 
+/** The whole state.json map (read once, then cached). */
+export const loadAppState = (): Promise<Record<string, unknown>> => ensureLoaded();
+
 /**
  * Type guard for "this persisted value is an array of items each accepted by
  * `item`". Use with `loadState` so corrupt/old persisted state (e.g. a renamed

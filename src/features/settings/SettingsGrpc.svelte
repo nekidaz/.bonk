@@ -15,8 +15,8 @@
 <div class="st-card">
   {#snippet ar()}{@render sw(
       t('settings.grpc.reflect'),
-      requestPrefs.grpcAutoReflect,
-      (v) => (requestPrefs.grpcAutoReflect = v),
+      requestPrefs.grpcAutoReflect.current,
+      (v) => (requestPrefs.grpcAutoReflect.current = v),
     )}{/snippet}
   {@render row(t('settings.grpc.reflect'), t('settings.grpc.reflect.desc'), ar)}
   <div class="st-row st-col">
@@ -36,11 +36,11 @@
 <div class="st-card">
   {#snippet dl()}{@render number(
       t('settings.grpc.deadline.aria'),
-      Math.round(requestPrefs.grpcDeadlineMs / 1000),
+      Math.round(requestPrefs.grpcDeadlineMs.current / 1000),
       's',
       0,
       600,
-      (e) => commit(e, 0, 600, 30, 1000, (n) => (requestPrefs.grpcDeadlineMs = n)),
+      (e) => commit(e, 0, 600, 30, 1000, (n) => (requestPrefs.grpcDeadlineMs.current = n)),
     )}{/snippet}
   {@render row(t('settings.grpc.deadline'), t('settings.grpc.deadline.desc'), dl)}
   {#snippet mm()}{@render number(t('settings.grpc.maxMsg.aria'), grpcMaxMessageMb.current, 'MB', 1, 250, (e) =>

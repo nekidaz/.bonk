@@ -49,7 +49,7 @@ export function renameActiveTab(name: string): void {
 export function resetActiveTabTitle(): void {
   const tab = tabs.active;
   if (!tab) return;
-  if (tab.protocol === 'git' || tab.protocol === 'env' || tab.protocol === 'runner') return;
+  if (tab.protocol !== 'http' && tab.protocol !== 'grpc') return;
   const title =
     tab.protocol === 'grpc'
       ? titleFromUrl(tab.grpc?.endpoint ?? '', GRPC_DEFAULT_TITLE)
@@ -161,8 +161,8 @@ export function duplicateTab(id: string): void {
   const idx = list.findIndex((t) => t.id === id);
   if (idx === -1) return;
   const src = list[idx];
-  // Special tabs (git diff / env manager / runner) are singletons — no duplicating.
-  if (src.protocol === 'git' || src.protocol === 'env' || src.protocol === 'runner') return;
+  // Special tabs (git diff / env manager / runner / settings.json) are singletons — no duplicating.
+  if (src.protocol !== 'http' && src.protocol !== 'grpc') return;
   const copy: Tab = {
     ...src,
     id: crypto.randomUUID(),

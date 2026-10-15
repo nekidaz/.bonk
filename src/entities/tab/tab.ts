@@ -64,7 +64,7 @@ export function stripLiveGrpc(tab: Tab): Tab {
 }
 
 export function stripRuntimeTab(tab: Tab): Tab {
-  if (tab.protocol === 'git' || tab.protocol === 'env' || tab.protocol === 'runner') return tab;
+  if (tab.protocol !== 'http' && tab.protocol !== 'grpc') return tab;
   // `testResults` is ephemeral script output, not part of the saved request;
   // drop it so it doesn't bloat persisted state (matches how live gRPC fields
   // are stripped below).
