@@ -24,6 +24,7 @@
     mergeEnvRows,
   } from '$shared/model';
   import EnvJsonEditor from './EnvJsonEditor.svelte';
+  import { Button } from '$shared/ui/components';
 
   type Fmt = EnvJsonFormat | undefined;
   /** «Из JSON…»: the new environment is a draft in the list until «Создать окружение». */
@@ -665,7 +666,7 @@
               <button class="quiet" type="button" onclick={() => (preview = null)}
                 >{t('env.paste.cancel')}&nbsp;&nbsp;<kbd>Esc</kbd></button
               >
-              <button class="bs-btn primary" type="button" onclick={applyPreview}>{t('env.paste.apply')}</button>
+              <Button variant="primary" size="lg" onclick={applyPreview}>{t('env.paste.apply')}</Button>
             </div>
           {/if}
 
@@ -782,13 +783,13 @@
   <footer class="foot">
     <span class="note">{footNote}</span>
     {#if creating}
-      <button class="bs-btn ghost" type="button" onclick={cancelCreate}>{t('common.cancel')}</button>
-      <button class="bs-btn primary" type="button" disabled={!jsonResult.ok} onclick={confirmCreate}
-        >{t('env.create.button')}</button
+      <Button variant="ghost" size="lg" onclick={cancelCreate}>{t('common.cancel')}</Button>
+      <Button variant="primary" size="lg" disabled={!jsonResult.ok} onclick={confirmCreate}
+        >{t('env.create.button')}</Button
       >
     {:else}
-      <button class="bs-btn ghost" type="button" onclick={discard}>{t('common.cancel')}</button>
-      <button class="bs-btn primary" type="button" disabled={jsonInvalid} onclick={save}>{t('common.save')}</button>
+      <Button variant="ghost" size="lg" onclick={discard}>{t('common.cancel')}</Button>
+      <Button variant="primary" size="lg" disabled={jsonInvalid} onclick={save}>{t('common.save')}</Button>
     {/if}
   </footer>
 {/snippet}
@@ -1414,27 +1415,5 @@
     flex: 1;
     color: var(--color-text-muted);
     font: var(--font-size-caption) var(--font-ui);
-  }
-  .foot :global(.bs-btn),
-  .pv :global(.bs-btn) {
-    height: 34px;
-    padding: 0 16px;
-    border: 0;
-    border-radius: var(--radius-control);
-    font: 500 var(--font-size-body) var(--font-ui);
-  }
-  .foot :global(.bs-btn.ghost) {
-    background: var(--color-panel);
-    color: var(--color-text);
-  }
-  .foot :global(.bs-btn.primary),
-  .pv :global(.bs-btn.primary) {
-    background: var(--color-action);
-    color: var(--color-on-action);
-    font-weight: 600;
-  }
-  .foot :global(.bs-btn:disabled) {
-    opacity: 0.45;
-    cursor: default;
   }
 </style>

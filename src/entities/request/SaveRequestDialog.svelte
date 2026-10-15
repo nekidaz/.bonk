@@ -5,6 +5,7 @@
   import { dialogs } from './dialogs.svelte';
   import { FolderPicker } from '$entities/workspace/components';
   import { t } from '$shared/i18n';
+  import { Button } from '$shared/ui/components';
 
   // Opened through `requestSaveDialog()` (stores): App's Save / Save As and the
   // close-tab «Сохранить» prompt all await the same dialog. The name/target state
@@ -87,13 +88,13 @@
         {#if saveError}<div class="bs-form-error" id="bs-save-error" role="alert">{saveError}</div>{/if}
       </div>
       <div class="bs-modal-f">
-        <button class="bs-btn link" onclick={newFolderInDialog}
+        <Button variant="link" onclick={newFolderInDialog}
           ><span class="material-symbols-outlined" style="font-size:15px;vertical-align:-3px">add</span>
-          {t('dialog.save.newFolder')}</button
+          {t('dialog.save.newFolder')}</Button
         >
         <div class="grow"></div>
-        <button class="bs-btn primary" onclick={confirmSave}>{t('common.save')}</button>
-        <button class="bs-btn ghost" onclick={() => close(false)}>{t('common.cancel')}</button>
+        <Button variant="primary" onclick={confirmSave}>{t('common.save')}</Button>
+        <Button variant="ghost" onclick={() => close(false)}>{t('common.cancel')}</Button>
       </div>
     </div>
   </div>

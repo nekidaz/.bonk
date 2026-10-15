@@ -2,6 +2,7 @@
   import { moveNode, findNode, workspace } from '$entities/workspace';
   import { FolderPicker } from '$entities/workspace/components';
   import { t } from '$shared/i18n';
+  import { Button } from '$shared/ui/components';
 
   // `open` is the trigger held by the parent (app/ `shell.moveOpen`); `sourceId` is the node
   // being moved. The chosen destination lives here (undefined = workspace root).
@@ -43,8 +44,8 @@
       </div>
       <div class="bs-modal-f">
         <div class="grow"></div>
-        <button class="bs-btn primary" onclick={confirmMove}>{t('dialog.move.confirm')}</button>
-        <button class="bs-btn ghost" onclick={() => (open = false)}>{t('common.cancel')}</button>
+        <Button variant="primary" onclick={confirmMove}>{t('dialog.move.confirm')}</Button>
+        <Button variant="ghost" onclick={() => (open = false)}>{t('common.cancel')}</Button>
       </div>
     </div>
   </div>

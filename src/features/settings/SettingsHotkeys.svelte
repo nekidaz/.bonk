@@ -13,6 +13,7 @@
     formatBinding,
   } from '$shared/settings';
   import { requestConfirm } from '$shared/ui';
+  import { Button } from '$shared/ui/components';
 
   let query = $state('');
   let recording = $state<string | null>(null);
@@ -71,7 +72,7 @@
 
 <div class="st-hk-bar">
   <input class="st-text" placeholder={t('settings.hotkeys.search')} bind:value={query} />
-  <button type="button" class="bs-btn ghost" onclick={() => void resetAll()}>{t('settings.hotkeys.resetAll')}</button>
+  <Button variant="ghost" onclick={() => void resetAll()}>{t('settings.hotkeys.resetAll')}</Button>
 </div>
 {#each groups as g (g.group)}
   <div class="st-group">{t(g.group).toUpperCase()}</div>

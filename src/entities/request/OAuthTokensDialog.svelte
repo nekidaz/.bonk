@@ -7,6 +7,7 @@
   import { forgetOAuthToken, getOAuthToken, oauthCardKey, oauthRuntime, revokeOAuthToken } from './oauth.svelte';
   import { oauthExpired, oauthGrantLabel, oauthLeft } from './oauthFormat';
   import { currentRequestSettings } from './store';
+  import { Button } from '$shared/ui/components';
 
   // OA9: this auth's token in every environment. The keychain can't be listed, so each row
   // asks for the token its environment's variables resolve the settings to.
@@ -73,11 +74,10 @@
             </span>
             <span class="acts">
               {#if !token || oauthExpired(token, now)}
-                <button
-                  class="bs-btn ghost"
-                  type="button"
+                <Button
+                  variant="ghost"
                   onclick={() => void getOAuthToken(snap(), row.scope, keyOf(row), currentRequestSettings())}
-                  >{t('oauth.get')}</button
+                  >{t('oauth.get')}</Button
                 >
               {/if}
               {#if token}
@@ -101,12 +101,11 @@
             {auth.oauth?.revokeUrl?.trim() ? t('oauth.tokens.signout_hint') : t('oauth.tokens.no_revoke')}
           </div>
         </div>
-        <button
-          class="bs-btn ghost danger"
-          type="button"
+        <Button
+          variant="ghost-danger"
           disabled={!auth.oauth?.revokeUrl?.trim() || !tokens[rows.indexOf(active)]}
           onclick={() => void revokeOAuthToken(snap(), active.scope, keyOf(active), currentRequestSettings())}
-          >{t('oauth.revoke')} · {active.name}</button
+          >{t('oauth.revoke')} · {active.name}</Button
         >
       </div>
     </div>
@@ -115,7 +114,7 @@
         ><span class="material-symbols-outlined" aria-hidden="true">lock</span>{t('oauth.tokens.keychain')}</span
       >
       <div class="grow"></div>
-      <button class="bs-btn primary" onclick={onClose}>{t('oauth.done')}</button>
+      <Button variant="primary" onclick={onClose}>{t('oauth.done')}</Button>
     </div>
   </div>
 </div>

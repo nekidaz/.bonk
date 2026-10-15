@@ -3,6 +3,7 @@
   import type { AuthConfig } from '$shared/model';
   import { HttpAuthEditor } from '$entities/request/components';
   import { t } from '$shared/i18n';
+  import { Button } from '$shared/ui/components';
 
   // Collection-level auth (S11): requests set to "inherit" use it. `folderId` open = shown.
   let {
@@ -52,8 +53,8 @@
       </div>
       <div class="bs-modal-f">
         <div class="grow"></div>
-        <button class="bs-btn primary" onclick={save}>{t('common.save')}</button>
-        <button class="bs-btn ghost" onclick={() => (folderId = undefined)}>{t('common.cancel')}</button>
+        <Button variant="primary" onclick={save}>{t('common.save')}</Button>
+        <Button variant="ghost" onclick={() => (folderId = undefined)}>{t('common.cancel')}</Button>
       </div>
     </div>
   </div>

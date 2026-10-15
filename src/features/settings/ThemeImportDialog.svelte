@@ -7,6 +7,7 @@
   import { customThemes, pickTheme, serializeCustomTheme, themeCssText, THEME_TOKENS } from '$shared/settings';
   import { parseThemeFile, ThemeImportError, themeSlug, type ImportedThemeFile } from './themeImport';
   import { seg, themePic } from './ui.svelte';
+  import { Button } from '$shared/ui/components';
 
   let { file = $bindable(), onpick }: { file: ImportFile | null; onpick: () => void } = $props();
 
@@ -138,7 +139,7 @@
       <div class="thi-empty">
         <span class="material-symbols-outlined" aria-hidden="true">error</span>
         <p>{t(`settings.themeImport.err.${'error' in parsed ? parsed.error : 'format'}`, { name: file.name })}</p>
-        <button type="button" class="bs-btn ghost" onclick={onpick}>{t('settings.themeImport.other')}</button>
+        <Button variant="ghost" onclick={onpick}>{t('settings.themeImport.other')}</Button>
       </div>
     {/if}
 
@@ -150,10 +151,8 @@
       {:else}
         <span class="thi-note"></span>
       {/if}
-      <button type="button" class="bs-btn ghost" onclick={close}>{t('common.cancel')}</button>
-      <button type="button" class="bs-btn primary" disabled={!v || saving} onclick={save}
-        >{t('settings.themeImport.save')}</button
-      >
+      <Button variant="ghost" onclick={close}>{t('common.cancel')}</Button>
+      <Button variant="primary" disabled={!v || saving} onclick={save}>{t('settings.themeImport.save')}</Button>
     </footer>
   </div>
 {/if}

@@ -26,6 +26,7 @@
   import { oauthClock, oauthExpired, oauthLeft, oauthShortToken, oauthSpan } from './oauthFormat';
   import { currentRequestSettings } from './store';
   import OAuthTokensDialog from './OAuthTokensDialog.svelte';
+  import { Button } from '$shared/ui/components';
 
   // Flow · OAuth 2.0 (OA2–OA7): the token card, its details, and the settings under the Type row.
   let {
@@ -213,9 +214,9 @@
         </div>
       </div>
       <div class="acts">
-        <button class="bs-btn ghost" type="button" onclick={cancelOAuthLogin}>{t('oauth.cancel')}</button>
-        <button class="bs-btn ghost" type="button" onclick={() => void openUrl(login.url)}
-          ><span class="material-symbols-outlined" aria-hidden="true">open_in_new</span>{t('oauth.reopen')}</button
+        <Button variant="ghost" onclick={cancelOAuthLogin}>{t('oauth.cancel')}</Button>
+        <Button variant="ghost" onclick={() => void openUrl(login.url)}
+          ><span class="material-symbols-outlined" aria-hidden="true">open_in_new</span>{t('oauth.reopen')}</Button
         >
       </div>
     </div>
@@ -245,7 +246,7 @@
               bind:value={pasted}
             />
           </label>
-          <button class="bs-btn primary" type="submit" disabled={!pasted.trim()}>{t('oauth.paste_go')}</button>
+          <Button variant="primary" type="submit" disabled={!pasted.trim()}>{t('oauth.paste_go')}</Button>
         </form>
       {:else}
         <button class="link" type="button" onclick={() => (pasteOpen = true)}
@@ -274,8 +275,8 @@
         </div>
       </div>
       <div class="acts">
-        <button class="bs-btn ghost" type="button" disabled={busy} onclick={get}
-          ><span class="material-symbols-outlined" aria-hidden="true">refresh</span>{t('oauth.err.retry')}</button
+        <Button variant="ghost" disabled={busy} onclick={get}
+          ><span class="material-symbols-outlined" aria-hidden="true">refresh</span>{t('oauth.err.retry')}</Button
         >
       </div>
     </div>
@@ -317,8 +318,8 @@
         <div class="sub">{t('oauth.none.sub')}</div>
       </div>
       <div class="acts">
-        <button class="bs-btn primary" type="button" disabled={busy} onclick={get}
-          ><span class="material-symbols-outlined" aria-hidden="true">login</span>{t('oauth.get')}</button
+        <Button variant="primary" disabled={busy} onclick={get}
+          ><span class="material-symbols-outlined" aria-hidden="true">login</span>{t('oauth.get')}</Button
         >
       </div>
     </div>
@@ -351,19 +352,15 @@
       </div>
       <div class="acts">
         {#if oauth.revokeUrl?.trim()}
-          <button class="bs-btn ghost" type="button" disabled={busy} onclick={revoke}>{t('oauth.revoke')}</button>
+          <Button variant="ghost" disabled={busy} onclick={revoke}>{t('oauth.revoke')}</Button>
         {/if}
-        <button class="bs-btn ghost" type="button" disabled={busy} onclick={forget}
-          ><span class="material-symbols-outlined" aria-hidden="true">delete</span>{t('oauth.delete')}</button
+        <Button variant="ghost" disabled={busy} onclick={forget}
+          ><span class="material-symbols-outlined" aria-hidden="true">delete</span>{t('oauth.delete')}</Button
         >
-        <button
-          class="bs-btn ghost"
-          type="button"
-          disabled={busy}
-          onclick={status === 'expired' && !renews ? get : refresh}
+        <Button variant="ghost" disabled={busy} onclick={status === 'expired' && !renews ? get : refresh}
           ><span class="material-symbols-outlined" aria-hidden="true">refresh</span>{status === 'expired' && !renews
             ? t('oauth.get')
-            : t('oauth.refresh')}</button
+            : t('oauth.refresh')}</Button
         >
       </div>
     </div>

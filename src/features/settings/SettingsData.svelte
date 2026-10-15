@@ -7,6 +7,7 @@
   import { environments } from '$entities/environment';
   import { appDataDir, openapiExportSave, revealPath } from '$shared/ipc';
   import { row, sw, select } from './ui.svelte';
+  import { Button } from '$shared/ui/components';
 
   const days = $derived([
     { label: t('settings.data.days', { n: 7 }), value: '7' },
@@ -71,8 +72,7 @@
 
 <div class="st-group">{t('settings.data.import')}</div>
 <div class="st-card">
-  {#snippet imp()}<button type="button" class="bs-btn ghost" onclick={doImport}>{t('settings.data.import.btn')}</button
-    >{/snippet}
+  {#snippet imp()}<Button variant="ghost" onclick={doImport}>{t('settings.data.import.btn')}</Button>{/snippet}
   {@render row(t('settings.data.sources'), 'cURL, OpenAPI 3, Postman v2.1, Insomnia v4, HAR', imp)}
 </div>
 
@@ -94,8 +94,7 @@
       (v) => (exportIncludeSecrets.current = v),
     )}{/snippet}
   {@render row(t('settings.data.secrets'), t('settings.data.secrets.desc'), sec)}
-  {#snippet exp()}<button type="button" class="bs-btn ghost" onclick={doExport}>{t('settings.data.export.btn')}</button
-    >{/snippet}
+  {#snippet exp()}<Button variant="ghost" onclick={doExport}>{t('settings.data.export.btn')}</Button>{/snippet}
   {@render row(t('settings.data.export.ws'), '', exp)}
 </div>
 {#if status}<p class="st-note">{status}</p>{/if}
@@ -111,19 +110,14 @@
   {@render row(t('settings.data.keep'), t('settings.data.keep.desc'), keep)}
   {#snippet pause()}{@render sw(t('settings.data.pause'), history.paused, (v) => (history.paused = v))}{/snippet}
   {@render row(t('settings.data.pause'), t('settings.data.pause.desc'), pause)}
-  {#snippet clr()}<button type="button" class="bs-btn ghost danger" onclick={clear}
-      >{t('settings.data.clear.btn')}</button
-    >{/snippet}
+  {#snippet clr()}<Button variant="ghost-danger" onclick={clear}>{t('settings.data.clear.btn')}</Button>{/snippet}
   {@render row(t('settings.data.clear'), historyNote, clr, true)}
 </div>
 
 <div class="st-group">{t('settings.data.storage')}</div>
 <div class="st-card">
-  {#snippet show()}<button
-      type="button"
-      class="bs-btn ghost"
-      disabled={!dataDir}
-      onclick={() => run(() => revealPath(dataDir))}>{t('settings.data.reveal')}</button
+  {#snippet show()}<Button variant="ghost" disabled={!dataDir} onclick={() => run(() => revealPath(dataDir))}
+      >{t('settings.data.reveal')}</Button
     >{/snippet}
   {@render row(t('settings.data.dir'), shortDir, show)}
 </div>

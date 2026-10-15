@@ -11,6 +11,7 @@
   } from '$shared/settings';
   import { cookieJar } from '$entities/cookies';
   import { row, sw, seg, chips } from './ui.svelte';
+  import { Button } from '$shared/ui/components';
 
   const SCOPES = $derived([
     { label: t('settings.cookies.scope.workspace'), value: 'workspace' },
@@ -81,8 +82,8 @@
 
 <div class="st-cookies-foot">
   <p class="st-note" title={cookieJar.path}>{status}{cookieJar.path ? ` · ${cookieJar.path}` : ''}</p>
-  <button type="button" class="bs-btn ghost" onclick={() => cookieJar.open()}
-    ><span class="material-symbols-outlined" aria-hidden="true">cookie</span>{t('cookies.open_jar')}</button
+  <Button variant="ghost" onclick={() => cookieJar.open()}
+    ><span class="material-symbols-outlined" aria-hidden="true">cookie</span>{t('cookies.open_jar')}</Button
   >
 </div>
 
@@ -99,7 +100,7 @@
     text-overflow: ellipsis;
     white-space: nowrap;
   }
-  .st-cookies-foot button {
+  .st-cookies-foot :global(.bs-btn) {
     flex: none;
     display: inline-flex;
     align-items: center;

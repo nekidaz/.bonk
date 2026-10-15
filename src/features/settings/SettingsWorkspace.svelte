@@ -6,6 +6,7 @@
   import { gitRemoteAdd, gitRemoteList, gitRemoteRemove } from '$shared/ipc';
   import type { GitRemote } from '$shared/model';
   import { row, seg } from './ui.svelte';
+  import { Button } from '$shared/ui/components';
 
   const name = $derived(workspace.path.split(/[\\/]/).filter(Boolean).at(-1) ?? '');
   let draft = $state('');
@@ -74,8 +75,8 @@
 </script>
 
 <div class="st-card">
-  {#snippet change()}<button type="button" class="bs-btn ghost" onclick={openWorkspaceFolder}
-      >{workspace.path ? t('settings.ws.change') : t('settings.ws.choose')}</button
+  {#snippet change()}<Button variant="ghost" onclick={openWorkspaceFolder}
+      >{workspace.path ? t('settings.ws.change') : t('settings.ws.choose')}</Button
     >{/snippet}
   {@render row(t('settings.ws.folder'), workspace.path || t('settings.ws.none'), change)}
   {#if name}
@@ -90,9 +91,7 @@
       />
     {/snippet}
     {@render row(t('settings.ws.name'), t('settings.ws.name.desc'), nm)}
-    {#snippet del()}<button type="button" class="bs-btn ghost danger" onclick={remove}
-        >{t('settings.ws.delete.btn')}</button
-      >{/snippet}
+    {#snippet del()}<Button variant="ghost-danger" onclick={remove}>{t('settings.ws.delete.btn')}</Button>{/snippet}
     {@render row(t('settings.ws.delete'), t('settings.ws.delete.desc'), del, true)}
   {/if}
   {#if error}<div class="st-err">{error}</div>{/if}
@@ -123,8 +122,7 @@
   <div class="st-group">{t('settings.git.remotes')}</div>
   <div class="st-card">
     {#each remotes as r (r.name)}
-      {#snippet rm()}<button type="button" class="bs-btn ghost danger" onclick={() => removeRemote(r)}
-          >{t('common.delete')}</button
+      {#snippet rm()}<Button variant="ghost-danger" onclick={() => removeRemote(r)}>{t('common.delete')}</Button
         >{/snippet}
       {@render row(r.name, r.url, rm)}
     {/each}
@@ -145,11 +143,8 @@
           bind:value={remoteUrl}
           onkeydown={(e) => e.key === 'Enter' && void addRemote()}
         />
-        <button
-          type="button"
-          class="bs-btn ghost"
-          disabled={!remoteName.trim() || !remoteUrl.trim()}
-          onclick={addRemote}>{t('settings.git.remoteAdd')}</button
+        <Button variant="ghost" disabled={!remoteName.trim() || !remoteUrl.trim()} onclick={addRemote}
+          >{t('settings.git.remoteAdd')}</Button
         >
       </span>
     {/snippet}

@@ -36,6 +36,7 @@
     scenarioRequests,
     sessionMissing,
   } from './sessionView';
+  import { Button } from '$shared/ui/components';
 
   // Flow · Сессия SE2: the session card of the selected environment, the setup at a glance, and the
   // settings under «Настройки» (open while the setup cannot sign in yet). Collection level only.
@@ -233,9 +234,7 @@
           </div>
         </div>
         <div class="acts">
-          <button class="bs-btn ghost" type="button" onclick={() => void cancelSessionRun(requestId)}
-            >{t('session.cancel')}</button
-          >
+          <Button variant="ghost" onclick={() => void cancelSessionRun(requestId)}>{t('session.cancel')}</Button>
         </div>
       </div>
     {:else}
@@ -280,12 +279,12 @@
             >
           {/if}
           {#if (tone === 'ok' || tone === 'renew') && canRenew && !failure}
-            <button class="bs-btn ghost" type="button" onclick={() => void run('refresh')}
-              ><span class="material-symbols-outlined" aria-hidden="true">refresh</span>{t('session.refresh')}</button
+            <Button variant="ghost" onclick={() => void run('refresh')}
+              ><span class="material-symbols-outlined" aria-hidden="true">refresh</span>{t('session.refresh')}</Button
             >
           {:else}
-            <button class="bs-btn primary" type="button" onclick={() => void run('signIn')}
-              ><span class="material-symbols-outlined" aria-hidden="true">login</span>{t('session.signIn')}</button
+            <Button variant="primary" onclick={() => void run('signIn')}
+              ><span class="material-symbols-outlined" aria-hidden="true">login</span>{t('session.signIn')}</Button
             >
           {/if}
         </div>

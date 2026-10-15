@@ -12,6 +12,7 @@
     requestPrefs,
   } from '$shared/settings';
   import { row, sw, seg } from './ui.svelte';
+  import { Button } from '$shared/ui/components';
 
   let certError = $state('');
   async function pickPem(): Promise<string | null> {
@@ -99,18 +100,15 @@
       <div class="st-copy">
         <span class="st-name">{fileName(path)}</span><span class="st-desc" title={path}>{caInfo[path] ?? path}</span>
       </div>
-      <button
-        type="button"
-        class="bs-btn ghost danger"
+      <Button
+        variant="ghost-danger"
         onclick={() =>
           (requestPrefs.trustedCaPaths.current = requestPrefs.trustedCaPaths.current.filter((x) => x !== path))}
-        >{t('common.delete')}</button
+        >{t('common.delete')}</Button
       >
     </div>
   {/each}
-  {#snippet c1()}<button type="button" class="bs-btn ghost" onclick={() => void addCa()}
-      >{t('settings.certs.addCa')}</button
-    >{/snippet}
+  {#snippet c1()}<Button variant="ghost" onclick={() => void addCa()}>{t('settings.certs.addCa')}</Button>{/snippet}
   {@render row(t('settings.certs.ownCa'), t('settings.certs.ownCa.desc'), c1)}
 </div>
 
@@ -132,10 +130,8 @@
             : fileName(c.keyPath)}</span
         >
         <span class="st-file">
-          <button type="button" class="bs-btn ghost" onclick={() => (draft = editDraft(c, i))}
-            >{t('settings.certs.edit')}</button
-          >
-          <button type="button" class="bs-btn ghost danger" onclick={() => removeCert(i)}>{t('common.delete')}</button>
+          <Button variant="ghost" onclick={() => (draft = editDraft(c, i))}>{t('settings.certs.edit')}</Button>
+          <Button variant="ghost-danger" onclick={() => removeCert(i)}>{t('common.delete')}</Button>
         </span>
       </div>
     {/each}
@@ -168,9 +164,7 @@
       )}
       {#if draft.mode === 'p12'}
         <div class="st-file">
-          <button type="button" class="bs-btn ghost" onclick={() => void pickInto('p12Path')}
-            >{t('settings.certs.pickP12')}</button
-          >
+          <Button variant="ghost" onclick={() => void pickInto('p12Path')}>{t('settings.certs.pickP12')}</Button>
           <span class="st-desc">{draft.p12Path ? fileName(draft.p12Path) : t('settings.certs.notPicked')}</span>
         </div>
         <input
@@ -184,28 +178,21 @@
         />
       {:else}
         <div class="st-file">
-          <button type="button" class="bs-btn ghost" onclick={() => void pickInto('certPath')}
-            >{t('settings.certs.pickCert')}</button
-          >
+          <Button variant="ghost" onclick={() => void pickInto('certPath')}>{t('settings.certs.pickCert')}</Button>
           <span class="st-desc">{draft.certPath ? fileName(draft.certPath) : t('settings.certs.notPicked')}</span>
         </div>
         <div class="st-file">
-          <button type="button" class="bs-btn ghost" onclick={() => void pickInto('keyPath')}
-            >{t('settings.certs.pickKey')}</button
-          >
+          <Button variant="ghost" onclick={() => void pickInto('keyPath')}>{t('settings.certs.pickKey')}</Button>
           <span class="st-desc">{draft.keyPath ? fileName(draft.keyPath) : t('settings.certs.notPicked')}</span>
         </div>
       {/if}
       <div class="st-file">
-        <button type="button" class="bs-btn" disabled={!ready} onclick={() => void saveDraft()}
-          >{t('common.save')}</button
-        >
-        <button type="button" class="bs-btn ghost" onclick={() => (draft = null)}>{t('common.cancel')}</button>
+        <Button disabled={!ready} onclick={() => void saveDraft()}>{t('common.save')}</Button>
+        <Button variant="ghost" onclick={() => (draft = null)}>{t('common.cancel')}</Button>
       </div>
     </div>
   {:else}
-    {#snippet c2()}<button type="button" class="bs-btn ghost" onclick={() => (draft = newDraft())}
-        >{t('settings.certs.addHost')}</button
+    {#snippet c2()}<Button variant="ghost" onclick={() => (draft = newDraft())}>{t('settings.certs.addHost')}</Button
       >{/snippet}
     {@render row(t('settings.certs.hostCert'), clientCerts.current.length ? '' : t('settings.certs.empty'), c2)}
   {/if}

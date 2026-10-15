@@ -12,6 +12,7 @@
   import { diffStats } from './diff';
   import DiffBlock from './DiffBlock.svelte';
   import { t } from '$shared/i18n';
+  import { Button } from '$shared/ui/components';
 
   let files = $state<FileDiff[]>([]);
   let loading = $state(false);
@@ -76,15 +77,10 @@
   <div class="bs-projdiff-commit">
     <textarea class="bs-git-msg" placeholder={t('git.commit.placeholder')} rows="2" bind:value={commitMessage}
     ></textarea>
-    <button
-      class="bs-btn primary"
-      type="button"
-      disabled={!commitMessage.trim() || stagedCount === 0 || git.busy}
-      onclick={commit}
-    >
+    <Button variant="primary" disabled={!commitMessage.trim() || stagedCount === 0 || git.busy} onclick={commit}>
       <span class="material-symbols-outlined" style="font-size:15px;vertical-align:-3px">check</span>
       {t('git.commit')}{stagedCount ? ` (${stagedCount})` : ''}
-    </button>
+    </Button>
   </div>
 
   {#if error}
@@ -110,11 +106,11 @@
           {/if}
           <div class="grow"></div>
           {#if f.staged}
-            <button class="bs-btn ghost" type="button" onclick={() => unstage(f)}>{t('git.unstage')}</button>
+            <Button variant="ghost" onclick={() => unstage(f)}>{t('git.unstage')}</Button>
           {:else}
-            <button class="bs-btn ghost" type="button" onclick={() => stage(f)}>{t('git.stage')}</button>
+            <Button variant="ghost" onclick={() => stage(f)}>{t('git.stage')}</Button>
           {/if}
-          <button class="bs-btn ghost" type="button" onclick={() => discard(f)}>{t('git.discard')}</button>
+          <Button variant="ghost" onclick={() => discard(f)}>{t('git.discard')}</Button>
         </div>
         <DiffBlock text={f.diff} />
       </div>

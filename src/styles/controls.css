@@ -61,22 +61,6 @@
   font-weight: 400;
 }
 
-.bs-btn.primary:disabled {
-  opacity: 0.5;
-}
-
-.bs-btn.link {
-  color: var(--accent);
-}
-
-.bs-btn.ghost.danger {
-  color: var(--red);
-}
-
-.bs-btn.ghost.danger:hover {
-  background: color-mix(in srgb, var(--red) 12%, transparent);
-}
-
 .dark .bs-seg button.on {
   background: color-mix(in srgb, var(--surface-solid) 82%, #000);
 }
@@ -96,18 +80,6 @@
   justify-content: center;
   gap: 4px;
   height: 28px;
-}
-
-/* Belongs to git.css, but the cascade needs it before `.bs-btn` (same elements, same specificity), so it lives here. */
-.bs-git-refresh {
-  height: 30px;
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-}
-
-.bs-btn.primary:hover {
-  background: var(--primary-hover);
 }
 
 .bs-input:focus {
@@ -131,18 +103,6 @@
   font-size: 11px;
 }
 
-.bs-btn.ghost {
-  height: 26px;
-  border: 1px solid var(--sep);
-  border-radius: 5px;
-  background: var(--surface);
-  box-shadow: none;
-}
-
-.bs-btn.ghost:hover {
-  background: var(--hover);
-}
-
 .bs-collbox {
   overflow: hidden;
   border: 1px solid var(--sep);
@@ -163,22 +123,6 @@
 .bs-seg button.on {
   color: var(--text);
   background: var(--surface);
-  box-shadow: none;
-}
-
-.bs-btn {
-  padding: 0 16px;
-  font-weight: 600;
-  height: 28px;
-  border-radius: 4px;
-  font-size: 11.5px;
-}
-
-/* Primary actions use a quiet monochrome fill. */
-.bs-btn.primary {
-  color: var(--primary-text);
-  border-radius: 8px;
-  background: var(--primary);
   box-shadow: none;
 }
 
@@ -270,13 +214,4 @@
   color: var(--color-text);
   font-weight: 600;
   box-shadow: 0 1px 2px var(--color-shadow);
-}
-
-:root .bs .bs-btn {
-  border-radius: var(--radius-control);
-}
-
-:root .bs .bs-btn.primary {
-  background: var(--color-action);
-  color: var(--color-on-action);
 }

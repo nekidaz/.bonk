@@ -15,6 +15,7 @@
   } from './session.svelte';
   import { sessionStatusText } from './sessionFormat';
   import { sessionRowActions } from './sessionRows';
+  import { Button } from '$shared/ui/components';
 
   // The sessions of this collection's auth in every environment (Flow · Сессия SE6).
   let { auth, where, onClose }: { auth: AuthConfig; where: string; onClose: () => void } = $props();
@@ -159,11 +160,8 @@
                   >
                 {/if}
                 {#if can.signIn}
-                  <button
-                    class="bs-btn ghost"
-                    type="button"
-                    disabled={anyBusy}
-                    onclick={() => void runSession('signIn', snap(), name)}>{t('sessions.signIn')}</button
+                  <Button variant="ghost" disabled={anyBusy} onclick={() => void runSession('signIn', snap(), name)}
+                    >{t('sessions.signIn')}</Button
                   >
                 {/if}
               {/if}
@@ -182,15 +180,14 @@
           <div class="ttl">{t('sessions.all.title')}</div>
           <div class="sub">{t('sessions.all.sub')}</div>
         </div>
-        <button
-          class="bs-btn ghost danger"
-          type="button"
+        <Button
+          variant="ghost-danger"
           disabled={anyBusy || !names.length}
           onclick={() => void signOutAll()}
           onblur={() => (confirmAll = false)}
           ><span class="material-symbols-outlined" aria-hidden="true">logout</span>{confirmAll
             ? t('sessions.all.confirm')
-            : t('sessions.all.title')}</button
+            : t('sessions.all.title')}</Button
         >
       </div>
     </div>
@@ -199,7 +196,7 @@
         ><span class="material-symbols-outlined" aria-hidden="true">lock</span>{t('sessions.keychain')}</span
       >
       <div class="grow"></div>
-      <button class="bs-btn primary" bind:this={doneBtn} onclick={onClose}>{t('sessions.done')}</button>
+      <Button variant="primary" bind:ref={doneBtn} onclick={onClose}>{t('sessions.done')}</Button>
     </div>
   </div>
 </div>

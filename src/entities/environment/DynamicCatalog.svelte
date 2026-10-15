@@ -6,6 +6,7 @@
   import { insertAtLastCursor } from '$shared/editor';
   import { dynLocale } from '$shared/settings';
   import { dynamicVars, refreshDynamicSamples } from './dynamic.svelte';
+  import { Button } from '$shared/ui/components';
 
   const ICONS: Record<DynamicGroup | 'all', string> = {
     all: 'apps',
@@ -141,7 +142,7 @@
       <div class="bs-modal-f">
         <span class="note">{t('dyn.catalog.footer')}</span>
         <div class="grow"></div>
-        <button class="bs-btn primary" onclick={close}>{t('dyn.catalog.done')}</button>
+        <Button variant="primary" onclick={close}>{t('dyn.catalog.done')}</Button>
       </div>
     </div>
   </div>

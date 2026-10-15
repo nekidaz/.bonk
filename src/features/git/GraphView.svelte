@@ -36,6 +36,7 @@
   import CommitPanel from './CommitPanel.svelte';
   import RebaseDialog from './RebaseDialog.svelte';
   import { commitDate, firstParentChain, initials, layoutGraph, type CommitAction, type Segment } from './graph';
+  import { Button } from '$shared/ui/components';
 
   let { tab }: { tab: Tab } = $props();
 
@@ -587,10 +588,8 @@
       </div>
       <div class="bs-modal-f">
         <div class="grow"></div>
-        <button type="button" class="bs-btn ghost" onclick={() => (prompt = null)}>{t('common.cancel')}</button>
-        <button type="button" class="bs-btn primary" disabled={!promptValue.trim()} onclick={submitPrompt}
-          >{t('git.graph.create')}</button
-        >
+        <Button variant="ghost" onclick={() => (prompt = null)}>{t('common.cancel')}</Button>
+        <Button variant="primary" disabled={!promptValue.trim()} onclick={submitPrompt}>{t('git.graph.create')}</Button>
       </div>
     </div>
   </div>
