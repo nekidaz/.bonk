@@ -20,7 +20,7 @@ import {
 import { openSettingsFileTab } from '$features/settings';
 import { checkForUpdate } from '$shared/updater';
 import { inputs, watchInputs } from '$entities/input';
-import { workspace } from '$entities/workspace';
+import { watchWorkspaceFiles, workspace } from '$entities/workspace';
 import { runner, watchRunnerWorkspace } from '$features/runner';
 import { layout } from './layout.svelte';
 import { shell } from './shell.svelte';
@@ -44,7 +44,13 @@ export function startApp(): void {
   onDestroy(watchGitAutoFetch());
   onDestroy(watchCookieJar());
   onDestroy(watchRunnerWorkspace());
-  onDestroy(watchInputs(() => workspace.path));
+  onDestroy(watchWorkspaceFiles());
+  onDestroy(
+    watchInputs(
+      () => workspace.path,
+      () => workspace.metaRev,
+    ),
+  );
 
   layout.startEffects();
 

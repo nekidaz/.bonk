@@ -64,6 +64,8 @@ pub struct AppState {
     >,
     /// OAuth browser logins waiting for their redirect, by flow id.
     pub oauth_logins: Mutex<HashMap<String, Arc<crate::commands::oauth::Login>>>,
+    /// Watches the open workspace folder for outside changes; replacing it stops the old one.
+    pub workspace_watcher: Mutex<Option<crate::commands::workspace::Watcher>>,
 }
 
 fn default_headers() -> HeaderMap {
@@ -163,6 +165,7 @@ impl Default for AppState {
             runs: Mutex::new(HashMap::new()),
             inputs: Mutex::new(HashMap::new()),
             oauth_logins: Mutex::new(HashMap::new()),
+            workspace_watcher: Mutex::new(None),
         }
     }
 }

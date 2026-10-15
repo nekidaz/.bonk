@@ -185,6 +185,60 @@ export function plannedRequests(config: RunnerConfig, tree: TreeNode[]): Request
   return orderedRequests(config, tree).filter((n) => !config.excludedIds.includes(n.id));
 }
 
+// ---- Composing a scenario from single requests (R2 «+ Запрос») ----
+
+/** Put request `id` at the end of the run; one already in it (from a folder too) is just re-checked. */
+export function withRequestAdded(c: RunnerConfig, id: string, tree: TreeNode[]): RunnerConfig {
+  const excludedIds = c.excludedIds.filter((x) => x !== id);
+  if (collectRequests(c.folderIds, tree).some((n) => n.id === id)) return { ...c, excludedIds };
+  return { ...c, folderIds: [...c.folderIds.filter((f) => f !== RUNNER_ROOT), id], excludedIds };
+}
+
+/** A request picked on its own can leave the run, unless it is the last pick (no picks = the whole tree). */
+export const isRemovable = (c: RunnerConfig, id: string): boolean => c.folderIds.includes(id) && c.folderIds.length > 1;
+
+export function withRequestRemoved(c: RunnerConfig, id: string): RunnerConfig {
+  if (!isRemovable(c, id)) return c;
+  const drop = (ids: string[]) => ids.filter((x) => x !== id);
+  return { ...c, folderIds: drop(c.folderIds), orderIds: drop(c.orderIds), excludedIds: drop(c.excludedIds) };
+}
+
+/** Swap request `id` with its neighbour (`delta` -1 = up, 1 = down) in `order`, the run as listed. */
+export function withRequestMoved(c: RunnerConfig, order: string[], id: string, delta: -1 | 1): RunnerConfig {
+  const i = order.indexOf(id);
+  const j = i + delta;
+  if (i < 0 || j < 0 || j >= order.length) return c;
+  const orderIds = [...order];
+  [orderIds[i], orderIds[j]] = [orderIds[j], orderIds[i]];
+  return { ...c, orderIds };
+}
+
+export interface RequestHit {
+  node: RequestNode;
+  /** Folder names down to the request, «auth / OtpService». */
+  path: string;
+}
+
+/** Requests whose name, URL / gRPC method or folder path contain `query` (any case), in tree order. */
+export function searchRequests(tree: TreeNode[], query: string, limit = 30): RequestHit[] {
+  const q = query.trim().toLowerCase();
+  const out: RequestHit[] = [];
+  const walk = (nodes: TreeNode[], path: string[]): void => {
+    for (const n of nodes) {
+      if (out.length >= limit) return;
+      if (n.kind === 'folder') {
+        walk(n.children, [...path, n.name]);
+        continue;
+      }
+      const where = path.join(' / ');
+      const target = n.protocol === 'grpc' ? (n.grpc?.method ?? '') : n.request.url;
+      if (!q || [n.name, target, where].some((s) => s.toLowerCase().includes(q))) out.push({ node: n, path: where });
+    }
+  };
+  walk(tree, []);
+  return out;
+}
+
 /** Snapshot the setup as a preset. */
 export function presetFrom(c: RunnerConfig, name: string, envId: string | null): RunnerPreset {
   return {

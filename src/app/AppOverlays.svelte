@@ -12,7 +12,6 @@
   import { MoveDialog, FolderAuthDialog } from '$features/sidebar/components';
   import { SettingsModal } from '$features/settings/components';
   import { openSettingsFileTab } from '$features/settings';
-  import { EnvironmentsSheet } from '$features/environments/components';
   import { CookieJarSheet } from '$features/cookie-jar/components';
   import { cookieJar } from '$entities/cookies';
   import { ImportDialog, ImportDropZone } from '$features/import/components';
@@ -137,8 +136,6 @@
 />
 
 <SaveRequestDialog onSaved={shell.flashSaved} />
-
-<EnvironmentsSheet />
 
 <DynamicCatalog />
 <AskHost />

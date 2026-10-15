@@ -163,6 +163,7 @@ export {
   workspaceDuplicate,
   workspaceLoad,
   workspaceLoadChildren,
+  workspaceWatch,
   workspaceMove,
   workspacePickFolder,
   workspaceRename,

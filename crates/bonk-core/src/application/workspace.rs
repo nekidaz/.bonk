@@ -153,7 +153,7 @@ fn load_dir(root: &Path, dir: &Path, keep: &[String]) -> Result<Vec<TreeNode>, S
     Ok(folders)
 }
 
-const FOLDER_FILE: &str = ".folder.bonk.json";
+pub(crate) const FOLDER_FILE: &str = ".folder.bonk.json";
 
 /// Folder settings; a missing or corrupt file means "no settings".
 fn read_folder_file(dir: &Path) -> FolderFile {

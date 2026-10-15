@@ -5,12 +5,22 @@
    * Shared atoms (.rn-eyebrow, .rn-btn …) are styled by RunnerView.
    */
   import { workspace } from '$entities/workspace';
-  import { setRunnerFolders, setRunnerStage, repeatRun, applyPreset, deletePreset, runner } from './store.svelte';
+  import {
+    setRunnerFolders,
+    setRunnerStage,
+    repeatRun,
+    applyPreset,
+    deletePreset,
+    composeFrom,
+    runner,
+  } from './store.svelte';
+  import RequestPicker from './RequestPicker.svelte';
   import { uiLanguage, t, tp } from '$shared/i18n';
   import { relDay } from './runnerStats';
   import type { FolderNode, TreeNode } from '$shared/model';
 
   let query = $state('');
+  let composing = $state(false);
 
   function stats(n: FolderNode): { requests: number; grpc: number; folders: number } {
     const s = { requests: 0, grpc: 0, folders: 0 };
@@ -86,6 +96,18 @@
         onkeydown={(e) => e.key === 'Enter' && items[0] && pick(items[0].id)}
       />
     </label>
+
+    {#if composing}
+      <div class="rp-compose">
+        <RequestPicker onpick={composeFrom} onclose={() => (composing = false)} />
+      </div>
+    {:else}
+      <button class="rp-item rp-new" type="button" onclick={() => (composing = true)}>
+        <span class="rp-ico"><span class="material-symbols-outlined" aria-hidden="true">playlist_add</span></span>
+        <span class="rp-name"><b>{t('runner.compose.start')}</b><small>{t('runner.compose.startSub')}</small></span>
+        <span class="material-symbols-outlined rp-chev" aria-hidden="true">chevron_right</span>
+      </button>
+    {/if}
 
     {#if items.length > 0}
       <div class="rp-list">
@@ -190,6 +212,14 @@
     font: 13px/18px var(--font-ui);
   }
 
+  .rp-new {
+    border: 1px dashed var(--color-border-subtle);
+    border-radius: var(--radius-card);
+  }
+  .rp-compose {
+    display: flex;
+    flex-direction: column;
+  }
   .rp-search {
     height: 40px;
     display: flex;

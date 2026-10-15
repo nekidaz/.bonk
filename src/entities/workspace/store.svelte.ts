@@ -12,6 +12,7 @@ import {
   workspaceReorder,
   workspaceRenameRoot,
   workspaceTrash,
+  workspaceWatch,
 } from '$shared/ipc';
 import { idToRel, findNode, parentId } from './tree';
 import { relinkTabPaths, tabs } from '$entities/tab';
@@ -30,6 +31,8 @@ class Workspace {
   recent = $state.raw<string[]>([]);
   /** The node revealNode() last asked to show (a fresh object each call); the sidebar scrolls to it. */
   revealed = $state.raw<{ id: string } | undefined>(undefined);
+  /** Bumped when `.bonk/` (scenarios, «ask on send» inputs) changes on disk; 0 until it first does. */
+  metaRev = $state(0);
 }
 export const workspace = new Workspace();
 
@@ -103,6 +106,27 @@ export async function reloadWorkspace(): Promise<void> {
   collectExpanded(workspace.tree, expanded);
   workspace.tree = applyExpanded(tree, expanded);
   unlinkOrphanTabs();
+}
+
+/**
+ * Keep the tree in step with changes made outside the app (bonk MCP, git, an editor): Rust
+ * watches the open folder and reports which folders changed. The app's own writes come back
+ * too, and re-reading them is harmless. Lifecycle owns this watcher.
+ */
+export function watchWorkspaceFiles(): () => void {
+  return $effect.root(() => {
+    $effect(() => {
+      const root = workspace.path;
+      workspaceWatch(root, (change) => {
+        if (workspace.path !== root) return;
+        if (change.meta) workspace.metaRev++;
+        const reload = () => reloadWorkspace().catch(() => {}); // the folder itself is gone: nothing to show
+        if (change.full) void reload();
+        else if (change.dirs.length > 0)
+          refreshDirs(...change.dirs.map((rel) => (rel ? `fs:${rel}` : ROOT))).catch(reload);
+      }).catch((e) => console.warn('workspace watch:', e));
+    });
+  });
 }
 
 // Defensive: a tab whose savedPath no longer resolves to a real node would, on

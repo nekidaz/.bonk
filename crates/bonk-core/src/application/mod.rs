@@ -21,3 +21,4 @@ pub mod session_run;
 pub mod settings_file;
 pub mod themes;
 pub mod workspace;
+pub mod workspace_watch;

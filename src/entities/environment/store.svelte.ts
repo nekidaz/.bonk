@@ -14,8 +14,6 @@ class Environments {
   list = $state.raw<Environment[]>([]);
   /** The selected environment; null = «No environment». */
   activeId = $state<string | null>(null);
-  /** Whether the Environments management sheet (EnvironmentsSheet) is open. */
-  sheetOpen = $state(false);
   /** The selected environment, if any. */
   active = $derived(this.list.find((e) => e.id === this.activeId));
 }
@@ -33,11 +31,11 @@ export function currentVarScope(redactSecrets = false): Record<string, string> {
 
 /**
  * Environment + variable CRUD. Depends only on `entities/tab` and shared
- * layers (never on other entities), keeping the slice graph acyclic. The EnvironmentsSheet
+ * layers (never on other entities), keeping the slice graph acyclic. The Environments tab
  * and the toolbar selector drive everything through these helpers.
  */
 
-/** Open (or focus) the single Environments tab; it hosts the same editor as the sheet. */
+/** Open (or focus) the single Environments tab with the environments editor (S31). */
 export function openEnvironmentsTab(): void {
   const existing = tabs.list.find((t) => t.protocol === 'env');
   if (existing) {
@@ -53,11 +51,6 @@ export function openEnvironmentsTab(): void {
   };
   tabs.update((list) => [...list, tab]);
   tabs.activeId = tab.id;
-}
-
-/** S31: «Manage environments» in the environment dropdown opens the sheet. */
-export function openEnvironmentsSheet(): void {
-  environments.sheetOpen = true;
 }
 
 /** Create a new environment, append it, make it active, and return its id. */

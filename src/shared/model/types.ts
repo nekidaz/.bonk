@@ -443,6 +443,16 @@ export interface FolderNode {
 
 export type TreeNode = FolderNode | RequestNode;
 
+/** A debounced burst of changes made to the open workspace from outside the app. */
+export interface WorkspaceChange {
+  /** Workspace-relative folders whose listing or requests changed ('' = the root). */
+  dirs: string[];
+  /** Too much changed to patch folder by folder: re-read the whole tree. */
+  full: boolean;
+  /** Something under `.bonk/` (scenarios, «ask on send» inputs) changed. */
+  meta: boolean;
+}
+
 export interface HistoryEntry {
   id: string;
   protocol: RequestProtocol;

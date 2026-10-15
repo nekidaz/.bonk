@@ -21,8 +21,13 @@
     clearData,
     runCollection,
     runner,
+    addRunnerRequest,
+    removeRunnerRequest,
+    moveRunnerRequest,
+    currentPresetName,
   } from './store.svelte';
-  import { runnerScopeTitle, orderedRequests } from './runnerPlan';
+  import { runnerScopeTitle, orderedRequests, isRemovable } from './runnerPlan';
+  import RequestPicker from './RequestPicker.svelte';
   import { EnvironmentSelector } from '$entities/environment/components';
   import { parseDataFile } from './runnerData';
   import { inputLabel, inputNamesOf, methodColor, type RequestNode } from '$shared/model';
@@ -133,10 +138,17 @@
     }
   }
 
+  // ---- Composing (R2 «+ Запрос») ----
+  let adding = $state(false);
+  const order = $derived(all.map((n) => n.id));
+  // The name to save under: the open scenario's, else a made-up one, until typed over.
+  let nameEdit = $state<string | null>(null);
+  const scenarioName = $derived(nameEdit ?? runner.activeScenario?.name ?? currentPresetName());
+
   let presetSaved = $state(false);
   async function doSavePreset(): Promise<void> {
     try {
-      await savePreset();
+      await savePreset(scenarioName.trim() || undefined);
     } catch (e) {
       runner.error = String(e);
       return;
@@ -184,6 +196,13 @@
       </button>
     </div>
   </div>
+  <input
+    class="rs-name-in"
+    value={scenarioName}
+    oninput={(e) => (nameEdit = e.currentTarget.value)}
+    placeholder={t('runner.preset.name')}
+    aria-label={t('runner.preset.name')}
+  />
   <button class="rn-btn" type="button" onclick={doSavePreset} disabled={all.length === 0}>
     <span class="material-symbols-outlined" aria-hidden="true">{presetSaved ? 'check' : 'bookmark_add'}</span
     >{presetSaved ? t('runner.preset.saved') : t('runner.preset.save')}
@@ -216,10 +235,26 @@
           })}
         </button>
       {/if}
+      <button
+        class="rs-pill add"
+        class:on={adding}
+        type="button"
+        title={t('runner.compose.addTip')}
+        aria-expanded={adding}
+        onclick={() => (adding = !adding)}
+      >
+        <span class="material-symbols-outlined" aria-hidden="true">add</span>{t('runner.compose.add')}
+      </button>
       <span class="rs-hint">{t('runner.setup.drag')}</span>
     </div>
+    {#if adding}
+      <div class="rs-add">
+        <RequestPicker onpick={addRunnerRequest} onclose={() => (adding = false)} exclude={order} />
+      </div>
+    {/if}
     <div class="rs-scroll">
-      {#each rows as r (r.kind === 'folder' ? `f:${r.id}` : r.node.id)}
+      <!-- A scenario may come back to a folder, so one folder can head several runs: key a header by its first request. -->
+      {#each rows as r (r.kind === 'folder' ? `f:${r.ids[0]}` : r.node.id)}
         {#if r.kind === 'folder'}
           <div class="rs-folder">
             {@render check(groupState(r.ids), (v) => setChecked(r.ids, v), r.name)}
@@ -279,6 +314,34 @@
             <span class="rs-tests"
               >{tests ? `${tests} ${tp(tests, ['тест', 'теста', 'тестов'], ['test', 'tests'])}` : ''}</span
             >
+            <!-- Buttons, not only drag: HTML5 drops never fire in the macOS webview. -->
+            <span class="rs-acts">
+              <button
+                type="button"
+                title={t('runner.compose.up')}
+                aria-label={t('runner.compose.up')}
+                disabled={order[0] === n.id}
+                onclick={() => moveRunnerRequest(order, n.id, -1)}
+                ><span class="material-symbols-outlined" aria-hidden="true">arrow_upward</span></button
+              >
+              <button
+                type="button"
+                title={t('runner.compose.down')}
+                aria-label={t('runner.compose.down')}
+                disabled={order.at(-1) === n.id}
+                onclick={() => moveRunnerRequest(order, n.id, 1)}
+                ><span class="material-symbols-outlined" aria-hidden="true">arrow_downward</span></button
+              >
+              {#if isRemovable(cfg, n.id)}
+                <button
+                  type="button"
+                  title={t('runner.compose.remove')}
+                  aria-label={t('runner.compose.remove')}
+                  onclick={() => removeRunnerRequest(n.id)}
+                  ><span class="material-symbols-outlined" aria-hidden="true">close</span></button
+                >
+              {/if}
+            </span>
           </div>
         {/if}
       {/each}
@@ -520,6 +583,13 @@
     font-size: 14px;
     color: var(--color-danger);
   }
+  .rs-pill.add .material-symbols-outlined {
+    color: var(--color-action);
+  }
+  .rs-pill.add.on {
+    border-color: var(--color-border);
+    background: var(--color-selected);
+  }
   .rs-hint {
     color: var(--color-text-muted);
     font: 11px var(--font-ui);
@@ -688,6 +758,57 @@
   }
   .rs-var .material-symbols-outlined {
     font-size: 12px;
+  }
+  .rs-name-in {
+    width: 220px;
+    height: 30px;
+    padding: 0 10px;
+    border: 1px solid var(--color-border-subtle);
+    border-radius: var(--radius-control);
+    background: var(--color-field);
+    color: var(--color-text);
+    font: 13px var(--font-ui);
+    outline: 0;
+  }
+  .rs-name-in:focus {
+    border-color: var(--color-border);
+  }
+  .rs-add {
+    flex: none;
+    padding: 0 10px 8px;
+  }
+  .rs-acts {
+    flex: none;
+    display: flex;
+    gap: 2px;
+    visibility: hidden;
+  }
+  .rs-row:hover .rs-acts,
+  .rs-row:focus-within .rs-acts {
+    visibility: visible;
+  }
+  .rs-acts button {
+    width: 22px;
+    height: 22px;
+    display: grid;
+    place-items: center;
+    padding: 0;
+    border: 0;
+    border-radius: var(--radius-control);
+    background: transparent;
+    color: var(--color-text-muted);
+    cursor: pointer;
+  }
+  .rs-acts button:hover:not(:disabled) {
+    background: var(--color-selected);
+    color: var(--color-text);
+  }
+  .rs-acts button:disabled {
+    opacity: 0.35;
+    cursor: default;
+  }
+  .rs-acts .material-symbols-outlined {
+    font-size: 15px;
   }
   .rs-tests {
     flex: none;

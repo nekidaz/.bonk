@@ -43,6 +43,7 @@ export {
   switchWorkspace,
   toggleFolder,
   undoDrop,
+  watchWorkspaceFiles,
   withInheritedAuth,
   withSavedExpanded,
   workspace,
