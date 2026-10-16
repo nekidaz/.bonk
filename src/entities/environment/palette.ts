@@ -114,13 +114,13 @@ export function needsProductionGuard(method: string, env: EnvLike | undefined): 
   return isProtected(env) && !SAFE_METHODS.has(method.toUpperCase());
 }
 
-/** Short localized "time ago" label (ru: сейчас · 5 мин · 2 ч · вчера · 3 дн). Pass `$t` as `tr` from a component so it follows the language. */
+/** Short localized "time ago" label (e.g. now · 5 min · 2 h · yesterday · 3 d). Pass `$t` as `tr` from a component so it follows the language. */
 export function timeAgo(at: number, now = Date.now(), tr: Translate = t): string {
   const min = Math.floor((now - at) / 60_000);
   if (min < 1) return tr('app.time.now');
   if (min < 60) return tr('app.time.min', { n: min });
   const h = Math.floor(min / 60);
-  // Calendar days, not 24h windows: last night's call is «вчера» (S02).
+  // Calendar days, not 24h windows: last night's call is “yesterday” (S02).
   const days = Math.round((new Date(now).setHours(0, 0, 0, 0) - new Date(at).setHours(0, 0, 0, 0)) / 86_400_000);
   if (days === 0) return tr('app.time.h', { n: h });
   return days === 1 ? tr('app.time.yesterday') : tr('app.time.d', { n: days });
@@ -148,7 +148,7 @@ export function matchSaved(entry: HistoryEntry, saved: PaletteRequest[]): Palett
   );
 }
 
-/** History day group: Сегодня / Вчера / «12 сент.». */
+/** History day group: Today / Yesterday / “12 Sep”. */
 export function historyDay(at: number, now = Date.now(), tr: Translate = t): string {
   const day = (t: number) => new Date(t).setHours(0, 0, 0, 0);
   const diff = Math.round((day(now) - day(at)) / 86_400_000);

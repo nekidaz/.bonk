@@ -206,7 +206,7 @@
   // the workspace is a repo subdir, prefix maps one to the other (empty = same).
   const gitPrefixVal = $derived(git.prefix);
 
-  // ---- Drag & drop (Pencil: «Flow · Drag & drop запросов», D1–D6) ----
+  // ---- Drag & drop (Pencil: “Flow · Request drag & drop”, D1–D6) ----
   // Drop on a row's top/bottom edge to place before/after it, on a folder's middle to
   // move into it, on empty tree space to move to the root. ⌥ copies, Esc cancels,
   // hovering a collapsed folder for 0.6 s opens it, a toast offers Undo (⌘Z).
@@ -768,7 +768,7 @@
     padding: 0 10px;
   }
 
-  /* Drag & drop — Pencil «Flow · Drag & drop запросов» (D1–D5). */
+  /* Drag & drop — Pencil “Flow · Request drag & drop” (D1–D5). */
   :global(.bs) .bs-tree .bs-trow {
     cursor: grab;
   }

@@ -1,7 +1,7 @@
 import { setting } from '$shared/persist';
 import { customThemes, themeCssText, type CustomTheme, type ThemeColors } from './customThemes.svelte';
 
-/** Themes (Flow · Темы): a palette from tokens.css plus the shape and UI font it uses by default.
+/** Themes (Flow · Themes): a palette from tokens.css plus the shape and UI font it uses by default.
  *  Shape and font are separate layers: each follows the theme until the user picks one.
  *  User themes (`custom:<slug>`, customThemes.svelte.ts) sit on top of Bonk Dark / Bonk Light. */
 export type Shape = 'soft' | 'sharp' | 'square';
@@ -121,7 +121,7 @@ export const shapeOf = (t: Theme): Shape => (shapePref.current === 'theme' ? the
 export const fontOf = (t: Theme): UiFont => (fontPref.current === 'theme' ? themeInfo(t).font : fontPref.current);
 
 /** Put a theme on <html>: palette (data-theme + the Tailwind `dark` class), shape and UI font.
- *  `t` other than theme.current is a preview (⌘K → Тема) that is not saved. */
+ *  `t` other than theme.current is a preview (⌘K → Theme) that is not saved. */
 export function applyAppearance(t: Theme = theme.current): void {
   try {
     const root = globalThis.document?.documentElement;

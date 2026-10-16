@@ -45,7 +45,7 @@
   // Picking the theme's own shape goes back to following the theme.
   const setShape = (v: string) =>
     (shapePref.current = v === themeInfo(theme.current).shape ? 'theme' : (v as typeof shape));
-  // Flow · Темы TH3: a Zed / VS Code theme, picked or dropped on the window, opens the import dialog.
+  // Flow · Themes TH3: a Zed / VS Code theme, picked or dropped on the window, opens the import dialog.
   let importFile = $state.raw<ImportFile | null>(null);
   let pickError = $state('');
   async function pickThemeFile(): Promise<void> {
@@ -104,7 +104,7 @@
 </script>
 
 <div class="st-group">{t('settings.appearance.theme')}</div>
-<!-- Flow · Темы TH1: every card is a mini app in its own palette (data-theme on the card); «Как в системе» picks a
+<!-- Flow · Themes TH1: every card is a mini app in its own palette (data-theme on the card); “Follow system” picks a
      light and a dark theme (app/lifecycle.svelte.ts). -->
 <!-- data-theme-drop: a dropped .json comes here, not to the collection import (features/import/DropZone). -->
 <div class="st-card st-pad" data-theme-drop>
@@ -316,7 +316,7 @@
     border-radius: 0;
   }
 
-  /* S32.5b · Settings → Внешний вид → Раскладка */
+  /* S32.5b · Settings → Appearance → Layout */
   .st-layouts {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -386,7 +386,7 @@
     }
   }
 
-  /* Flow · Темы TH1: theme and shape cards, three per row. A theme card's picture carries data-theme, so every
+  /* Flow · Themes TH1: theme and shape cards, three per row. A theme card's picture carries data-theme, so every
      var() inside it resolves to that theme's palette (tokens.css). */
   .st-themes {
     width: 100%;
@@ -497,7 +497,7 @@
     font-weight: 400;
   }
 
-  /* The row under the cards: «Как в системе» with its light/dark pair, the UI font. */
+  /* The row under the cards: “Follow system” with its light/dark pair, the UI font. */
   .st-theme-tools {
     display: flex;
     align-items: center;
@@ -578,7 +578,7 @@
     padding: 0 10px;
   }
 
-  /* Flow · Темы: «Импорт темы…» in the gallery's tools row. */
+  /* Flow · Themes: “Import a Zed / VS Code theme…” in the gallery's tools row. */
   .st-link {
     display: inline-flex;
     align-items: center;

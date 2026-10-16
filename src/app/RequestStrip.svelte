@@ -1,7 +1,7 @@
 <script lang="ts">
   /**
    * The request folded into a 44 px strip while the response owns the height (E4/E5 rule 7):
-   * Body / Headers / Params chips (Message / Metadata for gRPC), a one-line preview and «Показать тело ⇧⌘E».
+   * Body / Headers / Params chips (Message / Metadata for gRPC), a one-line preview and “Show body ⇧⌘E”.
    */
   import { tick } from 'svelte';
   import { t } from '$shared/i18n';

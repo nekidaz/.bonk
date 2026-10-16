@@ -96,7 +96,7 @@ export function runBars(history: RunSummary[], maxH = 28): { n: number; h: numbe
   }));
 }
 
-/** "СЕГОДНЯ 14:20", or "07.10 14:20" for another day. */
+/** "TODAY 14:20", or "07.10 14:20" for another day. */
 export function runTimeLabel(ts: number, now = Date.now(), tr: Translate = t): string {
   const d = new Date(ts);
   const pad = (x: number) => String(x).padStart(2, '0');
@@ -317,7 +317,7 @@ function findBinding(row: RunResultRow, rows: RunResultRow[]): IdBinding | undef
   return undefined;
 }
 
-/** "Похоже на причину" for a failed call, or null when nothing honest to say. */
+/** "Likely cause" for a failed call, or null when nothing honest to say. */
 export function insightFor(row: RunResultRow, rows: RunResultRow[], tr: Translate = t): Insight | null {
   if (row.ok || typeof row.status !== 'number') return null;
   const prev = rows.find(

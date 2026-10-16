@@ -1,7 +1,7 @@
 <script lang="ts">
   /**
-   * Flow · Cookies, CJ7: the «Истекает» field of the cookie editor and its picker — session,
-   * a date and time (Expires) or «через N» (Max-Age), with the Set-Cookie attribute it yields.
+   * Flow · Cookies, CJ7: the “Expires” field of the cookie editor and its picker — session,
+   * a date and time (Expires) or “in N” (Max-Age), with the Set-Cookie attribute it yields.
    * Every change goes straight into the draft; the popover lives in <body> (see `portal`).
    */
   import { tick } from 'svelte';
@@ -48,7 +48,7 @@
   let now = $state(Date.now());
   /** The month on screen: first day of it. */
   let view = $state(new Date());
-  /** «Через…» unit, remembered while the popover is open. */
+  /** “In…” unit, remembered while the popover is open. */
   let unit = $state<(typeof UNITS)[number][0]>('h');
 
   const mode = $derived(maxAge != null ? 'after' : expiresMs != null ? 'date' : 'session');

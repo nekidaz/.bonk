@@ -20,7 +20,7 @@ function canon(value: unknown): unknown {
 const same = (a: unknown, b: unknown): boolean => JSON.stringify(canon(a)) === JSON.stringify(canon(b));
 const realParams = (ps: Param[] | undefined): Param[] => (ps ?? []).filter((p) => p.key || p.value || p.description);
 
-/** A tab backed by a saved request differs from what is on disk (S09 «Изменён · не сохранён»). */
+/** A tab backed by a saved request differs from what is on disk (S09 “Modified · unsaved”). */
 export function isTabDirty(tab: Tab, saved: RequestNode | undefined, workspaceRoot = ''): boolean {
   if (!saved || (tab.protocol !== 'http' && tab.protocol !== 'grpc')) return false;
   if (tab.title !== saved.name) return true;

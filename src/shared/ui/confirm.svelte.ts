@@ -18,7 +18,7 @@ export function requestConfirm(message: string, confirmLabel = t('app.confirm.ok
   return requestChoice(message, confirmLabel).then((r) => r === true);
 }
 
-/** Three-way confirm: `true` = confirm, `'alt'` = the secondary action (e.g. «Не сохранять»), `false` = cancel. */
+/** Three-way confirm: `true` = confirm, `'alt'` = the secondary action (e.g. “Don’t save”), `false` = cancel. */
 export function requestChoice(message: string, confirmLabel: string, altLabel?: string): Promise<boolean | 'alt'> {
   // Resolve any still-open confirm as cancelled so its awaiter never hangs.
   confirmState.current?.resolve(false);

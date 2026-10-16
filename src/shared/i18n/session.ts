@@ -1,4 +1,4 @@
-// Session auth (Flow · Сессия: вошёл один раз): the Authorization tab's settings and card, the renewal
+// Session auth (Flow · Session: sign in once): the Authorization tab's settings and card, the renewal
 // banner and timeline of a send. The Sessions dialog is in ./sessions, the Runner card and the sign-in
 // prompt in ./sessionrun.
 export const en = {

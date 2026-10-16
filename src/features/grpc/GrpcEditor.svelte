@@ -172,12 +172,12 @@
     await tick();
     if (tab.grpc?.endpoint.trim()) await grpcDoConnect();
   }
-  // «Перейти к строке» from the response opens the Scripts section; RequestScripts then reveals the line.
+  // “Go to line” from the response opens the Scripts section; RequestScripts then reveals the line.
   $effect(() => {
     if (scriptUi.jump?.tabId === tab.id) untrack(() => openGrpcEditorSection(tab.id, 'scripts'));
   });
 
-  // «Повторить» / TLS from the response pane's unreachable state (S25).
+  // “Retry” / TLS from the response pane's unreachable state (S25).
   $effect(() => {
     const action = grpcEditorUi.action;
     if (!action || action.tabId !== tab.id) return;
@@ -684,7 +684,7 @@
         ><kbd>⌘↵</kbd>{/if}
     </span>
   </SendButton>
-  <!-- Client/bidi open: Send stays the main button; «Завершить» half-closes, ■ cancels. -->
+  <!-- Client/bidi open: Send stays the main button; “End” half-closes, ■ cancels. -->
   {#if streamWritable}
     <button class="bs-stream-btn" type="button" title={t('grpc.endStreamTitle')} onclick={grpcEndStream}
       ><span class="material-symbols-outlined" aria-hidden="true">keyboard_tab</span>{t('grpc.endStream')}<kbd>⇧⌘↵</kbd
@@ -746,7 +746,7 @@
 <svelte:window onkeydown={onKeydown} />
 
 <style>
-  /* Flow · Размеры окна: the method picker keeps room for at least the method name. ≤ 900 drops ⌘↵ from
+  /* Flow · Window sizes: the method picker keeps room for at least the method name. ≤ 900 drops ⌘↵ from
      Send (shell.css), ≤ 760 also the TLS word (lock icon and colour stay), the picker's icon and service. */
   :global(.bs) .bs-stream-btn:not(.stop) {
     gap: 6px;

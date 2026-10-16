@@ -1,7 +1,7 @@
 import { t } from '$shared/i18n';
 import { oauthGrant, oauthScopes, urlHost, type OAuthConfig, type OAuthTokenInfo } from '$shared/model';
 
-/** «59 мин», «2 ч», «3 д». */
+/** “59 min”, “2 h”, “3 d”. */
 export function oauthSpan(seconds: number): string {
   const s = Math.max(0, Math.round(seconds));
   if (s < 60) return t('oauth.unit.now');
@@ -18,7 +18,7 @@ export const oauthClock = (seconds: number): string =>
 export const oauthExpired = (token: OAuthTokenInfo, now: number): boolean =>
   token.expiresAt !== null && now + 30 >= token.expiresAt;
 
-/** «ещё 59 мин» / «истёк 2 ч назад» / «без срока». */
+/** “59 min left” / “expired 2 h ago” / “no expiry”. */
 export function oauthLeft(token: OAuthTokenInfo, now: number): string {
   if (token.expiresAt === null) return t('oauth.no_expiry');
   return oauthExpired(token, now)

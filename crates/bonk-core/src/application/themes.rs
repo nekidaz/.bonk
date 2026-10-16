@@ -1,4 +1,4 @@
-//! User themes (Flow · Темы TH3): one `<slug>.json` per theme in `~/.bonk/themes`, written by the
+//! User themes (Flow · Themes TH3): one `<slug>.json` per theme in `~/.bonk/themes`, written by the
 //! import dialog. The frontend owns the format; here the files are only listed and saved.
 
 use std::path::{Path, PathBuf};

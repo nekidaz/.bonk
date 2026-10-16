@@ -222,7 +222,7 @@ export function setRunnerStage(stage: RunnerStage): void {
   syncRunnerTabTitle();
 }
 
-/** Tree context menu "Запустить в Runner": scope to the folder and open its setup (R2). */
+/** Tree context menu “Run in Runner”: scope to the folder and open its setup (R2). */
 export function runInRunner(folderId: string): void {
   setRunnerFolders([folderId]);
   runner.stage = 'setup';
@@ -259,7 +259,7 @@ export function setRunOrder(orderIds: string[]): void {
   runner.updateConfig((c) => ({ ...c, orderIds }));
   persistConfig();
 }
-/** R2 «+ Запрос»: add a request from anywhere in the workspace to the end of the run. */
+/** R2 “+ Request”: add a request from anywhere in the workspace to the end of the run. */
 export function addRunnerRequest(id: string): void {
   runner.updateConfig((c) => withRequestAdded(c, id, workspace.tree));
   persistConfig();
@@ -276,7 +276,7 @@ export function moveRunnerRequest(order: string[], id: string, delta: -1 | 1): v
   runner.updateConfig((c) => withRequestMoved(c, order, id, delta));
   persistConfig();
 }
-/** R1 «Собрать из запросов»: start a new run from one request; R2 adds the rest. */
+/** R1 “Build from requests”: start a new run from one request; R2 adds the rest. */
 export function composeFrom(id: string): void {
   setRunnerFolders([id]);
   setRunnerStage('setup');
@@ -442,7 +442,7 @@ function waitForInput(request: InputRequest): void {
     ...r,
     waiting: { request, since: Date.now() },
     retries: request.attempt > 1 ? r.retries + 1 : r.retries,
-    // A wrong value leaves the same code alive; the first try, or one after «Отправить заново», is a new code.
+    // A wrong value leaves the same code alive; the first try, or one after “Resend”, is a new code.
     codeAt:
       request.attempt > 1 && r.codeAt?.nodeId === request.nodeId
         ? r.codeAt
@@ -473,7 +473,7 @@ function onRunEvent(e: RunEvent): void {
     }));
   else if (e.kind === 'input') waitForInput(e);
   else if (e.kind === 'resent') {
-    // «Отправить заново» ran the step before again: its new row replaces the old one, the count stays.
+    // “Resend” ran the step before again: its new row replaces the old one, the count stays.
     const { kind: _kind, ...row } = e;
     runner.updateRun((r) => ({
       ...r,
@@ -501,7 +501,7 @@ function pushRow(row: RunResultRow): void {
   logRow(row);
 }
 
-/** Flow · Консоль: Runner sends share the request feed. */
+/** Flow · Console: Runner sends share the request feed. */
 function logRow(row: RunResultRow): void {
   addAppConsoleEntry({
     protocol: row.protocol,
@@ -589,14 +589,14 @@ export function viewRun(n: number): void {
 /** The live run's id in the Rust runner (pause / stop). */
 let runId = '';
 
-/** R3 "Пауза" / "Продолжить": the run halts before its next call. */
+/** R3 “Pause” / “Resume”: the run halts before its next call. */
 export function togglePause(): void {
   if (runner.run.status !== 'running') return;
   runner.updateRun((r) => ({ ...r, paused: !r.paused }));
   void runnerPause(runId, runner.run.paused);
 }
 
-/** R3 "Остановить": the call in flight finishes, nothing after it is sent. */
+/** R3 “Stop”: the call in flight finishes, nothing after it is sent. */
 export function stopRun(): void {
   if (runner.run.status === 'running') void runnerStop(runId);
 }
@@ -701,18 +701,18 @@ async function rerunRows(rows: RunResultRow[]): Promise<void> {
   persistRecord();
 }
 
-/** "Перезапустить упавшие": re-run only the failed calls of the current run. */
+/** “Rerun failed”: re-run only the failed calls of the current run. */
 export function rerunFailed(): Promise<void> {
   return rerunRows(runner.run.results.filter((r) => !r.ok));
 }
 
-/** "Повторить": re-run one call. */
+/** “Retry”: re-run one call. */
 export function rerunCall(rowId: string): Promise<void> {
   return rerunRows(runner.run.results.filter((r) => r.id === rowId));
 }
 
 /**
- * "Брать id из …": the source request's test script stores its response `id`
+ * “Take id from …”: the source request's test script stores its response `id`
  * in `{{varName}}` (active environment, else globals), and the failing
  * request's URL uses that variable instead of the hard-coded literal.
  */

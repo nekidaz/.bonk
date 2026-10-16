@@ -45,7 +45,7 @@
   background: var(--color-danger-soft);
 }
 
-/* «Ask on send» variable (Flow · Сценарий с вводом): the blue chip with the keyboard glyph. */
+/* «Ask on send» variable (Flow · Scenario with input): the blue chip with the keyboard glyph. */
 :root .bs .cm-var-ask {
   color: var(--color-ask);
   background: var(--color-ask-soft);
@@ -128,7 +128,7 @@
   gap: 4px;
 }
 
-/* Rule 4 · «ещё N объектов · M строк» fold chip */
+/* Rule 4 · “N more objects · M lines” fold chip */
 :root .bs-fold-chip {
   border: 0;
   user-select: none;

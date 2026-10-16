@@ -4,7 +4,7 @@
   sections use directly, live in the <style> below (sections import this file first).
   A snippet is a function that returns markup: `{@render row(name, desc, control)}` draws a row whose
   right side is the `control` snippet (in Go terms, a func() passed as an argument). See
-  docs/FRONTEND.md «children, snippet и {@render}».
+  docs/FRONTEND.md, “children, snippet and {@render}” section.
 -->
 <script module lang="ts">
   import type { Snippet } from 'svelte';
@@ -36,7 +36,7 @@
   export type Option<T> = { label: string; value: T };
 </script>
 
-<!-- A theme's mini app (Flow · Темы TH1/TH3): `base` palette from tokens.css, a user theme's colours inline on top. -->
+<!-- A theme's mini app (Flow · Themes TH1/TH3): `base` palette from tokens.css, a user theme's colours inline on top. -->
 {#snippet themePic(base: string, style: string | undefined)}
   <span class="st-theme-pic" data-theme={base} {style} aria-hidden="true">
     <i class="side"><b></b><b></b><b></b><b></b></i>

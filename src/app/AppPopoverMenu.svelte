@@ -52,7 +52,7 @@
   }: {
     menu: AppMenuState;
     closeMenu: () => void;
-    /** Active request tab: the protocol menu checks its type, the ⋯ menu enables «Сбросить» by its dirty state. */
+    /** Active request tab: the protocol menu checks its type, the ⋯ menu enables “Reset” by its dirty state. */
     tab: Tab | undefined;
     /** Folder of the active saved request: the create menu adds next to it. */
     folderName: string | undefined;

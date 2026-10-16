@@ -1,5 +1,5 @@
 <script lang="ts">
-  // Flow · Консоль, терминал, Issues: one bottom panel, three tabs. ⌘J opens/closes it; the height
+  // Flow · Console, Terminal, Issues: one bottom panel, three tabs. ⌘J opens/closes it; the height
   // drags past the top edge and is remembered; ⇧⌘J (or ⤢) gives Issues the whole height.
   import { t } from '$shared/i18n';
   import { snapPanelSize, type UtilityMode } from '$shared/ui';

@@ -43,7 +43,7 @@
     copied = name;
   }
 
-  // «Вставить» goes where the cursor was; with no editor to go to it copies instead.
+  // “Insert” goes where the cursor was; with no editor to go to it copies instead.
   function insert(name: string): void {
     if (insertAtLastCursor(`{{${name}}}`)) close();
     else copy(name);

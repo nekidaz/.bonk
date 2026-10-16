@@ -51,7 +51,7 @@
   const formats = ['OpenAPI 3.x', 'Swagger 2.0', 'Postman v2.1', 'Insomnia v4', 'HAR', 'cURL'];
 
   const srcErr = $derived(error instanceof SourceError ? error : null);
-  // «К строке N» moves the paste editor there; any edit afterwards stops forcing it.
+  // “Go to line N” moves the paste editor there; any edit afterwards stops forcing it.
   let jump = $state(false);
   $effect(() => {
     void text;

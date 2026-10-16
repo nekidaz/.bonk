@@ -1,7 +1,7 @@
 <script lang="ts">
   /**
-   * «+ Запрос» search: every request of the workspace by name, URL or folder. ↑/↓ move, Enter
-   * picks, Esc closes. Used by R1 «Собрать из запросов» and the R2 list.
+   * “+ Request” search: every request of the workspace by name, URL or folder. ↑/↓ move, Enter
+   * picks, Esc closes. Used by R1 “Build from requests” and the R2 list.
    */
   import { workspace } from '$entities/workspace';
   import { methodColor } from '$shared/model';

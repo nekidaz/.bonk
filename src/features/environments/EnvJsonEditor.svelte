@@ -1,7 +1,7 @@
 <script lang="ts">
   /**
-   * The JSON view of one environment (Flow · Окружения из JSON): the editor and the bar under it with the
-   * verdict (valid + what changes / the syntax error), «Формат» (⇧⌥F), «Копировать» and the quick fix
+   * The JSON view of one environment (Flow · Environments from JSON): the editor and the bar under it with the
+   * verdict (valid + what changes / the syntax error), “Format” (⇧⌥F), “Copy” and the quick fix
    * for a missing comma. In `create` mode the bar names the detected format and offers a format picker.
    * The text and its parse result live in the parent, which applies a valid result to the draft.
    */
@@ -84,7 +84,7 @@
 
   const vars = (n: number) => `${n} ${tp(n, ['variable', 'variables'])}`;
 
-  /** «5 переменных · 1 секрет · 1 выключена» */
+  /** “5 variables · 1 secret · 1 off” */
   function stats(rows: VarRow[]): string {
     const secrets = rows.filter((r) => r.secret).length;
     const off = rows.filter((r) => !r.enabled).length;
@@ -97,7 +97,7 @@
       .join('  ·  ');
   }
 
-  /** «JSON валиден · 5 переменных · +1 новая: timeoutMs · изменено: 2» */
+  /** “JSON is valid · 5 variables · +1 new: timeoutMs · changed: 2” */
   function verdict(env: ParsedEnv): string {
     const next = mergeEnvRows(base, env.rows, 'replace');
     const d = diffEnvRows(base, next);

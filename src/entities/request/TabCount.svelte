@@ -57,7 +57,7 @@
     color: var(--color-text);
   }
 
-  /* Flow · Скрипты SC6: the Scripts tab's count turns red when a script failed. */
+  /* Flow · Scripts SC6: the Scripts tab's count turns red when a script failed. */
   :global(.bs) .bs-tab-count.bad {
     background: var(--color-danger-soft);
     color: var(--color-danger);

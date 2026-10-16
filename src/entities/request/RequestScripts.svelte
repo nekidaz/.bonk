@@ -1,7 +1,7 @@
 <script lang="ts">
   /**
    * The Scripts tab of an HTTP or gRPC request: ScriptsEditor wired to the tab's last run, the shared stage
-   * (so the expanded mode's top bar can switch it), ⌥⌘F expansion and «перейти к строке» from the response.
+   * (so the expanded mode's top bar can switch it), ⌥⌘F expansion and “Go to line” from the response.
    */
   import { tick } from 'svelte';
   import { ScriptsEditor } from '$shared/editor/components';

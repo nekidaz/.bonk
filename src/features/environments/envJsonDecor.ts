@@ -1,6 +1,6 @@
 /**
  * Marks in the environment JSON editor: the line with a syntax error (red, with a short hint at its end) and a
- * «секрет · маска» chip after every masked secret value. Both are derived from the document itself, so the
+ * “secret · masked” chip after every masked secret value. Both are derived from the document itself, so the
  * marks can never point at stale offsets.
  */
 import { type Extension, type Range } from '@codemirror/state';

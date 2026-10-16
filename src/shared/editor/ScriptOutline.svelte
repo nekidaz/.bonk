@@ -1,11 +1,11 @@
 <script lang="ts">
   /**
-   * «Структура» of the expanded script editor (SC8): sections from `// ── Раздел` comments with their
+   * “Outline” of the expanded script editor (SC8): sections from `// ── Section` comments with their
    * functions, `pm.test` blocks (with the last run's result) and variables; click to jump.
    * Folded (SC8b) it is a 36 px rail map: a group per section, ƒ for functions, ✓/✕ dots for tests,
    * teal ticks for variables, the section at the caret in a capsule, the failure count at the bottom.
    * Drag the edge (SC8c): released past 140 px it opens at 252 px (or its last width), short of that it
-   * goes back to the rail. ⌥⌘O toggles, ⇧⌘O focuses «Перейти к…» (wired by ScriptsEditor).
+   * goes back to the rail. ⌥⌘O toggles, ⇧⌘O focuses “Go to…” (wired by ScriptsEditor).
    */
   import { t } from '$shared/i18n';
   import type { ScriptTestResult } from '$shared/model';

@@ -86,13 +86,13 @@ export type McpMethodPolicy = 'allow' | 'ask' | 'deny';
 
 export interface McpInstallOptions {
   workspace: string;
-  /** «Изменять воркспейс» off */
+  /** “Modify the workspace” off */
   readOnly: boolean;
-  /** «Отправлять запросы» off */
+  /** “Send requests” off */
   noNetwork: boolean;
-  /** «Разрешённые хосты»; empty = any */
+  /** “Allowed hosts”; empty = any */
   targetHosts: string[];
-  /** «Видеть значения секретов» */
+  /** “See secret values” */
   exposeSecrets: boolean;
   /** Names of app environments the AI may use (others denied). */
   environments: string[];
@@ -529,7 +529,7 @@ export const cookiesAdd = (workspace: string, url: string, setCookie: string) =>
   invoke<void>('cookies_add', { workspace, url, setCookie });
 export const cookiesRemove = (workspace: string, domain: string, path: string, name: string) =>
   invoke<boolean>('cookies_remove', { workspace, domain, path, name });
-/** «Хранить между запусками» changed: re-save the jar with or without its session cookies. */
+/** “Keep across restarts” changed: re-save the jar with or without its session cookies. */
 export const cookiesKeepSession = (workspace: string, keep: boolean) =>
   invoke<void>('cookies_keep_session', { workspace, keep });
 /** Remove every cookie of `domain`, or the whole jar when null. */
@@ -691,7 +691,7 @@ export const workspaceImportCollection = (
 export const sessionStatus = (workspaceRoot: string, environments: string[], config: SessionConfig) =>
   invoke<EnvSession[]>('session_status', { workspaceRoot, environments, config });
 /**
- * «Войти» (`signIn`) or «Обновить» (`refresh`) now. The sign-in asks for typed input the way a
+ * “Sign in” (`signIn`) or “Renew” (`refresh`) now. The sign-in asks for typed input the way a
  * send does: an `input` event, answered with `runnerInputAnswer`. Cancel with `cancelRequest`.
  */
 export function sessionRun(
@@ -707,10 +707,10 @@ export function sessionRun(
   channel.onmessage = onEvent;
   return invoke('session_run', { requestId, mode, config, plan, vars, settings, onEvent: channel });
 }
-/** «Выйти»: forget the session of these environments. */
+/** “Sign out”: forget the session of these environments. */
 export const sessionForget = (workspaceRoot: string, environments: string[], config: SessionConfig) =>
   invoke<void>('session_forget', { workspaceRoot, environments, config });
-/** The Runner's «Запомнить вход?»: keep what a finished run of the sign-in caught. `rows` are `[node id, response body]`. */
+/** The Runner's “Remember this sign-in?”: keep what a finished run of the sign-in caught. `rows` are `[node id, response body]`. */
 export const sessionSaveCaught = (
   workspaceRoot: string,
   environment: string,

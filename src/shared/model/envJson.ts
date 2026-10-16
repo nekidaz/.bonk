@@ -1,5 +1,5 @@
 /**
- * Environment ⇄ JSON (Flow · Окружения из JSON). Pure.
+ * Environment ⇄ JSON (Flow · Environments from JSON). Pure.
  * The JSON is read by a small parser of our own, not `JSON.parse`: the Tauri webview (WebKit) does not
  * report where a syntax error is, and the editor has to point at the line. Numbers are kept as written.
  */

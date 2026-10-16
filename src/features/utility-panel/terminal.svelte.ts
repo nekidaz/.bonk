@@ -1,4 +1,4 @@
-// Flow · Терминал (CT4–CT6): the user's own login shell in a PTY, drawn by xterm.js (the
+// Flow · Terminal (CT4–CT6): the user's own login shell in a PTY, drawn by xterm.js (the
 // terminal emulator VS Code uses). Sessions live here, outside the component, so the shells
 // and their scrollback survive closing the panel (⌘J) and switching tabs.
 import { Terminal as XTerm } from '@xterm/xterm';

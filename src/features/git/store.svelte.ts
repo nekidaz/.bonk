@@ -7,7 +7,7 @@ export const diffLayout = persisted<'inline' | 'split'>(
   (v): v is 'inline' | 'split' => v === 'inline' || v === 'split',
 );
 
-/** G8: merge a conflicted request line by line («JSON») or field by field («Поля»), remembered. */
+/** G8: merge a conflicted request line by line (“JSON”) or field by field (“Fields”), remembered. */
 export const mergeMode = persisted<'json' | 'fields'>(
   'gitMergeMode',
   'json',

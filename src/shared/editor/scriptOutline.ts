@@ -1,5 +1,5 @@
 /**
- * «Структура» of a script (SC8): `// ── Раздел` comments split it into sections, and each section lists
+ * “Outline” of a script (SC8): `// ── Section` comments split it into sections, and each section lists
  * its functions, `pm.test` blocks and `pm.environment.set` / `pm.globals.set` variables. A line scan,
  * not a parser: it only has to be right for the way people write these scripts.
  */

@@ -1,4 +1,4 @@
-// Sessions dialog (Flow · Сессия SE6): one session per environment of a collection.
+// Sessions dialog (Flow · Session SE6): one session per environment of a collection.
 export const en = {
   'sessions.title': 'Sessions',
   'sessions.lede':

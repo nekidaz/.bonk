@@ -14,7 +14,7 @@
     folderId: string | undefined;
     /** Session: a sign-in from the card finished (the app shows a toast). */
     onSaved?: (text: string) => void;
-    /** Session: «Открыть в Runner» on the sign-in scenario (the app owns the Runner). */
+    /** Session: “Open in Runner” on the sign-in scenario (the app owns the Runner). */
     onOpenRunner?: (scenario: string) => void;
   } = $props();
 
@@ -61,7 +61,7 @@
 {/if}
 
 <style>
-  /* Flow · Сессия (SE2–SE5): the session card, its details and settings, a send's banner and timeline. */
+  /* Flow · Session (SE2–SE5): the session card, its details and settings, a send's banner and timeline. */
   :global(:root .bs .bs-modal.bs-session-modal) {
     width: 940px;
   }

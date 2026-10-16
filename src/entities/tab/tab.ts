@@ -129,7 +129,7 @@ export function togglePinned(list: Tab[], id: string): Tab[] {
   return [...next.filter((t) => t.pinned), ...next.filter((t) => !t.pinned)];
 }
 
-/** S17b: ids that «Закрыть остальные / справа / все» close relative to `id`. Pinned tabs always stay. */
+/** S17b: ids that “Close Others / Close Tabs to the Right / Close All” close relative to `id`. Pinned tabs always stay. */
 export function tabsToClose(list: Tab[], id: string, scope: 'others' | 'right' | 'all'): string[] {
   const at = list.findIndex((t) => t.id === id);
   if (at < 0 && scope !== 'all') return [];

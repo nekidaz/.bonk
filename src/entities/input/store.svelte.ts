@@ -90,7 +90,7 @@ export function watchInputs(workspacePath: () => string | null, diskRev: () => n
   });
 }
 
-/** Last typed value per variable name, for fields with «Подставлять прошлое значение». */
+/** Last typed value per variable name, for fields with “Prefill the last value”. */
 const lastValues = persisted<Record<string, string>>('inputLastValues', {});
 
 /** The form's starting value of `field`: the remembered one, else the default. */
@@ -99,7 +99,7 @@ export function initialValue(field: InputField): string {
   return last ?? field.default;
 }
 
-/** The value remembered for `field` (shown as «прошлое: KZT»). */
+/** The value remembered for `field` (shown as “last: KZT”). */
 export function lastValue(field: InputField): string | undefined {
   return field.remember && !isSensitive(field) ? lastValues.current[field.name] : undefined;
 }

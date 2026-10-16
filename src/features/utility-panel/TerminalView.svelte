@@ -1,5 +1,5 @@
 <script lang="ts">
-  // Flow · Терминал (CT4–CT6): the active shell session (terminal.svelte.ts) mounted in the panel.
+  // Flow · Terminal (CT4–CT6): the active shell session (terminal.svelte.ts) mounted in the panel.
   import { untrack } from 'svelte';
   import '@xterm/xterm/css/xterm.css';
   import { t } from '$shared/i18n';

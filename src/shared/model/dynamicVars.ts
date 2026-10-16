@@ -1,5 +1,5 @@
 /**
- * Dynamic variables (Flow · Динамические переменные): `{{$guid}}`, `{{$randomEmail}}` … — Postman's
+ * Dynamic variables (Flow · Dynamic variables): `{{$guid}}`, `{{$randomEmail}}` … — Postman's
  * names, a fresh value at every send. Rust generates the values (domain/dynamic_vars.rs); this is the
  * catalog the editor needs: which names exist, their groups, the nearest name for a typo.
  * `dynamicVars.json` is shared with Rust's test, so the two lists can't drift.
@@ -75,7 +75,7 @@ function editDistance(a: string, b: string): number {
 
 /**
  * Catalog rows matching `query` by name or by meaning: `describe(name)` is the localized
- * description, so «почта» finds `$randomEmail`. An empty query matches everything.
+ * description, so “email” finds `$randomEmail`. An empty query matches everything.
  */
 export function searchDynamic(query: string, describe: (name: string) => string): DynamicVar[] {
   const q = query.trim().replace(/^\$/, '').toLowerCase();

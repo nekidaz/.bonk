@@ -16,7 +16,7 @@
   let entries = $state.raw<ReflogEntry[]>([]);
   let loaded = $state(false);
   let error = $state('');
-  /** The entry whose «Ветка отсюда» name field is open. */
+  /** The entry whose “Branch here…” name field is open. */
   let naming = $state(-1);
   let branchName = $state('');
 

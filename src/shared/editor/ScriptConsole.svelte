@@ -1,7 +1,7 @@
 <script lang="ts">
   /**
    * Script console (SC5): both stages' console.log, variable and header writes and the send itself in one
-   * feed, each row stamped with its time and stage. Filter by text or by kind; «Очистить» drops the feed.
+   * feed, each row stamped with its time and stage. Filter by text or by kind; “Clear” drops the feed.
    */
   import { t, tp } from '$shared/i18n';
   import type { ScriptEvent } from '$shared/model';

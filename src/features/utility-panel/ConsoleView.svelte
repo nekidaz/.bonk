@@ -1,6 +1,6 @@
 <script lang="ts">
-  // Flow · Консоль (CT1–CT3): every send newest first, its logs and tests under the row; a click
-  // opens the request and response as they went; quick filters with an «N из M» counter.
+  // Flow · Console (CT1–CT3): every send newest first, its logs and tests under the row; a click
+  // opens the request and response as they went; quick filters with an “N of M” counter.
   import { tick } from 'svelte';
   import { t } from '$shared/i18n';
   import { HTTP_STATUS_TEXT } from '$shared/model';

@@ -1,5 +1,5 @@
 // Visual regression: every scenario x both themes against the fake Tauri backend
-// (design/tools/shim.js). Baselines are local only; see docs/GUIDE.md "Скриншот-тесты".
+// (design/tools/shim.js). Baselines are local only; see docs/GUIDE.md, “Screenshot tests” section.
 import { test, expect, type Page } from '@playwright/test';
 import { dumpComputedStyles } from './css-oracle';
 
@@ -261,7 +261,7 @@ const SCENARIOS: Scenario[] = [
     },
   },
   {
-    // Flow · gRPC Stream ST6: bidi open — ↑ sent and ↓ received in one feed, Send / Завершить / ■.
+    // Flow · gRPC Stream ST6: bidi open — ↑ sent and ↓ received in one feed, Send / “End” / ■.
     name: 'grpc-stream-bidi',
     query: '&grpc=streams',
     steps: async (p) => {
@@ -447,7 +447,7 @@ const SCENARIOS: Scenario[] = [
       await p.locator('.rn-cell.bad.on').waitFor(); // the failed cell opens the detail pane by itself
     },
   },
-  // «ask on send» input (Flow · Сценарий с вводом): chip, editor menu and settings, Send form, Runner pause
+  // «ask on send» input (Flow · Scenario with input): chip, editor menu and settings, Send form, Runner pause
   { name: 'input-chip', query: '&inputs=1', steps: openOtp },
   {
     name: 'input-menu',
@@ -512,7 +512,7 @@ const SCENARIOS: Scenario[] = [
       await p.locator('form.form.card.retry').waitFor();
     },
   },
-  // Session auth (Flow · Сессия: вошёл один раз)
+  // Session auth (Flow · Session: signed in once)
   { name: 'session-folder-card', query: '&session=1', steps: openFolderAuth },
   { name: 'session-folder-dead', query: '&session=1&sstate=dead', steps: openFolderAuth },
   {

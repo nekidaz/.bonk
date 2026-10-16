@@ -52,7 +52,7 @@
     {@render gtab('metadata', t('grpc.tab.metadata'), metadataCount)}
     {@render gtab('auth', t('grpc.tab.auth'))}
     {@render gtab('proto', t('grpc.tab.proto'))}
-    <!-- Flow · Скрипты: gRPC requests run the same scripts (pm.request.url is read-only there). -->
+    <!-- Flow · Scripts: gRPC requests run the same scripts (pm.request.url is read-only there). -->
     {#if SCRIPTS_ENABLED}{@render gtab(
         'scripts',
         t('grpc.tab.scripts'),

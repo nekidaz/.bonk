@@ -1,7 +1,7 @@
 /* Design tokens: every colour, radius, shadow, font and size the app uses, for every theme.
    Change a colour here, not in the area files. */
 
-/* Palettes (Flow · Темы): theme.svelte.ts sets data-theme on <html>; the App root .bs repeats the palette so values
+/* Palettes (Flow · Themes): theme.svelte.ts sets data-theme on <html>; the App root .bs repeats the palette so values
    resolved on .bs use it too. Any element with data-theme (theme swatches, gallery cards) gets that palette.
    Bonk Light (smooth-light) is the default. */
 [data-theme='smooth-light'],
@@ -565,7 +565,7 @@
   --mono: var(--font-code);
 }
 
-/* Shape (Flow · Темы F1–F3): soft is the :root default above; theme.svelte.ts sets data-shape on <html>. */
+/* Shape (Flow · Themes F1–F3): soft is the :root default above; theme.svelte.ts sets data-shape on <html>. */
 [data-shape='sharp'] {
   --radius-xs: 3px;
   --radius-sm: 4px;

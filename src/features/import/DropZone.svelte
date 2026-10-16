@@ -1,5 +1,5 @@
 <script lang="ts">
-  // IM3: a spec, collection or HAR dragged over the window shows «Отпустите, чтобы импортировать»;
+  // IM3: a spec, collection or HAR dragged over the window shows “Drop to import”;
   // dropping it opens the import window with the file. Tauri delivers file paths through the
   // webview, not HTML5 drop events (those never fire in the macOS webview).
   import { getCurrentWebview } from '@tauri-apps/api/webview';
@@ -16,7 +16,7 @@
   let seq = 0;
 
   async function enter(paths: string[]): Promise<void> {
-    // The .proto dialog, Settings → Внешний вид (theme import) and «Окружения → Из JSON» take their own drops.
+    // The .proto dialog, Settings → Appearance (theme import) and “Environments → From JSON” take their own drops.
     const path = paths.find((p) => IMPORTABLE.test(p));
     if (!path || document.querySelector('.pid-overlay, [data-theme-drop], [data-env-drop]')) return;
     const id = ++seq;

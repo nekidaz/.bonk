@@ -1,5 +1,5 @@
 /**
- * G8 «Поля»: the three-way merge of a request file by JSON field instead of by line. Each side is
+ * G8 “Fields”: the three-way merge of a request file by JSON field instead of by line. Each side is
  * flattened to leaf fields (`headers.Accept`, `body.mode`, `params[limit].value`); a field changed
  * by one side merges by itself, a field both sides changed differently is a conflict. Two sides
  * adding different headers next to each other — a line conflict in JSON mode — is no conflict here.
@@ -41,8 +41,8 @@ export interface Field {
 }
 
 /**
- * The user's say on pairings by place: `splits` turns guessed ones down («Это замена»), `joins`
- * forces a removed and an added element into one edited element («Это правка»).
+ * The user's say on pairings by place: `splits` turns guessed ones down (“It’s a replacement”), `joins`
+ * forces a removed and an added element into one edited element (“It’s an edit”).
  */
 export interface Pairing {
   splits: ReadonlySet<string>;
@@ -143,8 +143,8 @@ function builtAlike(a: Json, b: Json): boolean {
  * between matched neighbours on both sides pairs in place when built alike, so even an element
  * changed in every field stays the same element, while one replaced by something else does not.
  * Pairs made in place are guesses: `guesses` maps each base identity to the keys of its guessed
- * pairings; a key in `splits` (the user said «Это замена») is not paired, one in `joins` («Это
- * правка») is paired whatever the likeness. What finds no pair
+ * pairings; a key in `splits` (the user said “It’s a replacement”) is not paired, one in `joins` (“It’s an
+ * edit”) is paired whatever the likeness. What finds no pair
  * is new on its side (or gone from it).
  */
 function pairedIdentities(
@@ -198,7 +198,7 @@ function pairedIdentities(
       a = h.aEnd;
       b = h.bEnd;
     }
-    // Forced by «Это правка»: the base element takes that side element, whatever else it had.
+    // Forced by “It’s an edit”: the base element takes that side element, whatever else it had.
     for (let i = 0; i < base.length; i++)
       for (let k = 0; k < arr.length; k++) {
         const key = pairKey(arrayId, i, tag, k);
@@ -284,7 +284,7 @@ function children({ vals, id, label, guess }: Child, kind: 'obj' | 'arr', pairin
     : (arrs.map(identities) as [string[], string[], string[]]);
   const merged = order(...ids);
   const labelOf = (el: string) => `${label}${byPosition ? `[${merged.indexOf(el)}]` : elementLabel(el)}`;
-  // «Это правка» candidates: for a base element a side removed, the elements that side added.
+  // “It’s an edit” candidates: for a base element a side removed, the elements that side added.
   const joinsFor = (el: string) => {
     if (!byPosition || !el.startsWith('@b')) return undefined;
     const i = Number(el.slice(2));
@@ -337,7 +337,7 @@ export function initialChoices(fs: Field[]): FieldChoice[] {
   return fs.map((f) => (f.kind === 'same' || f.kind === 'both' ? 'mine' : null));
 }
 
-/** «Слить непересекающиеся»: every field only one side changed takes that side. */
+/** “Merge non-conflicting”: every field only one side changed takes that side. */
 export function autoChoices(fs: Field[], choices: FieldChoice[]): FieldChoice[] {
   return fs.map((f, i) => choices[i] ?? (f.kind === 'mine' ? 'mine' : f.kind === 'theirs' ? 'theirs' : null));
 }

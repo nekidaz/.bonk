@@ -11,7 +11,7 @@ import { sendHttpRequest } from './store';
 /**
  * Send (or, while it is in flight, cancel) an HTTP tab: production guard, busy state, and an error
  * «response» on failure. Shared by the URL bar's Send, ⌘↵ in the script editor and SC6's
- * «Отправить без скриптов» (`skipScripts`).
+ * “Send without scripts” (`skipScripts`).
  */
 export async function sendHttpTab(tab: Tab, opts: { skipScripts?: boolean } = {}): Promise<void> {
   if (tab.protocol !== 'http') return;

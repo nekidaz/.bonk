@@ -1,4 +1,4 @@
-// Request scripts (Flow · Скрипты, SC1–SC9): the editor, autocomplete, the response's Tests / Console
+// Request scripts (Flow · Scripts, SC1–SC9): the editor, autocomplete, the response's Tests / Console
 // and the pre-request failure state.
 export const en = {
   'script.post.name': 'Post-response',

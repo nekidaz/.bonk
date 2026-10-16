@@ -3,7 +3,7 @@
  * - `completionExtras`: completion sources added by an extension (e.g. `{{$dynamic}}` names).
  *   Editors with their own completion list (`override`) still ask these; plain editors get
  *   them from `languageData`, which the extension registers as well.
- * - the last focused editor, so a dialog can insert text where the cursor was (DV4 «Вставить»).
+ * - the last focused editor, so a dialog can insert text where the cursor was (DV4 “Insert”).
  */
 import { Facet } from '@codemirror/state';
 import { EditorView } from '@codemirror/view';

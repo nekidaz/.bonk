@@ -1,7 +1,7 @@
 <script lang="ts">
   /**
    * The one row left in expanded mode (E3 / E6, 56 px): method + address, section, size, editor tools,
-   * «Свернуть Esc» and Send. Send clicks the hidden editor's own Send button, so cancel / stream states stay its job.
+   * “Collapse Esc” and Send. Send clicks the hidden editor's own Send button, so cancel / stream states stay its job.
    */
   import { t } from '$shared/i18n';
   import { methodShort, requestRuntime, scriptStage, scriptUi, setScriptStage } from '$entities/request';
@@ -54,7 +54,7 @@
     }
   }
   const send = () => document.querySelector<HTMLButtonElement>('.bs-send')?.click();
-  // E2 rule 6: gRPC «Пример» is the editor's own button (hidden with the tabs row in this mode).
+  // E2 rule 6: gRPC “Example” is the editor's own button (hidden with the tabs row in this mode).
   const example = () => document.querySelector<HTMLButtonElement>('.bs-grpc-example')?.click();
 </script>
 

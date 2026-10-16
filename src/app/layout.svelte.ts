@@ -15,7 +15,7 @@ const SIDEBAR_COLLAPSE_AT = 180;
 // S35: below this window width the sidebar gives up width first (down to SIDEBAR_MIN),
 // then the main area adapts. Pure CSS, so it tracks window resizes for free.
 const SQUEEZE_BELOW = 1100;
-// Flow · Размеры окна: at the 720 px minimum (anything up to this) the request folds into its strip.
+// Flow · Window sizes: at the 720 px minimum (anything up to this) the request folds into its strip.
 const COMPACT_MAX = 760;
 const PANE_MIN = 120; // min height for both the request pane and the response
 const RESPONSE_COLLAPSE_AT = 72;
@@ -116,7 +116,7 @@ class Layout {
         else if (m === 'response') this.responseHidden = false;
       });
     });
-    // A fresh response (not a tab switch): auto-focus and «После отправки: раскрыть ответ» give it the height.
+    // A fresh response (not a tab switch): auto-focus and “After sending: Expand response” give it the height.
     let seenResponse: { tab?: string; res?: unknown } = {};
     $effect(() => {
       const active = tabs.active;
@@ -159,7 +159,7 @@ class Layout {
 
   /**
    * Auto-focus: the pane being worked in fills, the other folds into its strip.
-   * Flow · Скрипты SC7: a big script does this in every stacked layout.
+   * Flow · Scripts SC7: a big script does this in every stacked layout.
    */
   autoFocusIn = (e: FocusEvent): void => {
     const el = e.target instanceof Element ? e.target : null;

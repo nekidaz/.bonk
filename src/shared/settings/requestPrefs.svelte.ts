@@ -4,7 +4,7 @@ import type { ProxyMode } from '$shared/model';
 const isProxyMode = (v: unknown): v is ProxyMode => v === 'system' || v === 'none' || v === 'manual';
 const isString = (v: unknown): v is string => typeof v === 'string';
 
-/** Request / network / gRPC defaults (Settings → Запросы, Прокси, Сертификаты, gRPC). Self-persisting. */
+/** Request / network / gRPC defaults (Settings → Requests, Proxy, Certificates, gRPC). Self-persisting. */
 export const requestPrefs = {
   // Response viewers keep long lines on one line and scroll sideways; wrapping is opt-in.
   responseLineWrap: setting('response.lineWrap', 'responseLineWrap', false),

@@ -1,6 +1,6 @@
 <script lang="ts">
   // The small window by Send that asks for the «ask on send» values of the active tab's request
-  // (Flow · Сценарий с вводом OT3). The send is parked in bonk-core until it is answered or cancelled.
+  // (Flow · Scenario with input OT3). The send is parked in bonk-core until it is answered or cancelled.
   import { cancelRequest } from '$shared/ipc';
   import { answerInput, closePrompt, inputPrompts } from '$entities/input';
   import { InputForm } from '$entities/input/components';
