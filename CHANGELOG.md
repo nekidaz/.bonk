@@ -16,8 +16,8 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
     that it is the usual Cancel); Stop or Esc keeps everything received and then runs the tests.
   - Test scripts get `pm.response.events()` → `[{event, data, id}]` (`[]` for a non-stream response);
     `pm.response.text()` is the raw stream text.
-  - Collection Runner, `bonk run` and MCP tools: a stream ends at the request timeout (`timeout_ms`,
-    counted from the start of the request) and that is not an error: the response keeps what arrived,
+  - Collection Runner, `bonk run` and MCP tools: a stream ends at the request timeout (`--timeout` / `settings.timeoutMs`,
+    counted from the start of the request; 0 means until the server closes it or the size limit is hit) and that is not an error: the response keeps what arrived,
     tests run, and the body is the raw stream text. There is no structured event list in CLI/MCP output.
   - No auto-reconnect or `Last-Event-ID`. After an app restart the tab shows the stream as raw text.
   - A timeout of a non-stream request still covers the whole request; its error now reads

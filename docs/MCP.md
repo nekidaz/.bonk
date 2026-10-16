@@ -344,7 +344,8 @@ Important options:
 6. Call `send_http`/`run_saved_request`, inspect tests, then save corrections.
    Bodies come back cut to 32 KiB (`bodyTruncated: true`); raise
    `settings.maxResponseBodyBytes` when you need more.
-   A `text/event-stream` response is read until the request timeout (`timeout_ms`); that is not an
+   A `text/event-stream` response is read until the request timeout (`settings.timeoutMs`; `0` reads until the server
+   closes it or the size limit is hit); that is not an
    error, and the body is the raw stream text, with no structured event list.
 
 ## Client documentation
