@@ -4,7 +4,7 @@
    * or repeat one of the recent runs. Picking opens the run setup (R2).
    * Shared atoms (.rn-eyebrow, .rn-btn …) are styled by RunnerView.
    */
-  import { workspace } from '$entities/workspace';
+  import { findNode, workspace } from '$entities/workspace';
   import {
     setRunnerFolders,
     setRunnerStage,
@@ -50,10 +50,11 @@
       ? allFolders(workspace.tree).filter((f) => f.name.toLowerCase().includes(q))
       : workspace.tree.filter((n): n is FolderNode => n.kind === 'folder'),
   );
+  // History is app-wide; show only runs whose folders exist in this workspace.
   const recent = $derived(
     [...runner.history]
       .reverse()
-      .filter((h) => h.folderIds)
+      .filter((h) => h.folderIds?.every((id) => findNode(workspace.tree, id)))
       .slice(0, 3),
   );
   const lastFor = (id: string) => runner.history.findLast((h) => h.folderIds?.[0] === id);

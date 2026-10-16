@@ -70,7 +70,7 @@
         </button>
       {/each}
     </div>
-  {:else}
+  {:else if query.trim()}
     <p class="rn-muted qp-empty">{t('runner.pick.none')}</p>
   {/if}
 </div>
@@ -104,6 +104,7 @@
     min-width: 0;
     border: 0;
     outline: 0;
+    box-shadow: none;
     background: transparent;
     color: var(--color-text);
     font: 13px var(--font-ui);
