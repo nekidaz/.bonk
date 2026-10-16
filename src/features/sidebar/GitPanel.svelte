@@ -56,7 +56,7 @@
   // ---- Branch row (G3 popover lives in app overlays) ----
   function openBranches(e: MouseEvent): void {
     const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
-    git.branchMenu = { x: r.left, y: r.bottom + 6, up: false };
+    git.branchMenu = { x: r.left, y: r.bottom + 6, up: false, w: r.width };
   }
 
   // ---- Commit box (G4b) ----
