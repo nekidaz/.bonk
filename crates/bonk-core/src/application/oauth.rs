@@ -581,9 +581,9 @@ async fn redirect_listener(configured: &str) -> Result<(Option<TcpListener>, Str
 }
 
 const DONE_PAGE: &str = "<!doctype html><meta charset=utf-8><title>bonk</title>\
-<body style=\"font:15px system-ui;padding:48px\">Готово — вернитесь в bonk.<br>Done — you can return to bonk.";
+<body style=\"font:15px system-ui;padding:48px\">Done — you can return to bonk.";
 const FAILED_PAGE: &str = "<!doctype html><meta charset=utf-8><title>bonk</title>\
-<body style=\"font:15px system-ui;padding:48px\">Вход не удался — подробности в bonk.<br>Sign-in failed — see bonk for details.";
+<body style=\"font:15px system-ui;padding:48px\">Sign-in failed — see bonk for details.";
 
 impl Authorize {
     pub fn listens(&self) -> bool {

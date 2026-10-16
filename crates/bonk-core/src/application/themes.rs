@@ -64,7 +64,7 @@ pub fn list(dir: &Path) -> Result<Vec<ThemeFile>, String> {
 /// Write `<slug>.json` (replacing a theme with the same slug) and return its path.
 pub fn save(dir: &Path, slug: &str, text: &str) -> Result<String, String> {
     if !valid_slug(slug) {
-        return Err(format!("Недопустимое имя темы: {slug}"));
+        return Err(format!("Invalid theme name: {slug}"));
     }
     std::fs::create_dir_all(dir).map_err(|e| format!("{}: {e}", dir.display()))?;
     let path = dir.join(format!("{slug}.json"));
@@ -75,7 +75,7 @@ pub fn save(dir: &Path, slug: &str, text: &str) -> Result<String, String> {
 /// Delete `<slug>.json`. A theme already gone is not an error.
 pub fn remove(dir: &Path, slug: &str) -> Result<(), String> {
     if !valid_slug(slug) {
-        return Err(format!("Недопустимое имя темы: {slug}"));
+        return Err(format!("Invalid theme name: {slug}"));
     }
     let path = dir.join(format!("{slug}.json"));
     match std::fs::remove_file(&path) {
