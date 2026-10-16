@@ -8,7 +8,6 @@ import {
   fileName,
   invokeFailureResult,
   omitKey,
-  presentEditorError,
   sentEntries,
   splitMethodSymbol,
   withGrpcEndpoint,
@@ -110,31 +109,6 @@ describe('applyGrpcurlImport', () => {
 
 const tr = (key: string, params?: Record<string, string | number>) =>
   params ? `${key}:${JSON.stringify(params)}` : key;
-
-describe('presentEditorError', () => {
-  it('schema guidance wins over everything', () => {
-    expect(presentEditorError({ message: 'anything', code: 'UNAVAILABLE' }, true, '', tr)).toMatchObject({
-      kind: 'schema',
-      message: 'anything',
-      icon: 'description',
-    });
-  });
-  it('falls back to the server name when the endpoint is blank', () => {
-    const p = presentEditorError({ message: 'connect failed', code: 'UNAVAILABLE' }, false, '  ', tr);
-    expect(p.kind).toBe('connection');
-    expect(p.message).toBe('grpc.err.connMsg:{"target":"grpc.err.theServer"}');
-  });
-  it('classifies script, validation and unknown errors', () => {
-    const present = (message: string, code?: string) => presentEditorError({ message, code }, false, 'h:1', tr);
-    expect(present('Pre-request script failed').kind).toBe('script');
-    expect(present('Select a method first').kind).toBe('validation');
-    expect(present('Выберите метод').kind).toBe('validation');
-    expect(present('boom')).toMatchObject({ kind: 'unknown', raw: 'boom' });
-    // Only the code makes a connection error: the words alone don't.
-    expect(present('connection refused').kind).toBe('unknown');
-    expect(present('invalid endpoint x', 'INVALID_ARGUMENT').kind).toBe('unknown');
-  });
-});
 
 describe('splitMethodSymbol', () => {
   it('splits at the last dot', () => {

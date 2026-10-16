@@ -3,8 +3,8 @@ import type { GrpcService } from '$shared/model';
 
 export type GrpcEditorSection = 'message' | 'metadata' | 'auth' | 'proto' | 'scripts';
 
-/** One-shot command from the response pane to the request's editor (S25 «Повторить» / TLS). */
-export type GrpcEditorAction = { tabId: string; kind: 'reconnect' | 'tls' };
+/** One-shot command from the response pane to the request's editor (S25 «Повторить» / TLS, «Импорт .proto»). */
+export type GrpcEditorAction = { tabId: string; kind: 'reconnect' | 'tls' | 'importProto' };
 
 /** gRPC editor UI state shared with the response pane, so it can drive the sibling editor. */
 class GrpcEditorUi {

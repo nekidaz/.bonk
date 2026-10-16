@@ -23,12 +23,13 @@
     type TabTestResults,
   } from '$shared/model';
   import { inputPrompts, inputs } from '$entities/input';
-  import { presentGrpcError, grpcErrorNote } from './grpcError';
+  import { presentEditorError, presentGrpcError, grpcErrorNote, type EditorErrorPresentation } from './grpcError';
   import {
     methodShort,
     grpcCodeTone,
     dialFailureReason,
     isGrpcConnectionCode,
+    isGrpcNoServicesHint,
     openGrpcEditorSection,
     requestGrpcEditorAction,
     requestRuntime,
@@ -174,6 +175,12 @@
       : undefined,
   );
   const connectFailed = $derived(isGrpcConnectionCode(connectError?.code));
+  /** A request-side problem (no schema, bad input, invalid endpoint) stands in for the response until the next call. */
+  const editorError = $derived.by(() => {
+    const e = tab?.protocol === 'grpc' ? requestRuntime.grpcErrors[tab.id] : undefined;
+    if (!e || isGrpcConnectionCode(e.code) || preFailed) return undefined;
+    return presentEditorError(e, isGrpcNoServicesHint(e.message));
+  });
   const reconnecting = $derived(busy?.kind === 'connect');
   const responseHeaderEntries = $derived(tab?.response ? Object.entries(tab.response.headers) : []);
   // Set-Cookie values (several may arrive comma-joined); split before each `name=`.
@@ -384,6 +391,25 @@
   </div>
 {/snippet}
 
+{#snippet editorErrorView(e: EditorErrorPresentation)}
+  <div class="bs-net-error" class:guidance={e.kind === 'schema'} role="alert">
+    <span class="mark" aria-hidden="true"><span class="material-symbols-outlined">{e.icon}</span></span>
+    <strong>{e.title}</strong>
+    <p>{e.message}</p>
+    {#if e.raw !== e.message}<code title={e.raw}>{e.raw}</code>{/if}
+    <div class="actions">
+      {#if e.kind === 'schema' && tab}<button
+          class="retry"
+          type="button"
+          onclick={() => requestGrpcEditorAction(tab.id, 'importProto')}>{t('grpc.picker.importProto')}</button
+        >{/if}
+      {#if tab}<button class="quiet" type="button" onclick={() => requestRuntime.clearGrpcError(tab.id)}
+          >{t('common.close')}</button
+        >{/if}
+    </div>
+  </div>
+{/snippet}
+
 {#snippet scriptTestsView(results: TabTestResults)}
   {@const envName = environments.active?.name}
   <RespBody class="bs-tests">
@@ -452,7 +478,7 @@
 {/snippet}
 
 {#if tab?.protocol === 'grpc'}
-  {#if tab.grpcResult || sending || tab.grpcStream}
+  {#if (tab.grpcResult || sending || tab.grpcStream) && !editorError}
     <div class="bs-resph">
       <div class="bs-rsub" role="tablist" aria-label={t('response.aria')} use:tablist>
         {@render rtab(
@@ -579,7 +605,9 @@
         </CodeBlock>
       </RespBody>
     {/snippet}
-    {#if respTab === 'headers' && Object.keys(grpcHeaders).length}
+    {#if editorError}
+      {@render editorErrorView(editorError)}
+    {:else if respTab === 'headers' && Object.keys(grpcHeaders).length}
       {@render mdList(grpcHeaders)}
     {:else if respTab === 'trailers' && Object.keys(grpcTrailers).length}
       {@render mdList(grpcTrailers)}
@@ -1113,6 +1141,12 @@
     display: flex;
     gap: 8px;
     padding-top: 6px;
+  }
+
+  /* No schema yet: guidance, not a failure. */
+  .bs-net-error.guidance :global(.mark) {
+    background: var(--color-raised);
+    color: var(--color-text-secondary);
   }
 
   .bs-net-error :global(.retry) {

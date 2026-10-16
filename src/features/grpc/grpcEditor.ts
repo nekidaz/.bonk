@@ -1,52 +1,9 @@
 /** Pure helpers behind GrpcEditor.svelte: no stores, no components. */
 import type { Completion } from '@codemirror/autocomplete';
 import type { Translate } from '$shared/i18n';
-import { isGrpcConnectionCode, grpcFieldStub, type GrpcTabError, type GrpcurlImport } from '$entities/request';
+import { isGrpcConnectionCode, grpcFieldStub, type GrpcurlImport } from '$entities/request';
 import { grpcErrorCode } from '$shared/ipc';
 import { type GrpcField, type GrpcResult, type GrpcStreamMessage, type Tab } from '$shared/model';
-
-export type EditorErrorKind = 'connection' | 'schema' | 'validation' | 'script' | 'unknown';
-export interface EditorErrorPresentation {
-  kind: EditorErrorKind;
-  title: string;
-  message: string;
-  raw: string;
-  icon: string;
-}
-
-/** Classify an editor-side error (not a gRPC status) into the banner shown above the request tabs. */
-export function presentEditorError(
-  { message: error, code }: GrpcTabError,
-  guiding: boolean,
-  endpoint: string,
-  tr: Translate,
-): EditorErrorPresentation {
-  if (guiding)
-    return { kind: 'schema', title: tr('grpc.err.schemaTitle'), message: error, raw: error, icon: 'description' };
-  if (isGrpcConnectionCode(code)) {
-    const target = endpoint.trim() || tr('grpc.err.theServer');
-    return {
-      kind: 'connection',
-      title: tr('grpc.err.connTitle'),
-      message: tr('grpc.err.connMsg', { target }),
-      raw: error,
-      icon: 'cloud_off',
-    };
-  }
-  if (/pre-request script/i.test(error)) {
-    return {
-      kind: 'script',
-      title: tr('grpc.err.scriptTitle'),
-      message: tr('grpc.err.scriptMsg'),
-      raw: error,
-      icon: 'javascript',
-    };
-  }
-  if (/json|select a method|enter an endpoint|выберите метод|укажите адрес/i.test(error)) {
-    return { kind: 'validation', title: tr('grpc.err.validationTitle'), message: error, raw: error, icon: 'edit_note' };
-  }
-  return { kind: 'unknown', title: tr('grpc.err.unknownTitle'), message: error, raw: error, icon: 'error' };
-}
 
 /**
  * A connection error is drawn by the response pane, but only when the tab has no response yet.

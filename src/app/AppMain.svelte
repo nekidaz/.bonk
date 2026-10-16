@@ -391,9 +391,7 @@
     display: none;
   }
 
-  :global(.bs[data-focus])
-    .bs-main
-    > :global(:is(.bs-reqhead, .bs-urlbar, .lb-tabrow, .bs-rtabs, .bs-history-banner, .bs-grpc-connect-alert)) {
+  :global(.bs[data-focus]) .bs-main > :global(:is(.bs-reqhead, .bs-urlbar, .lb-tabrow, .bs-rtabs, .bs-history-banner)) {
     display: none;
   }
 

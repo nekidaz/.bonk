@@ -1,4 +1,5 @@
 import { t, type Translate } from '$shared/i18n';
+import type { GrpcTabError } from '$entities/request';
 
 export interface GrpcErrorPresentation {
   code: string;
@@ -88,4 +89,36 @@ const NOTE_CODES = new Set([
 
 export function grpcErrorNote(code: string, numeric: number, tr: Translate = t): string {
   return NOTE_CODES.has(code) ? tr('grpc.note.line', { n: numeric, note: tr(`grpc.note.${code}`) }) : '';
+}
+
+export interface EditorErrorPresentation {
+  kind: 'schema' | 'validation' | 'script' | 'unknown';
+  title: string;
+  message: string;
+  raw: string;
+  icon: string;
+}
+
+/**
+ * A request-side problem (not a gRPC status) for the response pane. Connection errors are not
+ * passed here: they get the «Сервер недоступен» state.
+ */
+export function presentEditorError(
+  { message: error }: GrpcTabError,
+  guiding: boolean,
+  tr: Translate = t,
+): EditorErrorPresentation {
+  if (guiding)
+    return { kind: 'schema', title: tr('grpc.err.schemaTitle'), message: error, raw: error, icon: 'description' };
+  if (/pre-request script/i.test(error))
+    return {
+      kind: 'script',
+      title: tr('grpc.err.scriptTitle'),
+      message: tr('grpc.err.scriptMsg'),
+      raw: error,
+      icon: 'javascript',
+    };
+  if (/json|select a method|enter an endpoint|выберите метод|укажите адрес/i.test(error))
+    return { kind: 'validation', title: tr('grpc.err.validationTitle'), message: error, raw: error, icon: 'edit_note' };
+  return { kind: 'unknown', title: tr('grpc.err.unknownTitle'), message: error, raw: error, icon: 'error' };
 }

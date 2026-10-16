@@ -25,7 +25,6 @@
     sendGrpcRequest,
     captureExecutionContext,
     addAppConsoleEntry,
-    isGrpcNoServicesHint,
     grpcConnectFailureMessage,
     inferGrpcPlaintext,
     methodShort,
@@ -56,7 +55,6 @@
   } from '$shared/ipc';
   import { currentVarScope, environments, requestVariableHighlight } from '$entities/environment';
   import { CodeEditor } from '$shared/editor/components';
-  import GrpcErrorAlert from './GrpcErrorAlert.svelte';
   import GrpcTlsPopover from './GrpcTlsPopover.svelte';
   import GrpcMethodPicker from './GrpcMethodPicker.svelte';
   import GrpcMessagePanel from './GrpcMessagePanel.svelte';
@@ -88,7 +86,6 @@
     type GrpcResult,
   } from '$shared/model';
   import {
-    presentEditorError,
     sentEntries,
     omitKey,
     invokeFailureResult,
@@ -142,15 +139,6 @@
   const grpcInvoking = $derived(activeBusy?.kind === 'invoke');
   // Client/bidi: the stream is open and still takes messages from the editor.
   const streamWritable = $derived(grpcInvoking && !!activeBusy?.writable);
-  // Per-tab gRPC error text, so a stale error never shows on the wrong tab.
-  const activeGrpcError = $derived(requestRuntime.grpcErrors[tab.id]);
-  // Postman-style: when the dial succeeded but the services can't be listed via
-  // reflection, show neutral guidance to load a schema instead of a red error
-  // (see grpcConnectFailureMessage in entities/request/grpc.ts).
-  const grpcGuiding = $derived(isGrpcNoServicesHint(activeGrpcError?.message ?? ''));
-  const editorError = $derived(
-    activeGrpcError ? presentEditorError(activeGrpcError, grpcGuiding, tab.grpc?.endpoint ?? '', t) : undefined,
-  );
   const grpcPlaintext = $derived(
     tab.grpc?.plaintext ?? inferGrpcPlaintext(resolveVars(tab.grpc?.endpoint ?? '', currentVarScope())),
   );
@@ -194,6 +182,7 @@
     grpcEditorUi.action = null;
     untrack(() => {
       if (action.kind === 'reconnect') void grpcDoConnect();
+      else if (action.kind === 'importProto') importProto();
       else tlsOpen = true;
     });
   });
@@ -260,14 +249,6 @@
             backoffMs: backoff.slice(0, attempts - 1),
           },
         }));
-      } else if (fromInvoke && code) {
-        // Any other dial failure (bad URI, unresolved {{var}}) is also this Invoke's response.
-        // Status ERROR, not the dial's own code: «INVALID_ARGUMENT» would read as the server rejecting the message.
-        tabs.updateById(tabId, (x) => ({
-          ...x,
-          grpcStream: undefined,
-          grpcResult: { ok: false, status: 'ERROR', body: message, elapsed_ms: Date.now() - startedAt, size_bytes: 0 },
-        }));
       } else {
         requestRuntime.setGrpcError(tabId, message, code);
         tabs.updateById(tabId, (x) => withoutStaleResponse(x, code));
@@ -306,10 +287,6 @@
       e.preventDefault();
       void grpcEndStream();
     }
-  }
-  function dismissGrpcError(): void {
-    const tabId = tab.id;
-    requestRuntime.clearGrpcError(tabId);
   }
   /** Connect + reflect automatically if not already connected. */
   async function ensureConnected(): Promise<void> {
@@ -405,7 +382,7 @@
     const g = tabs.list.find((t) => t.id === tabId)?.grpc;
     // Never no-op silently: any earlier response stays visible in the response
     // pane, so a mute return here makes a dead Invoke look like a fresh success.
-    // A failed connect/reflect already left its banner or response via grpcDoConnect; the
+    // A failed connect/reflect already left its error via grpcDoConnect; the
     // two cases IT can't explain (blank endpoint, no method) get their own.
     if (!g?.connectionId) {
       if (!g?.endpoint.trim()) requestRuntime.setGrpcError(tabId, t('grpc.endpointFirst'));
@@ -675,15 +652,6 @@
   {/if}
 </UrlBar>
 
-<!-- Connection failures render in the response pane as S25 «Сервер недоступен»; this strip is for the rest. -->
-{#if editorError && editorError.kind !== 'connection'}
-  <GrpcErrorAlert
-    error={editorError}
-    endpoint={tab.grpc?.endpoint ?? ''}
-    onImportProto={importProto}
-    onDismiss={dismissGrpcError}
-  />
-{/if}
 <GrpcRequestTabs {tab} section={gTab} {metadataCount} {messageStats} {selectedMethod} onLoadExample={grpcLoadExample} />
 <ReqPane role="tabpanel" id="bs-grpcpanel" aria-labelledby="bs-gtab-{gTab}">
   {#if gTab === 'message'}
