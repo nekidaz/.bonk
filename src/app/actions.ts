@@ -125,7 +125,7 @@ export function treeKeydown(e: KeyboardEvent, id: string, isFolder: boolean): vo
       ? nodeRename
       : mod && e.key.toLowerCase() === 'd'
         ? nodeDuplicate
-        : (e.key === 'Backspace' || e.key === 'Delete') && !isFolder
+        : e.key === 'Backspace' || e.key === 'Delete'
           ? nodeDelete
           : mod && e.altKey && e.code === 'KeyC' && !isFolder
             ? nodeCopyCurl
