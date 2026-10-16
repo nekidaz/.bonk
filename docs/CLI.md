@@ -41,6 +41,9 @@ bonk run checkout --data users.csv
 Exit code: `0` every request passed, `1` something failed (status, test or script),
 `2` the run couldn't start (bad path, unknown environment, invalid data file).
 
+A `text/event-stream` response is read until the request timeout (`timeout_ms`, from the start of the
+request). That is not an error: the response keeps what arrived, tests run, and the body is the raw stream text.
+
 Variables, later wins: the app's globals → scenario globals → scenario environment
 → the `--env` environment → `BONK_VAR_<NAME>` → `--var NAME=VALUE` → the data row. The app's globals and environments come from its
 state.json (`--app-state` to point elsewhere); secret values from the OS keychain.
