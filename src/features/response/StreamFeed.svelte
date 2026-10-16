@@ -236,7 +236,7 @@
         </div>
       {:else if sse}
         {@const n = stream.messages.length}
-        <div class="waiting" class:ended={!!sse.end}>
+        <div class="waiting" class:ended={!!sse.end} class:failed={sse.end?.reason === 'error'}>
           <span class="dot" aria-hidden="true"
           ></span>{`${fmt(n)} ${msgs(n)} · ${t(sse.end ? sseEndKey(sse.end) : 'response.stream.sse_live')}${sse.end?.error ? ` · ${sse.end.error}` : ''}`}
         </div>
@@ -634,6 +634,16 @@
 
   :global(.bs) .bs-stream-feed :global(.waiting.ended .dot) {
     background: var(--color-text-muted);
+  }
+
+  /* SSE ended on an error: same danger tone as the gRPC error row. */
+  :global(.bs) .bs-stream-feed :global(.waiting.ended.failed) {
+    background: var(--color-danger-soft);
+    color: var(--color-danger);
+  }
+
+  :global(.bs) .bs-stream-feed :global(.waiting.ended.failed .dot) {
+    background: var(--color-danger);
   }
 
   /* ST3: the picked message in full. */
