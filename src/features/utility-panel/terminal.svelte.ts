@@ -1,6 +1,6 @@
 // Flow · Терминал (CT4–CT6): the user's own login shell in a PTY, drawn by xterm.js (the
-// terminal emulator VS Code uses). One session for the app: it lives here, outside the
-// component, so the shell and its scrollback survive closing the panel (⌘J) and switching tabs.
+// terminal emulator VS Code uses). Sessions live here, outside the component, so the shells
+// and their scrollback survive closing the panel (⌘J) and switching tabs.
 import { Terminal as XTerm } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import { untrack } from 'svelte';
@@ -25,18 +25,22 @@ function themeFrom(el: HTMLElement) {
   };
 }
 
-class Terminal {
-  /** A shell is running (false before the first open and after it exits). */
+/** One shell: its xterm screen and its PTY. The screen element moves between hosts. */
+export class TerminalSession {
+  readonly key = crypto.randomUUID();
+  /** `zsh`, `bash`, `cmd`: known once the shell starts. */
+  shell = $state('');
+  /** The shell is running (false after `exit`; Enter starts it again). */
   alive = $state(false);
+  readonly fit = new FitAddon();
   #term: XTerm | null = null;
-  #fit = new FitAddon();
-  #id = '';
+  #pty = '';
   /** Text waiting for the shell's first output before it's pasted (a console hand-off). */
   #pending: string | null = null;
   #ready = false;
 
-  /** Shows the terminal in `host`, creating it and the shell on first use; returns the detach. */
-  attach(host: HTMLElement): () => void {
+  /** Puts the screen into `host`; the first time also starts the shell. */
+  mount(host: HTMLElement): void {
     let term = this.#term;
     if (!term) {
       term = new XTerm({
@@ -47,29 +51,39 @@ class Terminal {
         macOptionIsMeta: true,
         scrollback: 5000,
       });
-      term.loadAddon(this.#fit);
+      term.loadAddon(this.fit);
       term.onData((data) => this.#input(data));
       term.onResize(({ cols, rows }) => {
-        if (this.#id) void ptyResize(this.#id, cols, rows).catch(() => {});
+        if (this.#pty) void ptyResize(this.#pty, cols, rows).catch(() => {});
       });
       term.open(host);
       this.#term = term;
+      this.#start();
     } else if (term.element) {
       host.appendChild(term.element);
     }
     term.options.theme = themeFrom(host);
-    const resize = new ResizeObserver(() => {
-      if (host.clientWidth && host.clientHeight) this.#fit.fit();
-    });
-    resize.observe(host);
-    this.#fit.fit();
-    if (!untrack(() => this.alive)) this.#start();
+    this.refit(host);
     term.focus();
-    return () => resize.disconnect();
+  }
+
+  unmount(): void {
+    this.#term?.element?.remove();
+  }
+
+  refit(host: HTMLElement): void {
+    if (host.clientWidth && host.clientHeight) this.fit.fit();
   }
 
   clear(): void {
     this.#term?.clear();
+  }
+
+  /** Kills the shell and frees the screen. */
+  dispose(): void {
+    this.#stop(this.#pty);
+    this.#term?.dispose();
+    this.#term = null;
   }
 
   /**
@@ -94,27 +108,25 @@ class Terminal {
 
   #paste(text: string): void {
     // ⌃U drops whatever was half-typed; paste() uses bracketed paste, so newlines don't run it.
-    if (this.#id) void ptyWrite(this.#id, '\x15');
+    if (this.#pty) void ptyWrite(this.#pty, '\x15');
     this.#term?.paste(text);
     this.#term?.focus();
   }
 
   #input(data: string): void {
-    if (this.#id) {
-      void ptyWrite(this.#id, data).catch(() => {});
-    } else if (data === '\r') {
-      this.#start();
-    }
+    if (this.#pty) void ptyWrite(this.#pty, data).catch(() => {});
+    else if (data === '\r') this.#start();
   }
 
   #start(): void {
     const term = this.#term;
     if (!term) return;
     const id = crypto.randomUUID();
-    this.#id = id;
+    this.#pty = id;
     this.#ready = false;
     this.alive = true;
     ptyOpen(id, workspace.path || null, term.cols, term.rows, (event) => {
+      if (this.#pty !== id) return;
       if (event.type === 'data') {
         term.write(event.text);
         if (!this.#ready) {
@@ -127,19 +139,56 @@ class Terminal {
       }
       this.#stop(id);
       term.write(`\r\n\x1b[2m${t('util.terminal.exited')}\x1b[0m\r\n`);
-    }).catch((error) => {
-      this.#stop(id);
-      const text = String(error);
-      term.write(`${text.includes('__TAURI_INTERNALS__') ? t('util.terminal.desktop_only') : text}\r\n`);
-    });
+    })
+      .then((shell) => (this.shell = shell))
+      .catch((error) => {
+        this.#stop(id);
+        const text = String(error);
+        term.write(`${text.includes('__TAURI_INTERNALS__') ? t('util.terminal.desktop_only') : text}\r\n`);
+      });
   }
 
   #stop(id: string): void {
-    if (this.#id !== id) return;
-    this.#id = '';
+    if (!id || this.#pty !== id) return;
+    this.#pty = '';
     this.alive = false;
     void ptyClose(id).catch(() => {});
   }
 }
 
-export const terminal = new Terminal();
+/** The Terminal tab's sessions («+» adds one, the bin kills the active one). */
+class Terminals {
+  sessions = $state.raw<TerminalSession[]>([]);
+  activeKey = $state('');
+  active = $derived(this.sessions.find((s) => s.key === this.activeKey));
+  /** Any shell running (the dot on the tab). */
+  alive = $derived(this.sessions.some((s) => s.alive));
+
+  add(): TerminalSession {
+    const session = new TerminalSession();
+    this.sessions = [...untrack(() => this.sessions), session];
+    this.activeKey = session.key;
+    return session;
+  }
+
+  /** Kills the active shell; its neighbour becomes active. */
+  kill(): void {
+    const list = untrack(() => this.sessions);
+    const at = list.findIndex((s) => s.key === untrack(() => this.activeKey));
+    if (at < 0) return;
+    list[at].dispose();
+    const next = list.filter((_, i) => i !== at);
+    this.sessions = next;
+    this.activeKey = next[Math.min(at, next.length - 1)]?.key ?? '';
+  }
+
+  clear(): void {
+    untrack(() => this.active)?.clear();
+  }
+
+  handOff(command: string, env: Record<string, string>): Promise<void> {
+    return (untrack(() => this.active) ?? this.add()).handOff(command, env);
+  }
+}
+
+export const terminal = new Terminals();
