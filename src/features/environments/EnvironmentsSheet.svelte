@@ -1164,14 +1164,19 @@
     color: var(--color-text-muted);
     font: var(--font-size-caption) var(--font-ui);
   }
+  /* Fills the rest of the pane (shrinks to its rows when there are few); the rows scroll inside. */
   .table {
-    flex: none;
+    flex: 0 1 auto;
+    min-height: 146px;
+    display: flex;
+    flex-direction: column;
     border-radius: var(--radius-card);
     background: var(--color-field);
     overflow: hidden;
   }
   .rows {
-    max-height: 228px;
+    flex: 1;
+    min-height: 0;
     overflow: auto;
   }
   .tr {
