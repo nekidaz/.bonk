@@ -8,17 +8,26 @@ export type FeedMessage = GrpcStreamMessage & { label?: string };
 
 const utf8 = new TextEncoder();
 
+/** Row per event object: the live feed re-maps the whole array on every event, keep old rows (and their keyed
+ *  {#each} templates) untouched so only the new event costs anything. */
+const sseRows = new WeakMap<SseEvent, FeedMessage>();
+
 /** SSE events as feed rows: body = data; label = event name (if not 'message') and `#id`. */
 export function sseMessages(events: SseEvent[]): FeedMessage[] {
   return events.map((e) => {
-    const label = [e.event !== 'message' ? e.event : '', e.id ? `#${e.id}` : ''].filter(Boolean).join(' ');
-    return {
-      index: e.index,
-      atMs: e.at_ms,
-      body: e.data,
-      sizeBytes: utf8.encode(e.data).length,
-      label: label || undefined,
-    };
+    let row = sseRows.get(e);
+    if (!row) {
+      const label = [e.event !== 'message' ? e.event : '', e.id ? `#${e.id}` : ''].filter(Boolean).join(' ');
+      row = {
+        index: e.index,
+        atMs: e.at_ms,
+        body: e.data,
+        sizeBytes: utf8.encode(e.data).length,
+        label: label || undefined,
+      };
+      sseRows.set(e, row);
+    }
+    return row;
   });
 }
 

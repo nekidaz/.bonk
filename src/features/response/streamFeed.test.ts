@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { GrpcStreamMessage } from '$shared/model';
+import type { GrpcStreamMessage, SseEvent } from '$shared/model';
 import {
   intervalMs,
   matchesFilter,
@@ -80,6 +80,15 @@ describe('sse', () => {
     expect(rows[1].label).toBe('delta #7');
     expect(rows[2].label).toBeFalsy(); // an empty id is no id
     expect(rows[2].sizeBytes).toBe(2); // UTF-8 bytes
+  });
+  it('sseMessages reuses the row of an event it has already seen', () => {
+    const a: SseEvent = { index: 0, at_ms: 1, event: 'message', data: 'a' };
+    const b: SseEvent = { index: 1, at_ms: 2, event: 'message', data: 'b' };
+    const first = sseMessages([a]);
+    expect(sseMessages([a])[0]).toBe(first[0]);
+    const next = sseMessages([a, b]);
+    expect(next[0]).toBe(first[0]);
+    expect(next[1].body).toBe('b');
   });
   it('sseEndKey maps reasons', () => {
     expect(sseEndKey({ reason: 'closed', started_at_ms: 0 })).toBe('response.stream.sse_closed');
