@@ -181,6 +181,13 @@
     height: 42px;
   }
 
+  /* The macOS traffic lights sit at a fixed centre 27px from the top (tauri.conf.json trafficLightPosition
+     y=29 + 14px buttons, and Tauri 2.11 can't move them at runtime), so the header keeps 54px there
+     to stay centred with them; compact only shrinks the controls. */
+  :global(:root[data-density='compact'][data-native-macos='true']) .bs-tb {
+    height: 54px;
+  }
+
   :global(:root[data-density='compact']) .bs-toolbar-search {
     height: 28px;
   }
