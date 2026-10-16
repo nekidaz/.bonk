@@ -48,6 +48,8 @@ export {
   themeFollowSystem,
   UI_FONT_SIZES,
   uiFontSize,
+  uiZoom,
+  zoomBy,
 } from './prefs';
 export { fileName, type HostCert, proxyUrlError } from './proxy';
 export {

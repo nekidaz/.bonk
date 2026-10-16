@@ -1,4 +1,6 @@
 import { onDestroy, onMount, untrack } from 'svelte';
+import { isTauri } from '@tauri-apps/api/core';
+import { getCurrentWebview } from '@tauri-apps/api/webview';
 import { watchCookieJar } from '$entities/cookies';
 import { git, watchGitAutoFetch, watchGitWorkspace } from '$entities/git';
 import { watchHistoryRetention } from '$entities/history';
@@ -15,6 +17,7 @@ import {
   systemLightTheme,
   themeFollowSystem,
   uiFontSize,
+  uiZoom,
   watchAppearance,
 } from '$shared/settings';
 import { openSettingsFileTab } from '$features/settings';
@@ -105,6 +108,12 @@ export function startApp(): void {
     );
     root.style.setProperty('--code-font-size', `${codeFontSize.current}px`);
     root.dataset.density = density.current;
+  });
+
+  // ⌘= / ⌘− / ⌘0 (app/hotkeys.ts): zoom the whole webview, like a browser.
+  $effect(() => {
+    const z = uiZoom.current;
+    if (isTauri()) void getCurrentWebview().setZoom(z);
   });
 
   // «Как в системе»: track the OS appearance while the setting is on.

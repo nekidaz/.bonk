@@ -3,7 +3,7 @@
 import { tabs } from '$entities/tab';
 import { addFolder, openWorkspaceFolder, switchWorkspace, workspace } from '$entities/workspace';
 import { closeAllTabs, newTab, reopenClosedTab, requestCloseTab } from '$features/tabs';
-import { commandFor, eventToBinding, hotkeys } from '$shared/settings';
+import { commandFor, eventToBinding, hotkeys, zoomBy } from '$shared/settings';
 import { expandTarget, focusMode, nextTabIndex, recentWorkspaceChoices } from '$shared/ui';
 import {
   newFolderHere,
@@ -129,6 +129,15 @@ export function globalKeydown(e: KeyboardEvent): void {
       break;
     case 'settings':
       shell.settingsOpen = true;
+      break;
+    case 'zoomIn':
+      zoomBy(0.1);
+      break;
+    case 'zoomOut':
+      zoomBy(-0.1);
+      break;
+    case 'zoomReset':
+      zoomBy(0);
       break;
     case 'closeTab':
       void requestCloseTab(tabs.activeId);

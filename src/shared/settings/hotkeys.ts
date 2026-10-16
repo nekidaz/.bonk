@@ -38,6 +38,9 @@ export const HOTKEY_COMMANDS: HotkeyCommand[] = [
   { id: 'workspaceMenu', label: 'hotkeys.cmd.workspaceMenu', group: 'hotkeys.group.nav', def: 'Mod+Shift+O' },
   { id: 'openFolder', label: 'hotkeys.cmd.openFolder', group: 'hotkeys.group.nav', def: 'Mod+O' },
   { id: 'settings', label: 'hotkeys.cmd.settings', group: 'hotkeys.group.nav', def: 'Mod+Comma' },
+  { id: 'zoomIn', label: 'hotkeys.cmd.zoomIn', group: 'hotkeys.group.nav', def: 'Mod+Equal' },
+  { id: 'zoomOut', label: 'hotkeys.cmd.zoomOut', group: 'hotkeys.group.nav', def: 'Mod+Minus' },
+  { id: 'zoomReset', label: 'hotkeys.cmd.zoomReset', group: 'hotkeys.group.nav', def: 'Mod+0' },
   { id: 'closeTab', label: 'hotkeys.cmd.closeTab', group: 'hotkeys.group.tabs', def: 'Mod+W' },
   { id: 'closeAllTabs', label: 'hotkeys.cmd.closeAllTabs', group: 'hotkeys.group.tabs', def: 'Mod+Alt+W' },
   { id: 'newTab', label: 'hotkeys.cmd.newTab', group: 'hotkeys.group.tabs', def: 'Mod+T' },
@@ -84,6 +87,8 @@ const KEY_LABEL: Record<string, string> = {
   Space: '␣',
   Comma: ',',
   Backquote: '`',
+  Equal: '=',
+  Minus: '−',
 };
 
 /** Key caps, e.g. 'Mod+Shift+T' → ['⇧','⌘','T'] on mac, ['Ctrl','Shift','T'] elsewhere. */

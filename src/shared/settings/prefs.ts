@@ -21,6 +21,20 @@ export const UI_FONT_SIZES = [12, 13, 14] as const;
 export const uiFontSize = setting<number>('ui.fontSize', 'uiFontSize', 13, (v): v is number =>
   UI_FONT_SIZES.includes(v as 12),
 );
+/** Whole-window zoom (⌘= / ⌘− / ⌘0), applied to the webview in app/lifecycle.svelte.ts. */
+export const ZOOM_MIN = 0.5;
+export const ZOOM_MAX = 2;
+export const uiZoom = setting<number>(
+  'ui.zoom',
+  'uiZoom',
+  1,
+  (v): v is number => typeof v === 'number' && v >= ZOOM_MIN && v <= ZOOM_MAX,
+);
+/** Step the zoom by `d` (0 = reset), clamped and rounded so 0.1 steps don't drift. */
+export function zoomBy(d: number): void {
+  const z = d ? uiZoom.current + d : 1;
+  uiZoom.current = Math.round(Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, z)) * 10) / 10;
+}
 export const CODE_FONTS = ['JetBrains Mono', 'SF Mono', 'Menlo', 'Fira Code'] as const;
 export const codeFont = setting<string>('editor.fontFamily', 'codeFont', 'JetBrains Mono');
 export const codeFontSize = setting<number>('editor.fontSize', 'codeFontSize', 12);
