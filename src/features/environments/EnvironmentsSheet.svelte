@@ -1167,7 +1167,7 @@
   /* Fills the rest of the pane (shrinks to its rows when there are few); the rows scroll inside. */
   .table {
     flex: 0 1 auto;
-    min-height: 146px;
+    min-height: 70px; /* header + one row: never more than the content, so no empty band */
     display: flex;
     flex-direction: column;
     border-radius: var(--radius-card);
