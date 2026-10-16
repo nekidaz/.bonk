@@ -13,30 +13,25 @@
   import { fieldCompletionOptions } from './grpcEditor';
   import type { Tab, GrpcMethod } from '$shared/model';
   import { CodeEditor } from '$shared/editor/components';
-  import { BodyPanel, BodyCode, BeautifyButton, BodyHead } from '$entities/request/components';
+  import { BodyPanel, BodyCode, BodyHead } from '$entities/request/components';
 
   let {
     tab,
     selectedMethod,
     chooseSchema,
-    largeMessage,
     varHighlight,
     ensureConnected,
     onMessageChange,
     onChooseSource,
-    onLoadExample,
   }: {
     tab: Tab;
     selectedMethod: GrpcMethod | undefined;
     /** No schema, method or message yet: show the source chooser instead of the editor. */
     chooseSchema: boolean;
-    /** A large message loses its caption head (it moves into the tabs row). */
-    largeMessage: boolean;
     varHighlight: Extension;
     ensureConnected: () => Promise<void>;
     onMessageChange: (value: string) => void;
     onChooseSource: (source: 'reflection' | 'proto') => void;
-    onLoadExample: () => void;
   } = $props();
 
   const messageValid = $derived.by(() => {
@@ -143,21 +138,11 @@
   </BodyPanel>
 {:else}
   <BodyPanel class="bs-grpc-message">
-    {#if !largeMessage}
+    <!-- The type and «Example» live in the tabs row; a head shows only the open stream's next message number. -->
+    {#if nextSent}
       <BodyHead>
         <span class="bs-body-caption"
-          >{#if nextSent}{t('grpc.msg.next')}&nbsp;&nbsp;·&nbsp;&nbsp;{tab.grpcStream?.kind === 'bidi'
-              ? '↑ '
-              : ''}#{nextSent}{:else}{t(
-              'grpc.tab.message',
-            )}{/if}{#if selectedMethod?.inputType}&nbsp;&nbsp;·&nbsp;&nbsp;{selectedMethod.inputType
-              .split('.')
-              .pop()}{/if}</span
-        >
-        <BeautifyButton class="bs-grpc-example" type="button" onclick={onLoadExample}
-          ><span class="material-symbols-outlined" aria-hidden="true">description</span>{t(
-            'grpc.msg.example',
-          )}</BeautifyButton
+          >{`${t('grpc.msg.next')}  ·  ${tab.grpcStream?.kind === 'bidi' ? '↑ ' : ''}#${nextSent}`}</span
         >
       </BodyHead>
     {/if}
@@ -206,10 +191,6 @@
 {/if}
 
 <style>
-  :global(:root .bs .bs-grpc-message .bs-body-head .bs-body-beautify) {
-    margin-left: auto;
-  }
-
   :global(:root .bs .bs-grpc-message .bs-body-head) {
     gap: 8px;
   }

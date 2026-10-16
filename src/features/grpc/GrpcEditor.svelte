@@ -129,8 +129,9 @@
   const streamMethod = $derived(!!selectedMethod?.serverStreaming || !!selectedMethod?.clientStreaming);
 
   const gTab = $derived(grpcEditorUi.sections[tab.id] ?? 'message');
-  // E2 (rules 2, 3, 6): a large message loses its head — type, size, lines and tools move into the tabs row.
-  const largeMessage = $derived(gTab === 'message' && !chooseSchema && isLargeBody(tab.grpc?.message ?? ''));
+  // The message type and «Example» sit in the tabs row; a large message adds size, lines and tools (E2 rules 2, 3, 6).
+  const messageTools = $derived(gTab === 'message' && !chooseSchema);
+  const largeMessage = $derived(messageTools && isLargeBody(tab.grpc?.message ?? ''));
   const messageStats = $derived(largeMessage ? textStats(tab.grpc?.message ?? '') : undefined);
   // Per-tab gRPC in-flight state derived from the shared `requestRuntime.busy` map so the
   // tab's Invoke/Connect buttons reflect ONLY that tab's request.
@@ -652,19 +653,25 @@
   {/if}
 </UrlBar>
 
-<GrpcRequestTabs {tab} section={gTab} {metadataCount} {messageStats} {selectedMethod} onLoadExample={grpcLoadExample} />
+<GrpcRequestTabs
+  {tab}
+  section={gTab}
+  {metadataCount}
+  {messageTools}
+  {messageStats}
+  {selectedMethod}
+  onLoadExample={grpcLoadExample}
+/>
 <ReqPane role="tabpanel" id="bs-grpcpanel" aria-labelledby="bs-gtab-{gTab}">
   {#if gTab === 'message'}
     <GrpcMessagePanel
       {tab}
       {selectedMethod}
       {chooseSchema}
-      {largeMessage}
       {varHighlight}
       {ensureConnected}
       onMessageChange={(v) => setGrpc({ message: v })}
       onChooseSource={chooseSource}
-      onLoadExample={grpcLoadExample}
     />
   {:else if gTab === 'metadata'}
     <GrpcMetadataEditor {tab} />

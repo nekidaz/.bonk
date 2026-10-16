@@ -1,8 +1,9 @@
 <script lang="ts">
   /**
    * The gRPC request tabs row (Message / Metadata / Auth / Proto / Scripts).
-   * A large message also moves its type, size, line count and editor tools
-   * into this row (E2 rules 2, 3, 6) — `messageStats` is set only then.
+   * On the Message tab it also holds the message type and «Example» (`messageTools`);
+   * a large message adds its size, line count and editor tools (E2 rules 2, 3, 6),
+   * `messageStats` is set only then.
    */
   import { t, uiLanguage } from '$shared/i18n';
   import { focusMode, toggleFocus } from '$shared/ui';
@@ -10,13 +11,14 @@
   import { countLabel, type TextStats } from '$shared/editor';
   import { openGrpcEditorSection, type GrpcEditorSection } from '$entities/request';
   import { EditorTools } from '$shared/editor/components';
-  import { TabRow, TabRowTools, RTabs, RTab, TabCount, TabStats } from '$entities/request/components';
+  import { TabRow, TabRowTools, RTabs, RTab, TabCount, TabStats, BeautifyButton } from '$entities/request/components';
   import { IconButton } from '$shared/ui/components';
 
   let {
     tab,
     section,
     metadataCount,
+    messageTools,
     messageStats,
     selectedMethod,
     onLoadExample,
@@ -24,6 +26,8 @@
     tab: Tab;
     section: GrpcEditorSection;
     metadataCount: number;
+    /** The message editor is shown (Message tab, schema chosen). */
+    messageTools: boolean;
     messageStats: TextStats | undefined;
     selectedMethod: GrpcMethod | undefined;
     onLoadExample: () => void;
@@ -56,7 +60,7 @@
         !!tab.testResults?.error,
       )}{/if}
   </RTabs>
-  {#if messageStats}
+  {#if messageTools}
     <TabRowTools>
       {#if selectedMethod?.inputType}
         <span class="lb-msgtype" title={selectedMethod.inputType}
@@ -65,25 +69,33 @@
             .pop()}</span
         >
       {/if}
-      <TabStats
-        >{`${messageStats.approx ? '~' : ''}${formatBytes(messageStats.bytes)}  ·  ${countLabel(messageStats.lines, 'lines', uiLanguage.current)}`}</TabStats
-      >
-      <EditorTools
-        scope="#bs-grpcpanel"
-        onExpand={() => (focusMode.current = toggleFocus(focusMode.current, 'request'))}
-        expanded={focusMode.current === 'request'}
-      >
-        {#snippet extra()}
-          <IconButton
-            type="button"
-            class="bs-grpc-example"
-            aria-label={t('grpc.msg.example')}
-            title={t('grpc.msg.example')}
-            onclick={onLoadExample}
-            ><span class="material-symbols-outlined" aria-hidden="true">description</span></IconButton
-          >
-        {/snippet}
-      </EditorTools>
+      {#if !messageStats}
+        <BeautifyButton class="bs-grpc-example" type="button" onclick={onLoadExample}
+          ><span class="material-symbols-outlined" aria-hidden="true">description</span>{t(
+            'grpc.msg.example',
+          )}</BeautifyButton
+        >
+      {:else}
+        <TabStats
+          >{`${messageStats.approx ? '~' : ''}${formatBytes(messageStats.bytes)}  ·  ${countLabel(messageStats.lines, 'lines', uiLanguage.current)}`}</TabStats
+        >
+        <EditorTools
+          scope="#bs-grpcpanel"
+          onExpand={() => (focusMode.current = toggleFocus(focusMode.current, 'request'))}
+          expanded={focusMode.current === 'request'}
+        >
+          {#snippet extra()}
+            <IconButton
+              type="button"
+              class="bs-grpc-example"
+              aria-label={t('grpc.msg.example')}
+              title={t('grpc.msg.example')}
+              onclick={onLoadExample}
+              ><span class="material-symbols-outlined" aria-hidden="true">description</span></IconButton
+            >
+          {/snippet}
+        </EditorTools>
+      {/if}
     </TabRowTools>
   {/if}
 </TabRow>
@@ -94,7 +106,7 @@
     color: var(--color-text-muted);
   }
 
-  /* E2: request message type of a large gRPC message. */
+  /* E2: request message type of the gRPC message. */
   .lb-msgtype {
     flex: none;
     display: inline-flex;
