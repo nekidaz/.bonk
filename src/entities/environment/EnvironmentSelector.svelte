@@ -1,3 +1,7 @@
+<!--
+  Toolbar → environment picker: current environment chip and its dropdown (search, recent, all,
+  «Manage» opens the Environments tab). Lives in entities because the toolbar and features both use it.
+-->
 <script lang="ts">
   import { t } from '$shared/i18n';
   import type { Environment } from '$shared/model';

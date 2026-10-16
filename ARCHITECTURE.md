@@ -104,6 +104,8 @@ are enforced by `src/architecture.test.ts`. Path aliases: `$shared`, `$entities`
 | `entities/` | core models and their state (`store.svelte.ts` + pure logic): `tab`, `environment`, `workspace`, `history`, `request`, `git` | may import each other, never in a cycle |
 | `shared/` | foundation: `persist`, `i18n`, `model` (types + pure request model: http, vars, curl, scripts), `ipc` (`api.ts`), `settings`, `ui`, `editor`, `updater` | no tab/workspace/request state |
 
+Screen → file map and UI recipes: [docs/FRONTEND.md](docs/FRONTEND.md).
+
 A slice's public API is its `index.ts` (code) and `components.ts` (Svelte components); other
 slices import only those, never deep paths. Tests sit next to the module they cover
 (`foo.ts` → `foo.test.ts`). Styles live in each component's scoped `<style>`; shared pieces are components (`shared/ui`, `entities/request`, `entities/git`). Global CSS in `src/styles/` is only `tokens.css`, `base.css` (element defaults and app-wide states), `editor.css` (CodeMirror) and `motion.css`, behind one entry `index.css` (import order = cascade order).

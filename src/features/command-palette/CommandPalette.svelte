@@ -1,3 +1,7 @@
+<!--
+  The ⌘K command palette: search box + filtered list. The commands come in as a prop and are listed in
+  app/AppOverlays.svelte (`paletteCommands`); the theme picker scope is built in here.
+-->
 <script module lang="ts">
   export interface PaletteCommand {
     label: string;

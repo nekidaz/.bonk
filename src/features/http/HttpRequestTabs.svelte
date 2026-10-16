@@ -1,3 +1,7 @@
+<!--
+  HTTP request → the tab row Params / Headers / Body / Auth / Scripts with counters, and on the right
+  the tools of the open tab (body format, Beautify, size).
+-->
 <script lang="ts">
   import { t, uiLanguage } from '$shared/i18n';
   import type { HttpEditorTab } from './httpEditor';

@@ -1,3 +1,7 @@
+<!--
+  What the main column shows with no open tab: first-run screen (new request, import, paste cURL)
+  or, with a workspace, the recent requests to continue.
+-->
 <script lang="ts">
   import { workspace } from '$entities/workspace';
   import { history, openHistoryEntry } from '$entities/history';

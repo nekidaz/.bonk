@@ -1,3 +1,7 @@
+<!--
+  HTTP request → Body tab: the body mode (none, form-data, urlencoded, raw, binary, GraphQL) and its
+  editor — a key/value table for forms, CodeMirror (shared/editor CodeEditor) for raw text and GraphQL.
+-->
 <script lang="ts">
   import { t, tp } from '$shared/i18n';
   import { filePick } from '$shared/ipc';

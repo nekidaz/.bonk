@@ -1,3 +1,7 @@
+<!--
+  HTTP request → Headers tab: the key/value table of headers (entities/request Kv* components),
+  each row with its own «send this header» switch.
+-->
 <script lang="ts">
   import { t } from '$shared/i18n';
   import { autoHeaderRows, headerRows } from './httpHeaders';

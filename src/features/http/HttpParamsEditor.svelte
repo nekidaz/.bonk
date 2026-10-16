@@ -1,3 +1,6 @@
+<!--
+  HTTP request → Params tab: the query parameters table, kept in sync with the URL's `?a=b` part.
+-->
 <script lang="ts">
   import { t } from '$shared/i18n';
   import { syncUrlWithParams, type Param, type Tab } from '$shared/model';
