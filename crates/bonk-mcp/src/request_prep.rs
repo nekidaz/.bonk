@@ -1,5 +1,3 @@
-use std::time::Duration;
-
 use bonk_core::domain::{
     http::RequestSettings,
     workspace::{RequestNode, TreeNode},
@@ -54,9 +52,6 @@ pub(crate) fn build_http_client(
         .pool_max_idle_per_host(16)
         .tcp_nodelay(true)
         .danger_accept_invalid_certs(!settings.validate_tls);
-    if settings.timeout_ms > 0 {
-        builder = builder.timeout(Duration::from_millis(settings.timeout_ms));
-    }
     if settings.follow_redirects {
         let target_hosts = target_hosts.to_vec();
         builder = builder.redirect(reqwest::redirect::Policy::custom(move |attempt| {
