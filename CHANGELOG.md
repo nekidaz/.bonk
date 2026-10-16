@@ -6,6 +6,12 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+- **`pm.visualizer.set(template, data)`**, as in Postman: a script fills a Handlebars template
+  (`{{#each}}`, `{{#if}}`, `@index`, `{{{raw}}}`…) and the response gets a «Visualize» tab with the
+  HTML. It renders in the same sandbox as the HTML preview, so the template's `<script>`s (Chart.js,
+  `pm.getData`) do not run.
+
 ## [0.3.0] - 2026-10-12
 
 ### Added

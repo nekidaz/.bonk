@@ -73,6 +73,7 @@ const TREE: Record<string, Member[]> = {
     { name: 'cookies', doc: 'pm.cookies', of: 'pm.cookies' },
     { name: 'request', doc: 'pm.request', of: 'pm.request' },
     { name: 'response', doc: 'pm.response', of: 'pm.response' },
+    { name: 'visualizer', doc: 'pm.visualizer', of: 'pm.visualizer' },
     {
       name: 'test',
       args: '(name, fn)',
@@ -104,6 +105,16 @@ const TREE: Record<string, Member[]> = {
   ],
   'pm.cookies.jar': [
     { name: 'clear', args: '(url)', insert: "clear('${url}')", sig: 'url: string', doc: 'pm.cookies.jar.clear' },
+  ],
+  'pm.visualizer': [
+    {
+      name: 'set',
+      args: '(template, data)',
+      insert: 'set(`${template}`, ${data})',
+      sig: 'template: string, data: object',
+      doc: 'pm.visualizer.set',
+    },
+    { name: 'clear', args: '()', insert: 'clear()', doc: 'pm.visualizer.clear' },
   ],
   'pm.request': [
     { name: 'url', doc: 'pm.request.url' },
