@@ -1639,7 +1639,12 @@ impl NodeRun<'_> {
             req.insert("body".into(), json!(body));
         }
         let response = response.map(|r| {
-            json!({ "code": r.status, "responseTime": r.elapsed_ms, "headers": r.headers, "body": r.body })
+            let events: Vec<Value> = r
+                .events
+                .iter()
+                .map(|e| json!({ "event": e.event, "data": e.data, "id": e.id }))
+                .collect();
+            json!({ "code": r.status, "responseTime": r.elapsed_ms, "headers": r.headers, "body": r.body, "events": events })
         });
         let cookies: Vec<Value> = cookies
             .iter()
