@@ -77,6 +77,8 @@ pub async fn http_send(
         body_truncated,
         cookies,
         jar_sends,
+        events: Vec::new(),
+        stream_end: None,
     })
 }
 

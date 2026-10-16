@@ -164,6 +164,12 @@ pub struct HttpResponse {
     /// How many jar cookies the next request to `final_url` will carry.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub jar_sends: Option<usize>,
+    /// Events of a `text/event-stream` response, in arrival order.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub events: Vec<crate::domain::sse::SseEvent>,
+    /// How a streamed response ended; `None` for ordinary responses.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub stream_end: Option<crate::domain::sse::StreamEnd>,
 }
 
 /// A `Set-Cookie` of a response and its effect on the jar.

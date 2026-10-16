@@ -1937,6 +1937,8 @@ mod tests {
                     body_truncated: false,
                     cookies: Vec::new(),
                     jar_sends: None,
+                    events: Vec::new(),
+                    stream_end: None,
                 })
             }
         }
