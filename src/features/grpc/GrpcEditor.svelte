@@ -781,6 +781,7 @@
 
   /* S19: gRPC request — one capsule with protocol, endpoint, TLS and the method picker. */
   :global(:root .bs .bs-grpc-field) {
+    position: relative;
     flex: 1;
     min-width: 0;
     padding-right: 5px;

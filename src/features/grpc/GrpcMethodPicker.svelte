@@ -351,8 +351,9 @@
 
   /* The address has priority: the picker gives way first (huge flex-shrink), the service ellipsizes, and it
      stops at about the method name's width; only then does a long address scroll. */
+  /* static: the menu anchors to the whole field (GrpcEditor makes it relative), not to this button. */
   :global(.bs .bs-grpc-field) .bs-grpc-picker {
-    position: relative;
+    position: static;
     flex: 0 1000 auto;
     width: auto;
     min-width: min(190px, 40%);
@@ -434,9 +435,10 @@
     }
   }
 
+  /* As wide as the address field, like Postman's schema picker. */
   :global(.bs .bs-grpc-field) .bs-grpc-menu {
     right: 0;
-    left: auto;
+    left: 0;
     top: calc(100% + 10px);
   }
 
@@ -447,7 +449,7 @@
     display: flex;
     flex-direction: column;
     gap: 2px;
-    width: 420px;
+    width: auto;
     max-height: min(502px, calc(100vh - 140px));
     padding: 6px;
     border-radius: 22px;
