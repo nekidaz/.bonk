@@ -1757,4 +1757,10 @@
     padding-right: 6px;
     font: 700 var(--font-size-micro) var(--font-code);
   }
+
+  /* The hover ⋯ sits absolutely over the row's right edge: git marks step left of it instead of under it. */
+  :global(.bs .bs-trow:hover) .bs-git-treecount,
+  :global(.bs .bs-trow:hover) .bs-git-treebadge {
+    margin-right: 26px;
+  }
 </style>
