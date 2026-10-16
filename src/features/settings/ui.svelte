@@ -2,6 +2,9 @@
   Shared settings primitives (S32 mocks), exported as snippets so every section
   component renders the same rows. Their styles, and the `.st-card`, `.st-copy`, … classes the
   sections use directly, live in the <style> below (sections import this file first).
+  A snippet is a function that returns markup: `{@render row(name, desc, control)}` draws a row whose
+  right side is the `control` snippet (in Go terms, a func() passed as an argument). See
+  docs/FRONTEND.md «children, snippet и {@render}».
 -->
 <script module lang="ts">
   import type { Snippet } from 'svelte';

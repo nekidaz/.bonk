@@ -1,3 +1,7 @@
+<!--
+  The row above the URL bar: protocol switch, «workspace / folder / name» path with inline rename,
+  the modified marker and the Save button group.
+-->
 <script lang="ts">
   import { findNode, parentId, workspace } from '$entities/workspace';
   import { dirtyTabIds } from '$entities/request';

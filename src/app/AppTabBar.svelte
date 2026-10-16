@@ -1,3 +1,7 @@
+<!--
+  The tab strip above the request: one button per open tab (method colour, title, unsaved dot, pin),
+  drag to reorder, the overflow menu and «+». Tab actions live in features/tabs; the list is `tabs.list`.
+-->
 <script lang="ts">
   import { tabs, HTTP_DEFAULT_TITLE } from '$entities/tab';
   import { requestCloseTab, newTab, moveTab, togglePinTab } from '$features/tabs';

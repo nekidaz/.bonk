@@ -2,7 +2,7 @@
 # Mirrors .github/workflows/ci.yml: if `make check` is green, CI is green.
 
 .DEFAULT_GOAL := help
-.PHONY: help setup dev ui mcp cli check lint test test-ts test-rs build visual visual-baseline css-oracle css-oracle-baseline fmt sidecar bump demo
+.PHONY: help setup dev ui mcp cli check lint fe-check test test-ts test-rs build visual visual-baseline css-oracle css-oracle-baseline fmt sidecar bump demo
 
 help: ## list targets
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  make %-16s %s\n", $$1, $$2}'
@@ -33,6 +33,10 @@ lint: sidecar ## svelte-check (TS types) + prettier/rustfmt check + clippy (warn
 	npx prettier --check .
 	cargo fmt --all --check
 	cargo clippy --workspace --all-targets -- -D warnings
+
+fe-check: ## quick frontend check after a UI edit: types (svelte-check) + formatting of src/; no UI tests
+	npm run check
+	npx prettier --check src
 
 test: test-ts test-rs ## all tests
 

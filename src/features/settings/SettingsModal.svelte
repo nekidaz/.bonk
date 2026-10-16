@@ -1,3 +1,7 @@
+<!--
+  Settings window (⌘,): left nav + the open section. A section is one Settings<Name>.svelte file
+  listed in PAGES below; a new section = a new file + one PAGES entry (docs/FRONTEND.md, recipe 5).
+-->
 <script lang="ts">
   import { onMount, type Component } from 'svelte';
   import { getVersion } from '@tauri-apps/api/app';

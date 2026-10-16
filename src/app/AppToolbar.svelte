@@ -1,3 +1,7 @@
+<!--
+  The top bar of the window (also the drag area of the native title bar): workspace menu, search
+  (opens the ⌘K palette), environment picker, update pill, settings button.
+-->
 <script lang="ts">
   import { WorkspaceMenu } from '$features/workspace-menu/components';
   import { EnvironmentSelector } from '$entities/environment/components';

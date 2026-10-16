@@ -1,3 +1,7 @@
+<!--
+  The response pane below (or beside) the request: the resize handle, the progress line while
+  sending, and ResponseView, which draws the response itself.
+-->
 <script lang="ts">
   import { t } from '$shared/i18n';
   import ResponseView from './ResponseView.svelte';

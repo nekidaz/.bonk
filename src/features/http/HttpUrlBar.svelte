@@ -1,3 +1,7 @@
+<!--
+  HTTP request → method picker, URL field and Send / Cancel. The URL field is a one-line CodeMirror
+  (shared/editor) so {{variables}} get highlighted; Send calls `sendHttpTab` (entities/request/sendTab.ts).
+-->
 <script lang="ts">
   import { t, tp } from '$shared/i18n';
   import { cancelRequest } from '$shared/ipc';

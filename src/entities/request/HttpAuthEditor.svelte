@@ -1,3 +1,7 @@
+<!--
+  HTTP request → Auth tab: auth type (inherit, none, bearer, basic, API key, OAuth 2.0, session), its
+  fields, and what an inherited folder auth resolves to. OAuth / session have their own panels nearby.
+-->
 <script lang="ts">
   import { t } from '$shared/i18n';
   import { authFolderFor, workspace } from '$entities/workspace';

@@ -15,6 +15,7 @@ test-results/
 !/docs/MCP.md
 !/docs/CLI.md
 !/docs/GUIDE.md
+!/docs/FRONTEND.md
 !/CLAUDE.md
 !/AGENTS.md
 .local

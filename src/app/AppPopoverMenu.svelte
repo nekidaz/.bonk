@@ -1,3 +1,8 @@
+<!--
+  The one popover menu of the window: «+» create, protocol switch, collection / request rows in the
+  sidebar tree, a tab's context menu. Which one is open (`menu.kind`) and where lives in `shell.menu`;
+  the actions are mostly in ./actions.ts.
+-->
 <script lang="ts">
   import { clearHistory, history } from '$entities/history';
   import {

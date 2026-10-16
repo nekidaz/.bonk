@@ -1,3 +1,7 @@
+<!--
+  Toolbar → workspace menu (top left): current workspace, recent ones with search, open folder,
+  new workspace, clone, MCP and workspace settings.
+-->
 <script lang="ts">
   import { openWorkspaceFolder, switchWorkspace, workspace } from '$entities/workspace';
   import { environments } from '$entities/environment';
