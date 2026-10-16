@@ -188,7 +188,7 @@ fn describe_error(e: &protox::Error) -> ProtoFileError {
         if let Some(import) = message.split(['\'', '"']).nth(1) {
             return ProtoFileError {
                 kind: "missing_import".into(),
-                message: format!("import \"{import}\" не найден"),
+                message: format!("import \"{import}\" not found"),
                 import: Some(import.to_string()),
             };
         }
@@ -204,7 +204,7 @@ fn describe_error(e: &protox::Error) -> ProtoFileError {
 /// embedded in protox (descriptors only), so those are an error.
 pub fn proto_read(path: &str) -> Result<String, String> {
     if path.starts_with(WELL_KNOWN_PREFIX) && !Path::new(path).exists() {
-        return Err("well-known тип: исходник встроен в компилятор".into());
+        return Err("well-known type: its source is built into the compiler".into());
     }
     std::fs::read_to_string(path).map_err(|e| format!("{path}: {e}"))
 }

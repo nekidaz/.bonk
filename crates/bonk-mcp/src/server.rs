@@ -63,8 +63,8 @@ impl ElicitAsker {
         }
         if let Some(step) = &request.resend {
             builder = builder.bool_property(RESEND, |b| {
-                b.title("Новый код")
-                    .description(format!("Отправить заново: шаг «{step}» выполнится ещё раз"))
+                b.title("New code")
+                    .description(format!("Resend: step “{step}” runs again"))
                     .with_default(false)
             });
         }
@@ -99,7 +99,7 @@ impl ElicitAsker {
                     if let Some(max) = f.def.max {
                         s = s.maximum(max);
                     }
-                    let step = f.def.step.map(|v| format!("шаг {v}")).unwrap_or_default();
+                    let step = f.def.step.map(|v| format!("step {v}")).unwrap_or_default();
                     s.title(title.clone()).description(note(&step))
                 };
                 if optional {
@@ -111,7 +111,7 @@ impl ElicitAsker {
             InputKind::Bool => {
                 let build = |s: rmcp::model::BooleanSchema| {
                     s.title(title.clone())
-                        .description(note("«Нет» остановит прогон"))
+                        .description(note("“No” stops the run"))
                 };
                 if optional {
                     builder.bool_property(name, build)
@@ -137,9 +137,9 @@ impl ElicitAsker {
             kind => {
                 let extra = match kind {
                     InputKind::Json => "JSON".to_string(),
-                    InputKind::File => "путь к файлу".to_string(),
+                    InputKind::File => "file path".to_string(),
                     InputKind::Text if !f.def.pattern.is_empty() => {
-                        format!("формат {}", f.def.pattern)
+                        format!("format {}", f.def.pattern)
                     }
                     _ => String::new(),
                 };
@@ -170,7 +170,7 @@ impl InputAsker for ElicitAsker {
             let mut message = format!("Bonk · {} {}", request.method, request.request_name);
             if let Some(error) = &request.error {
                 message.push_str(&format!(
-                    "\n{error} — введите значение ещё раз (попытка {} из {})",
+                    "\n{error} — enter the value again (attempt {} of {})",
                     request.attempt, request.max_attempts
                 ));
             }
@@ -265,8 +265,8 @@ impl BonkMcpServer {
             MethodGate::Elicit => {
                 let method = method.trim().to_ascii_uppercase();
                 let url = redact_sensitive_url(url);
-                let environment = environment.unwrap_or("без окружения");
-                let message = format!("Bonk: разрешить {method} {url} в {environment}?");
+                let environment = environment.unwrap_or("no environment");
+                let message = format!("Bonk: allow {method} {url} in {environment}?");
                 let answer = context
                     .peer
                     .create_elicitation_with_timeout(

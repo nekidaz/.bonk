@@ -27,17 +27,17 @@ pub fn read(path: &Path) -> Result<ImportedFile, String> {
         .is_some_and(|e| EXTENSIONS.contains(&e.to_ascii_lowercase().as_str()));
     if !importable {
         return Err(format!(
-            "{}: импортируются только файлы .{}",
+            "{}: only .{} files can be imported",
             path.display(),
             EXTENSIONS.join(", .")
         ));
     }
     let meta = std::fs::metadata(path).map_err(|e| format!("{}: {e}", path.display()))?;
     if !meta.is_file() {
-        return Err(format!("{}: это не файл", path.display()));
+        return Err(format!("{}: not a file", path.display()));
     }
     if meta.len() > MAX_BYTES {
-        return Err(format!("{}: файл больше 50 МБ", path.display()));
+        return Err(format!("{}: file is larger than 50 MB", path.display()));
     }
     Ok(ImportedFile {
         name: path
@@ -68,10 +68,10 @@ mod tests {
         );
         assert!(read(&dir.join("id_rsa"))
             .unwrap_err()
-            .contains("только файлы"));
+            .contains("files can be imported"));
         assert!(read(&dir.join("spec.json"))
             .unwrap_err()
-            .contains("не файл"));
+            .contains("not a file"));
         assert!(read(&dir.join("missing.json")).is_err());
         std::fs::remove_dir_all(dir).ok();
     }
