@@ -211,6 +211,43 @@ mod tests {
     }
 
     #[test]
+    fn bom_directly_before_a_field_is_stripped() {
+        let ev = all(&mut SseParser::default(), b"\xEF\xBB\xBFdata: x\n\n");
+        assert_eq!(ev.len(), 1);
+        assert_eq!(ev[0].data, "x");
+    }
+
+    #[test]
+    fn bom_split_across_chunks_is_stripped() {
+        let mut p = SseParser::default();
+        assert!(p.push(b"\xEF\xBB", 1).is_empty());
+        let ev = p.push(b"\xBFdata: x\n\n", 2);
+        assert_eq!(ev.len(), 1);
+        assert_eq!(ev[0].data, "x");
+    }
+
+    #[test]
+    fn bom_after_the_first_line_is_not_stripped() {
+        // The mangled field name is unknown, so that line is ignored.
+        let ev = all(
+            &mut SseParser::default(),
+            b"data: a\n\n\xEF\xBB\xBFdata: b\n\n",
+        );
+        assert_eq!(ev.len(), 1);
+        assert_eq!(ev[0].data, "a");
+    }
+
+    #[test]
+    fn event_name_resets_to_message_after_dispatch() {
+        let ev = all(
+            &mut SseParser::default(),
+            b"event: delta\ndata: a\n\ndata: b\n\n",
+        );
+        let names: Vec<_> = ev.iter().map(|e| e.event.as_str()).collect();
+        assert_eq!(names, ["delta", "message"]);
+    }
+
+    #[test]
     fn no_data_no_event() {
         assert!(all(&mut SseParser::default(), b"event: x\n\n").is_empty());
     }
