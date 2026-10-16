@@ -123,7 +123,7 @@ pub fn app_state_set(
     bonk_core::application::app_state::set_key(&state_path(&app)?, &key, value)
 }
 
-/// Right edge, in CSS px from the window's left, of the macOS traffic lights, so the
+/// Right edge, in points from the window's left, of the macOS traffic lights, so the
 /// toolbar can start right after them whatever their size on this macOS version.
 /// `None` off macOS or while they are hidden (full screen).
 #[tauri::command]
@@ -147,5 +147,75 @@ pub fn traffic_lights_right(window: tauri::WebviewWindow) -> Option<f64> {
     {
         let _ = window;
         None
+    }
+}
+
+/// Left inset of the close button, in points.
+const TRAFFIC_LIGHTS_X: f64 = 21.0;
+/// Their vertical centre before the toolbar reports its own: half of its 54px at 100% zoom.
+pub const TRAFFIC_LIGHTS_CENTER: f64 = 27.0;
+
+/// Centre the traffic lights on the toolbar, `center` points from the window top. The toolbar's
+/// height follows zoom and density, so the frontend calls this whenever it changes (AppToolbar).
+#[tauri::command]
+pub fn traffic_lights_center(
+    window: tauri::WebviewWindow,
+    state: tauri::State<crate::state::AppState>,
+    center: f64,
+) {
+    *state
+        .traffic_lights_center
+        .lock()
+        .unwrap_or_else(|e| e.into_inner()) = center;
+    place_traffic_lights(&window.as_ref().window(), center);
+}
+
+/// Moves the macOS window buttons (what tao's `trafficLightPosition` does, but with a centre that
+/// can change at runtime). AppKit lays the title bar out again on resize, full screen and focus,
+/// so lib.rs calls this again on those window events.
+pub fn place_traffic_lights(window: &tauri::Window, center: f64) {
+    #[cfg(target_os = "macos")]
+    {
+        use objc2_app_kit::{NSWindow, NSWindowButton};
+        if objc2::MainThreadMarker::new().is_none() {
+            return;
+        }
+        let Ok(ptr) = window.ns_window() else { return };
+        // SAFETY: Tauri hands out its live NSWindow; we only touch its title bar on the main thread.
+        let Some(ns_window) = (unsafe { (ptr as *const NSWindow).as_ref() }) else {
+            return;
+        };
+        let button = |kind| ns_window.standardWindowButton(kind);
+        let (Some(close), Some(mini), Some(zoom)) = (
+            button(NSWindowButton::CloseButton),
+            button(NSWindowButton::MiniaturizeButton),
+            button(NSWindowButton::ZoomButton),
+        ) else {
+            return;
+        };
+        if close.isHidden() {
+            return; // full screen
+        }
+        // SAFETY: plain view-hierarchy reads on the main thread (button → title bar → its container).
+        let Some(container) = (unsafe { close.superview().and_then(|v| v.superview()) }) else {
+            return;
+        };
+        // The buttons keep a fixed offset from the bottom of the title bar container, so its
+        // height is what moves their centre.
+        let b = close.frame();
+        let mut rect = container.frame();
+        rect.size.height = center + b.origin.y + b.size.height / 2.0;
+        rect.origin.y = ns_window.frame().size.height - rect.size.height;
+        container.setFrame(rect);
+        let step = mini.frame().origin.x - b.origin.x;
+        for (i, btn) in [close, mini, zoom].iter().enumerate() {
+            let mut origin = btn.frame().origin;
+            origin.x = TRAFFIC_LIGHTS_X + i as f64 * step;
+            btn.setFrameOrigin(origin);
+        }
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = (window, center);
     }
 }

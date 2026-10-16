@@ -66,6 +66,8 @@ pub struct AppState {
     pub oauth_logins: Mutex<HashMap<String, Arc<crate::commands::oauth::Login>>>,
     /// Watches the open workspace folder for outside changes; replacing it stops the old one.
     pub workspace_watcher: Mutex<Option<crate::commands::workspace::Watcher>>,
+    /// macOS traffic lights' vertical centre, in points (commands::app::traffic_lights_center).
+    pub traffic_lights_center: Mutex<f64>,
 }
 
 fn default_headers() -> HeaderMap {
@@ -166,6 +168,7 @@ impl Default for AppState {
             inputs: Mutex::new(HashMap::new()),
             oauth_logins: Mutex::new(HashMap::new()),
             workspace_watcher: Mutex::new(None),
+            traffic_lights_center: Mutex::new(crate::commands::app::TRAFFIC_LIGHTS_CENTER),
         }
     }
 }

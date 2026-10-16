@@ -114,6 +114,8 @@ export function startApp(): void {
   $effect(() => {
     const z = uiZoom.current;
     if (isTauri()) void getCurrentWebview().setZoom(z);
+    // CSS lengths measured in screen points (the traffic lights' edge) divide by it.
+    document.documentElement.style.setProperty('--ui-zoom', String(z));
   });
 
   // «Как в системе»: track the OS appearance while the setting is on.

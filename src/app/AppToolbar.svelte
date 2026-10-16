@@ -7,6 +7,8 @@
   import { EnvironmentSelector } from '$entities/environment/components';
   import { UpdatePill } from '$features/updater/components';
   import { t } from '$shared/i18n';
+  import { trafficLightsCenter } from '$shared/ipc';
+  import { uiZoom } from '$shared/settings';
   let {
     workspaceMenuOpen = $bindable(),
     onSearch,
@@ -16,9 +18,16 @@
     onSearch: () => void;
     onSettings: () => void;
   } = $props();
+
+  // macOS draws its traffic lights over this bar in points, outside the webview's zoom: keep them
+  // on the bar's centre as density (its CSS height) and zoom change. A no-op off macOS.
+  let height = $state(0);
+  $effect(() => {
+    if (height) trafficLightsCenter((height * uiZoom.current) / 2).catch(() => {});
+  });
 </script>
 
-<div class="bs-tb" data-tauri-drag-region>
+<div class="bs-tb" data-tauri-drag-region bind:clientHeight={height}>
   <div class="bs-tb-left">
     <WorkspaceMenu bind:open={workspaceMenuOpen} {onSettings} />
   </div>
@@ -181,13 +190,6 @@
     height: 42px;
   }
 
-  /* The macOS traffic lights sit at a fixed centre 27px from the top (tauri.conf.json trafficLightPosition
-     y=29 + 14px buttons, and Tauri 2.11 can't move them at runtime), so the header keeps 54px there
-     to stay centred with them; compact only shrinks the controls. */
-  :global(:root[data-density='compact'][data-native-macos='true']) .bs-tb {
-    height: 54px;
-  }
-
   :global(:root[data-density='compact']) .bs-toolbar-search {
     height: 28px;
   }
@@ -234,11 +236,12 @@
   }
 
   /* Native macOS traffic lights overlay the header's left edge: start 14px after them (the mock's gap).
-     --traffic-lights-right is their measured right edge (src/main.ts); without it (browser, tests) the
+     --traffic-lights-right is their measured right edge in points (src/main.ts), so it is divided by the
+     webview zoom (--ui-zoom, app/lifecycle.svelte.ts) to stay put; without it (browser, tests) the
      62px fallback keeps the old 66px inset.
      The 10px is .bs-tb's own left padding. */
   :global(html[data-native-macos='true']) .bs-tb-left {
-    padding-left: calc(var(--traffic-lights-right, 62px) + 14px - 10px);
+    padding-left: calc(var(--traffic-lights-right, 62px) / var(--ui-zoom, 1) + 14px - 10px);
   }
 
   /* S33–S35: resize grip + width tooltip; the hidden sidebar's pull-to-open grip. */

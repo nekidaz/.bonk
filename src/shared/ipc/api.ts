@@ -466,6 +466,8 @@ export const workspacePickFolder = () => invoke<string | null>('workspace_pick_f
 export const filePick = () => invoke<string | null>('file_pick');
 /** macOS: right edge (px) of the window's traffic lights; null elsewhere or in full screen. */
 export const trafficLightsRight = () => invoke<number | null>('traffic_lights_right');
+/** macOS: centre the traffic lights `center` points below the window top; no-op elsewhere. */
+export const trafficLightsCenter = (center: number) => invoke<void>('traffic_lights_center', { center });
 export const workspaceLoad = (path: string) => invoke<TreeNode[]>('workspace_load', { path });
 /** Watch workspace `root` for changes made outside the app ('' stops); one workspace at a time. */
 export function workspaceWatch(root: string, onChange: (change: WorkspaceChange) => void): Promise<void> {

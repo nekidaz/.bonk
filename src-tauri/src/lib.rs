@@ -32,6 +32,22 @@ pub fn run() {
             let _ = app; // non-macOS: unused
             Ok(())
         })
+        // AppKit puts the traffic lights back on these; move them to the toolbar's centre again.
+        .on_window_event(|window, event| {
+            use tauri::{Manager, WindowEvent};
+            if let WindowEvent::Resized(_)
+            | WindowEvent::Focused(_)
+            | WindowEvent::ThemeChanged(_)
+            | WindowEvent::ScaleFactorChanged { .. } = event
+            {
+                let state = window.state::<state::AppState>();
+                let center = *state
+                    .traffic_lights_center
+                    .lock()
+                    .unwrap_or_else(|e| e.into_inner());
+                commands::app::place_traffic_lights(window, center);
+            }
+        })
         .invoke_handler(tauri::generate_handler![
             commands::http::cancel_request,
             commands::terminal::terminal_default_cwd,
@@ -76,6 +92,7 @@ pub fn run() {
             commands::workspace::workspace_pick_folder,
             commands::app::file_pick,
             commands::app::traffic_lights_right,
+            commands::app::traffic_lights_center,
             commands::app::openapi_import_pick,
             commands::app::import_read_file,
             commands::settings_file::settings_file_read,
