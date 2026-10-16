@@ -163,10 +163,11 @@
   }
 
   :global(.bs) .bs-menu :global(.mi .ic) {
-    flex: 0 0 16px;
-    width: 16px;
-    font-size: 16px;
-    color: var(--color-text-muted);
+    flex: 0 0 18px;
+    width: 18px;
+    font-size: 18px;
+    font-weight: 400;
+    color: var(--color-text-secondary);
   }
 
   :global(.bs) .bs-menu :global(.mi .lb) {
@@ -177,26 +178,26 @@
     white-space: nowrap;
   }
 
+  /* UI font, not mono: Inter falls back to the system font for ⌘ ⌥ ⇧ ⌫, which draws them like native menus. */
   :global(.bs) .bs-menu :global(.mi .sc) {
     flex: none;
     margin: 0;
     color: var(--color-text-muted);
-    font: var(--font-size-micro) var(--font-code);
-    letter-spacing: 0;
+    font: var(--font-size-caption) var(--font-ui);
+    letter-spacing: 0.04em;
   }
 
-  :global(.bs) .bs-menu :global(.mi:hover) {
-    background: var(--color-selected);
-    color: var(--color-text);
-    font-weight: 600;
-    outline: none;
-  }
-
+  /* The highlight must read on the raised card: --color-selected is a few shades off it in dark themes. */
+  :global(.bs) .bs-menu :global(.mi:hover),
   :global(.bs) .bs-menu :global(.mi:focus-visible) {
-    background: var(--color-selected);
+    background: var(--color-hover-strong);
     color: var(--color-text);
-    font-weight: 600;
     outline: none;
+  }
+
+  :global(.bs) .bs-menu :global(.mi:hover .sc),
+  :global(.bs) .bs-menu :global(.mi:focus-visible .sc) {
+    color: var(--color-text-secondary);
   }
 
   :global(.bs) .bs-menu :global(.mi:hover .ic) {
@@ -219,6 +220,12 @@
     color: var(--color-danger);
   }
 
+  :global(.bs) .bs-menu :global(.mi.danger:hover),
+  :global(.bs) .bs-menu :global(.mi.danger:focus-visible) {
+    background: color-mix(in srgb, var(--color-danger) 14%, transparent);
+    color: var(--color-danger);
+  }
+
   /* Disabled menu rows. */
   .bs-menu :global(.mi:disabled) {
     color: var(--color-text-muted);
@@ -226,9 +233,8 @@
     opacity: 0.55;
   }
 
-  .bs-menu :global(.mi:disabled:hover) {
+  :global(.bs) .bs-menu :global(.mi:disabled:hover) {
     background: transparent;
-    font-weight: inherit;
   }
 
   .bs-menu :global(.mi.proto.grpc .ic) {

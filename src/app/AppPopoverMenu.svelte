@@ -257,11 +257,12 @@
       {/each}
     {:else if menu.kind === 'coll'}
       <div class="lbl">{t('nav.menu.inFolderDefault', { name: node?.name ?? t('nav.menu.folderDefault') })}</div>
-      {@render item('add', t('nav.menu.http'), () => onAddRequest('http'))}
-      {@render item('hub', t('nav.menu.grpc'), () => onAddRequest('grpc'))}
+      {@render item('language', t('nav.menu.http'), () => onAddRequest('http'), '', 'proto http tint')}
+      {@render item('hub', t('nav.menu.grpc'), () => onAddRequest('grpc'), '', 'proto grpc')}
       {@render item('create_new_folder', t('nav.menu.folder'), onAddFolder)}
       {#if menu.nodeId}
-        {@render item('note_add', t('nav.menu.saveHere'), onSaveHere, '⌘S')}
+        <!-- No ⌘S here: ⌘S saves the tab where it already lives, not into this folder. -->
+        {@render item('save', t('nav.menu.saveHere'), onSaveHere)}
         {#if menu.isFolder}
           <div class="dv"></div>
           {@render item('play_arrow', t('nav.menu.runInRunner'), () => {
@@ -279,7 +280,7 @@
         <div class="dv"></div>
         {@render item('edit', t('nav.menu.rename'), onRename, 'F2')}
         {@render item('content_copy', t('nav.menu.duplicate'), onDuplicate, '⌘D')}
-        {@render item('drive_file_move', t('nav.menu.moveTo'), onMove, '›')}
+        {@render item('drive_file_move', t('nav.menu.moveTo'), onMove)}
         <div class="dv"></div>
         {@render item('delete', t('nav.menu.delete'), onDelete, '⌫', 'danger')}
       {/if}
@@ -294,7 +295,7 @@
           onCopyCurl,
           '⌥⌘C',
         )}{/if}
-      {@render item('drive_file_move', t('nav.menu.moveTo'), onMove, '›')}
+      {@render item('drive_file_move', t('nav.menu.moveTo'), onMove)}
       {#if git.status?.isRepo && node}{@render item('history', t('git.history.open'), openHistory)}{/if}
       <div class="dv"></div>
       {@render item('delete', t('nav.menu.delete'), onDelete, '⌫', 'danger')}
