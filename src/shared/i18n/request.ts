@@ -186,6 +186,7 @@ export const en = {
   'http.url.collapse': 'Esc — collapse to one line',
   'http.url.chars': '{n} chars',
   'http.url.cancel': 'Cancel',
+  'http.url.stop': 'Stop',
   'http.url.send': 'Send',
   'response.hint.retry': 'Retry',
   'http.empty.title': 'No {tab}',

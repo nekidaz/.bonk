@@ -4,7 +4,6 @@
 -->
 <script lang="ts">
   import { t, tp } from '$shared/i18n';
-  import { cancelRequest } from '$shared/ipc';
   import { sendHttpTab, applyCurlToActiveTab, requestRuntime } from '$entities/request';
   import { tabs } from '$entities/tab';
   import { environments, requestVariableHighlight } from '$entities/environment';
@@ -130,7 +129,7 @@
       !document.querySelector('.bs-overlay, .bs-menu, .bs-palette, [aria-expanded="true"]')
     ) {
       e.preventDefault();
-      void cancelRequest(activeBusy.requestId);
+      void send();
     }
   }}
 />
@@ -225,13 +224,13 @@
     class={{ cancelling: activeBusy?.kind === 'http' }}
     aria-busy={activeBusy?.kind === 'http'}
     disabled={activeBusy?.kind !== 'http' && !tab.request.url.trim()}
-    title={activeBusy?.kind === 'http' ? t('http.url.cancel_title') : undefined}
+    title={activeBusy?.kind === 'http' && !tab.sseLive ? t('http.url.cancel_title') : undefined}
     onclick={send}
   >
     <span class="go">
-      {#if activeBusy?.kind === 'http'}<span>{t('http.url.cancel')}</span><kbd>Esc</kbd>{:else}<span
-          >{t('http.url.send')}</span
-        >{/if}
+      {#if activeBusy?.kind === 'http'}<span>{tab.sseLive ? t('http.url.stop') : t('http.url.cancel')}</span><kbd
+          >Esc</kbd
+        >{:else}<span>{t('http.url.send')}</span>{/if}
     </span>
   </SendButton>
 </UrlBar>

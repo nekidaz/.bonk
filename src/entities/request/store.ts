@@ -205,6 +205,18 @@ export async function sendHttpRequest(
     },
     requestId,
     withOverrides(currentRequestSettings(), src?.settings),
+    undefined,
+    undefined,
+    (e) => {
+      if (e.kind === 'sseOpen')
+        tabs.updateById(tabId, (t) => ({ ...t, sseLive: { events: [], startedAt: Date.now() } }));
+      // ponytail: the array is copied on every event (like the gRPC feed); at thousands of events a second,
+      // buffer and flush every ~50 ms.
+      else
+        tabs.updateById(tabId, (t) =>
+          t.sseLive ? { ...t, sseLive: { ...t.sseLive, events: [...t.sseLive.events, e] } } : t,
+        );
+    },
   );
   const pre = details.pre ? parseScriptResult(JSON.stringify(details.pre)) : undefined;
   const post = details.post ? parseScriptResult(JSON.stringify(details.post)) : undefined;
@@ -224,6 +236,7 @@ export async function sendHttpRequest(
     testResults,
     sent: keepSent && details.request ? { request: details.request, dynamic: details.dynamic } : undefined,
     ...(response ? { response } : {}),
+    sseLive: undefined,
   }));
   if (req.auth?.type === 'oauth2' && details.oauth) {
     const got = details.oauth;

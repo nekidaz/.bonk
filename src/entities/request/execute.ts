@@ -5,6 +5,7 @@ import type {
   RequestSettings,
   RunResultRow,
   Tab,
+  SseEvent,
   TreeNode,
 } from '$shared/model';
 import { mergeScope, parseScriptResult, collectScriptRun } from '$shared/model';
@@ -183,6 +184,7 @@ export function executeRequest(
   settings: RequestSettings,
   connectionId?: string,
   context = captureExecutionContext(),
+  onSse?: (e: { kind: 'sseOpen' } | ({ kind: 'sseEvent' } & SseEvent)) => void,
 ) {
   const environmentId = context.environmentId;
   return requestRun(
@@ -212,6 +214,7 @@ export function executeRequest(
     (event) => {
       if (event.kind === 'vars') applyScriptVars(event, environmentId, false);
       else if (event.kind === 'input') openPrompt(requestId, event);
+      else if (event.kind === 'sseOpen' || event.kind === 'sseEvent') onSse?.(event);
     },
     connectionId,
   ).finally(() => closePrompt(requestId));
