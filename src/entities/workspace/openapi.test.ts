@@ -102,6 +102,14 @@ describe('parseOpenApi — OpenAPI 3', () => {
     expect(spec.schemas).toBe(1);
   });
 
+  it('keeps keys unique when an operationId repeats', () => {
+    const doc = {
+      openapi: '3.0.0',
+      paths: { '/a': { get: { operationId: 'me' } }, '/b': { get: { operationId: 'me' } } },
+    };
+    expect(parseOpenApi(JSON.stringify(doc), 'x.json').ops.map((o) => o.key)).toEqual(['me', 'GET /b']);
+  });
+
   it('can keep {id} and drop example bodies', () => {
     const plain = parseOpenApi(JSON.stringify(oas3), 'demo.json', {
       ...OPENAPI_DEFAULTS,
