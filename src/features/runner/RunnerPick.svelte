@@ -1,6 +1,6 @@
 <script lang="ts">
   /**
-   * Runner R1 «Что запустить?»: pick a collection (or any folder via search),
+   * Runner R1 “What to run?”: pick a collection (or any folder via search),
    * or repeat one of the recent runs. Picking opens the run setup (R2).
    * Shared atoms (.rn-eyebrow, .rn-btn …) are styled by RunnerView.
    */

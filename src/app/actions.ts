@@ -153,12 +153,12 @@ export function importOpenApi(): void {
   importWindow.open();
 }
 export const importFrom = (): void => importOpenApi();
-// «Обновить из спецификации» on a collection made by import (IM8).
+// “Update from the spec” on a collection made by import (IM8).
 export function updateFromSpec(folderId: string): void {
   shell.closeMenu();
   importWindow.open({ update: folderId });
 }
-// IM7: the toast with the result; «Открыть» opens the first imported request.
+// IM7: the toast with the result; “Open” opens the first imported request.
 export function importDone(r: ImportResult): void {
   const env = r.envs.created.length ? ` · ${t('import.done.env', { names: r.envs.created.join(', ') })}` : '';
   const first = r.first;

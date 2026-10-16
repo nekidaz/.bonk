@@ -23,7 +23,7 @@ pub fn cookies_list(
     Ok(jar(&app, &state, &workspace)?.list())
 }
 
-/// Settings → Cookies «Хранить между запусками» changed: re-save the jar with or without
+/// Settings → Cookies “Keep across restarts” changed: re-save the jar with or without
 /// its session cookies right away (not only on the next request).
 #[tauri::command]
 pub fn cookies_keep_session(

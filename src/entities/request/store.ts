@@ -32,7 +32,7 @@ import { executeRequest } from './execute';
 import { oauthCardKey, oauthRuntime } from './oauth.svelte';
 import { sessionRuntime } from './session.svelte';
 
-/** Save the active tab into folder `folderId` (root if undefined). `asCopy` («Сохранить как…») writes a new file and points the tab at it, leaving the original untouched. */
+/** Save the active tab into folder `folderId` (root if undefined). `asCopy` (“Save As…”) writes a new file and points the tab at it, leaving the original untouched. */
 export async function saveActiveRequest(folderId?: string, name?: string, asCopy = false): Promise<void> {
   let root = workspace.path;
   if (!root) {
@@ -137,7 +137,7 @@ export function openSavedRequest(req: RequestNode, inNewTab = false): void {
     tabs.activeId = existing.id;
     return;
   }
-  // Settings → «Открывать запрос в новой вкладке» off: reuse the active saved
+  // Settings → “Open request in a new tab” off: reuse the active saved
   // request's tab when it has no unsaved changes (scratch tabs are never replaced).
   const current = tabs.active;
   const reuse =

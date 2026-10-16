@@ -2,7 +2,7 @@
   /**
    * S31 · Environments editor for environments and Globals, shown in the Environments tab.
    * Edits go into a local draft (deep copy of `environments`) and are written back
-   * only on «Сохранить»; «Отмена» discards them.
+   * only on “Save”; “Cancel” discards them.
    */
   import { tick, untrack } from 'svelte';
   import { getCurrentWebview } from '@tauri-apps/api/webview';
@@ -27,14 +27,14 @@
   import { Button, Switch, Segmented, Toast } from '$shared/ui/components';
 
   type Fmt = EnvJsonFormat | undefined;
-  /** «Из JSON…»: the new environment is a draft in the list until «Создать окружение». */
+  /** “From JSON…”: the new environment is a draft in the list until “Create environment”. */
   interface Creating {
     id: string;
     text: string;
     fmt: Fmt;
     /** The user typed a name: the one in the JSON no longer replaces it. */
     nameTouched: boolean;
-    /** Where «Отмена» goes back to. */
+    /** Where “Cancel” goes back to. */
     prev: string;
   }
   /** ⌘V of a JSON object into the table: what the merge would do, shown before it is applied. */
@@ -92,7 +92,7 @@
     ),
   );
   const jsonResult = $derived(envFromJson(creating ? creating.text : jsonText, creating?.fmt));
-  /** The JSON on screen has an error: «Сохранить» / «Создать» wait for a fix. */
+  /** The JSON on screen has an error: “Save” / “Create environment” wait for a fix. */
   const jsonInvalid = $derived((creating !== null || view === 'json') && !jsonResult.ok);
   const nameFromJson = $derived(creating !== null && !creating.nameTouched && jsonResult.ok && !!jsonResult.env.name);
   const footNote = $derived(
@@ -105,7 +105,7 @@
           : t('env.secrets_note'),
   );
 
-  /** «1 окружение · 2–4 окружения · 5+ окружений». */
+  /** “1 environment · 2+ environments”. */
   function plural(n: number): string {
     return tp(n, ['environment', 'environments']).toUpperCase();
   }
@@ -114,7 +114,7 @@
   }
 
   // What the draft was copied from: our own save keeps the draft, a change made elsewhere while the tab
-  // is open (toolbar «+», sidebar, import) re-seeds it, so «Сохранить» never drops that change.
+  // is open (toolbar «+», sidebar, import) re-seeds it, so “Save” never drops that change.
   let seededList: Environment[] | null = null;
   let seededGlobals: VarRow[] | null = null;
 
@@ -182,7 +182,7 @@
       }
       return;
     }
-    // Shortcuts of the «Новое окружение» menu. The tab shares the window: only while focus is in it.
+    // Shortcuts of the “New environment” menu. The tab shares the window: only while focus is in it.
     if (!root?.contains(document.activeElement)) return;
     const mod = e.metaKey || e.ctrlKey;
     const key = e.key.toLowerCase();
@@ -333,7 +333,7 @@
     }
   }
 
-  // A .json dragged into the window while «Из JSON…» is open fills the editor. Tauri hands over file paths
+  // A .json dragged into the window while “From JSON…” is open fills the editor. Tauri hands over file paths
   // (HTML5 drop events never fire in the macOS webview); the import window's drop zone steps aside for [data-env-drop].
   const dropOpen = $derived(creating !== null);
   $effect(() => {
@@ -502,7 +502,7 @@
     <section class="detail" data-env-drop={creating ? '' : undefined}>
       <div class="titlebar">
         {#if env}
-          <!-- Grows with the text so the «Защищено» badge sits right after the name (S31). -->
+          <!-- Grows with the text so the “Protected” badge sits right after the name (S31). -->
           <label class="namebox"
             ><span aria-hidden="true">{env.name || ' '}</span><input
               class="name"

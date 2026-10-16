@@ -1,7 +1,7 @@
 import { isProtected } from './palette';
 
 /**
- * Pure helpers for the "Окружения для AI" picker (S32.8). The allow-list is by environment
+ * Pure helpers for the "Environments for AI" picker (S32.8). The allow-list is by environment
  * NAME because `bonk-mcp --environment <name>` is name-based.
  */
 export type McpEnvScope = 'all-but-prod' | 'selected';

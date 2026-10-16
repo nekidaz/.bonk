@@ -1,4 +1,4 @@
-// Dynamic variables (Flow · Динамические переменные, DV1–DV6): the catalog's descriptions (also what
+// Dynamic variables (Flow · Dynamic variables, DV1–DV6): the catalog's descriptions (also what
 // «search by meaning» matches), the editor popovers, the reference dialog and Settings → Variables.
 export const en = {
   'dyn.group.time': 'Time',

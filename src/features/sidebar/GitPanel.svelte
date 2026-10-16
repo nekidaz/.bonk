@@ -64,7 +64,7 @@
   let box = $state<HTMLElement>();
   let area = $state<HTMLTextAreaElement>();
   const parts = $derived(messageParts(git.message));
-  /** D: unfocused, a multi-line message shows only its subject and «ещё N строк». */
+  /** D: unfocused, a multi-line message shows only its subject and “N more lines”. */
   const collapsed = $derived(!focused && parts.more > 0);
   const subjectLen = $derived(git.message.split('\n')[0].length);
   const canCommit = $derived(!git.busy && git.message.trim() !== '' && (staged.length > 0 || git.amend));

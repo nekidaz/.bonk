@@ -32,7 +32,7 @@
       requestPrefs.trustedCaPaths.current = [...requestPrefs.trustedCaPaths.current, path];
   }
 
-  // "<subject CN> · до <date>" per CA file; falls back to the path when the file can't be parsed.
+  // "<subject CN> · until <date>" per CA file; falls back to the path when the file can't be parsed.
   let caInfo = $state<Record<string, string>>({});
   $effect(() => {
     for (const path of requestPrefs.trustedCaPaths.current) {
@@ -207,7 +207,7 @@
     flex: 0 0 auto;
   }
 
-  /* Settings → Сертификаты: per-host mTLS table (host | certificate | key | actions). */
+  /* Settings → Certificates: per-host mTLS table (host | certificate | key | actions). */
   .st-certs {
     display: grid;
     grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) minmax(0, 1fr) auto;

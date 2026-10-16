@@ -35,7 +35,7 @@ class SessionRuntime {
   running = $state.raw<Record<string, SessionRunning>>({});
   /** Why the last button run failed, for the card that started it. */
   failure = $state.raw<{ key: string; message: string } | null>(null);
-  /** The Sessions dialog (Flow · Сессия SE6): the collection auth it lists, and where it is set. */
+  /** The Sessions dialog (Flow · Session SE6): the collection auth it lists, and where it is set. */
   dialog = $state.raw<{ auth: AuthConfig; where: string } | null>(null);
 
   changed(): void {
@@ -74,7 +74,7 @@ export function sessionStatuses(auth: AuthConfig, names: string[]): Promise<EnvS
   return sessionStatus(workspace.path ?? '', names, auth.session ?? {});
 }
 
-/** «Войти» / «Обновить» now, in `environment` (default: the selected one). Never throws: a failure lands in `sessionRuntime.failure`. */
+/** “Sign in” / “Refresh” now, in `environment` (default: the selected one). Never throws: a failure lands in `sessionRuntime.failure`. */
 export async function runSession(
   mode: 'signIn' | 'refresh',
   auth: AuthConfig,
@@ -126,7 +126,7 @@ export async function runSession(
 /** Stop a button's sign-in that waits for the code. */
 export const cancelSessionRun = (requestId: string): Promise<void> => cancelRequest(requestId);
 
-/** «Выйти»: forget the session of these environments. */
+/** “Sign out”: forget the session of these environments. */
 export async function signOutSessions(auth: AuthConfig, names: string[]): Promise<void> {
   await sessionForget(workspace.path ?? '', names, auth.session ?? {});
   sessionRuntime.changed();

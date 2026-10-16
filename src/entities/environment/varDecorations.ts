@@ -341,7 +341,7 @@ function askedDom(view: EditorView, name: string, hit: { from: number; to: numbe
   return root;
 }
 
-/** Right-click on a `{{var}}` opens the «Спрашивать при отправке» menu. */
+/** Right-click on a `{{var}}` opens the “Ask on send” menu. */
 function askContext(opts: VariableHighlightOptions): Extension {
   return EditorView.domEventHandlers({
     contextmenu(event, view) {
@@ -396,7 +396,7 @@ function varHover(opts: VariableHighlightOptions): Extension {
 /**
  * Colors ride on the design-system tokens (src/styles/tokens.css) so palettes and
  * `.dark` re-theme without touching the editor. Geometry follows the Pencil
- * design «V1 · Поповер переменной {{var}}», made compact like Postman's.
+ * design “V1 · Variable popover {{var}}”, made compact like Postman's.
  */
 const muted = 'var(--color-text-muted)';
 const varTheme = EditorView.baseTheme({

@@ -39,7 +39,7 @@ export interface EnvRow {
   vars: VarRow[];
   /** Name for a new environment. */
   suggest: string;
-  /** Prefer the active environment (HAR: «в активном окружении»). */
+  /** Prefer the active environment (HAR: “in the active environment”). */
   active?: boolean;
 }
 

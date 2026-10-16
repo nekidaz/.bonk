@@ -83,7 +83,7 @@ pub struct SessionUse {
     pub trace: Vec<Trace>,
 }
 
-/// Why a login is asking: shown above its form («Войти заново: Login ✓ Send OTP ✓ Verify OTP»).
+/// Why a login is asking: shown above its form (“Sign in again: Login ✓ Send OTP ✓ Verify OTP”).
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SessionPrompt {
@@ -107,9 +107,9 @@ pub struct PromptStep {
 pub enum Mode {
     /// Before a send: reuse, renew when due, sign in when there is nothing to renew with.
     Send { force: bool },
-    /// «Обновить»: renew now; no fallback to the sign-in.
+    /// “Renew access”: renew now; no fallback to the sign-in.
     Refresh,
-    /// «Войти»: run the sign-in scenario now.
+    /// “Sign in”: run the sign-in scenario now.
     SignIn,
 }
 
@@ -344,7 +344,7 @@ async fn login<T: Transport>(
                 rows.push(*row);
             }
         }
-        // «Отправить заново» ran the step before again: its new row replaces the old one.
+        // “Resend” ran the step before again: its new row replaces the old one.
         RunEvent::Resent(row) => {
             if let Ok(mut rows) = rows.lock() {
                 match rows.iter().rposition(|old| old.node_id == row.node_id) {
@@ -417,7 +417,7 @@ async fn login<T: Transport>(
     session::catch(config, &caught, session::now_secs())
 }
 
-/// Keep the tokens a finished run of the sign-in scenario caught (the Runner's «Запомнить вход?»).
+/// Keep the tokens a finished run of the sign-in scenario caught (the Runner's “Remember this sign-in?”).
 pub fn save_caught(
     root: &str,
     environment: &str,

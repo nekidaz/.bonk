@@ -110,7 +110,7 @@ export function closeTab(id: string): void {
 }
 
 /**
- * Close a tab from the UI. With unsaved changes (Settings → Общие) it asks
+ * Close a tab from the UI. With unsaved changes (Settings → General) it asks
  * Save / Don't save / Cancel, like Postman; Save on a never-saved tab opens the
  * save-to dialog and the tab closes only once the request is written.
  */

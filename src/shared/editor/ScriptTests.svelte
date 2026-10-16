@@ -1,6 +1,6 @@
 <script lang="ts">
   /**
-   * `pm.test` results (SC4): Все / Прошли / Упали, the stage and how long it took, one row per check with
+   * `pm.test` results (SC4): All / Passed / Failed, the stage and how long it took, one row per check with
    * its line; a failed check spells out expected vs actual. `compact` (SC9) lists the failures and folds
    * the passed ones into one row.
    */

@@ -1,6 +1,6 @@
 <script lang="ts">
   /**
-   * Runner R2 «Настройка прогона»: which requests run and in what order
+   * Runner R2 “Run setup”: which requests run and in what order
    * (checks, drag to reorder, "only the failed ones"), plus environment, data
    * file, iterations, delay and stop-on-failure, and what will be sent.
    * Shared atoms (.rn-eyebrow, .rn-btn …) are styled by RunnerView.
@@ -48,10 +48,10 @@
   const linkOf = (n: RequestNode) => links[planned.indexOf(n)];
   const methodOf = (n: RequestNode) => (n.protocol === 'grpc' ? 'gRPC' : n.request.method);
 
-  // Steps with an «ask on send» variable (Flow · Сценарий с вводом OT2): the run stops there and asks.
+  // Steps with an «ask on send» variable (Flow · Scenario with input OT2): the run stops there and asks.
   const askOf = (n: RequestNode) => inputNamesOf(n, inputs.defs);
   const asking = $derived(planned.filter((n) => askOf(n).length > 0));
-  // «Login {{session}} → Send OTP {{otpId}} → ты {{otp}} → Verify OTP {{token}}»: what is handed along, and where a person types.
+  // «Login {{session}} → Send OTP {{otpId}} → you {{otp}} → Verify OTP {{token}}»: what is handed along, and where a person types.
   const chain = $derived(
     asking.length === 0
       ? []
@@ -64,7 +64,7 @@
   const askWhat = $derived.by(() => {
     if (asking.length !== 1) return t('input.send.waitInput');
     const names = askOf(asking[0]);
-    // «Код из SMS» → «код из SMS»: only the first letter drops to lower case.
+    // “Code from SMS” → “code from SMS”: only the first letter drops to lower case.
     return names
       .map((name) => {
         const label = inputLabel(name, inputs.defs[name]);
@@ -102,7 +102,7 @@
   };
   const allState = $derived(groupState(all.map((n) => n.id)));
 
-  // "Только упавшие в #N": the failed calls of the last run in this tab.
+  // “Only failed in #N”: the failed calls of the last run in this tab.
   const failedIds = $derived(new Set(runner.run.results.filter((r) => !r.ok && r.nodeId).map((r) => r.nodeId!)));
   const onlyFailed = () => setExcluded(all.filter((n) => !failedIds.has(n.id)).map((n) => n.id));
 
@@ -139,7 +139,7 @@
     }
   }
 
-  // ---- Composing (R2 «+ Запрос») ----
+  // ---- Composing (R2 “+ Request”) ----
   let adding = $state(false);
   const order = $derived(all.map((n) => n.id));
   // The name to save under: the open scenario's, else a made-up one, until typed over.

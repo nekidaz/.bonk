@@ -35,7 +35,7 @@
     editor?: boolean;
     /** Format: re-indent the whole document by its syntax (scripts; bodies use `onBeautify`). */
     format?: boolean;
-    /** Flow · Скрипты: the cluster sits in its own rounded capsule. */
+    /** Flow · Scripts: the cluster sits in its own rounded capsule. */
     pill?: boolean;
     /** Extra buttons before Expand (Copy, Save to file). */
     extra?: Snippet;

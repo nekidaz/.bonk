@@ -15,7 +15,7 @@
     font-size: 16px;
   }
 
-  /* Flow · OAuth 2.0 (OA2–OA9): token card, settings, details, «Токены OAuth». */
+  /* Flow · OAuth 2.0 (OA2–OA9): token card, settings, details, “OAuth tokens”. */
   :global(.bs) .bs-oa {
     display: flex;
     flex-direction: column;

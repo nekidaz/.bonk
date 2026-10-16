@@ -219,7 +219,7 @@ describe('field merge of arrays', () => {
       const t = { items: [e(1, 1), e(8, 9)] };
       const guessed = fields(b, b, t).filter((f) => f.guess);
       expect(guessed.map((f) => f.label)).toEqual(['items[1].a', 'items[1].b']);
-      // «Это замена»: the same element is now gone and a new one added.
+      // “It’s a replacement”: the same element is now gone and a new one added.
       const pairing = { splits: new Set(guessed[0].guess), joins: new Set<string>() };
       const split = fields(b, b, t, pairing);
       expect(Object.fromEntries(split.map((f) => [f.label, f.kind]))).toMatchObject({
@@ -240,7 +240,7 @@ describe('field merge of arrays', () => {
       const removed = fs.find((f) => f.label === 'items[1]')!;
       expect(removed.kind).toBe('conflict'); // mine edited what theirs removed
       expect(removed.join?.map((j) => j.label)).toEqual(['items[2]']);
-      // «Это правка»: one element, merged field by field — b from mine, url from theirs.
+      // “It’s an edit”: one element, merged field by field — b from mine, url from theirs.
       const pairing = { splits: new Set<string>(), joins: new Set([removed.join![0].key]) };
       const joined = fields(b, m, t, pairing);
       expect(Object.fromEntries(joined.map((f) => [f.label, f.kind]))).toMatchObject({

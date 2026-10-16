@@ -79,7 +79,7 @@ export async function withOAuthToken(
 }
 
 /**
- * «Получить токен»: the code grant logs in through the browser; the others fetch directly.
+ * “Get token”: the code grant logs in through the browser; the others fetch directly.
  * Failures land in `oauthRuntime.failure` for the card (OA6).
  */
 export async function getOAuthToken(
@@ -123,7 +123,7 @@ export function cancelOAuthLogin(): void {
   if (login) void oauthLoginInput(login.flowId, null);
 }
 
-/** «Обновить»: a refresh (or a new grant) now. */
+/** “Refresh”: a refresh (or a new grant) now. */
 export async function refreshOAuthToken(
   auth: AuthConfig,
   scope: Scope,
@@ -140,13 +140,13 @@ export async function refreshOAuthToken(
   }
 }
 
-/** «Удалить»: forget the token in bonk only. */
+/** “Delete”: forget the token in bonk only. */
 export async function forgetOAuthToken(auth: AuthConfig, scope: Scope): Promise<void> {
   await oauthForget(auth, scope);
   oauthRuntime.changed();
 }
 
-/** «Отозвать»: the provider's revocation endpoint, then forget. */
+/** “Revoke”: the provider's revocation endpoint, then forget. */
 export async function revokeOAuthToken(
   auth: AuthConfig,
   scope: Scope,

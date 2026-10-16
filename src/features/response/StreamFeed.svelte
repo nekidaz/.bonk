@@ -1,7 +1,7 @@
 <script lang="ts">
   /**
    * Flow · gRPC Stream (ST1–ST7): the one feed for every stream kind — ↑ sent and ↓ received in time
-   * order, a filter (text or `$.path`) and direction toggle above it, pause / «К последнему», the
+   * order, a filter (text or `$.path`) and direction toggle above it, pause / “Jump to latest”, the
    * half-close marker, the closing line, and the message pane on the right when a row is picked.
    *
    * Pause is the parent's (`pause`, bindable) because the status pill shows it too; it is tied to the

@@ -102,13 +102,13 @@
     return () => clearInterval(id);
   });
 
-  // ---- Waiting for typed input (Flow · Сценарий с вводом OT4-OT5) ----
+  // ---- Waiting for typed input (Flow · Scenario with input OT4-OT5) ----
   const waiting = $derived(running ? run.waiting : null);
   const clock = (ms: number) => `${Math.floor(ms / 60000)}:${String(Math.floor(ms / 1000) % 60).padStart(2, '0')}`;
   const waitText = $derived(waiting ? clock(Math.max(0, now - waiting.since)) : '');
   const rejected = $derived(!!waiting && waiting.request.attempt > 1);
 
-  // «Запомнить вход?»: a finished sign-in scenario offers to keep its tokens (Flow · Сессия SE1).
+  // “Remember this sign-in?”: a finished sign-in scenario offers to keep its tokens (Flow · Session SE1).
   const offer = $derived(
     !running && viewing === null && run.status === 'done' && sessionOffer.current?.run === run.n
       ? sessionOffer.current

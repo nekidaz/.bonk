@@ -1,6 +1,6 @@
 <script lang="ts">
-  // Flow · Темы TH3: a Zed / VS Code theme file → the token mapping, a preview in the theme's own colours,
-  // and «Добавить тему», which writes ~/.bonk/themes/<slug>.json and switches to it. Covers the settings sheet.
+  // Flow · Themes TH3: a Zed / VS Code theme file → the token mapping, a preview in the theme's own colours,
+  // and “Add theme”, which writes ~/.bonk/themes/<slug>.json and switches to it. Covers the settings sheet.
   import { untrack } from 'svelte';
   import { t } from '$shared/i18n';
   import { themeSave, type ImportFile } from '$shared/ipc';
@@ -159,7 +159,7 @@
 {/if}
 
 <style>
-  /* Flow · Темы TH3: theme import. Covers the settings sheet (position: relative above). */
+  /* Flow · Themes TH3: theme import. Covers the settings sheet (position: relative above). */
   .thi {
     position: absolute;
     inset: 0;

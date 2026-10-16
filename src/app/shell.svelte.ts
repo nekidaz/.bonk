@@ -3,12 +3,12 @@ import { findNode, parentId, workspace } from '$entities/workspace';
 import { appMenuWidth, type AppMenuKind, type AppMenuState, type UtilityMode } from '$shared/ui';
 
 /** S09b: confirmation toast after a save, with a one-step undo (⌘Z while it is visible).
- *  P3/P4 bring their own icon (swap_horiz in the new protocol's colour) and undo label («Вернуть HTTP»). */
+ *  P3/P4 bring their own icon (swap_horiz in the new protocol's colour) and undo label (“Back to HTTP”). */
 export type Toast = {
   text: string;
   undo?: () => void;
   undoLabel?: string;
-  /** A follow-up that isn't an undo (no ⌘Z): «Открыть» after an import. */
+  /** A follow-up that isn't an undo (no ⌘Z): “Open” after an import. */
   action?: { label: string; run: () => void };
   icon?: string;
   iconColor?: string;

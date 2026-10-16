@@ -104,7 +104,7 @@ export function unfoldEverything(view: EditorView): void {
 
 export const hasFolds = (state: EditorState): boolean => foldedRanges(state).iter().value !== null;
 
-/** «Свернуть всё» toggles: unfold when anything is folded, else fold every container. */
+/** “Fold all” toggles: unfold when anything is folded, else fold every container. */
 export function toggleFoldAll(view: EditorView): void {
   if (hasFolds(view.state)) unfoldEverything(view);
   else foldEverything(view);

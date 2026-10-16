@@ -1,4 +1,4 @@
-//! Session auth for the Authorization tab, the Sessions dialog and the Runner's «Запомнить вход?».
+//! Session auth for the Authorization tab, the Sessions dialog and the Runner's “Remember this sign-in?”.
 //! Sends use the runner itself (`request_run`); these are the buttons: sign in now,
 //! renew now, sign out, what is stored. Logic: `bonk_core::application::session{,_run}`.
 
@@ -41,7 +41,7 @@ pub fn session_status(
         .collect()
 }
 
-/// «Войти» (`signIn`) or «Обновить» (`refresh`) now. The sign-in asks for typed input the
+/// “Sign in” (`signIn`) or “Renew access” (`refresh`) now. The sign-in asks for typed input the
 /// way a send does: through `on_event`, answered with `runner_input_answer`.
 #[allow(clippy::too_many_arguments)]
 #[tauri::command]
@@ -96,7 +96,7 @@ pub async fn session_run(
     result.map(|got| session_run::used(&config, &plan, got))
 }
 
-/// «Выйти»: forget the session of these environments.
+/// “Sign out”: forget the session of these environments.
 #[tauri::command]
 pub fn session_forget(
     workspace_root: String,
@@ -112,7 +112,7 @@ pub fn session_forget(
     Ok(())
 }
 
-/// «Сохранить» in the Runner: keep the tokens a finished run of the sign-in scenario caught.
+/// “Save session” in the Runner: keep the tokens a finished run of the sign-in scenario caught.
 /// `rows` are `(node id, response body)` of that run.
 #[tauri::command]
 pub fn session_save_caught(
@@ -126,7 +126,7 @@ pub fn session_save_caught(
 }
 
 /// What a finished run of the sign-in scenario would give, without keeping it (the card's
-/// «пойманы» list). `None`: the run did not reach the tokens.
+/// “caught” list). `None`: the run did not reach the tokens.
 #[tauri::command]
 pub fn session_peek(config: SessionConfig, rows: Vec<(String, String)>) -> Option<SessionInfo> {
     let caught: Vec<session::Caught<'_>> = rows

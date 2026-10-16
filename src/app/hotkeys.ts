@@ -1,5 +1,5 @@
 // Window-level keyboard: Escape for menus / expanded mode, ⌘Z for the toast's undo, ⌥⌘2…9 for
-// recent workspaces, and every rebindable command (Settings → Хоткеи) routed to its action.
+// recent workspaces, and every rebindable command (Settings → Hotkeys) routed to its action.
 import { tabs } from '$entities/tab';
 import { addFolder, openWorkspaceFolder, switchWorkspace, workspace } from '$entities/workspace';
 import { closeAllTabs, newTab, reopenClosedTab, requestCloseTab } from '$features/tabs';

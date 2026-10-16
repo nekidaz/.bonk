@@ -46,7 +46,7 @@
     onChange: (a: AuthConfig) => void;
     /** The request tab, for the «renewed before sending» banner (OA7). */
     tabId?: string;
-    /** Where this auth is set (collection / request name), for «Все токены». */
+    /** Where this auth is set (collection / request name), for “All tokens”. */
     where: string;
     configOpen?: boolean;
     /** Settings fold into the Type row (any state but «no token»). */
@@ -461,7 +461,7 @@
     {/if}
   {/if}
 
-  <!-- Settings: open while there is no token, else behind «Настройки» on the Type row. -->
+  <!-- Settings: open while there is no token, else behind “Settings” on the Type row. -->
   {#if showConfig}
     <AuthCard class="config">
       <div class="row">

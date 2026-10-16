@@ -31,7 +31,7 @@ export interface Changed {
   id: string;
   current: RequestNode;
   merged: RequestNode;
-  /** Short human list: `новый query: created_from`, `тело: +metadata, amount → integer`. */
+  /** Short human list: `new query: created_from`, `body: +metadata, amount → integer`. */
   what: string[];
   /** Body before/after when the spec changed it; `updated` = the user's body follows (they didn't edit it). */
   body?: { before: string; after: string; updated: boolean };

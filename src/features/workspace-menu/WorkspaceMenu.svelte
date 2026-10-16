@@ -23,7 +23,7 @@
     else searchEl?.focus();
   });
 
-  // «● MCP подключён»: some installed AI client points at this workspace. Re-checked each time the menu opens.
+  // “● MCP connected”: some installed AI client points at this workspace. Re-checked each time the menu opens.
   let mcpOn = $state(false);
   $effect(() => {
     if (!open) return;
@@ -407,7 +407,7 @@
     height: 28px;
   }
 
-  /* Flow · Размеры окна: from 1920 down to the 720 × 520 minimum (tauri.conf.json). The sidebar never
+  /* Flow · Window sizes: from 1920 down to the 720 × 520 minimum (tauri.conf.json). The sidebar never
      covers the content (layout.svelte.ts squeezes it to 220 first), then secondary labels and columns hide.
      Window widths in the mock map to: ≤ 1100 = 1024, ≤ 900 = 800, ≤ 760 = 720. The response's own items
      follow its container (response.css), so they also react to the side-by-side layout. */
@@ -535,7 +535,7 @@
     font: var(--font-size-micro) var(--font-code);
   }
 
-  /* Flow · Размеры окна, rules 04: the name wraps to at most two lines; the path's start gives way first. */
+  /* Flow · Window sizes, rules 04: the name wraps to at most two lines; the path's start gives way first. */
   :global(.bs) .bs-work-menu .bs-work-item :global(.main) {
     display: -webkit-box;
     -webkit-box-orient: vertical;
@@ -616,7 +616,7 @@
     font-size: var(--font-size-body);
   }
 
-  /* Workspace picker: «● MCP подключён» chip in the current workspace's meta row. */
+  /* Workspace picker: “● MCP connected” chip in the current workspace's meta row. */
   :global(.bs) .bs-work-menu .bs-work-item :global(.meta span.mcp) {
     display: inline-flex;
     align-items: center;

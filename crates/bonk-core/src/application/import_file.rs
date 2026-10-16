@@ -1,5 +1,5 @@
 //! Reading a file for the import window: a picked or dropped spec, collection, HAR or cURL file,
-//! or a collection's saved source on «Обновить из спецификации».
+//! or a collection's saved source on “Update from the spec”.
 
 use std::path::Path;
 

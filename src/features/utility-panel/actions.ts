@@ -3,7 +3,7 @@ import { openSavedRequest, type AppConsoleEntry } from '$entities/request';
 import { tabs } from '$entities/tab';
 import { findNode, workspace } from '$entities/workspace';
 
-/** «Открыть запрос»: its tab if still open, else the saved request. False when neither exists. */
+/** “Open request”: its tab if still open, else the saved request. False when neither exists. */
 export function openEntry(e: Pick<AppConsoleEntry, 'tabId' | 'nodeId'>): boolean {
   if (e.tabId && tabs.list.some((x) => x.id === e.tabId)) {
     tabs.activeId = e.tabId;
@@ -15,7 +15,7 @@ export function openEntry(e: Pick<AppConsoleEntry, 'tabId' | 'nodeId'>): boolean
   return true;
 }
 
-/** «Повторить»: open it and press Send, as the History «Повторить» does. */
+/** “Repeat”: open it and press Send, as the History “Repeat” does. */
 export async function retryEntry(e: Pick<AppConsoleEntry, 'tabId' | 'nodeId'>): Promise<void> {
   if (!openEntry(e)) return;
   await tick();

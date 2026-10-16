@@ -82,7 +82,7 @@
     return url ? `${t.title}\n${url}` : t.title;
   }
 
-  // Flow · Размеры окна: tabs that don't fit the strip are listed behind «+N».
+  // Flow · Window sizes: tabs that don't fit the strip are listed behind «+N».
   let overflowIds = $state.raw<string[]>([]);
   let overflowMenu = $state<{ x: number; y: number } | null>(null);
   const overflowTabs = $derived(tabs.list.filter((tb) => overflowIds.includes(tb.id)));

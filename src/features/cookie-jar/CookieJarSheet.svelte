@@ -2,7 +2,7 @@
   /**
    * Flow · Cookies, CJ2–CJ5: the workspace's cookie jar. Domains on the left, their cookies on
    * the right; a row opens an inline editor (CJ3). Changes go straight to the jar (no draft),
-   * «Очистить всё» asks once (CJ4). Layout follows the Environments sheet (S31).
+   * “Clear all” asks once (CJ4). Layout follows the Environments sheet (S31).
    */
   import { tick, untrack } from 'svelte';
   import { t, tp } from '$shared/i18n';
@@ -545,7 +545,7 @@
 
 <style>
   /* Sizes follow the CJ2 mock (Pencil node «Cookie jar»), the same frame as the S31 sheet. */
-  /* Above Settings: «Открыть банку» there opens it on top. */
+  /* Above Settings: “Open jar” there opens it on top. */
   :global(:root .bs-jar-overlay.bs-jar-overlay) {
     z-index: 101;
     background: var(--color-scrim);

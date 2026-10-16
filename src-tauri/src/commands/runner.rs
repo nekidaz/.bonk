@@ -116,7 +116,7 @@ pub async fn request_run(
     result
 }
 
-/// «Пауза» / «Продолжить»: the run holds before its next call.
+/// “Pause” / “Resume”: the run holds before its next call.
 #[tauri::command]
 pub fn runner_pause(
     run_id: String,
@@ -129,7 +129,7 @@ pub fn runner_pause(
     Ok(())
 }
 
-/// «Остановить»: the call in flight finishes, nothing after it is sent.
+/// “Stop”: the call in flight finishes, nothing after it is sent.
 #[tauri::command]
 pub fn runner_stop(run_id: String, state: State<'_, AppState>) -> Result<(), String> {
     if let Some(control) = control(&state, &run_id)? {

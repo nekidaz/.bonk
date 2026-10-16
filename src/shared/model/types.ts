@@ -320,7 +320,7 @@ export interface Tab {
     headers?: Record<string, string>;
     /** Which side streams; absent on a stream started before this field existed (= server). */
     kind?: 'server' | 'client' | 'bidi';
-    /** Client/bidi: when «Завершить» half-closed our side. */
+    /** Client/bidi: when “End” half-closed our side. */
     halfClosedAt?: number;
   };
   git?: GitTabState;
@@ -332,7 +332,7 @@ export interface Tab {
   sent?: { request: HttpRequest; dynamic: DynamicValue[] };
   /** Per-request overrides of timeout / redirects / TLS verification (session-only, not saved to the file). */
   settings?: RequestOverrides;
-  /** S17b: pinned tabs lead the strip and survive «Закрыть остальные / справа / все». */
+  /** S17b: pinned tabs lead the strip and survive “Close Others / Tabs to the Right / All”. */
   pinned?: boolean;
 }
 
@@ -352,7 +352,7 @@ export interface TabTestResults {
   visualizer?: { html?: string; error?: string };
   /** Wall-clock time the post-response script took, ms (SC4 header). */
   postMs?: number;
-  /** When the run finished (epoch ms): «Прошлый прогон 12:04». */
+  /** When the run finished (epoch ms): “Last run 12:04”. */
   at?: number;
 }
 
@@ -418,7 +418,7 @@ export interface SpecLink {
   base: SpecBase;
 }
 
-/** Where a collection was imported from (`.folder.bonk.json` `source`), for «Обновить из спецификации». */
+/** Where a collection was imported from (`.folder.bonk.json` `source`), for “Update from the spec”. */
 export interface ImportSource {
   kind: 'url' | 'file';
   /** URL or absolute file path. */
@@ -521,7 +521,7 @@ export interface GraphCommit {
 
 export interface GraphPage {
   commits: GraphCommit[];
-  /** Commits in the whole range, for «Ещё N». */
+  /** Commits in the whole range, for “More”. */
   total: number;
   branches: number;
 }
@@ -790,7 +790,7 @@ export interface RunResultRow {
   error?: string; // transport/connect/fatal error message
   /** Response body (HTTP) / result body (gRPC). */
   responseBody?: string;
-  /** Saved request node id (Runner re-runs, "Открыть запрос"). */
+  /** Saved request node id (Runner re-runs, “Open request”). */
   nodeId?: string;
   /** Start time within its iteration, excluding the configured delay (waterfall). */
   startOffsetMs?: number;

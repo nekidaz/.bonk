@@ -13,7 +13,7 @@
 <script lang="ts">
   /**
    * Response body viewer shared by HTTP and gRPC (E4/E5): a read-only CodeMirror with ⌘F search, fold gutter and
-   * «ещё N объектов» chips for long arrays. Bodies CodeMirror
+   * “N more objects” chips for long arrays. Bodies CodeMirror
    * can't take well (minified multi-MB single lines, small markup) fall back to the chunked HTML renderer.
    */
   import { CodeEditor } from '$shared/editor/components';

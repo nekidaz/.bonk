@@ -1,4 +1,4 @@
-// Bottom panel: Console quick filters and record view, Terminal hand-off, Issues (Flow · Консоль, терминал, Issues).
+// Bottom panel: Console quick filters and record view, Terminal hand-off, Issues (Flow · Console, Terminal, Issues).
 export const en = {
   'hotkeys.cmd.utilityPanel': 'Bottom panel',
   'hotkeys.cmd.issues': 'Issues',

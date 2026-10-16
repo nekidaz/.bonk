@@ -1,7 +1,7 @@
 <script lang="ts">
   /**
-   * «Запомнить вход?» (Flow · Сессия SE1): under «Сценарий пройден» in the Runner log. The run caught
-   * the tokens of a sign-in a collection folder's session uses; «Сохранить сессию» keeps them for the
+   * “Remember this sign-in?” (Flow · Session SE1): under “Scenario passed” in the Runner log. The run caught
+   * the tokens of a sign-in a collection folder's session uses; “Save session” keeps them for the
    * selected environment, so the scenario need not run again.
    */
   import { t } from '$shared/i18n';

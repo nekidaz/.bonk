@@ -1,6 +1,6 @@
 import { themesList } from '$shared/ipc';
 
-/** Colour tokens a theme sets: the Pencil variable names from Flow · Темы. */
+/** Colour tokens a theme sets: the Pencil variable names from Flow · Themes. */
 export const THEME_TOKENS = [
   'color-app',
   'color-panel',

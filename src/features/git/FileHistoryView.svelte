@@ -1,6 +1,6 @@
 <script lang="ts">
   /**
-   * One request's git history as a tab (GitKraken's File History / Blame). «История»: the commits
+   * One request's git history as a tab (GitKraken's File History / Blame). “History”: the commits
    * that changed the file, renames followed, newest first; the selected one's diff on the right.
    * «Blame»: the file as it is now, each line with the commit that last changed it.
    */

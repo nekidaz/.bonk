@@ -14,9 +14,9 @@ export interface AppConsoleEntry {
   logs?: string[];
   /** Script tests of this send (CT1 line under the row). */
   tests?: Pick<ScriptTestResult, 'name' | 'passed' | 'error'>[];
-  /** The request had a pre-request or test script («Со скриптами»). */
+  /** The request had a pre-request or test script (“With scripts”). */
   scripted?: boolean;
-  /** Request name and saved node id («Открыть запрос», Issues «по запросу»). */
+  /** Request name and saved node id (“Open request”, Issues “by request”). */
   title?: string;
   nodeId?: string;
   tabId?: string;

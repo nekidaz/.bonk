@@ -16,7 +16,7 @@ export const ISSUE_KINDS: IssueKind[] = ['network', '4xx', '5xx', 'test', 'scrip
 export interface Issue {
   entry: AppConsoleEntry;
   kind: IssueKind;
-  /** Same cause = same key («Сервер недоступен» on one host, one test name, 404 on one route…). */
+  /** Same cause = same key (“Server unreachable” on one host, one test name, 404 on one route…). */
   cause: string;
   /** i18n key of the cause title; `arg` fills `{name}`. */
   title: string;
@@ -213,7 +213,7 @@ export function issuesOf(e: AppConsoleEntry): Issue[] {
 
 /**
  * Open failures, oldest first: a request's failures drop out once a later send of the same
- * request succeeds («Исправили — группа уходит после следующей успешной отправки»).
+ * request succeeds (“Fixed it? The group goes away after the next successful send”).
  */
 export function openIssues(entries: AppConsoleEntry[], since = 0, muted: ReadonlySet<string> = new Set()): Issue[] {
   const fixed = new Set<string>();
@@ -394,7 +394,7 @@ export function matchesIssueFilter(x: Issue, query: string): boolean {
   return terms.every((term) => hay.includes(term));
 }
 
-/** «Скопировать отчёт»: plain text for a ticket or chat. */
+/** “Copy report”: plain text for a ticket or chat. */
 export function issueReport(g: IssueGroup): string {
   const time = (at: number) => new Date(at).toISOString().replace('T', ' ').slice(0, 19);
   return [

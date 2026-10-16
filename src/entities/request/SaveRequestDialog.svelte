@@ -8,7 +8,7 @@
   import { Button, Overlay, Modal, ModalHeader, ModalBody, ModalFooter, TextInput } from '$shared/ui/components';
 
   // Opened through `requestSaveDialog()` (stores): App's Save / Save As and the
-  // close-tab «Сохранить» prompt all await the same dialog. The name/target state
+  // close-tab “Save” prompt all await the same dialog. The name/target state
   // lives here; the dialog seeds itself from the active tab each time it opens.
   let { onSaved }: { onSaved?: () => void } = $props();
 

@@ -12,7 +12,7 @@ export default defineConfig({
   // Tests run in node, which compiles `.svelte.ts` state for the server, where $effect never runs.
   // Under vitest compile it for the client and load Svelte's client runtime (`browser` condition).
   plugins: [svelte(test ? { dynamicCompileOptions: () => ({ generate: 'client' }) } : {})],
-  // Layer aliases: `$shared/ipc`, `$entities/tab`, `$features/http/components` (docs/GUIDE.md «Слои фронта»).
+  // Layer aliases: `$shared/ipc`, `$entities/tab`, `$features/http/components` (docs/GUIDE.md, “Frontend layers” section).
   resolve: {
     ...(test && { conditions: ['browser'] }),
     alias: {

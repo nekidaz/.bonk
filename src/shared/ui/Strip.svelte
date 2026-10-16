@@ -100,7 +100,7 @@
     color: var(--color-text-secondary);
   }
 
-  /* Flow · Размеры окна: at the minimum window only ⌄ is left of «Показать тело». */
+  /* Flow · Window sizes: at the minimum window only ⌄ is left of “Show body”. */
   .lb-strip :global(:is(.chip, .act):focus-visible) {
     outline: 2px solid var(--color-text);
     outline-offset: 2px;

@@ -42,7 +42,7 @@ export function pathParts(path: string): { dir: string; leaf: string } {
   return { dir: p.slice(0, cut), leaf: p.slice(cut) };
 }
 
-/** Some installed MCP client is configured for this workspace (the «● MCP подключён» chip). */
+/** Some installed MCP client is configured for this workspace (the “● MCP connected” chip). */
 export function mcpConnected(clients: { installed: boolean; workspace?: string | null }[], workspace: string): boolean {
   return !!workspace && clients.some((c) => c.installed && c.workspace === workspace);
 }

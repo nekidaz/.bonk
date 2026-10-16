@@ -122,7 +122,7 @@ class Git {
   op = $state.raw<OperationInfo | null>(null);
   /**
    * The last git action that can be taken back (GitKraken's Undo), null when none. Any other git op
-   * clears it, so «Отменить» is always about the action just done.
+   * clears it, so “Undo” is always about the action just done.
    */
   undo = $state.raw<{ label: string; run: () => Promise<boolean> } | null>(null);
   /** The «Clone repository» dialog is open. */
@@ -210,7 +210,7 @@ export async function unstagePaths(paths: string[]): Promise<void> {
 
 // ---- Undo: each undoable action records how to take itself back once it succeeded. ----
 
-/** Offer `run` as the undo of what was just done; `toast` also says so with an «Отменить» button. */
+/** Offer `run` as the undo of what was just done; `toast` also says so with an “Undo” button. */
 function offerUndo(label: string, run: () => Promise<boolean>, toast?: string): void {
   const entry = { label, run };
   git.undo = entry;

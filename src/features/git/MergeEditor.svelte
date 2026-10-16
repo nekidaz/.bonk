@@ -2,10 +2,10 @@
   /**
    * G8: three-way merge of one conflicted file, as in GoLand — mine · result · theirs. Each change
    * is one aligned row across the columns: » / « take a side into the result, × rejects it,
-   * «Слить непересекающиеся» takes every side that doesn't collide. Apply writes the result and
-   * marks the file resolved once nothing is left to decide. «Поля» merges a JSON request field by
+   * “Merge non-conflicting” takes every side that doesn't collide. Apply writes the result and
+   * marks the file resolved once nothing is left to decide. “Fields” merges a JSON request field by
    * field instead (mergeFields.ts): the same columns, one row per changed field. Any result block
-   * or field can also be typed by hand (✎): it then counts as decided and is marked «вручную».
+   * or field can also be typed by hand (✎): it then counts as decided and is marked “by hand”.
    */
   import { untrack } from 'svelte';
   import { findNode, workspace } from '$entities/workspace';
@@ -48,7 +48,7 @@
   let focus = $state(0);
   let loadedFor = '';
 
-  // «Поля»: the same file as fields, when all three sides are JSON objects.
+  // “Fields”: the same file as fields, when all three sides are JSON objects.
   let fs = $state.raw<Field[]>([]);
   let choices = $state.raw<FieldChoice[]>([]);
   let fAuto = $state.raw<boolean[]>([]);
@@ -56,7 +56,7 @@
   let showSame = $state(false);
   let ffocus = $state(0);
   let sides: [Obj, Obj, Obj] = [{}, {}, {}];
-  /** Pairings by place the user turned down («Это замена»). */
+  /** Pairings by place the user turned down (“It’s a replacement”). */
   let pairing = $state.raw<Pairing>({ splits: new Set(), joins: new Set() });
   let trailing = false;
   const fieldsMode = $derived(fieldsOk && mergeMode.current === 'fields');
@@ -66,7 +66,7 @@
   let draft = $state('');
   let draftError = $state('');
   const isManual = (c: FieldChoice) => !!c && typeof c === 'object';
-  // Switching JSON | Поля changes what an index means: drop an open edit.
+  // Switching JSON | Fields changes what an index means: drop an open edit.
   $effect(() => {
     void fieldsMode;
     editing = null;
@@ -120,14 +120,14 @@
   const fLeft = $derived(fChanged.filter((i) => choices[i] === null).length);
   const sameCount = $derived(fs.length - fChanged.length);
   const fResult = $derived(fieldsOk ? mergeFields(...sides, fs, choices, trailing, pairing) : null);
-  // The first row of each element matched only by place carries «≈ по месту» and «Это замена».
+  // The first row of each element matched only by place carries “≈ by place” and “It’s a replacement”.
   const guessHead = $derived(
     new Set(fs.map((f, i) => (f.guess && fs.findIndex((g) => g.guess?.[0] === f.guess?.[0]) === i ? i : -1))),
   );
 
   /**
-   * «Это замена»: the element wasn't edited, it was swapped for another — turn its pairing down
-   * (or undo a «Это правка» that made it).
+   * “It’s a replacement”: the element wasn't edited, it was swapped for another — turn its pairing down
+   * (or undo a “It’s an edit” that made it).
    */
   function splitGuess(keys: string[]): void {
     const splits = new Set(pairing.splits);
@@ -136,7 +136,7 @@
     reread({ splits, joins });
   }
 
-  /** «Это правка»: a removed and an added element are one element edited — pair them. */
+  /** “It’s an edit”: a removed and an added element are one element edited — pair them. */
   function joinPair(key: string): void {
     const splits = new Set(pairing.splits);
     const joins = new Set(pairing.joins);

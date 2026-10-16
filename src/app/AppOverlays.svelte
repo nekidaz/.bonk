@@ -176,7 +176,7 @@
   bind:folderId={shell.authFolderId}
   onSaved={(text) => shell.showToast({ text })}
   onOpenRunner={(name) => {
-    // Flow · Сессия: the sign-in scenario's setup, in the environment the session is kept for.
+    // Flow · Session: the sign-in scenario's setup, in the environment the session is kept for.
     const preset = runner.presets.find((p) => p.name === name);
     openRunnerTab();
     if (preset) applyPreset({ ...preset, envId: environments.activeId });

@@ -37,11 +37,11 @@
     tab?: Tab;
     value?: AuthConfig;
     onChange?: (a: AuthConfig) => void;
-    /** Where `value` is set (the folder dialog's collection), for OAuth's «Все токены». */
+    /** Where `value` is set (the folder dialog's collection), for OAuth's “All tokens”. */
     where?: string;
     /** Session (folder dialog): a sign-in from the card finished, for the app's toast. */
     onSaved?: (text: string) => void;
-    /** Session (folder dialog): «Открыть в Runner» on the sign-in scenario. */
+    /** Session (folder dialog): “Open in Runner” on the sign-in scenario. */
     onOpenRunner?: (scenario: string) => void;
   } = $props();
   const isGrpc = $derived(tab?.protocol === 'grpc');
@@ -87,7 +87,7 @@
         'basic',
         'apiKey',
         'oauth2',
-        // Flow · Сессия: set on a collection; a request inherits it (one it already has stays shown).
+        // Flow · Session: set on a collection; a request inherits it (one it already has stays shown).
         ...(!tab || ownType === 'session' ? ['session'] : []),
       ] as AuthType[]
     ).map((key) => ({ key, label: typeLabel(key), icon: typeIcons[key] })),

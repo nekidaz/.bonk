@@ -3,7 +3,7 @@ import type { ImportFile } from '$shared/ipc';
 /** What the import window opens with: nothing (pick a source), a dropped file, or a collection to update. */
 export interface ImportWindowRequest {
   file?: ImportFile;
-  /** Folder id of a collection made by import: «Обновить из спецификации» (IM8). */
+  /** Folder id of a collection made by import: “Update from the spec” (IM8). */
   update?: string;
 }
 
