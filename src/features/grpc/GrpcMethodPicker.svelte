@@ -352,8 +352,11 @@
   /* The address has priority: the picker gives way first (huge flex-shrink), the service ellipsizes, and it
      stops at about the method name's width; only then does a long address scroll. */
   /* static: the menu anchors to the whole field (GrpcEditor makes it relative), not to this button. */
+  /* flex-end: the trigger (capped at 360px) hugs the field's right edge, short or long address alike. */
   :global(.bs .bs-grpc-field) .bs-grpc-picker {
     position: static;
+    display: flex;
+    justify-content: flex-end;
     flex: 0 1000 auto;
     width: auto;
     min-width: min(190px, 40%);
@@ -371,6 +374,7 @@
     justify-content: flex-start;
     gap: 8px;
     width: auto;
+    min-width: 0;
     /* Never wider than the picker's slot, or it overlaps Send in a narrow window. */
     max-width: min(100%, 360px);
     height: 36px;
