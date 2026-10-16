@@ -21,9 +21,9 @@ export const UI_FONT_SIZES = [12, 13, 14] as const;
 export const uiFontSize = setting<number>('ui.fontSize', 'uiFontSize', 13, (v): v is number =>
   UI_FONT_SIZES.includes(v as 12),
 );
-/** Whole-window zoom (⌘= / ⌘− / ⌘0), applied to the webview in app/lifecycle.svelte.ts. */
-export const ZOOM_MIN = 0.5;
-export const ZOOM_MAX = 2;
+/** Whole-window zoom 100–150% (⌘= / ⌘− / ⌘0), applied to the webview in app/lifecycle.svelte.ts. */
+export const ZOOM_MIN = 1;
+export const ZOOM_MAX = 1.5;
 export const uiZoom = setting<number>(
   'ui.zoom',
   'uiZoom',
