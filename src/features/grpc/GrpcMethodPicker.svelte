@@ -349,13 +349,13 @@
     }
   }
 
-  /* A long address scrolls and gives way; the method keeps its width up to 45 % and ellipsizes past that. */
+  /* The address has priority: the picker gives way first (huge flex-shrink), the service ellipsizes, and it
+     stops at about the method name's width; only then does a long address scroll. */
   :global(.bs .bs-grpc-field) .bs-grpc-picker {
     position: relative;
-    flex: 0 0 auto;
+    flex: 0 1000 auto;
     width: auto;
-    min-width: 0;
-    max-width: 45%;
+    min-width: min(190px, 40%);
     margin-left: auto;
     height: auto;
     border: 0;
