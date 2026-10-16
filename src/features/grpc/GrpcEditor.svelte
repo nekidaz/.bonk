@@ -260,6 +260,14 @@
             backoffMs: backoff.slice(0, attempts - 1),
           },
         }));
+      } else if (fromInvoke && code) {
+        // Any other dial failure (bad URI, unresolved {{var}}) is also this Invoke's response.
+        // Status ERROR, not the dial's own code: «INVALID_ARGUMENT» would read as the server rejecting the message.
+        tabs.updateById(tabId, (x) => ({
+          ...x,
+          grpcStream: undefined,
+          grpcResult: { ok: false, status: 'ERROR', body: message, elapsed_ms: Date.now() - startedAt, size_bytes: 0 },
+        }));
       } else {
         requestRuntime.setGrpcError(tabId, message, code);
         tabs.updateById(tabId, (x) => withoutStaleResponse(x, code));
@@ -397,7 +405,7 @@
     const g = tabs.list.find((t) => t.id === tabId)?.grpc;
     // Never no-op silently: any earlier response stays visible in the response
     // pane, so a mute return here makes a dead Invoke look like a fresh success.
-    // A failed connect/reflect already left its banner via grpcDoConnect; the
+    // A failed connect/reflect already left its banner or response via grpcDoConnect; the
     // two cases IT can't explain (blank endpoint, no method) get their own.
     if (!g?.connectionId) {
       if (!g?.endpoint.trim()) requestRuntime.setGrpcError(tabId, t('grpc.endpointFirst'));
