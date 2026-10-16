@@ -263,6 +263,10 @@ pub enum RunEvent {
     Input(Box<InputRequest>),
     /// «Отправить заново» ran the step before again: its new row replaces the old one.
     Resent(Box<RunResultRow>),
+    /// The response is an event stream: headers arrived, events follow.
+    SseOpen,
+    /// One server-sent event, as it arrives (fields stay snake_case, like `SseEvent`).
+    SseEvent(crate::domain::sse::SseEvent),
 }
 
 /// One field of the input form.
@@ -1873,6 +1877,25 @@ mod tests {
     use super::*;
     use crate::application::{scenarios, session, workspace};
     use std::sync::Mutex;
+
+    #[test]
+    fn run_event_sse_json_shape() {
+        assert_eq!(
+            serde_json::to_value(RunEvent::SseOpen).unwrap(),
+            json!({"kind": "sseOpen"})
+        );
+        let event = crate::domain::sse::SseEvent {
+            index: 0,
+            at_ms: 1,
+            event: "message".into(),
+            data: "a".into(),
+            id: None,
+        };
+        assert_eq!(
+            serde_json::to_value(RunEvent::SseEvent(event)).unwrap(),
+            json!({"kind": "sseEvent", "index": 0, "at_ms": 1, "event": "message", "data": "a"})
+        );
+    }
 
     type GrpcCallSeen = (String, String, BTreeMap<String, String>);
 

@@ -50,6 +50,21 @@ pub fn cancel_request(request_id: String, state: State<'_, AppState>) -> Result<
     Ok(())
 }
 
+/// «Стоп» of a live event stream: the stream ends softly and the response is kept.
+/// Unknown id (already finished) is fine.
+#[tauri::command]
+pub fn request_stop_stream(request_id: String, state: State<'_, AppState>) -> Result<(), String> {
+    if let Some(stop) = state
+        .stream_stops
+        .lock()
+        .map_err(|_| "stream registry lock poisoned".to_string())?
+        .get(&request_id)
+    {
+        let _ = stop.send(true);
+    }
+    Ok(())
+}
+
 /// Before the pre-request script: params into the URL, the body for its mode.
 /// `{{vars}}` are left for `http_resolve`. Same code bonk-mcp sends with.
 #[tauri::command]

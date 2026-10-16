@@ -376,7 +376,10 @@ async fn login<T: Transport>(
             emit(RunEvent::Input(request));
         }
         RunEvent::Vars(_) => emit(event),
-        RunEvent::Iteration { .. } | RunEvent::Call { .. } => {}
+        RunEvent::Iteration { .. }
+        | RunEvent::Call { .. }
+        | RunEvent::SseOpen
+        | RunEvent::SseEvent(_) => {}
     };
     let control = RunControl::default();
     let status = Box::pin(run_collection(&nested, vars, transport, &control, &wrapped)).await?;

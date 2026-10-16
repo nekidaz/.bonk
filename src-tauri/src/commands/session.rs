@@ -75,6 +75,7 @@ pub async fn session_run(
         grpc: GrpcRunSettings::default(),
         connection_id: None,
         run_id: request_id.clone(),
+        live: None,
     };
     let id = Some(request_id.clone());
     let cancel = super::http::register_cancel(&state, &id)?;

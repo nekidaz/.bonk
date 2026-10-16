@@ -10,7 +10,6 @@ use bonk_core::infra::cookie_jar::{jar_path, CookieJar, JarProvider};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct HttpClientKey {
-    timeout_ms: u64,
     follow_redirects: bool,
     validate_tls: bool,
     proxy: ProxySettings,
@@ -27,7 +26,6 @@ pub struct HttpClientKey {
 impl HttpClientKey {
     fn new(settings: &RequestSettings, host: &str) -> Self {
         Self {
-            timeout_ms: settings.timeout_ms,
             follow_redirects: settings.follow_redirects,
             validate_tls: settings.validate_tls,
             proxy: settings.proxy.clone(),
@@ -50,6 +48,8 @@ pub struct AppState {
     pub cancels: Mutex<HashMap<String, oneshot::Sender<()>>>,
     /// Open client/bidi gRPC streams by request id; removing one half-closes it.
     pub grpc_streams: Mutex<HashMap<String, bonk_core::application::grpc_native::StreamSender>>,
+    /// Soft «Стоп» of a live event stream by request id (`request_stop_stream`).
+    pub stream_stops: Mutex<HashMap<String, tokio::sync::watch::Sender<bool>>>,
     /// Collection Runner runs in progress by run id (pause / stop).
     pub runs: Mutex<HashMap<String, Arc<bonk_core::application::runner::RunControl>>>,
     /// Forms a run waits on, by input id: the run that asked and where the answer goes.
@@ -166,6 +166,7 @@ impl Default for AppState {
             conns: Mutex::new(HashMap::new()),
             cancels: Mutex::new(HashMap::new()),
             grpc_streams: Mutex::new(HashMap::new()),
+            stream_stops: Mutex::new(HashMap::new()),
             runs: Mutex::new(HashMap::new()),
             inputs: Mutex::new(HashMap::new()),
             oauth_logins: Mutex::new(HashMap::new()),
