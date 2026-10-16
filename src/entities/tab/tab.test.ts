@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { switchedProtocol, tabsToClose, togglePinned } from './tab';
+import { stripRuntimeTab, switchedProtocol, tabsToClose, togglePinned } from './tab';
 import type { Tab } from '$shared/model';
 
 const tabs = (...ids: string[]): Tab[] => ids.map((id) => ({ id, pinned: id.startsWith('p') }) as Tab);
@@ -45,5 +45,37 @@ describe('protocol switch (P3/P4)', () => {
       protocol: 'http',
       request: { method: 'GET', url: '' },
     });
+  });
+});
+
+describe('stripRuntimeTab', () => {
+  it('drops stream fields', () => {
+    const ev = { index: 0, at_ms: 5, event: 'message', data: 'a' };
+    const tab = {
+      id: 't',
+      protocol: 'http',
+      sseLive: { events: [ev], startedAt: 1 },
+      response: {
+        status: 200,
+        headers: {},
+        body: 'data: a\n\n',
+        final_url: '',
+        elapsed_ms: 1,
+        size_bytes: 9,
+        events: [ev],
+        stream_end: { reason: 'closed', started_at_ms: 1 },
+      },
+    } as Tab;
+    const out = stripRuntimeTab(tab);
+    expect(out.sseLive).toBeUndefined();
+    expect(out.response?.events).toBeUndefined();
+    expect(out.response?.stream_end).toBeUndefined();
+    expect(out.response?.body).toBe('data: a\n\n');
+    expect(tab.response?.events).toEqual([ev]);
+  });
+
+  it('keeps a tab without a response', () => {
+    const out = stripRuntimeTab({ id: 't', protocol: 'http' } as Tab);
+    expect(out.response).toBeUndefined();
   });
 });
