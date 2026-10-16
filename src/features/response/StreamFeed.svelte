@@ -6,9 +6,21 @@
    *
    * Pause is the parent's (`pause`, bindable) because the status pill shows it too; it is tied to the
    * stream's `startedAt`, so a new run starts unpaused.
+   *
+   * Flow · SSE: with `sse` the same feed shows an HTTP event-stream (server-only, no direction toggle);
+   * a row's label (event name, `#id`) replaces the arrow, and the footer counts events and says how it
+   * ended. `tab.grpcStream`, `tab.grpcResult`, `code` and `writable` are not read then.
    */
   import { t, tp } from '$shared/i18n';
-  import { elapsedLabel, formatBytes, grpcStatusLabel, type GrpcStreamMessage, type Tab } from '$shared/model';
+  import {
+    elapsedLabel,
+    formatBytes,
+    grpcStatusLabel,
+    type GrpcStreamMessage,
+    type SseEvent,
+    type StreamEnd,
+    type Tab,
+  } from '$shared/model';
   import { responseFileName, saveResponseBody } from './saveResponse';
   import {
     formatCount,
@@ -17,9 +29,13 @@
     intervalMs,
     jsonTokens,
     prettyJson,
+    sseEndKey,
+    sseMessages,
     streamClock,
     visibleMessages,
+    type FeedMessage,
     type StreamDirection,
+    type StreamKind,
   } from './streamFeed';
   import { IconButton } from '$shared/ui/components';
   import RespBody from './RespBody.svelte';
@@ -30,6 +46,7 @@
     writable,
     code,
     pause = $bindable(),
+    sse,
   }: {
     tab: Tab;
     sending: boolean;
@@ -38,13 +55,18 @@
     /** gRPC status code of the finished call (`OK`, `INTERNAL`, `CANCELLED`…). */
     code: string;
     pause: { startedAt: number; at: number } | undefined;
+    /** Flow · SSE: an HTTP event-stream instead of the gRPC stream; `end` once it is over. */
+    sse?: { events: SseEvent[]; startedAt: number; end?: StreamEnd };
   } = $props();
 
-  const stream = $derived(tab.grpcStream!);
+  type FeedStream = { messages: FeedMessage[]; startedAt: number; kind?: StreamKind; halfClosedAt?: number };
+  const stream = $derived<FeedStream>(
+    sse ? { messages: sseMessages(sse.events), startedAt: sse.startedAt, kind: 'server' } : tab.grpcStream!,
+  );
   const kind = $derived(stream.kind ?? 'server');
-  const result = $derived(tab.grpcResult);
+  const result = $derived(sse ? undefined : tab.grpcResult);
   const fmt = (n: number) => formatCount(n);
-  const msgs = (n: number) => tp(n, ['message', 'messages']);
+  const msgs = (n: number) => (sse ? tp(n, ['event', 'events']) : tp(n, ['message', 'messages']));
 
   const DIRS: [StreamDirection, string][] = [
     ['all', 'response.stream.all'],
@@ -74,7 +96,7 @@
   const interval = (m: GrpcStreamMessage) =>
     intervalMs(stream.messages, pos.get(m) ?? 0, stream.startedAt, stream.halfClosedAt);
   const method = $derived(
-    tab.grpc?.tree?.services.flatMap((s) => s.methods).find((m) => m.symbol === tab.grpc?.method),
+    sse ? undefined : tab.grpc?.tree?.services.flatMap((s) => s.methods).find((m) => m.symbol === tab.grpc?.method),
   );
   const trailers = $derived(Object.keys(result?.trailers ?? {}).length);
   const failed = $derived(!!result && !result.ok);
@@ -200,7 +222,7 @@
           tabindex="-1"
           onclick={() => pick(m)}
           onkeydown={(e) => e.key === 'Enter' && pick(m)}
-        ><span class="material-symbols-outlined dir" aria-hidden="true">{m.sent ? 'arrow_upward' : 'arrow_downward'}</span><span class="no">#{m.index}</span><span class="at">{streamClock(m.atMs, !!selected)}</span><code>{#each jsonTokens(inlineJson(m.body)) as tk, j (j)}<span class={tk.kind}>{tk.text}</span>{/each}</code><span class="dt">{m.sent ? t('response.stream.sent') : intervalLabel(interval(m))}</span></div>
+        >{#if m.label}<span class="hint">{m.label}</span>{:else}<span class="material-symbols-outlined dir" aria-hidden="true">{m.sent ? 'arrow_upward' : 'arrow_downward'}</span>{/if}<span class="no">#{m.index}</span><span class="at">{streamClock(m.atMs, !!selected)}</span><code>{#each jsonTokens(inlineJson(m.body)) as tk, j (j)}<span class={tk.kind}>{tk.text}</span>{/each}</code><span class="dt">{m.sent ? t('response.stream.sent') : intervalLabel(interval(m))}</span></div>
       {/each}
       {#if halfIdx === shown.length}{@render halfClose()}{/if}
       {#if frozenAt !== undefined}
@@ -211,6 +233,12 @@
           })}<span class="sp"></span><button type="button" onclick={follow}
             >{t('response.stream.resume')}&nbsp;&nbsp;⌘.</button
           >
+        </div>
+      {:else if sse}
+        {@const n = stream.messages.length}
+        <div class="waiting" class:ended={!!sse.end}>
+          <span class="dot" aria-hidden="true"
+          ></span>{`${fmt(n)} ${msgs(n)} · ${t(sse.end ? sseEndKey(sse.end) : 'response.stream.sse_live')}${sse.end?.error ? ` · ${sse.end.error}` : ''}`}
         </div>
       {:else if sending && writable}
         <div class="waiting open">

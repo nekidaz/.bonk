@@ -1,7 +1,29 @@
 /**
- * Flow · gRPC Stream: pure helpers for the stream feed (filter, intervals, counters, clocks).
+ * Flow · gRPC Stream (and Flow · SSE): pure helpers for the stream feed (filter, intervals, counters, clocks).
  */
-import type { GrpcStreamMessage } from '$shared/model';
+import type { GrpcStreamMessage, SseEvent, StreamEnd } from '$shared/model';
+
+/** A feed row; SSE rows carry a label (event name, `#id`) in place of the direction arrow. */
+export type FeedMessage = GrpcStreamMessage & { label?: string };
+
+const utf8 = new TextEncoder();
+
+/** SSE events as feed rows: body = data; label = event name (if not 'message') and `#id`. */
+export function sseMessages(events: SseEvent[]): FeedMessage[] {
+  return events.map((e) => {
+    const label = [e.event !== 'message' ? e.event : '', e.id ? `#${e.id}` : ''].filter(Boolean).join(' ');
+    return {
+      index: e.index,
+      atMs: e.at_ms,
+      body: e.data,
+      sizeBytes: utf8.encode(e.data).length,
+      label: label || undefined,
+    };
+  });
+}
+
+/** i18n key of the closing line. */
+export const sseEndKey = (end: StreamEnd): string => `response.stream.sse_${end.reason}`;
 
 export type StreamDirection = 'all' | 'sent' | 'recv';
 export type StreamKind = 'server' | 'client' | 'bidi';
@@ -85,11 +107,7 @@ export function matchesFilter(body: string, query: string): boolean {
   return false;
 }
 
-export function visibleMessages(
-  messages: GrpcStreamMessage[],
-  dir: StreamDirection,
-  query: string,
-): GrpcStreamMessage[] {
+export function visibleMessages<M extends GrpcStreamMessage>(messages: M[], dir: StreamDirection, query: string): M[] {
   if (dir === 'all' && !query.trim()) return messages;
   return messages.filter((m) => (dir === 'all' || (dir === 'sent') === !!m.sent) && matchesFilter(m.body, query));
 }

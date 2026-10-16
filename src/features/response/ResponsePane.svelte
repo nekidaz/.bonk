@@ -22,7 +22,7 @@
 
   const sending = $derived(!!requestRuntime.busy[tab.id] && requestRuntime.busy[tab.id]?.kind !== 'connect');
   // A stream shows its own live feed; the indeterminate bar is for request/response calls.
-  const progress = $derived(sending && !tab.grpcStream);
+  const progress = $derived(sending && !tab.grpcStream && !tab.sseLive);
 </script>
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
