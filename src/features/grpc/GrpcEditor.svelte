@@ -55,6 +55,7 @@
   } from '$shared/ipc';
   import { currentVarScope, environments, requestVariableHighlight } from '$entities/environment';
   import { CodeEditor } from '$shared/editor/components';
+  import { EditorView } from '@codemirror/view';
   import GrpcTlsPopover from './GrpcTlsPopover.svelte';
   import GrpcMethodPicker from './GrpcMethodPicker.svelte';
   import GrpcMessagePanel from './GrpcMessagePanel.svelte';
@@ -581,10 +582,33 @@
   const varHighlight = $derived(
     requestVariableHighlight(environments.globals, environments.list, environments.activeId),
   );
+
+  // S13, as in the HTTP bar: a long endpoint is one fading line at rest and a wrapping card while the
+  // address is focused. `long` is measured on the one-line layout.
+  let fieldEl = $state<HTMLDivElement | null>(null);
+  let focused = $state(false);
+  let long = $state(false);
+  function measure(): void {
+    const scroller = fieldEl?.querySelector<HTMLElement>('.bs-url-main .cm-scroller');
+    const content = fieldEl?.querySelector<HTMLElement>('.bs-url-main .cm-content');
+    if (scroller && content && !focused) long = content.scrollWidth > scroller.clientWidth + 1;
+  }
+  $effect(() => {
+    void tab.grpc?.endpoint;
+    void focused;
+    const frame = requestAnimationFrame(measure);
+    return () => cancelAnimationFrame(frame);
+  });
+  $effect(() => {
+    if (!fieldEl) return;
+    const observer = new ResizeObserver(() => measure());
+    observer.observe(fieldEl);
+    return () => observer.disconnect();
+  });
 </script>
 
 <UrlBar class="bs-grpc-bar">
-  <UrlField class="bs-grpc-field">
+  <UrlField class={['bs-grpc-field', { long, expanded: focused && long }]} bind:ref={fieldEl}>
     <MethodWrap>
       <MethodButton
         style="color:var(--method-grpc)"
@@ -597,19 +621,42 @@
         <span class="material-symbols-outlined">expand_more</span>
       </MethodButton>
     </MethodWrap>
-    <CodeEditor
-      value={tab.grpc?.endpoint ?? ''}
-      onChange={setEndpoint}
-      singleLine
-      placeholder={t('grpc.endpointPlaceholder')}
-      onPaste={endpointPaste}
-      onBlur={() => {
-        if (requestPrefs.grpcAutoReflect.current) void ensureConnected();
+    <!-- Focus is tracked here, not on the whole field: the TLS popover and method search live in it too. -->
+    <div
+      class="bs-url-main"
+      role="presentation"
+      onfocusin={() => (focused = true)}
+      onfocusout={(e) => {
+        if (!e.currentTarget.contains(e.relatedTarget as Node | null)) focused = false;
       }}
-      {varHighlight}
-      docId={tab.id}
-      ariaLabel={t('grpc.endpointAria')}
-    />
+      onkeydown={(e) => {
+        if (e.key === 'Escape' && focused && !grpcInvoking) {
+          e.preventDefault();
+          (document.activeElement as HTMLElement | null)?.blur();
+        }
+      }}
+    >
+      <CodeEditor
+        value={tab.grpc?.endpoint ?? ''}
+        onChange={setEndpoint}
+        singleLine
+        placeholder={t('grpc.endpointPlaceholder')}
+        onPaste={endpointPaste}
+        onBlur={() => {
+          if (requestPrefs.grpcAutoReflect.current) void ensureConnected();
+        }}
+        varHighlight={[varHighlight, focused && long ? EditorView.lineWrapping : []]}
+        docId={tab.id}
+        ariaLabel={t('grpc.endpointAria')}
+      />
+      {#if focused && long}
+        <div class="bs-url-meta">
+          <span>{t('http.url.chars', { n: tab.grpc?.endpoint.length ?? 0 })}</span><span class="hint"
+            >{t('http.url.collapse')}</span
+          >
+        </div>
+      {/if}
+    </div>
     <GrpcTlsPopover {tab} plaintext={grpcPlaintext} {stripAuth} bind:open={tlsOpen} onPatch={setGrpc} />
     <GrpcMethodPicker
       {tab}
@@ -737,6 +784,17 @@
     flex: 1;
     min-width: 0;
     padding-right: 5px;
+  }
+
+  /* The address takes the room it needs (the method picker gives way first), but never below 80px. */
+  :global(:root .bs .bs-urlfield.bs-grpc-field > .bs-url-main) {
+    flex: 0 1 auto;
+    min-width: 80px;
+  }
+
+  /* In the open card the TLS pill lines up with the first address line, like the picker and gRPC button. */
+  :global(:root .bs .bs-grpc-field.expanded .bs-grpc-security-wrap) {
+    height: 36px;
   }
 
   @media (max-width: 760px) {

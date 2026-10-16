@@ -114,11 +114,6 @@
   white-space: nowrap;
 }
 
-:root .bs .bs-grpc-field .bs-code-editor {
-  flex: 0 1 auto;
-  min-width: 80px;
-}
-
 :root .bs .bs-body-cm .cm-error-line {
   background: var(--color-warning-soft);
 }

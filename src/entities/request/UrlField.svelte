@@ -60,4 +60,78 @@
   :global(:root[data-density='compact']) .bs-urlfield {
     height: 34px;
   }
+
+  /* S13: a long address — one fading line at rest, a wrapping card on focus (HTTP and gRPC). */
+  :global(:root :root[data-density='compact'] .bs .bs-urlfield.expanded) {
+    min-height: 34px;
+  }
+
+  :global(.bs) .bs-urlfield :global(.bs-url-main) {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    align-self: stretch;
+    justify-content: center;
+  }
+
+  :global(:root .bs .bs-urlfield.expanded) {
+    height: auto;
+    min-height: 48px;
+    padding: 6px 18px 10px 5px;
+    align-items: flex-start;
+    border-radius: var(--radius-card);
+    border-color: var(--color-text-muted);
+    gap: 10px;
+  }
+
+  :global(:root .bs .bs-urlfield.expanded .bs-method-wrap) {
+    margin: 0;
+  }
+
+  :global(:root .bs .bs-urlfield.expanded .bs-method-wrap::after) {
+    display: none;
+  }
+
+  :global(:root .bs .bs-urlfield.expanded .bs-url-main) {
+    justify-content: flex-start;
+    padding-top: 7px;
+  }
+
+  /* S13: the card wraps at ~67 columns, so lines break at «&» like the mock. */
+  :global(:root .bs .bs-urlfield.expanded .cm-content) {
+    max-width: 67ch;
+    line-height: 22px;
+    overflow-wrap: anywhere;
+    word-break: normal;
+  }
+
+  /* A huge URL scrolls inside the card (~10 lines) instead of pushing the request pane off-screen. */
+  :global(:root .bs .bs-urlfield.expanded .cm-scroller) {
+    max-height: 220px;
+    overflow-y: auto;
+  }
+
+  /* The single-line editor theme hides its scrollbar; bring the global one back here. */
+  :global(:root .bs .bs-urlfield.expanded .cm-scroller::-webkit-scrollbar) {
+    display: block;
+  }
+
+  :global(.bs) .bs-urlfield :global(.bs-url-meta) {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+    padding-top: 8px;
+    color: var(--color-text-muted);
+    font: 500 var(--font-size-micro) var(--font-code);
+    letter-spacing: var(--tracking-eyebrow);
+    text-transform: uppercase;
+    white-space: pre;
+  }
+
+  :global(.bs) .bs-urlfield :global(.bs-url-meta .hint) {
+    font: var(--font-size-caption) var(--font-ui);
+    letter-spacing: 0;
+    text-transform: none;
+  }
 </style>
