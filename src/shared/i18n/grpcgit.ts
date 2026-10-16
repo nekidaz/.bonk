@@ -1,6 +1,4 @@
 export const en = {
-  'grpc.meta.title': 'Request metadata',
-  'grpc.meta.active': '{n} active',
   'grpc.meta.key': 'Key',
   'grpc.meta.value': 'Value',
   'grpc.meta.keyAria': 'Metadata key {n}',
