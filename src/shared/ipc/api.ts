@@ -123,17 +123,17 @@ export interface McpJournalEntry {
 
 export const terminalDefaultCwd = (): Promise<string> => invoke<string>('terminal_default_cwd');
 
-/** Starts the user's login shell in a PTY (`id` is ours); output arrives in `onEvent`. */
+/** Starts the user's login shell in a PTY (`id` is ours); output arrives in `onEvent`. Resolves to the shell's name. */
 export function ptyOpen(
   id: string,
   cwd: string | null,
   cols: number,
   rows: number,
   onEvent: (event: PtyEvent) => void,
-): Promise<void> {
+): Promise<string> {
   const channel = new Channel<PtyEvent>();
   channel.onmessage = onEvent;
-  return invoke<void>('pty_open', { id, cwd, cols, rows, onEvent: channel });
+  return invoke<string>('pty_open', { id, cwd, cols, rows, onEvent: channel });
 }
 export const ptyWrite = (id: string, data: string): Promise<void> => invoke<void>('pty_write', { id, data });
 export const ptyResize = (id: string, cols: number, rows: number): Promise<void> =>

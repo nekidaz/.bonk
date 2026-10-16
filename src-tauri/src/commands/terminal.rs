@@ -79,7 +79,7 @@ fn pty_size(cols: u16, rows: u16) -> PtySize {
 }
 
 /// Starts the user's login shell (`$SHELL`; `cmd` on Windows) in `cwd` and streams its
-/// output to `on_event` until it exits.
+/// output to `on_event` until it exits. Returns the shell's name (`zsh`) for the session list.
 #[tauri::command]
 pub fn pty_open(
     id: String,
@@ -88,7 +88,7 @@ pub fn pty_open(
     rows: u16,
     on_event: Channel<PtyEvent>,
     state: State<'_, AppState>,
-) -> Result<(), String> {
+) -> Result<String, String> {
     let dir = cwd
         .map(PathBuf::from)
         .filter(|path| path.is_absolute() && path.is_dir())
@@ -100,6 +100,10 @@ pub fn pty_open(
     cmd.cwd(dir);
     cmd.env("TERM", "xterm-256color");
     cmd.env("COLORTERM", "truecolor");
+    let shell = std::path::Path::new(&cmd.get_shell())
+        .file_stem()
+        .map(|name| name.to_string_lossy().into_owned())
+        .unwrap_or_default();
     let child = pair
         .slave
         .spawn_command(cmd)
@@ -143,7 +147,7 @@ pub fn pty_open(
         }
         let _ = on_event.send(PtyEvent::Exit);
     });
-    Ok(())
+    Ok(shell)
 }
 
 /// Keystrokes and pastes from xterm.js.

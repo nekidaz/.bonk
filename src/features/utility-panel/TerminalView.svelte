@@ -1,14 +1,26 @@
 <script lang="ts">
-  // Flow · Терминал (CT4–CT6): the user's shell (terminal.svelte.ts) mounted in the panel.
+  // Flow · Терминал (CT4–CT6): the active shell session (terminal.svelte.ts) mounted in the panel.
   import { untrack } from 'svelte';
   import '@xterm/xterm/css/xterm.css';
+  import { t } from '$shared/i18n';
   import { terminal } from './terminal.svelte';
 
   let host = $state<HTMLDivElement | null>(null);
 
+  // Opening the tab with no session starts one; after the last is killed, the empty state stays.
+  if (terminal.sessions.length === 0) terminal.add();
+
   $effect(() => {
+    const session = terminal.active;
     const el = host;
-    if (el) return untrack(() => terminal.attach(el));
+    if (!session || !el) return;
+    untrack(() => session.mount(el));
+    const resize = new ResizeObserver(() => session.refit(el));
+    resize.observe(el);
+    return () => {
+      resize.disconnect();
+      session.unmount();
+    };
   });
 
   /** ⌘K clears the screen (and must not open the global command palette). */
@@ -21,7 +33,14 @@
 </script>
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
-<div class="bs-terminal" bind:this={host} onkeydown={keys}></div>
+<div class="bs-terminal" bind:this={host} hidden={!terminal.active} onkeydown={keys}></div>
+{#if !terminal.active}
+  <div class="bs-utility-empty">
+    <span class="material-symbols-outlined" aria-hidden="true">terminal</span>
+    <div>{t('util.terminal.empty')}</div>
+    <button type="button" class="bs-chip" onclick={() => terminal.add()}>{t('util.terminal.new')}</button>
+  </div>
+{/if}
 
 <style>
   .bs-terminal {
@@ -29,6 +48,9 @@
     flex: 1;
     padding: 6px 4px 4px 14px;
     overflow: hidden;
+  }
+  .bs-terminal[hidden] {
+    display: none;
   }
   .bs-terminal :global(.xterm) {
     height: 100%;

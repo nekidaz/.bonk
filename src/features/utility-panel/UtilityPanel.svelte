@@ -34,8 +34,7 @@
   const full = $derived(mode === 'issues' && utilityUi.expanded);
 
   function clearCurrent(): void {
-    if (mode === 'terminal') terminal.clear();
-    else if (mode === 'issues') utilityUi.clearedAt = Date.now();
+    if (mode === 'issues') utilityUi.clearedAt = Date.now();
     else clearAppConsole();
   }
 
@@ -117,7 +116,43 @@
       {/each}
     </div>
     <Spacer />
-    {#if mode !== 'terminal'}
+    {#if mode === 'terminal'}
+      {#if terminal.sessions.length > 1}
+        <div class="bs-utility-sessions" role="tablist" aria-label={t('util.terminal.sessions')}>
+          {#each terminal.sessions as session, i (session.key)}
+            <button
+              type="button"
+              role="tab"
+              class="bs-chip"
+              class:on={session.key === terminal.activeKey}
+              class:dead={!session.alive}
+              aria-selected={session.key === terminal.activeKey}
+              onclick={() => (terminal.activeKey = session.key)}>{session.shell || 'shell'} {i + 1}</button
+            >
+          {/each}
+        </div>
+      {/if}
+      <button class="bs-chip bs-utility-clear" type="button" onclick={() => terminal.clear()}>{t('util.clear')}</button>
+      <button
+        class="bs-utility-icon"
+        type="button"
+        aria-label={t('util.terminal.new')}
+        title={t('util.terminal.new')}
+        onclick={() => terminal.add()}
+      >
+        <span class="material-symbols-outlined">add</span>
+      </button>
+      <button
+        class="bs-utility-icon"
+        type="button"
+        aria-label={t('util.terminal.kill')}
+        title={t('util.terminal.kill')}
+        disabled={!terminal.active}
+        onclick={() => terminal.kill()}
+      >
+        <span class="material-symbols-outlined">delete_outline</span>
+      </button>
+    {:else}
       <label class="bs-utility-filter">
         <span class="material-symbols-outlined" aria-hidden="true">filter_list</span>
         {#if mode === 'issues'}
@@ -152,15 +187,17 @@
         <span class="material-symbols-outlined">{utilityUi.expanded ? 'close_fullscreen' : 'open_in_full'}</span>
       </button>
     {/if}
-    <button
-      class="bs-utility-icon"
-      type="button"
-      aria-label={t('util.clear_aria')}
-      title={t('util.clear')}
-      onclick={clearCurrent}
-    >
-      <span class="material-symbols-outlined">delete_outline</span>
-    </button>
+    {#if mode !== 'terminal'}
+      <button
+        class="bs-utility-icon"
+        type="button"
+        aria-label={t('util.clear_aria')}
+        title={t('util.clear')}
+        onclick={clearCurrent}
+      >
+        <span class="material-symbols-outlined">delete_outline</span>
+      </button>
+    {/if}
     <button
       class="bs-utility-icon"
       type="button"
@@ -294,6 +331,22 @@
   }
   .bs-utility-filter {
     width: 200px;
+  }
+  .bs-utility-sessions {
+    display: flex;
+    gap: 2px;
+    min-width: 0;
+    overflow-x: auto;
+  }
+  .bs-utility-sessions .dead {
+    color: var(--t3);
+  }
+  .bs-utility-clear {
+    border: 1px solid var(--sepsoft);
+  }
+  .bs-utility-icon:disabled {
+    opacity: 0.4;
+    pointer-events: none;
   }
   .bs-utility-filter:focus-within {
     border-color: var(--t3);
