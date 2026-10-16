@@ -11,17 +11,19 @@
 <div bind:this={ref} class={['bs-ghead', cls]} {...rest}>{@render children?.()}</div>
 
 <style>
-  /* The header above a git view: crumb + title on the left, actions on the right. */
+  /* The header above a git view: crumb + title on the left, actions on the right.
+     In a narrow window the actions wrap under the title instead of running off the edge. */
   .bs-ghead {
     flex: none;
     display: flex;
+    flex-wrap: wrap;
     align-items: flex-end;
     gap: 10px;
     padding: 12px 20px 14px;
   }
 
   .bs-ghead :global(.ttl) {
-    flex: 1;
+    flex: 1 1 240px;
     min-width: 0;
     display: flex;
     flex-direction: column;

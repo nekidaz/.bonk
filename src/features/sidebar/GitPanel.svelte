@@ -603,6 +603,9 @@
   }
   .hint {
     flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
     white-space: nowrap;
     color: var(--color-text-muted);
     font-size: var(--font-size-caption);
