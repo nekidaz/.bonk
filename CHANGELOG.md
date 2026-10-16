@@ -7,6 +7,21 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [Unreleased]
 
 ### Added
+- **Server-Sent Events**. A response with `Content-Type: text/event-stream` (any status) is read as a
+  stream. In the editor the Body tab becomes a live feed: the event name (when it isn't `message`), the id
+  and the data with JSON highlighting; filter by text or `$.path`, pause/follow, pick an event. The footer
+  shows the event count and why the stream ended: closed by the server, stopped, timed out, size limit
+  reached or connection lost (with the error).
+  - The editor has no timeout on a stream. The Send button becomes «Stop» once the stream is open (before
+    that it is the usual Cancel); Stop or Esc keeps everything received and then runs the tests.
+  - Test scripts get `pm.response.events()` → `[{event, data, id}]` (`[]` for a non-stream response);
+    `pm.response.text()` is the raw stream text.
+  - Collection Runner, `bonk run` and MCP tools: a stream ends at the request timeout (`--timeout` / `settings.timeoutMs`,
+    counted from the start of the request; 0 means until the server closes it or the size limit is hit) and that is not an error: the response keeps what arrived,
+    tests run, and the body is the raw stream text. There is no structured event list in CLI/MCP output.
+  - No auto-reconnect or `Last-Event-ID`. After an app restart the tab shows the stream as raw text.
+  - A timeout of a non-stream request still covers the whole request; its error now reads
+    `request timed out after N ms`.
 - **`pm.visualizer.set(template, data)`**, as in Postman: a script fills a Handlebars template
   (`{{#each}}`, `{{#if}}`, `@index`, `{{{raw}}}`…) and the response gets a «Visualize» tab with the
   HTML. It renders in the same sandbox as the HTML preview, so the template's `<script>`s (Chart.js,

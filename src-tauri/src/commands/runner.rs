@@ -4,6 +4,7 @@ use std::collections::{BTreeMap, HashMap};
 use std::future::Future;
 use std::sync::Arc;
 
+use bonk_core::application::http::{http_send_with, StreamHooks};
 use bonk_core::application::runner::{
     self, GrpcSchema, GrpcTarget, InputAnswer, InputRequest, RunControl, RunEvent, RunPlan,
     RunStatus, RunVars, Transport,
@@ -58,6 +59,7 @@ pub async fn runner_run(
         grpc,
         connection_id: None,
         run_id: run_id.clone(),
+        live: None,
     };
     let mut vars = vars;
     let status = runner::run_collection(&plan, &mut vars, &transport, &control, &|event| {
@@ -90,6 +92,15 @@ pub async fn request_run(
     let jar = super::cookies::jar(&app, &state, &settings.cookie_jar)?;
     jar.set_keep_session(settings.cookies_keep_session);
     plan.client_certs = settings.client_certs.clone();
+    // «Стоп» for an event stream: `request_stop_stream` flips this; the hard cancel stays as is.
+    let (stop_tx, stop) = tokio::sync::watch::channel(false);
+    if !request_id.is_empty() {
+        state
+            .stream_stops
+            .lock()
+            .map_err(|_| "stream registry lock poisoned".to_string())?
+            .insert(request_id.clone(), stop_tx);
+    }
     let transport = AppTransport {
         state: &state,
         settings,
@@ -97,6 +108,10 @@ pub async fn request_run(
         grpc,
         connection_id,
         run_id: request_id.clone(),
+        live: Some(LiveStream {
+            on_event: &on_event,
+            stop,
+        }),
     };
     let id = Some(request_id);
     let cancel = super::http::register_cancel(&state, &id)?;
@@ -111,6 +126,9 @@ pub async fn request_run(
     };
     super::http::finish_cancel(&state, &id);
     if let Some(id) = &id {
+        if let Ok(mut stops) = state.stream_stops.lock() {
+            stops.remove(id);
+        }
         drop_inputs(&state, id);
     }
     result
@@ -182,6 +200,14 @@ pub(super) struct AppTransport<'a> {
     pub(super) connection_id: Option<String>,
     /// Owner of the forms this run opens (`AppState.inputs`).
     pub(super) run_id: String,
+    /// Single editor Send only: stream SSE events to the UI and listen for «Стоп».
+    pub(super) live: Option<LiveStream<'a>>,
+}
+
+/// Where an event stream's events go and what stops it.
+pub(super) struct LiveStream<'a> {
+    pub(super) on_event: &'a Channel<RunEvent>,
+    pub(super) stop: tokio::sync::watch::Receiver<bool>,
 }
 
 impl Transport for AppTransport<'_> {
@@ -192,11 +218,28 @@ impl Transport for AppTransport<'_> {
         let client =
             self.state
                 .http_client(&self.settings, &request.url, Some(self.jar.clone()))?;
-        let result = bonk_core::application::http::http_send(
+        // A fresh receiver per call: Stop still works on the retry after a 401.
+        let on_open = |started_at_ms: u64| {
+            if let Some(live) = &self.live {
+                let _ = live.on_event.send(RunEvent::SseOpen { started_at_ms });
+            }
+        };
+        let on_event = |e: &bonk_core::domain::sse::SseEvent| {
+            if let Some(live) = &self.live {
+                let _ = live.on_event.send(RunEvent::SseEvent(e.clone()));
+            }
+        };
+        let hooks = self.live.as_ref().map(|live| StreamHooks {
+            on_open: &on_open,
+            on_event: &on_event,
+            stop: live.stop.clone(),
+        });
+        let result = http_send_with(
             client,
             request,
             self.settings.clone(),
             Some(&self.jar),
+            hooks,
         )
         .await;
         // A jar that can't be written must not hide the response; it's retried on the next save.

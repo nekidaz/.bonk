@@ -30,6 +30,7 @@ import { currentRequestSettings, applyScriptVars } from './executionState';
 export { currentRequestSettings, applyScriptVars } from './executionState';
 import { executeRequest } from './execute';
 import { oauthCardKey, oauthRuntime } from './oauth.svelte';
+import { requestRuntime } from './requestRuntime.svelte';
 import { sessionRuntime } from './session.svelte';
 
 /** Save the active tab into folder `folderId` (root if undefined). `asCopy` («Сохранить как…») writes a new file and points the tab at it, leaving the original untouched. */
@@ -205,6 +206,20 @@ export async function sendHttpRequest(
     },
     requestId,
     withOverrides(currentRequestSettings(), src?.settings),
+    undefined,
+    undefined,
+    (e) => {
+      // A late message after the invoke finished must not bring the feed back.
+      if (requestRuntime.busy[tabId]?.requestId !== requestId) return;
+      if (e.kind === 'sseOpen')
+        tabs.updateById(tabId, (t) => ({ ...t, sseLive: { events: [], startedAt: e.started_at_ms } }));
+      // ponytail: the array is copied on every event (like the gRPC feed); at thousands of events a second,
+      // buffer and flush every ~50 ms.
+      else
+        tabs.updateById(tabId, (t) =>
+          t.sseLive ? { ...t, sseLive: { ...t.sseLive, events: [...t.sseLive.events, e] } } : t,
+        );
+    },
   );
   const pre = details.pre ? parseScriptResult(JSON.stringify(details.pre)) : undefined;
   const post = details.post ? parseScriptResult(JSON.stringify(details.post)) : undefined;
@@ -224,6 +239,7 @@ export async function sendHttpRequest(
     testResults,
     sent: keepSent && details.request ? { request: details.request, dynamic: details.dynamic } : undefined,
     ...(response ? { response } : {}),
+    sseLive: undefined,
   }));
   if (req.auth?.type === 'oauth2' && details.oauth) {
     const got = details.oauth;

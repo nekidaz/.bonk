@@ -4,6 +4,7 @@
 export {
   appDataDir,
   cancelRequest,
+  stopStream,
   certFileInfo,
   cookiesAdd,
   cookiesClear,

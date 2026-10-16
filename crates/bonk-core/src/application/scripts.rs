@@ -69,7 +69,8 @@ globalThis.__msg=function(e){if(!e||typeof e!=='object')return String(e);var n=e
     Object.defineProperty(rh,'get',{value:function(k){return getHeader(rh,k);}});
     Object.defineProperty(rh,'has',{value:function(k){return getHeader(rh,k)!==undefined;}});
     resp={code:c.response.code,status:c.response.status||'',responseTime:c.response.responseTime,headers:rh,
-      text:function(){return c.response.body||'';},json:function(){return JSON.parse(c.response.body||'null');}};
+      text:function(){return c.response.body||'';},json:function(){return JSON.parse(c.response.body||'null');},
+      events:function(){return (c.response.events||[]).slice();}};
     Object.defineProperty(resp,'to',{get:function(){return new Assertion(resp,false).to;}});
   }
   var cks=(c.cookies||[]).slice();
@@ -293,6 +294,22 @@ mod tests {
     fn run(code: &str, ctx: &str) -> Value {
         let out = run_script("test", code, ctx).expect("script should run");
         serde_json::from_str(&out).expect("output is valid JSON")
+    }
+
+    #[test]
+    fn response_events_in_test_script() {
+        let ctx = r#"{"response":{"code":200,"body":"","responseTime":1,"headers":{},"events":[{"event":"message","data":"a","id":null},{"event":"message","data":"[DONE]","id":null}]}}"#;
+        let out = run(
+            r#"pm.test("done", () => pm.expect(pm.response.events().slice(-1)[0].data).to.eql("[DONE]"));"#,
+            ctx,
+        );
+        assert_eq!(out["tests"][0]["passed"], true, "{out}");
+        let ctx = r#"{"response":{"code":200,"body":"","responseTime":1,"headers":{}}}"#;
+        let out = run(
+            r#"pm.test("empty", () => pm.expect(pm.response.events().length).to.equal(0));"#,
+            ctx,
+        );
+        assert_eq!(out["tests"][0]["passed"], true, "{out}");
     }
 
     #[test]

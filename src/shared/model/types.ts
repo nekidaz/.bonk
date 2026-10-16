@@ -197,6 +197,23 @@ export interface OAuthLoginStarted {
   listens: boolean;
 }
 
+/** One event of a `text/event-stream` response (Flow · SSE). */
+export interface SseEvent {
+  index: number;
+  at_ms: number;
+  event: string;
+  data: string;
+  id?: string;
+}
+
+export type StreamEndReason = 'closed' | 'stopped' | 'timeout' | 'truncated' | 'error';
+
+export interface StreamEnd {
+  reason: StreamEndReason;
+  started_at_ms: number;
+  error?: string;
+}
+
 export interface HttpResponse {
   status: number;
   headers: Record<string, string>;
@@ -209,6 +226,10 @@ export interface HttpResponse {
   cookies?: ResponseCookie[];
   /** How many jar cookies the next request to `final_url` carries; absent when sending is off. */
   jar_sends?: number;
+  /** Parsed events of an event-stream response; absent for other responses. */
+  events?: SseEvent[];
+  /** How an event-stream ended; absent for other responses. */
+  stream_end?: StreamEnd;
 }
 
 /** One cookie of a workspace jar (bonk-core `CookieInfo`). */
@@ -312,6 +333,8 @@ export interface Tab {
   response?: HttpResponse;
   grpc?: GrpcTabState;
   grpcResult?: GrpcResult;
+  /** Runtime-only: an event stream still arriving (Flow · SSE). */
+  sseLive?: { events: SseEvent[]; startedAt: number };
   /** Live / last stream for this tab (runtime-only). */
   grpcStream?: {
     messages: GrpcStreamMessage[];

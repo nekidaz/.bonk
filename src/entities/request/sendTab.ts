@@ -1,5 +1,5 @@
 import { t } from '$shared/i18n';
-import { cancelRequest } from '$shared/ipc';
+import { cancelRequest, stopStream } from '$shared/ipc';
 import { buildUrl, resolveVars, type HttpResponse, type Tab } from '$shared/model';
 import { tabs } from '$entities/tab';
 import { environments, currentVarScope, needsProductionGuard } from '$entities/environment';
@@ -18,7 +18,9 @@ export async function sendHttpTab(tab: Tab, opts: { skipScripts?: boolean } = {}
 
   const inFlight = requestRuntime.busy[tab.id];
   if (inFlight?.kind === 'http' && inFlight.requestId) {
-    await cancelRequest(inFlight.requestId);
+    // A live event stream ends softly (the collected response is kept); anything else is a hard cancel.
+    if (tabs.list.find((x) => x.id === tab.id)?.sseLive) await stopStream(inFlight.requestId);
+    else await cancelRequest(inFlight.requestId);
     return;
   }
 
@@ -55,7 +57,7 @@ export async function sendHttpTab(tab: Tab, opts: { skipScripts?: boolean } = {}
       elapsed_ms: 0,
       size_bytes: 0,
     };
-    tabs.updateById(id, (x) => ({ ...x, response: res }));
+    tabs.updateById(id, (x) => ({ ...x, response: res, sseLive: undefined }));
   } finally {
     requestRuntime.updateBusy((m) => {
       if (m[id]?.requestId !== requestId) return m;

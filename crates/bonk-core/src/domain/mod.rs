@@ -3,5 +3,6 @@ pub mod grpc;
 pub mod http;
 pub mod inputs;
 pub mod request_prep;
+pub mod sse;
 pub mod url;
 pub mod workspace;

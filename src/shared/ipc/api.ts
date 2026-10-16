@@ -8,6 +8,7 @@ import {
   type Scenario,
   type HttpRequest,
   type HttpResponse,
+  type SseEvent,
   type CookieInfo,
   type RequestSettings,
   type Param,
@@ -160,6 +161,8 @@ export const mcpJournal = (limit?: number): Promise<McpJournalEntry[]> =>
   invoke<McpJournalEntry[]>('mcp_journal', { limit });
 
 export const cancelRequest = (requestId: string): Promise<void> => invoke<void>('cancel_request', { requestId });
+/** Soft-stop an event stream: the response keeps the events received so far. */
+export const stopStream = (requestId: string) => invoke<void>('request_stop_stream', { requestId });
 
 /**
  * Run a user script in the sandboxed QuickJS engine. `context` is serialized to
@@ -342,7 +345,9 @@ export type RunEvent =
   | ({ kind: 'vars' } & RunVarWrites)
   | ({ kind: 'row' } & RunResultRow)
   | ({ kind: 'input' } & InputRequest)
-  | ({ kind: 'resent' } & RunResultRow);
+  | ({ kind: 'resent' } & RunResultRow)
+  | { kind: 'sseOpen'; started_at_ms: number }
+  | ({ kind: 'sseEvent' } & SseEvent);
 
 /** Run `plan` in bonk-core (the same runner a CLI uses); events stream as it goes. */
 export function runnerRun(

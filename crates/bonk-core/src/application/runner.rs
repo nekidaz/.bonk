@@ -263,6 +263,13 @@ pub enum RunEvent {
     Input(Box<InputRequest>),
     /// «Отправить заново» ran the step before again: its new row replaces the old one.
     Resent(Box<RunResultRow>),
+    /// The response is an event stream: headers arrived, events follow. `started_at_ms` is the
+    /// response's `StreamEnd.started_at_ms` (field stays snake_case, like `SseEvent`).
+    SseOpen {
+        started_at_ms: u64,
+    },
+    /// One server-sent event, as it arrives (fields stay snake_case, like `SseEvent`).
+    SseEvent(crate::domain::sse::SseEvent),
 }
 
 /// One field of the input form.
@@ -1639,7 +1646,12 @@ impl NodeRun<'_> {
             req.insert("body".into(), json!(body));
         }
         let response = response.map(|r| {
-            json!({ "code": r.status, "responseTime": r.elapsed_ms, "headers": r.headers, "body": r.body })
+            let events: Vec<Value> = r
+                .events
+                .iter()
+                .map(|e| json!({ "event": e.event, "data": e.data, "id": e.id }))
+                .collect();
+            json!({ "code": r.status, "responseTime": r.elapsed_ms, "headers": r.headers, "body": r.body, "events": events })
         });
         let cookies: Vec<Value> = cookies
             .iter()
@@ -1869,6 +1881,25 @@ mod tests {
     use crate::application::{scenarios, session, workspace};
     use std::sync::Mutex;
 
+    #[test]
+    fn run_event_sse_json_shape() {
+        assert_eq!(
+            serde_json::to_value(RunEvent::SseOpen { started_at_ms: 7 }).unwrap(),
+            json!({"kind": "sseOpen", "started_at_ms": 7})
+        );
+        let event = crate::domain::sse::SseEvent {
+            index: 0,
+            at_ms: 1,
+            event: "message".into(),
+            data: "a".into(),
+            id: None,
+        };
+        assert_eq!(
+            serde_json::to_value(RunEvent::SseEvent(event)).unwrap(),
+            json!({"kind": "sseEvent", "index": 0, "at_ms": 1, "event": "message", "data": "a"})
+        );
+    }
+
     type GrpcCallSeen = (String, String, BTreeMap<String, String>);
 
     /// Records what was sent; answers from `responses` in order (then 200 `{}`).
@@ -1937,6 +1968,8 @@ mod tests {
                     body_truncated: false,
                     cookies: Vec::new(),
                     jar_sends: None,
+                    events: Vec::new(),
+                    stream_end: None,
                 })
             }
         }

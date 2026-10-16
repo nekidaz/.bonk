@@ -2,7 +2,6 @@
 use crate::domain::http::{
     pick_client_cert, ClientCert, ProxyMode, ProxySettings, RequestSettings,
 };
-use std::time::Duration;
 
 /// Configure a caller's builder; the caller supplies its headers, cookie jar and
 /// the identity selected for the request host. Like configuring Go's http.Transport.
@@ -12,9 +11,6 @@ pub fn configure(
     identity: Option<&ClientCert>,
 ) -> Result<reqwest::ClientBuilder, String> {
     builder = builder.danger_accept_invalid_certs(!settings.validate_tls);
-    if settings.timeout_ms > 0 {
-        builder = builder.timeout(Duration::from_millis(settings.timeout_ms));
-    }
     if !settings.follow_redirects {
         builder = builder.redirect(reqwest::redirect::Policy::none());
     } else if let Some(identity) = identity.filter(|cert| !cert.host.trim().is_empty()) {

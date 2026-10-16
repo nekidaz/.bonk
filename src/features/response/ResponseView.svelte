@@ -202,7 +202,20 @@
       !!tab.response &&
       respTab === 'body' &&
       respMode !== 'preview' &&
+      !tab.response.stream_end &&
       !(tab.response.status === 0 && !isCancelled(tab.response)),
+  );
+  /** Flow · SSE: the event feed, live or finished. One source, so the feed (filter, pick, pause) survives the end. */
+  const sseFeed = $derived(
+    tab?.sseLive
+      ? { events: tab.sseLive.events, startedAt: tab.sseLive.startedAt, end: undefined }
+      : tab?.response?.stream_end
+        ? {
+            events: tab.response.events ?? [],
+            startedAt: tab.response.stream_end.started_at_ms,
+            end: tab.response.stream_end,
+          }
+        : undefined,
   );
   const grpcBodyShown = $derived(!!grpcBody && respTab === 'body' && !tab?.grpcStream);
   const bodyShown = $derived(httpBodyShown || grpcBodyShown);
@@ -741,7 +754,7 @@
           {#if tab.response.body_truncated}
             <span class="bs-format-pill warn">{t('response.truncated')}</span>
           {/if}
-          {#if respTab === 'body' && tab.response.status !== 0}{@render modeSeg(
+          {#if respTab === 'body' && tab.response.status !== 0 && !tab.response.stream_end}{@render modeSeg(
               respMode,
               (m) => (respMode = m),
               responseFmt === 'HTML',
@@ -753,13 +766,16 @@
   {/if}
   <div
     class="bs-resppanel"
-    class:dim={sending && !waitingForInput}
+    class:dim={sending && !waitingForInput && !(tab.sseLive && respTab === 'body')}
     role="tabpanel"
     id="bs-resppanel"
     aria-labelledby="bs-resptab-{respTab}"
   >
-    <!-- A send waiting for the sign-in code replaces even an older response: the request goes out again. -->
-    {#if !tab.response || waitingForInput?.session}
+    <!-- Flow · SSE: an event-stream shows its feed, live while the request is in flight and after it ends.
+         A send waiting for the sign-in code replaces even an older response: the request goes out again. -->
+    {#if sseFeed && respTab === 'body' && !waitingForInput?.session}
+      <StreamFeed {tab} {sending} writable={false} code="" sse={sseFeed} bind:pause={streamPause} />
+    {:else if !tab.response || waitingForInput?.session}
       {#if !sending || waitingForInput}{@render waitingForResponse(false)}{/if}
     {:else if preFailed && testResults && (respTab === 'body' || respTab === 'headers' || respTab === 'cookies')}
       {@render preFailedView(testResults, true)}
