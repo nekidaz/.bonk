@@ -127,6 +127,12 @@ html {
   box-shadow: var(--focus-ring);
 }
 
+/* Search fields (a rounded box with an icon and a bare input): the box is the field, so the input inside
+   draws no square ring of its own. */
+.bs :where(:has(> .material-symbols-outlined)) > input:not([type='checkbox'], [type='radio']):focus-visible {
+  box-shadow: none;
+}
+
 .bs button:focus-visible {
   box-shadow: var(--focus-ring);
 }
