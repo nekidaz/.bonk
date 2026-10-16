@@ -23,6 +23,7 @@
   import AuthInput from './AuthInput.svelte';
   import AuthSeg from './AuthSeg.svelte';
   import KvPanel from './KvPanel.svelte';
+  import KvVarInput from './KvVarInput.svelte';
 
   // Edits the request's auth (`tab`; gRPC tabs keep it on `tab.grpc`) or, in the folder dialog, a draft `value` (`onChange`).
   let {
@@ -153,7 +154,9 @@
     return /\{\{/.test(secret) ? resolveVars(secret, currentVarScope()) : '';
   });
   let reveal = $state<boolean | null>(null);
-  const shown = $derived(reveal ?? /^\s*\{\{[^{}]+\}\}\s*$/.test(secret));
+  // Typing keeps the field as it was: `{{x}}` appearing or going away must not swap the editor under the caret.
+  let typedShown = $state<boolean | null>(null);
+  const shown = $derived(reveal ?? typedShown ?? /^\s*\{\{[^{}]+\}\}\s*$/.test(secret));
 
   const isVar = (v: string | undefined) => /^\s*\{\{[^{}]+\}\}\s*$/.test(v ?? '');
   function mask(v: string): string {
@@ -169,6 +172,7 @@
     write(type === 'inherit' ? { type } : { ...auth, type, apiKeyIn: auth.apiKeyIn ?? 'header' });
   }
   function setAuthField(field: AuthStringField, value: string): void {
+    typedShown ??= shown;
     write({ ...auth, [field]: value });
   }
   function setApiKeyLocation(value: ApiKeyLocation): void {
@@ -181,15 +185,25 @@
     <span class="lbl">{label}</span>
     <AuthInput class={{ var: isVar(auth[key]) }}>
       {#if isVar(auth[key])}<span class="material-symbols-outlined" aria-hidden="true">key</span>{/if}
-      <input
-        type={secretInput && !shown ? 'password' : 'text'}
-        readonly={inheriting}
-        autocomplete="off"
-        spellcheck="false"
-        aria-label={label}
-        value={auth[key] ?? ''}
-        oninput={(e) => setAuthField(key, e.currentTarget.value)}
-      />
+      {#if inheriting || (secretInput && !shown)}
+        <input
+          type={secretInput && !shown ? 'password' : 'text'}
+          readonly={inheriting}
+          autocomplete="off"
+          spellcheck="false"
+          aria-label={label}
+          value={auth[key] ?? ''}
+          oninput={(e) => setAuthField(key, e.currentTarget.value)}
+        />
+      {:else}
+        <!-- `{{var}}` chip + popover to set its value, like the URL bar. -->
+        <KvVarInput
+          ariaLabel={label}
+          value={auth[key] ?? ''}
+          onChange={(v) => setAuthField(key, v)}
+          docId={`${tab?.id ?? where ?? 'folder'}:auth:${key}`}
+        />
+      {/if}
     </AuthInput>
     {#if secretInput}
       <button

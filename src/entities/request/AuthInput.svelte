@@ -59,6 +59,11 @@
     font: var(--font-size-body) var(--font-code);
   }
 
+  :global(.bs) .bs-auth-input :global(.kv-var) {
+    font: var(--font-size-body) var(--font-code);
+    color: var(--color-text);
+  }
+
   :global(.bs) .bs-auth-input.var :global(input) {
     color: var(--color-var);
   }
