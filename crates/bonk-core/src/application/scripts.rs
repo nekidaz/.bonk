@@ -12,6 +12,9 @@
 //! and returns the serialized `__out` object as a JSON string. All failures are
 //! reported as `Err(String)`; a thrown error inside the user script is captured
 //! into `__out.error` instead (so tests/logs collected before the throw survive).
+//!
+//! `pm.visualizer.set(template, data)` is rendered here with Handlebars (as in
+//! Postman) and comes back as `__out.visualizer = {html}` or `{error}`.
 
 use crate::domain::dynamic_vars::{self, DynamicOptions};
 use rquickjs::{context::EvalOptions, CatchResultExt, Context, Runtime};
@@ -36,7 +39,7 @@ const USER_FILE: &str = "script.js";
 /// header change with a `Date.now()` stamp. `tests[].line` is the line of the
 /// `pm.test` call, `tests[].errorLine` the line of the failed assertion.
 const PRELUDE: &str = r#"
-globalThis.__out={logs:[],events:[],tests:[],envSet:{},envUnset:[],globalsSet:{},globalsUnset:[],cookieClears:[],requestPatch:null,error:null,errorLine:null};
+globalThis.__out={logs:[],events:[],tests:[],envSet:{},envUnset:[],globalsSet:{},globalsUnset:[],cookieClears:[],visualizer:null,requestPatch:null,error:null,errorLine:null};
 globalThis.__line=function(stack){var m=/script\.js:(\d+)/.exec(String(stack||''));return m?Math.max(1,Number(m[1])-1):null;};
 globalThis.__msg=function(e){if(!e||typeof e!=='object')return String(e);var n=e.name&&e.name!=='Error'?e.name+': ':'';return n+String(e.message);};
 (function(){
@@ -129,6 +132,8 @@ globalThis.__msg=function(e){if(!e||typeof e!=='object')return String(e);var n=e
       toObject:function(){return Object.assign({},glob,env,iterData,locals);},
       replaceIn:function(s){return String(s).replace(/\{\{([^{}]+)\}\}/g,function(m,k){k=k.trim();var v=k.charAt(0)==='$'?__dyn[k]:lookup(k);return v===undefined?m:v;});}},
     request:request, response:resp, cookies:cookies,
+    visualizer:{set:function(tpl,data){__out.visualizer={template:String(tpl),data:data===undefined?null:data};},
+      clear:function(){__out.visualizer=null;}},
     test:function(name,fn){var line=__line(new Error().stack),t={name:String(name),passed:true};if(line)t.line=line;
       try{fn();}catch(e){t.passed=false;t.error=__msg(e);var el=__line(e&&e.stack);if(el)t.errorLine=el;}
       __out.tests.push(t);ev({kind:'test',name:t.name,passed:t.passed});},
@@ -247,7 +252,27 @@ fn run_script_with_timeout(
     // Clear the handler so the (soon-dropped) runtime holds no dangling closure.
     runtime.set_interrupt_handler(None);
 
-    result
+    render_visualizer(result?)
+}
+
+/// Replace `__out.visualizer = {template, data}` with the rendered `{html}`
+/// (or `{error}` for a broken template). Output without a visualizer passes through.
+fn render_visualizer(out: String) -> Result<String, String> {
+    if !out.contains("\"visualizer\":{") {
+        return Ok(out);
+    }
+    let mut v: serde_json::Value =
+        serde_json::from_str(&out).map_err(|e| format!("invalid script output: {e}"))?;
+    let viz = &mut v["visualizer"];
+    if !viz.is_object() {
+        return Ok(out); // the needle matched inside some other string
+    }
+    let template = viz["template"].as_str().unwrap_or_default().to_string();
+    *viz = match handlebars::Handlebars::new().render_template(&template, &viz["data"]) {
+        Ok(html) => serde_json::json!({ "html": html }),
+        Err(e) => serde_json::json!({ "error": format!("pm.visualizer: {e}") }),
+    };
+    serde_json::to_string(&v).map_err(|e| e.to_string())
 }
 
 /// Map any eval failure that occurred at/after the deadline to a clear timeout
@@ -556,6 +581,28 @@ mod tests {
         let out = run("pm.request.url = 'other';", ctx);
         assert!(out["error"].as_str().unwrap().contains("read-only"));
         assert!(out["requestPatch"].is_null());
+    }
+
+    #[test]
+    fn visualizer_renders_handlebars_template() {
+        let ctx =
+            r#"{"response":{"code":200,"body":"{\"items\":[{\"n\":\"a<b\"},{\"n\":\"c\"}]}"}}"#;
+        let code = "pm.visualizer.set('<ul>{{#each items}}<li>{{@index}}:{{n}}</li>{{/each}}</ul>', pm.response.json());";
+        let out = run(code, ctx);
+        assert_eq!(
+            out["visualizer"]["html"],
+            "<ul><li>0:a&lt;b</li><li>1:c</li></ul>"
+        );
+    }
+
+    #[test]
+    fn visualizer_template_error_is_reported() {
+        let out = run("pm.visualizer.set('{{#each items}}', {});", "{}");
+        assert!(out["visualizer"]["error"]
+            .as_str()
+            .unwrap()
+            .starts_with("pm.visualizer"));
+        assert!(run("pm.environment.set('a','1');", "{}")["visualizer"].is_null());
     }
 
     #[test]

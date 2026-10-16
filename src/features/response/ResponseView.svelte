@@ -59,7 +59,9 @@
 
   const { tab, onSettings = () => {} }: { tab: Tab | undefined; onSettings?: () => void } = $props();
 
-  let respTab = $state<'body' | 'headers' | 'trailers' | 'cookies' | 'timeline' | 'tests' | 'console'>('body');
+  let respTab = $state<'body' | 'headers' | 'trailers' | 'cookies' | 'timeline' | 'tests' | 'console' | 'visualize'>(
+    'body',
+  );
   let respMode = $state<'pretty' | 'raw' | 'preview'>(requestPrefs.responsePrettyDefault.current ? 'pretty' : 'raw');
   /** gRPC responses get the same Pretty / Raw switch (E5). */
   let grpcMode = $state<'pretty' | 'raw'>(requestPrefs.responsePrettyDefault.current ? 'pretty' : 'raw');
@@ -92,6 +94,7 @@
   // fall back to Body so the panel never shows an empty view.
   $effect(() => {
     if ((respTab === 'tests' || respTab === 'console') && !testResults) respTab = 'body';
+    if (respTab === 'visualize' && !testResults?.visualizer) respTab = 'body';
   });
   /** SC6: the pre-request script threw, so nothing was sent. */
   const preFailed = $derived(
@@ -230,7 +233,7 @@
 </script>
 
 {#snippet rtab(
-  id: 'body' | 'headers' | 'trailers' | 'cookies' | 'timeline' | 'tests' | 'console',
+  id: 'body' | 'headers' | 'trailers' | 'cookies' | 'timeline' | 'tests' | 'console' | 'visualize',
   label: string,
   count?: number,
   disabled = false,
@@ -456,6 +459,17 @@
   </RespBody>
 {/snippet}
 
+<!-- Same sandbox as the HTML preview: the template's HTML/CSS render, its <script>s do not. -->
+{#snippet visualizerView(viz: { html?: string; error?: string })}
+  {#if viz.error}
+    <RespBody><CodeBlock>{viz.error}</CodeBlock></RespBody>
+  {:else}
+    <div class="bs-preview">
+      <iframe title={t('response.visualize_title')} sandbox="" srcdoc={viz.html ?? ''}></iframe>
+    </div>
+  {/if}
+{/snippet}
+
 {#snippet preFailedView(results: TabTestResults, canSendWithout: boolean)}
   <div class="bs-net-error bs-pre-failed">
     <span class="mark" aria-hidden="true"><span class="material-symbols-outlined">link_off</span></span>
@@ -507,6 +521,7 @@
             t('response.tab.console'),
             consoleRows(testResults.events ?? []).length,
           )}{/if}
+        {#if testResults?.visualizer}{@render rtab('visualize', t('response.tab.visualize'))}{/if}
       </div>
       {#if sending && tab.grpcStream}
         <div class="bs-meta">
@@ -619,6 +634,8 @@
       {@render scriptTestsView(testResults)}
     {:else if respTab === 'console' && testResults}
       {@render scriptConsoleView(testResults)}
+    {:else if respTab === 'visualize' && testResults?.visualizer}
+      {@render visualizerView(testResults.visualizer)}
     {:else if respTab === 'timeline'}
       <!-- prettier-ignore -->
       <RespBody><CodeBlock class="bs-timeline">
@@ -691,6 +708,7 @@
             t('response.tab.console'),
             consoleRows(testResults.events ?? []).length,
           )}{/if}
+        {#if testResults?.visualizer}{@render rtab('visualize', t('response.tab.visualize'))}{/if}
       </div>
       {#if sending}
         {@render sendingMeta()}
@@ -749,6 +767,8 @@
       {@render scriptTestsView(testResults)}
     {:else if respTab === 'console' && testResults}
       {@render scriptConsoleView(testResults)}
+    {:else if respTab === 'visualize' && testResults?.visualizer}
+      {@render visualizerView(testResults.visualizer)}
     {:else if tab.response.status === 0 && !isCancelled(tab.response) && respTab !== 'timeline' && respTab !== 'tests'}
       {@const timeout = isTimeout(tab.response)}
       <div class="bs-net-error">

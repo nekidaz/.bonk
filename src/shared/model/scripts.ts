@@ -50,6 +50,13 @@ export interface ScriptResult {
   events?: Omit<ScriptEvent, 'stage'>[];
   /** The script's top-level `return` value; undefined when none. */
   returnValue?: unknown;
+  /** `pm.visualizer.set(template, data)`, rendered by Rust: the HTML or the template error. */
+  visualizer?: ScriptVisualizer | null;
+}
+
+export interface ScriptVisualizer {
+  html?: string;
+  error?: string;
 }
 
 /** The subset of request fields a pre-request script may overwrite. */
@@ -293,7 +300,15 @@ export function parseScriptResult(raw: string): ScriptResult {
     errorLine: typeof data.errorLine === 'number' ? data.errorLine : null,
     events: Array.isArray(data.events) ? data.events.flatMap(parseEvent) : [],
     returnValue: data.returnValue,
+    visualizer: parseVisualizer(data.visualizer),
   };
+}
+
+function parseVisualizer(v: unknown): ScriptVisualizer | null {
+  if (!v || typeof v !== 'object') return null;
+  const { html, error } = v as Record<string, unknown>;
+  if (typeof error === 'string') return { error };
+  return typeof html === 'string' ? { html } : null;
 }
 
 const EVENT_KINDS = new Set(['log', 'env', 'glob', 'hdr', 'test']);
@@ -372,6 +387,7 @@ export function collectScriptRun(run: {
       ...(run.send ? [{ ...run.send, stage: 'send' as const, kind: 'send' as const }] : []),
       ...b.events,
     ],
+    visualizer: post?.visualizer ?? pre?.visualizer ?? undefined,
     postMs: run.postMs,
     at: run.at,
   };
