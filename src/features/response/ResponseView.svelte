@@ -42,6 +42,7 @@
   import { tabs } from '$entities/tab';
   import ResponseBody, { type BodyInfo } from './ResponseBody.svelte';
   import ResponseCookies from './ResponseCookies.svelte';
+  import ResponseHeaders from './ResponseHeaders.svelte';
   import SentRequest from './SentRequest.svelte';
   import { EditorTools, ScriptConsole, ScriptTests } from '$shared/editor/components';
   import { consoleRows, countLabel } from '$shared/editor';
@@ -596,19 +597,12 @@
     id="bs-resppanel"
     aria-labelledby="bs-resptab-{respTab}"
   >
-    {#snippet mdList(md: Record<string, string>)}
-      <RespBody>
-        <CodeBlock>
-          {#each Object.entries(md) as [k, v] (k)}<div><span class="k">{k}</span>: {v}</div>{/each}
-        </CodeBlock>
-      </RespBody>
-    {/snippet}
     {#if editorError}
       {@render editorErrorView(editorError)}
     {:else if respTab === 'headers' && Object.keys(grpcHeaders).length}
-      {@render mdList(grpcHeaders)}
+      <ResponseHeaders entries={Object.entries(grpcHeaders)} />
     {:else if respTab === 'trailers' && Object.keys(grpcTrailers).length}
-      {@render mdList(grpcTrailers)}
+      <ResponseHeaders entries={Object.entries(grpcTrailers)} />
     {:else if tab.grpcStream && respTab !== 'timeline' && respTab !== 'tests' && !(tab.grpcResult && !tab.grpcResult.ok && !tab.grpcStream.messages.length)}
       <StreamFeed {tab} {sending} writable={!!busy?.writable} code={grpcCode} bind:pause={streamPause} />
     {:else if !tab.grpcResult && preFailed && testResults && !sending}
@@ -812,8 +806,7 @@
         {#if tab.response.final_url}<div><span class="k">URL</span>{tab.response.final_url}</div>{/if}
       </CodeBlock>{#if tab.sent}<SentRequest {tab} sent={tab.sent} />{/if}</RespBody>
     {:else if respTab === 'headers'}
-      <!-- prettier-ignore -->
-      <RespBody><CodeBlock>{#each responseHeaderEntries as [k, v] (k)}<div><span class="k">{k}</span>: {v}</div>{/each}{#if responseHeaderEntries.length === 0}<span style="color:var(--t3)">{t('response.no_headers')}</span>{/if}</CodeBlock></RespBody>
+      <ResponseHeaders entries={responseHeaderEntries} />
     {:else}
       <div class="bs-response-view">
         <!-- Mono 3.0: JSON renders straight into the card; other formats keep the view switch. -->
