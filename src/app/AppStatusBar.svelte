@@ -80,13 +80,7 @@
       >{t('nav.status.console')}</span
     ></button
   >
-  <button
-    class="bs-status-link"
-    class:on={utilityMode === 'terminal'}
-    type="button"
-    aria-label={t('nav.status.terminal')}
-    aria-pressed={utilityMode === 'terminal'}
-    onclick={onTerminal}
+  <button class="bs-status-link" type="button" aria-label={t('nav.status.terminal')} onclick={onTerminal}
     ><span class="material-symbols-outlined" aria-hidden="true">terminal</span><span class="lbl"
       >{t('nav.status.terminal')}</span
     ></button

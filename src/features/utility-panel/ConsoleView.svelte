@@ -6,7 +6,7 @@
   import { HTTP_STATUS_TEXT } from '$shared/model';
   import { appConsole, type AppConsoleEntry } from '$entities/request';
   import { openEntry, retryEntry } from './actions';
-  import { terminal, utilityUi } from './store.svelte';
+  import { utilityUi } from './store.svelte';
   import {
     CONSOLE_QUICK,
     consoleStatus,
@@ -19,7 +19,7 @@
   } from './utilPanel';
   import { Spacer } from '$shared/ui/components';
 
-  let { onTerminal }: { onTerminal: () => void } = $props();
+  let { onTerminal }: { onTerminal: (command: string, env: Record<string, string>) => void } = $props();
 
   let outputEl = $state<HTMLDivElement | null>(null);
   let copied = $state(false);
@@ -53,8 +53,7 @@
 
   function toTerminal(e: AppConsoleEntry): void {
     const { command, env } = curlForShell(e);
-    terminal.insert = { command, env, title: e.title || `${e.method} ${e.url}`, envName: e.env };
-    onTerminal();
+    onTerminal(command, env);
   }
 
   $effect(() => {

@@ -29,13 +29,6 @@ export const ru = {
   'util.act.copied': 'Скопировано',
   'util.act.terminal': 'Открыть в терминале',
 
-  'util.terminal.inserted': 'Вставлено из «{title}»',
-  'util.terminal.secretVars': 'Секреты переданы как {vars} — в историю оболочки не попадут.',
-  'util.terminal.insertHint': 'Enter — выполнить  ·  Esc — убрать',
-  'util.terminal.runningLabel': 'Выполняется',
-  'util.terminal.blocked': 'ввод недоступен до завершения',
-  'util.terminal.stop': 'Остановить',
-
   'issues.filter': 'Фильтр: запрос, код',
   'issues.expand': 'На всю высоту',
   'issues.collapse': 'Свернуть',
@@ -143,13 +136,6 @@ export const en: Record<keyof typeof ru, string> = {
   'util.act.curl': 'Copy cURL',
   'util.act.copied': 'Copied',
   'util.act.terminal': 'Open in terminal',
-
-  'util.terminal.inserted': 'Inserted from “{title}”',
-  'util.terminal.secretVars': 'Secrets are passed as {vars} — they stay out of the shell history.',
-  'util.terminal.insertHint': 'Enter — run  ·  Esc — discard',
-  'util.terminal.runningLabel': 'Running',
-  'util.terminal.blocked': 'input is blocked until it finishes',
-  'util.terminal.stop': 'Stop',
 
   'issues.filter': 'Filter: request, code',
   'issues.expand': 'Full height',
