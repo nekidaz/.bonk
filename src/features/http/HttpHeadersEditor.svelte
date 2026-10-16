@@ -16,7 +16,6 @@
   // S12: one table — manual headers (toggle + description), then the headers bonk adds itself.
   let showAuto = $state(true);
   const auto = $derived(autoHeaderRows((void workspace.tree, withInheritedAuth(tab, tab.savedPath))));
-  const manualCount = $derived(Object.keys(tab.request.headers ?? {}).length);
 
   function patch(fn: (req: HttpRequest) => HttpRequest): void {
     tabs.updateActive((t) => ({ ...t, request: fn(t.request) }));
@@ -61,11 +60,6 @@
 
 <KvPanel class="bs-hwrap">
   <KvHead class="bs-headers-head">
-    <span class="t"
-      >{t(
-        'http.headers.title',
-      )}&nbsp;&nbsp;·&nbsp;&nbsp;{manualCount}{#if auto.length}&nbsp;&nbsp;+&nbsp;&nbsp;{auto.length} auto{/if}</span
-    >
     <LabelSwitch>
       <input type="checkbox" role="switch" bind:checked={showAuto} />
       <span class="track" aria-hidden="true"></span>
@@ -135,15 +129,11 @@
 </KvPanel>
 
 <style>
-  :global(:root .bs-hwrap .bs-qp.manual) {
-    margin-top: 18px;
-  }
-
   /* S12: headers table with automatic rows and the "show auto" switch. */
   :global(:root .bs .bs-qp.bs-headers-head) {
     display: flex;
     align-items: center;
-    justify-content: space-between;
+    justify-content: flex-end;
     height: 16px;
   }
 

@@ -42,6 +42,7 @@
   import { tabs } from '$entities/tab';
   import ResponseBody, { type BodyInfo } from './ResponseBody.svelte';
   import ResponseCookies from './ResponseCookies.svelte';
+  import ResponseHeaders from './ResponseHeaders.svelte';
   import SentRequest from './SentRequest.svelte';
   import { EditorTools, ScriptConsole, ScriptTests } from '$shared/editor/components';
   import { consoleRows, countLabel } from '$shared/editor';
@@ -58,7 +59,9 @@
 
   const { tab, onSettings = () => {} }: { tab: Tab | undefined; onSettings?: () => void } = $props();
 
-  let respTab = $state<'body' | 'headers' | 'trailers' | 'cookies' | 'timeline' | 'tests' | 'console'>('body');
+  let respTab = $state<'body' | 'headers' | 'trailers' | 'cookies' | 'timeline' | 'tests' | 'console' | 'visualize'>(
+    'body',
+  );
   let respMode = $state<'pretty' | 'raw' | 'preview'>(requestPrefs.responsePrettyDefault.current ? 'pretty' : 'raw');
   /** gRPC responses get the same Pretty / Raw switch (E5). */
   let grpcMode = $state<'pretty' | 'raw'>(requestPrefs.responsePrettyDefault.current ? 'pretty' : 'raw');
@@ -91,6 +94,7 @@
   // fall back to Body so the panel never shows an empty view.
   $effect(() => {
     if ((respTab === 'tests' || respTab === 'console') && !testResults) respTab = 'body';
+    if (respTab === 'visualize' && !testResults?.visualizer) respTab = 'body';
   });
   /** SC6: the pre-request script threw, so nothing was sent. */
   const preFailed = $derived(
@@ -242,7 +246,7 @@
 </script>
 
 {#snippet rtab(
-  id: 'body' | 'headers' | 'trailers' | 'cookies' | 'timeline' | 'tests' | 'console',
+  id: 'body' | 'headers' | 'trailers' | 'cookies' | 'timeline' | 'tests' | 'console' | 'visualize',
   label: string,
   count?: number,
   disabled = false,
@@ -468,6 +472,17 @@
   </RespBody>
 {/snippet}
 
+<!-- Same sandbox as the HTML preview: the template's HTML/CSS render, its <script>s do not. -->
+{#snippet visualizerView(viz: { html?: string; error?: string })}
+  {#if viz.error}
+    <RespBody><CodeBlock>{viz.error}</CodeBlock></RespBody>
+  {:else}
+    <div class="bs-preview">
+      <iframe title={t('response.visualize_title')} sandbox="" srcdoc={viz.html ?? ''}></iframe>
+    </div>
+  {/if}
+{/snippet}
+
 {#snippet preFailedView(results: TabTestResults, canSendWithout: boolean)}
   <div class="bs-net-error bs-pre-failed">
     <span class="mark" aria-hidden="true"><span class="material-symbols-outlined">link_off</span></span>
@@ -519,6 +534,7 @@
             t('response.tab.console'),
             consoleRows(testResults.events ?? []).length,
           )}{/if}
+        {#if testResults?.visualizer}{@render rtab('visualize', t('response.tab.visualize'))}{/if}
       </div>
       {#if sending && tab.grpcStream}
         <div class="bs-meta">
@@ -609,19 +625,12 @@
     id="bs-resppanel"
     aria-labelledby="bs-resptab-{respTab}"
   >
-    {#snippet mdList(md: Record<string, string>)}
-      <RespBody>
-        <CodeBlock>
-          {#each Object.entries(md) as [k, v] (k)}<div><span class="k">{k}</span>: {v}</div>{/each}
-        </CodeBlock>
-      </RespBody>
-    {/snippet}
     {#if editorError}
       {@render editorErrorView(editorError)}
     {:else if respTab === 'headers' && Object.keys(grpcHeaders).length}
-      {@render mdList(grpcHeaders)}
+      <ResponseHeaders entries={Object.entries(grpcHeaders)} />
     {:else if respTab === 'trailers' && Object.keys(grpcTrailers).length}
-      {@render mdList(grpcTrailers)}
+      <ResponseHeaders entries={Object.entries(grpcTrailers)} />
     {:else if tab.grpcStream && respTab !== 'timeline' && respTab !== 'tests' && !(tab.grpcResult && !tab.grpcResult.ok && !tab.grpcStream.messages.length)}
       <StreamFeed {tab} {sending} writable={!!busy?.writable} code={grpcCode} bind:pause={streamPause} />
     {:else if !tab.grpcResult && preFailed && testResults && !sending}
@@ -638,6 +647,8 @@
       {@render scriptTestsView(testResults)}
     {:else if respTab === 'console' && testResults}
       {@render scriptConsoleView(testResults)}
+    {:else if respTab === 'visualize' && testResults?.visualizer}
+      {@render visualizerView(testResults.visualizer)}
     {:else if respTab === 'timeline'}
       <!-- prettier-ignore -->
       <RespBody><CodeBlock class="bs-timeline">
@@ -710,6 +721,7 @@
             t('response.tab.console'),
             consoleRows(testResults.events ?? []).length,
           )}{/if}
+        {#if testResults?.visualizer}{@render rtab('visualize', t('response.tab.visualize'))}{/if}
       </div>
       {#if sending}
         {@render sendingMeta()}
@@ -771,6 +783,8 @@
       {@render scriptTestsView(testResults)}
     {:else if respTab === 'console' && testResults}
       {@render scriptConsoleView(testResults)}
+    {:else if respTab === 'visualize' && testResults?.visualizer}
+      {@render visualizerView(testResults.visualizer)}
     {:else if tab.response.status === 0 && !isCancelled(tab.response) && respTab !== 'timeline' && respTab !== 'tests'}
       {@const timeout = isTimeout(tab.response)}
       <div class="bs-net-error">
@@ -828,8 +842,7 @@
         {#if tab.response.final_url}<div><span class="k">URL</span>{tab.response.final_url}</div>{/if}
       </CodeBlock>{#if tab.sent}<SentRequest {tab} sent={tab.sent} />{/if}</RespBody>
     {:else if respTab === 'headers'}
-      <!-- prettier-ignore -->
-      <RespBody><CodeBlock>{#each responseHeaderEntries as [k, v] (k)}<div><span class="k">{k}</span>: {v}</div>{/each}{#if responseHeaderEntries.length === 0}<span style="color:var(--t3)">{t('response.no_headers')}</span>{/if}</CodeBlock></RespBody>
+      <ResponseHeaders entries={responseHeaderEntries} />
     {:else}
       <div class="bs-response-view">
         <!-- Mono 3.0: JSON renders straight into the card; other formats keep the view switch. -->

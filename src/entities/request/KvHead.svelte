@@ -1,4 +1,4 @@
-<!-- The key/value panel title row (was `.bs-qp`): a `.t` title with the count. -->
+<!-- The key/value panel's control row above the table (was `.bs-qp`). -->
 <script lang="ts">
   import type { Snippet } from 'svelte';
   import type { HTMLAttributes } from 'svelte/elements';
@@ -15,22 +15,5 @@
     display: flex;
     align-items: center;
     margin-bottom: 10px;
-  }
-
-  .bs-qp :global(.t) {
-    font: 500 var(--font-size-micro) var(--font-code);
-    color: var(--color-text-muted);
-    text-transform: uppercase;
-    letter-spacing: var(--tracking-eyebrow);
-  }
-
-  :global(.bs) .bs-qp.manual {
-    display: none;
-  }
-
-  .bs-qp :global(.be) {
-    font-size: 12px;
-    color: var(--t2);
-    margin-left: auto;
   }
 </style>

@@ -8,7 +8,7 @@
   import { findNode, workspace } from '$entities/workspace';
   import { tabs } from '$entities/tab';
   import { isParamChanged } from '$entities/request';
-  import { KvPanel, KvHead, KvTable, KvRow, KvCell, KvVarInput } from '$entities/request/components';
+  import { KvPanel, KvTable, KvRow, KvCell, KvVarInput } from '$entities/request/components';
 
   let { tab }: { tab: Tab } = $props();
   const saved = $derived.by(() => {
@@ -38,13 +38,6 @@
 </script>
 
 <KvPanel>
-  <KvHead>
-    <span class="t"
-      >{t('http.params.title')}<span aria-hidden="true">&nbsp;&nbsp;·&nbsp;&nbsp;</span>{(tab.params ?? []).filter(
-        (p) => p.key.trim(),
-      ).length}</span
-    >
-  </KvHead>
   <KvTable>
     <KvRow class="h">
       <KvCell class="c"></KvCell>

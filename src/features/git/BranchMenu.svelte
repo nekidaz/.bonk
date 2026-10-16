@@ -157,6 +157,7 @@
     role="dialog"
     aria-label={t('git.branch.switch')}
     style:left="{at.x}px"
+    style:width={at.w ? `${at.w}px` : undefined}
     style:top={at.up ? undefined : `${at.y}px`}
     style:bottom={at.up ? `${window.innerHeight - at.y}px` : undefined}
   >

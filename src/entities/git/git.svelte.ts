@@ -108,8 +108,9 @@ class Git {
   /** The commit message, shared by the sidebar box and the commit-editor tab (G4b). */
   message = $state('');
   amend = $state(false);
-  /** G3: where the branch popover is anchored (viewport px), null when closed. */
-  branchMenu = $state.raw<{ x: number; y: number; up: boolean } | null>(null);
+  /** G3: where the branch popover is anchored (viewport px), null when closed. `w` makes it as
+   *  wide as its trigger (the sidebar branch row); without it the popover is 320px. */
+  branchMenu = $state.raw<{ x: number; y: number; up: boolean; w?: number } | null>(null);
   /** G10: where the «Stash changes» popover is anchored, null when closed. */
   stashMenu = $state.raw<{ x: number; y: number } | null>(null);
   /**

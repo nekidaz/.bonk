@@ -371,6 +371,8 @@ export interface TabTestResults {
   errorPhase?: ScriptStage;
   /** SC5 console feed: both stages' logs, variable and header writes, and the send itself, in order. */
   events?: ScriptEvent[];
+  /** `pm.visualizer.set` output (post stage wins): the «Visualize» response tab. */
+  visualizer?: { html?: string; error?: string };
   /** Wall-clock time the post-response script took, ms (SC4 header). */
   postMs?: number;
   /** When the run finished (epoch ms): «Прошлый прогон 12:04». */

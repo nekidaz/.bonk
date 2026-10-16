@@ -396,6 +396,11 @@
   /* SC7: last run's result on the line numbers of pm.test calls. */
   .bs-script-editor :global(.cm-lineNumbers .cm-gutterElement.bs-ln-ok),
   .bs-script-editor :global(.cm-lineNumbers .cm-gutterElement.bs-ln-fail) {
+    /* Hug the number with even padding, right edge where the other numbers end. */
+    width: fit-content;
+    min-width: 0;
+    margin-left: auto;
+    padding: 0 7px;
     border-radius: 6px;
     font-weight: 600;
   }

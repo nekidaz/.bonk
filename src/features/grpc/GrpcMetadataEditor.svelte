@@ -12,7 +12,7 @@
   } from './grpcMetadata';
   import type { Tab } from '$shared/model';
   import { t } from '$shared/i18n';
-  import { KvPanel, KvHead, KvTable, KvRow, KvCell, KvVarInput } from '$entities/request/components';
+  import { KvPanel, KvTable, KvRow, KvCell, KvVarInput } from '$entities/request/components';
 
   let { tab }: { tab: Tab } = $props();
 
@@ -65,10 +65,6 @@
 </script>
 
 <KvPanel class="grpc-metadata-editor">
-  <KvHead>
-    <span class="t">{t('grpc.meta.title')}</span>
-    <span class="be">{t('grpc.meta.active', { n: Object.keys(tab.grpc?.metadata ?? {}).length })}</span>
-  </KvHead>
   <KvTable class="grpc-metadata-table" bind:ref={table}>
     <KvRow class="h">
       <KvCell class="k">{t('grpc.meta.key')}</KvCell>
