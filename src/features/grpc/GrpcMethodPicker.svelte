@@ -349,11 +349,13 @@
     }
   }
 
+  /* A long address scrolls and gives way; the method keeps its width up to 45 % and ellipsizes past that. */
   :global(.bs .bs-grpc-field) .bs-grpc-picker {
     position: relative;
-    flex: 0 1 auto;
+    flex: 0 0 auto;
     width: auto;
     min-width: 0;
+    max-width: 45%;
     margin-left: auto;
     height: auto;
     border: 0;
@@ -424,12 +426,6 @@
   @media (max-width: 760px) {
     :global(.bs) .bs-grpc-trigger :global(:is(.lead, .svc)) {
       display: none;
-    }
-
-    /* The address shrinks first; a long method name still stops at 45 % and ellipsizes. */
-    :global(.bs .bs-grpc-field) .bs-grpc-picker {
-      flex-shrink: 0;
-      max-width: 45%;
     }
 
     :global(.bs .bs-grpc-field) .bs-grpc-trigger {
