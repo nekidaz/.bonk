@@ -467,6 +467,16 @@
     font: var(--font-size-body) var(--font-ui);
   }
 
+  /* base.css rings every focused input; this one is focused whenever the menu opens (like the ⌘K
+     palette's), so only the field's border lights up instead of a square ring inside it. */
+  :global(.bs) .bs-work-search :global(input:focus-visible) {
+    box-shadow: none;
+  }
+
+  .bs-work-search:focus-within {
+    border-color: var(--color-border);
+  }
+
   .bs-work-search :global(input::placeholder) {
     color: var(--color-text-muted);
   }
