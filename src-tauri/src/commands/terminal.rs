@@ -1,59 +1,29 @@
-use super::http::{finish_cancel, register_cancel};
+//! The Terminal tab: the user's own login shell in a real PTY (like VS Code's terminal).
+//! xterm.js in the panel draws it; bytes go back and forth through these commands.
 use crate::state::AppState;
+use portable_pty::{native_pty_system, Child, CommandBuilder, MasterPty, PtySize};
 use std::collections::HashMap;
-use std::process::Stdio;
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::io::{Read, Write};
+use std::path::PathBuf;
 use tauri::ipc::Channel;
 use tauri::State;
-use tokio::io::{AsyncBufReadExt, AsyncRead, BufReader};
 
-const TERMINAL_OUTPUT_LIMIT: usize = 1024 * 1024;
-
-/// How a command ended; its output was already streamed line by line (`TerminalLine`).
-#[derive(serde::Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct TerminalOutput {
-    status: i32,
-    elapsed_ms: u128,
-    cwd: String,
+/// One running shell: the PTY's master side, its input, and the shell process.
+pub struct PtySession {
+    master: Box<dyn MasterPty + Send>,
+    writer: Box<dyn Write + Send>,
+    child: Box<dyn Child + Send + Sync>,
 }
 
-/// One output line, sent while the command runs (CT5).
+/// What the shell sends to the panel.
 #[derive(Clone, serde::Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct TerminalLine {
-    stderr: bool,
-    text: String,
-}
-
-const TERMINAL_CWD_MARKER: &str = "__BONK_CWD_62E892D1__";
-
-/// Holds back blank stdout lines until something visible follows, so the blank
-/// line printed before the cwd marker never reaches the panel, and picks the cwd
-/// out of the marker line.
-#[derive(Default)]
-struct StdoutFilter {
-    blank: usize,
-    cwd: Option<String>,
-}
-
-impl StdoutFilter {
-    fn push(&mut self, line: String) -> Vec<String> {
-        if let Some(at) = line.find(TERMINAL_CWD_MARKER) {
-            let cwd = line[at + TERMINAL_CWD_MARKER.len()..].trim();
-            if !cwd.is_empty() {
-                self.cwd = Some(cwd.to_string());
-            }
-            return Vec::new();
-        }
-        if line.trim().is_empty() {
-            self.blank += 1;
-            return Vec::new();
-        }
-        let mut out = vec![String::new(); std::mem::take(&mut self.blank)];
-        out.push(line);
-        out
-    }
+#[serde(rename_all = "camelCase", tag = "type")]
+pub enum PtyEvent {
+    Data {
+        text: String,
+    },
+    /// The shell ended (`exit`, or it crashed).
+    Exit,
 }
 
 /// Only `BONK_*` names: the request → terminal hand-off passes secrets this way (CT6),
@@ -66,128 +36,14 @@ fn valid_env_name(name: &str) -> bool {
             .all(|b| b.is_ascii_uppercase() || b.is_ascii_digit() || b == b'_')
 }
 
-/// Reads `reader` line by line, strips terminal controls and sends each line until
-/// the shared 1 MiB budget runs out.
-async fn pump<R: AsyncRead + Unpin>(
-    reader: R,
-    stderr: bool,
-    on_line: &Channel<TerminalLine>,
-    budget: &AtomicUsize,
-    mut filter: Option<&mut StdoutFilter>,
-) {
-    let mut reader = BufReader::new(reader);
-    let mut buf = Vec::new();
-    loop {
-        buf.clear();
-        match reader.read_until(b'\n', &mut buf).await {
-            Ok(0) | Err(_) => break,
-            Ok(_) => {}
-        }
-        let line = strip_terminal_controls(String::from_utf8_lossy(&buf).into_owned());
-        let line = line.trim_end_matches('\n').to_string();
-        let lines = match filter.as_deref_mut() {
-            Some(f) => f.push(line),
-            None => vec![line],
-        };
-        for text in lines {
-            let used = budget.fetch_add(text.len() + 1, Ordering::Relaxed);
-            if used >= TERMINAL_OUTPUT_LIMIT {
-                continue;
-            }
-            let text = if used + text.len() + 1 >= TERMINAL_OUTPUT_LIMIT {
-                "… output truncated at 1 MiB".to_string()
-            } else {
-                text
-            };
-            let _ = on_line.send(TerminalLine { stderr, text });
-        }
-    }
-}
-
-/// The panel is a text renderer rather than a full VT emulator. Strip ANSI
-/// color/control sequences and OSC shell-integration markers (OSC 7/133) so
-/// they never leak into the visible command output as `]133;…` garbage.
-fn strip_terminal_controls(input: String) -> String {
-    #[derive(Clone, Copy)]
-    enum State {
-        Text,
-        Escape,
-        Csi,
-        Osc,
-        OscEscape,
-        String,
-        StringEscape,
-    }
-
-    let mut state = State::Text;
-    let mut clean = String::with_capacity(input.len());
-    for ch in input.chars() {
-        state = match state {
-            State::Text => {
-                if ch == '\u{1b}' {
-                    State::Escape
-                } else if ch == '\u{8}' {
-                    clean.pop();
-                    State::Text
-                } else if ch == '\r' || (ch.is_control() && ch != '\n' && ch != '\t') {
-                    State::Text
-                } else {
-                    clean.push(ch);
-                    State::Text
-                }
-            }
-            State::Escape => match ch {
-                '[' => State::Csi,
-                ']' => State::Osc,
-                'P' | 'X' | '^' | '_' => State::String,
-                _ => State::Text,
-            },
-            State::Csi => {
-                if ('\u{40}'..='\u{7e}').contains(&ch) {
-                    State::Text
-                } else {
-                    State::Csi
-                }
-            }
-            State::Osc => match ch {
-                '\u{7}' => State::Text,
-                '\u{1b}' => State::OscEscape,
-                _ => State::Osc,
-            },
-            State::OscEscape => {
-                if ch == '\\' {
-                    State::Text
-                } else {
-                    State::Osc
-                }
-            }
-            State::String => {
-                if ch == '\u{1b}' {
-                    State::StringEscape
-                } else {
-                    State::String
-                }
-            }
-            State::StringEscape => {
-                if ch == '\\' {
-                    State::Text
-                } else {
-                    State::String
-                }
-            }
-        };
-    }
-    clean
-}
-
-fn terminal_default_dir() -> Result<std::path::PathBuf, String> {
+fn terminal_default_dir() -> Result<PathBuf, String> {
     let home = if cfg!(target_os = "windows") {
         std::env::var_os("USERPROFILE")
     } else {
         std::env::var_os("HOME")
     };
     if let Some(home) = home {
-        let path = std::path::PathBuf::from(home);
+        let path = PathBuf::from(home);
         if path.is_absolute() && path.is_dir() {
             return Ok(path);
         }
@@ -201,184 +57,180 @@ pub fn terminal_default_cwd() -> Result<String, String> {
     Ok(terminal_default_dir()?.to_string_lossy().into_owned())
 }
 
-/// Execute one explicit command in a persistent frontend terminal session.
-/// The shell reports its final cwd through a private marker, allowing `cd`,
-/// `cd ..`, and compound commands such as `cd src && ls` to carry their
-/// directory into the next invocation. Output streams through `on_line`; there is
-/// no timeout, a long command runs until it ends or ⌃C / ■ Остановить cancels it.
+/// Takes the longest valid UTF-8 text out of `buf`, leaving a character cut by the read
+/// boundary for the next read (a Go `utf8.FullRune` loop, in short).
+fn take_utf8(buf: &mut Vec<u8>) -> String {
+    let valid = match std::str::from_utf8(buf) {
+        Ok(_) => buf.len(),
+        Err(error) if error.error_len().is_none() => error.valid_up_to(),
+        Err(_) => return String::from_utf8_lossy(&std::mem::take(buf)).into_owned(),
+    };
+    let rest = buf.split_off(valid);
+    String::from_utf8_lossy(&std::mem::replace(buf, rest)).into_owned()
+}
+
+fn pty_size(cols: u16, rows: u16) -> PtySize {
+    PtySize {
+        rows: rows.max(2),
+        cols: cols.max(2),
+        pixel_width: 0,
+        pixel_height: 0,
+    }
+}
+
+/// Starts the user's login shell (`$SHELL`; `cmd` on Windows) in `cwd` and streams its
+/// output to `on_event` until it exits.
 #[tauri::command]
-pub async fn terminal_run(
+pub fn pty_open(
+    id: String,
     cwd: Option<String>,
-    command: String,
-    run_id: Option<String>,
-    env: Option<HashMap<String, String>>,
-    on_line: Channel<TerminalLine>,
+    cols: u16,
+    rows: u16,
+    on_event: Channel<PtyEvent>,
     state: State<'_, AppState>,
-) -> Result<TerminalOutput, String> {
-    let env = env.unwrap_or_default();
+) -> Result<(), String> {
+    let dir = cwd
+        .map(PathBuf::from)
+        .filter(|path| path.is_absolute() && path.is_dir())
+        .map_or_else(terminal_default_dir, Ok)?;
+    let pair = native_pty_system()
+        .openpty(pty_size(cols, rows))
+        .map_err(|error| format!("failed to open a terminal: {error}"))?;
+    let mut cmd = CommandBuilder::new_default_prog();
+    cmd.cwd(dir);
+    cmd.env("TERM", "xterm-256color");
+    cmd.env("COLORTERM", "truecolor");
+    let child = pair
+        .slave
+        .spawn_command(cmd)
+        .map_err(|error| format!("failed to start the shell: {error}"))?;
+    drop(pair.slave);
+    let mut reader = pair
+        .master
+        .try_clone_reader()
+        .map_err(|error| format!("failed to open a terminal: {error}"))?;
+    let writer = pair
+        .master
+        .take_writer()
+        .map_err(|error| format!("failed to open a terminal: {error}"))?;
+    state
+        .ptys
+        .lock()
+        .map_err(|_| "terminal state lock poisoned".to_string())?
+        .insert(
+            id,
+            PtySession {
+                master: pair.master,
+                writer,
+                child,
+            },
+        );
+    // A blocking read loop on its own thread, like a goroutine around io.Copy.
+    std::thread::spawn(move || {
+        let mut chunk = [0u8; 16 * 1024];
+        let mut pending = Vec::new();
+        loop {
+            match reader.read(&mut chunk) {
+                Ok(0) | Err(_) => break,
+                Ok(n) => {
+                    pending.extend_from_slice(&chunk[..n]);
+                    let text = take_utf8(&mut pending);
+                    if !text.is_empty() && on_event.send(PtyEvent::Data { text }).is_err() {
+                        break;
+                    }
+                }
+            }
+        }
+        let _ = on_event.send(PtyEvent::Exit);
+    });
+    Ok(())
+}
+
+/// Keystrokes and pastes from xterm.js.
+#[tauri::command]
+pub fn pty_write(id: String, data: String, state: State<'_, AppState>) -> Result<(), String> {
+    let mut ptys = state
+        .ptys
+        .lock()
+        .map_err(|_| "terminal state lock poisoned".to_string())?;
+    let session = ptys.get_mut(&id).ok_or("the terminal is closed")?;
+    session
+        .writer
+        .write_all(data.as_bytes())
+        .and_then(|()| session.writer.flush())
+        .map_err(|error| format!("failed to write to the terminal: {error}"))
+}
+
+#[tauri::command]
+pub fn pty_resize(
+    id: String,
+    cols: u16,
+    rows: u16,
+    state: State<'_, AppState>,
+) -> Result<(), String> {
+    let ptys = state
+        .ptys
+        .lock()
+        .map_err(|_| "terminal state lock poisoned".to_string())?;
+    match ptys.get(&id) {
+        Some(session) => session
+            .master
+            .resize(pty_size(cols, rows))
+            .map_err(|error| format!("failed to resize the terminal: {error}")),
+        None => Ok(()),
+    }
+}
+
+/// Kills the shell (if still running) and forgets the session.
+#[tauri::command]
+pub fn pty_close(id: String, state: State<'_, AppState>) -> Result<(), String> {
+    let session = state
+        .ptys
+        .lock()
+        .map_err(|_| "terminal state lock poisoned".to_string())?
+        .remove(&id);
+    if let Some(mut session) = session {
+        let _ = session.child.kill();
+    }
+    Ok(())
+}
+
+fn sh_quote(s: &str) -> String {
+    format!("'{}'", s.replace('\'', "'\\''"))
+}
+
+/// CT6: writes `export BONK_…='…'` lines to an owner-only temp file and returns its path.
+/// The hand-off pastes `(. file; rm -f file; curl …)`, so the secret values never pass
+/// through the shell's input or history, and live only in that subshell.
+/// ponytail: POSIX shells only; Windows `cmd` can't source it.
+#[tauri::command]
+pub fn pty_stage_env(env: HashMap<String, String>) -> Result<String, String> {
     if let Some(bad) = env.keys().find(|name| !valid_env_name(name)) {
         return Err(format!("invalid terminal variable name: {bad}"));
     }
-    let cwd_path = match cwd.filter(|value| !value.is_empty()) {
-        Some(value) => {
-            let path = std::path::PathBuf::from(value);
-            if !path.is_absolute() {
-                return Err("terminal cwd must be an absolute path".to_string());
-            }
-            if !path.is_dir() {
-                return Err("terminal cwd is not a directory".to_string());
-            }
-            path
-        }
-        None => terminal_default_dir()?,
-    };
-    let command = command.trim();
-    if command.is_empty() {
-        return Err("command cannot be empty".to_string());
+    let mut body = String::new();
+    for (name, value) in &env {
+        body += &format!("export {name}={}\n", sh_quote(value));
     }
-    if command.len() > 32 * 1024 {
-        return Err("command is too long".to_string());
-    }
-
-    #[cfg(target_os = "windows")]
-    let mut child = {
-        let wrapped = format!(
-            "{command} & set \"__bonk_status=!errorlevel!\" & echo {TERMINAL_CWD_MARKER}!CD! & exit /b !__bonk_status!"
-        );
-        let mut child = tokio::process::Command::new("cmd.exe");
-        child.args(["/d", "/v:on", "/s", "/c", &wrapped]);
-        child
-    };
-
-    // macOS ships BSD `script`, which gives the child a real PTY. This matters
-    // for tools such as eza (commonly aliased as `ls`) and for shell functions
-    // that intentionally behave differently when stdin/stdout are not a TTY.
-    #[cfg(target_os = "macos")]
-    let mut child = {
-        let shell = std::env::var("SHELL")
-            .ok()
-            .filter(|path| std::path::Path::new(path).is_absolute())
-            .unwrap_or_else(|| "/bin/zsh".to_string());
-        let wrapped = format!(
-            "__bonk_command=$BONK_TERMINAL_COMMAND\nunset BONK_TERMINAL_COMMAND\neval -- \"$__bonk_command\"\n__bonk_status=$?\nprintf '\\n{TERMINAL_CWD_MARKER}%s\\n' \"$PWD\"\nexit $__bonk_status"
-        );
-        let mut child = tokio::process::Command::new("/usr/bin/script");
-        child.args(["-q", "/dev/null", &shell, "-lic", &wrapped]);
-        child
-            .env("BONK_TERMINAL_COMMAND", command)
-            .env("TERM", "xterm-256color");
-        child
-    };
-
-    #[cfg(all(not(target_os = "windows"), not(target_os = "macos")))]
-    let mut child = {
-        let shell = std::env::var("SHELL")
-            .ok()
-            .filter(|path| std::path::Path::new(path).is_absolute())
-            .unwrap_or_else(|| "/bin/sh".to_string());
-        let shell_name = std::path::Path::new(&shell)
-            .file_name()
-            .and_then(|name| name.to_str())
-            .unwrap_or_default()
-            .to_string();
-        let (wrapped, mode) = if shell_name == "zsh" {
-            (
-                format!(
-                    "source \"${{ZDOTDIR:-$HOME}}/.zshrc\" 2>/dev/null\n__bonk_command=$BONK_TERMINAL_COMMAND\nunset BONK_TERMINAL_COMMAND\neval -- \"$__bonk_command\"\n__bonk_status=$?\nprintf '\\n{TERMINAL_CWD_MARKER}%s\\n' \"$PWD\"\nexit $__bonk_status"
-                ),
-                "-lc",
-            )
-        } else {
-            (
-                format!(
-                    "{command}\n__bonk_status=$?\nprintf '\\n{TERMINAL_CWD_MARKER}%s\\n' \"$PWD\"\nexit $__bonk_status"
-                ),
-                if matches!(shell_name.as_str(), "bash" | "fish") { "-lic" } else { "-lc" },
-            )
-        };
-        let mut child = tokio::process::Command::new(shell);
-        child.args([mode, &wrapped]);
-        if shell_name == "zsh" {
-            child.env("BONK_TERMINAL_COMMAND", command);
-        }
-        child
-    };
-
-    child
-        .current_dir(&cwd_path)
-        .envs(&env)
-        .stdin(Stdio::null())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .kill_on_drop(true);
-    let started = std::time::Instant::now();
-    let mut child = child
-        .spawn()
-        .map_err(|error| format!("failed to run command: {error}"))?;
-    let (Some(stdout), Some(stderr)) = (child.stdout.take(), child.stderr.take()) else {
-        return Err("failed to capture command output".to_string());
-    };
-    // ⌃C: `cancel_request(run_id)` fires the receiver; dropping the future kills the
-    // child (kill_on_drop). ponytail: on macOS that is the `script` PTY wrapper, whose
-    // shell gets SIGHUP when the PTY closes; process-group kill if grandchildren linger.
-    let cancel = register_cancel(&state, &run_id)?;
-    let mut filter = StdoutFilter::default();
-    let budget = AtomicUsize::new(0);
-    let run = async {
-        tokio::join!(
-            pump(stdout, false, &on_line, &budget, Some(&mut filter)),
-            pump(stderr, true, &on_line, &budget, None),
-        );
-        child.wait().await
-    };
-    let status = if let Some(cancel) = cancel {
-        tokio::select! {
-            res = run => Some(res),
-            _ = cancel => None,
-        }
-    } else {
-        Some(run.await)
-    };
-    finish_cancel(&state, &run_id);
-    let status = status
-        .ok_or_else(|| "interrupted".to_string())?
-        .map_err(|error| format!("failed to run command: {error}"))?;
-
-    Ok(TerminalOutput {
-        status: status.code().unwrap_or(-1),
-        elapsed_ms: started.elapsed().as_millis(),
-        cwd: filter
-            .cwd
-            .unwrap_or_else(|| cwd_path.to_string_lossy().into_owned()),
-    })
+    let nanos = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_nanos())
+        .unwrap_or_default();
+    let path = std::env::temp_dir().join(format!("bonk-env-{}-{nanos}", std::process::id()));
+    let mut options = std::fs::OpenOptions::new();
+    options.write(true).create_new(true);
+    #[cfg(unix)]
+    std::os::unix::fs::OpenOptionsExt::mode(&mut options, 0o600);
+    options
+        .open(&path)
+        .and_then(|mut file| file.write_all(body.as_bytes()))
+        .map_err(|error| format!("failed to pass the variables: {error}"))?;
+    Ok(path.to_string_lossy().into_owned())
 }
 
 #[cfg(test)]
 mod terminal_tests {
-    use super::{strip_terminal_controls, valid_env_name, StdoutFilter, TERMINAL_CWD_MARKER};
-
-    #[test]
-    fn strips_ansi_and_osc_shell_markers() {
-        let raw = "^D\u{8}\u{8}\u{1b}]133;D;0\u{1b}\\\u{1b}]7;file:///tmp\u{1b}\\\u{1b}[31mhello\u{1b}[0m";
-        assert_eq!(strip_terminal_controls(raw.to_string()), "hello");
-    }
-
-    #[test]
-    fn stdout_filter_hides_marker_and_trailing_blank_lines() {
-        let mut f = StdoutFilter::default();
-        let mut shown = Vec::new();
-        for line in [
-            "files",
-            "",
-            "more",
-            "",
-            format!("{TERMINAL_CWD_MARKER}/tmp/example").as_str(),
-        ] {
-            shown.extend(f.push(line.to_string()));
-        }
-        assert_eq!(shown, ["files", "", "more"]);
-        assert_eq!(f.cwd.as_deref(), Some("/tmp/example"));
-    }
+    use super::{sh_quote, take_utf8, valid_env_name};
 
     #[test]
     fn only_bonk_env_names_pass() {
@@ -386,5 +238,28 @@ mod terminal_tests {
         assert!(!valid_env_name("PATH"));
         assert!(!valid_env_name("BONK_"));
         assert!(!valid_env_name("BONK_x"));
+    }
+
+    #[test]
+    fn utf8_cut_by_a_read_waits_for_the_rest() {
+        let bytes = "ок".as_bytes();
+        let mut buf = bytes[..3].to_vec();
+        assert_eq!(take_utf8(&mut buf), "о");
+        assert_eq!(buf, bytes[2..3]);
+        buf.extend_from_slice(&bytes[3..]);
+        assert_eq!(take_utf8(&mut buf), "к");
+        assert!(buf.is_empty());
+    }
+
+    #[test]
+    fn broken_bytes_dont_stall_the_stream() {
+        let mut buf = vec![b'a', 0xff, b'b'];
+        assert_eq!(take_utf8(&mut buf), "a\u{fffd}b");
+        assert!(buf.is_empty());
+    }
+
+    #[test]
+    fn quotes_single_quotes() {
+        assert_eq!(sh_quote("a'b"), "'a'\\''b'");
     }
 }

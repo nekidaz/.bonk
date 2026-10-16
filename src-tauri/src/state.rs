@@ -68,6 +68,8 @@ pub struct AppState {
     pub workspace_watcher: Mutex<Option<crate::commands::workspace::Watcher>>,
     /// macOS traffic lights' vertical centre, in points (commands::app::traffic_lights_center).
     pub traffic_lights_center: Mutex<f64>,
+    /// Terminal tab shells by session id (commands::terminal).
+    pub ptys: Mutex<HashMap<String, crate::commands::terminal::PtySession>>,
 }
 
 fn default_headers() -> HeaderMap {
@@ -169,6 +171,7 @@ impl Default for AppState {
             oauth_logins: Mutex::new(HashMap::new()),
             workspace_watcher: Mutex::new(None),
             traffic_lights_center: Mutex::new(crate::commands::app::TRAFFIC_LIGHTS_CENTER),
+            ptys: Mutex::new(HashMap::new()),
         }
     }
 }

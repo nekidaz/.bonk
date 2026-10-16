@@ -31,6 +31,7 @@ tokio = { version = "1", features = ["io-util", "process", "sync", "time"] }
 keyring = { version = "3", features = ["apple-native", "windows-native", "sync-secret-service"] }
 trash = "5"
 notify-debouncer-mini = "0.6"
+portable-pty = "0.9"
 
 # Reading the native traffic-light buttons (commands::app::traffic_lights_right); already in the tree via tao.
 [target.'cfg(target_os = "macos")'.dependencies]

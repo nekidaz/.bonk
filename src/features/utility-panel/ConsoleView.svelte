@@ -6,7 +6,8 @@
   import { HTTP_STATUS_TEXT } from '$shared/model';
   import { appConsole, type AppConsoleEntry } from '$entities/request';
   import { openEntry, retryEntry } from './actions';
-  import { terminal, utilityUi } from './store.svelte';
+  import { utilityUi } from './store.svelte';
+  import { terminal } from './terminal.svelte';
   import {
     CONSOLE_QUICK,
     consoleStatus,
@@ -53,7 +54,7 @@
 
   function toTerminal(e: AppConsoleEntry): void {
     const { command, env } = curlForShell(e);
-    terminal.insert = { command, env, title: e.title || `${e.method} ${e.url}`, envName: e.env };
+    void terminal.handOff(command, env);
     onTerminal();
   }
 

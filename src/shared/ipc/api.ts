@@ -53,17 +53,8 @@ import {
   type ScriptResult,
 } from '$shared/model';
 
-export interface TerminalOutput {
-  status: number;
-  elapsedMs: number;
-  cwd: string;
-}
-
-/** One output line of a running terminal command (streamed, CT5). */
-export interface TerminalLine {
-  stderr: boolean;
-  text: string;
-}
+/** What the Terminal tab's shell sends: output text, or that it ended. */
+export type PtyEvent = { type: 'data'; text: string } | { type: 'exit' };
 
 /**
  * Client ids (McpClientStatus.id, McpInstallOptions.clients, journal `client`):
@@ -132,26 +123,24 @@ export interface McpJournalEntry {
 
 export const terminalDefaultCwd = (): Promise<string> => invoke<string>('terminal_default_cwd');
 
-/**
- * `runId` lets `cancelRequest(runId)` interrupt the command (⌃C). Output arrives line by line in
- * `onLine`; `env` (only `BONK_*` names) carries secrets so they never appear in the command text.
- */
-export function terminalRun(
+/** Starts the user's login shell in a PTY (`id` is ours); output arrives in `onEvent`. */
+export function ptyOpen(
+  id: string,
   cwd: string | null,
-  command: string,
-  onLine: (line: TerminalLine) => void,
-  opts: { runId?: string; env?: Record<string, string> } = {},
-): Promise<TerminalOutput> {
-  const channel = new Channel<TerminalLine>();
-  channel.onmessage = onLine;
-  return invoke<TerminalOutput>('terminal_run', {
-    cwd,
-    command,
-    runId: opts.runId ?? null,
-    env: opts.env ?? null,
-    onLine: channel,
-  });
+  cols: number,
+  rows: number,
+  onEvent: (event: PtyEvent) => void,
+): Promise<void> {
+  const channel = new Channel<PtyEvent>();
+  channel.onmessage = onEvent;
+  return invoke<void>('pty_open', { id, cwd, cols, rows, onEvent: channel });
 }
+export const ptyWrite = (id: string, data: string): Promise<void> => invoke<void>('pty_write', { id, data });
+export const ptyResize = (id: string, cols: number, rows: number): Promise<void> =>
+  invoke<void>('pty_resize', { id, cols, rows });
+export const ptyClose = (id: string): Promise<void> => invoke<void>('pty_close', { id });
+/** CT6: an owner-only file of `export BONK_…` lines for the hand-off to source; returns its path. */
+export const ptyStageEnv = (env: Record<string, string>): Promise<string> => invoke<string>('pty_stage_env', { env });
 
 export const mcpIntegrationStatus = (): Promise<McpIntegrationStatus> =>
   invoke<McpIntegrationStatus>('mcp_integration_status');

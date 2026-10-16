@@ -2,13 +2,13 @@
   // Flow · Консоль, терминал, Issues: one bottom panel, three tabs. ⌘J opens/closes it; the height
   // drags past the top edge and is remembered; ⇧⌘J (or ⤢) gives Issues the whole height.
   import { t } from '$shared/i18n';
-  import { workspacePickFolder } from '$shared/ipc';
   import { snapPanelSize, type UtilityMode } from '$shared/ui';
   import { appConsole, clearAppConsole } from '$entities/request';
   import ConsoleView from './ConsoleView.svelte';
   import IssuesView from './IssuesView.svelte';
   import TerminalView from './TerminalView.svelte';
-  import { terminal, utilityUi } from './store.svelte';
+  import { utilityUi } from './store.svelte';
+  import { terminal } from './terminal.svelte';
   import { Spacer } from '$shared/ui/components';
 
   let {
@@ -30,16 +30,8 @@
   const TABS: UtilityMode[] = ['console', 'terminal', 'issues'];
   let collapsePreview = $state(false);
 
-  const cwdLabel = $derived(
-    terminal.home && terminal.cwd.startsWith(terminal.home)
-      ? `~${terminal.cwd.slice(terminal.home.length)}`
-      : terminal.cwd || '~',
-  );
-
   // CT12 applies to the Issues tab only.
   const full = $derived(mode === 'issues' && utilityUi.expanded);
-
-  $effect(() => terminal.init());
 
   function clearCurrent(): void {
     if (mode === 'terminal') terminal.clear();
@@ -54,11 +46,6 @@
     event.preventDefault();
     event.stopPropagation();
     clearCurrent();
-  }
-
-  async function pickCwd(): Promise<void> {
-    const dir = await workspacePickFolder().catch(() => null);
-    if (dir) terminal.cwd = dir;
   }
 
   function startResize(event: PointerEvent): void {
@@ -122,7 +109,7 @@
           {#if tab === 'console' && appConsole.entries.length}<span class="bs-utility-count"
               >{appConsole.entries.length}</span
             >{/if}
-          {#if tab === 'terminal' && terminal.running}<span class="bs-utility-live" aria-hidden="true"></span>{/if}
+          {#if tab === 'terminal' && terminal.alive}<span class="bs-utility-live" aria-hidden="true"></span>{/if}
           {#if tab === 'issues' && utilityUi.issues.length}<span class="bs-utility-count error"
               >{utilityUi.issues.length}</span
             >{/if}
@@ -130,12 +117,7 @@
       {/each}
     </div>
     <Spacer />
-    {#if mode === 'terminal'}
-      <button class="bs-utility-cwd" type="button" title={terminal.cwd} onclick={() => void pickCwd()}>
-        <span class="material-symbols-outlined" aria-hidden="true">folder_open</span>
-        <span>{cwdLabel}</span>
-      </button>
-    {:else}
+    {#if mode !== 'terminal'}
       <label class="bs-utility-filter">
         <span class="material-symbols-outlined" aria-hidden="true">filter_list</span>
         {#if mode === 'issues'}
@@ -296,7 +278,6 @@
     border-radius: 50%;
     background: var(--green);
   }
-  .bs-utility-cwd,
   .bs-utility-filter {
     display: flex;
     align-items: center;
@@ -308,21 +289,6 @@
     color: var(--t3);
     background: var(--inset);
   }
-  .bs-utility-cwd {
-    max-width: 320px;
-    color: var(--t2);
-    font-family: var(--mono);
-    font-size: 11px;
-  }
-  .bs-utility-cwd span:last-child {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-  .bs-utility-cwd:hover {
-    color: var(--text);
-  }
-  .bs-utility-cwd .material-symbols-outlined,
   .bs-utility-filter .material-symbols-outlined {
     font-size: 14px;
   }
