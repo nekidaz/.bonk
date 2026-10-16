@@ -6,8 +6,8 @@ const isString = (v: unknown): v is string => typeof v === 'string';
 
 /** Request / network / gRPC defaults (Settings → Запросы, Прокси, Сертификаты, gRPC). Self-persisting. */
 export const requestPrefs = {
-  // Pretty response viewers wrap long lines by default; Raw can still be copied unchanged.
-  responseLineWrap: setting('response.lineWrap', 'responseLineWrap', true),
+  // Response viewers keep long lines on one line and scroll sideways; wrapping is opt-in.
+  responseLineWrap: setting('response.lineWrap', 'responseLineWrap', false),
   // Global request behavior mirrors Postman-style app settings.
   requestTimeoutMs: setting('http.timeoutMs', 'requestTimeoutMs', 30_000),
   requestFollowRedirects: setting('http.followRedirects', 'requestFollowRedirects', true),
