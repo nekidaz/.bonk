@@ -11,6 +11,7 @@
   } from '$shared/ipc';
   import { abbrevHome } from './proto';
   import { t, tp } from '$shared/i18n';
+  import { Overlay } from '$shared/ui/components';
 
   let {
     open = $bindable(),
@@ -163,7 +164,7 @@
 <svelte:window onkeydown={onKeydown} />
 
 {#if open}
-  <div class="bs-overlay pid-overlay" role="dialog" aria-modal="true" aria-labelledby="pid-title">
+  <Overlay class="pid-overlay" role="dialog" aria-modal="true" aria-labelledby="pid-title">
     <div class="pid">
       <div class="pid-head">
         <h2 id="pid-title" class="pid-title">{t('import.proto.title')}</h2>
@@ -262,12 +263,12 @@
         </button>
       </div>
     </div>
-  </div>
+  </Overlay>
 {/if}
 
 <style>
   /* Sizes follow the S27 mock (Pencil node «Proto import dialog»). */
-  .pid-overlay {
+  :global(:root .pid-overlay) {
     background: var(--color-scrim);
   }
   .pid {

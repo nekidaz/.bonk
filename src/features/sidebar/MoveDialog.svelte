@@ -1,8 +1,8 @@
 <script lang="ts">
   import { moveNode, findNode, workspace } from '$entities/workspace';
-  import { FolderPicker } from '$entities/workspace/components';
+  import { FolderPicker, SaveTo, CollList, CollBox } from '$entities/workspace/components';
   import { t } from '$shared/i18n';
-  import { Button } from '$shared/ui/components';
+  import { Button, Overlay, Modal, ModalHeader, ModalBody, ModalFooter } from '$shared/ui/components';
 
   // `open` is the trigger held by the parent (app/ `shell.moveOpen`); `sourceId` is the node
   // being moved. The chosen destination lives here (undefined = workspace root).
@@ -23,30 +23,30 @@
 </script>
 
 {#if open}
-  <div class="bs-overlay" role="dialog" aria-modal="true">
-    <div class="bs-modal">
-      <div class="bs-modal-h">
+  <Overlay role="dialog" aria-modal="true">
+    <Modal>
+      <ModalHeader>
         <span class="t">{t('dialog.move.title')}</span>
         <button class="x" aria-label={t('common.close')} onclick={() => (open = false)}
           ><span class="material-symbols-outlined" style="font-size:18px">close</span></button
         >
-      </div>
-      <div class="bs-modal-b">
-        <div class="bs-saveto">
+      </ModalHeader>
+      <ModalBody>
+        <SaveTo>
           {t('dialog.move.to')}
           <span>{moveTarget ? (findNode(workspace.tree, moveTarget)?.name ?? '—') : t('dialog.move.root')}</span>
-        </div>
-        <div class="bs-collbox">
-          <div class="bs-colllist">
+        </SaveTo>
+        <CollBox>
+          <CollList>
             <FolderPicker nodes={workspace.tree} bind:selected={moveTarget} excludeId={sourceId} />
-          </div>
-        </div>
-      </div>
-      <div class="bs-modal-f">
+          </CollList>
+        </CollBox>
+      </ModalBody>
+      <ModalFooter>
         <div class="grow"></div>
         <Button variant="primary" onclick={confirmMove}>{t('dialog.move.confirm')}</Button>
         <Button variant="ghost" onclick={() => (open = false)}>{t('common.cancel')}</Button>
-      </div>
-    </div>
-  </div>
+      </ModalFooter>
+    </Modal>
+  </Overlay>
 {/if}

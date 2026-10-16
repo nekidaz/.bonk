@@ -4,6 +4,7 @@
   import { environments, envToneOf } from '$entities/environment';
   import { activeEnvName, sessionRuntime, sessionStatuses } from './session.svelte';
   import { sessionStatusText } from './sessionFormat';
+  import TokenPill from './TokenPill.svelte';
 
   // Flow · Сессия SE3: a request under the collection's session sees it read-only, for the selected environment.
   let { auth }: { auth: AuthConfig } = $props();
@@ -41,8 +42,8 @@
 
 <div class="row">
   <span class="lbl">{t('session.inh.session')}</span>
-  <span class="bs-oa-pill" class:bad={tone === 'renew'} class:dead={tone === 'dead'} class:none={tone === 'none'}
-    >{tone === 'ok' ? t('session.inh.active', { left: status }) : status}</span
+  <TokenPill class={{ bad: tone === 'renew', dead: tone === 'dead', none: tone === 'none' }}
+    >{tone === 'ok' ? t('session.inh.active', { left: status }) : status}</TokenPill
   >
   {#if activeEnv}
     <span class="env tone-{envToneOf(activeEnv)}"
@@ -60,3 +61,10 @@
     >
   </div>
 {/if}
+
+<style>
+  :global(:root .bs .bs-oa-pill.dead) {
+    background: var(--color-danger-soft);
+    color: var(--color-danger);
+  }
+</style>

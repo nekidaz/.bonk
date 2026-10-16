@@ -4,6 +4,7 @@
   import { installUpdate, openReleaseNotes, updater } from '$shared/updater';
   import SettingsWorkspace from './SettingsWorkspace.svelte';
   import { row, sw, select } from './ui.svelte';
+  import Row from './Row.svelte';
 
   let { appVersion }: { appVersion: string } = $props();
 
@@ -45,7 +46,7 @@
       (v) => (startupOpen.current = v as 'last' | 'empty'),
     )}{/snippet}
   {@render row(t('settings.general.startup'), '', start)}
-  <div class="st-row">
+  <Row>
     <div class="st-copy">
       <span class="st-name">{t('settings.general.updates')}</span><span class="st-desc" class:st-ok={ready}
         >{updateNote}</span
@@ -62,7 +63,7 @@
       </div>
     {/if}
     {@render sw(t('settings.general.updates'), autoUpdateCheck.current, (v) => (autoUpdateCheck.current = v))}
-  </div>
+  </Row>
 </div>
 
 <div class="st-group">{t('settings.general.tabs')}</div>
@@ -83,3 +84,49 @@
 
 <div class="st-group">{t('settings.general.workspace')}</div>
 <SettingsWorkspace />
+
+<style>
+  .st-desc.st-ok {
+    color: var(--green);
+  }
+
+  .st-upd {
+    flex: none;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-left: auto;
+  }
+
+  .st-upd .st-upd-link {
+    font: 500 12px var(--font-ui);
+    color: var(--color-text-secondary);
+    cursor: pointer;
+  }
+
+  .st-upd .st-upd-link:hover {
+    color: var(--color-text);
+  }
+
+  .st-upd .st-upd-restart {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    height: 26px;
+    padding: 0 12px 0 10px;
+    border-radius: 999px;
+    background: var(--color-action);
+    color: var(--color-on-action);
+    font: 500 12px var(--font-ui);
+    cursor: pointer;
+  }
+
+  .st-upd .st-upd-restart:disabled {
+    opacity: 0.6;
+    cursor: default;
+  }
+
+  .st-upd-restart :global(.material-symbols-outlined) {
+    font-size: 16px;
+  }
+</style>

@@ -50,7 +50,10 @@
   import { isCancelled, isTimeout, responseTone } from './responseHint';
   import StreamFeed from './StreamFeed.svelte';
   import { formatCount, streamCount } from './streamFeed';
-  import { Segmented } from '$shared/ui/components';
+  import { Segmented, StatusPill, IconButton } from '$shared/ui/components';
+  import { TabCount, BeautifyButton } from '$entities/request/components';
+  import RespBody from './RespBody.svelte';
+  import CodeBlock from './CodeBlock.svelte';
 
   const { tab, onSettings = () => {} }: { tab: Tab | undefined; onSettings?: () => void } = $props();
 
@@ -237,7 +240,7 @@
     tabindex={respTab === id ? 0 : -1}
     onclick={() => (respTab = id)}
   >
-    {label}{#if count}<span class="bs-tab-count">{count}</span>{/if}{#if id === 'tests' && testCount > 0}<span
+    {label}{#if count}<TabCount>{count}</TabCount>{/if}{#if id === 'tests' && testCount > 0}<span
         class="bs-test-badge"
         class:fail={passedCount < testCount}>{passedCount}/{testCount}</span
       >{/if}
@@ -252,18 +255,18 @@
     expanded={focusMode.current === 'response'}
   >
     {#snippet extra()}
-      <button class="bs-ric" aria-label={t('response.copy')} title={t('response.copy')} onclick={copy}
-        ><span class="material-symbols-outlined">content_copy</span></button
+      <IconButton aria-label={t('response.copy')} title={t('response.copy')} onclick={copy}
+        ><span class="material-symbols-outlined">content_copy</span></IconButton
       >
-      <button
-        class="bs-ric lb-save"
+      <IconButton
+        class="lb-save"
         aria-label={t('lb.save')}
         title={saved === 'fail' ? t('lb.saveFailed') : t('lb.save')}
         disabled={!body}
         onclick={() => saveBody(body, format)}
         ><span class="material-symbols-outlined"
           >{saved === 'ok' ? 'check' : saved === 'fail' ? 'error' : 'download'}</span
-        ></button
+        ></IconButton
       >
     {/snippet}
   </EditorTools>
@@ -338,11 +341,11 @@
 
 {#snippet sendingMeta()}
   <div class="bs-meta">
-    <span class="bs-stpill sending"><span class="g" aria-hidden="true">◌</span>{t('response.sending')}</span>
+    <StatusPill class="sending"><span class="g" aria-hidden="true">◌</span>{t('response.sending')}</StatusPill>
     <span class="mo now" title={t('response.time')}>{((now - (busy?.startedAt ?? now)) / 1000).toFixed(1)} s</span>
     <span class="mo lb-size" title={t('response.size')}>—</span>
-    <button class="bs-ric" aria-label={t('response.copy')} title={t('response.copy')} disabled
-      ><span class="material-symbols-outlined">content_copy</span></button
+    <IconButton aria-label={t('response.copy')} title={t('response.copy')} disabled
+      ><span class="material-symbols-outlined">content_copy</span></IconButton
     >
   </div>
 {/snippet}
@@ -383,7 +386,7 @@
 
 {#snippet scriptTestsView(results: TabTestResults)}
   {@const envName = environments.active?.name}
-  <div class="bs-rbody bs-tests">
+  <RespBody class="bs-tests">
     {#if results.error}
       <div class="bs-test-error">
         <span class="material-symbols-outlined" aria-hidden="true">error</span><span
@@ -413,11 +416,11 @@
         <button type="button" onclick={openEnvironmentsTab}>{t('response.env.open')}</button>
       </div>
     {/if}
-  </div>
+  </RespBody>
 {/snippet}
 
 {#snippet scriptConsoleView(results: TabTestResults)}
-  <div class="bs-rbody">
+  <RespBody>
     <ScriptConsole
       events={results.events ?? []}
       onClear={() =>
@@ -425,7 +428,7 @@
         tabs.updateById(tab.id, (x) => (x.testResults ? { ...x, testResults: { ...x.testResults, events: [] } } : x))}
       onTests={() => (respTab = 'tests')}
     />
-  </div>
+  </RespBody>
 {/snippet}
 
 {#snippet preFailedView(results: TabTestResults, canSendWithout: boolean)}
@@ -483,20 +486,20 @@
       {#if sending && tab.grpcStream}
         <div class="bs-meta">
           {#if feedPaused}
-            <span class="bs-stpill warning"
+            <StatusPill class="warning"
               ><span class="g" aria-hidden="true">‖</span>{t('response.stream.paused_pill', {
                 n: formatCount(tab.grpcStream.messages.filter((m) => !m.sent).length, uiLanguage.current),
-              })}</span
+              })}</StatusPill
             >
           {:else if busy?.writable}
-            <span class="bs-stpill open"
+            <StatusPill class="open"
               ><span class="g" aria-hidden="true">●</span>{t('response.stream.open_pill', {
                 n: streamCountLabel,
-              })}</span
+              })}</StatusPill
             >
           {:else}
-            <span class="bs-stpill success"
-              ><span class="g" aria-hidden="true">●</span>{t('response.streaming', { n: streamCountLabel })}</span
+            <StatusPill class="success"
+              ><span class="g" aria-hidden="true">●</span>{t('response.streaming', { n: streamCountLabel })}</StatusPill
             >
           {/if}
           <span class="mo lb-time" title={t('response.time')}
@@ -505,28 +508,27 @@
           <span class="mo lb-size" title={t('response.size')}
             >{formatBytes(tab.grpcStream.messages.reduce((n, m) => n + m.sizeBytes, 0))}</span
           >
-          <button
-            class="bs-ric"
+          <IconButton
             aria-label={t('response.copy_messages')}
             title={t('response.copy_messages')}
-            onclick={() => copyText(streamCopy())}><span class="material-symbols-outlined">content_copy</span></button
+            onclick={() => copyText(streamCopy())}
+            ><span class="material-symbols-outlined">content_copy</span></IconButton
           >
-          <button
-            class="bs-ric"
+          <IconButton
             aria-label={t('response.clear_feed')}
             title={t('response.clear_feed')}
             disabled={!tab.grpcStream.messages.length}
-            onclick={clearFeed}><span class="material-symbols-outlined">mop</span></button
+            onclick={clearFeed}><span class="material-symbols-outlined">mop</span></IconButton
           >
         </div>
       {:else if sending}
         {@render sendingMeta()}
       {:else if tab.grpcResult}
         <div class="bs-meta">
-          <span class="bs-stpill {grpcTone}"
+          <StatusPill class={grpcTone}
             ><span class="g" aria-hidden="true"
               >{grpcTone === 'success' ? '✓' : grpcTone === 'warning' ? '!' : '×'}</span
-            >{grpcStatusLabel(grpcCode)}{tab.grpcStream?.messages.length ? ` · ${streamCountLabel}` : ''}</span
+            >{grpcStatusLabel(grpcCode)}{tab.grpcStream?.messages.length ? ` · ${streamCountLabel}` : ''}</StatusPill
           >
           <span class="mo lb-time" title={t('response.time')}>{grpcElapsed(tab.grpcResult.elapsed_ms)}</span>
           <span class="mo lb-size" title={t('response.size')}
@@ -543,17 +545,14 @@
           {/if}
           {#if grpcBodyShown}{@render modeSeg(grpcMode, (m) => (grpcMode = m === 'raw' ? 'raw' : 'pretty'), false)}{/if}
           {#if tab.grpcStream?.messages.length}
-            <button
-              class="bs-ric"
+            <IconButton
               aria-label={t('response.copy_messages')}
               title={t('response.copy_messages')}
-              onclick={() => copyText(streamCopy())}><span class="material-symbols-outlined">content_copy</span></button
+              onclick={() => copyText(streamCopy())}
+              ><span class="material-symbols-outlined">content_copy</span></IconButton
             >
-            <button
-              class="bs-ric"
-              aria-label={t('response.clear_feed')}
-              title={t('response.clear_feed')}
-              onclick={clearFeed}><span class="material-symbols-outlined">mop</span></button
+            <IconButton aria-label={t('response.clear_feed')} title={t('response.clear_feed')} onclick={clearFeed}
+              ><span class="material-symbols-outlined">mop</span></IconButton
             >
           {:else}
             {@render bodyTools(
@@ -574,11 +573,11 @@
     aria-labelledby="bs-resptab-{respTab}"
   >
     {#snippet mdList(md: Record<string, string>)}
-      <div class="bs-rbody">
-        <div class="bs-code">
+      <RespBody>
+        <CodeBlock>
           {#each Object.entries(md) as [k, v] (k)}<div><span class="k">{k}</span>: {v}</div>{/each}
-        </div>
-      </div>
+        </CodeBlock>
+      </RespBody>
     {/snippet}
     {#if respTab === 'headers' && Object.keys(grpcHeaders).length}
       {@render mdList(grpcHeaders)}
@@ -602,13 +601,13 @@
       {@render scriptConsoleView(testResults)}
     {:else if respTab === 'timeline'}
       <!-- prettier-ignore -->
-      <div class="bs-rbody"><div class="bs-code bs-timeline">
+      <RespBody><CodeBlock class="bs-timeline">
         <div><span class="k">{t('response.status')}</span>{grpcStatusLabel(grpcCode)}</div>
         <div><span class="k">{t('response.time')}</span>{grpcElapsed(tab.grpcResult.elapsed_ms)}</div>
         <div><span class="k">{t('response.size')}</span>{formatBytes(tab.grpcResult.size_bytes)}</div>
         {#if tab.grpc?.endpoint}<div><span class="k">{t('response.endpoint')}</span>{tab.grpc.endpoint}</div>{/if}
         {#if tab.grpc?.method}<div><span class="k">{t('response.method')}</span>{tab.grpc.method}</div>{/if}
-      </div></div>
+      </CodeBlock></RespBody>
     {:else if grpcError && grpcUnreachable}
       {@render unreachable(grpcError.message, retry, onSettings, unreachableFacts)}
     {:else if grpcError}
@@ -638,10 +637,8 @@
         {#if note}<p class="note">{note}</p>{/if}
         {#if grpcError.action && grpcError.actionLabel && !tab.grpcResult.details?.length}
           <div>
-            <button
-              class="bs-body-beautify"
-              type="button"
-              onclick={() => openGrpcEditorSection(tab.id, grpcError.action!)}>{grpcError.actionLabel}</button
+            <BeautifyButton type="button" onclick={() => openGrpcEditorSection(tab.id, grpcError.action!)}
+              >{grpcError.actionLabel}</BeautifyButton
             >
           </div>
         {/if}
@@ -680,8 +677,8 @@
       {:else if tab.response}
         <div class="bs-meta">
           <!-- The reason phrase hides on a narrow panel; the title keeps it. -->
-          <span
-            class="bs-stpill {tone}"
+          <StatusPill
+            class={tone}
             title={tab.response.status ? `${tab.response.status} ${statusText(tab.response.status)}` : undefined}
             ><span class="g" aria-hidden="true">{tone === 'success' ? '✓' : tab.response.status ? '!' : '×'}</span
             >{#if tab.response.status}<span
@@ -690,7 +687,7 @@
                 ? t('response.status.notSent')
                 : isCancelled(tab.response)
                   ? t('response.status.cancelled')
-                  : t('response.status.none')}{/if}</span
+                  : t('response.status.none')}{/if}</StatusPill
           >
           {#if !preFailed}
             <span class="mo lb-time" title={t('response.time')}
@@ -778,19 +775,19 @@
     {:else if respTab === 'cookies'}
       <!-- Responses from before the jar (history, MCP): the raw Set-Cookie lines. -->
       <!-- prettier-ignore -->
-      <div class="bs-rbody"><div class="bs-code">{#each responseCookies as c, i (i)}<div>{c}</div>{/each}{#if responseCookies.length === 0}<span style="color:var(--t3)">{t('response.no_cookies')}</span>{/if}</div></div>
+      <RespBody><CodeBlock>{#each responseCookies as c, i (i)}<div>{c}</div>{/each}{#if responseCookies.length === 0}<span style="color:var(--t3)">{t('response.no_cookies')}</span>{/if}</CodeBlock></RespBody>
     {:else if respTab === 'timeline'}
       <!-- prettier-ignore -->
-      <div class="bs-rbody"><div class="bs-code bs-timeline">
+      <RespBody><CodeBlock class="bs-timeline">
         <div><span class="k">{t('response.status')}</span>{tab.response.status || 'ERR'} {statusText(tab.response.status)}</div>
         <div><span class="k">{t('response.time')}</span>{tab.response.elapsed_ms} ms</div>
         <div><span class="k">{t('response.size')}</span>{formatBytes(tab.response.size_bytes)}{tab.response.body_truncated ? t('response.truncated_paren') : ''}</div>
         {#if responseContentType}<div><span class="k">Content-Type</span>{responseContentType}</div>{/if}
         {#if tab.response.final_url}<div><span class="k">URL</span>{tab.response.final_url}</div>{/if}
-      </div>{#if tab.sent}<SentRequest {tab} sent={tab.sent} />{/if}</div>
+      </CodeBlock>{#if tab.sent}<SentRequest {tab} sent={tab.sent} />{/if}</RespBody>
     {:else if respTab === 'headers'}
       <!-- prettier-ignore -->
-      <div class="bs-rbody"><div class="bs-code">{#each responseHeaderEntries as [k, v] (k)}<div><span class="k">{k}</span>: {v}</div>{/each}{#if responseHeaderEntries.length === 0}<span style="color:var(--t3)">{t('response.no_headers')}</span>{/if}</div></div>
+      <RespBody><CodeBlock>{#each responseHeaderEntries as [k, v] (k)}<div><span class="k">{k}</span>: {v}</div>{/each}{#if responseHeaderEntries.length === 0}<span style="color:var(--t3)">{t('response.no_headers')}</span>{/if}</CodeBlock></RespBody>
     {:else}
       <div class="bs-response-view">
         <!-- Mono 3.0: JSON renders straight into the card; other formats keep the view switch. -->
@@ -838,6 +835,493 @@
 {/if}
 
 <style>
+  @container response (max-width: 480px) {
+    :global(:root #bs-resptab-cookies) {
+      display: none;
+    }
+
+    :global(:root #bs-resptab-timeline) {
+      display: none;
+    }
+  }
+
+  .bs-empty-resp > :global(.material-symbols-outlined) {
+    display: grid;
+    place-items: center;
+    width: 80px;
+    height: 64px;
+    font-size: 56px;
+    color: var(--sep);
+  }
+
+  /* Belongs to response.css, but the cascade needs it before `:root .bs .bs-body-beautify .material-symbols-outlined` (same elements, same specificity), so it lives here. */
+  .bs-net-error :global(.mark .material-symbols-outlined) {
+    font-size: 22px;
+  }
+
+  /* Belongs to response.css, but the cascade needs it before `:root .bs .bs-body-beautify .material-symbols-outlined` (same elements, same specificity), so it lives here. */
+  .bs-net-error :global(.quiet .material-symbols-outlined) {
+    font-size: 16px;
+  }
+
+  .bs-net-error :global(.actions button) {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    height: 34px;
+    padding: 0 16px;
+    border-radius: var(--radius-control);
+    font: 500 var(--font-size-body) var(--font-ui);
+  }
+
+  .bs-rsub :global(.x) {
+    color: var(--t2);
+  }
+
+  .bs-rsub :global(:where(.x).on) {
+    font-weight: 600;
+  }
+
+  .bs-meta .mo :global(b) {
+    color: var(--text);
+    font-weight: 600;
+  }
+
+  :where(.bs-format-pill).warn {
+    background: color-mix(in srgb, var(--orange) 14%, transparent);
+    color: var(--orange);
+  }
+
+  .bs-preview {
+    flex: 1;
+    min-height: 0;
+    background: #fff;
+  }
+
+  .bs-preview :global(iframe) {
+    width: 100%;
+    height: 100%;
+    border: 0;
+    background: #fff;
+  }
+
+  .bs-empty-resp :global(svg) {
+    width: 38px;
+    height: 38px;
+  }
+
+  .bs-resppanel {
+    display: contents;
+  }
+
+  .bs-resph {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+
+  .bs-response-tools {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+
+  /* Editor and response panel */
+  .bs-response-view {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    background: var(--canvas);
+  }
+
+  .bs-meta {
+    font-size: 11px;
+  }
+
+  .bs-empty-resp :global(:where(.material-symbols-outlined)) {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--t3);
+    border-radius: 0;
+    box-shadow: none;
+    width: auto;
+    height: auto;
+    border: 0;
+    background: transparent;
+    font-size: 30px;
+  }
+
+  .bs-empty-resp > :global(div) {
+    max-width: 320px;
+    text-align: center;
+    line-height: 1.45;
+    font-size: 11.5px;
+  }
+
+  .bs-rsub :global(.x) {
+    font-size: 12px;
+  }
+
+  .bs-rsub :global(.x.on) {
+    color: var(--text);
+  }
+
+  .bs-rsub :global(.x.on::after) {
+    background: var(--accent);
+  }
+
+  :global(:root .bs-timeline > div) {
+    display: flex;
+    gap: 16px;
+  }
+
+  :global(:root .bs-timeline .k) {
+    flex: 0 0 110px;
+    color: var(--color-text-muted);
+  }
+
+  :global(.bs .bs-resp) .bs-response-view {
+    background: transparent;
+  }
+
+  .bs-meta .mo.now {
+    color: var(--color-text);
+  }
+
+  /* .bs-resppanel is display: contents, so dim what it wraps. */
+  .bs-resppanel.dim > :global(*) {
+    opacity: 0.35;
+  }
+
+  .bs-resph {
+    display: flex;
+    align-items: center;
+    backdrop-filter: none;
+    box-shadow: none;
+    height: 50px;
+    flex-shrink: 0;
+    padding: 0 10px;
+    gap: 14px;
+    border: 0;
+    border-bottom: 1px solid var(--color-border-subtle);
+    border-radius: 0;
+    background: transparent;
+  }
+
+  .bs-rsub {
+    display: flex;
+    height: 30px;
+    gap: 2px;
+    align-items: stretch;
+  }
+
+  :global(.bs) .bs-rsub :global(.x) {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 30px;
+    margin: 0;
+    padding: 0 12px;
+    border: 0;
+    border-radius: var(--radius-control);
+    background: transparent;
+    color: var(--color-text-secondary);
+    font: 500 var(--font-size-body) var(--font-ui);
+  }
+
+  :global(.bs) .bs-rsub :global(.x:hover) {
+    color: var(--color-text);
+    background: var(--hover);
+  }
+
+  :global(.bs) .bs-rsub :global(.x.on) {
+    background: var(--color-raised);
+    color: var(--color-text);
+    font-weight: 600;
+    box-shadow: 0 1px 3px var(--color-shadow);
+  }
+
+  .bs-meta {
+    display: flex;
+    align-items: center;
+    margin-left: auto;
+    gap: 14px;
+  }
+
+  :global(.bs) .bs-rsub :global(.x:disabled) {
+    opacity: 0.4;
+    cursor: default;
+  }
+
+  :global(.bs) .bs-rsub :global(.x:disabled:hover) {
+    background: transparent;
+    color: var(--color-text-secondary);
+  }
+
+  /* S08: no response at all. */
+  .bs-net-error {
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 12px 40px 16px;
+    text-align: center;
+  }
+
+  .bs-net-error :global(.mark) {
+    display: grid;
+    place-items: center;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: var(--color-danger-soft);
+    color: var(--color-danger);
+  }
+
+  .bs-net-error :global(strong) {
+    color: var(--color-text);
+    font: 600 var(--font-size-title)/18px var(--font-ui);
+  }
+
+  .bs-net-error :global(p) {
+    max-width: 440px;
+    margin: -4px 0 0;
+    color: var(--color-text-secondary);
+    font: var(--font-size-body)/1.5 var(--font-ui);
+  }
+
+  .bs-net-error :global(code) {
+    display: inline-flex;
+    align-items: center;
+    max-width: 100%;
+    height: 22px;
+    padding: 0 10px;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    border-radius: var(--radius-control);
+    background: var(--color-selected);
+    color: var(--color-text-secondary);
+    font: var(--font-size-micro) var(--font-code);
+  }
+
+  .bs-net-error :global(.actions) {
+    display: flex;
+    gap: 8px;
+    padding-top: 6px;
+  }
+
+  .bs-net-error :global(.retry) {
+    outline: 1px solid var(--color-border-subtle);
+    outline-offset: -1px;
+    background: var(--color-panel);
+    color: var(--color-text);
+  }
+
+  .bs-net-error :global(.retry:hover) {
+    background: var(--color-selected);
+  }
+
+  .bs-net-error :global(.quiet) {
+    background: transparent;
+    color: var(--color-text-secondary);
+  }
+
+  .bs-net-error :global(.quiet:hover) {
+    background: var(--hover);
+    color: var(--color-text);
+  }
+
+  .bs-response-tools {
+    display: flex;
+    align-items: center;
+    overflow: hidden;
+    backdrop-filter: none;
+    box-shadow: none;
+    min-height: 40px;
+    padding: 0 16px;
+    gap: 8px;
+    border-bottom: 1px solid var(--color-border-subtle);
+    background: transparent;
+  }
+
+  .bs-format-pill {
+    display: inline-flex;
+    align-items: center;
+    flex-shrink: 0;
+    height: 22px;
+    padding: 0 10px;
+    border: 0;
+    border-radius: var(--radius-control);
+    background: var(--color-selected);
+    color: var(--color-text-secondary);
+    font: 500 var(--font-size-caption) var(--font-ui);
+  }
+
+  .bs-content-type {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--color-text-muted);
+    font: var(--font-size-caption) var(--font-code);
+  }
+
+  .bs-empty-resp {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 18px;
+    color: var(--t2);
+    font-size: 12px;
+    border-radius: 0;
+    background: transparent;
+  }
+
+  .bs-response-waiting :global(.mark) {
+    display: grid;
+    place-items: center;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: var(--color-field);
+    color: var(--color-text-secondary);
+  }
+
+  .bs-response-waiting :global(strong) {
+    font: 600 var(--font-size-ui)/16px var(--font-ui);
+    color: var(--color-text);
+  }
+
+  .bs-response-waiting :global(p) {
+    margin: 0;
+    color: var(--color-text-muted);
+    font: var(--font-size-body)/15px var(--font-ui);
+  }
+
+  :global(:root[data-density='compact']) .bs-resph {
+    height: 38px;
+  }
+
+  :global(:root[data-density='compact']) .bs-rsub {
+    height: 26px;
+  }
+
+  :global(:root[data-density='compact'] .bs) .bs-rsub :global(.x) {
+    height: 26px;
+  }
+
+  .bs-response-waiting {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 24px 24px 28px;
+    text-align: center;
+    min-height: 0;
+    overflow: auto;
+  }
+
+  @container response (max-height: 165px) {
+    .bs-response-waiting :global(.mark) {
+      display: none;
+    }
+  }
+
+  :global(:root .bs .bs-stpill.open) {
+    background: var(--color-var-soft);
+    color: var(--color-var);
+  }
+
+  .bs-meta :global(.lb-mode) {
+    flex: none;
+  }
+
+  .bs-meta .mo {
+    font: var(--font-size-caption) var(--font-code);
+    color: var(--color-text-secondary);
+    white-space: nowrap;
+  }
+
+  .bs-meta :global(.bs-ric:disabled) {
+    opacity: 0.4;
+    cursor: default;
+  }
+
+  @container response (max-width: 900px) {
+    .bs-meta .lb-lines {
+      display: none;
+    }
+  }
+
+  @container response (max-width: 800px) {
+    .bs-resph {
+      gap: 8px;
+    }
+
+    .bs-meta {
+      gap: 8px;
+    }
+  }
+
+  @container response (max-width: 560px) {
+    .bs-meta .lb-size {
+      display: none;
+    }
+  }
+
+  @container response (max-width: 480px) {
+    .bs-meta .lb-time {
+      display: none;
+    }
+  }
+
+  @container response (max-width: 700px) {
+    /* Wraps only if a line still doesn't fit; a single line keeps the usual height. */
+    .bs-resph {
+      flex-wrap: wrap;
+      height: auto;
+      min-height: 50px;
+      padding-top: 4px;
+      padding-bottom: 4px;
+      row-gap: 6px;
+    }
+
+    :global(:root[data-density='compact']) .bs-resph {
+      flex-wrap: wrap;
+      height: auto;
+      min-height: 50px;
+      padding-top: 4px;
+      padding-bottom: 4px;
+      row-gap: 6px;
+    }
+
+    :global(:root[data-density='compact']) .bs-resph {
+      min-height: 38px;
+    }
+
+    .bs-meta {
+      margin-left: auto;
+    }
+
+    /* One line, as in Flow · Размеры окна: of the body controls only Copy stays; expanding is still on its hotkey. */
+    :global(.bs-stpill) .lb-reason {
+      display: none;
+    }
+
+    .bs-meta :global(:is(.lb-mode, .lb-save, .lb-expand)) {
+      display: none;
+    }
+  }
+
   .bs-test-badge {
     margin-left: 6px;
     font-size: 10px;
@@ -851,7 +1335,7 @@
     background: color-mix(in srgb, var(--red) 14%, transparent);
     color: var(--red);
   }
-  .bs-tests {
+  :global(:root .bs-tests) {
     display: flex;
     flex-direction: column;
     gap: 12px;
@@ -905,7 +1389,7 @@
     font-size: 16px;
     color: var(--t3);
   }
-  .bs-tests .bs-env-written code {
+  :global(:root .bs-tests .bs-env-written code) {
     min-width: 0;
     max-width: 220px;
     overflow: hidden;
@@ -940,7 +1424,7 @@
     background: transparent;
     border-color: transparent;
   }
-  .bs-tests code {
+  :global(:root .bs-tests code) {
     font-family: var(--mono);
     font-size: 11px;
     background: var(--inset);

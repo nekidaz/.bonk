@@ -24,6 +24,7 @@
     type IssueKind,
   } from './issues';
   import { formatElapsed } from './utilPanel';
+  import { Spacer } from '$shared/ui/components';
 
   const HOUR = 3_600_000;
   const FACETS: IssueFacet[] = ['host', 'env', 'collection', 'time'];
@@ -88,7 +89,7 @@
       ><span class="dot {tone(k)}"></span>{t(`issues.kind.${k}`)} <span class="n">{counts[k]}</span></button
     >
   {/each}
-  <div class="bs-spacer"></div>
+  <Spacer />
   <div class="bs-issues-by" role="radiogroup" aria-label={t('issues.groupBy')}>
     <span>{t('issues.by')}</span>
     {#each GROUP_BY as g (g)}
@@ -163,7 +164,7 @@
         {nOf.groups(groups.length)} · {nOf.requests(shown.length)}{#if facetsOn.length}<span class="on"
             >· {facetsOn.map((v) => (v === 'hour' || v === 'today' ? t(`issues.time.${v}`) : v)).join(' · ')}</span
           >{/if}
-        <div class="bs-spacer"></div>
+        <Spacer />
         {#if facetsOn.length}<button type="button" onclick={() => (utilityUi.facets = {})}>{t('util.reset')}</button
           >{/if}
       </div>
@@ -255,7 +256,7 @@
     {#if groups.length}
       <div class="bs-issues-foot">
         <span>{t('issues.note')}</span>
-        <div class="bs-spacer"></div>
+        <Spacer />
         <button type="button" class:on={utilityUi.hideOld} onclick={() => (utilityUi.hideOld = !utilityUi.hideOld)}
           >{t(utilityUi.hideOld ? 'issues.showOld' : 'issues.hideOld')}</button
         >

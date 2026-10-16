@@ -3,6 +3,8 @@
   import { proxyAuth, proxyUser, proxyPassword, proxyUrlError, requestPrefs } from '$shared/settings';
   import type { ProxyMode } from '$shared/model';
   import { row, sw, seg, chips } from './ui.svelte';
+  import TextField from './TextField.svelte';
+  import Row from './Row.svelte';
 
   const PROXY_MODES: { label: string; value: ProxyMode }[] = $derived([
     { label: t('settings.proxy.system'), value: 'system' },
@@ -45,14 +47,13 @@
 {#if requestPrefs.proxyMode.current === 'manual'}
   <div class="st-group">{t('settings.proxy.server')}</div>
   <div class="st-card">
-    <div class="st-row st-col">
+    <Row class="st-col">
       <div class="st-copy">
         <span class="st-name">{t('settings.proxy.http')}</span><span class="st-desc"
           >{t('settings.proxy.http.desc')}</span
         >
       </div>
-      <input
-        class="st-text"
+      <TextField
         type="text"
         spellcheck="false"
         placeholder="proxy.corp.local:3128"
@@ -62,37 +63,35 @@
         bind:value={requestPrefs.proxyUrl.current}
         onblur={() => (proxyTouched = true)}
       />
-    </div>
+    </Row>
     {#if proxyError}<div class="st-err" id="st-proxy-err" role="alert">{proxyError}</div>{/if}
     {#snippet au()}{@render sw(t('settings.proxy.auth'), proxyAuth.current, (v) => (proxyAuth.current = v))}{/snippet}
     {@render row(t('settings.proxy.auth'), t('settings.proxy.auth.desc'), au)}
     {#if proxyAuth.current}
-      <div class="st-row st-col">
+      <Row class="st-col">
         <div class="st-copy"><span class="st-name">{t('settings.proxy.login')}</span></div>
-        <input
-          class="st-text"
+        <TextField
           type="text"
           spellcheck="false"
           autocomplete="off"
           aria-label={t('settings.proxy.login.aria')}
           bind:value={proxyUser.current}
         />
-      </div>
-      <div class="st-row st-col">
+      </Row>
+      <Row class="st-col">
         <div class="st-copy"><span class="st-name">{t('settings.proxy.password')}</span></div>
-        <input
-          class="st-text"
+        <TextField
           type="password"
           autocomplete="off"
           aria-label={t('settings.proxy.password.aria')}
           bind:value={proxyPassword.current}
         />
-      </div>
+      </Row>
     {/if}
   </div>
   <div class="st-group">{t('settings.proxy.bypass')}</div>
   <div class="st-card">
-    <div class="st-row st-col">
+    <Row class="st-col">
       <div class="st-copy">
         <span class="st-name">{t('settings.proxy.bypass.name')}</span><span class="st-desc"
           >{t('settings.proxy.bypass.desc')}</span
@@ -104,6 +103,6 @@
         t('settings.proxy.host'),
         (items) => (requestPrefs.proxyBypass.current = items.join(', ')),
       )}
-    </div>
+    </Row>
   </div>
 {/if}

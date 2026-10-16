@@ -37,6 +37,7 @@
   import { methodColor, type GitFile } from '$shared/model';
   import { requestConfirm } from '$shared/ui';
   import { t, tp, uiLanguage } from '$shared/i18n';
+  import { GitButton } from '$entities/git/components';
 
   const status = $derived(git.status);
   const files = $derived(status?.files ?? []);
@@ -217,7 +218,7 @@
       <span class="tile"><GitBranchIcon size={20} /></span>
       <b>{t('git.notRepo')}</b>
       <p>{t('git.notRepo.hint')}</p>
-      <button class="bs-gbtn inv init" onclick={initRepo}><GitBranchIcon size={15} />{t('git.init')}</button>
+      <GitButton class="inv init" onclick={initRepo}><GitBranchIcon size={15} />{t('git.init')}</GitButton>
       <code>{t('git.init.hint', { path: workspace.path.replace(/^\/Users\/[^/]+/, '~') })}</code>
     </div>
   {:else if status}
@@ -282,8 +283,8 @@
           <label class="amend"><input type="checkbox" bind:checked={git.amend} />Amend</label>
         {/if}
         <span class="hint">{t('git.commit.staged', { n: staged.length })}</span>
-        <button class="bs-gbtn inv sm" disabled={!canCommit} onclick={commit}
-          ><span class="material-symbols-outlined">check</span>{t('git.commit')}<kbd>⌘↵</kbd></button
+        <GitButton class="inv sm" disabled={!canCommit} onclick={commit}
+          ><span class="material-symbols-outlined">check</span>{t('git.commit')}<kbd>⌘↵</kbd></GitButton
         >
       </div>
     </div>
@@ -308,17 +309,18 @@
                 : t('git.op.ready')}
           </p>
           <div class="opb">
-            <button class="bs-gbtn sm" disabled={git.busy} onclick={abortOperation}
-              ><span class="material-symbols-outlined">close</span>{t('git.op.abort')}</button
+            <GitButton class="sm" disabled={git.busy} onclick={abortOperation}
+              ><span class="material-symbols-outlined">close</span>{t('git.op.abort')}</GitButton
             >
-            <button
-              class="bs-gbtn sm"
+            <GitButton
+              class="sm"
               disabled={git.busy || status.operation === 'merge' || !!git.op?.paused}
-              onclick={skipOperation}><span class="material-symbols-outlined">skip_next</span>{t('git.op.skip')}</button
+              onclick={skipOperation}
+              ><span class="material-symbols-outlined">skip_next</span>{t('git.op.skip')}</GitButton
             >
           </div>
-          <button class="bs-gbtn sm inv cont" disabled={git.busy || conflicts.length > 0} onclick={continueOperation}
-            >{t('git.op.continue')}<span class="material-symbols-outlined">arrow_forward</span></button
+          <GitButton class="sm inv cont" disabled={git.busy || conflicts.length > 0} onclick={continueOperation}
+            >{t('git.op.continue')}<span class="material-symbols-outlined">arrow_forward</span></GitButton
           >
         </div>
       {/if}
@@ -430,6 +432,12 @@
 </div>
 
 <style>
+  :global(:root .bs-gbtn.sm) {
+    height: 26px;
+    padding: 0 12px;
+    font-size: 11.5px;
+  }
+
   .bs-gitpanel.busy {
     cursor: progress;
   }
@@ -769,7 +777,7 @@
     color: var(--color-text);
     font-size: var(--font-size-body);
   }
-  .cont {
+  :global(:root .cont) {
     width: 100%;
     margin-top: 6px;
   }
@@ -881,7 +889,7 @@
     font-size: var(--font-size-body);
     line-height: 1.5;
   }
-  .init {
+  :global(.bs-gbtn.init) {
     height: 34px;
     margin-top: 6px;
     padding: 0 16px;

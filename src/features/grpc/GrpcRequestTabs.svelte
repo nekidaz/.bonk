@@ -5,11 +5,13 @@
    * into this row (E2 rules 2, 3, 6) — `messageStats` is set only then.
    */
   import { t, uiLanguage } from '$shared/i18n';
-  import { focusMode, toggleFocus, tablist } from '$shared/ui';
+  import { focusMode, toggleFocus } from '$shared/ui';
   import { formatBytes, SCRIPTS_ENABLED, type Tab, type GrpcMethod } from '$shared/model';
   import { countLabel, type TextStats } from '$shared/editor';
   import { openGrpcEditorSection, type GrpcEditorSection } from '$entities/request';
   import { EditorTools } from '$shared/editor/components';
+  import { TabRow, TabRowTools, RTabs, RTab, TabCount, TabStats } from '$entities/request/components';
+  import { IconButton } from '$shared/ui/components';
 
   let {
     tab,
@@ -29,20 +31,19 @@
 </script>
 
 {#snippet gtab(id: GrpcEditorSection, label: string, count = 0, bad = false)}
-  <button
-    class="bs-rtab"
-    class:on={section === id}
+  <RTab
+    class={{ on: section === id }}
     role="tab"
     id="bs-gtab-{id}"
     aria-selected={section === id}
     aria-controls="bs-grpcpanel"
     tabindex={section === id ? 0 : -1}
     onclick={() => openGrpcEditorSection(tab.id, id)}
-    >{label}{#if count}<span class="bs-tab-count" class:bad>{count}</span>{/if}</button
+    >{label}{#if count}<TabCount class={{ bad }}>{count}</TabCount>{/if}</RTab
   >
 {/snippet}
-<div class="lb-tabrow">
-  <div class="bs-rtabs" role="tablist" aria-label={t('grpc.tab.request')} use:tablist>
+<TabRow>
+  <RTabs role="tablist" aria-label={t('grpc.tab.request')} tablist>
     {@render gtab('message', t('grpc.tab.message'))}
     {@render gtab('metadata', t('grpc.tab.metadata'), metadataCount)}
     {@render gtab('auth', t('grpc.tab.auth'))}
@@ -54,9 +55,9 @@
         (tab.grpc?.preRequestScript?.trim() ? 1 : 0) + (tab.grpc?.testScript?.trim() ? 1 : 0),
         !!tab.testResults?.error,
       )}{/if}
-  </div>
+  </RTabs>
   {#if messageStats}
-    <div class="lb-tabrow-tools">
+    <TabRowTools>
       {#if selectedMethod?.inputType}
         <span class="lb-msgtype" title={selectedMethod.inputType}
           ><span class="material-symbols-outlined" aria-hidden="true">description</span>{selectedMethod.inputType
@@ -64,8 +65,8 @@
             .pop()}</span
         >
       {/if}
-      <span class="lb-stats"
-        >{`${messageStats.approx ? '~' : ''}${formatBytes(messageStats.bytes)}  ·  ${countLabel(messageStats.lines, 'lines', uiLanguage.current)}`}</span
+      <TabStats
+        >{`${messageStats.approx ? '~' : ''}${formatBytes(messageStats.bytes)}  ·  ${countLabel(messageStats.lines, 'lines', uiLanguage.current)}`}</TabStats
       >
       <EditorTools
         scope="#bs-grpcpanel"
@@ -73,16 +74,39 @@
         expanded={focusMode.current === 'request'}
       >
         {#snippet extra()}
-          <button
+          <IconButton
             type="button"
-            class="bs-ric bs-grpc-example"
+            class="bs-grpc-example"
             aria-label={t('grpc.msg.example')}
             title={t('grpc.msg.example')}
             onclick={onLoadExample}
-            ><span class="material-symbols-outlined" aria-hidden="true">description</span></button
+            ><span class="material-symbols-outlined" aria-hidden="true">description</span></IconButton
           >
         {/snippet}
       </EditorTools>
-    </div>
+    </TabRowTools>
   {/if}
-</div>
+</TabRow>
+
+<style>
+  .lb-msgtype :global(.material-symbols-outlined) {
+    font-size: 15px;
+    color: var(--color-text-muted);
+  }
+
+  /* E2: request message type of a large gRPC message. */
+  .lb-msgtype {
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 30px;
+    padding: 0 12px;
+    border-radius: var(--radius-control);
+    background: var(--color-field);
+    outline: 1px solid var(--color-border-subtle);
+    outline-offset: -1px;
+    color: var(--color-text);
+    font: 600 var(--font-size-caption) var(--font-code);
+  }
+</style>

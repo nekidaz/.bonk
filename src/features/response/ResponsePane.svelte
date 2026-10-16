@@ -34,3 +34,79 @@
 <div class="bs-resp" class:sending>
   <ResponseView {tab} {onSettings} />
 </div>
+
+<style>
+  /* Response: status pills, body/raw/headers/timeline views, empty and error states, large-body tools. */
+  .bs-resizer-row {
+    position: absolute;
+    left: 0;
+    right: 0;
+    z-index: 5;
+    cursor: row-resize;
+    background: transparent;
+    transition: background 120ms ease;
+    top: -3px;
+    height: 6px;
+  }
+
+  .bs-resizer-row:hover {
+    background: linear-gradient(
+      to bottom,
+      transparent calc(50% - 1px),
+      var(--accent) calc(50% - 1px) calc(50% + 1px),
+      transparent calc(50% + 1px)
+    );
+  }
+
+  :global(.bs) .bs-resizer-row {
+    position: absolute;
+    z-index: 2;
+    left: 0;
+    right: 0;
+    top: -8px;
+    height: 8px;
+    border-radius: 0;
+  }
+
+  .bs-resizer-row::after {
+    display: none;
+  }
+
+  /* Empty-state artwork yields space when the response splitter is dragged up. */
+  .bs-resp {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+    border: 0;
+    outline: 1px solid var(--color-border-subtle);
+    outline-offset: -1px;
+    border-radius: var(--radius-card);
+    background: var(--color-sidebar);
+    overflow: hidden;
+    container: response / size;
+  }
+
+  :global(.bs[data-focus]) .bs-resizer-row {
+    display: none;
+  }
+
+  /* S04: indeterminate progress rides on top of the card while a request is in flight. */
+  .bs-resp-progress {
+    flex: none;
+    height: 3px;
+    overflow: hidden;
+    border-radius: var(--radius-control);
+    background: var(--color-selected);
+  }
+
+  .bs-resp-progress :global(span) {
+    display: block;
+    width: 36%;
+    height: 100%;
+    border-radius: var(--radius-control);
+    background: linear-gradient(90deg, transparent, var(--color-text-secondary));
+    animation: bs-progress 1.4s var(--ease-soft) infinite;
+  }
+</style>

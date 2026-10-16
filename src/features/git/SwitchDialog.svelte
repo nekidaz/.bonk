@@ -3,11 +3,12 @@
    * G11: switching branches with uncommitted changes. Stash and switch (optionally popping the
    * stash on the way back), take the changes along, or discard them. Opened by `requestCheckout`.
    */
-  import { GitBranchIcon } from '$shared/ui/components';
+  import { GitBranchIcon, Overlay } from '$shared/ui/components';
   import { untrack } from 'svelte';
   import { findNode, workspace } from '$entities/workspace';
   import { describeFile, git, switchBranch, type SwitchChoice } from '$entities/git';
   import { t } from '$shared/i18n';
+  import { GitButton } from '$entities/git/components';
 
   let choice = $state<SwitchChoice>('stash');
   let autoRestore = $state(true);
@@ -40,7 +41,7 @@
 <svelte:window onkeydown={onKey} />
 
 {#if to}
-  <div class="bs-overlay" role="dialog" aria-modal="true" aria-labelledby="bs-switch-title">
+  <Overlay role="dialog" aria-modal="true" aria-labelledby="bs-switch-title">
     <div class="bs-branchswitch">
       <div class="crumb">{`${from}  →  ${target}`}</div>
       <h2 id="bs-switch-title">{t('git.switch.title')}</h2>
@@ -82,13 +83,13 @@
       </label>
 
       <div class="foot">
-        <button class="bs-gbtn" onclick={cancel}>{t('common.cancel')}</button>
-        <button class="bs-gbtn inv" onclick={() => switchBranch(to, choice, autoRestore)}
-          ><GitBranchIcon size={15} />{t('git.switch.go', { branch: target })}</button
+        <GitButton onclick={cancel}>{t('common.cancel')}</GitButton>
+        <GitButton class="inv" onclick={() => switchBranch(to, choice, autoRestore)}
+          ><GitBranchIcon size={15} />{t('git.switch.go', { branch: target })}</GitButton
         >
       </div>
     </div>
-  </div>
+  </Overlay>
 {/if}
 
 <style>
@@ -187,7 +188,7 @@
     gap: 8px;
     margin-top: 8px;
   }
-  .foot .bs-gbtn {
+  :global(:root .foot .bs-gbtn) {
     height: 38px;
     padding: 0 18px;
   }

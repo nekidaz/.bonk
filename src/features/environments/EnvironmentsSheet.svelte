@@ -24,9 +24,7 @@
     mergeEnvRows,
   } from '$shared/model';
   import EnvJsonEditor from './EnvJsonEditor.svelte';
-  import { Button } from '$shared/ui/components';
-  import { Switch } from '$shared/ui/components';
-  import { Segmented } from '$shared/ui/components';
+  import { Button, Switch, Segmented, Toast } from '$shared/ui/components';
 
   type Fmt = EnvJsonFormat | undefined;
   /** «Из JSON…»: the new environment is a draft in the list until «Создать окружение». */
@@ -784,7 +782,7 @@
 {/snippet}
 
 {#if toast}
-  <div class="bs-toast" role="status">
+  <Toast role="status">
     <span class="material-symbols-outlined" aria-hidden="true">check_circle</span>
     <span class="text">{toast.text}</span>
     {#if toast.undo}<button
@@ -794,7 +792,7 @@
           toast = null;
         }}>{t('env.create.undo')}</button
       >{/if}
-  </div>
+  </Toast>
 {/if}
 
 <style>

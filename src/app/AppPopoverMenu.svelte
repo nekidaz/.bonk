@@ -15,6 +15,7 @@
   import { appMenuWidth, type AppMenuState } from '$shared/ui';
   import type { RequestProtocol, Tab } from '$shared/model';
   import { t } from '$shared/i18n';
+  import { Menu, Backdrop } from '$shared/ui/components';
 
   let {
     menu,
@@ -158,13 +159,12 @@
 {/snippet}
 
 {#if menu.kind}
-  <button class="bs-backdrop" aria-label={t('nav.menu.closeMenu')} onclick={closeMenu}></button>
-  <div
-    class="bs-menu"
+  <Backdrop aria-label={t('nav.menu.closeMenu')} onclick={closeMenu} />
+  <Menu
     role="menu"
-    tabindex="-1"
+    tabindex={-1}
     onkeydown={menuKeydown}
-    bind:this={menuEl}
+    bind:ref={menuEl}
     style="left:{menu.x}px; top:{top}px; width:{appMenuWidth(menu.kind)}px"
   >
     {#if menu.kind === 'create'}
@@ -214,7 +214,7 @@
         <span class="sc">›</span>
       </button>
       {#if importOpen}
-        <div class="bs-menu bs-submenu" role="menu" style="top:{importTop}px">
+        <Menu class="bs-submenu" role="menu" style="top:{importTop}px">
           <div class="lbl">{t('nav.menu.importFrom')}</div>
           {@render item(
             'terminal',
@@ -238,7 +238,7 @@
               'sub hint',
             )}
           {/each}
-        </div>
+        </Menu>
       {/if}
     {:else if menu.kind === 'switch'}
       <!-- P1/P2: protocol icon in front, the current type ticked on the right. -->
@@ -397,5 +397,25 @@
         )}
       {/each}
     {/if}
-  </div>
+  </Menu>
 {/if}
+
+<style>
+  :global(.bs .bs-menu.bs-submenu) {
+    position: absolute;
+    left: calc(100% + 6px);
+    width: 268px;
+  }
+
+  /* P1/P2: HTTP globe in text colour, gRPC hub in its method colour, tick on the right. */
+  :global(.bs-menu) .mi.proto :global(.ic) {
+    font-size: 15px;
+    color: var(--color-text);
+  }
+
+  :global(.bs-menu) .mi.proto .sc.check {
+    margin-left: auto;
+    font: 14px/1 'Material Symbols Outlined';
+    color: var(--color-text-secondary);
+  }
+</style>

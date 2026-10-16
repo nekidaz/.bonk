@@ -26,8 +26,12 @@
   import { oauthClock, oauthExpired, oauthLeft, oauthShortToken, oauthSpan } from './oauthFormat';
   import { currentRequestSettings } from './store';
   import OAuthTokensDialog from './OAuthTokensDialog.svelte';
-  import { Button } from '$shared/ui/components';
-  import { Switch } from '$shared/ui/components';
+  import { Button, Switch } from '$shared/ui/components';
+  import AuthPanel from './AuthPanel.svelte';
+  import AuthCard from './AuthCard.svelte';
+  import StatusCard from './StatusCard.svelte';
+  import AuthInput from './AuthInput.svelte';
+  import AuthSeg from './AuthSeg.svelte';
 
   // Flow · OAuth 2.0 (OA2–OA7): the token card, its details, and the settings under the Type row.
   let {
@@ -178,7 +182,7 @@
 {#snippet field(label: string, name: Field, opts: { secret?: boolean; placeholder?: string; hint?: string } = {})}
   <div class="row">
     <span class="lbl">{label}</span>
-    <label class="bs-auth-input" class:var={isVar(oauth[name])}>
+    <AuthInput class={{ var: isVar(oauth[name]) }}>
       {#if isVar(oauth[name])}<span class="material-symbols-outlined" aria-hidden="true">key</span>{/if}
       <input
         type={opts.secret && !isVar(oauth[name]) ? 'password' : 'text'}
@@ -189,7 +193,7 @@
         value={oauth[name] ?? ''}
         oninput={(e) => set({ [name]: e.currentTarget.value })}
       />
-    </label>
+    </AuthInput>
     {#if opts.hint}<span class="hint side">{opts.hint}</span>{/if}
   </div>
 {/snippet}
@@ -203,10 +207,10 @@
   {/if}
 {/snippet}
 
-<div class="bs-oa">
+<AuthPanel>
   <!-- The token card: what bonk has for this auth in the active environment. -->
   {#if status === 'wait' && login}
-    <div class="bs-oa-card tone-accent">
+    <StatusCard class="tone-accent">
       <span class="ic spin material-symbols-outlined" aria-hidden="true">progress_activity</span>
       <div class="txt">
         <div class="ttl">{t('oauth.wait.title')} {@render env()}</div>
@@ -220,7 +224,7 @@
           ><span class="material-symbols-outlined" aria-hidden="true">open_in_new</span>{t('oauth.reopen')}</Button
         >
       </div>
-    </div>
+    </StatusCard>
     <div class="bs-oa-box">
       <div class="head">{t('oauth.fallback.title')}</div>
       <div class="url">
@@ -237,7 +241,7 @@
             submitPaste();
           }}
         >
-          <label class="bs-auth-input">
+          <AuthInput>
             <input
               type="text"
               autocomplete="off"
@@ -246,7 +250,7 @@
               placeholder={t('oauth.paste_ph')}
               bind:value={pasted}
             />
-          </label>
+          </AuthInput>
           <Button variant="primary" type="submit" disabled={!pasted.trim()}>{t('oauth.paste_go')}</Button>
         </form>
       {:else}
@@ -256,7 +260,7 @@
       {/if}
     </div>
   {:else if status === 'error' && failure}
-    <div class="bs-oa-card tone-danger">
+    <StatusCard class="tone-danger">
       <span class="ic material-symbols-outlined" aria-hidden="true">error</span>
       <div class="txt">
         <div class="ttl">
@@ -280,7 +284,7 @@
           ><span class="material-symbols-outlined" aria-hidden="true">refresh</span>{t('oauth.err.retry')}</Button
         >
       </div>
-    </div>
+    </StatusCard>
     {#if fix}
       <div class="bs-oa-box">
         <div class="head">{t('oauth.err.fix')}</div>
@@ -312,7 +316,7 @@
       </div>
     {/if}
   {:else if status === 'none'}
-    <div class="bs-oa-card">
+    <StatusCard>
       <span class="ic material-symbols-outlined" aria-hidden="true">key</span>
       <div class="txt">
         <div class="ttl">{t('oauth.none.title')} {@render env()}</div>
@@ -323,9 +327,9 @@
           ><span class="material-symbols-outlined" aria-hidden="true">login</span>{t('oauth.get')}</Button
         >
       </div>
-    </div>
+    </StatusCard>
   {:else if token}
-    <div class="bs-oa-card" class:tone-success={status !== 'expired'} class:tone-warning={status === 'expired'}>
+    <StatusCard class={{ 'tone-success': status !== 'expired', 'tone-warning': status === 'expired' }}>
       <span class="ic material-symbols-outlined" aria-hidden="true"
         >{status === 'expired' ? 'schedule' : status === 'renewed' ? 'autorenew' : 'check_circle'}</span
       >
@@ -364,7 +368,7 @@
             : t('oauth.refresh')}</Button
         >
       </div>
-    </div>
+    </StatusCard>
     {#if status === 'renewed' && renewal}
       <div class="bs-oa-box timeline">
         {#if renewal.previousExpiresAt}
@@ -392,7 +396,7 @@
       </div>
     {/if}
     {#if !showConfig}
-      <div class="bs-auth-card details">
+      <AuthCard class="details">
         <div class="row">
           <span class="lbl">{t('oauth.d.access')}</span>
           <span class="secret grow">{revealToken ? token.accessToken : mask(token.accessToken)}</span>
@@ -453,16 +457,16 @@
             ><span class="material-symbols-outlined" aria-hidden="true">key</span>{t('oauth.all')}</button
           >
         </div>
-      </div>
+      </AuthCard>
     {/if}
   {/if}
 
   <!-- Settings: open while there is no token, else behind «Настройки» on the Type row. -->
   {#if showConfig}
-    <div class="bs-auth-card config">
+    <AuthCard class="config">
       <div class="row">
         <span class="lbl">{t('oauth.grant')}</span>
-        <span class="bs-auth-seg" role="radiogroup" aria-label={t('oauth.grant_aria')}>
+        <AuthSeg role="radiogroup" aria-label={t('oauth.grant_aria')}>
           {#each grants as g (g)}
             <button
               type="button"
@@ -472,7 +476,7 @@
               onclick={() => set({ grant: g })}>{t(`oauth.grant.${g}`)}</button
             >
           {/each}
-        </span>
+        </AuthSeg>
         <span class="hint">{t(`oauth.grant.hint.${grant}`)}</span>
       </div>
       {#if grant === 'authorization_code'}
@@ -520,7 +524,7 @@
       {#if grant === 'authorization_code'}
         <div class="row">
           <span class="lbl">{t('oauth.redirect')}</span>
-          <label class="bs-auth-input">
+          <AuthInput>
             <input
               type="text"
               autocomplete="off"
@@ -530,7 +534,7 @@
               value={oauth.redirectUri ?? ''}
               oninput={(e) => set({ redirectUri: e.currentTarget.value })}
             />
-          </label>
+          </AuthInput>
           <span class="hint side">{t('oauth.redirect_hint')}</span>
         </div>
         <div class="row">
@@ -551,7 +555,7 @@
       {:else}
         <div class="row">
           <span class="lbl">{t('oauth.credentials')}</span>
-          <span class="bs-auth-seg" role="radiogroup" aria-label={t('oauth.cred_aria')}>
+          <AuthSeg role="radiogroup" aria-label={t('oauth.cred_aria')}>
             {#each ['basic', 'body'] as c (c)}
               <button
                 type="button"
@@ -561,7 +565,7 @@
                 onclick={() => set({ clientAuth: c as 'basic' | 'body' })}>{t(`oauth.cred.${c}`)}</button
               >
             {/each}
-          </span>
+          </AuthSeg>
         </div>
         <div class="row">
           <span class="lbl">{t('oauth.auto')}</span>
@@ -583,10 +587,192 @@
         {@render field(t('oauth.audience'), 'audience')}
         {@render field(t('oauth.revoke_url'), 'revokeUrl', { placeholder: 'https://…/oauth/revoke' })}
       {/if}
-    </div>
+    </AuthCard>
   {/if}
-</div>
+</AuthPanel>
 
 {#if tokensOpen}
   <OAuthTokensDialog {auth} {where} onClose={() => (tokensOpen = false)} />
 {/if}
+
+<style>
+  :global(.bs) .bs-oa-box :global(.ev) {
+    display: flex;
+    align-items: baseline;
+    gap: 14px;
+    font: var(--font-size-caption) var(--font-code);
+  }
+
+  :global(.bs) .bs-oa-box :global(.grow) {
+    flex: 1;
+    min-width: 0;
+  }
+
+  :global(.bs) .bs-oa-box :global(.dim) {
+    color: var(--color-text-muted);
+  }
+
+  :global(.bs .bs-oa) .chip-input {
+    flex: 1;
+    min-width: 90px;
+    height: 24px;
+    padding: 0 4px;
+    border: 0;
+    outline: none;
+    box-shadow: none;
+    background: transparent;
+    color: var(--color-text);
+    font: var(--font-size-caption) var(--font-code);
+  }
+
+  :global(.bs .bs-oa) .chip-input:focus {
+    flex: 1;
+    min-width: 90px;
+    height: 24px;
+    padding: 0 4px;
+    border: 0;
+    outline: none;
+    box-shadow: none;
+    background: transparent;
+    color: var(--color-text);
+    font: var(--font-size-caption) var(--font-code);
+  }
+
+  :global(.bs .bs-oa) .claims {
+    flex: 1;
+    display: grid;
+    grid-template-columns: max-content 1fr max-content 1fr;
+    gap: 6px 16px;
+    margin: 0;
+    font: var(--font-size-caption) var(--font-code);
+  }
+
+  :global(.bs .bs-oa) .claims :global(dt) {
+    color: var(--color-text-muted);
+  }
+
+  :global(.bs .bs-oa) .claims :global(dd) {
+    margin: 0;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--color-text);
+  }
+
+  :global(.bs) .bs-oa-box :global(.head .code) {
+    padding: 1px 6px;
+    border-radius: var(--radius-control);
+    background: var(--color-danger-soft);
+    color: var(--color-danger);
+    font: 500 var(--font-size-caption) var(--font-code);
+  }
+
+  :global(.bs) .bs-oa-box {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 14px 16px;
+    outline: 1px solid var(--color-border-subtle);
+    outline-offset: -1px;
+    border-radius: var(--radius-card);
+    background: var(--color-field);
+  }
+
+  :global(.bs) .bs-oa-box :global(.head) {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--color-text);
+    font: 600 var(--font-size-body) var(--font-ui);
+  }
+
+  :global(.bs) .bs-oa-box :global(.mono) {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font: var(--font-size-caption) var(--font-code);
+  }
+
+  :global(.bs) .bs-oa-box :global(.url) {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    height: 34px;
+    padding: 0 6px 0 12px;
+    border-radius: var(--radius-control);
+    background: var(--color-panel);
+    color: var(--color-text-secondary);
+  }
+
+  :global(.bs) .bs-oa-box :global(.url .mono) {
+    flex: 1;
+  }
+
+  :global(.bs) .bs-oa-box :global(.paste) {
+    display: flex;
+    gap: 8px;
+  }
+
+  :global(.bs) .bs-oa-box :global(.steps) {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin: 0;
+    padding-left: 20px;
+    list-style: decimal outside;
+    color: var(--color-text);
+    font: var(--font-size-body) var(--font-ui);
+  }
+
+  :global(.bs) .bs-oa-box :global(.steps code) {
+    padding: 2px 6px;
+    border-radius: var(--radius-control);
+    background: var(--color-panel);
+    font: var(--font-size-caption) var(--font-code);
+  }
+
+  :global(.bs) .bs-oa-box :global(.steps .icon) {
+    display: inline-grid;
+    vertical-align: middle;
+  }
+
+  :global(.bs) .bs-oa-box :global(.body) {
+    max-height: 160px;
+    margin: 0;
+    overflow: auto;
+    color: var(--color-text-secondary);
+    font: var(--font-size-caption) var(--font-code);
+    white-space: pre-wrap;
+    word-break: break-all;
+  }
+
+  :global(.bs) .bs-oa-box.timeline {
+    gap: 6px;
+    padding: 10px 16px;
+  }
+
+  :global(.bs) .bs-oa-box :global(.ev .at) {
+    flex: none;
+    color: var(--color-text-muted);
+  }
+
+  :global(.bs) .bs-oa-box :global(.ev .what) {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--color-text);
+  }
+
+  :global(.bs) .bs-oa-box :global(.ev .meta) {
+    flex: none;
+    color: var(--color-warning);
+  }
+
+  :global(.bs) .bs-oa-box :global(.ev .meta.ok) {
+    color: var(--color-success);
+  }
+</style>

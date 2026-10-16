@@ -191,3 +191,316 @@
     </div>
   {/if}
 </div>
+
+<style>
+  .bs-toolbar-env-button :global(.chevron) {
+    color: var(--color-text-muted);
+  }
+
+  .bs-env-item :global(.lead) {
+    flex: 0 0 14px;
+    font-size: 14px;
+    color: var(--color-text-muted);
+  }
+
+  .bs-toolbar-env-button.tone-none :global(.dot) {
+    background: transparent;
+    box-shadow: inset 0 0 0 1.5px var(--color-text-muted);
+  }
+
+  .bs-toolbar-env-button.tone-staging :global(.dot) {
+    background: var(--color-warning);
+  }
+
+  .bs-toolbar-env-button.tone-local :global(.dot) {
+    background: var(--color-success);
+  }
+
+  .bs-toolbar-env-button.tone-production {
+    border-color: transparent;
+    background: var(--color-danger-soft);
+    color: var(--color-danger);
+  }
+
+  .bs-toolbar-env-button.tone-production :global(.chevron) {
+    color: var(--color-danger);
+  }
+
+  .bs-toolbar-env-button {
+    display: flex;
+    align-items: center;
+    width: auto;
+    height: 34px;
+    padding: 0 9px 0 11px;
+    gap: 8px;
+    border: 1px solid var(--color-border-subtle);
+    border-radius: var(--radius-control);
+    background: var(--color-panel);
+    color: var(--color-text);
+  }
+
+  .bs-toolbar-env-button:hover {
+    background: var(--color-raised);
+  }
+
+  .bs-toolbar-env-button :global(.dot) {
+    flex: 0 0 7px;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--color-text-muted);
+  }
+
+  .bs-toolbar-env-button :global(.material-symbols-outlined) {
+    font-size: 14px;
+  }
+
+  :global(:root[data-density='compact']) .bs-toolbar-env-button {
+    height: 28px;
+  }
+
+  :global(:where(.bs)) .bs-env-menu {
+    border: 1px solid var(--sep);
+    border-radius: 6px;
+    background: var(--surface-solid);
+    box-shadow: var(--shadow-panel);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+
+  .bs-toolbar-environment {
+    position: relative;
+    flex: 0 0 auto;
+    height: 34px;
+    border: 0;
+  }
+
+  .bs-toolbar-env-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    text-align: left;
+    flex: none;
+    font-size: var(--font-size-body);
+    font-weight: 600;
+  }
+
+  /* Environment list (S14): search, recent, all A–Z in a fading scroll area, manage + new. */
+  .bs-env-menu {
+    position: absolute;
+    z-index: 110;
+    top: calc(100% + 8px);
+    right: -42px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    width: 300px;
+    padding: 6px;
+    outline: 1px solid var(--color-border);
+    outline-offset: -1px;
+    border-radius: 22px;
+    background: var(--color-raised);
+    box-shadow: 0 16px 40px #00000080;
+  }
+
+  .bs-env-search {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    height: 36px;
+    padding: 0 8px 0 12px;
+    outline: 1px solid var(--color-border-subtle);
+    outline-offset: -1px;
+    border-radius: var(--radius-control);
+    background: var(--color-field);
+    color: var(--color-text-muted);
+  }
+
+  .bs-env-search :global(.material-symbols-outlined) {
+    font-size: 16px;
+  }
+
+  .bs-env-search :global(input) {
+    flex: 1;
+    min-width: 0;
+    padding: 0;
+    border: 0;
+    outline: none;
+    box-shadow: none;
+    background: transparent;
+    color: var(--color-text);
+    font: var(--font-size-body) var(--font-ui);
+  }
+
+  .bs-env-search :global(input:focus) {
+    flex: 1;
+    min-width: 0;
+    padding: 0;
+    border: 0;
+    outline: none;
+    box-shadow: none;
+    background: transparent;
+    color: var(--color-text);
+    font: var(--font-size-body) var(--font-ui);
+  }
+
+  .bs-env-search :global(input::placeholder) {
+    color: var(--color-text-muted);
+  }
+
+  .bs-env-search :global(kbd) {
+    display: inline-flex;
+    align-items: center;
+    height: 20px;
+    padding: 0 7px;
+    border-radius: var(--radius-control);
+    background: var(--color-selected);
+    color: var(--color-text-muted);
+    font: 500 var(--font-size-micro) var(--font-code);
+    opacity: 1;
+  }
+
+  .bs-env-heading {
+    flex: none;
+    display: flex;
+    justify-content: space-between;
+    height: 27px;
+    padding: 10px 12px 4px;
+    color: var(--color-text-muted);
+    font: 500 var(--font-size-micro)/13px var(--font-code);
+    letter-spacing: var(--tracking-eyebrow);
+    text-transform: uppercase;
+  }
+
+  .bs-env-heading :global(.sort) {
+    letter-spacing: 0.6px;
+  }
+
+  .bs-env-item {
+    flex: none;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    height: 32px;
+    padding: 0 12px;
+    border-radius: var(--radius-control);
+    color: var(--color-text);
+    font: var(--font-size-body) var(--font-ui);
+    text-align: left;
+  }
+
+  .bs-env-item:hover {
+    background: var(--hover);
+  }
+
+  .bs-env-item.on {
+    background: var(--color-selected);
+    font-weight: 600;
+  }
+
+  .bs-env-item :global(.tone-production) {
+    color: var(--color-danger);
+  }
+
+  .bs-env-item :global(.tone-staging) {
+    color: var(--color-warning);
+  }
+
+  .bs-env-item :global(.tone-local) {
+    color: var(--color-success);
+  }
+
+  .bs-env-item :global(.label) {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .bs-env-item :global(.hint) {
+    color: var(--color-text-muted);
+    font: 400 var(--font-size-caption) var(--font-ui);
+  }
+
+  .bs-env-item.on :global(.hint) {
+    color: var(--color-text);
+  }
+
+  .bs-env-sep {
+    flex: none;
+    height: 9px;
+    margin: 0 12px;
+    background: linear-gradient(var(--color-border-subtle), var(--color-border-subtle)) center / 100% 1px no-repeat;
+  }
+
+  .bs-env-scroll {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    max-height: 200px;
+    padding-right: 10px;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-text-muted) var(--color-hover);
+    -webkit-mask: linear-gradient(#000 calc(100% - 40px), transparent);
+    mask: linear-gradient(#000 calc(100% - 40px), transparent);
+  }
+
+  .bs-env-scroll::-webkit-scrollbar {
+    width: 4px;
+  }
+
+  .bs-env-scroll::-webkit-scrollbar-track {
+    margin: 4px 0;
+    border-radius: 999px;
+    background: var(--color-hover);
+  }
+
+  .bs-env-scroll::-webkit-scrollbar-thumb {
+    border-radius: 999px;
+    background: var(--color-text-muted);
+  }
+
+  .bs-env-foot {
+    display: flex;
+    gap: 4px;
+  }
+
+  .bs-env-foot .bs-env-item {
+    flex: 1;
+    width: auto;
+  }
+
+  .bs-env-new {
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    height: 32px;
+    padding: 0 12px 0 10px;
+    border-radius: var(--radius-control);
+    background: var(--color-selected);
+    color: var(--color-text);
+    font: 600 var(--font-size-body) var(--font-ui);
+  }
+
+  .bs-env-new :global(.material-symbols-outlined) {
+    font-size: 15px;
+  }
+
+  .bs-env-new:hover {
+    background: var(--color-hover-strong);
+  }
+
+  :global(:root[data-density='compact']) .bs-toolbar-environment {
+    height: 28px;
+  }
+
+  @media (max-width: 760px) {
+    .bs-toolbar-env-name {
+      max-width: 48px;
+    }
+  }
+</style>

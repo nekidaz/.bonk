@@ -8,6 +8,8 @@
   import { git } from '$entities/git';
   import { gitClone, workspacePickFolder } from '$shared/ipc';
   import { t } from '$shared/i18n';
+  import { Overlay } from '$shared/ui/components';
+  import { GitButton, GitError } from '$entities/git/components';
 
   let url = $state('');
   let parent = $state('');
@@ -76,7 +78,7 @@
 <svelte:window onkeydown={onKey} />
 
 {#if open}
-  <div class="bs-overlay" role="dialog" aria-modal="true" aria-labelledby="bs-clone-title">
+  <Overlay role="dialog" aria-modal="true" aria-labelledby="bs-clone-title">
     <div class="bs-clone">
       <h2 id="bs-clone-title">{t('git.clone.title')}</h2>
       <p>{t('git.clone.body')}</p>
@@ -94,22 +96,22 @@
         <span>{t('git.clone.where')}</span>
         <div class="where">
           <code title={parent}>{parent ? `${parent}/${name || '…'}` : t('git.clone.pick')}</code>
-          <button class="bs-gbtn" disabled={busy} onclick={pick}
-            ><span class="material-symbols-outlined">folder_open</span>{t('git.clone.choose')}</button
+          <GitButton disabled={busy} onclick={pick}
+            ><span class="material-symbols-outlined">folder_open</span>{t('git.clone.choose')}</GitButton
           >
         </div>
       </div>
-      {#if error}<div class="bs-git-diff-error">{error}</div>{/if}
+      {#if error}<GitError>{error}</GitError>{/if}
       <div class="foot">
-        <button class="bs-gbtn" disabled={busy} onclick={close}>{t('common.cancel')}</button>
-        <button class="bs-gbtn inv" disabled={busy || !url.trim() || !parent} onclick={clone}
+        <GitButton disabled={busy} onclick={close}>{t('common.cancel')}</GitButton>
+        <GitButton class="inv" disabled={busy || !url.trim() || !parent} onclick={clone}
           ><span class="material-symbols-outlined" class:spin={busy}>{busy ? 'sync' : 'download'}</span>{busy
             ? t('git.clone.busy')
-            : t('git.clone.go')}</button
+            : t('git.clone.go')}</GitButton
         >
       </div>
     </div>
-  </div>
+  </Overlay>
 {/if}
 
 <style>

@@ -13,6 +13,7 @@
   import { fetchUrl, fromFile, pickFile, readFile, type Fetched } from './load';
   import { loadSource, SourceError, type Loaded } from './source';
   import { forgetSource, recentSources, rememberSource, type RecentSource } from './store.svelte';
+  import { Overlay } from '$shared/ui/components';
 
   let {
     onImported,
@@ -187,7 +188,7 @@
 <svelte:window onkeydown={onKeydown} />
 
 {#if importWindow.current}
-  <div class="bs-overlay imp-overlay" role="dialog" aria-modal="true" aria-labelledby="imp-title">
+  <Overlay class="imp-overlay" role="dialog" aria-modal="true" aria-labelledby="imp-title">
     <div class="imp">
       <div class="imp-head">
         <div class="imp-eyebrow">{eyebrow.join('  ·  ').toUpperCase()}</div>
@@ -236,12 +237,12 @@
         />
       {/if}
     </div>
-  </div>
+  </Overlay>
 {/if}
 
 <style>
   /* Sizes follow the Flow · Импорт схем mock (Pencil «Import dialog», 1040×660). */
-  .imp-overlay {
+  :global(:root .imp-overlay) {
     background: var(--color-scrim);
   }
   .imp {

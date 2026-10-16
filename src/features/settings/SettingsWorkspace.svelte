@@ -7,6 +7,7 @@
   import type { GitRemote } from '$shared/model';
   import { row, seg } from './ui.svelte';
   import { Button } from '$shared/ui/components';
+  import TextField from './TextField.svelte';
 
   const name = $derived(workspace.path.split(/[\\/]/).filter(Boolean).at(-1) ?? '');
   let draft = $state('');
@@ -81,8 +82,7 @@
   {@render row(t('settings.ws.folder'), workspace.path || t('settings.ws.none'), change)}
   {#if name}
     {#snippet nm()}
-      <input
-        class="st-text"
+      <TextField
         style="width:200px"
         aria-label={t('settings.ws.name.aria')}
         bind:value={draft}
@@ -128,15 +128,13 @@
     {/each}
     {#snippet add()}
       <span class="st-remote-add">
-        <input
-          class="st-text"
+        <TextField
           style="width:110px"
           placeholder={t('settings.git.remoteName')}
           aria-label={t('settings.git.remoteName')}
           bind:value={remoteName}
         />
-        <input
-          class="st-text"
+        <TextField
           style="width:260px"
           placeholder="git@github.com:team/api.git"
           aria-label={t('settings.git.remoteUrl')}

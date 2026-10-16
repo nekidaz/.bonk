@@ -4,6 +4,7 @@
   import { dynKeepSent, dynLocale, dynPerRequest, dynSeed, dynSeedOn } from '$shared/settings';
   import { dynamicVars, refreshDynamicSamples } from '$entities/environment';
   import { row, sw, number, select, commit } from './ui.svelte';
+  import Row from './Row.svelte';
 
   const LOCALES = $derived([
     { label: t('dyn.locale.ru'), value: 'ru' },
@@ -49,11 +50,11 @@
 <div class="st-group">{t('settings.vars.preview')}</div>
 <div class="st-card st-dyn-preview">
   {#each PREVIEW as name (name)}
-    <div class="st-row">
+    <Row>
       <span class="chip">{`{{${name}}}`}</span>
       <span class="arrow" aria-hidden="true">→</span>
       <span class="value">{dynamicVars.samples[name] ?? ''}</span>
-    </div>
+    </Row>
   {/each}
 </div>
 
@@ -63,7 +64,7 @@
     align-items: center;
     gap: 10px;
   }
-  .st-dyn-preview .st-row {
+  :global(:root .st-dyn-preview .st-row) {
     justify-content: flex-start;
     gap: 12px;
   }

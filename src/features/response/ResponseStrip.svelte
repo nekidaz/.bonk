@@ -7,6 +7,7 @@
   import { oneLinePreview } from '$shared/ui';
   import { presentGrpcError } from './grpcError';
   import { isCancelled, responseTone } from './responseHint';
+  import { Strip, StatusPill } from '$shared/ui/components';
 
   let { tab, onShow }: { tab: Tab; onShow: () => void } = $props();
 
@@ -50,12 +51,12 @@
   const firstFailure = $derived(failed[0] ? `${failed[0].name} — ${failed[0].error ?? ''}` : '');
 </script>
 
-<div class="lb-strip" role="group" aria-label={t('lb.strip.response')}>
+<Strip role="group" aria-label={t('lb.strip.response')}>
   <span class="label">{t('lb.strip.response')}</span>
   {#if sending}
-    <span class="bs-stpill sending"><span class="g" aria-hidden="true">◌</span>{t('response.sending')}</span>
+    <StatusPill class="sending"><span class="g" aria-hidden="true">◌</span>{t('response.sending')}</StatusPill>
   {:else if info}
-    <span class="bs-stpill {info.tone}"><span class="g" aria-hidden="true">{info.glyph}</span>{info.status}</span>
+    <StatusPill class={info.tone}><span class="g" aria-hidden="true">{info.glyph}</span>{info.status}</StatusPill>
     <span class="meta">{`${elapsedLabel(info.ms)}  ·  ${info.size}`}</span>
     {#if tests.length}
       <span class="tests"
@@ -78,7 +79,7 @@
       >{formatBinding(hotkeys.current.toggleResponse ?? '').join('')}</kbd
     >
   </button>
-</div>
+</Strip>
 
 <style>
   .tests {

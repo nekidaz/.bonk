@@ -9,6 +9,8 @@
   import { CodeEditor } from '$shared/editor/components';
   import { mergeParamsFromUrl, methodColor, type Tab } from '$shared/model';
   import { titleFor } from './httpHeaders';
+  import { SendButton } from '$shared/ui/components';
+  import { UrlBar, UrlField, MethodWrap, MethodButton } from '$entities/request/components';
 
   let { tab, methodOpen = $bindable() }: { tab: Tab; methodOpen: boolean } = $props();
 
@@ -129,13 +131,11 @@
   }}
 />
 
-<div class="bs-urlbar">
-  <div
-    class="bs-urlfield"
-    class:long
-    class:expanded={focused && long}
+<UrlBar>
+  <UrlField
+    class={{ long, expanded: focused && long }}
     role="presentation"
-    bind:this={fieldEl}
+    bind:ref={fieldEl}
     onfocusin={() => (focused = true)}
     onfocusout={(e) => {
       if (!e.currentTarget.contains(e.relatedTarget as Node | null)) focused = false;
@@ -147,10 +147,9 @@
       }
     }}
   >
-    <div class="bs-method-wrap" role="presentation" onpointerdown={(e) => e.stopPropagation()}>
-      <button
-        class="bs-method"
-        class:open={methodOpen}
+    <MethodWrap role="presentation" onpointerdown={(e) => e.stopPropagation()}>
+      <MethodButton
+        class={{ open: methodOpen }}
         style="color:{methodColor(tab.request.method)}"
         type="button"
         aria-haspopup="menu"
@@ -159,7 +158,7 @@
       >
         <span>{tab.request.method}</span>
         <span class="material-symbols-outlined">expand_more</span>
-      </button>
+      </MethodButton>
       {#if methodOpen}
         <div
           class="bs-method-menu"
@@ -192,7 +191,7 @@
           {/each}
         </div>
       {/if}
-    </div>
+    </MethodWrap>
     <div class="bs-url-main">
       <CodeEditor
         value={tab.request.url}
@@ -217,10 +216,9 @@
         ><span class="material-symbols-outlined">unfold_more</span
         >{`+${hidden} ${tp(hidden, ['параметр', 'параметра', 'параметров'], ['param', 'params'])}`}</span
       >{/if}
-  </div>
-  <button
-    class="bs-send"
-    class:cancelling={activeBusy?.kind === 'http'}
+  </UrlField>
+  <SendButton
+    class={{ cancelling: activeBusy?.kind === 'http' }}
     aria-busy={activeBusy?.kind === 'http'}
     disabled={activeBusy?.kind !== 'http' && !tab.request.url.trim()}
     title={activeBusy?.kind === 'http' ? t('http.url.cancel_title') : undefined}
@@ -231,5 +229,198 @@
           >{t('http.url.send')}</span
         >{/if}
     </span>
-  </button>
-</div>
+  </SendButton>
+</UrlBar>
+
+<style>
+  :global(:root :where(.bs) button.bs-method.open .material-symbols-outlined) {
+    color: currentColor;
+  }
+
+  .bs-method-option.on {
+    background: color-mix(in srgb, currentColor 12%, transparent);
+  }
+
+  .bs-method-option :global(.check) {
+    width: 18px;
+    color: currentColor;
+  }
+
+  .bs-method-menu {
+    position: absolute;
+    top: calc(100% + 8px);
+    left: 0;
+    z-index: 70;
+    width: 186px;
+    padding: 6px;
+    border: 1px solid var(--sep);
+    border-radius: 6px;
+    background: var(--surface-solid);
+    box-shadow: var(--shadow-panel);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+
+  :global(.dark) .bs-method-menu {
+    box-shadow:
+      0 20px 52px rgba(0, 0, 0, 0.42),
+      0 2px 10px rgba(0, 0, 0, 0.28),
+      0 0 0 0.5px rgba(255, 255, 255, 0.06);
+    background: var(--surface-solid);
+  }
+
+  .bs-method-option {
+    width: 100%;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    padding: 0 10px 0 8px;
+    font-family: var(--mono);
+    font-size: 13.5px;
+    font-weight: 800;
+    contain: paint;
+    border-radius: 4px;
+  }
+
+  .bs-method-option:hover {
+    color: var(--text);
+    background: var(--hover);
+  }
+
+  :global(:root .bs button.bs-method.open) {
+    background: var(--color-selected);
+  }
+
+  :global(:root :root[data-density='compact'] .bs .bs-urlfield.expanded) {
+    min-height: 34px;
+  }
+
+  :global(.bs) .bs-url-main {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    align-self: stretch;
+    justify-content: center;
+  }
+
+  :global(:root .bs .bs-urlfield.expanded) {
+    height: auto;
+    min-height: 48px;
+    padding: 6px 18px 10px 5px;
+    align-items: flex-start;
+    border-radius: var(--radius-card);
+    border-color: var(--color-text-muted);
+    gap: 10px;
+  }
+
+  :global(:root .bs .bs-urlfield.expanded .bs-method-wrap) {
+    margin: 0;
+  }
+
+  :global(:root .bs .bs-urlfield.expanded .bs-method-wrap::after) {
+    display: none;
+  }
+
+  :global(:root .bs .bs-urlfield.expanded .bs-url-main) {
+    justify-content: flex-start;
+    padding-top: 7px;
+  }
+
+  /* S13: the card wraps at ~67 columns, so lines break at «&» like the mock. */
+  :global(:root .bs .bs-urlfield.expanded .cm-content) {
+    max-width: 67ch;
+    line-height: 22px;
+    overflow-wrap: anywhere;
+    word-break: normal;
+  }
+
+  /* A huge URL scrolls inside the card (~10 lines) instead of pushing the request pane off-screen. */
+  :global(:root .bs .bs-urlfield.expanded .cm-scroller) {
+    max-height: 220px;
+    overflow-y: auto;
+  }
+
+  /* The single-line editor theme hides its scrollbar; bring the global one back here. */
+  :global(:root .bs .bs-urlfield.expanded .cm-scroller::-webkit-scrollbar) {
+    display: block;
+  }
+
+  :global(.bs) .bs-url-meta {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+    padding-top: 8px;
+    color: var(--color-text-muted);
+    font: 500 var(--font-size-micro) var(--font-code);
+    letter-spacing: var(--tracking-eyebrow);
+    text-transform: uppercase;
+    white-space: pre;
+  }
+
+  :global(.bs) .bs-url-meta :global(.hint) {
+    font: var(--font-size-caption) var(--font-ui);
+    letter-spacing: 0;
+    text-transform: none;
+  }
+
+  :global(.bs) .bs-url-more {
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    height: 26px;
+    margin: auto -10px auto 0;
+    padding: 0 10px 0 8px;
+    border-radius: var(--radius-control);
+    background: var(--color-selected);
+    color: var(--color-text-secondary);
+    font: var(--font-size-caption) var(--font-code);
+    white-space: nowrap;
+  }
+
+  :global(.bs) .bs-url-more :global(.material-symbols-outlined) {
+    font-size: 14px;
+  }
+
+  :global(.bs) .bs-method-menu {
+    border: 1px solid var(--color-border);
+    background: var(--color-raised);
+    box-shadow: 0 16px 40px var(--color-shadow, rgba(0, 0, 0, 0.14));
+    width: 136px;
+    padding: 4px;
+    border-radius: 18px;
+  }
+
+  :global(.bs) .bs-method-menu .bs-method-option {
+    height: 28px;
+    gap: 8px;
+    padding: 0 10px 0 12px;
+    justify-content: space-between;
+    border-radius: var(--radius-control);
+    font: 600 var(--font-size-caption) var(--font-code);
+    letter-spacing: 0.4px;
+  }
+
+  :global(.bs) .bs-method-menu :global(.bs-method-option:is(:hover, :focus-visible, .on)) {
+    background: var(--color-selected);
+    outline: 0;
+  }
+
+  :global(.bs) .bs-method-menu .bs-method-option.aux {
+    color: var(--color-text-muted);
+  }
+
+  :global(.bs) .bs-method-menu .bs-method-option :global(.check) {
+    width: auto;
+    font-size: 14px;
+    color: var(--color-text-secondary);
+  }
+
+  :global(.bs) .bs-method-menu :global(.dv) {
+    height: 1px;
+    margin: 4px 10px;
+    background: var(--color-border-subtle);
+  }
+</style>

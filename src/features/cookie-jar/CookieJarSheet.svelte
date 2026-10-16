@@ -21,7 +21,7 @@
     type SameSite,
     setCookieOf,
   } from '$entities/cookies';
-  import { Button } from '$shared/ui/components';
+  import { Button, Overlay, Modal } from '$shared/ui/components';
 
   const { onCleared }: { onCleared: (text: string) => void } = $props();
 
@@ -220,14 +220,14 @@
 <svelte:window onkeydown={onKeydown} />
 
 {#if cookieJar.sheetOpen}
-  <div
-    class="bs-overlay bs-jar-overlay"
+  <Overlay
+    class="bs-jar-overlay"
     role="presentation"
     onpointerdown={(e) => {
       if (e.target === e.currentTarget) close();
     }}
   >
-    <div class="bs-modal bs-jar" role="dialog" aria-modal="true" aria-labelledby="bs-jar-title">
+    <Modal class="bs-jar" role="dialog" aria-modal="true" aria-labelledby="bs-jar-title">
       <header class="head">
         <div>
           <div class="kicker">{kicker}</div>
@@ -432,8 +432,8 @@
           </div>
         </div>
       {/if}
-    </div>
-  </div>
+    </Modal>
+  </Overlay>
 {/if}
 
 {#snippet editor()}
@@ -546,11 +546,11 @@
 <style>
   /* Sizes follow the CJ2 mock (Pencil node «Cookie jar»), the same frame as the S31 sheet. */
   /* Above Settings: «Открыть банку» there opens it on top. */
-  .bs-jar-overlay.bs-jar-overlay {
+  :global(:root .bs-jar-overlay.bs-jar-overlay) {
     z-index: 101;
     background: var(--color-scrim);
   }
-  .bs-jar.bs-jar {
+  :global(:root .bs-jar.bs-jar) {
     position: relative;
     width: 1040px;
     max-width: 100%;

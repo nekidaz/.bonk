@@ -17,6 +17,7 @@
     scriptSnippetsExpanded,
   } from '$shared/editor';
   import { EditorTools, ScriptStageSwitch } from '$shared/editor/components';
+  import { IconButton } from '$shared/ui/components';
 
   let { tab, mode }: { tab: Tab; mode: 'request' | 'response' } = $props();
 
@@ -80,15 +81,14 @@
   {#if scripts}
     <EditorTools scope=".bs-script-editor" format pill>
       {#snippet extra()}
-        <button
+        <IconButton
           type="button"
-          class="bs-ric"
-          class:on={scriptSnippetsExpanded.current}
+          class={{ on: scriptSnippetsExpanded.current }}
           aria-pressed={scriptSnippetsExpanded.current}
           aria-label={t('script.toggle_snippets')}
           title={t('script.toggle_snippets')}
           onclick={() => (scriptSnippetsExpanded.current = !scriptSnippetsExpanded.current)}
-          ><span class="material-symbols-outlined" aria-hidden="true">data_object</span></button
+          ><span class="material-symbols-outlined" aria-hidden="true">data_object</span></IconButton
         >
       {/snippet}
     </EditorTools>
@@ -99,12 +99,11 @@
       beautifyTitle={body.length > BEAUTIFY_MAX_CHARS ? t('lb.beautifyTooLarge') : ''}
     >
       {#snippet extra()}
-        {#if grpc}<button
+        {#if grpc}<IconButton
             type="button"
-            class="bs-ric"
             aria-label={t('grpc.msg.example')}
             title={t('grpc.msg.example')}
-            onclick={example}><span class="material-symbols-outlined" aria-hidden="true">description</span></button
+            onclick={example}><span class="material-symbols-outlined" aria-hidden="true">description</span></IconButton
           >{/if}
       {/snippet}
     </EditorTools>
@@ -116,3 +115,108 @@
     >{busy ? t('common.cancel') : grpc ? t('grpc.invoke') : t('http.url.send')}{#if !busy}<kbd>⌘↵</kbd>{/if}</button
   >
 </div>
+
+<style>
+  .lb-focusbar :global(.spacer) {
+    flex: 1;
+  }
+
+  /* E3 / E6 · expanded mode: one bar, no sidebar / header / address / request tabs */
+  .lb-focusbar {
+    flex: none;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 0;
+    height: 56px;
+    margin: 0 10px;
+    padding: 0 0 0 10px;
+    border-bottom: 1px solid var(--color-border-subtle);
+  }
+
+  .lb-focusbar :global(.method) {
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    height: 30px;
+    padding: 0 10px;
+    border-radius: var(--radius-control);
+    background: var(--color-field);
+    font: 600 var(--font-size-caption) var(--font-code);
+  }
+
+  .lb-focusbar :global(.url) {
+    flex: 0 1 auto;
+    min-width: 60px;
+    overflow: hidden;
+    color: var(--color-text);
+    font: var(--font-size-body) var(--font-code);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .lb-focusbar :global(.section) {
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    height: 30px;
+    padding: 0 12px;
+    border-radius: var(--radius-control);
+    background: var(--color-selected);
+    color: var(--color-text-secondary);
+    font: 500 var(--font-size-caption) var(--font-ui);
+  }
+
+  .lb-focusbar :global(.stats) {
+    flex: none;
+    color: var(--color-text-muted);
+    font: var(--font-size-caption) var(--font-code);
+    white-space: pre;
+  }
+
+  .lb-focusbar .lb-collapse {
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    height: 36px;
+    padding: 0 14px;
+    outline: 1px solid var(--color-border);
+    outline-offset: -1px;
+    border-radius: var(--radius-control);
+    background: var(--color-panel);
+    color: var(--color-text);
+    font: 500 var(--font-size-body) var(--font-ui);
+  }
+
+  .lb-focusbar .lb-collapse:hover {
+    background: var(--color-selected);
+  }
+
+  .lb-focusbar .lb-send {
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    height: 40px;
+    padding: 0 18px;
+    border-radius: var(--radius-control);
+    background: var(--color-action);
+    color: var(--color-on-action);
+    font: 600 var(--font-size-body) var(--font-ui);
+  }
+
+  .lb-focusbar .lb-send.busy {
+    background: var(--color-selected);
+    color: var(--color-text);
+  }
+
+  .lb-focusbar .lb-send :global(kbd) {
+    color: inherit;
+  }
+
+  .lb-focusbar :global(:is(.lb-collapse, .lb-send):focus-visible) {
+    outline: 2px solid var(--color-text);
+    outline-offset: 2px;
+  }
+</style>

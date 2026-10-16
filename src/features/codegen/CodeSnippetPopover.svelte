@@ -10,6 +10,7 @@
   import { openapiExportSave } from '$shared/ipc';
   import { environments, currentVarScope } from '$entities/environment';
   import { withInheritedAuth, workspace } from '$entities/workspace';
+  import { LabelSwitch } from '$shared/ui/components';
 
   let { tab, onClose }: { tab: Tab; onClose: () => void } = $props();
 
@@ -200,7 +201,7 @@
     {/each}
   </div>
   <div class="foot">
-    <label class="bs-switch resolve">
+    <LabelSwitch class="resolve">
       <input type="checkbox" role="switch" bind:checked={resolve} />
       <span class="track" aria-hidden="true"></span>
       <span class="text"
@@ -208,7 +209,7 @@
           >{resolve ? t('code.snippet.on') : t('code.snippet.off', { name: sampleVar })}</small
         ></span
       >
-    </label>
+    </LabelSwitch>
     <button class="download" type="button" onclick={download}
       ><span class="material-symbols-outlined" aria-hidden="true">download</span>{t('code.snippet.download')}</button
     >
@@ -365,25 +366,25 @@
     padding-left: 4px;
   }
 
-  .foot .resolve.bs-switch {
+  :global(:root .foot .resolve.bs-switch) {
     flex: 1;
     min-width: 0;
     gap: 10px;
   }
 
-  .resolve .text {
+  :global(.bs-switch.resolve .text) {
     display: flex;
     flex-direction: column;
     gap: 1px;
     min-width: 0;
   }
 
-  .resolve b {
+  :global(.bs-switch.resolve b) {
     color: var(--color-text);
     font: 500 var(--font-size-body) var(--font-ui);
   }
 
-  .resolve small {
+  :global(.bs-switch.resolve small) {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;

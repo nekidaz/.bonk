@@ -8,12 +8,12 @@
   import type { Snippet } from 'svelte';
   import type { HTMLAttributes } from 'svelte/elements';
 
-  type Props = HTMLAttributes<HTMLSpanElement> & { children: Snippet };
+  type Props = HTMLAttributes<HTMLSpanElement> & { children?: Snippet };
 
   let { class: cls, children, ...rest }: Props = $props();
 </script>
 
-<span class={['bs-seg', cls]} {...rest}>{@render children()}</span>
+<span class={['bs-seg', cls]} {...rest}>{@render children?.()}</span>
 
 <style>
   .bs-seg {

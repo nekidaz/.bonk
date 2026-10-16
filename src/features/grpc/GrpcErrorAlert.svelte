@@ -41,6 +41,20 @@
 </div>
 
 <style>
+  .bs-grpc-connect-alert {
+    margin: 5px 20px 12px;
+    border-radius: var(--radius-card);
+  }
+
+  :global(:root[data-density='compact']) .bs-grpc-connect-alert {
+    margin-left: 14px;
+    margin-right: 14px;
+  }
+
+  :global([data-theme] .bs) .bs-grpc-connect-actions :global(button.primary) {
+    color: var(--on-accent);
+  }
+
   /* Request-side problems (schema, script, validation): a quiet Soft card, colour only on the icon. */
   .bs-grpc-connect-alert {
     position: relative;

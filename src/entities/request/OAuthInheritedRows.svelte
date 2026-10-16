@@ -5,6 +5,7 @@
   import { currentVarScope, environments } from '$entities/environment';
   import { oauthRuntime } from './oauth.svelte';
   import { oauthExpired, oauthLeft, oauthShortToken } from './oauthFormat';
+  import TokenPill from './TokenPill.svelte';
 
   // OA8: a request inheriting its collection's OAuth sees the shared token, read-only.
   let { auth, folder }: { auth: AuthConfig; folder: Extract<TreeNode, { kind: 'folder' }> | undefined } = $props();
@@ -34,9 +35,9 @@
 <div class="row">
   <span class="lbl">{t('oauth.inh.token')}</span>
   {#if token}
-    <span class="bs-oa-pill" class:bad={oauthExpired(token, now)}>{oauthLeft(token, now)}</span>
+    <TokenPill class={{ bad: oauthExpired(token, now) }}>{oauthLeft(token, now)}</TokenPill>
   {:else}
-    <span class="bs-oa-pill none">{t('oauth.tokens.none')}</span>
+    <TokenPill class="none">{t('oauth.tokens.none')}</TokenPill>
   {/if}
   <span class="hint">{t('oauth.inh.shared', { n: requests })}</span>
 </div>

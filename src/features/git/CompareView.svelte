@@ -11,6 +11,16 @@
   import { t, tp } from '$shared/i18n';
   import FileDiff from './FileDiff.svelte';
   import { diffLayout } from './store.svelte';
+  import {
+    GitButton,
+    GitSeg,
+    GitHead,
+    GitView,
+    GitViewBody,
+    GitViewEmpty,
+    GitTag,
+    GitError,
+  } from '$entities/git/components';
 
   let { tab }: { tab: Tab } = $props();
 
@@ -69,23 +79,23 @@
   }
 </script>
 
-<div class="bs-gview">
-  <div class="bs-ghead">
+<GitView>
+  <GitHead>
     <div class="ttl">
       <span class="crumb">{`${t('git.title')}  /  ${t('git.compare.title')}`}</span>
       <div class="row">
         <h2>{`${short(base)} → ${short(target)}`}</h2>
         {#if loaded && !error}
-          <span class="bs-gtag"
-            >{`${files.length} ${tp(files.length, ['файл', 'файла', 'файлов'], ['file', 'files'])} · +${plus} −${minus}`}</span
+          <GitTag
+            >{`${files.length} ${tp(files.length, ['файл', 'файла', 'файлов'], ['file', 'files'])} · +${plus} −${minus}`}</GitTag
           >
         {/if}
       </div>
     </div>
-    <button class="bs-gbtn" onclick={swap}
-      ><span class="material-symbols-outlined">swap_horiz</span>{t('git.compare.swap')}</button
+    <GitButton onclick={swap}
+      ><span class="material-symbols-outlined">swap_horiz</span>{t('git.compare.swap')}</GitButton
     >
-    <div class="bs-gseg" role="group" aria-label={t('git.diff.layout')}>
+    <GitSeg role="group" aria-label={t('git.diff.layout')}>
       <button
         class="icon"
         class:on={diffLayout.current === 'inline'}
@@ -102,16 +112,16 @@
         onclick={() => (diffLayout.current = 'split')}
         ><span class="material-symbols-outlined">vertical_split</span></button
       >
-    </div>
-  </div>
+    </GitSeg>
+  </GitHead>
 
-  <div class="bs-gview-body">
+  <GitViewBody>
     {#if error}
-      <div class="bs-git-diff-error">{error}</div>
+      <GitError>{error}</GitError>
     {:else if !loaded}
-      <div class="bs-gview-empty">{t('git.diff.loading')}</div>
+      <GitViewEmpty>{t('git.diff.loading')}</GitViewEmpty>
     {:else if !files.length}
-      <div class="bs-gview-empty">{t('git.compare.same')}</div>
+      <GitViewEmpty>{t('git.compare.same')}</GitViewEmpty>
     {:else}
       <div class="split">
         <div class="list">
@@ -129,7 +139,7 @@
         </div>
         <div class="diff">
           {#if pick && diffOf !== pick.path}
-            <div class="bs-gview-empty">{t('git.diff.loading')}</div>
+            <GitViewEmpty>{t('git.diff.loading')}</GitViewEmpty>
           {:else if pick && diffText.trim()}
             <FileDiff
               path={pick.path}
@@ -139,13 +149,13 @@
               rightLabel={short(target)}
             />
           {:else if pick}
-            <div class="bs-gview-empty">{t('git.diff.noText')}</div>
+            <GitViewEmpty>{t('git.diff.noText')}</GitViewEmpty>
           {/if}
         </div>
       </div>
     {/if}
-  </div>
-</div>
+  </GitViewBody>
+</GitView>
 
 <style>
   .split {

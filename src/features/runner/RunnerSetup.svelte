@@ -34,8 +34,7 @@
   import { inputs } from '$entities/input';
   import { testCount, varLinks } from './runnerStats';
   import { t, tp } from '$shared/i18n';
-  import { Switch } from '$shared/ui/components';
-  import { Segmented } from '$shared/ui/components';
+  import { Switch, Segmented } from '$shared/ui/components';
 
   const MUTATING = ['POST', 'PUT', 'PATCH', 'DELETE'];
 

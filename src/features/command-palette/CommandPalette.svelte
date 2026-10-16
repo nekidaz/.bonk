@@ -288,3 +288,290 @@
     </div>
   </div>
 {/if}
+
+<style>
+  :global(.bs) .bs-palette-item.cmd :global(.material-symbols-outlined) {
+    flex: none;
+    font-size: 16px;
+    color: var(--color-text-muted);
+  }
+
+  /* Command palette (S16) and the production send guard (S18). Pencil strokes sit inside the box,
+     so 1px borders are drawn as inset outlines and paddings match the design exactly. */
+  :global(.bs) .bs-palette-scrim {
+    position: fixed;
+    inset: 0;
+    z-index: 120;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    padding: 84px 16px 16px;
+    background: var(--color-scrim);
+  }
+
+  :global(.bs) .bs-palette {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    width: 620px;
+    max-width: 100%;
+    max-height: min(520px, calc(100vh - 120px));
+    padding: 8px;
+    outline: 1px solid var(--color-border);
+    outline-offset: -1px;
+    border-radius: 22px;
+    background: var(--color-raised);
+    box-shadow: 0 16px 40px #00000080;
+  }
+
+  :global(.bs) .bs-palette-search {
+    flex: none;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    height: 44px;
+    padding: 0 8px 0 14px;
+    box-shadow: inset 0 -1px 0 var(--color-border-subtle);
+    color: var(--color-text-secondary);
+  }
+
+  :global(.bs) .bs-palette-search :global(.material-symbols-outlined) {
+    font-size: 18px;
+  }
+
+  :global(.bs) .bs-palette-search :global(input) {
+    flex: 1;
+    min-width: 0;
+    height: 18px;
+    padding: 0;
+    border: 0;
+    outline: none;
+    box-shadow: none;
+    background: transparent;
+    color: var(--color-text);
+    font: 15px/18px var(--font-ui);
+    caret-color: var(--color-text);
+  }
+
+  :global(.bs) .bs-palette-search :global(input:focus) {
+    flex: 1;
+    min-width: 0;
+    height: 18px;
+    padding: 0;
+    border: 0;
+    outline: none;
+    box-shadow: none;
+    background: transparent;
+    color: var(--color-text);
+    font: 15px/18px var(--font-ui);
+    caret-color: var(--color-text);
+  }
+
+  :global(.bs) .bs-palette-search :global(input::placeholder) {
+    color: var(--color-text-muted);
+  }
+
+  :global(.bs) .bs-palette :global(kbd) {
+    display: inline-flex;
+    align-items: center;
+    height: 22px;
+    padding: 0 8px;
+    border-radius: var(--radius-control);
+    background: var(--color-selected);
+    color: var(--color-text-secondary);
+    font: 11px var(--font-ui);
+    opacity: 1;
+  }
+
+  :global(.bs) .bs-palette :global(kbd.code) {
+    font: 10px var(--font-code);
+  }
+
+  :global(.bs) .bs-palette-list {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  :global(.bs) .bs-palette-heading {
+    flex: none;
+    display: flex;
+    justify-content: space-between;
+    height: 27px;
+    padding: 10px 12px 4px;
+    color: var(--color-text-muted);
+    font: 500 var(--font-size-micro)/13px var(--font-code);
+    letter-spacing: var(--tracking-eyebrow);
+    text-transform: uppercase;
+  }
+
+  :global(.bs) .bs-palette-heading :global(span:last-child) {
+    letter-spacing: 0.6px;
+  }
+
+  :global(.bs) .bs-palette-item {
+    flex: none;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    height: 36px;
+    padding: 0 12px;
+    border-radius: var(--radius-control);
+    color: var(--color-text);
+    font: 13px var(--font-ui);
+    cursor: pointer;
+  }
+
+  :global(.bs) .bs-palette-item.on {
+    background: var(--color-selected);
+  }
+
+  :global(.bs) .bs-palette-item :global(.m) {
+    flex: 0 0 46px;
+    font: 600 var(--font-size-micro) var(--font-code);
+    letter-spacing: 0.4px;
+  }
+
+  :global(.bs) .bs-palette-item :global(.name) {
+    flex: none;
+    max-width: 60%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  :global(.bs) .bs-palette-item.on :global(.name) {
+    font-weight: 600;
+  }
+
+  :global(.bs) .bs-palette-item :global(.meta) {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--color-text-muted);
+    font-size: var(--font-size-body);
+  }
+
+  :global(.bs) .bs-palette-item.cmd {
+    gap: 8px;
+    font-size: var(--font-size-body);
+  }
+
+  :global(.bs) .bs-palette-item.cmd :global(.name) {
+    flex: 1;
+    max-width: none;
+    font-weight: 400;
+  }
+
+  :global(.bs) .bs-palette-item :global(.sc) {
+    color: var(--color-text-muted);
+    font: 10px var(--font-code);
+  }
+
+  /* ⌘K → Тема (Flow · Темы TH2): the scope chip, a swatch per theme in that theme's own palette (data-theme), and the
+     «текущая» / «примерка» marks. */
+  :global(.bs) .bs-palette-scope {
+    flex: none;
+    padding: 2px 8px;
+    border-radius: var(--radius-control);
+    background: var(--color-field);
+    color: var(--color-text);
+    font-size: var(--font-size-body);
+  }
+
+  :global(.bs) .bs-palette-swatch {
+    flex: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    width: 44px;
+    height: 22px;
+    border-radius: var(--radius-xs);
+    box-shadow: inset 0 0 0 1px var(--color-border);
+    background: var(--color-panel);
+  }
+
+  :global(.bs) .bs-palette-swatch :global(i) {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--color-action);
+  }
+
+  :global(.bs) .bs-palette-swatch :global(i:nth-child(2)) {
+    background: var(--method-get);
+  }
+
+  :global(.bs) .bs-palette-swatch :global(i:nth-child(3)) {
+    background: var(--method-post);
+  }
+
+  :global(.bs) .bs-palette-swatch :global(i:nth-child(4)) {
+    background: var(--method-delete);
+  }
+
+  :global(.bs) .bs-palette-current {
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    color: var(--color-text-muted);
+    font-size: var(--font-size-caption);
+  }
+
+  :global(.bs) .bs-palette-trying {
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    color: var(--color-text-muted);
+    font-size: var(--font-size-caption);
+  }
+
+  :global(.bs) .bs-palette-trying {
+    padding: 1px 8px 1px 6px;
+    border-radius: var(--radius-control);
+    background: var(--color-var-soft);
+    color: var(--color-var);
+  }
+
+  :global(.bs) .bs-palette-item.cmd .bs-palette-current :global(.material-symbols-outlined) {
+    font-size: 14px;
+    color: inherit;
+  }
+
+  :global(.bs) .bs-palette-item.cmd .bs-palette-trying :global(.material-symbols-outlined) {
+    font-size: 14px;
+    color: inherit;
+  }
+
+  :global(.bs) .bs-palette-empty {
+    padding: 24px 12px;
+    color: var(--color-text-muted);
+    font-size: var(--font-size-body);
+    text-align: center;
+  }
+
+  :global(.bs) .bs-palette-foot {
+    flex: none;
+    display: flex;
+    gap: 16px;
+    height: 36px;
+    padding: 10px 12px 4px;
+    box-shadow: inset 0 1px 0 var(--color-border-subtle);
+    color: var(--color-text-muted);
+    font: 11px var(--font-ui);
+  }
+
+  :global(.bs) .bs-palette-foot :global(span) {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+</style>

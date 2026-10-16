@@ -21,6 +21,8 @@
   import { textStats } from '$shared/editor';
   import { t } from '$shared/i18n';
   import { requestPrefs } from '$shared/settings';
+  import RespBody from './RespBody.svelte';
+  import CodeBlock from './CodeBlock.svelte';
 
   /** Above this the lezer parser's background work causes visible hitches; use the viewport tokenizer. */
   const LITE_CHARS = 1_000_000;
@@ -79,13 +81,13 @@
       />
     </div>
   {:else if legacy}
-    <div class="bs-rbody pretty">
+    <RespBody class="pretty">
       {#if legacy.kind === 'plain'}
         <div class="bs-response-editor" class:wrap={requestPrefs.responseLineWrap.current}>
           <div class="bs-response-gutter" aria-hidden="true">
             {#each legacy.lines as n}<div>{n}</div>{/each}
           </div>
-          <div class="bs-code">{@html legacy.html}</div>
+          <CodeBlock>{@html legacy.html}</CodeBlock>
         </div>
       {:else if legacy.kind === 'lines'}
         <div class="bs-response-editor chunked" class:wrap={requestPrefs.responseLineWrap.current}>
@@ -94,7 +96,7 @@
               <div class="bs-response-gutter" aria-hidden="true">
                 {#each c.gutter as n}<div>{n}</div>{/each}
               </div>
-              <div class="bs-code">{@html c.html}</div>
+              <CodeBlock>{@html c.html}</CodeBlock>
             </div>
           {/each}
         </div>
@@ -102,11 +104,124 @@
         <div class="bs-response-editor chunked chars">
           {#each legacy.chunks as c (c.offset)}
             <div class="bs-resp-cchunk" style="contain-intrinsic-size: auto {c.estPx}px">
-              <div class="bs-code">{@html c.html}</div>
+              <CodeBlock>{@html c.html}</CodeBlock>
             </div>
           {/each}
         </div>
       {/if}
-    </div>
+    </RespBody>
   {/if}
 </div>
+
+<style>
+  .bs-response-editor :global(.bs-code) {
+    min-width: 0;
+    padding: 12px 16px 18px;
+    white-space: pre;
+    overflow-wrap: normal;
+    word-break: normal;
+  }
+
+  .bs-response-editor.wrap :global(.bs-code) {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+
+  /* Chunked rendering for large responses: each chunk is its own gutter+code
+     grid row with `content-visibility: auto`, so the webview skips layout/paint/
+     GPU compositing for off-screen chunks. Keeps memory bounded and avoids the
+     giant single-layer texture that crashes WKWebView on huge bodies. */
+  .bs-response-editor.chunked {
+    display: block;
+    padding: 12px 0 18px;
+  }
+
+  .bs-response-editor.chunked .bs-resp-chunk {
+    display: grid;
+    content-visibility: auto;
+  }
+
+  .bs-response-editor.chunked .bs-response-gutter {
+    padding: 0 10px 0 0;
+  }
+
+  .bs-response-editor.chunked :global(.bs-code) {
+    padding: 0 16px;
+  }
+
+  /* Char-chunked path (very long lines, e.g. minified JSON): no per-line gutter,
+     always soft-wrapped so a single multi-MB line can't blow out the layer. */
+  .bs-response-editor.chars .bs-resp-cchunk {
+    content-visibility: auto;
+  }
+
+  .bs-response-editor.chars :global(.bs-code) {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+
+  .bs-response-editor {
+    position: relative;
+    min-height: 100%;
+    display: grid;
+    background: var(--canvas);
+    grid-template-columns: 48px minmax(0, 1fr);
+  }
+
+  .bs-response-gutter {
+    position: sticky;
+    left: 0;
+    z-index: 1;
+    padding: 12px 10px 18px 0;
+    user-select: none;
+    background: var(--canvas);
+    border-right: 1px solid var(--sepsoft);
+    width: 44px;
+    padding-right: 12px;
+    color: var(--color-text-muted);
+    font: var(--font-size-body)/20px var(--font-code);
+    text-align: right;
+  }
+
+  :global(.bs) .bs-response-editor :global(:is(.bs-code, .bs-response-gutter)) {
+    padding-top: 0;
+    padding-bottom: 0;
+  }
+
+  :global(.bs) .bs-response-editor :global(.bs-code) {
+    padding-left: 0;
+  }
+
+  /* E4 rule 8 · response viewer */
+  .lb-resp-body {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .lb-viewer {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .lb-viewer :global(.cm-gutters) {
+    border-right: 0;
+    background: transparent;
+    color: var(--color-text-muted);
+  }
+
+  .lb-viewer :global(.cm-lineNumbers .cm-gutterElement) {
+    min-width: 44px;
+    padding: 0 8px 0 0;
+    font: var(--font-size-body)/20px var(--font-code);
+  }
+
+  .lb-viewer :global(.cm-content) {
+    font: var(--font-size-body)/20px var(--font-code);
+  }
+</style>

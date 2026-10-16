@@ -4,7 +4,6 @@
   import { workspace } from '$entities/workspace';
   import { updater } from '$shared/updater';
   import { t } from '$shared/i18n';
-  import '../../styles/settings.css';
   import SettingsGeneral from './SettingsGeneral.svelte';
   import SettingsRequests from './SettingsRequests.svelte';
   import SettingsCookies from './SettingsCookies.svelte';
@@ -17,6 +16,8 @@
   import SettingsMcp from './SettingsMcp.svelte';
   import SettingsVariables from './SettingsVariables.svelte';
   import { openSettingsFileTab } from './settingsFileTab.svelte';
+  import { Overlay } from '$shared/ui/components';
+  import CloseX from './CloseX.svelte';
 
   // Two-way bound from the parent (app/ `shell.settingsOpen` is the source of truth).
   let { open = $bindable() }: { open: boolean } = $props();
@@ -106,7 +107,7 @@
 <svelte:window onkeydown={onKeydown} />
 
 {#if open}
-  <div class="bs-overlay st-overlay" role="dialog" aria-modal="true" aria-label={t('settings.title')}>
+  <Overlay class="st-overlay" role="dialog" aria-modal="true" aria-label={t('settings.title')}>
     <div class="st-sheet">
       <nav class="st-nav" aria-label={t('settings.sections')}>
         <div class="st-kicker">{t('settings.kicker')}</div>
@@ -145,9 +146,8 @@
             <p>{t(page.sub)}</p>
           </div>
           <div style="display:flex;gap:4px">
-            <button
+            <CloseX
               type="button"
-              class="st-x"
               title={t('settingsFile.open')}
               aria-label={t('settingsFile.open')}
               onclick={() => {
@@ -156,10 +156,10 @@
               }}
             >
               <span class="material-symbols-outlined" style="font-size:18px" aria-hidden="true">data_object</span>
-            </button>
-            <button type="button" class="st-x" aria-label={t('common.close')} onclick={close}>
+            </CloseX>
+            <CloseX type="button" aria-label={t('common.close')} onclick={close}>
               <span class="material-symbols-outlined" style="font-size:18px" aria-hidden="true">close</span>
-            </button>
+            </CloseX>
           </div>
         </header>
         <div class="st-body">
@@ -167,5 +167,148 @@
         </div>
       </div>
     </div>
-  </div>
+  </Overlay>
 {/if}
+
+<style>
+  /* Settings sheet (S32–S32.7). Global so every section component shares the primitives. */
+  /* Sizes follow the S32 mock (Pencil node «Settings sheet»). */
+  .st-sheet {
+    position: relative;
+    transform: translateY(10px);
+    width: min(1040px, 100%);
+    height: min(660px, 100%);
+    display: flex;
+    overflow: hidden;
+    background: var(--color-raised);
+    border: 1px solid var(--color-border-subtle);
+    border-radius: var(--radius-dialog);
+    box-shadow: var(--shadow-lg, 0 30px 80px rgba(0, 0, 0, 0.4));
+    color: var(--color-text);
+  }
+
+  .st-nav {
+    width: 240px;
+    flex: 0 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 18px 10px 14px;
+    background: var(--color-panel);
+    border-right: 1px solid var(--color-border-subtle);
+    min-height: 0;
+  }
+
+  .st-kicker {
+    padding: 0 10px;
+    font: 500 var(--font-size-micro)/13px var(--font-code);
+    letter-spacing: var(--tracking-eyebrow);
+    color: var(--color-text-muted);
+  }
+
+  .st-ws {
+    padding: 4px 10px 12px;
+    font: 600 var(--font-size-ui)/16px var(--font-ui);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .st-nav :global(ul) {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    flex: 1;
+    overflow-y: auto;
+    min-height: 0;
+  }
+
+  .st-item {
+    width: 100%;
+    height: 34px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 0 12px;
+    border: 0;
+    border-radius: var(--radius-control);
+    background: transparent;
+    color: var(--color-text);
+    font: var(--font-size-body) var(--font-ui);
+    text-align: left;
+    cursor: pointer;
+    transition: background var(--duration-hover) var(--ease-soft);
+  }
+
+  .st-item :global(.material-symbols-outlined) {
+    width: 16px;
+    font-size: 16px;
+    color: var(--color-text-secondary);
+  }
+
+  .st-item:hover {
+    background: var(--color-hover);
+  }
+
+  .st-item.on {
+    background: var(--color-selected);
+    font-weight: 600;
+  }
+
+  .st-item:focus-visible {
+    outline: 2px solid var(--color-text);
+    outline-offset: 2px;
+  }
+
+  .st-ver {
+    padding: 0 10px;
+    font: var(--font-size-micro)/13px var(--font-code);
+    color: var(--color-text-muted);
+  }
+
+  .st-main {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    padding: 18px 24px 20px 28px;
+    gap: 16px;
+  }
+
+  .st-head {
+    flex: none;
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+  }
+
+  .st-head :global(h2) {
+    margin: 0;
+    font: 600 var(--font-size-heading)/24px var(--font-ui);
+  }
+
+  .st-head :global(p) {
+    margin: 4px 0 0;
+    font: var(--font-size-body)/15px var(--font-ui);
+    color: var(--color-text-muted);
+  }
+
+  .st-body {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .st-item {
+      transition: none;
+    }
+  }
+</style>

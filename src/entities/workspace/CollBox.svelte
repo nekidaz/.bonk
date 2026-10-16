@@ -1,0 +1,21 @@
+<!-- The framed box around the folder list (was `.bs-collbox`). -->
+<script lang="ts">
+  import type { Snippet } from 'svelte';
+  import type { HTMLAttributes } from 'svelte/elements';
+
+  type Props = HTMLAttributes<HTMLDivElement> & { ref?: HTMLDivElement | null; children?: Snippet };
+
+  let { class: cls, ref = $bindable(), children, ...rest }: Props = $props();
+</script>
+
+<div bind:this={ref} class={['bs-collbox', cls]} {...rest}>{@render children?.()}</div>
+
+<style>
+  .bs-collbox {
+    overflow: hidden;
+    border: 1px solid var(--sep);
+    border-radius: 5px;
+    background: var(--surface);
+    box-shadow: none;
+  }
+</style>

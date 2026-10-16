@@ -21,7 +21,7 @@
   import { scriptMarks } from './scriptMarks';
   import { scriptSnippetsExpanded, scriptSnippetsOpen } from './scriptPrefs.svelte';
   import { consoleRows, stageTests } from './scriptRun';
-  import { Segmented } from '$shared/ui/components';
+  import { Segmented, StatusPill } from '$shared/ui/components';
 
   let {
     preRequestScript,
@@ -275,8 +275,9 @@
         </Segmented>
         <span class="spacer"></span>
         {#if response}
-          <span class="bs-stpill {response.tone}"
-            ><span class="g" aria-hidden="true">{response.tone === 'success' ? '✓' : '!'}</span>{response.status}</span
+          <StatusPill class={response.tone}
+            ><span class="g" aria-hidden="true">{response.tone === 'success' ? '✓' : '!'}</span
+            >{response.status}</StatusPill
           >
           <span class="detail">{response.detail}</span>
         {/if}
@@ -300,6 +301,11 @@
 </div>
 
 <style>
+  :global(:root .bs .bs-stpill.danger) {
+    background: var(--color-danger-soft);
+    color: var(--color-danger);
+  }
+
   .bs-scripts {
     flex: 1;
     min-height: 0;

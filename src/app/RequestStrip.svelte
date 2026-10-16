@@ -10,6 +10,7 @@
   import { oneLinePreview } from '$shared/ui';
   import { bodyKindLabel } from '$shared/editor';
   import { grpcInputType, openGrpcEditorSection, type GrpcEditorSection } from '$entities/request';
+  import { Strip } from '$shared/ui/components';
 
   let { tab, onShow }: { tab: Tab; onShow: () => void } = $props();
 
@@ -46,7 +47,7 @@
   }
 </script>
 
-<div class="lb-strip req" role="group" aria-label={t('lb.strip.request')}>
+<Strip class="req" role="group" aria-label={t('lb.strip.request')}>
   <span class="label">{t('lb.strip.request')}</span>
   {#each chips as c (c.id)}
     <button type="button" class="chip" onclick={() => open(c.id)}>{c.label}<b>{c.value}</b></button>
@@ -63,4 +64,27 @@
       >{t('lb.strip.showBody')}</span
     ><kbd>{formatBinding(hotkeys.current.toggleRequest ?? '').join('')}</kbd>
   </button>
-</div>
+</Strip>
+
+<style>
+  :global(:root .lb-strip.req) {
+    margin: 10px 20px 10px;
+    background: var(--color-field);
+  }
+
+  @media (max-width: 760px) {
+    :global(:root .lb-strip.req) {
+      gap: 8px;
+    }
+
+    :global(:root .lb-strip.req :is(.label, .act .lbl, .act kbd)) {
+      display: none;
+    }
+
+    :global(:root .lb-strip.req .act) {
+      width: 30px;
+      padding: 0;
+      justify-content: center;
+    }
+  }
+</style>

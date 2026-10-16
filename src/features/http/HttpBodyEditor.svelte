@@ -22,6 +22,7 @@
   import { bodyParamRows, emptyBodyParam, fileName } from './httpHeaders';
   import { tabs } from '$entities/tab';
   import { environments, requestVariableHighlight } from '$entities/environment';
+  import { BodyPanel, BodyCode, BeautifyButton, BodyHead } from '$entities/request/components';
 
   let { tab }: { tab: Tab } = $props();
 
@@ -211,9 +212,9 @@
   }
 </script>
 
-<div class="bs-http-body">
+<BodyPanel>
   {#if !large}
-    <div class="bs-body-head">
+    <BodyHead>
       <div class="bs-body-seg" role="radiogroup" aria-label={t('http.body.type_aria')}>
         {#each segments as seg (seg.key)}
           <button
@@ -260,10 +261,10 @@
         >{bodyInfo}{#if bodyInvalid}<b class="lb-bad">{'  ·  '}{t('lb.json.invalid')}</b>{/if}</span
       >
       {#if canBeautify}
-        <button class="bs-body-beautify" type="button" onclick={beautifyBody}
+        <BeautifyButton type="button" onclick={beautifyBody}
           ><span class="material-symbols-outlined" aria-hidden="true">format_align_left</span>{t(
             'http.body.beautify',
-          )}</button
+          )}</BeautifyButton
         >
       {/if}
       {#if unknownDynamic}
@@ -275,7 +276,7 @@
           )}`}</span
         >
       {/if}
-    </div>
+    </BodyHead>
   {/if}
 
   {#if bodyError}<div class="bs-body-error">{bodyError}</div>{/if}
@@ -368,7 +369,7 @@
     <div class="bs-graphql-editors">
       <section class="bs-graphql-panel">
         <div class="bs-graphql-label">{t('http.body.gql_query')}</div>
-        <div class="bs-body-cm" class:invalid={!!bodyError}>
+        <BodyCode class={{ invalid: !!bodyError }}>
           <CodeEditor
             value={tab.request.body ?? ''}
             onChange={setBody}
@@ -379,11 +380,11 @@
             docId={`${tab.id}:graphql-query`}
             ariaLabel={t('http.body.gql_query_aria')}
           />
-        </div>
+        </BodyCode>
       </section>
       <section class="bs-graphql-panel">
         <div class="bs-graphql-label">{t('http.body.gql_vars')}</div>
-        <div class="bs-body-cm">
+        <BodyCode>
           <CodeEditor
             value={tab.request.graphqlVariables ?? ''}
             onChange={setGraphqlVariables}
@@ -394,7 +395,7 @@
             docId={`${tab.id}:graphql-variables`}
             ariaLabel={t('http.body.gql_vars_aria')}
           />
-        </div>
+        </BodyCode>
       </section>
     </div>
   {:else}
@@ -407,7 +408,7 @@
         <span>{t('http.body.or_text')}</span>
       </div>
     {/if}
-    <div class="bs-body-cm" class:invalid={!!bodyError}>
+    <BodyCode class={{ invalid: !!bodyError }}>
       <CodeEditor
         value={tab.request.body ?? ''}
         onChange={setBody}
@@ -420,11 +421,283 @@
         docId={tab.id}
         ariaLabel={t('http.body.aria')}
       />
-    </div>
+    </BodyCode>
   {/if}
-</div>
+</BodyPanel>
 
 <style>
+  .bs-body-kv-row:not(.h):hover {
+    background: var(--hover2);
+  }
+
+  :global(.bs) .bs-body-format :global(.material-symbols-outlined) {
+    position: absolute;
+    right: 8px;
+    top: 7px;
+    font-size: 16px;
+    color: var(--color-text-muted);
+    pointer-events: none;
+  }
+
+  .bs-body-kv-row {
+    display: grid;
+    grid-template-columns: 44px minmax(150px, 0.9fr) minmax(160px, 1.2fr) minmax(160px, 1fr);
+    min-height: 40px;
+    border-bottom: 0.5px solid var(--sepsoft);
+    contain: paint;
+  }
+
+  .bs-body-error {
+    padding: 8px 18px;
+    border-bottom: 0.5px solid var(--sepsoft);
+    color: var(--red);
+    font-family: var(--mono);
+    font-size: 12px;
+    background: color-mix(in srgb, var(--red) 9%, transparent);
+  }
+
+  .bs-body-empty {
+    flex: 1;
+    min-height: 260px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    color: var(--t2);
+    background: radial-gradient(460px 240px at 50% 34%, rgba(10, 132, 255, 0.075), transparent 70%);
+  }
+
+  .bs-body-empty :global(.material-symbols-outlined) {
+    width: 46px;
+    height: 46px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 13px;
+    background: color-mix(in srgb, var(--surface) 72%, transparent);
+    border: 0.5px solid var(--sep);
+    box-shadow: var(--shadow-sm);
+  }
+
+  .bs-body-empty :global(div) {
+    font-size: 13px;
+  }
+
+  .bs-body-kv.formdata .bs-body-kv-row {
+    grid-template-columns: 44px minmax(130px, 0.75fr) 112px minmax(180px, 1.15fr) minmax(150px, 0.9fr);
+  }
+
+  .bs-body-kv-row:last-child {
+    border-bottom: 0;
+  }
+
+  :where(.bs-body-kv-row).h {
+    min-height: 38px;
+    background: color-mix(in srgb, var(--surface) 72%, var(--hover2));
+    color: var(--t2);
+    font-size: 11.5px;
+    font-weight: 650;
+  }
+
+  .bs-body-kv-row :global(.c) {
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    padding: 0 14px;
+    border-right: 0.5px solid var(--sepsoft);
+  }
+
+  .bs-body-kv-row :global(.c:last-child) {
+    border-right: 0;
+  }
+
+  .bs-body-kv-row :global(.c.on) {
+    justify-content: center;
+    padding: 0;
+  }
+
+  .bs-body-kv-row :global(input[type='checkbox']) {
+    width: 15px;
+    height: 15px;
+    border-radius: 4px;
+    accent-color: var(--accent);
+  }
+
+  .bs-body-kv-row :global(input:not([type='checkbox'])) {
+    width: 100%;
+    min-width: 0;
+    background: transparent;
+    border: 0;
+    outline: 0;
+    color: var(--text);
+    font: inherit;
+    font-family: var(--mono);
+    font-size: 12.5px;
+  }
+
+  .bs-body-kv-row :global(select) {
+    width: 100%;
+    height: 28px;
+    padding: 0 26px 0 9px;
+    appearance: none;
+    border: 0.5px solid var(--sep);
+    border-radius: 7px;
+    color: var(--text);
+    font-family: inherit;
+    font-size: 12px;
+    background:
+      linear-gradient(45deg, transparent 50%, var(--t2) 50%) right 12px center / 5px 5px no-repeat,
+      linear-gradient(135deg, var(--t2) 50%, transparent 50%) right 7px center / 5px 5px no-repeat,
+      color-mix(in srgb, var(--surface) 76%, transparent);
+    outline: none;
+  }
+
+  .bs-body-kv-row :global(select:focus) {
+    border-color: rgba(10, 132, 255, 0.58);
+    box-shadow: var(--focus-ring);
+  }
+
+  .bs-file-picker {
+    width: 100%;
+    min-width: 0;
+    height: 28px;
+    padding: 0 10px;
+    border-radius: 7px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    border: 0.5px solid var(--sep);
+    background: color-mix(in srgb, var(--surface) 76%, transparent);
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 12px;
+    box-shadow: var(--shadow-sm);
+  }
+
+  .bs-file-picker:hover {
+    border-color: color-mix(in srgb, var(--accent) 42%, var(--sep));
+    background: var(--hover2);
+  }
+
+  .bs-file-picker :global(span:last-child) {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .bs-body-kv-row :global(input::placeholder) {
+    color: var(--t3);
+  }
+
+  .bs-body-kv-row :global(.desc input) {
+    font-family: inherit;
+  }
+
+  @media (max-width: 980px) {
+    .bs-body-kv-row {
+      grid-template-columns: 38px minmax(120px, 1fr) minmax(120px, 1fr);
+    }
+
+    .bs-body-kv.formdata .bs-body-kv-row {
+      grid-template-columns: 38px minmax(100px, 0.8fr) 92px minmax(130px, 1fr);
+    }
+
+    .bs-body-kv-row :global(.desc) {
+      display: none;
+    }
+  }
+
+  .bs-body-kv {
+    margin: 18px;
+    border: 0.5px solid var(--sep);
+    overflow: hidden;
+    background: var(--surface);
+    box-shadow: var(--shadow-sm);
+    border-radius: var(--radius-card);
+  }
+
+  :global([data-theme] .bs) .bs-body-empty {
+    background: var(--canvas);
+  }
+
+  :global([data-theme] .bs) .bs-body-kv-row :global(select:focus) {
+    border-color: var(--accent);
+  }
+
+  :global(.bs) .bs-body-seg {
+    display: inline-flex;
+    height: 30px;
+    padding: 2px;
+    gap: 2px;
+    outline: 1px solid var(--color-border-subtle);
+    outline-offset: -1px;
+    border-radius: var(--radius-control);
+    background: var(--color-field);
+  }
+
+  :global(.bs) .bs-body-seg :global(button) {
+    height: 24px;
+    margin: 1px 0;
+    padding: 0 12px;
+    border-radius: var(--radius-control);
+    color: var(--color-text-secondary);
+    font: 500 var(--font-size-caption) var(--font-ui);
+  }
+
+  :global(.bs) .bs-body-seg :global(button:hover) {
+    color: var(--color-text);
+  }
+
+  :global(.bs) .bs-body-seg :global(button.on) {
+    background: var(--color-raised);
+    color: var(--color-text);
+    font-weight: 600;
+  }
+
+  :global(.bs) .bs-body-format {
+    position: relative;
+  }
+
+  :global(.bs) .bs-body-format :global(select) {
+    appearance: none;
+    -webkit-appearance: none;
+    height: 30px;
+    padding: 0 30px 0 12px;
+    border: 0;
+    outline: 1px solid var(--color-border-subtle);
+    outline-offset: -1px;
+    border-radius: var(--radius-control);
+    background: var(--color-field);
+    color: var(--color-text-secondary);
+    font: 500 var(--font-size-caption) var(--font-ui);
+    cursor: pointer;
+  }
+
+  :global(.bs) .bs-body-info {
+    margin-left: auto;
+    color: var(--color-text-muted);
+    font: 500 var(--font-size-micro) var(--font-code);
+    letter-spacing: var(--tracking-eyebrow);
+    text-transform: uppercase;
+    white-space: pre;
+  }
+
+  :global(.bs .bs-http-body) .bs-body-kv {
+    border: 0;
+    outline: 1px solid var(--color-border-subtle);
+    outline-offset: -1px;
+    border-radius: var(--radius-card);
+    background: var(--color-field);
+    overflow: hidden;
+  }
+
+  .bs-body-info .lb-bad {
+    color: var(--color-danger);
+    font-weight: 500;
+  }
+
   .dyn-bad {
     display: inline-flex;
     align-items: center;

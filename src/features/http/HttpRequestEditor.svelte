@@ -7,7 +7,7 @@
    * and store writes. This component keeps only cross-pane UI state.
    */
   import { t } from '$shared/i18n';
-  import { HttpAuthEditor, RequestScripts } from '$entities/request/components';
+  import { HttpAuthEditor, RequestScripts, KvPanel, ReqPane } from '$entities/request/components';
   import { scriptUi } from '$entities/request';
   import HttpBodyEditor from './HttpBodyEditor.svelte';
   import HttpHeadersEditor from './HttpHeadersEditor.svelte';
@@ -17,6 +17,7 @@
   import { tabs } from '$entities/tab';
   import type { HttpEditorTab } from './httpEditor';
   import type { Tab } from '$shared/model';
+  import { EmptyState } from '$shared/ui/components';
 
   let { tab, methodOpen = $bindable() }: { tab: Tab; methodOpen: boolean } = $props();
 
@@ -35,7 +36,7 @@
 <HttpUrlBar {tab} bind:methodOpen />
 <HttpRequestTabs {tab} bind:uiTab />
 
-<div class="bs-reqpane" role="tabpanel" id="bs-reqpanel" aria-labelledby="bs-rtab-{uiTab}">
+<ReqPane role="tabpanel" id="bs-reqpanel" aria-labelledby="bs-rtab-{uiTab}">
   {#if uiTab === 'body'}
     <HttpBodyEditor {tab} />
   {:else if uiTab === 'auth'}
@@ -53,11 +54,11 @@
       onTestChange={(v) => setHttpScript('testScript', v)}
     />
   {:else}
-    <div class="bs-pwrap">
-      <div class="bs-empty">
+    <KvPanel>
+      <EmptyState>
         <b style="margin-bottom:4px">{t('http.empty.title', { tab: t('http.tabs.' + uiTab) })}</b>
         <p>{t('http.empty.body', { tab: t('http.tabs.' + uiTab) })}</p>
-      </div>
-    </div>
+      </EmptyState>
+    </KvPanel>
   {/if}
-</div>
+</ReqPane>

@@ -6,6 +6,7 @@
   import { t } from '$shared/i18n';
   import { formatElapsed } from './utilPanel';
   import { terminal } from './store.svelte';
+  import { Spacer } from '$shared/ui/components';
 
   let command = $state('');
   let historyIndex = $state(terminal.history.length);
@@ -130,7 +131,7 @@
       <span class="label">{t('util.terminal.runningLabel')}</span>
       <span class="cmd">{terminal.running.command}</span>
       <span class="time">{formatElapsed(Math.max(0, now - terminal.running.startedAt))}</span>
-      <div class="bs-spacer"></div>
+      <Spacer />
       <span class="blocked">{t('util.terminal.blocked')}</span>
       <button type="button" class="stop" onclick={() => terminal.interrupt()}
         ><span class="material-symbols-outlined" aria-hidden="true">stop</span>{t('util.terminal.stop')}

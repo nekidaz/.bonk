@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { GitBranchIcon } from '$shared/ui/components';
+  import { GitBranchIcon, Spacer } from '$shared/ui/components';
   import type { UtilityMode } from '$shared/ui';
   import { tabs } from '$entities/tab';
   import { runner } from '$features/runner';
@@ -142,7 +142,7 @@
       ></button
     >
   {/if}
-  <div class="bs-spacer"></div>
+  <Spacer />
   <!-- Flow · Cookies: the jar's size; opens the jar window. -->
   <button
     class="bs-status-link"
@@ -168,6 +168,91 @@
 </div>
 
 <style>
+  .bs-status-link {
+    color: var(--t3);
+  }
+
+  .bs-status-link:hover {
+    color: var(--text);
+    background: var(--hover2);
+  }
+
+  .bs-status-link.on {
+    color: var(--text);
+    background: var(--hover);
+  }
+
+  .bs-status :global(svg) {
+    width: 14px;
+    height: 14px;
+  }
+
+  .bs-status {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+
+  .bs-status-link {
+    height: 100%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    white-space: nowrap;
+    padding: 0 4px;
+    font-size: 11px;
+  }
+
+  /* Footer · 30px, no chrome */
+  .bs-status {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    backdrop-filter: none;
+    box-shadow: none;
+    font-size: 10.5px;
+    height: 30px;
+    padding: 0 10px;
+    gap: 16px;
+    border: 0;
+    background: transparent;
+    color: var(--color-text-secondary);
+  }
+
+  :global(.bs) .bs-status-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    height: 20px;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--color-text-secondary);
+    font: var(--font-size-caption) var(--font-ui);
+  }
+
+  :global(.bs) .bs-status-link:hover {
+    color: var(--color-text);
+  }
+
+  :global(.bs) .bs-status-link.on {
+    color: var(--color-text);
+  }
+
+  .bs-status-link :global(.material-symbols-outlined) {
+    font-size: 13px;
+  }
+
+  :global(:root[data-density='compact']) .bs-status {
+    height: 26px;
+  }
+
+  @media (max-width: 900px) {
+    /* Only the avatar; the full name stays in the chip's tooltip. */
+    .bs-status-link :global(.lbl) {
+      display: none;
+    }
+  }
+
   /* S36: the active Runner reads as a selected pill. */
   .spin {
     animation: bs-spin 1s linear infinite;

@@ -4,6 +4,8 @@
   import { withInheritedAuth, workspace } from '$entities/workspace';
   import { tabs } from '$entities/tab';
   import type { HttpRequest, Tab } from '$shared/model';
+  import { KvPanel, KvHead, KvTable, KvRow, KvCell } from '$entities/request/components';
+  import { LabelSwitch } from '$shared/ui/components';
 
   let { tab }: { tab: Tab } = $props();
 
@@ -54,31 +56,31 @@
   }
 </script>
 
-<div class="bs-pwrap bs-hwrap">
-  <div class="bs-qp bs-headers-head">
+<KvPanel class="bs-hwrap">
+  <KvHead class="bs-headers-head">
     <span class="t"
       >{t(
         'http.headers.title',
       )}&nbsp;&nbsp;·&nbsp;&nbsp;{manualCount}{#if auto.length}&nbsp;&nbsp;+&nbsp;&nbsp;{auto.length} auto{/if}</span
     >
-    <label class="bs-switch">
+    <LabelSwitch>
       <input type="checkbox" role="switch" bind:checked={showAuto} />
       <span class="track" aria-hidden="true"></span>
       {t('http.headers.show_auto')}
-    </label>
-  </div>
-  <div class="bs-pt bs-headers">
-    <div class="bs-pr h">
-      <div class="bs-pc c"></div>
-      <div class="bs-pc k">{t('http.col.key')}</div>
-      <div class="bs-pc v">{t('http.col.value')}</div>
-      <div class="bs-pc d">{t('http.col.description')}</div>
-      <div class="bs-pc m"></div>
-    </div>
+    </LabelSwitch>
+  </KvHead>
+  <KvTable class="bs-headers">
+    <KvRow class="h">
+      <KvCell class="c"></KvCell>
+      <KvCell class="k">{t('http.col.key')}</KvCell>
+      <KvCell class="v">{t('http.col.value')}</KvCell>
+      <KvCell class="d">{t('http.col.description')}</KvCell>
+      <KvCell class="m"></KvCell>
+    </KvRow>
     {#each headerRows(tab) as h, i (i)}
       {@const enabled = !(tab.request.disabledHeaders ?? []).includes(h.key)}
-      <div class="bs-pr" class:disabled={!enabled} class:ph={!h.key && !h.value}>
-        <div class="bs-pc c">
+      <KvRow class={{ disabled: !enabled, ph: !h.key && !h.value }}>
+        <KvCell class="c">
           <input
             type="checkbox"
             checked={enabled && !!h.key}
@@ -86,45 +88,68 @@
             onchange={() => toggle(h.key)}
             aria-label={t('http.headers.send')}
           />
-        </div>
-        <div class="bs-pc k">
+        </KvCell>
+        <KvCell class="k">
           <input
             placeholder={t('http.col.key')}
             value={h.key}
             oninput={(e) => setHeaderRow(i, 'key', e.currentTarget.value)}
           />
-        </div>
-        <div class="bs-pc v">
+        </KvCell>
+        <KvCell class="v">
           <input
             class:var={isVar(h.value)}
             placeholder={t('http.col.value')}
             value={h.value}
             oninput={(e) => setHeaderRow(i, 'value', e.currentTarget.value)}
           />
-        </div>
-        <div class="bs-pc d">
+        </KvCell>
+        <KvCell class="d">
           <input
             placeholder={t('http.col.description')}
             value={tab.request.headerNotes?.[h.key] ?? ''}
             disabled={!h.key}
             oninput={(e) => setNote(h.key, e.currentTarget.value)}
           />
-        </div>
-        <div class="bs-pc m"></div>
-      </div>
+        </KvCell>
+        <KvCell class="m"></KvCell>
+      </KvRow>
     {/each}
     {#if showAuto}
       {#each auto as h (h.key)}
-        <div class="bs-pr auto" title={t('http.headers.auto_added')}>
-          <div class="bs-pc c">
+        <KvRow class="auto" title={t('http.headers.auto_added')}>
+          <KvCell class="c">
             <input type="checkbox" checked disabled aria-label={t('http.headers.auto_added')} />
-          </div>
-          <div class="bs-pc k">{h.key}</div>
-          <div class="bs-pc v">{h.value}</div>
-          <div class="bs-pc d">{h.source === 'Auth' ? t('http.headers.auto_auth') : 'auto'}</div>
-          <div class="bs-pc m"></div>
-        </div>
+          </KvCell>
+          <KvCell class="k">{h.key}</KvCell>
+          <KvCell class="v">{h.value}</KvCell>
+          <KvCell class="d">{h.source === 'Auth' ? t('http.headers.auto_auth') : 'auto'}</KvCell>
+          <KvCell class="m"></KvCell>
+        </KvRow>
       {/each}
     {/if}
-  </div>
-</div>
+  </KvTable>
+</KvPanel>
+
+<style>
+  :global(:root .bs-hwrap .bs-qp.manual) {
+    margin-top: 18px;
+  }
+
+  /* S12: headers table with automatic rows and the "show auto" switch. */
+  :global(:root .bs .bs-qp.bs-headers-head) {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 16px;
+  }
+
+  :global(:root .bs .bs-pr.auto) {
+    opacity: 0.5;
+  }
+
+  :global(:root .bs .bs-pr.auto .bs-pc.d) {
+    font-family: var(--font-ui);
+    color: var(--color-text-muted);
+  }
+</style>

@@ -12,7 +12,7 @@
     variant?: 'primary' | 'ghost' | 'ghost-danger' | 'danger' | 'danger-soft' | 'link';
     /** `lg` = the 34px sheet-footer button (Environments, Cookie jar). */
     size?: 'md' | 'lg';
-    ref?: HTMLButtonElement;
+    ref?: HTMLButtonElement | null;
     children: Snippet;
   };
 
@@ -23,6 +23,14 @@
 >
 
 <style>
+  :global(.bs .bs-oa) .bs-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 30px;
+    padding: 0 12px;
+  }
+
   .bs-btn {
     height: 28px;
     padding: 0 16px;

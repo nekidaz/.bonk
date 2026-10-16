@@ -3,6 +3,7 @@
   import { untrack } from 'svelte';
   import { git, stashPush } from '$entities/git';
   import { t } from '$shared/i18n';
+  import { GitButton, GitLayer } from '$entities/git/components';
 
   let message = $state('');
   let includeUntracked = $state(true);
@@ -30,7 +31,7 @@
 </script>
 
 {#if at}
-  <div class="bs-gitlayer" role="presentation" onpointerdown={close}></div>
+  <GitLayer role="presentation" onpointerdown={close}></GitLayer>
   <div class="bs-stashmenu" role="dialog" aria-label={t('git.stash.title')} style:left="{at.x}px" style:top="{at.y}px">
     <div class="eb">{`${t('git.stash.title')}  ·  ${t('git.stash.count', { n: count })}`}</div>
     <input
@@ -60,10 +61,8 @@
       ></label
     >
     <div class="btns">
-      <button class="bs-gbtn" onclick={close}>{t('common.cancel')}</button>
-      <button class="bs-gbtn inv" onclick={stash}
-        ><span class="material-symbols-outlined">inventory_2</span>Stash</button
-      >
+      <GitButton onclick={close}>{t('common.cancel')}</GitButton>
+      <GitButton class="inv" onclick={stash}><span class="material-symbols-outlined">inventory_2</span>Stash</GitButton>
     </div>
   </div>
 {/if}
@@ -130,7 +129,7 @@
     gap: 8px;
     margin-top: 4px;
   }
-  .btns .bs-gbtn {
+  :global(:root .btns .bs-gbtn) {
     height: 34px;
   }
 </style>

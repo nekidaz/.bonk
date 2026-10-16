@@ -214,3 +214,122 @@ body {
 :root[data-density='compact'] .bs {
   padding: 0 8px;
 }
+
+/* App-wide states that span several components: form checkboxes of the key/value tables, menu buttons,
+   focus rings, <kbd>, hover transitions. Everything area-specific lives in its component's <style>. */
+
+.bs-nm {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+:root .bs :is(.bs-pc, .bs-body-kv-row, .me-row) input[type='checkbox'] {
+  appearance: none;
+  -webkit-appearance: none;
+  flex: 0 0 16px;
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  display: inline-grid;
+  place-content: center;
+  border: 1px solid var(--color-border);
+  border-radius: 50%;
+  background: transparent;
+}
+
+:root .bs :is(.bs-menu, .bs-method-menu, .bs-work-menu, .bs-tab-ctx, .bs-grpc-menu) button {
+  border-radius: var(--radius-control);
+}
+
+:root .bs kbd {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: var(--font-size-caption) var(--font-ui);
+  color: inherit;
+  opacity: 0.7;
+}
+
+:root .bs :is(.bs-pc, .bs-body-kv-row, .me-row) input[type='checkbox']:checked {
+  border-color: var(--color-action);
+  background: var(--color-action);
+}
+
+:root .bs :is(.bs-pc, .bs-body-kv-row, .me-row) input[type='checkbox']:focus-visible {
+  outline: 2px solid var(--color-text);
+  outline-offset: 2px;
+}
+
+:root .bs :is(.bs-tab-hit, .bs-trow):focus-visible {
+  outline-offset: -2px;
+  border-radius: var(--radius-control);
+}
+
+:root .bs[data-focus] :is(.bs-side, .bs-resizer-col, .bs-side-grip) {
+  display: none;
+}
+
+:root.bs-row-dragging,
+:root.bs-row-dragging * {
+  cursor: grabbing !important;
+}
+
+/* Only small controls animate. Editors and table rows remain cheap to paint. */
+:root
+  .bs
+  :is(
+    .bs-ri,
+    .bs-ti,
+    .bs-rtab,
+    .bs-tab,
+    .bs-send,
+    .bs-toolbar-search,
+    .bs-urlfield,
+    .bs-grpc-endpoint-field,
+    .bs-grpc-picker,
+    .bs-empty-action,
+    .bs-fi,
+    .bs-trow,
+    .bs-addt,
+    .bs-toolbar-env-button,
+    .bs-work
+  ) {
+  transition:
+    background-color var(--duration-hover) ease,
+    border-color var(--duration-hover) ease,
+    color var(--duration-hover) ease,
+    transform var(--duration-press) var(--ease-soft) !important;
+}
+
+/* Checkboxes and radios in the git views are native, in the text colour (not the forms plugin's blue). */
+:root .bs :is(.bs-branchswitch, .bs-stashmenu, .bs-gitpanel) input:is([type='checkbox'], [type='radio']) {
+  appearance: auto;
+  background: none;
+  accent-color: var(--color-text);
+}
+
+:root .bs :is(.bs-pc, .bs-body-kv-row, .me-row) input[type='checkbox']:checked::after {
+  content: '';
+  width: 7px;
+  height: 4px;
+  margin-top: -2px;
+  border: solid var(--color-on-action);
+  border-width: 0 0 1.6px 1.6px;
+  transform: rotate(-45deg);
+}
+
+:root .bs button:is(.bs-send, .bs-empty-action):active {
+  transform: translateY(1px);
+}
+
+@keyframes bs-oa-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+:root .bs :is(.bs-response-editor, .bs-resp-chunk) {
+  grid-template-columns: 44px minmax(0, 1fr);
+}

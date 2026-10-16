@@ -14,6 +14,8 @@
   } from '$shared/settings';
   import { requestConfirm } from '$shared/ui';
   import { Button } from '$shared/ui/components';
+  import TextField from './TextField.svelte';
+  import Row from './Row.svelte';
 
   let query = $state('');
   let recording = $state<string | null>(null);
@@ -71,7 +73,7 @@
 </script>
 
 <div class="st-hk-bar">
-  <input class="st-text" placeholder={t('settings.hotkeys.search')} bind:value={query} />
+  <TextField placeholder={t('settings.hotkeys.search')} bind:value={query} />
   <Button variant="ghost" onclick={() => void resetAll()}>{t('settings.hotkeys.resetAll')}</Button>
 </div>
 {#each groups as g (g.group)}
@@ -79,7 +81,7 @@
   <div class="st-card">
     {#each g.rows as c (c.id)}
       {@const other = conflicts[c.id]}
-      <div class="st-row">
+      <Row>
         <span class="st-copy">
           <span class="st-name">{t(c.label)}</span>
           {#if other}<span class="st-err st-hk-hint"
@@ -112,9 +114,92 @@
             {/if}
           </button>
         </span>
-      </div>
+      </Row>
     {/each}
   </div>
 {:else}
   <p class="st-note">{t('settings.hotkeys.none')}</p>
 {/each}
+
+<style>
+  /* Хоткеи (S32.6): search + reset-all bar, clickable key-cap buttons, conflict highlight */
+  .st-hk-bar {
+    flex: none;
+    display: flex;
+    gap: 8px;
+  }
+
+  .st-hk-bar :global(.st-text) {
+    flex: 1;
+  }
+
+  .st-hk-end {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 0 0 auto;
+  }
+
+  .st-hk-hint {
+    padding: 0;
+  }
+
+  .st-hk-reset {
+    border: 0;
+    background: none;
+    padding: 2px 4px;
+    border-radius: 4px;
+    color: var(--color-text-muted);
+    cursor: pointer;
+    font-size: var(--font-size-ui);
+  }
+
+  .st-hk-reset:hover {
+    color: var(--color-text);
+    background: var(--color-hover);
+  }
+
+  .st-keys {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    min-height: 26px;
+    padding: 2px 4px;
+    border: 1px solid transparent;
+    border-radius: var(--radius-control);
+    background: transparent;
+    cursor: pointer;
+  }
+
+  .st-keys:hover {
+    background: var(--color-hover);
+  }
+
+  :global(.st-sheet) .st-keys :global(kbd) {
+    min-width: 22px;
+    padding: 2px 6px;
+    text-align: center;
+    box-sizing: border-box;
+    border: 1px solid var(--color-border-subtle);
+    border-radius: 5px;
+    background: var(--color-panel);
+    font: var(--font-size-body)/16px var(--font-code);
+    color: var(--color-text-secondary);
+  }
+
+  :global(.st-sheet) .st-keys.conflict :global(kbd) {
+    border-color: var(--red);
+    color: var(--red);
+  }
+
+  .st-keys.recording {
+    border-color: var(--color-text-muted);
+    background: var(--color-panel);
+  }
+
+  .st-rec {
+    padding: 0 6px;
+    font: var(--font-size-caption) var(--font-ui);
+    color: var(--color-text-muted);
+  }
+</style>

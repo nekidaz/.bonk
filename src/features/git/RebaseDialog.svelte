@@ -12,8 +12,9 @@
   import { gitBranchList, gitRebasePlan } from '$shared/ipc';
   import type { GitBranch, RebasePlan, RebaseVerb } from '$shared/model';
   import { t, tp } from '$shared/i18n';
-  import { GitBranchIcon } from '$shared/ui/components';
+  import { GitBranchIcon, Overlay } from '$shared/ui/components';
   import { foldTarget, isKept, messageOf, needsMessage, rebasePlanError, toActions } from './rebasePlan';
+  import { GitButton, GitError } from '$entities/git/components';
 
   let { onto: initialOnto, onClose }: { onto: string; onClose: () => void } = $props();
 
@@ -125,7 +126,7 @@
   }
 </script>
 
-<div class="bs-overlay" role="dialog" aria-modal="true" aria-labelledby="bs-rebase-title">
+<Overlay role="dialog" aria-modal="true" aria-labelledby="bs-rebase-title">
   <div class="bs-rebase">
     <div class="head">
       <div>
@@ -171,7 +172,7 @@
     </div>
 
     {#if error}
-      <div class="bs-git-diff-error">{error}</div>
+      <GitError>{error}</GitError>
     {:else if plan && !steps.length}
       <div class="empty">{t('git.rb.nothing', { onto })}</div>
     {:else}
@@ -259,13 +260,13 @@
       >
       <button class="link" onclick={reset}>{t('git.rb.reset')}</button>
       <span class="grow"></span>
-      <button class="bs-gbtn" onclick={onClose}>{t('common.cancel')}</button>
-      <button class="bs-gbtn inv" disabled={!!invalid || !steps.length || git.busy} onclick={start}
-        ><span class="material-symbols-outlined">play_arrow</span>{t('git.rb.start')}</button
+      <GitButton onclick={onClose}>{t('common.cancel')}</GitButton>
+      <GitButton class="inv" disabled={!!invalid || !steps.length || git.busy} onclick={start}
+        ><span class="material-symbols-outlined">play_arrow</span>{t('git.rb.start')}</GitButton
       >
     </div>
   </div>
-</div>
+</Overlay>
 
 <style>
   .bs-rebase {

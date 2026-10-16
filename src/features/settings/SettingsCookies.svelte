@@ -12,6 +12,7 @@
   import { cookieJar } from '$entities/cookies';
   import { row, sw, seg, chips } from './ui.svelte';
   import { Button } from '$shared/ui/components';
+  import Row from './Row.svelte';
 
   const SCOPES = $derived([
     { label: t('settings.cookies.scope.workspace'), value: 'workspace' },
@@ -65,7 +66,7 @@
 
 <div class="st-group">{t('settings.cookies.exclude')}</div>
 <div class="st-card">
-  <div class="st-row st-col">
+  <Row class="st-col">
     <div class="st-copy">
       <span class="st-name">{t('settings.cookies.exclude.name')}</span><span class="st-desc"
         >{t('settings.cookies.exclude.desc')}</span
@@ -77,7 +78,7 @@
       t('settings.cookies.exclude.placeholder'),
       (items) => (cookiesExclude.current = items),
     )}
-  </div>
+  </Row>
 </div>
 
 <div class="st-cookies-foot">

@@ -15,7 +15,7 @@
    * state it renders directly and coordinates menus/inline-rename through
    * props so the menu popovers, modals, and editing state stay in app/.
    */
-  import { GitBranchIcon } from '$shared/ui/components';
+  import { GitBranchIcon, EmptyState } from '$shared/ui/components';
   import { tick, untrack } from 'svelte';
   import {
     toggleFolder,
@@ -595,9 +595,9 @@
             >
               {#each slice as row (row.key)}
                 {#if row.kind === 'empty'}
-                  <div class="bs-empty" style="padding-left:{indent(row.depth)}px">
+                  <EmptyState style="padding-left:{indent(row.depth)}px">
                     <p>{t('sidebar.folderEmpty')}</p>
-                  </div>
+                  </EmptyState>
                 {:else}
                   {@render node(row.node, row.depth)}
                 {/if}
@@ -606,7 +606,7 @@
           {/if}
         {:else if panel === 'history'}
           {#if visibleHistory.length === 0}
-            <div class="bs-empty"><p>{filterActive ? t('sidebar.notFoundDot') : t('sidebar.historyEmpty')}</p></div>
+            <EmptyState><p>{filterActive ? t('sidebar.notFoundDot') : t('sidebar.historyEmpty')}</p></EmptyState>
             <button
               class="bs-history-options"
               type="button"
@@ -737,3 +737,1024 @@
     </div>
   </div>
 </div>
+
+<style>
+  .bs-trow:has(:global(.fo)) {
+    gap: 7px;
+    font-size: 12.5px;
+    color: var(--color-text);
+    font-weight: 500;
+  }
+
+  .bs-drag-ghost :global(.plus) {
+    display: grid;
+    place-items: center;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: var(--color-success);
+    color: var(--color-raised);
+    font: 700 12px/1 var(--font-ui);
+  }
+
+  :global(.bs) .bs-history-row:is(:hover, :focus-within) :global(:is(.st, .at)) {
+    display: none;
+  }
+
+  /* Flow · Git: three rail tabs — only the active one is wide and labelled, the rest are icons. */
+  :global(.bs) .bs-ri:not(.on) {
+    flex: 0 0 auto;
+    min-width: 36px;
+    padding: 0 10px;
+  }
+
+  /* Drag & drop — Pencil «Flow · Drag & drop запросов» (D1–D5). */
+  :global(.bs) .bs-tree .bs-trow {
+    cursor: grab;
+  }
+
+  .bs-tree :where(.bs-trow).bs-dropped {
+    background: var(--color-selected);
+  }
+
+  .bs-tree {
+    flex: 1;
+    overflow-y: auto;
+    position: relative;
+    contain: layout paint;
+    padding: 0;
+    overflow-x: hidden;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .bs-trow:hover {
+    background: var(--hover);
+  }
+
+  /* S22b: a 1px guide per ancestor level, under that folder's chevron. */
+  .bs-trow::before {
+    content: '';
+    position: absolute;
+    left: 8px;
+    top: -1px;
+    bottom: -1px;
+    width: calc(var(--d, 0) * 24px);
+    background: repeating-linear-gradient(
+      to right,
+      transparent 0 7px,
+      var(--color-border) 7px 8px,
+      transparent 8px 24px
+    );
+    pointer-events: none;
+  }
+
+  .bs-trow.sel::before {
+    background: repeating-linear-gradient(
+      to right,
+      transparent 0 7px,
+      var(--color-text-secondary) 7px 8px,
+      transparent 8px 24px
+    );
+  }
+
+  .bs-trow {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    text-align: left;
+    contain: paint;
+    padding: 3px 6px;
+    height: 30px;
+    min-height: 30px;
+    margin: 0;
+    padding-right: 8px;
+    border-radius: var(--radius-control);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-body);
+    gap: 10px;
+    position: relative;
+  }
+
+  .bs-trow.sel {
+    background: var(--color-selected);
+    color: var(--color-text);
+    font-weight: 500;
+    box-shadow: none;
+  }
+
+  :global(:root[data-density='compact']) .bs-trow {
+    height: 26px;
+    min-height: 26px;
+  }
+
+  /* Sidebar: collections tree, history, filter, create/import menus, drag and drop, dock. */
+  :global(.bs-send) .cv {
+    color: var(--primary-text);
+    width: 32px;
+    background: transparent;
+    border-left: 1px solid rgba(255, 255, 255, 0.25);
+    display: none;
+  }
+
+  .bs-ri :global(svg) {
+    width: 17px;
+    height: 17px;
+  }
+
+  .bs-fbox :global(svg) {
+    width: 13px;
+    height: 13px;
+  }
+
+  .bs-fbox-input {
+    background: transparent;
+    border: none;
+    outline: none;
+  }
+
+  .bs-fbox-clear {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    border-radius: 4px;
+    color: var(--t3);
+    flex-shrink: 0;
+  }
+
+  .bs-fbox-clear:hover {
+    background: var(--hover);
+    color: var(--text);
+  }
+
+  .bs-fi :global(svg) {
+    width: 15px;
+    height: 15px;
+  }
+
+  :where(.bs-trow).bs-drop {
+    background: var(--accentsoft);
+    box-shadow: inset 0 0 0 1px var(--accent);
+  }
+
+  .bs-tree.bs-droproot {
+    box-shadow: inset 0 0 0 1px var(--accent);
+    border-radius: 8px;
+  }
+
+  :global(.bs-trow:hover) .bs-act {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .bs-act :global(svg) {
+    width: 15px;
+    height: 15px;
+  }
+
+  /* History "recording paused" indicator. */
+  .bs-paused {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    color: var(--orange);
+    text-transform: none;
+    letter-spacing: 0;
+    font-weight: 600;
+  }
+
+  .bs-dock-section:first-child {
+    border-top: 0;
+  }
+
+  .bs-dock-toggle:hover {
+    color: var(--text);
+    background: var(--hover2);
+  }
+
+  .bs-dock-summary {
+    min-width: 0;
+    margin-left: auto;
+    overflow: hidden;
+    color: var(--t3);
+    font-size: 9.5px;
+    font-weight: 500;
+    letter-spacing: 0;
+    text-overflow: ellipsis;
+    text-transform: none;
+    white-space: nowrap;
+  }
+
+  .bs-dock-action:hover {
+    color: var(--text);
+    background: var(--hover);
+  }
+
+  .bs-dock-item:hover {
+    color: var(--text);
+    background: var(--hover);
+  }
+
+  .bs-dock-item > :global(span:last-child) {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .bs-tree.bs-dragging {
+    user-select: none;
+  }
+
+  .bs-tree.bs-dragging .bs-act {
+    visibility: hidden;
+  }
+
+  .bs-tree.bs-dragging :global(.bs-trow:hover:not(.sel):not(.bs-drop)) {
+    background: transparent;
+  }
+
+  :global(.bs-tree) .bs-trow.bs-dragsrc {
+    opacity: 0.35;
+  }
+
+  .bs-tree.bs-dragging .bs-trow.bs-drop {
+    background: var(--color-selected);
+    box-shadow: inset 0 0 0 1px var(--color-focus, var(--color-border));
+    color: var(--color-text);
+  }
+
+  :global(.bs-tree .bs-trow) .bs-tcount-drop {
+    display: inline-flex;
+    color: var(--color-text);
+  }
+
+  /* Tree rows use `contain: paint`, which would clip the line out of the gap; it's one row at a time. */
+  :global(.bs-tree) .bs-trow.bs-drop-before {
+    contain: none;
+  }
+
+  :global(.bs-tree) .bs-trow.bs-drop-after {
+    contain: none;
+  }
+
+  /* Insertion line: a ring + 2px rule in the gap between rows (muted text colour: the
+     design's 15% focus tint is too faint on a dark panel). The ghost sits below the cursor
+     so the target row stays readable. */
+  :global(.bs-tree) .bs-trow.bs-drop-before::after {
+    content: '';
+    position: absolute;
+    left: 8px;
+    right: 8px;
+    height: 6px;
+    z-index: 1;
+    pointer-events: none;
+    --c: var(--color-text-muted);
+    background:
+      radial-gradient(circle at 3px 3px, transparent 1.5px, var(--c) 1.75px 3px, transparent 3.25px),
+      linear-gradient(var(--c), var(--c)) 6px 2px / calc(100% - 6px) 2px no-repeat;
+    top: -4px;
+  }
+
+  :global(.bs-tree) .bs-trow.bs-drop-after::after {
+    content: '';
+    position: absolute;
+    left: 8px;
+    right: 8px;
+    height: 6px;
+    z-index: 1;
+    pointer-events: none;
+    --c: var(--color-text-muted);
+    background:
+      radial-gradient(circle at 3px 3px, transparent 1.5px, var(--c) 1.75px 3px, transparent 3.25px),
+      linear-gradient(var(--c), var(--c)) 6px 2px / calc(100% - 6px) 2px no-repeat;
+    bottom: -4px;
+  }
+
+  .bs-drag-ghost {
+    position: fixed;
+    z-index: 1000;
+    pointer-events: none;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 12px;
+    border: 1px solid var(--color-border);
+    border-radius: 999px;
+    background: var(--color-raised);
+    box-shadow: 0 10px 24px #000000aa;
+    transform: translate(-18px, 8px) rotate(-2deg);
+    white-space: nowrap;
+    font: 400 12px var(--font-ui);
+    color: var(--color-text);
+  }
+
+  .bs-drag-ghost :global(.m) {
+    font: 700 9.5px var(--font-code);
+  }
+
+  .bs-drag-ghost :global(.material-symbols-outlined) {
+    font-size: 15px;
+    color: var(--color-text-muted);
+  }
+
+  .bs-drop-toast {
+    position: absolute;
+    left: 12px;
+    right: 12px;
+    bottom: 12px;
+    z-index: 20;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 12px;
+    border: 1px solid var(--color-border);
+    border-radius: 16px;
+    background: var(--color-raised);
+    box-shadow: 0 8px 24px #00000088;
+    font: 400 12px var(--font-ui);
+    color: var(--color-text);
+  }
+
+  .bs-drop-toast :global(.ok) {
+    font-size: 15px;
+    color: var(--color-success);
+  }
+
+  .bs-drop-toast .tx {
+    flex: 1;
+    min-width: 0;
+    line-height: 1.35;
+  }
+
+  .bs-drop-toast :global(.undo) {
+    flex: none;
+    font-size: 11px;
+    color: var(--color-text-muted);
+    white-space: nowrap;
+  }
+
+  .bs-drop-toast :global(.undo:hover) {
+    color: var(--color-text);
+  }
+
+  .bs-ri:active {
+    transform: scale(0.94);
+  }
+
+  .bs-fi:active {
+    transform: scale(0.94);
+  }
+
+  .bs-act {
+    margin-left: auto;
+    width: 22px;
+    height: 22px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--t2);
+    opacity: 0;
+    pointer-events: none;
+    border-radius: 6px;
+  }
+
+  .bs-act:hover {
+    background: rgba(0, 0, 0, 0.1);
+  }
+
+  :global(.dark) .bs-act:hover {
+    background: rgba(255, 255, 255, 0.12);
+  }
+
+  /* Inline rename input inside a sidebar tree row */
+  .bs-nm-input {
+    flex: 1;
+    min-width: 0;
+    background: var(--surface-solid);
+    border: 1px solid var(--accent);
+    border-radius: 4px;
+    padding: 1px 5px;
+    margin: -2px 0;
+    font: inherit;
+    color: var(--text);
+    outline: none;
+  }
+
+  .bs-git-treebadge {
+    margin-left: auto;
+    font-size: 10px;
+    font-weight: 700;
+    font-family: var(--mono);
+    padding-right: 4px;
+  }
+
+  .bs-git-treecount {
+    margin-left: auto;
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--t3);
+    padding-right: 4px;
+  }
+
+  :global(:where(.bs-trow).sel) .fo {
+    color: inherit;
+  }
+
+  :global(:where(.bs-trow).sel) .cv {
+    color: inherit;
+  }
+
+  :global(.bs-trow.sel) .bs-mp {
+    color: inherit;
+  }
+
+  :global(:where(.bs-send).cancelling) .cv {
+    background: transparent;
+    color: #fff;
+  }
+
+  .bs-fbox:where(:focus-within) {
+    box-shadow: var(--focus-ring);
+  }
+
+  .bs-dock-section {
+    border-top: 1px solid var(--sepsoft);
+  }
+
+  .bs-dock-head {
+    display: flex;
+    align-items: center;
+    min-height: 28px;
+  }
+
+  .bs-dock-toggle {
+    min-width: 0;
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 0 8px;
+    color: var(--t2);
+    text-align: left;
+    font-weight: 700;
+    letter-spacing: 0.055em;
+    text-transform: uppercase;
+    min-height: 28px;
+    padding-inline: 7px;
+    font-size: 9.5px;
+  }
+
+  .bs-dock-action {
+    width: 26px;
+    height: 24px;
+    margin-right: 5px;
+    display: grid;
+    place-items: center;
+    flex: 0 0 auto;
+    color: var(--t3);
+    border-radius: 3px;
+  }
+
+  .bs-dock-body {
+    max-height: 132px;
+    overflow: auto;
+    padding: 2px 5px 6px 18px;
+    padding-left: 15px;
+  }
+
+  .bs-dock-item {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 3px 7px;
+    overflow: hidden;
+    color: var(--t2);
+    text-align: left;
+    min-height: 24px;
+    border-radius: 3px;
+    font-size: 11px;
+  }
+
+  .bs-dock-item.on {
+    color: var(--text);
+    background: var(--accentsoft);
+    box-shadow: inset 2px 0 var(--accent);
+  }
+
+  .bs-ri {
+    align-items: center;
+    transition:
+      background 120ms ease,
+      color 120ms ease,
+      transform 90ms ease;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 5px;
+    width: 100%;
+    height: 62px;
+    padding: 6px 0;
+    border-radius: 4px;
+    color: var(--t2);
+    font-size: 10px;
+    font-weight: 400;
+  }
+
+  .bs-ri :global(.material-symbols-outlined) {
+    font-size: 22px;
+  }
+
+  .bs-ri.on {
+    background: var(--hover);
+    color: var(--text);
+    box-shadow: none;
+  }
+
+  .bs-ri:hover {
+    background: var(--hover);
+  }
+
+  .bs-ri.on::after {
+    display: none;
+  }
+
+  .bs-side-dock {
+    flex: 0 0 auto;
+    border-top: 1px solid var(--sepsoft);
+    background: var(--side);
+    display: none;
+  }
+
+  @media (max-width: 480px) {
+    :global(.bs-send) .cv {
+      width: 28px;
+    }
+  }
+
+  .bs-sidebar-layout {
+    flex: 1;
+    min-height: 0;
+    min-width: 0;
+    grid-template-columns: 80px minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr);
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    height: 100%;
+    padding: 10px;
+  }
+
+  .bs-railnav {
+    width: 100%;
+    display: flex;
+    flex-direction: row;
+    align-items: stretch;
+    gap: 2px;
+    height: 100%;
+  }
+
+  :global(.bs) .bs-ri {
+    flex: 1 1 0;
+    width: auto;
+    height: 100%;
+    min-width: 34px;
+    padding: 0 9px;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    border-radius: var(--radius-control);
+    color: var(--color-text-muted);
+    font-size: var(--font-size-body);
+    font-weight: 500;
+  }
+
+  :global(.bs) .bs-ri :global(.material-symbols-outlined) {
+    font-size: 16px;
+  }
+
+  :global(.bs) .bs-ri:hover {
+    background: var(--hover);
+    color: var(--color-text-secondary);
+  }
+
+  :global(.bs) .bs-ri.on {
+    background: var(--color-raised);
+    color: var(--color-text);
+    font-weight: 600;
+    box-shadow: 0 1px 3px var(--color-shadow);
+  }
+
+  :global(.bs) .bs-ri.on::after {
+    display: none;
+  }
+
+  .bs-sidebar-content {
+    position: relative;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    flex: 1;
+    min-height: 0;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    overflow: hidden;
+  }
+
+  .bs-filterrow {
+    display: flex;
+    align-items: center;
+    position: relative;
+    height: auto;
+    padding: 8px 0 10px;
+    gap: 6px;
+    border: 0;
+  }
+
+  .bs-fbox {
+    display: flex;
+    align-items: center;
+    box-shadow: none;
+    flex: 1;
+    min-width: 0;
+    height: 34px;
+    padding: 0 13px;
+    gap: 8px;
+    border: 1px solid var(--color-border-subtle);
+    border-radius: var(--radius-control);
+    background: var(--color-field);
+    color: var(--color-text-muted);
+  }
+
+  .bs-fbox :global(.material-symbols-outlined) {
+    font-size: 16px;
+  }
+
+  .bs-fbox:focus-within {
+    background: var(--canvas);
+    border-color: var(--color-border);
+  }
+
+  .bs-fbox-input {
+    flex: 1;
+    min-width: 0;
+    font: inherit;
+    color: var(--text);
+    padding: 0;
+    font-size: var(--font-size-body);
+  }
+
+  .bs-fbox-input::placeholder {
+    color: var(--color-text-muted);
+  }
+
+  .bs-fi {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition:
+      background 120ms ease,
+      color 120ms ease,
+      transform 90ms ease;
+    flex: 0 0 34px;
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    background: var(--color-field);
+    color: var(--color-text-secondary);
+  }
+
+  .bs-fi:hover {
+    background: var(--color-selected);
+    color: var(--color-text);
+  }
+
+  .bs-fi :global(.material-symbols-outlined) {
+    font-size: 18px;
+  }
+
+  :global(.bs .bs-trow) .bs-act {
+    position: absolute;
+    right: 6px;
+    margin: 0;
+  }
+
+  :global(.bs-trow) .cv {
+    flex: 0 0 16px;
+    width: 16px;
+    height: 16px;
+    display: grid;
+    place-items: center;
+    font-size: 14px;
+    color: var(--color-text-muted);
+  }
+
+  :global(.bs-trow) .fo {
+    flex: 0 0 16px;
+    width: 16px;
+    height: 16px;
+    display: grid;
+    place-items: center;
+    font-size: 16px;
+    color: var(--color-text-muted);
+  }
+
+  .bs-mp {
+    width: 24px;
+    flex: 0 0 34px;
+    min-width: 34px;
+    margin-right: 0;
+    font: 700 9.5px var(--font-code);
+    letter-spacing: 0.3px;
+    text-align: left;
+  }
+
+  .bs-tcount {
+    margin-left: auto;
+    color: var(--color-text-muted);
+    font: 400 10px var(--font-code);
+  }
+
+  :global(.bs-trow:hover) .bs-tcount {
+    display: none;
+  }
+
+  .bs-collection-empty {
+    padding: 24px 12px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 8px;
+  }
+
+  .bs-collection-empty-icon {
+    display: grid;
+    place-items: center;
+    width: 40px;
+    height: 40px;
+    border: 0;
+    background: var(--color-field);
+    border-radius: 50%;
+    color: var(--color-text-secondary);
+    font-size: 20px;
+  }
+
+  .bs-collection-empty :global(strong) {
+    font: 600 var(--font-size-ui)/16px var(--font-ui);
+    color: var(--color-text);
+  }
+
+  .bs-collection-empty :global(p) {
+    margin: 0;
+    max-width: 240px;
+    color: var(--color-text-muted);
+    font-size: var(--font-size-body);
+    line-height: 1.5;
+  }
+
+  :global(.bs) button.bs-empty-action:hover {
+    background: var(--color-raised);
+  }
+
+  .bs-empty-action :global(.material-symbols-outlined) {
+    font-size: 15px;
+  }
+
+  :global(:root[data-density='compact']) .bs-sidebar-layout {
+    padding: 8px;
+  }
+
+  :global(:root[data-density='compact']) .bs-railrow {
+    height: 34px;
+  }
+
+  :global(:root[data-density='compact']) .bs-filterrow {
+    padding: 6px 0 8px;
+  }
+
+  :global(:root[data-density='compact']) .bs-fbox {
+    height: 28px;
+  }
+
+  :global(:root[data-density='compact']) .bs-fi {
+    flex-basis: 28px;
+    width: 28px;
+    height: 28px;
+  }
+
+  /* S21: history list and the "snapshot from history" banner. */
+  :global(.bs) .bs-history-day {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    height: 27px;
+    padding: 10px 10px 4px;
+    color: var(--color-text-muted);
+    font: 500 var(--font-size-micro)/13px var(--font-code);
+    letter-spacing: var(--tracking-eyebrow);
+    text-transform: uppercase;
+  }
+
+  :global(.bs) .bs-history-day > :global(span:first-child) {
+    flex: 1;
+  }
+
+  :global(.bs) .bs-history-day .bs-paused {
+    color: var(--color-warning);
+  }
+
+  :global(.bs) .bs-history-options {
+    display: grid;
+    place-items: center;
+    width: 22px;
+    height: 22px;
+    margin: -4px -4px -4px 0;
+    border-radius: 50%;
+    color: var(--color-text-muted);
+  }
+
+  :global(.bs) .bs-history-options:hover {
+    background: var(--hover);
+    color: var(--color-text);
+  }
+
+  :global(.bs) .bs-history-options :global(.material-symbols-outlined) {
+    font-size: 16px;
+  }
+
+  /* One 26px line: method · path · status · time; repeat/remove take the status+time slot on hover. */
+  :global(.bs) .bs-history-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    width: 100%;
+    height: 26px;
+    padding: 0 10px;
+    border-radius: var(--radius-control);
+    text-align: left;
+  }
+
+  :global(.bs) .bs-history-row + .bs-history-row {
+    margin-top: 2px;
+  }
+
+  :global(.bs) .bs-history-row:hover {
+    background: var(--hover);
+  }
+
+  :global(.bs) .bs-history-row.sel {
+    background: var(--color-selected);
+  }
+
+  :global(.bs) .bs-history-row :global(.m) {
+    flex: 0 0 30px;
+    font: 700 9.5px var(--font-code);
+    letter-spacing: 0.3px;
+  }
+
+  :global(.bs) .bs-history-row :global(.path) {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--color-text-secondary);
+    font: var(--font-size-body)/16px var(--font-code);
+  }
+
+  :global(.bs) .bs-history-row.sel :global(.path) {
+    color: var(--color-text);
+  }
+
+  :global(.bs) .bs-history-row :global(.st) {
+    flex: none;
+    color: var(--color-success);
+    font: 600 var(--font-size-micro) var(--font-code);
+  }
+
+  :global(.bs) .bs-history-row :global(.st.warn) {
+    color: var(--color-warning);
+  }
+
+  :global(.bs) .bs-history-row :global(.st.err) {
+    color: var(--color-danger);
+  }
+
+  :global(.bs) .bs-history-row :global(.at) {
+    flex: none;
+    color: var(--color-text-muted);
+    font: var(--font-size-micro) var(--font-code);
+  }
+
+  :global(.bs) .bs-history-row .bs-act {
+    display: none;
+    flex: none;
+    width: 20px;
+    height: 20px;
+    margin: 0;
+  }
+
+  :global(.bs .bs-history-row:is(:hover, :focus-within)) .bs-act {
+    display: flex;
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  /* Rail becomes the Collections / History mode switch. */
+  /* Collections | History switch at the narrow end of the sidebar (220 px): drop the icons, keep the words. */
+  .bs-railrow {
+    display: flex;
+    justify-content: center;
+    position: relative;
+    gap: 1px;
+    min-height: 0;
+    align-items: flex-start;
+    flex: none;
+    width: auto;
+    height: 40px;
+    padding: 2px;
+    background: var(--color-field);
+    border: 1px solid var(--color-border-subtle);
+    border-radius: var(--radius-control);
+    container: railrow / inline-size;
+  }
+
+  .bs-ri-label {
+    display: inline;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  :global(.bs .bs-ri:not(.on)) .bs-ri-label {
+    display: none;
+  }
+
+  @container railrow (max-width: 225px) {
+    :global(.bs) .bs-ri {
+      gap: 0;
+      padding: 0 8px;
+    }
+
+    :global(.bs) .bs-ri.on :global(.material-symbols-outlined) {
+      display: none;
+    }
+  }
+
+  /* G1 / G2: count of changed files on the rail's Git tab and on folders in the tree. */
+  :global(.bs) .bs-ri-badge {
+    flex: none;
+    min-width: 16px;
+    height: 15px;
+    padding: 0 5px;
+    border-radius: var(--radius-control);
+    background: var(--color-warning-soft);
+    color: var(--color-warning);
+    font: 600 9.5px/15px var(--font-code);
+    text-align: center;
+  }
+
+  :global(.bs) .bs-git-treecount {
+    flex: none;
+    min-width: 16px;
+    height: 15px;
+    padding: 0 5px;
+    border-radius: var(--radius-control);
+    background: var(--color-warning-soft);
+    color: var(--color-warning);
+    font: 600 9.5px/15px var(--font-code);
+    text-align: center;
+  }
+
+  :global(.bs) .bs-ri.on .bs-ri-badge {
+    background: var(--color-selected);
+    color: var(--color-text-secondary);
+  }
+
+  :global(.bs) .bs-git-treecount {
+    margin-left: auto;
+    margin-right: 6px;
+  }
+
+  :global(.bs) .bs-git-treecount + .bs-tcount {
+    margin-left: 0;
+  }
+
+  :global(.bs) .bs-git-treebadge {
+    margin-left: auto;
+    padding-right: 6px;
+    font: 700 var(--font-size-micro) var(--font-code);
+  }
+</style>

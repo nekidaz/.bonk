@@ -12,6 +12,16 @@
   import { t, tp, uiLanguage } from '$shared/i18n';
   import FileDiff from './FileDiff.svelte';
   import { diffLayout } from './store.svelte';
+  import {
+    GitButton,
+    GitSeg,
+    GitHead,
+    GitView,
+    GitViewBody,
+    GitViewEmpty,
+    GitTag,
+    GitError,
+  } from '$entities/git/components';
 
   let { tab }: { tab: Tab } = $props();
 
@@ -89,29 +99,29 @@
   });
 </script>
 
-<div class="bs-gview">
-  <div class="bs-ghead">
+<GitView>
+  <GitHead>
     <div class="ttl">
       <span class="crumb">{`${t('git.title')}  /  ${t('git.history.title')}`}</span>
       <div class="row">
         <h2 title={path}>{info.name}</h2>
         {#if loaded && view === 'history'}
-          <span class="bs-gtag"
-            >{`${commits.length}${more ? '+' : ''} ${tp(commits.length, ['коммит', 'коммита', 'коммитов'], ['commit', 'commits'])}`}</span
+          <GitTag
+            >{`${commits.length}${more ? '+' : ''} ${tp(commits.length, ['коммит', 'коммита', 'коммитов'], ['commit', 'commits'])}`}</GitTag
           >
         {/if}
       </div>
     </div>
-    <div class="bs-gseg" role="group">
+    <GitSeg role="group">
       <button class:on={view === 'history'} aria-pressed={view === 'history'} onclick={() => (view = 'history')}
         >{t('git.history.title')}</button
       >
       <button class:on={view === 'blame'} aria-pressed={view === 'blame'} onclick={() => (view = 'blame')}
         >{t('git.history.blame')}</button
       >
-    </div>
+    </GitSeg>
     {#if view === 'history'}
-      <div class="bs-gseg" role="group" aria-label={t('git.diff.layout')}>
+      <GitSeg role="group" aria-label={t('git.diff.layout')}>
         <button
           class="icon"
           class:on={diffLayout.current === 'inline'}
@@ -128,17 +138,17 @@
           onclick={() => (diffLayout.current = 'split')}
           ><span class="material-symbols-outlined">vertical_split</span></button
         >
-      </div>
+      </GitSeg>
     {/if}
-  </div>
+  </GitHead>
 
-  <div class="bs-gview-body">
+  <GitViewBody>
     {#if error}
-      <div class="bs-git-diff-error">{error}</div>
+      <GitError>{error}</GitError>
     {:else if !loaded}
-      <div class="bs-gview-empty">{t('git.diff.loading')}</div>
+      <GitViewEmpty>{t('git.diff.loading')}</GitViewEmpty>
     {:else if view === 'history' && !commits.length}
-      <div class="bs-gview-empty">{t('git.history.empty')}</div>
+      <GitViewEmpty>{t('git.history.empty')}</GitViewEmpty>
     {:else if view === 'history'}
       <div class="split">
         <div class="list">
@@ -151,18 +161,18 @@
               </span>
             </button>
           {/each}
-          {#if more}<button class="bs-gbtn more" onclick={loadMore}>{t('git.history.more')}</button>{/if}
+          {#if more}<GitButton class="more" onclick={loadMore}>{t('git.history.more')}</GitButton>{/if}
         </div>
         <div class="diff">
           {#if pick}
             <div class="dh">
               <span class="subj">{pick.subject}</span>
-              <button class="bs-gbtn" title={t('git.tab.graph')} onclick={() => openGraphTab(pick.hash)}
-                ><span class="material-symbols-outlined">account_tree</span>{pick.short}</button
+              <GitButton title={t('git.tab.graph')} onclick={() => openGraphTab(pick.hash)}
+                ><span class="material-symbols-outlined">account_tree</span>{pick.short}</GitButton
               >
             </div>
             {#if diffOf !== pick.hash}
-              <div class="bs-gview-empty">{t('git.diff.loading')}</div>
+              <GitViewEmpty>{t('git.diff.loading')}</GitViewEmpty>
             {:else if diffText.trim()}
               <FileDiff
                 path={pick.path}
@@ -172,7 +182,7 @@
                 rightLabel={pick.short}
               />
             {:else}
-              <div class="bs-gview-empty">{t('git.diff.noText')}</div>
+              <GitViewEmpty>{t('git.diff.noText')}</GitViewEmpty>
             {/if}
           {/if}
         </div>
@@ -199,8 +209,8 @@
         {/each}
       </div>
     {/if}
-  </div>
-</div>
+  </GitViewBody>
+</GitView>
 
 <style>
   .split {
@@ -257,7 +267,7 @@
     color: var(--color-text-muted);
     font: var(--font-size-micro) var(--font-code);
   }
-  .more {
+  :global(.bs-gbtn.more) {
     align-self: center;
     margin-top: 6px;
   }

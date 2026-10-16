@@ -3,3 +3,5 @@
 
 export { default as ResponsePane } from './ResponsePane.svelte';
 export { default as ResponseStrip } from './ResponseStrip.svelte';
+export { default as RespBody } from './RespBody.svelte';
+export { default as CodeBlock } from './CodeBlock.svelte';

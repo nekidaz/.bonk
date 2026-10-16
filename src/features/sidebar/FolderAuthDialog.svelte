@@ -3,7 +3,7 @@
   import type { AuthConfig } from '$shared/model';
   import { HttpAuthEditor } from '$entities/request/components';
   import { t } from '$shared/i18n';
-  import { Button } from '$shared/ui/components';
+  import { Button, Overlay, Modal, ModalHeader, ModalBody, ModalFooter } from '$shared/ui/components';
 
   // Collection-level auth (S11): requests set to "inherit" use it. `folderId` open = shown.
   let {
@@ -31,15 +31,15 @@
 </script>
 
 {#if folder?.kind === 'folder'}
-  <div class="bs-overlay" role="dialog" aria-modal="true">
-    <div class="bs-modal" class:bs-session-modal={draft?.type === 'session'}>
-      <div class="bs-modal-h">
+  <Overlay role="dialog" aria-modal="true">
+    <Modal class={{ 'bs-session-modal': draft?.type === 'session' }}>
+      <ModalHeader>
         <span class="t">{t('dialog.auth.title', { name: folder.name })}</span>
         <button class="x" aria-label={t('common.close')} onclick={() => (folderId = undefined)}
           ><span class="material-symbols-outlined" style="font-size:18px">close</span></button
         >
-      </div>
-      <div class="bs-modal-b">
+      </ModalHeader>
+      <ModalBody>
         <HttpAuthEditor
           value={draft}
           onChange={(a) => (draft = a)}
@@ -50,12 +50,19 @@
             onOpenRunner?.(name);
           }}
         />
-      </div>
-      <div class="bs-modal-f">
+      </ModalBody>
+      <ModalFooter>
         <div class="grow"></div>
         <Button variant="primary" onclick={save}>{t('common.save')}</Button>
         <Button variant="ghost" onclick={() => (folderId = undefined)}>{t('common.cancel')}</Button>
-      </div>
-    </div>
-  </div>
+      </ModalFooter>
+    </Modal>
+  </Overlay>
 {/if}
+
+<style>
+  /* Flow · Сессия (SE2–SE5): the session card, its details and settings, a send's banner and timeline. */
+  :global(:root .bs .bs-modal.bs-session-modal) {
+    width: 940px;
+  }
+</style>

@@ -35,3 +35,34 @@
   <span class="material-symbols-outlined" style="font-size:15px">home_storage</span>{t('dialog.move.root')}
 </button>
 {#each nodes as n (n.id)}{@render folderRow(n, 0)}{/each}
+
+<style>
+  .bs-collrow:hover {
+    background: var(--hover);
+  }
+
+  .bs-collrow :global(.material-symbols-outlined) {
+    color: var(--t2);
+  }
+
+  .bs-collrow.sel :global(.material-symbols-outlined) {
+    color: var(--accent);
+  }
+
+  .bs-collrow {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 10px;
+    font-size: 14px;
+    width: 100%;
+    text-align: left;
+    border-radius: 9px;
+  }
+
+  .bs-collrow.sel {
+    color: var(--accent);
+    background: var(--accentsoft);
+    box-shadow: inset 0 0 0 0.5px color-mix(in srgb, var(--accent) 26%, transparent);
+  }
+</style>
