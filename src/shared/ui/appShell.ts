@@ -3,7 +3,7 @@ import type { RequestProtocol } from '$shared/model';
 export type { RequestProtocol };
 
 export type AppMenuKind = 'create' | 'switch' | 'coll' | 'req' | 'history' | 'tab' | null;
-export type UtilityMode = 'console' | 'issues';
+export type UtilityMode = 'terminal' | 'console' | 'issues';
 
 export type AppMenuState = {
   kind: AppMenuKind;

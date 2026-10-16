@@ -1,6 +1,6 @@
 <script lang="ts">
   // The main column: tab bar, the active tab's view (request editor + response, or a special tab),
-  // the welcome screen when nothing is open, and the utility panel (console / issues) below.
+  // the welcome screen when nothing is open, and the utility panel (console / terminal) below.
   import { tick } from 'svelte';
   import { slide } from 'svelte/transition';
   import { tabs } from '$entities/tab';
@@ -40,7 +40,6 @@
   import {
     importFrom,
     newRequestHere,
-    openTerminal,
     openSaveDialog,
     smartSave,
     tabContext,
@@ -195,7 +194,6 @@
           bind:height={shell.utilityPanelHeight}
           onSelect={(mode) => (shell.utilityMode = mode)}
           onClose={() => (shell.utilityMode = null)}
-          onTerminal={openTerminal}
           onResizeEnd={() => void saveState('utilityPanelHeight', shell.utilityPanelHeight)}
         />
       </div>

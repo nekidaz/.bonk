@@ -8,7 +8,7 @@
   import AppMain from './AppMain.svelte';
   import AppStatusBar from './AppStatusBar.svelte';
   import AppOverlays from './AppOverlays.svelte';
-  import { openTerminal, toggleUtilityPanel } from './actions';
+  import { toggleUtilityPanel } from './actions';
   import { globalKeydown } from './hotkeys';
   import { layout } from './layout.svelte';
   import { startApp } from './lifecycle.svelte';
@@ -47,7 +47,7 @@
   <AppStatusBar
     onRunner={openRunnerTab}
     utilityMode={shell.utilityMode}
-    onTerminal={() => openTerminal()}
+    onTerminal={() => toggleUtilityPanel('terminal')}
     onConsole={() => toggleUtilityPanel('console')}
     onIssues={() => toggleUtilityPanel('issues')}
   />

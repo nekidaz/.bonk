@@ -1,6 +1,6 @@
 import type { AppConsoleEntry } from '$entities/request';
 
-/** Pure helpers for the bottom Console / Issues panel (UtilityPanel). */
+/** Pure helpers for the bottom Console / Terminal panel (UtilityPanel). */
 
 export type StatusTone = 'ok' | 'info' | 'warn' | 'err' | 'muted';
 
@@ -55,6 +55,16 @@ export function matchesConsoleFilter(
 /** `128 ms`, `2.0 s`. */
 export const formatElapsed = (ms: number): string => (ms >= 1000 ? `${(ms / 1000).toFixed(1)} s` : `${ms} ms`);
 
+/** Prompt directory: `~` for home, `~/…/last` for deeper paths under home, else the last two segments. */
+export function shortCwd(cwd: string, home: string): string {
+  if (!cwd) return '~';
+  const under = home && (cwd === home || cwd.startsWith(`${home}/`) || cwd.startsWith(`${home}\\`));
+  const rel = under ? cwd.slice(home.length) : cwd;
+  const parts = rel.split(/[\\/]/).filter(Boolean);
+  if (under) return parts.length === 0 ? '~' : parts.length === 1 ? `~/${parts[0]}` : `~/…/${parts.at(-1)}`;
+  return parts.length <= 2 ? cwd : `…/${parts.slice(-2).join('/')}`;
+}
+
 /** CT3 quick filters. */
 export type ConsoleQuick = 'all' | 'http' | 'grpc' | 'errors' | 'scripts';
 export const CONSOLE_QUICK: ConsoleQuick[] = ['all', 'http', 'grpc', 'errors', 'scripts'];
@@ -80,7 +90,7 @@ export function maskSecret(value: string): string {
 const sq = (s: string) => `'${s.replace(/'/g, "'\\''")}'`;
 
 /**
- * CT6: the sent request as a `curl` command for the user's terminal. Secret header values never
+ * CT6: the sent request as a `curl` command for the panel's shell. Secret header values never
  * appear in the text: each becomes a `BONK_*` variable passed in `env` (`Bearer $BONK_TOKEN`).
  */
 export function curlForShell(e: Pick<AppConsoleEntry, 'method' | 'url' | 'request'>): {

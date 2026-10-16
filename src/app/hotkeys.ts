@@ -9,7 +9,6 @@ import {
   newFolderHere,
   newRequestHere,
   openSaveDialog,
-  openTerminal,
   smartSave,
   toggleCodePanel,
   toggleIssuesFull,
@@ -114,7 +113,7 @@ export function globalKeydown(e: KeyboardEvent): void {
       toggleUtilityPanel();
       break;
     case 'terminal':
-      openTerminal();
+      toggleUtilityPanel('terminal');
       break;
     case 'issues':
       toggleUtilityPanel('issues');

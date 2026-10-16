@@ -28,7 +28,6 @@ import { duplicateTab, newTab, setActiveProtocol } from '$features/tabs';
 import { t, tp } from '$shared/i18n';
 import type { ImportResult } from '$features/import';
 import { methodColor, toCurl, type RequestProtocol } from '$shared/model';
-import { terminalOpen } from '$shared/ipc';
 import { requestConfirm, type UtilityMode } from '$shared/ui';
 import { utilityUi } from '$features/utility-panel';
 import { saveSettingsDraft } from '$features/settings';
@@ -317,13 +316,6 @@ export function toggleUtilityPanel(mode?: UtilityMode): void {
   shell.utilityMode = current && (!mode || current === mode) ? null : (mode ?? lastUtilityMode);
   if (shell.utilityMode) queueMicrotask(layout.clampResponseToViewport);
   else utilityUi.expanded = false;
-}
-
-/** The user's own terminal app in the workspace folder; with `command`, runs it there (CT6). */
-export function openTerminal(command?: string, env?: Record<string, string>): void {
-  terminalOpen(workspace.path || null, command, env).catch((error) =>
-    shell.showToast({ text: String(error), icon: 'error', iconColor: 'var(--red)' }),
-  );
 }
 
 /** ⇧⌘J: Issues on the whole height, and back (CT12). */

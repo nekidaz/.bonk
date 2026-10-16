@@ -51,7 +51,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             commands::http::cancel_request,
             commands::terminal::terminal_default_cwd,
-            commands::terminal::terminal_open,
+            commands::terminal::terminal_run,
             commands::http::http_prepare,
             commands::http::http_resolve,
             commands::http::dynamic_samples,

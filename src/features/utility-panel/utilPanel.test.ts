@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { consoleStatus, curlForShell, formatElapsed, maskSecret, matchesConsoleFilter } from './utilPanel';
+import { consoleStatus, curlForShell, formatElapsed, maskSecret, matchesConsoleFilter, shortCwd } from './utilPanel';
 
 const e = (p: Partial<Parameters<typeof matchesConsoleFilter>[0]>) => ({
   protocol: 'http' as const,
@@ -42,6 +42,14 @@ describe('format helpers', () => {
   it('elapsed', () => {
     expect(formatElapsed(128)).toBe('128 ms');
     expect(formatElapsed(2000)).toBe('2.0 s');
+  });
+  it('shortCwd', () => {
+    expect(shortCwd('/Users/a', '/Users/a')).toBe('~');
+    expect(shortCwd('/Users/a/Documents', '/Users/a')).toBe('~/Documents');
+    expect(shortCwd('/Users/a/Documents/bonk/acme-business', '/Users/a')).toBe('~/…/acme-business');
+    expect(shortCwd('/tmp', '/Users/a')).toBe('/tmp');
+    expect(shortCwd('/var/log/nginx', '/Users/a')).toBe('…/log/nginx');
+    expect(shortCwd('', '')).toBe('~');
   });
 });
 
