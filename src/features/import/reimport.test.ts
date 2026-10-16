@@ -107,7 +107,7 @@ describe('diffCollection', () => {
       ['disputes', 'Disputes', false],
     ]);
     expect(d.changed.map((c) => [c.id, c.what])).toEqual([
-      ['fs:api/Payments/Create', ['тело: +metadata, amount → integer']],
+      ['fs:api/Payments/Create', ['body: +metadata, amount → integer']],
     ]);
     expect(d.changed[0].body?.updated).toBe(true);
     expect(d.removed.map((r) => r.id)).toEqual(['fs:api/Void']);

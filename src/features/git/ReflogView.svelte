@@ -9,7 +9,7 @@
   import { gitReflog } from '$shared/ipc';
   import { requestConfirm } from '$shared/ui';
   import type { ReflogEntry } from '$shared/model';
-  import { t, uiLanguage } from '$shared/i18n';
+  import { t } from '$shared/i18n';
   import { GitButton, GitHead, GitView, GitViewBody, GitViewEmpty, GitError } from '$entities/git/components';
 
   const LIMIT = 300;
@@ -20,7 +20,6 @@
   let naming = $state(-1);
   let branchName = $state('');
 
-  const lang = $derived(uiLanguage.current);
   const now = $derived.by(() => (void git.version, Date.now()));
   const current = $derived(git.status?.branch || 'HEAD');
 
@@ -79,7 +78,7 @@
           <div class="entry">
             <button class="hash" title={t('git.tab.graph')} onclick={() => openGraphTab(e.hash)}>{e.short}</button>
             <span class="what"><b>{a.verb}</b> {a.rest}</span>
-            <span class="when">{shortAgo(e.time, now, lang)}</span>
+            <span class="when">{shortAgo(e.time, now)}</span>
             {#if naming === i}
               <!-- svelte-ignore a11y_autofocus -->
               <input

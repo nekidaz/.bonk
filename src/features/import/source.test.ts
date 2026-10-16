@@ -21,7 +21,7 @@ describe('loadSource', () => {
     const s = loadSource(yamlSpec, origin);
     expect(s.format).toBe('openapi');
     expect([s.title, s.label, s.version, s.syntax]).toEqual(['Payments API', 'OpenAPI 3.1', '1.4.2', 'YAML']);
-    expect(sourceStats(s).slice(0, 3)).toEqual(['1 операция', '1 тег', '1 сервер']);
+    expect(sourceStats(s).slice(0, 3)).toEqual(['1 operation', '1 tag', '1 server']);
   });
 
   it('sniffs Postman, Insomnia, HAR and cURL', () => {

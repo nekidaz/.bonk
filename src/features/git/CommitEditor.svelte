@@ -36,7 +36,7 @@
   <GitHead>
     <div class="ttl"><span class="crumb">{`${t('git.title')}  /  ${t('git.tab.commit')}`}</span></div>
     <span class="meta" class:over={subject > SUBJECT_MAX}
-      >{`${t('git.commit.subject')} ${subject} / ${SUBJECT_MAX} · ${lines.length} ${tp(lines.length, ['строка', 'строки', 'строк'], ['line', 'lines'])}`}</span
+      >{`${t('git.commit.subject')} ${subject} / ${SUBJECT_MAX} · ${lines.length} ${tp(lines.length, ['line', 'lines'])}`}</span
     >
   </GitHead>
   <GitViewBody>

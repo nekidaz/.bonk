@@ -3,7 +3,7 @@
   the tools of the open tab (body format, Beautify, size).
 -->
 <script lang="ts">
-  import { t, uiLanguage } from '$shared/i18n';
+  import { t } from '$shared/i18n';
   import type { HttpEditorTab } from './httpEditor';
   import { type Tab, formatBytes, currentBodyMode, currentRawFormat, SCRIPTS_ENABLED } from '$shared/model';
   import { tablist, focusMode, toggleFocus } from '$shared/ui';
@@ -123,7 +123,7 @@
         <span class="material-symbols-outlined" aria-hidden="true">keyboard_arrow_down</span>
       </span>
       <TabStats
-        >{`${stats.approx ? '~' : ''}${formatBytes(stats.bytes)}  ·  ${countLabel(stats.lines, 'lines', uiLanguage.current)}`}{#if invalid}<b
+        >{`${stats.approx ? '~' : ''}${formatBytes(stats.bytes)}  ·  ${countLabel(stats.lines, 'lines')}`}{#if invalid}<b
             class="bad">{'  ·  '}{t('lb.json.invalid')}</b
           >{/if}</TabStats
       >

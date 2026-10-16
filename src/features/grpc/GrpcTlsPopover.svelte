@@ -5,7 +5,7 @@
    * `open` is bound because GrpcEditor also opens it from the response pane's
    * unreachable state; outside-click and Escape close it from here.
    */
-  import { t, uiLanguage } from '$shared/i18n';
+  import { t } from '$shared/i18n';
   import { currentVarScope } from '$entities/environment';
   import { filePick, grpcTlsInspect } from '$shared/ipc';
   import { resolveVars, type Tab, type GrpcTls, type GrpcCertInfo } from '$shared/model';
@@ -31,7 +31,7 @@
   let cert = $state<{ loading: boolean; info?: GrpcCertInfo; error?: string }>({ loading: false });
   let trigger = $state<HTMLButtonElement | undefined>(undefined);
   const resolvedEndpoint = $derived(resolveVars(tab.grpc?.endpoint ?? '', currentVarScope()));
-  const expiry = $derived(cert.info ? certExpiry(cert.info.notAfter, uiLanguage.current) : { days: 0, date: '' });
+  const expiry = $derived(cert.info ? certExpiry(cert.info.notAfter) : { days: 0, date: '' });
 
   function setPlaintext(value: boolean): void {
     if (value === plaintext) return;

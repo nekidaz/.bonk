@@ -40,12 +40,11 @@ export function sentEntries(json: string, sentSoFar: number, now = Date.now()): 
 export const fileName = (p: string): string => p.split(/[\\/]/).pop() ?? p;
 
 /** Whole days until a certificate expires (negative once expired) and its short localized date. */
-export function certExpiry(notAfter: number, lang: string, now = Date.now()): { days: number; date: string } {
+export function certExpiry(notAfter: number, now = Date.now()): { days: number; date: string } {
   return {
     days: Math.floor((notAfter * 1000 - now) / 86_400_000),
     date: new Date(notAfter * 1000)
-      .toLocaleDateString(lang === 'ru' ? 'ru-RU' : 'en-US', { day: 'numeric', month: 'short', year: 'numeric' })
-      .replace(' г.', '')
+      .toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })
       .replace('.', ''),
   };
 }

@@ -73,11 +73,9 @@
           <span class="kind">{r.kind === 'glob' ? 'glob' : r.kind === 'send' ? '' : r.kind}</span>
           <span class="text">
             {#if r.kind === 'test'}
-              {`${r.total} ${tp(r.total, ['проверка', 'проверки', 'проверок'], ['check', 'checks'])}: `}<span class="ok"
-                >{`${r.total - r.failed} ${tp(r.total - r.failed, ['прошла', 'прошли', 'прошли'], ['passed', 'passed'])}`}</span
-              >{#if r.failed}{', '}<span class="bad"
-                  >{`${r.failed} ${tp(r.failed, ['упала', 'упали', 'упали'], ['failed', 'failed'])}`}</span
-                >{/if}
+              {`${r.total} ${tp(r.total, ['check', 'checks'])}: `}<span class="ok"
+                >{`${r.total - r.failed} ${tp(r.total - r.failed, ['passed', 'passed'])}`}</span
+              >{#if r.failed}{', '}<span class="bad">{`${r.failed} ${tp(r.failed, ['failed', 'failed'])}`}</span>{/if}
               {#if onTests}<button type="button" class="link" onclick={onTests}>→ Tests</button>{/if}
             {:else if r.kind === 'log'}
               {r.text}

@@ -1,5 +1,5 @@
 import { type GrpcField, type GrpcTabState, tokenize } from '$shared/model';
-import { t, ru, en } from '$shared/i18n';
+import { t } from '$shared/i18n';
 
 export function methodShort(symbol: string): string {
   const i = symbol.lastIndexOf('.');
@@ -19,9 +19,7 @@ export function grpcInputType(grpc: GrpcTabState | undefined): string {
  */
 export const grpcNoServicesHint = (): string => t('grpc.noServicesHint');
 
-/** True for the hint in either UI language (a stored error may predate a language switch). */
-export const isGrpcNoServicesHint = (msg: string): boolean =>
-  msg === ru['grpc.noServicesHint'] || msg === en['grpc.noServicesHint'];
+export const isGrpcNoServicesHint = (msg: string): boolean => msg === t('grpc.noServicesHint');
 
 /**
  * The server was not reached (refused, DNS, TLS handshake, connect timeout): `code` from a

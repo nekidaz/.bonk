@@ -162,9 +162,7 @@
     });
     return names.length ? t('session.d.injectExcept', { list: names.join(', ') }) : t('session.d.injectAll');
   });
-  const askedText = $derived(
-    asked ? t(`session.d.asked.${tp(asked, ['one', 'few', 'many'], ['one', 'many'])}`, { n: asked }) : '',
-  );
+  const askedText = $derived(asked ? t(`session.d.asked.${tp(asked, ['one', 'many'])}`, { n: asked }) : '');
   const pill = (exp: number | null): string =>
     exp === null
       ? t('session.noExpiry')

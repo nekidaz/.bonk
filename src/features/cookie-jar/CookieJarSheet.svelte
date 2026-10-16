@@ -50,7 +50,7 @@
   const allDomains = $derived(new Set(cookies.map((c) => c.domain)));
   const rows = $derived(selected ? cookies.filter((c) => c.domain === selected) : []);
   const wsName = $derived(cookieJarKey().split(/[/\\]/).filter(Boolean).at(-1) ?? '');
-  const cookiesWord = (n: number) => `${n} ${tp(n, ['cookie', 'cookies', 'cookies'], ['cookie', 'cookies'])}`;
+  const cookiesWord = (n: number) => `${n} ${tp(n, ['cookie', 'cookies'])}`;
   const kicker = $derived(
     [wsName, t(wsName ? 'cookies.kicker.workspace' : 'cookies.kicker.app'), cookiesWord(cookies.length)]
       .filter(Boolean)
@@ -211,7 +211,7 @@
   const clearBody = $derived(
     t('cookies.clear.body', {
       cookies: cookiesWord(cookies.length),
-      domains: `${allDomains.size} ${tp(allDomains.size, ['домене', 'доменах', 'доменах'], ['domain', 'domains'])}`,
+      domains: `${allDomains.size} ${tp(allDomains.size, ['domain', 'domains'])}`,
       scope: wsName ? t('cookies.clear.scope_ws', { name: wsName }) : t('cookies.clear.scope_app'),
     }),
   );

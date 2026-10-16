@@ -145,32 +145,29 @@ function countRequests(items: ParsedPostmanCollection['items']): number {
   return items.reduce((n, i) => n + (i.kind === 'folder' ? countRequests(i.items) : 1), 0);
 }
 
-/** The detected-source card's stats line: `38 операций · 6 тегов · 2 сервера · bearerAuth · 41 схема`. */
+/** The detected-source card's stats line: `38 operations · 6 tags · 2 servers · bearerAuth · 41 schemas`. */
 export function sourceStats(s: Loaded): string[] {
   if (s.format === 'openapi') {
     const { spec } = s;
     return [
-      `${spec.ops.length} ${tp(spec.ops.length, ['операция', 'операции', 'операций'], ['operation', 'operations'])}`,
-      `${spec.tags} ${tp(spec.tags, ['тег', 'тега', 'тегов'], ['tag', 'tags'])}`,
-      `${spec.servers.length} ${tp(spec.servers.length, ['сервер', 'сервера', 'серверов'], ['server', 'servers'])}`,
+      `${spec.ops.length} ${tp(spec.ops.length, ['operation', 'operations'])}`,
+      `${spec.tags} ${tp(spec.tags, ['tag', 'tags'])}`,
+      `${spec.servers.length} ${tp(spec.servers.length, ['server', 'servers'])}`,
       ...spec.schemeNames.slice(0, 2),
-      `${spec.schemas} ${tp(spec.schemas, ['схема', 'схемы', 'схем'], ['schema', 'schemas'])}`,
+      `${spec.schemas} ${tp(spec.schemas, ['schema', 'schemas'])}`,
     ];
   }
   if (s.format === 'har') {
     const n = s.har.entries.length;
     const hosts = new Set(s.har.entries.map((e) => e.host)).size;
-    return [
-      `${n} ${tp(n, ['запись', 'записи', 'записей'], ['entry', 'entries'])}`,
-      `${hosts} ${tp(hosts, ['домен', 'домена', 'доменов'], ['domain', 'domains'])}`,
-    ];
+    return [`${n} ${tp(n, ['entry', 'entries'])}`, `${hosts} ${tp(hosts, ['domain', 'domains'])}`];
   }
   const n = countRequests(s.collection.items);
   const folders = s.collection.items.filter((i) => i.kind === 'folder').length;
   const vars = s.collection.variables.length;
   return [
-    `${n} ${tp(n, ['запрос', 'запроса', 'запросов'], ['request', 'requests'])}`,
-    ...(folders ? [`${folders} ${tp(folders, ['папка', 'папки', 'папок'], ['folder', 'folders'])}`] : []),
-    ...(vars ? [`${vars} ${tp(vars, ['переменная', 'переменные', 'переменных'], ['variable', 'variables'])}`] : []),
+    `${n} ${tp(n, ['request', 'requests'])}`,
+    ...(folders ? [`${folders} ${tp(folders, ['folder', 'folders'])}`] : []),
+    ...(vars ? [`${vars} ${tp(vars, ['variable', 'variables'])}`] : []),
   ];
 }

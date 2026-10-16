@@ -86,9 +86,7 @@
       <div class="row">
         <h2>{`${short(base)} → ${short(target)}`}</h2>
         {#if loaded && !error}
-          <GitTag
-            >{`${files.length} ${tp(files.length, ['файл', 'файла', 'файлов'], ['file', 'files'])} · +${plus} −${minus}`}</GitTag
-          >
+          <GitTag>{`${files.length} ${tp(files.length, ['file', 'files'])} · +${plus} −${minus}`}</GitTag>
         {/if}
       </div>
     </div>

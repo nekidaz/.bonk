@@ -1,5 +1,5 @@
 /**
- * CodeMirror glue for JSON folding (E1/E4 rule 4): the «ещё N объектов · M строк» chip, a fold gutter, and
+ * CodeMirror glue for JSON folding (E1/E4 rule 4): the «N more objects · M lines» chip, a fold gutter, and
  * helpers that fold the middle of big arrays / everything. Range computation lives in jsonFold.ts (pure).
  */
 import type { EditorState, Extension } from '@codemirror/state';
@@ -14,41 +14,25 @@ import {
   unfoldAll as cmUnfoldAll,
 } from '@codemirror/language';
 import { describeSlice, scanFolds, type ItemKind } from './jsonFold';
-import { plural, t, uiLanguage } from '$shared/i18n';
+import { t, tp } from '$shared/i18n';
 import { foldArraysOver } from '$shared/settings';
 
-const UNITS: Record<ItemKind | 'lines' | 'matches', [[string, string, string], [string, string]]> = {
-  objects: [
-    ['объект', 'объекта', 'объектов'],
-    ['object', 'objects'],
-  ],
-  arrays: [
-    ['массив', 'массива', 'массивов'],
-    ['array', 'arrays'],
-  ],
-  items: [
-    ['элемент', 'элемента', 'элементов'],
-    ['item', 'items'],
-  ],
-  lines: [
-    ['строка', 'строки', 'строк'],
-    ['line', 'lines'],
-  ],
-  matches: [
-    ['совпадение', 'совпадения', 'совпадений'],
-    ['match', 'matches'],
-  ],
+const UNITS: Record<ItemKind | 'lines' | 'matches', [string, string]> = {
+  objects: ['object', 'objects'],
+  arrays: ['array', 'arrays'],
+  items: ['item', 'items'],
+  lines: ['line', 'lines'],
+  matches: ['match', 'matches'],
 };
 
-/** `4 817` / `4,817`. */
-export function formatCount(n: number, lang = uiLanguage.current): string {
-  return n.toLocaleString(lang === 'ru' ? 'ru-RU' : 'en-US');
+/** `4,817`. */
+export function formatCount(n: number): string {
+  return n.toLocaleString('en-US');
 }
 
-/** `4 817 строк`, `3 objects` — a count with its plural unit in the UI language. */
-export function countLabel(n: number, unit: keyof typeof UNITS, lang = uiLanguage.current): string {
-  const [ru, en] = UNITS[unit];
-  return `${formatCount(n, lang)} ${plural(n, lang === 'ru' ? ru : en, lang)}`;
+/** `4,817 lines`, `3 objects`: a count with its plural unit. */
+export function countLabel(n: number, unit: keyof typeof UNITS): string {
+  return `${formatCount(n)} ${tp(n, UNITS[unit])}`;
 }
 
 interface Prepared {
@@ -61,9 +45,7 @@ interface Prepared {
 function chipText(p: Prepared): string {
   const lines = countLabel(p.lines, 'lines');
   if (p.count === undefined) return `… ${lines}`;
-  const lang = uiLanguage.current;
-  const [ru, en] = UNITS[p.kind];
-  return `${t('lb.more', { n: formatCount(p.count, lang), unit: plural(p.count, lang === 'ru' ? ru : en, lang) })} · ${lines}`;
+  return `${t('lb.more', { n: formatCount(p.count), unit: tp(p.count, UNITS[p.kind]) })} · ${lines}`;
 }
 
 function prepare(state: EditorState, range: { from: number; to: number }): Prepared {

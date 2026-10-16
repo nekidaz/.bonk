@@ -197,8 +197,8 @@ describe('Postman Collection import', () => {
   });
 
   it('rejects documents that are not a collection', () => {
-    expect(() => parsePostmanCollection('not json')).toThrow('корректным JSON');
-    expect(() => parsePostmanCollection('{}')).toThrow('Ожидается коллекция Postman');
+    expect(() => parsePostmanCollection('not json')).toThrow('valid JSON');
+    expect(() => parsePostmanCollection('{}')).toThrow('Expected a Postman Collection');
   });
 
   it('preserves a binary file body path for the native sender', () => {

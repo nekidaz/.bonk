@@ -5,7 +5,7 @@
    * a large message adds its size, line count and editor tools (E2 rules 2, 3, 6),
    * `messageStats` is set only then.
    */
-  import { t, uiLanguage } from '$shared/i18n';
+  import { t } from '$shared/i18n';
   import { focusMode, toggleFocus } from '$shared/ui';
   import { formatBytes, SCRIPTS_ENABLED, type Tab, type GrpcMethod } from '$shared/model';
   import { countLabel, type TextStats } from '$shared/editor';
@@ -77,7 +77,7 @@
         >
       {:else}
         <TabStats
-          >{`${messageStats.approx ? '~' : ''}${formatBytes(messageStats.bytes)}  ·  ${countLabel(messageStats.lines, 'lines', uiLanguage.current)}`}</TabStats
+          >{`${messageStats.approx ? '~' : ''}${formatBytes(messageStats.bytes)}  ·  ${countLabel(messageStats.lines, 'lines')}`}</TabStats
         >
         <EditorTools
           scope="#bs-grpcpanel"

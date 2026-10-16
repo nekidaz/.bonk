@@ -56,7 +56,7 @@
   );
 
   const wsName = $derived(workspaceName(workspace.path ?? '').replace(/[-_]+/g, ' '));
-  const count = $derived(tp(names.length, ['окружение', 'окружения', 'окружений'], ['environment', 'environments']));
+  const count = $derived(tp(names.length, ['environment', 'environments']));
 
   let confirmAll = $state(false);
   async function signOutAll(): Promise<void> {

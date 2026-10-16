@@ -107,10 +107,10 @@
 
   /** «1 окружение · 2–4 окружения · 5+ окружений». */
   function plural(n: number): string {
-    return tp(n, ['окружение', 'окружения', 'окружений'], ['environment', 'environments']).toUpperCase();
+    return tp(n, ['environment', 'environments']).toUpperCase();
   }
   function requestsWord(n: number): string {
-    return tp(n, ['запросе', 'запросах', 'запросах'], ['request', 'requests']);
+    return tp(n, ['request', 'requests']);
   }
 
   // What the draft was copied from: our own save keeps the draft, a change made elsewhere while the tab
@@ -307,7 +307,7 @@
       t('env.create.done', {
         name,
         n,
-        word: tp(n, ['переменная', 'переменные', 'переменных'], ['variable', 'variables']),
+        word: tp(n, ['variable', 'variables']),
       }),
       () => dropDraft(c.id, c.prev),
     );
@@ -644,14 +644,14 @@
                 <div class="pvtitle">
                   {t('env.paste.title', {
                     n: preview.count,
-                    word: tp(preview.count, ['ключ', 'ключа', 'ключей'], ['key', 'keys']),
+                    word: tp(preview.count, ['key', 'keys']),
                   })}
                 </div>
                 <div class="pvstat">
                   {#if preview.diff.added.length}<span class="s-new"
                       >{t('env.paste.added', {
                         n: preview.diff.added.length,
-                        word: tp(preview.diff.added.length, ['новая', 'новые', 'новых'], ['new', 'new']),
+                        word: tp(preview.diff.added.length, ['new', 'new']),
                       })}</span
                     >{/if}
                   {#if preview.diff.changed.length}<span class="s-chg"

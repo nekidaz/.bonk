@@ -36,7 +36,7 @@ describe('GraphQL HTTP body', () => {
 
   it('reports malformed variable JSON before sending', () => {
     const built = buildRequestForSend(graphqlTab('{id: }'), 'https://example.com/graphql');
-    expect(() => resolveRequestVars(built, {})).toThrow('Переменные GraphQL должны быть корректным JSON.');
+    expect(() => resolveRequestVars(built, {})).toThrow('GraphQL variables must be valid JSON.');
   });
 
   it('prepares saved runner requests with the same body, auth and params as interactive send', () => {

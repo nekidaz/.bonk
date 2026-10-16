@@ -169,7 +169,7 @@
   const mutatingText = $derived.by(() => {
     const n = mutating.length * iterations;
     const methods = MUTATING.filter((m) => mutating.some((x) => methodOf(x) === m)).join(', ');
-    const word = tp(n, ['изменяющий', 'изменяющих', 'изменяющих'], ['mutating', 'mutating']);
+    const word = tp(n, ['mutating', 'mutating']);
     return env
       ? t('runner.setup.mutatingIn', { n, word, methods, env: env.name })
       : t('runner.setup.mutating', { n, word, methods });
@@ -312,9 +312,7 @@
                 >
               {/each}
             {/if}
-            <span class="rs-tests"
-              >{tests ? `${tests} ${tp(tests, ['тест', 'теста', 'тестов'], ['test', 'tests'])}` : ''}</span
-            >
+            <span class="rs-tests">{tests ? `${tests} ${tp(tests, ['test', 'tests'])}` : ''}</span>
             <!-- Buttons, not only drag: HTML5 drops never fire in the macOS webview. -->
             <span class="rs-acts">
               <button
@@ -410,7 +408,7 @@
           >{t('runner.setup.iter')}{#if dataDriven}<small
               >{t('runner.setup.iterFile', {
                 n: iterations,
-                rows: tp(iterations, ['строка', 'строки', 'строк'], ['row', 'rows']),
+                rows: tp(iterations, ['row', 'rows']),
               })}</small
             >{/if}</span
         >
@@ -459,7 +457,7 @@
       <div class="rn-eyebrow">{t('runner.setup.willSend')}</div>
       <div class="rs-sumrow">
         <b>{calls}</b><span
-          >{tp(calls, ['запрос', 'запроса', 'запросов'], ['request', 'requests'])} · ~{estimate} s{#if asking.length > 0}{' · '}{t(
+          >{tp(calls, ['request', 'requests'])} · ~{estimate} s{#if asking.length > 0}{' · '}{t(
               'input.runner.willAsk',
               { n: asking.length * iterations },
             )}{/if}</span

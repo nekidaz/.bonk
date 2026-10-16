@@ -51,9 +51,7 @@
 <GitLayer role="presentation" onpointerdown={onClose} oncontextmenu={(e) => e.preventDefault()}></GitLayer>
 <div class="bs-commitmenu" role="menu" style:left="{left}px" style:top="{Math.max(8, top)}px">
   <div class="eb">
-    {one
-      ? `${t('git.graph.commit')}  ·  ${commits[0].short}`
-      : `${n} ${tp(n, ['коммит', 'коммита', 'коммитов'], ['commit', 'commits'])}`}
+    {one ? `${t('git.graph.commit')}  ·  ${commits[0].short}` : `${n} ${tp(n, ['commit', 'commits'])}`}
   </div>
   <button role="menuitem" disabled={!current || onCurrent} onclick={() => run({ kind: 'cherry-pick' })}
     ><span class="material-symbols-outlined">commit</span>{t('git.graph.cherryPick', { branch: here })}</button
@@ -61,7 +59,7 @@
   <button role="menuitem" onclick={() => run({ kind: 'revert' })}
     ><span class="material-symbols-outlined">undo</span>{one
       ? t('git.graph.revertOne')
-      : t('git.graph.revert', { n, commits: tp(n, ['коммит', 'коммита', 'коммитов'], ['commit', 'commits']) })}</button
+      : t('git.graph.revert', { n, commits: tp(n, ['commit', 'commits']) })}</button
   >
   <button role="menuitem" onclick={() => run({ kind: 'patch' })}
     ><span class="material-symbols-outlined">draft</span>{t('git.graph.patch')}</button

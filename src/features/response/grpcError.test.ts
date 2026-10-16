@@ -7,7 +7,7 @@ describe('presentGrpcError', () => {
   it('presents the status code and keeps the human message', () => {
     const view = presentGrpcError('Unauthenticated', 'authorization token is not provided');
     expect(view.code).toBe('UNAUTHENTICATED');
-    expect(view.title).toBe('Требуется аутентификация');
+    expect(view.title).toBe('Authentication required');
     expect(view.message).toBe('authorization token is not provided');
     expect(view.hint).toContain('Metadata');
     expect(view.action).toBe('metadata');
@@ -20,7 +20,7 @@ describe('presentGrpcError', () => {
   it('uses the result status for cancellations', () => {
     const view = presentGrpcError('CANCELLED', 'Request cancelled');
     expect(view.code).toBe('CANCELLED');
-    expect(view.title).toBe('Запрос отменён');
+    expect(view.title).toBe('Request cancelled');
   });
 
   it('falls back cleanly for an unknown failure', () => {

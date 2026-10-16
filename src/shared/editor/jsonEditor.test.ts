@@ -1,5 +1,4 @@
 import { describe, it, expect } from 'vitest';
-import { uiLanguage } from '$shared/i18n';
 import {
   jsonLineCol,
   jsonErrorMessage,
@@ -9,8 +8,6 @@ import {
   bodyPlaceholder,
 } from './jsonEditor';
 import type { Tab } from '$shared/model';
-
-uiLanguage.current = 'en'; // these assertions check the English strings
 
 function tab(overrides: Partial<Tab['request']> = {}): Tab {
   return {

@@ -116,17 +116,17 @@ describe('shortAgo', () => {
   const now = Date.UTC(2026, 9, 11, 12, 0, 0);
   const ago = (s: number) => now / 1000 - s;
   it('steps from minutes to dates', () => {
-    expect(shortAgo(ago(10), now, 'en')).toBe('now');
-    expect(shortAgo(ago(300), now, 'ru')).toBe('5м');
-    expect(shortAgo(ago(7200), now, 'en')).toBe('2h');
-    expect(shortAgo(ago(90000), now, 'ru')).toBe('вчера');
-    expect(shortAgo(ago(3 * 86400), now, 'en')).toBe('3d');
-    expect(shortAgo(ago(40 * 86400), now, 'en')).toBe('2026-09-01');
+    expect(shortAgo(ago(10), now)).toBe('now');
+    expect(shortAgo(ago(300), now)).toBe('5m');
+    expect(shortAgo(ago(7200), now)).toBe('2h');
+    expect(shortAgo(ago(90000), now)).toBe('yday');
+    expect(shortAgo(ago(3 * 86400), now)).toBe('3d');
+    expect(shortAgo(ago(40 * 86400), now)).toBe('2026-09-01');
   });
 
   it('says a longer age in the largest whole unit', () => {
-    expect(relativeAgo(ago(300), now, 'en')).toBe('5 minutes ago');
-    expect(relativeAgo(ago(7200), now, 'ru')).toBe('2 часа назад');
-    expect(relativeAgo(ago(3 * 86400), now, 'en')).toBe('3 days ago');
+    expect(relativeAgo(ago(300), now)).toBe('5 minutes ago');
+    expect(relativeAgo(ago(7200), now)).toBe('2 hours ago');
+    expect(relativeAgo(ago(3 * 86400), now)).toBe('3 days ago');
   });
 });

@@ -32,7 +32,7 @@
         ? t('settings.data.size.kb', { n: Math.round(b / 1024) })
         : t('settings.data.size.mb', { n: (b / 1048576).toFixed(1) });
   const historyNote = $derived(
-    `${history.list.length} ${tp(history.list.length, ['запрос', 'запроса', 'запросов'], ['request', 'requests'])} · ${size(new TextEncoder().encode(JSON.stringify(history.list)).length)}`,
+    `${history.list.length} ${tp(history.list.length, ['request', 'requests'])} · ${size(new TextEncoder().encode(JSON.stringify(history.list)).length)}`,
   );
 
   async function run(fn: () => Promise<string | void>): Promise<void> {

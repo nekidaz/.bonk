@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { uiLanguage, type UiLanguage, t } from '$shared/i18n';
+  import { t } from '$shared/i18n';
   import { startupOpen, autoUpdateCheck, openInNewTab, confirmCloseUnsaved } from '$shared/settings';
   import { installUpdate, openReleaseNotes, updater } from '$shared/updater';
   import SettingsWorkspace from './SettingsWorkspace.svelte';
@@ -26,16 +26,6 @@
 
 <div class="st-group">{t('settings.general.app')}</div>
 <div class="st-card">
-  {#snippet lang()}{@render select(
-      t('settings.general.language'),
-      uiLanguage.current,
-      [
-        { label: 'Русский', value: 'ru' },
-        { label: 'English', value: 'en' },
-      ],
-      (v) => (uiLanguage.current = v as UiLanguage),
-    )}{/snippet}
-  {@render row(t('settings.general.language'), '', lang)}
   {#snippet start()}{@render select(
       t('settings.general.startup'),
       startupOpen.current,

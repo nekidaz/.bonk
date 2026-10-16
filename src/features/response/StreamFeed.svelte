@@ -7,7 +7,7 @@
    * Pause is the parent's (`pause`, bindable) because the status pill shows it too; it is tied to the
    * stream's `startedAt`, so a new run starts unpaused.
    */
-  import { t, tp, uiLanguage } from '$shared/i18n';
+  import { t, tp } from '$shared/i18n';
   import { elapsedLabel, formatBytes, grpcStatusLabel, type GrpcStreamMessage, type Tab } from '$shared/model';
   import { responseFileName, saveResponseBody } from './saveResponse';
   import {
@@ -43,8 +43,8 @@
   const stream = $derived(tab.grpcStream!);
   const kind = $derived(stream.kind ?? 'server');
   const result = $derived(tab.grpcResult);
-  const fmt = (n: number) => formatCount(n, uiLanguage.current);
-  const msgs = (n: number) => tp(n, ['сообщение', 'сообщения', 'сообщений'], ['message', 'messages']);
+  const fmt = (n: number) => formatCount(n);
+  const msgs = (n: number) => tp(n, ['message', 'messages']);
 
   const DIRS: [StreamDirection, string][] = [
     ['all', 'response.stream.all'],
@@ -237,9 +237,9 @@
         {@const saved = t('response.stream.saved', {
           n,
           msgs: msgs(n),
-          recv: tp(n, ['полученное', 'полученные', 'полученных'], ['', '']),
+          recv: tp(n, ['', '']),
           until: t(code === 'CANCELLED' ? 'response.stream.until_stop' : 'response.stream.until_error'),
-          saved: tp(n, ['сохранено', 'сохранены', 'сохранены'], ['', '']),
+          saved: tp(n, ['', '']),
         })}
         {#if code !== 'CANCELLED'}
           <div class="msg err" role="alert">

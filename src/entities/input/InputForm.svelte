@@ -241,7 +241,7 @@
     {:else}
       <span class="state"><i class="dot"></i>{heading}</span>
       {#if request.fields.length > 1}<span class="n"
-          >{request.fields.length} {tp(request.fields.length, ['поле', 'поля', 'полей'], ['field', 'fields'])}</span
+          >{request.fields.length} {tp(request.fields.length, ['field', 'fields'])}</span
         ><span class="where">{request.method} {request.requestName}</span>{/if}
       {#if request.resend}<button
           class="hbtn"

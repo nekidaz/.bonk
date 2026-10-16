@@ -51,7 +51,6 @@
   import { createFindPanel } from './findPanel';
   import { linter, type Diagnostic } from '@codemirror/lint';
   import { tags } from '@lezer/highlight';
-  import { uiLanguage } from '$shared/i18n';
   import { lineHighlight } from './lineHighlight';
   import { foldLargeArrays, largeFolding } from './largeFold';
   import { jsonProblem } from './jsonLint';
@@ -606,13 +605,7 @@
     return [
       ...modeExtensions,
       // ⌘F inside any multi-line editor opens the find & replace widget (E1/E4 rule 3, 8; E1b).
-      ...(singleLine
-        ? []
-        : [
-            search({ top: true, createPanel: createFindPanel }),
-            keymap.of(searchKeymap),
-            ...(uiLanguage.current === 'ru' ? [EditorState.phrases.of(RU_SEARCH)] : []),
-          ]),
+      ...(singleLine ? [] : [search({ top: true, createPanel: createFindPanel }), keymap.of(searchKeymap)]),
       ...(fold ? [largeFolding(), keymap.of(foldKeymap)] : []),
       ...(lintJson && !readOnly ? [linter(lintSource, { delay: 400 })] : []),
       wrapCompartment.of(wrap ? EditorView.lineWrapping : []),
@@ -653,23 +646,6 @@
       }),
     ];
   }
-
-  const RU_SEARCH: Record<string, string> = {
-    Find: 'Найти',
-    Replace: 'Заменить',
-    next: 'далее',
-    previous: 'назад',
-    all: 'все',
-    'match case': 'с регистром',
-    regexp: 'regexp',
-    'by word': 'слово целиком',
-    replace: 'заменить',
-    'replace all': 'заменить все',
-    'Toggle Replace': 'Замена',
-    close: 'закрыть',
-    'Go to line': 'К строке',
-    go: 'перейти',
-  };
 
   function lintSource(v: EditorView): Diagnostic[] {
     if (currentLang !== 'json') return [];

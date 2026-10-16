@@ -33,15 +33,6 @@ export interface Delta {
 export const SLOW_MS = 200;
 export const HISTORY_LIMIT = 10;
 
-/** Russian plural: plural(2, ['запрос', 'запроса', 'запросов']) → 'запроса'. */
-export function plural(n: number, [one, few, many]: [string, string, string]): string {
-  const m10 = n % 10;
-  const m100 = n % 100;
-  if (m10 === 1 && m100 !== 11) return one;
-  if (m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14)) return few;
-  return many;
-}
-
 /** Nearest-rank 95th percentile; 0 for no values. */
 export function p95(values: number[]): number {
   if (values.length === 0) return 0;
@@ -115,10 +106,10 @@ export function runTimeLabel(ts: number, now = Date.now(), tr: Translate = t): s
     : `${pad(d.getDate())}.${pad(d.getMonth() + 1)} ${hm}`;
 }
 
-/** "сегодня" / "вчера" / "3 дня назад" (calendar days, current UI language). */
-export function relDay(ts: number, lang: string, now = Date.now()): string {
+/** "today" / "yesterday" / "3 days ago" (calendar days). */
+export function relDay(ts: number, now = Date.now()): string {
   const day = (x: number) => Math.floor((x - new Date(x).getTimezoneOffset() * 60_000) / 86_400_000);
-  return new Intl.RelativeTimeFormat(lang, { numeric: 'auto' }).format(day(ts) - day(now), 'day');
+  return new Intl.RelativeTimeFormat('en', { numeric: 'auto' }).format(day(ts) - day(now), 'day');
 }
 
 // ---- Setup (R2) ----

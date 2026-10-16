@@ -82,7 +82,7 @@
     return t('env.json.err.at', { line, col, msg });
   }
 
-  const vars = (n: number) => `${n} ${tp(n, ['переменная', 'переменные', 'переменных'], ['variable', 'variables'])}`;
+  const vars = (n: number) => `${n} ${tp(n, ['variable', 'variables'])}`;
 
   /** «5 переменных · 1 секрет · 1 выключена» */
   function stats(rows: VarRow[]): string {
@@ -90,8 +90,8 @@
     const off = rows.filter((r) => !r.enabled).length;
     return [
       vars(rows.length),
-      secrets && `${secrets} ${tp(secrets, ['секрет', 'секрета', 'секретов'], ['secret', 'secrets'])}`,
-      off && `${off} ${tp(off, ['выключена', 'выключены', 'выключено'], ['disabled', 'disabled'])}`,
+      secrets && `${secrets} ${tp(secrets, ['secret', 'secrets'])}`,
+      off && `${off} ${tp(off, ['disabled', 'disabled'])}`,
     ]
       .filter(Boolean)
       .join('  ·  ');
@@ -108,7 +108,7 @@
       d.added.length &&
         t('env.json.added', {
           n: d.added.length,
-          word: tp(d.added.length, ['новая', 'новые', 'новых'], ['new', 'new']),
+          word: tp(d.added.length, ['new', 'new']),
           names,
         }),
       d.changed.length && t('env.json.changed', { n: d.changed.length }),

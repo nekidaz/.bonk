@@ -21,8 +21,8 @@
   const domains = $derived(new Set(cookieJar.list.map((c) => c.domain)).size);
   const status = $derived(
     t('settings.cookies.now', {
-      cookies: `${cookieJar.list.length} ${tp(cookieJar.list.length, ['cookie', 'cookies', 'cookies'], ['cookie', 'cookies'])}`,
-      domains: `${domains} ${tp(domains, ['домене', 'доменах', 'доменах'], ['domain', 'domains'])}`,
+      cookies: `${cookieJar.list.length} ${tp(cookieJar.list.length, ['cookie', 'cookies'])}`,
+      domains: `${domains} ${tp(domains, ['domain', 'domains'])}`,
     }),
   );
 </script>

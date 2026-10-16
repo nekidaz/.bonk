@@ -4,7 +4,7 @@ import { getCurrentWebview } from '@tauri-apps/api/webview';
 import { watchCookieJar } from '$entities/cookies';
 import { git, watchGitAutoFetch, watchGitWorkspace } from '$entities/git';
 import { watchHistoryRetention } from '$entities/history';
-import { t, watchDocumentLang } from '$shared/i18n';
+import { t } from '$shared/i18n';
 import { flushPendingSaves, settingsFile } from '$shared/persist';
 import {
   autoUpdateCheck,
@@ -40,7 +40,6 @@ export function startApp(): void {
 
   // Watchers: each keeps something in sync with one slice's state for the whole session
   // (like goroutines started in main); onDestroy stops them.
-  onDestroy(watchDocumentLang());
   onDestroy(watchAppearance());
   onDestroy(watchHistoryRetention());
   onDestroy(watchGitWorkspace());

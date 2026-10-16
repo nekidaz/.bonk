@@ -94,17 +94,17 @@ const ICONS: Record<IssueKind, string> = {
 };
 
 const counted =
-  (ru: [string, string, string], en: [string, string]) =>
+  (forms: [string, string]) =>
   (n: number): string =>
-    `${n} ${tp(n, ru, en)}`;
-/** «38 запросов», «6 методов»… in the UI language. */
+    `${n} ${tp(n, forms)}`;
+/** «38 requests», «6 methods»… */
 export const nOf = {
-  requests: counted(['запрос', 'запроса', 'запросов'], ['request', 'requests']),
-  methods: counted(['метод', 'метода', 'методов'], ['method', 'methods']),
-  envs: counted(['окружение', 'окружения', 'окружений'], ['environment', 'environments']),
-  causes: counted(['причина', 'причины', 'причин'], ['cause', 'causes']),
-  groups: counted(['группа', 'группы', 'групп'], ['group', 'groups']),
-  minutes: counted(['минуту', 'минуты', 'минут'], ['minute', 'minutes']),
+  requests: counted(['request', 'requests']),
+  methods: counted(['method', 'methods']),
+  envs: counted(['environment', 'environments']),
+  causes: counted(['cause', 'causes']),
+  groups: counted(['group', 'groups']),
+  minutes: counted(['minute', 'minutes']),
 };
 
 const isTimeout = (text: string) => /time[ds]? ?out|timeout|deadline/i.test(text);

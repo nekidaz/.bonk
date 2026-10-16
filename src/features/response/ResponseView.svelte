@@ -12,7 +12,7 @@
    * only the response-display state (`respTab`, `respMode`) and derives
    * everything else from `tab`.
    */
-  import { t, tp, uiLanguage } from '$shared/i18n';
+  import { t, tp } from '$shared/i18n';
   import {
     formatBytes,
     GRPC_CODES,
@@ -154,9 +154,7 @@
   let streamPause = $state<{ startedAt: number; at: number }>();
   const feedPaused = $derived(!!streamPause && streamPause.startedAt === tab?.grpcStream?.startedAt);
   const streamCountLabel = $derived(
-    tab?.grpcStream
-      ? streamCount(tab.grpcStream.kind ?? 'server', tab.grpcStream.messages, (n) => formatCount(n, uiLanguage.current))
-      : '',
+    tab?.grpcStream ? streamCount(tab.grpcStream.kind ?? 'server', tab.grpcStream.messages, formatCount) : '',
   );
   function clearFeed(): void {
     if (tab)
@@ -204,7 +202,7 @@
   );
   const grpcBodyShown = $derived(!!grpcBody && respTab === 'body' && !tab?.grpcStream);
   const bodyShown = $derived(httpBodyShown || grpcBodyShown);
-  const linesLabel = $derived(bodyShown && bodyInfo?.cm ? countLabel(bodyInfo.lines, 'lines', uiLanguage.current) : '');
+  const linesLabel = $derived(bodyShown && bodyInfo?.cm ? countLabel(bodyInfo.lines, 'lines') : '');
 
   let saved = $state<'idle' | 'ok' | 'fail'>('idle');
   async function saveBody(body: string, format: string): Promise<void> {
@@ -358,7 +356,7 @@
 {/snippet}
 
 {#snippet unreachableFacts()}
-  {#if tab?.grpcResult}grpc-status 14{#if tab.grpcResult.attempts}{`\u00a0\u00a0·\u00a0\u00a0${tab.grpcResult.attempts} ${tp(tab.grpcResult.attempts, ['попытка', 'попытки', 'попыток'], ['attempt', 'attempts'])}`}{/if}{#if tab.grpcResult.backoffMs?.length}{`\u00a0\u00a0·\u00a0\u00a0backoff ${tab.grpcResult.backoffMs.map((ms) => ms / 1000).join(' → ')} s`}{/if}{/if}
+  {#if tab?.grpcResult}grpc-status 14{#if tab.grpcResult.attempts}{`\u00a0\u00a0·\u00a0\u00a0${tab.grpcResult.attempts} ${tp(tab.grpcResult.attempts, ['attempt', 'attempts'])}`}{/if}{#if tab.grpcResult.backoffMs?.length}{`\u00a0\u00a0·\u00a0\u00a0backoff ${tab.grpcResult.backoffMs.map((ms) => ms / 1000).join(' → ')} s`}{/if}{/if}
 {/snippet}
 
 {#snippet unreachable(error: string, onRetry: () => void, onTls: () => void, facts?: Snippet)}
@@ -514,7 +512,7 @@
           {#if feedPaused}
             <StatusPill class="warning"
               ><span class="g" aria-hidden="true">‖</span>{t('response.stream.paused_pill', {
-                n: formatCount(tab.grpcStream.messages.filter((m) => !m.sent).length, uiLanguage.current),
+                n: formatCount(tab.grpcStream.messages.filter((m) => !m.sent).length),
               })}</StatusPill
             >
           {:else if busy?.writable}

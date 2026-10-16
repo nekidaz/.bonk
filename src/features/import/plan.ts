@@ -117,7 +117,7 @@ export function collectionPlan(c: ParsedPostmanCollection): Plan {
       ? [
           {
             key: 'vars',
-            label: `${n} ${tp(n, ['переменная коллекции', 'переменные коллекции', 'переменных коллекции'], ['collection variable', 'collection variables'])}`,
+            label: `${n} ${tp(n, ['collection variable', 'collection variables'])}`,
             vars: c.variables,
             suggest: c.title,
           },

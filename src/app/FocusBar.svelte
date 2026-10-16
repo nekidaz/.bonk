@@ -3,7 +3,7 @@
    * The one row left in expanded mode (E3 / E6, 56 px): method + address, section, size, editor tools,
    * «Свернуть Esc» and Send. Send clicks the hidden editor's own Send button, so cancel / stream states stay its job.
    */
-  import { t, uiLanguage } from '$shared/i18n';
+  import { t } from '$shared/i18n';
   import { methodShort, requestRuntime, scriptStage, scriptUi, setScriptStage } from '$entities/request';
   import { tabs } from '$entities/tab';
   import { focusMode } from '$shared/ui';
@@ -70,12 +70,12 @@
       has={{ pre: !!pre.trim(), post: !!post.trim() }}
       failed={tab.testResults?.error ? tab.testResults.errorPhase : undefined}
     />
-    <span class="stats">{`JavaScript  ·  ${countLabel(scriptLines, 'lines', uiLanguage.current)}`}</span>
+    <span class="stats">{`JavaScript  ·  ${countLabel(scriptLines, 'lines')}`}</span>
   {:else}
     <span class="section">{section}</span>
   {/if}
   {#if stats && !scripts}<span class="stats"
-      >{`${stats.approx ? '~' : ''}${formatBytes(stats.bytes)}  ·  ${countLabel(stats.lines, 'lines', uiLanguage.current)}`}</span
+      >{`${stats.approx ? '~' : ''}${formatBytes(stats.bytes)}  ·  ${countLabel(stats.lines, 'lines')}`}</span
     >{/if}
   <span class="spacer"></span>
   {#if scripts}

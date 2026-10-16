@@ -20,20 +20,20 @@
     }
   });
 
-  const CHANGE_FORMS: Record<CookieChange, { ru: [string, string, string]; en: [string, string] }> = {
-    new: { ru: ['новая', 'новых', 'новых'], en: ['new', 'new'] },
-    updated: { ru: ['обновлена', 'обновлены', 'обновлено'], en: ['updated', 'updated'] },
-    deleted: { ru: ['удалена', 'удалены', 'удалено'], en: ['deleted', 'deleted'] },
-    rejected: { ru: ['отклонена', 'отклонены', 'отклонено'], en: ['rejected', 'rejected'] },
+  const CHANGE_FORMS: Record<CookieChange, [string, string]> = {
+    new: ['new', 'new'],
+    updated: ['updated', 'updated'],
+    deleted: ['deleted', 'deleted'],
+    rejected: ['rejected', 'rejected'],
   };
-  const cookiesWord = (n: number) => `${n} ${tp(n, ['cookie', 'cookies', 'cookies'], ['cookie', 'cookies'])}`;
+  const cookiesWord = (n: number) => `${n} ${tp(n, ['cookie', 'cookies'])}`;
 
   const summary = $derived.by(() => {
     const out: string[] = [];
     const counts = changeCounts(cookies);
     const parts = (Object.keys(counts) as CookieChange[])
       .filter((k) => counts[k] > 0)
-      .map((k) => `${k === 'new' ? '+' : ''}${counts[k]} ${tp(counts[k], CHANGE_FORMS[k].ru, CHANGE_FORMS[k].en)}`);
+      .map((k) => `${k === 'new' ? '+' : ''}${counts[k]} ${tp(counts[k], CHANGE_FORMS[k])}`);
     if (parts.length) out.push(t('cookies.summary.updated', { parts: parts.join(', ') }));
     else if (cookies.length && cookies.every((c) => c.change === null)) out.push(t('cookies.summary.not_saved'));
     if (response.jar_sends != null)

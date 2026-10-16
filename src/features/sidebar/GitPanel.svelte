@@ -36,7 +36,7 @@
   import { tabs } from '$entities/tab';
   import { methodColor, type GitFile } from '$shared/model';
   import { requestConfirm } from '$shared/ui';
-  import { t, tp, uiLanguage } from '$shared/i18n';
+  import { t, tp } from '$shared/i18n';
   import { GitButton } from '$entities/git/components';
 
   const status = $derived(git.status);
@@ -115,7 +115,7 @@
       await requestConfirm(
         t('git.discardAll.confirm', {
           n: changes.length,
-          files: tp(changes.length, ['файле', 'файлах', 'файлах'], ['file', 'files']),
+          files: tp(changes.length, ['file', 'files']),
         }),
         t('git.discard'),
       )
@@ -251,7 +251,7 @@
           <span class="more"
             ><span class="material-symbols-outlined">expand_more</span>{t('git.commit.more', {
               n: parts.more,
-              lines: tp(parts.more, ['строка', 'строки', 'строк'], ['line', 'lines']),
+              lines: tp(parts.more, ['line', 'lines']),
             })}</span
           >
         </button>
@@ -302,7 +302,7 @@
             {conflicts.length
               ? t('git.op.conflicts', {
                   n: conflicts.length,
-                  files: tp(conflicts.length, ['конфликт', 'конфликта', 'конфликтов'], ['conflict', 'conflicts']),
+                  files: tp(conflicts.length, ['conflict', 'conflicts']),
                 })
               : git.op?.paused
                 ? t('git.op.paused')
@@ -398,7 +398,7 @@
             <span class="material-symbols-outlined lead" aria-hidden="true">inventory_2</span>
             <span class="two">
               <span class="nm">{s.message}</span>
-              <span class="meta">{`stash@{${s.index}} · ${shortAgo(s.time, now, uiLanguage.current)}`}</span>
+              <span class="meta">{`stash@{${s.index}} · ${shortAgo(s.time, now)}`}</span>
             </span>
           </button>
         {/each}
@@ -420,7 +420,7 @@
             <span class="dot" class:head={i === 0} aria-hidden="true"></span>
             <span class="two">
               <span class="nm">{c.subject}</span>
-              <span class="meta">{`${c.short} · ${shortAgo(c.time, now, uiLanguage.current)}`}</span>
+              <span class="meta">{`${c.short} · ${shortAgo(c.time, now)}`}</span>
             </span>
           </button>
         {/each}

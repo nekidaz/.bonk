@@ -1,24 +1,6 @@
 // Session auth, the parts that show up outside the Authorization tab: the Runner's «Запомнить вход?» card,
 // the sign-in prompt of a send, the response area while a send waits for the code.
-export const ru = {
-  'sessionrun.runner.passed': 'Сценарий пройден',
-  'sessionrun.runner.stats': '{ok} из {total} · {time} s · ввод {typing}',
-  'sessionrun.runner.title': 'Запомнить вход?',
-  'sessionrun.runner.sub': 'Больше не придётся проходить сценарий',
-  'sessionrun.runner.from': 'из ответа {name}',
-  'sessionrun.runner.for': 'Для',
-  'sessionrun.runner.later': 'Не сейчас',
-  'sessionrun.runner.save': 'Сохранить сессию',
-  'sessionrun.runner.saved': 'Сессия сохранена · {folder} · {env}',
-  'sessionrun.prompt.title': 'Войти заново',
-  'sessionrun.prompt.later': 'Позже',
-  'sessionrun.prompt.retry': 'Войти и повторить',
-  'sessionrun.prompt.signIn': 'Войти',
-  'sessionrun.waiting.title': '{request} ждёт входа',
-  'sessionrun.waiting.sub': 'Как только код подойдёт — запрос уйдёт сам, с новым токеном',
-} as const;
-
-export const en: Record<keyof typeof ru, string> = {
+export const en = {
   'sessionrun.runner.passed': 'Scenario passed',
   'sessionrun.runner.stats': '{ok} of {total} · {time} s · input {typing}',
   'sessionrun.runner.title': 'Remember this sign-in?',

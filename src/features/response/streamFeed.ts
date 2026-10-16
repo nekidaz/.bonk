@@ -133,4 +133,4 @@ export function jsonTokens(text: string): { text: string; kind: string }[] {
 }
 
 /** `1 312` / `1,312`. */
-export const formatCount = (n: number, lang: string): string => n.toLocaleString(lang === 'ru' ? 'ru-RU' : 'en-US');
+export const formatCount = (n: number): string => n.toLocaleString('en-US');

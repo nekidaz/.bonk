@@ -4,8 +4,8 @@
   import { abbrevHome } from './proto';
   import { t, tp } from '$shared/i18n';
 
-  const svc = (n: number): string => `${n} ${tp(n, ['сервис', 'сервиса', 'сервисов'], ['service', 'services'])}`;
-  const mth = (n: number): string => `${n} ${tp(n, ['метод', 'метода', 'методов'], ['method', 'methods'])}`;
+  const svc = (n: number): string => `${n} ${tp(n, ['service', 'services'])}`;
+  const mth = (n: number): string => `${n} ${tp(n, ['method', 'methods'])}`;
 
   let {
     tab,
@@ -187,7 +187,7 @@
     <div class="gpp-grow"></div>
     {#if source === 'proto' && okFiles.length > 0}
       <span class="gpp-counts">
-        {`${okFiles.length} ${tp(okFiles.length, ['ФАЙЛ', 'ФАЙЛА', 'ФАЙЛОВ'], ['FILE', 'FILES'])} · ${svc(serviceCount).toUpperCase()} · ${mth(methodCount).toUpperCase()}`}
+        {`${okFiles.length} ${tp(okFiles.length, ['FILE', 'FILES'])} · ${svc(serviceCount).toUpperCase()} · ${mth(methodCount).toUpperCase()}`}
       </span>
     {/if}
     <button type="button" class="gpp-add" onclick={onAddProto}>

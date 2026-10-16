@@ -47,7 +47,7 @@
     const ok = await requestConfirm(
       t('git.branch.forceConfirm', {
         upstream: git.status?.upstream ?? remoteName,
-        n: `${n} ${tp(n, ['коммит', 'коммита', 'коммитов'], ['commit', 'commits'])}`,
+        n: `${n} ${tp(n, ['commit', 'commits'])}`,
       }),
       'Force push',
     );

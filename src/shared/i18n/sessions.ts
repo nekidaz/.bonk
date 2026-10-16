@@ -1,24 +1,5 @@
 // Sessions dialog (Flow · Сессия SE6): one session per environment of a collection.
-export const ru = {
-  'sessions.title': 'Сессии',
-  'sessions.lede':
-    'Одна сессия на окружение. Вошёл в Staging — все запросы коллекции идут с этим токеном, Production не трогается.',
-  'sessions.env': 'Окружение',
-  'sessions.who': 'Кто вошёл',
-  'sessions.login': 'Вход',
-  'sessions.status': 'Статус',
-  'sessions.signIn': 'Войти',
-  'sessions.refresh': 'Обновить access',
-  'sessions.signOut': 'Выйти',
-  'sessions.busy': 'Идёт вход…',
-  'sessions.all.title': 'Выйти везде',
-  'sessions.all.sub': 'Удаляет сессии во всех окружениях. Следующий запрос сам запустит вход и попросит OTP.',
-  'sessions.all.confirm': 'Точно? Удалить все',
-  'sessions.keychain': 'Сессии лежат в связке ключей macOS — не в файлах воркспейса, не в git и не в экспорте.',
-  'sessions.done': 'Готово',
-};
-
-export const en: Record<keyof typeof ru, string> = {
+export const en = {
   'sessions.title': 'Sessions',
   'sessions.lede':
     'One session per environment. Sign in to Staging and every request of the collection uses that token; Production stays untouched.',

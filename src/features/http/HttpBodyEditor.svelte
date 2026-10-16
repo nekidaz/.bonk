@@ -65,7 +65,7 @@
   });
   const bodyInfo = $derived.by(() => {
     const mode = currentBodyMode(tab);
-    const n = (count: number) => `  ·  ${count} ${tp(count, ['поле', 'поля', 'полей'], ['field', 'fields'])}`;
+    const n = (count: number) => `  ·  ${count} ${tp(count, ['field', 'fields'])}`;
     if (mode === 'form-data' || mode === 'urlencoded')
       return `${mode === 'form-data' ? 'multipart/form-data' : 'application/x-www-form-urlencoded'}${n((tab.request.bodyParams ?? []).filter((p) => p.key).length)}`;
     if (mode === 'graphql') return 'application/json  ·  graphql';
@@ -275,7 +275,6 @@
         <span class="dyn-bad"
           ><span class="material-symbols-outlined" aria-hidden="true">error</span>{`${unknownDynamic} ${tp(
             unknownDynamic,
-            ['неизвестная переменная', 'неизвестные переменные', 'неизвестных переменных'],
             ['unknown variable', 'unknown variables'],
           )}`}</span
         >

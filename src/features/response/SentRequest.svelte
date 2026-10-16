@@ -31,9 +31,7 @@
   <div class="head">
     <span class="ttl">{t('dyn.sent.title')}</span>
     {#if count}
-      <span class="count"
-        >{`${count} ${tp(count, ['динамическое значение', 'динамических значения', 'динамических значений'], ['dynamic value', 'dynamic values'])}`}</span
-      >
+      <span class="count">{`${count} ${tp(count, ['dynamic value', 'dynamic values'])}`}</span>
     {/if}
     <span class="grow"></span>
     <button type="button" class="copy" onclick={copyCurl}

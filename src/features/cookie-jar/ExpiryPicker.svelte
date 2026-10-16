@@ -5,7 +5,7 @@
    * Every change goes straight into the draft; the popover lives in <body> (see `portal`).
    */
   import { tick } from 'svelte';
-  import { t, tp, uiLanguage } from '$shared/i18n';
+  import { t, tp } from '$shared/i18n';
   import { portal } from '$shared/ui';
   import { monthGrid, spanParts, zoneLabel } from '$entities/cookies';
 
@@ -24,11 +24,11 @@
   const HOUR = 3_600_000;
   const DAY = 24 * HOUR;
   const PRESETS: [string, number][] = [
-    ['+1 ч', HOUR],
-    ['+1 д', DAY],
-    ['+7 д', 7 * DAY],
-    ['+30 д', 30 * DAY],
-    ['+1 год', 365 * DAY],
+    ['+1 h', HOUR],
+    ['+1 d', DAY],
+    ['+7 d', 7 * DAY],
+    ['+30 d', 30 * DAY],
+    ['+1 yr', 365 * DAY],
   ];
   const UNITS = [
     ['min', 60],
@@ -52,15 +52,14 @@
   let unit = $state<(typeof UNITS)[number][0]>('h');
 
   const mode = $derived(maxAge != null ? 'after' : expiresMs != null ? 'date' : 'session');
-  const lang = $derived(uiLanguage.current);
   const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
   const monthTitle = $derived(
-    `${cap(new Intl.DateTimeFormat(lang, { month: 'long' }).format(view))} ${view.getFullYear()}`,
+    `${cap(new Intl.DateTimeFormat('en', { month: 'long' }).format(view))} ${view.getFullYear()}`,
   );
   // 2026-10-12 is a Monday: format the week from it.
   const weekdays = $derived(
     Array.from({ length: 7 }, (_, i) =>
-      cap(new Intl.DateTimeFormat(lang, { weekday: 'short' }).format(new Date(2026, 9, 12 + i))),
+      cap(new Intl.DateTimeFormat('en', { weekday: 'short' }).format(new Date(2026, 9, 12 + i))),
     ),
   );
   const cells = $derived(monthGrid(view.getFullYear(), view.getMonth()));
@@ -80,7 +79,7 @@
   function span(ms: number): string {
     const { d, h, m } = spanParts(ms, now);
     const parts = [
-      d && `${d} ${tp(d, ['день', 'дня', 'дней'], ['d', 'd'])}`,
+      d && `${d} ${tp(d, ['d', 'd'])}`,
       h && `${h} ${t('cookies.picker.unit.h')}`,
       !d && m && `${m} ${t('cookies.picker.unit.min')}`,
     ].filter(Boolean);

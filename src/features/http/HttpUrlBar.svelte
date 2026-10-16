@@ -211,14 +211,14 @@
       {#if focused && long}
         <div class="bs-url-meta">
           <span
-            >{`${paramCount} ${tp(paramCount, ['параметр', 'параметра', 'параметров'], ['param', 'params'])}\u00a0\u00a0·\u00a0\u00a0${t('http.url.chars', { n: tab.request.url.length })}`}</span
+            >{`${paramCount} ${tp(paramCount, ['param', 'params'])}\u00a0\u00a0·\u00a0\u00a0${t('http.url.chars', { n: tab.request.url.length })}`}</span
           ><span class="hint">{t('http.url.collapse')}</span>
         </div>
       {/if}
     </div>
     {#if !focused && hidden > 0}<span class="bs-url-more" aria-hidden="true"
         ><span class="material-symbols-outlined">unfold_more</span
-        >{`+${hidden} ${tp(hidden, ['параметр', 'параметра', 'параметров'], ['param', 'params'])}`}</span
+        >{`+${hidden} ${tp(hidden, ['param', 'params'])}`}</span
       >{/if}
   </UrlField>
   <SendButton

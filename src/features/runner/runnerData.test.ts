@@ -43,15 +43,15 @@ describe('parseJson', () => {
   });
 
   it('throws when the top level is not an array', () => {
-    expect(() => parseJson('{"name":"x"}')).toThrow(/массивом объектов/);
+    expect(() => parseJson('{"name":"x"}')).toThrow(/array of objects/);
   });
 
   it('throws when a row is not an object', () => {
-    expect(() => parseJson('[{"a":1}, 42]')).toThrow(/Строка 2.*объектом/);
+    expect(() => parseJson('[{"a":1}, 42]')).toThrow(/row 2 must be an object/);
   });
 
   it('throws a clear error on malformed JSON', () => {
-    expect(() => parseJson('[{')).toThrow(/некорректный JSON/);
+    expect(() => parseJson('[{')).toThrow(/not valid JSON/);
   });
 });
 
@@ -62,6 +62,6 @@ describe('parseDataFile', () => {
   });
 
   it('throws on an unsupported extension', () => {
-    expect(() => parseDataFile('rows.txt', 'a\n1')).toThrow(/Неподдерживаемый тип файла/);
+    expect(() => parseDataFile('rows.txt', 'a\n1')).toThrow(/Unsupported data file type/);
   });
 });

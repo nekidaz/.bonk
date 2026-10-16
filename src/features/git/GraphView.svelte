@@ -31,7 +31,7 @@
   import { requestChoice, requestConfirm } from '$shared/ui';
   import { GitBranchIcon, Button, Overlay, Modal, ModalBody, ModalFooter, TextInput } from '$shared/ui/components';
   import type { CommitDetail, GitRef, GraphCommit, Tab, TreeNode } from '$shared/model';
-  import { t, tp, uiLanguage } from '$shared/i18n';
+  import { t, tp } from '$shared/i18n';
   import CommitMenu from './CommitMenu.svelte';
   import CommitPanel from './CommitPanel.svelte';
   import RebaseDialog from './RebaseDialog.svelte';
@@ -72,7 +72,6 @@
   let loadSeq = 0;
 
   const now = $derived.by(() => (void git.version, Date.now()));
-  const lang = $derived(uiLanguage.current);
   const current = $derived(git.status?.branch ?? '');
   const dirty = $derived(git.status?.files.length ?? 0);
   const q = $derived(query.trim().toLowerCase());
@@ -413,7 +412,7 @@
       <div class="row">
         <h2>{t('git.graph.title')}</h2>
         <GitTag
-          >{`${branchCount} ${tp(branchCount, ['ветка', 'ветки', 'веток'], ['branch', 'branches'])} · ${total} ${tp(total, ['коммит', 'коммита', 'коммитов'], ['commit', 'commits'])}`}</GitTag
+          >{`${branchCount} ${tp(branchCount, ['branch', 'branches'])} · ${total} ${tp(total, ['commit', 'commits'])}`}</GitTag
         >
       </div>
     </div>
@@ -465,7 +464,7 @@
             {@render graph(WORKTREE, 'worktree')}
             <span class="msg"
               ><i>{t('git.graph.uncommitted')}</i><span class="chg"
-                >{`${dirty} ${tp(dirty, ['изменение', 'изменения', 'изменений'], ['change', 'changes'])}`}</span
+                >{`${dirty} ${tp(dirty, ['change', 'changes'])}`}</span
               ></span
             >
             <span></span>
@@ -503,7 +502,7 @@
               {/each}
             </span>
             <span class="av" title={c.author}>{initials(c.author)}</span>
-            <span class="date">{commitDate(c.time, now, lang)}</span>
+            <span class="date">{commitDate(c.time, now)}</span>
             <span class="hash">{c.short}</span>
           </button>
         {/each}
@@ -511,7 +510,7 @@
           <button class="moreb" disabled={loading} onclick={more}
             ><span class="material-symbols-outlined">keyboard_double_arrow_down</span>{t('git.graph.more', {
               n: total - commits.length,
-              commits: tp(total - commits.length, ['коммит', 'коммита', 'коммитов'], ['commit', 'commits']),
+              commits: tp(total - commits.length, ['commit', 'commits']),
             })}</button
           >
         {/if}

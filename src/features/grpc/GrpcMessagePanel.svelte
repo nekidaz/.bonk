@@ -168,7 +168,7 @@
         <span class="material-symbols-outlined" aria-hidden="true">error</span>
         {t('grpc.msg.errors', {
           n: violations.length,
-          unit: tp(violations.length, ['ошибка', 'ошибки', 'ошибок'], ['error', 'errors']),
+          unit: tp(violations.length, ['error', 'errors']),
           list: violations.map((v) => `${v.field} — ${v.description}`).join('; '),
         })}
       </div>
@@ -177,7 +177,7 @@
         <span class="material-symbols-outlined" aria-hidden="true">error</span>
         {t('grpc.msg.errors', {
           n: issues.length,
-          unit: tp(issues.length, ['ошибка', 'ошибки', 'ошибок'], ['error', 'errors']),
+          unit: tp(issues.length, ['error', 'errors']),
           list: issues.map(issueText).join('; '),
         })}
       </div>

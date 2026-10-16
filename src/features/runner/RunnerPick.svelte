@@ -15,7 +15,7 @@
     runner,
   } from './store.svelte';
   import RequestPicker from './RequestPicker.svelte';
-  import { uiLanguage, t, tp } from '$shared/i18n';
+  import { t, tp } from '$shared/i18n';
   import { relDay } from './runnerStats';
   import type { FolderNode, TreeNode } from '$shared/model';
 
@@ -63,11 +63,9 @@
     const s = stats(f);
     const unit =
       s.grpc === s.requests && s.requests > 0
-        ? tp(s.requests, ['метод', 'метода', 'методов'], ['method', 'methods'])
-        : tp(s.requests, ['запрос', 'запроса', 'запросов'], ['request', 'requests']);
-    const folders = s.folders
-      ? ` · ${s.folders} ${tp(s.folders, ['папка', 'папки', 'папок'], ['folder', 'folders'])}`
-      : '';
+        ? tp(s.requests, ['method', 'methods'])
+        : tp(s.requests, ['request', 'requests']);
+    const folders = s.folders ? ` · ${s.folders} ${tp(s.folders, ['folder', 'folders'])}` : '';
     return `${s.requests} ${unit}${folders}`;
   }
 
@@ -122,7 +120,7 @@
                 <i class="rn-dot" class:bad={last.passed < last.total}></i>{t('runner.pick.last', {
                   passed: last.passed,
                   total: last.total,
-                  when: relDay(last.startedAt, uiLanguage.current),
+                  when: relDay(last.startedAt),
                 })}
               {:else}
                 {t('runner.pick.never')}

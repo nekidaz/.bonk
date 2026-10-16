@@ -85,7 +85,7 @@
       {#if passed.length}
         <li class="sum">
           <span class="material-symbols-outlined icon ok" aria-hidden="true">check_circle</span>
-          <b>{passed.length} {tp(passed.length, ['прошла', 'прошли', 'прошли'], ['passed', 'passed'])}</b>
+          <b>{passed.length} {tp(passed.length, ['passed', 'passed'])}</b>
           <span class="names">{passed.map((x) => x.name).join(' · ')}</span>
           <button type="button" class="more" aria-expanded={showPassed} onclick={() => (showPassed = !showPassed)}
             >{showPassed ? t('script.run.hide') : t('script.run.show')}<span

@@ -72,23 +72,22 @@ export function describeFile(path: string, prefix: string, find: (id: string) =>
   return { name: file.endsWith(REQUEST_EXT) ? file.slice(0, -REQUEST_EXT.length) : file, method: '', dir };
 }
 
-/** Compact age for commit/stash rows: «сейчас», «5м», «2ч», «вчера», «3д», then a date. */
-export function shortAgo(timeSec: number, nowMs: number, lang: 'ru' | 'en'): string {
+/** Compact age for commit/stash rows: «now», «5m», «2h», «yday», «3d», then a date. */
+export function shortAgo(timeSec: number, nowMs: number): string {
   const s = Math.max(0, nowMs / 1000 - timeSec);
-  const ru = lang === 'ru';
-  if (s < 60) return ru ? 'сейчас' : 'now';
-  if (s < 3600) return `${Math.floor(s / 60)}${ru ? 'м' : 'm'}`;
-  if (s < 86400) return `${Math.floor(s / 3600)}${ru ? 'ч' : 'h'}`;
+  if (s < 60) return 'now';
+  if (s < 3600) return `${Math.floor(s / 60)}m`;
+  if (s < 86400) return `${Math.floor(s / 3600)}h`;
   const days = Math.floor(s / 86400);
-  if (days === 1) return ru ? 'вчера' : 'yday';
-  if (days < 30) return `${days}${ru ? 'д' : 'd'}`;
+  if (days === 1) return 'yday';
+  if (days < 30) return `${days}d`;
   return new Date(timeSec * 1000).toISOString().slice(0, 10);
 }
 
-/** «2 часа назад» / «5 minutes ago» in the UI language, in the largest whole unit. */
-export function relativeAgo(timeSec: number, nowMs: number, lang: 'ru' | 'en'): string {
+/** «5 minutes ago», in the largest whole unit. */
+export function relativeAgo(timeSec: number, nowMs: number): string {
   const s = Math.max(0, nowMs / 1000 - timeSec);
-  const fmt = new Intl.RelativeTimeFormat(lang, { numeric: 'auto' });
+  const fmt = new Intl.RelativeTimeFormat('en', { numeric: 'auto' });
   if (s < 3600) return fmt.format(-Math.floor(s / 60), 'minute');
   if (s < 86400) return fmt.format(-Math.floor(s / 3600), 'hour');
   return fmt.format(-Math.floor(s / 86400), 'day');

@@ -131,15 +131,15 @@
     if (harView) {
       const total = loaded.format === 'har' ? loaded.har.entries.length : 0;
       return t('import.har.sum', {
-        total: `${total} ${tp(total, ['записи', 'записей', 'записей'], ['entry', 'entries'])}`,
-        requests: `${counts.requests} ${tp(counts.requests, ['запрос', 'запроса', 'запросов'], ['request', 'requests'])}`,
-        folders: `${counts.folders} ${tp(counts.folders, ['папке', 'папках', 'папках'], ['folder', 'folders'])}`,
+        total: `${total} ${tp(total, ['entry', 'entries'])}`,
+        requests: `${counts.requests} ${tp(counts.requests, ['request', 'requests'])}`,
+        folders: `${counts.folders} ${tp(counts.folders, ['folder', 'folders'])}`,
         skipped: harView.skipped,
       });
     }
     const parts = [
-      `${counts.folders} ${tp(counts.folders, ['папка', 'папки', 'папок'], ['folder', 'folders'])}`,
-      `${counts.requests} ${tp(counts.requests, ['запрос', 'запроса', 'запросов'], ['request', 'requests'])}`,
+      `${counts.folders} ${tp(counts.folders, ['folder', 'folders'])}`,
+      `${counts.requests} ${tp(counts.requests, ['request', 'requests'])}`,
     ];
     const created = targets.flatMap((x) => (x?.kind === 'new' ? [x.name] : []));
     const updated = plan.envRows.flatMap((row, i) => {
@@ -232,7 +232,7 @@
           <span class="material-symbols-outlined">warning</span>
           <span class="a"
             >{t('import.warn.title', {
-              n: `${warnings.length} ${tp(warnings.length, ['предупреждение', 'предупреждения', 'предупреждений'], ['warning', 'warnings'])}`,
+              n: `${warnings.length} ${tp(warnings.length, ['warning', 'warnings'])}`,
             })}</span
           >
           <button type="button" class="imp-link" onclick={copyReport}
@@ -382,8 +382,8 @@
         <span class="material-symbols-outlined">cookie</span>
         <span class="ct"
           >{t('import.har.cookies', {
-            n: `${loaded.har.cookies.length} ${tp(loaded.har.cookies.length, ['штука', 'штуки', 'штук'], ['cookie', 'cookies'])}`,
-            d: `${cookieDomains} ${tp(cookieDomains, ['домена', 'доменов', 'доменов'], ['domain', 'domains'])}`,
+            n: `${loaded.har.cookies.length} ${tp(loaded.har.cookies.length, ['cookie', 'cookies'])}`,
+            d: `${cookieDomains} ${tp(cookieDomains, ['domain', 'domains'])}`,
           })}</span
         >
         {#if cookiesAdded}

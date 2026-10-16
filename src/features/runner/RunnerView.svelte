@@ -65,7 +65,7 @@
       .slice(1)
       .map((id) => findNode(workspace.tree, id)?.name)
       .filter(Boolean);
-    const count = `${planned.length} ${tp(planned.length, ['запрос', 'запроса', 'запросов'], ['request', 'requests'])}`;
+    const count = `${planned.length} ${tp(planned.length, ['request', 'requests'])}`;
     return extra.length ? `+ ${extra.join(', ')} · ${count}` : count;
   });
 
@@ -258,7 +258,7 @@
           </button>
           <button class="rn-chip" type="button" onclick={setup} disabled={running}>
             <span class="material-symbols-outlined" aria-hidden="true">repeat</span
-            >{`${iterations} ${tp(iterations, ['итерация', 'итерации', 'итераций'], ['iteration', 'iterations'])}`}
+            >{`${iterations} ${tp(iterations, ['iteration', 'iterations'])}`}
           </button>
           <button class="rn-chip" type="button" onclick={setup} disabled={running}>
             <span class="material-symbols-outlined" aria-hidden="true">timer</span>{runner.config.delayMs} ms
@@ -380,7 +380,7 @@
           {@render eyebrow(
             t('runner.stat.last', {
               n: Math.max(bars.length, 1),
-              runs: tp(Math.max(bars.length, 1), ['ПРОГОН', 'ПРОГОНА', 'ПРОГОНОВ'], ['RUN', 'RUNS']),
+              runs: tp(Math.max(bars.length, 1), ['RUN', 'RUNS']),
             }),
           )}
           <div class="rn-bars" aria-label={t('runner.stat.durations')}>

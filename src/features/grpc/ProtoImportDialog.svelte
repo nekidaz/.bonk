@@ -101,12 +101,10 @@
     open = false;
   }
 
-  type Tp = (n: number, ru: [string, string, string], en: [string, string]) => string;
-  const nServices = (tp: Tp, n: number): string =>
-    `${n} ${tp(n, ['сервис', 'сервиса', 'сервисов'], ['service', 'services'])}`;
-  const nMethods = (tp: Tp, n: number): string =>
-    `${n} ${tp(n, ['метод', 'метода', 'методов'], ['method', 'methods'])}`;
-  const nFiles = (tp: Tp, n: number): string => `${n} ${tp(n, ['файл', 'файла', 'файлов'], ['file', 'files'])}`;
+  type Tp = (n: number, forms: [string, string]) => string;
+  const nServices = (tp: Tp, n: number): string => `${n} ${tp(n, ['service', 'services'])}`;
+  const nMethods = (tp: Tp, n: number): string => `${n} ${tp(n, ['method', 'methods'])}`;
+  const nFiles = (tp: Tp, n: number): string => `${n} ${tp(n, ['file', 'files'])}`;
   function subtitle(f: ProtoFileInfo, tp: Tp): string {
     const names = f.services.map((s) => s.name.split('.').pop()).join(', ');
     const methods = nMethods(

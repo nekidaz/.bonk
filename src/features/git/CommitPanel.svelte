@@ -7,7 +7,7 @@
   import { findNode, workspace } from '$entities/workspace';
   import { describeFile, git, openGitDiffTab, statusColor } from '$entities/git';
   import { methodColor, type CommitDetail, type GraphCommit } from '$shared/model';
-  import { t, tp, uiLanguage } from '$shared/i18n';
+  import { t, tp } from '$shared/i18n';
   import { GitBranchIcon } from '$shared/ui/components';
   import { commitDate, commitDateTime, initials, joinSubjects, type CommitAction } from './graph';
   import { GitButton } from '$entities/git/components';
@@ -61,7 +61,6 @@
   );
   const authors = $derived([...new Set(commits.map((c) => c.author))].join(', '));
   const info = (path: string) => describeFile(path, git.prefix, (id) => findNode(workspace.tree, id));
-  const lang = $derived(uiLanguage.current);
 </script>
 
 <aside class="bs-commitpanel">
@@ -70,7 +69,7 @@
       <span
         >{one
           ? `${t('git.graph.commit')}  ·  ${commits[0].short}`
-          : `${t('git.graph.selected')}  ·  ${commits.length} ${tp(commits.length, ['коммит', 'коммита', 'коммитов'], ['commit', 'commits'])}`}</span
+          : `${t('git.graph.selected')}  ·  ${commits.length} ${tp(commits.length, ['commit', 'commits'])}`}</span
       >
       <button class="ico" title={t('git.graph.copy')} onclick={() => onAction({ kind: 'copy' })}
         ><span class="material-symbols-outlined">content_copy</span></button
@@ -83,7 +82,7 @@
       <p class="body">
         {t('git.graph.multiHint', {
           n: commits.length,
-          commits: tp(commits.length, ['коммит', 'коммита', 'коммитов'], ['commit', 'commits']),
+          commits: tp(commits.length, ['commit', 'commits']),
           branch: current || 'HEAD',
         })}
       </p>
@@ -100,8 +99,8 @@
     <dt>{t('git.graph.date')}</dt>
     <dd>
       {one
-        ? commitDateTime(commits[0].time, now, lang)
-        : `${commitDate(commits.at(-1)!.time, now, lang)} — ${commitDate(commits[0].time, now, lang)}`}
+        ? commitDateTime(commits[0].time, now)
+        : `${commitDate(commits.at(-1)!.time, now)} — ${commitDate(commits[0].time, now)}`}
     </dd>
     {#if one}
       <dt>{commits[0].parents.length > 1 ? t('git.graph.parents') : t('git.graph.parent')}</dt>

@@ -60,7 +60,7 @@
     );
     return t('git.cf.summary', {
       n,
-      conflicts: tp(n, ['конфликт', 'конфликта', 'конфликтов'], ['conflict', 'conflicts']),
+      conflicts: tp(n, ['conflict', 'conflicts']),
       auto,
     });
   }
@@ -102,7 +102,7 @@
             >{t('git.cf.left', {
               n: files.length,
               total: rows.length,
-              files: tp(rows.length, ['файла', 'файлов', 'файлов'], ['file', 'files']),
+              files: tp(rows.length, ['file', 'files']),
             })}</GitTag
           >
         {/if}

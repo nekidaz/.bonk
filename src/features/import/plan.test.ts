@@ -80,7 +80,7 @@ describe('collectionPlan', () => {
     const p = collectionPlan(c);
     const [req] = requestsIn(p.items);
     expect([req.key, req.link, req.hint]).toEqual(['p:0/0', 'GET /users', '/users']);
-    expect(p.envRows[0].label).toBe('1 переменная коллекции');
+    expect(p.envRows[0].label).toBe('1 collection variable');
   });
 });
 

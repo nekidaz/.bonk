@@ -176,7 +176,7 @@
     }
     if (loaded.format === 'har') {
       const n = loaded.har.entries.length;
-      return ['HAR', loaded.origin.name, `${n} ${tp(n, ['запись', 'записи', 'записей'], ['entry', 'entries'])}`];
+      return ['HAR', loaded.origin.name, `${n} ${tp(n, ['entry', 'entries'])}`];
     }
     return [loaded.title, loaded.label, loaded.version ? `v${loaded.version}` : ''].filter(Boolean);
   });

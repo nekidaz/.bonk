@@ -136,11 +136,7 @@
           <p>
             {t('git.rb.sub', {
               n: steps.length,
-              commits: tp(
-                steps.length,
-                ['коммит будет переписан', 'коммита будут переписаны', 'коммитов будут переписаны'],
-                ['commit is rewritten', 'commits are rewritten'],
-              ),
+              commits: tp(steps.length, ['commit is rewritten', 'commits are rewritten']),
               short: plan.ontoShort,
               subject: plan.ontoSubject,
             })}
@@ -248,16 +244,14 @@
       <div class="warn">
         <span class="material-symbols-outlined">warning</span>{t('git.rb.pushed', {
           n: pushed,
-          commits: tp(pushed, ['коммит уже', 'коммита уже', 'коммитов уже'], ['commit is', 'commits are']),
+          commits: tp(pushed, ['commit is', 'commits are']),
         })}
       </div>
     {/if}
     {#if invalid}<div class="bad">{t(invalid)}</div>{/if}
 
     <div class="foot">
-      <span class="count"
-        >{`${steps.length} → ${kept} ${tp(kept, ['коммит', 'коммита', 'коммитов'], ['commit', 'commits'])}`}</span
-      >
+      <span class="count">{`${steps.length} → ${kept} ${tp(kept, ['commit', 'commits'])}`}</span>
       <button class="link" onclick={reset}>{t('git.rb.reset')}</button>
       <span class="grow"></span>
       <GitButton onclick={onClose}>{t('common.cancel')}</GitButton>

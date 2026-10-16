@@ -50,10 +50,10 @@ describe('commit dates', () => {
   const now = Date.UTC(2026, 9, 11, 12, 0, 0);
   const ago = (s: number) => now / 1000 - s;
   it('says recent times relatively and older ones as a date', () => {
-    expect(commitDate(ago(2 * 3600), now, 'en')).toBe('2 hr. ago');
-    expect(commitDate(ago(26 * 3600), now, 'en')).toBe('yesterday');
-    expect(commitDate(ago(30 * 86400), now, 'en')).toBe('Sep 11');
-    expect(commitDateTime(ago(26 * 3600), now, 'en')).toBe('yesterday, 10:00 AM');
+    expect(commitDate(ago(2 * 3600), now)).toBe('2 hr. ago');
+    expect(commitDate(ago(26 * 3600), now)).toBe('yesterday');
+    expect(commitDate(ago(30 * 86400), now)).toBe('Sep 11');
+    expect(commitDateTime(ago(26 * 3600), now)).toBe('yesterday, 10:00 AM');
   });
 });
 

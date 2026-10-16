@@ -131,9 +131,9 @@
             <span class="main">{nameOf(workspace.path)}</span>
             {@render pathLine(workspace.path)}
             <span class="meta">
-              <span>{requestCount} {tp(requestCount, ['запрос', 'запроса', 'запросов'], ['request', 'requests'])}</span>
+              <span>{requestCount} {tp(requestCount, ['request', 'requests'])}</span>
               <span
-                >{`${environments.list.length} ${tp(environments.list.length, ['окружение', 'окружения', 'окружений'], ['environment', 'environments'])}`}</span
+                >{`${environments.list.length} ${tp(environments.list.length, ['environment', 'environments'])}`}</span
               >
               {#if mcpOn}<span class="mcp">{t('workspace.mcp')}</span>{/if}
             </span>

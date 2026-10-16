@@ -8,7 +8,6 @@ import {
   p95,
   p95Delta,
   passedDelta,
-  plural,
   pushHistory,
   pushRecord,
   relDay,
@@ -50,16 +49,6 @@ const sum = (p: Partial<RunSummary>): RunSummary => ({
 });
 
 describe('runnerStats', () => {
-  it('plural', () => {
-    expect([1, 2, 5, 11, 22].map((n) => plural(n, ['запрос', 'запроса', 'запросов']))).toEqual([
-      'запрос',
-      'запроса',
-      'запросов',
-      'запросов',
-      'запроса',
-    ]);
-  });
-
   it('p95 is nearest-rank', () => {
     expect(p95([])).toBe(0);
     expect(p95([10, 20, 212, 30])).toBe(212);
@@ -73,7 +62,7 @@ describe('runnerStats', () => {
     expect(summarizeRun(42, 1000, 1000, [row({ endMs: 2900 }), row({ endMs: 3150 })]).durationMs).toBe(3150);
     const prev = sum({ n: 41 });
     const cur = sum({ n: 42, passed: 14, durationMs: 3200, p95Ms: 212 });
-    expect(passedDelta(cur, prev)).toEqual({ text: '−2 к #41', tone: 'danger' });
+    expect(passedDelta(cur, prev)).toEqual({ text: '−2 vs #41', tone: 'danger' });
     expect(durationDelta(cur, prev)).toEqual({ text: '−0.4 s', tone: 'success' });
     expect(p95Delta(cur, prev)).toEqual({ text: '+18 ms', tone: 'warning' });
     expect(passedDelta(cur, undefined)).toBeNull();
@@ -125,7 +114,9 @@ describe('runnerStats', () => {
     });
     const refund2 = { ...refund1, id: 'x', iteration: 2, status: 404, ok: false };
     const ins = insightFor(refund2, [refund1, create2, refund2]);
-    expect(ins?.text).toBe('В итерации 1 запрос вернул 200 — ресурс уже удалён. Во второй нужен новый id.');
+    expect(ins?.text).toBe(
+      'In iteration 1 the request returned 200 — the resource is already deleted. Iteration 2 needs a new id.',
+    );
     expect(ins?.bind).toEqual({
       sourceNodeId: 'create',
       sourceName: 'Create payment',
@@ -173,8 +164,8 @@ describe('runnerStats', () => {
       { sets: [], uses: ['paymentId'] },
     ]);
     const now = new Date(2026, 9, 9, 0, 30).getTime();
-    expect(relDay(now - 3_600_000, 'ru', now)).toBe('вчера');
-    expect(relDay(now, 'ru', now)).toBe('сегодня');
+    expect(relDay(now - 3_600_000, now)).toBe('yesterday');
+    expect(relDay(now, now)).toBe('today');
   });
 });
 

@@ -9,7 +9,7 @@
   import { gitStashShow } from '$shared/ipc';
   import { requestConfirm } from '$shared/ui';
   import type { StashFile, Tab } from '$shared/model';
-  import { t, tp, uiLanguage } from '$shared/i18n';
+  import { t, tp } from '$shared/i18n';
   import FileDiff from './FileDiff.svelte';
   import { diffLayout } from './store.svelte';
   import { GitButton, GitHead, GitView, GitViewBody, GitViewEmpty, GitTag, GitError } from '$entities/git/components';
@@ -23,7 +23,7 @@
   let loadSeq = 0;
 
   const stash = $derived(git.stashes.find((s) => s.hash === tab.git?.path));
-  const age = $derived(stash ? relativeAgo(stash.time, Date.now(), uiLanguage.current) : '');
+  const age = $derived(stash ? relativeAgo(stash.time, Date.now()) : '');
 
   $effect(() => {
     const root = workspace.path;
@@ -64,9 +64,7 @@
         >
         <div class="row">
           <h2>{stash.message}</h2>
-          <GitTag
-            >{`${files.length} ${tp(files.length, ['файл', 'файла', 'файлов'], ['file', 'files'])} · ${age}`}</GitTag
-          >
+          <GitTag>{`${files.length} ${tp(files.length, ['file', 'files'])} · ${age}`}</GitTag>
         </div>
       </div>
       {#if branching}

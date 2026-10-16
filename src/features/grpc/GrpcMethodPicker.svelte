@@ -165,7 +165,7 @@
         </div>
         <div class="mp-source">
           <span class="dot" aria-hidden="true"></span>
-          {`${isProtoSource ? `${t('grpc.picker.fromProto')} · ${protoFileNames.join(', ')}` : `Server reflection · ${tab.grpc.endpoint}`} · ${tab.grpc.tree.services.length} ${tp(tab.grpc.tree.services.length, ['сервис', 'сервиса', 'сервисов'], ['service', 'services'])}`}
+          {`${isProtoSource ? `${t('grpc.picker.fromProto')} · ${protoFileNames.join(', ')}` : `Server reflection · ${tab.grpc.endpoint}`} · ${tab.grpc.tree.services.length} ${tp(tab.grpc.tree.services.length, ['service', 'services'])}`}
         </div>
       {/if}
       <div class="mp-list" role="menu" aria-label={t('grpc.picker.methods')}>

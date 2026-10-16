@@ -194,7 +194,7 @@
   <span class="note" class:bad={!!error}>{error || t('import.upd.foot')}</span>
   <button type="button" class="imp-btn" onclick={onBack}>{t('common.cancel')}</button>
   <button type="button" class="imp-btn primary" disabled={busy || total === 0} onclick={update}>
-    {t('import.upd.do', { n: `${total} ${tp(total, ['запрос', 'запроса', 'запросов'], ['request', 'requests'])}` })}
+    {t('import.upd.do', { n: `${total} ${tp(total, ['request', 'requests'])}` })}
   </button>
 </div>
 

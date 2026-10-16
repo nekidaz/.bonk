@@ -9,7 +9,7 @@
   import { describeFile, git, openGraphTab, shortAgo, statusColor } from '$entities/git';
   import { gitBlame, gitCommitFileDiff, gitFileLog } from '$shared/ipc';
   import type { BlameLine, FileCommit, Tab } from '$shared/model';
-  import { t, tp, uiLanguage } from '$shared/i18n';
+  import { t, tp } from '$shared/i18n';
   import FileDiff from './FileDiff.svelte';
   import { diffLayout } from './store.svelte';
   import {
@@ -40,7 +40,6 @@
 
   const path = $derived(tab.git?.path ?? '');
   const info = $derived(describeFile(path, git.prefix, (id) => findNode(workspace.tree, id)));
-  const lang = $derived(uiLanguage.current);
   const now = $derived.by(() => (void git.version, Date.now()));
   const pick = $derived(commits.find((c) => c.hash === selected) ?? commits[0]);
   const uncommitted = (h: string) => /^0+$/.test(h);
@@ -106,9 +105,7 @@
       <div class="row">
         <h2 title={path}>{info.name}</h2>
         {#if loaded && view === 'history'}
-          <GitTag
-            >{`${commits.length}${more ? '+' : ''} ${tp(commits.length, ['коммит', 'коммита', 'коммитов'], ['commit', 'commits'])}`}</GitTag
-          >
+          <GitTag>{`${commits.length}${more ? '+' : ''} ${tp(commits.length, ['commit', 'commits'])}`}</GitTag>
         {/if}
       </div>
     </div>
@@ -157,7 +154,7 @@
               <span class="st" style:color={statusColor(c.status)}>{c.status}</span>
               <span class="txt">
                 <span class="subj">{c.subject}</span>
-                <span class="meta">{`${c.short} · ${c.author} · ${shortAgo(c.time, now, lang)}`}</span>
+                <span class="meta">{`${c.short} · ${c.author} · ${shortAgo(c.time, now)}`}</span>
               </span>
             </button>
           {/each}
@@ -197,7 +194,7 @@
                 <span class="who muted">{t('git.history.uncommitted')}</span>
               {:else}
                 <button class="who" title={l.summary} onclick={() => openGraphTab(l.hash)}
-                  ><b>{l.hash.slice(0, 7)}</b> {l.author} · {shortAgo(l.time, now, lang)}</button
+                  ><b>{l.hash.slice(0, 7)}</b> {l.author} · {shortAgo(l.time, now)}</button
                 >
               {/if}
             {:else}

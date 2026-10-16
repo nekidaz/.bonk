@@ -111,25 +111,25 @@ export function joinSubjects(subjects: string[]): string {
   return subjects.join(', ');
 }
 
-/** The date column: «2 ч назад» today, «вчера» / «3 дня назад» this week, «12 сент.» before. */
-export function commitDate(timeSec: number, nowMs: number, lang: 'ru' | 'en'): string {
+/** The date column: «2 hr. ago» today, «yesterday» / «3 days ago» this week, «Sep 12» before. */
+export function commitDate(timeSec: number, nowMs: number): string {
   const s = Math.max(0, nowMs / 1000 - timeSec);
-  if (s < 3600) return new Intl.RelativeTimeFormat(lang, { style: 'short' }).format(-Math.floor(s / 60), 'minute');
-  if (s < 86400) return new Intl.RelativeTimeFormat(lang, { style: 'short' }).format(-Math.floor(s / 3600), 'hour');
+  if (s < 3600) return new Intl.RelativeTimeFormat('en', { style: 'short' }).format(-Math.floor(s / 60), 'minute');
+  if (s < 86400) return new Intl.RelativeTimeFormat('en', { style: 'short' }).format(-Math.floor(s / 3600), 'hour');
   const days = Math.floor(s / 86400);
-  if (days < 7) return new Intl.RelativeTimeFormat(lang, { numeric: 'auto' }).format(-days, 'day');
-  return new Date(timeSec * 1000).toLocaleDateString(lang, { day: 'numeric', month: 'short' });
+  if (days < 7) return new Intl.RelativeTimeFormat('en', { numeric: 'auto' }).format(-days, 'day');
+  return new Date(timeSec * 1000).toLocaleDateString('en', { day: 'numeric', month: 'short' });
 }
 
-/** The detail panel's date: the day as above plus the time, «вчера, 18:42». */
-export function commitDateTime(timeSec: number, nowMs: number, lang: 'ru' | 'en'): string {
+/** The detail panel's date: the day as above plus the time, «yesterday, 06:42 PM». */
+export function commitDateTime(timeSec: number, nowMs: number): string {
   const d = new Date(timeSec * 1000);
-  const time = d.toLocaleTimeString(lang, { hour: '2-digit', minute: '2-digit' });
+  const time = d.toLocaleTimeString('en', { hour: '2-digit', minute: '2-digit' });
   const days = Math.round((startOfDay(nowMs) - startOfDay(d.getTime())) / 86400000);
   const day =
     days < 7
-      ? new Intl.RelativeTimeFormat(lang, { numeric: 'auto' }).format(-days, 'day')
-      : d.toLocaleDateString(lang, { day: 'numeric', month: 'short', year: 'numeric' });
+      ? new Intl.RelativeTimeFormat('en', { numeric: 'auto' }).format(-days, 'day')
+      : d.toLocaleDateString('en', { day: 'numeric', month: 'short', year: 'numeric' });
   return `${day}, ${time}`;
 }
 

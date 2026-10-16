@@ -163,14 +163,14 @@ export function importDone(r: ImportResult): void {
   const env = r.envs.created.length ? ` · ${t('import.done.env', { names: r.envs.created.join(', ') })}` : '';
   const first = r.first;
   shell.showToast({
-    text: `${t('import.done', { n: `${r.requests} ${tp(r.requests, ['запрос', 'запроса', 'запросов'], ['request', 'requests'])}`, name: r.name })}${env}`,
+    text: `${t('import.done', { n: `${r.requests} ${tp(r.requests, ['request', 'requests'])}`, name: r.name })}${env}`,
     ...(first ? { action: { label: t('import.done.open'), run: () => openSavedRequest(first) } } : {}),
   });
 }
 export function importUpdated(name: string, n: number): void {
   shell.showToast({
     text: t('import.done.upd', {
-      n: `${n} ${tp(n, ['запрос', 'запроса', 'запросов'], ['request', 'requests'])}`,
+      n: `${n} ${tp(n, ['request', 'requests'])}`,
       name,
     }),
   });

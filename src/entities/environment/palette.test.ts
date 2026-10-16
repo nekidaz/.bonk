@@ -88,11 +88,11 @@ describe('envTone / pushRecent', () => {
 
 describe('timeAgo / recentRequests', () => {
   it('formats short relative times', () => {
-    // Local afternoon: timeAgo counts calendar days, so a UTC-midnight anchor flips «1 ч» to «вчера» in UTC.
+    // Local afternoon: timeAgo counts calendar days, so a UTC-midnight anchor flips «1 h» to «yesterday» in UTC.
     const now = new Date(1970, 0, 11, 14, 0).getTime();
     expect(
       [now, now - 120_000, now - 3_600_000, now - 30 * 3_600_000, now - 3 * 86_400_000].map((t) => timeAgo(t, now)),
-    ).toEqual(['сейчас', '2 мин', '1 ч', 'вчера', '3 дн']);
+    ).toEqual(['now', '2 min', '1 h', 'yesterday', '3 d']);
   });
   it('names history entries after saved requests and drops repeats', () => {
     const h = (url: string, at: number, method = 'GET', status = 200) => ({
@@ -116,7 +116,7 @@ describe('timeAgo / recentRequests', () => {
 describe('history rows', () => {
   it('groups by day and shortens targets', () => {
     const now = new Date(2026, 9, 8, 14, 0).getTime();
-    expect([historyDay(now - 3_600_000, now), historyDay(now - 24 * 3_600_000, now)]).toEqual(['Сегодня', 'Вчера']);
+    expect([historyDay(now - 3_600_000, now), historyDay(now - 24 * 3_600_000, now)]).toEqual(['Today', 'Yesterday']);
     const h = (url: string) => ({
       id: '1',
       protocol: 'http' as const,

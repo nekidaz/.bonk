@@ -143,12 +143,11 @@ describe('fileName', () => {
 describe('certExpiry', () => {
   const now = Date.UTC(2026, 0, 1);
   it('counts whole days and goes negative when expired', () => {
-    expect(certExpiry(now / 1000 + 86_400 * 10 + 5, 'en', now).days).toBe(10);
-    expect(certExpiry(now / 1000 - 86_400 * 2, 'en', now).days).toBe(-2);
+    expect(certExpiry(now / 1000 + 86_400 * 10 + 5, now).days).toBe(10);
+    expect(certExpiry(now / 1000 - 86_400 * 2, now).days).toBe(-2);
   });
-  it('formats the date per language without a trailing period', () => {
-    expect(certExpiry(Date.UTC(2026, 5, 15, 12) / 1000, 'en', now).date).toMatch(/Jun/);
-    expect(certExpiry(Date.UTC(2026, 5, 15, 12) / 1000, 'ru', now).date).not.toMatch(/г\.|\./);
+  it('formats a short date', () => {
+    expect(certExpiry(Date.UTC(2026, 5, 15, 12) / 1000, now).date).toMatch(/Jun/);
   });
 });
 
