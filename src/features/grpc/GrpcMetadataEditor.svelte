@@ -12,7 +12,7 @@
   } from './grpcMetadata';
   import type { Tab } from '$shared/model';
   import { t } from '$shared/i18n';
-  import { KvPanel, KvHead, KvTable, KvRow, KvCell } from '$entities/request/components';
+  import { KvPanel, KvHead, KvTable, KvRow, KvCell, KvVarInput } from '$entities/request/components';
 
   let { tab }: { tab: Tab } = $props();
 
@@ -42,15 +42,16 @@
 
   function focusCell(index: number, field: keyof GrpcMetadataRow): void {
     queueMicrotask(() => {
-      table?.querySelector<HTMLInputElement>(`[data-row="${index}"][data-field="${field}"]`)?.focus();
+      const cell = table?.querySelector<HTMLElement>(`[data-row="${index}"][data-field="${field}"]`);
+      // The value field is a CodeMirror editor: focus its editable content.
+      (cell?.querySelector<HTMLElement>('.cm-content') ?? cell)?.focus();
     });
   }
 
-  function rowKeydown(event: KeyboardEvent, index: number, field: keyof GrpcMetadataRow): void {
+  function keyKeydown(event: KeyboardEvent, index: number): void {
     if (event.key !== 'Enter') return;
     event.preventDefault();
-    if (field === 'key') focusCell(index, 'value');
-    else focusCell(Math.min(index + 1, rows.length - 1), 'key');
+    focusCell(index, 'value');
   }
 
   function pasteRows(event: ClipboardEvent, index: number): void {
@@ -88,21 +89,21 @@
             placeholder={t('grpc.meta.key')}
             value={row.key}
             oninput={(event) => setRow(index, 'key', event.currentTarget.value)}
-            onkeydown={(event) => rowKeydown(event, index, 'key')}
+            onkeydown={(event) => keyKeydown(event, index)}
             onpaste={(event) => pasteRows(event, index)}
             spellcheck="false"
           />
         </KvCell>
         <KvCell class="v">
-          <input
+          <KvVarInput
             data-row={index}
             data-field="value"
-            aria-label={t('grpc.meta.valueAria', { n: index + 1 })}
+            ariaLabel={t('grpc.meta.valueAria', { n: index + 1 })}
             placeholder={t('grpc.meta.value')}
             value={row.value}
-            oninput={(event) => setRow(index, 'value', event.currentTarget.value)}
-            onkeydown={(event) => rowKeydown(event, index, 'value')}
-            spellcheck="false"
+            onChange={(value) => setRow(index, 'value', value)}
+            onEnter={() => focusCell(Math.min(index + 1, rows.length - 1), 'key')}
+            docId={`${tab.id}:meta:${index}`}
           />
         </KvCell>
         <KvCell class="grpc-metadata-action">

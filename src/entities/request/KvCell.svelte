@@ -145,10 +145,6 @@
     }
   }
 
-  :global(.bs) .bs-pc :global(input.var) {
-    color: var(--color-var);
-  }
-
   :global(.bs) .bs-pc :global(input[type='checkbox']:disabled) {
     cursor: default;
   }
