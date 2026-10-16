@@ -154,7 +154,7 @@ export {
   secretGet,
   secretSet,
   terminalDefaultCwd,
-  terminalRun,
+  terminalOpen,
   trafficLightsRight,
   uninstallMcpIntegration,
   workspaceImportCollection,
