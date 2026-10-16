@@ -27,6 +27,7 @@
   import { currentRequestSettings } from './store';
   import OAuthTokensDialog from './OAuthTokensDialog.svelte';
   import { Button } from '$shared/ui/components';
+  import { Switch } from '$shared/ui/components';
 
   // Flow · OAuth 2.0 (OA2–OA7): the token card, its details, and the settings under the Type row.
   let {
@@ -424,14 +425,11 @@
           <span class="lbl">{t('oauth.d.refresh')}</span>
           <span class="secret">{token.hasRefresh ? t('oauth.d.has') : t('oauth.d.hasnt')}</span>
           <span class="hint grow">{t('oauth.d.auto')}</span>
-          <button
-            class="mono-switch"
-            type="button"
-            role="switch"
+          <Switch
             aria-label={t('oauth.d.auto')}
-            aria-checked={oauth.autoRefresh !== false}
+            checked={oauth.autoRefresh !== false}
             onclick={() => set({ autoRefresh: oauth.autoRefresh === false })}
-          ></button>
+          />
         </div>
         {#if token.scope}
           <div class="row">
@@ -537,14 +535,11 @@
         </div>
         <div class="row">
           <span class="lbl">{t('oauth.pkce')}</span>
-          <button
-            class="mono-switch"
-            type="button"
-            role="switch"
+          <Switch
             aria-label={t('oauth.pkce')}
-            aria-checked={oauth.pkce !== false}
+            checked={oauth.pkce !== false}
             onclick={() => set({ pkce: oauth.pkce === false })}
-          ></button>
+          />
           <span class="secret">S256</span>
           <span class="grow"></span>
           <button class="link" type="button" aria-expanded={moreOpen} onclick={() => (moreOpen = !moreOpen)}
@@ -570,14 +565,11 @@
         </div>
         <div class="row">
           <span class="lbl">{t('oauth.auto')}</span>
-          <button
-            class="mono-switch"
-            type="button"
-            role="switch"
+          <Switch
             aria-label={t('oauth.auto_hint')}
-            aria-checked={oauth.autoRefresh !== false}
+            checked={oauth.autoRefresh !== false}
             onclick={() => set({ autoRefresh: oauth.autoRefresh === false })}
-          ></button>
+          />
           <span class="hint">{t('oauth.auto_hint')}</span>
           <span class="grow"></span>
           <button class="link" type="button" aria-expanded={moreOpen} onclick={() => (moreOpen = !moreOpen)}

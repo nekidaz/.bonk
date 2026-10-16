@@ -25,6 +25,8 @@
   } from '$shared/model';
   import EnvJsonEditor from './EnvJsonEditor.svelte';
   import { Button } from '$shared/ui/components';
+  import { Switch } from '$shared/ui/components';
+  import { Segmented } from '$shared/ui/components';
 
   type Fmt = EnvJsonFormat | undefined;
   /** «Из JSON…»: the new environment is a draft in the list until «Создать окружение». */
@@ -566,14 +568,11 @@
             <div class="eyebrow">{t('env.protection')}</div>
             <div class="switchrow">
               <span id="bs-env-protect-label">{t('env.protect_label')}</span>
-              <button
-                class="mono-switch"
-                type="button"
-                role="switch"
-                aria-checked={isProtected(env)}
+              <Switch
+                checked={isProtected(env)}
                 aria-labelledby="bs-env-protect-label"
                 onclick={() => patchEnv({ protected: !isProtected(env) })}
-              ></button>
+              />
             </div>
           </div>
           <div class="card">
@@ -620,7 +619,7 @@
                 ? t('env.created_from', { format: createdFrom.format })
                 : t('env.used_in', { n: usedIn, word: requestsWord(usedIn) })}</span
             >
-            <span class="bs-seg" role="group" aria-label={t('env.view_aria')}>
+            <Segmented role="group" aria-label={t('env.view_aria')}>
               <button
                 type="button"
                 class:on={view === 'table'}
@@ -633,7 +632,7 @@
                 aria-pressed={view === 'json'}
                 onclick={() => setView('json')}>{t('env.view.json')}</button
               >
-            </span>
+            </Segmented>
           </span>
         </div>
 
@@ -696,14 +695,7 @@
                       ></span
                     >
                     <span class="c-sec" role="cell"
-                      ><button
-                        class="mono-switch"
-                        type="button"
-                        role="switch"
-                        disabled
-                        aria-checked={!!row.secret}
-                        aria-label={t('env.secret')}
-                      ></button></span
+                      ><Switch disabled checked={!!row.secret} aria-label={t('env.secret')} /></span
                     >
                   </div>
                 {/each}
@@ -757,17 +749,14 @@
                             ></button
                           >
                         {/if}
-                        <button
-                          class="mono-switch"
-                          type="button"
-                          role="switch"
-                          aria-checked={!!row.secret}
+                        <Switch
+                          checked={!!row.secret}
                           aria-label={t('env.secret')}
                           onclick={() => {
                             revealed = [];
                             patchRow(i, { secret: !row.secret });
                           }}
-                        ></button>
+                        />
                       {/if}
                     </span>
                   </div>

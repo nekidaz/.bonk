@@ -12,6 +12,7 @@
     setAllEnvs,
     toggleEnv,
   } from '$entities/environment';
+  import { Switch } from '$shared/ui/components';
 
   let { disabled = false }: { disabled?: boolean } = $props();
 
@@ -151,15 +152,12 @@
 
       <div class="me-auto" class:dim={scope === 'all-but-prod'}>
         <span id="me-auto-l">{t('settings.mcp.env.autoNew')}</span>
-        <button
-          type="button"
-          class="mono-switch"
-          role="switch"
+        <Switch
           aria-labelledby="me-auto-l"
           disabled={scope === 'all-but-prod'}
-          aria-checked={!!mcpPrefs.current.autoAllowNew}
+          checked={!!mcpPrefs.current.autoAllowNew}
           onclick={() => apply({ autoAllowNew: !mcpPrefs.current.autoAllowNew })}
-        ></button>
+        />
       </div>
       <p class="me-foot">{t('settings.mcp.env.footer')}</p>
     </div>

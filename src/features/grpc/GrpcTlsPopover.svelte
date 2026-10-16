@@ -10,6 +10,7 @@
   import { filePick, grpcTlsInspect } from '$shared/ipc';
   import { resolveVars, type Tab, type GrpcTls, type GrpcCertInfo } from '$shared/model';
   import { certExpiry, fileName } from './grpcEditor';
+  import { Switch } from '$shared/ui/components';
 
   let {
     tab,
@@ -125,14 +126,11 @@
         </div>
         <div class="cp-row">
           <span id="bs-cp-auth">{t('grpc.conn.stripAuth')}</span>
-          <button
-            class="mono-switch"
-            type="button"
-            role="switch"
-            aria-checked={stripAuth}
+          <Switch
+            checked={stripAuth}
             aria-labelledby="bs-cp-auth"
             onclick={() => onPatch({ keepAuthOnPlaintext: stripAuth })}
-          ></button>
+          />
         </div>
       {:else}
         <div class="cp-facts">
@@ -167,14 +165,11 @@
         </div>
         <div class="cp-row">
           <span id="bs-cp-verify">{t('grpc.conn.verify')}</span>
-          <button
-            class="mono-switch"
-            type="button"
-            role="switch"
-            aria-checked={!tab.grpc?.tls?.insecure}
+          <Switch
+            checked={!tab.grpc?.tls?.insecure}
             aria-labelledby="bs-cp-verify"
             onclick={() => setTls({ insecure: !tab.grpc?.tls?.insecure })}
-          ></button>
+          />
         </div>
         <div class="cp-row">
           <span>{t('grpc.conn.clientCert')}</span>

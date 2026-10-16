@@ -5,6 +5,8 @@
 <script module lang="ts">
   import type { Snippet } from 'svelte';
   import { t } from '$shared/i18n';
+  import { Switch } from '$shared/ui/components';
+  import { Segmented } from '$shared/ui/components';
   export { row, sw, number, select, seg, chips, themePic };
 
   function clampInt(value: number, min: number, max: number, fallback: number): number {
@@ -51,8 +53,7 @@
 {/snippet}
 
 {#snippet sw(label: string, on: boolean, set: (v: boolean) => void)}
-  <button type="button" class="mono-switch" role="switch" aria-checked={on} aria-label={label} onclick={() => set(!on)}
-  ></button>
+  <Switch checked={on} aria-label={label} onclick={() => set(!on)} />
 {/snippet}
 
 {#snippet number(label: string, value: number, unit: string, min: number, max: number, set: (e: Event) => void)}
@@ -69,7 +70,7 @@
 {/snippet}
 
 {#snippet seg(label: string, value: string, options: Option<string>[], set: (v: string) => void)}
-  <div class="bs-seg compact" role="radiogroup" aria-label={label}>
+  <Segmented role="radiogroup" aria-label={label}>
     {#each options as o (o.value)}
       <button
         type="button"
@@ -79,7 +80,7 @@
         onclick={() => set(o.value)}>{o.label}</button
       >
     {/each}
-  </div>
+  </Segmented>
 {/snippet}
 
 {#snippet chips(label: string, items: string[], placeholder: string, set: (items: string[]) => void)}

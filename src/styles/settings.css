@@ -1,9 +1,3 @@
-/* Settings modal */
-.bs-seg.compact button {
-  padding: 0 7px;
-  font-size: 11.5px;
-}
-
 /* S32.5b · Settings → Внешний вид → Раскладка */
 :root .st-layouts {
   display: grid;

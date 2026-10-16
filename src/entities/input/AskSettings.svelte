@@ -16,6 +16,7 @@
     type InputKind,
   } from '$shared/model';
   import { askUi, inputs, lastValue, setAsked } from './store.svelte';
+  import { Switch } from '$shared/ui/components';
 
   let { target }: { target: { name: string; left: number; right: number; top: number; bottom: number } } = $props();
 
@@ -103,14 +104,7 @@
     <span class="txt"
       >{label}{#if desc}<small>{desc}</small>{/if}</span
     >
-    <button
-      class="mono-switch sm"
-      type="button"
-      role="switch"
-      aria-checked={on}
-      aria-label={label}
-      onclick={() => change(!on)}
-    ></button>
+    <Switch checked={on} aria-label={label} onclick={() => change(!on)} />
   </div>
 {/snippet}
 

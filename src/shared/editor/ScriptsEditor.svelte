@@ -21,6 +21,7 @@
   import { scriptMarks } from './scriptMarks';
   import { scriptSnippetsExpanded, scriptSnippetsOpen } from './scriptPrefs.svelte';
   import { consoleRows, stageTests } from './scriptRun';
+  import { Segmented } from '$shared/ui/components';
 
   let {
     preRequestScript,
@@ -252,7 +253,7 @@
     {@const passed = results.tests.filter((x) => x.passed).length}
     <section class="run" aria-label={t('response.tab.tests')}>
       <div class="run-head">
-        <div class="bs-seg" role="tablist">
+        <Segmented role="tablist">
           <button
             type="button"
             role="tab"
@@ -271,7 +272,7 @@
             onclick={() => (runTab = 'console')}
             >{t('response.tab.console')}<span class="n">{consoleRows(results.events ?? []).length}</span></button
           >
-        </div>
+        </Segmented>
         <span class="spacer"></span>
         {#if response}
           <span class="bs-stpill {response.tone}"

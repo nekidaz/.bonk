@@ -2,6 +2,7 @@
   /** Pre-request | Post-response segments (SC1); a dot marks a stage with a script, red when it failed (SC6). */
   import { t } from '$shared/i18n';
   import type { ScriptStage } from '$shared/model';
+  import { Segmented } from '$shared/ui/components';
 
   let {
     stage,
@@ -21,7 +22,7 @@
   ];
 </script>
 
-<div class="bs-seg bs-script-stages" role="tablist" aria-label={t('script.stages')}>
+<Segmented class="bs-script-stages" role="tablist" aria-label={t('script.stages')}>
   {#each STAGES as s (s.id)}
     <button
       type="button"
@@ -39,19 +40,19 @@
         ></span>{/if}
     </button>
   {/each}
-</div>
+</Segmented>
 
 <style>
-  .bs-script-stages button {
+  :global(.bs-script-stages) button {
     display: inline-flex;
     align-items: center;
     gap: 6px;
   }
-  .bs-script-stages .material-symbols-outlined {
+  :global(.bs-script-stages) .material-symbols-outlined {
     font-size: 14px;
     color: var(--t3);
   }
-  .bs-script-stages button.on .material-symbols-outlined {
+  :global(.bs-script-stages) button.on .material-symbols-outlined {
     color: var(--text);
   }
   .dot {

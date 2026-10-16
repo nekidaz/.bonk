@@ -21,6 +21,7 @@
     type Grouping,
   } from './plan';
   import type { Loaded } from './source';
+  import { Segmented } from '$shared/ui/components';
 
   let {
     loaded,
@@ -200,13 +201,13 @@
 {/snippet}
 
 {#snippet seg(label: string, value: string, options: [string, string][], set: (v: string) => void)}
-  <div class="bs-seg compact" role="radiogroup" aria-label={label}>
+  <Segmented role="radiogroup" aria-label={label}>
     {#each options as [v, l] (v)}
       <button type="button" role="radio" aria-checked={value === v} class:on={value === v} onclick={() => set(v)}
         >{l}</button
       >
     {/each}
-  </div>
+  </Segmented>
 {/snippet}
 
 <div class="imp-body split">

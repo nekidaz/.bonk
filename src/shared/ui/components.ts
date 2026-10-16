@@ -4,3 +4,5 @@
 export { default as ConfirmDialog } from './ConfirmDialog.svelte';
 export { default as GitBranchIcon } from './GitBranchIcon.svelte';
 export { default as Button } from './Button.svelte';
+export { default as Switch } from './Switch.svelte';
+export { default as Segmented } from './Segmented.svelte';

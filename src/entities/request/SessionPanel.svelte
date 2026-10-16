@@ -37,6 +37,7 @@
     sessionMissing,
   } from './sessionView';
   import { Button } from '$shared/ui/components';
+  import { Switch } from '$shared/ui/components';
 
   // Flow · Сессия SE2: the session card of the selected environment, the setup at a glance, and the
   // settings under «Настройки» (open while the setup cannot sign in yet). Collection level only.
@@ -367,14 +368,7 @@
         {/if}
         <span class="grow"></span>
         <span class="hint">{t('session.d.auto')}</span>
-        <button
-          class="mono-switch"
-          type="button"
-          role="switch"
-          aria-label={t('session.d.auto')}
-          aria-checked={auto}
-          onclick={() => set({ autoRefresh: !auto })}
-        ></button>
+        <Switch aria-label={t('session.d.auto')} checked={auto} onclick={() => set({ autoRefresh: !auto })} />
       </div>
       <div class="row">
         <span class="lbl">{t('session.d.inject')}</span>
@@ -511,25 +505,15 @@
         <span class="hint">{t('session.s.secs')}</span>
         <span class="grow"></span>
         <span class="hint">{t('session.d.auto')}</span>
-        <button
-          class="mono-switch"
-          type="button"
-          role="switch"
-          aria-label={t('session.d.auto')}
-          aria-checked={auto}
-          onclick={() => set({ autoRefresh: !auto })}
-        ></button>
+        <Switch aria-label={t('session.d.auto')} checked={auto} onclick={() => set({ autoRefresh: !auto })} />
       </div>
       <div class="row">
         <span class="lbl">401</span>
-        <button
-          class="mono-switch"
-          type="button"
-          role="switch"
+        <Switch
           aria-label={t('session.s.retry')}
-          aria-checked={cfg.retryOn401 !== false}
+          checked={cfg.retryOn401 !== false}
           onclick={() => set({ retryOn401: cfg.retryOn401 === false })}
-        ></button>
+        />
         <span class="hint">{t('session.s.retry')}</span>
       </div>
       <div class="row">

@@ -50,6 +50,7 @@
   import { isCancelled, isTimeout, responseTone } from './responseHint';
   import StreamFeed from './StreamFeed.svelte';
   import { formatCount, streamCount } from './streamFeed';
+  import { Segmented } from '$shared/ui/components';
 
   const { tab, onSettings = () => {} }: { tab: Tab | undefined; onSettings?: () => void } = $props();
 
@@ -269,7 +270,7 @@
 {/snippet}
 
 {#snippet modeSeg(value: string, set: (m: 'pretty' | 'raw' | 'preview') => void, preview: boolean)}
-  <div class="bs-seg lb-mode" role="radiogroup" aria-label={t('lb.resp.mode')}>
+  <Segmented class="lb-mode" role="radiogroup" aria-label={t('lb.resp.mode')}>
     <button
       type="button"
       role="radio"
@@ -291,7 +292,7 @@
         aria-checked={value === 'preview'}
         onclick={() => set('preview')}>{t('response.mode.preview')}</button
       >{/if}
-  </div>
+  </Segmented>
 {/snippet}
 
 {#snippet waitingForResponse(grpc: boolean)}
