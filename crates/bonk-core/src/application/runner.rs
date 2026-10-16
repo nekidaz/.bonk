@@ -263,8 +263,11 @@ pub enum RunEvent {
     Input(Box<InputRequest>),
     /// «Отправить заново» ran the step before again: its new row replaces the old one.
     Resent(Box<RunResultRow>),
-    /// The response is an event stream: headers arrived, events follow.
-    SseOpen,
+    /// The response is an event stream: headers arrived, events follow. `started_at_ms` is the
+    /// response's `StreamEnd.started_at_ms` (field stays snake_case, like `SseEvent`).
+    SseOpen {
+        started_at_ms: u64,
+    },
     /// One server-sent event, as it arrives (fields stay snake_case, like `SseEvent`).
     SseEvent(crate::domain::sse::SseEvent),
 }
@@ -1881,8 +1884,8 @@ mod tests {
     #[test]
     fn run_event_sse_json_shape() {
         assert_eq!(
-            serde_json::to_value(RunEvent::SseOpen).unwrap(),
-            json!({"kind": "sseOpen"})
+            serde_json::to_value(RunEvent::SseOpen { started_at_ms: 7 }).unwrap(),
+            json!({"kind": "sseOpen", "started_at_ms": 7})
         );
         let event = crate::domain::sse::SseEvent {
             index: 0,

@@ -184,7 +184,7 @@ export function executeRequest(
   settings: RequestSettings,
   connectionId?: string,
   context = captureExecutionContext(),
-  onSse?: (e: { kind: 'sseOpen' } | ({ kind: 'sseEvent' } & SseEvent)) => void,
+  onSse?: (e: { kind: 'sseOpen'; started_at_ms: number } | ({ kind: 'sseEvent' } & SseEvent)) => void,
 ) {
   const environmentId = context.environmentId;
   return requestRun(

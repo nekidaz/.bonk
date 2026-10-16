@@ -378,7 +378,7 @@ async fn login<T: Transport>(
         RunEvent::Vars(_) => emit(event),
         RunEvent::Iteration { .. }
         | RunEvent::Call { .. }
-        | RunEvent::SseOpen
+        | RunEvent::SseOpen { .. }
         | RunEvent::SseEvent(_) => {}
     };
     let control = RunControl::default();

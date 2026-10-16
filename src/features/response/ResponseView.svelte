@@ -201,6 +201,18 @@
       !tab.response.stream_end &&
       !(tab.response.status === 0 && !isCancelled(tab.response)),
   );
+  /** Flow · SSE: the event feed, live or finished. One source, so the feed (filter, pick, pause) survives the end. */
+  const sseFeed = $derived(
+    tab?.sseLive
+      ? { events: tab.sseLive.events, startedAt: tab.sseLive.startedAt, end: undefined }
+      : tab?.response?.stream_end
+        ? {
+            events: tab.response.events ?? [],
+            startedAt: tab.response.stream_end.started_at_ms,
+            end: tab.response.stream_end,
+          }
+        : undefined,
+  );
   const grpcBodyShown = $derived(!!grpcBody && respTab === 'body' && !tab?.grpcStream);
   const bodyShown = $derived(httpBodyShown || grpcBodyShown);
   const linesLabel = $derived(bodyShown && bodyInfo?.cm ? countLabel(bodyInfo.lines, 'lines') : '');
@@ -742,22 +754,15 @@
   {/if}
   <div
     class="bs-resppanel"
-    class:dim={sending && !waitingForInput && !tab.sseLive}
+    class:dim={sending && !waitingForInput && !(tab.sseLive && respTab === 'body')}
     role="tabpanel"
     id="bs-resppanel"
     aria-labelledby="bs-resptab-{respTab}"
   >
-    <!-- Flow · SSE: a live event-stream shows its feed while the request is still in flight.
+    <!-- Flow · SSE: an event-stream shows its feed, live while the request is in flight and after it ends.
          A send waiting for the sign-in code replaces even an older response: the request goes out again. -->
-    {#if tab.sseLive && respTab === 'body'}
-      <StreamFeed
-        {tab}
-        {sending}
-        writable={false}
-        code=""
-        sse={{ events: tab.sseLive.events, startedAt: tab.sseLive.startedAt }}
-        bind:pause={streamPause}
-      />
+    {#if sseFeed && respTab === 'body' && !waitingForInput?.session}
+      <StreamFeed {tab} {sending} writable={false} code="" sse={sseFeed} bind:pause={streamPause} />
     {:else if !tab.response || waitingForInput?.session}
       {#if !sending || waitingForInput}{@render waitingForResponse(false)}{/if}
     {:else if preFailed && testResults && (respTab === 'body' || respTab === 'headers' || respTab === 'cookies')}
@@ -825,19 +830,6 @@
     {:else if respTab === 'headers'}
       <!-- prettier-ignore -->
       <RespBody><CodeBlock>{#each responseHeaderEntries as [k, v] (k)}<div><span class="k">{k}</span>: {v}</div>{/each}{#if responseHeaderEntries.length === 0}<span style="color:var(--t3)">{t('response.no_headers')}</span>{/if}</CodeBlock></RespBody>
-    {:else if tab.response.stream_end}
-      <StreamFeed
-        {tab}
-        {sending}
-        writable={false}
-        code=""
-        sse={{
-          events: tab.response.events ?? [],
-          startedAt: tab.response.stream_end.started_at_ms,
-          end: tab.response.stream_end,
-        }}
-        bind:pause={streamPause}
-      />
     {:else}
       <div class="bs-response-view">
         <!-- Mono 3.0: JSON renders straight into the card; other formats keep the view switch. -->

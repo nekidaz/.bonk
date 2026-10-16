@@ -9,8 +9,9 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 /// Live mode (a single send from the editor): no deadline on the body, events as they come.
 pub struct StreamHooks<'a> {
-    /// Headers arrived and the response is a stream (called before the first event).
-    pub on_open: &'a (dyn Fn() + Sync),
+    /// Headers arrived and the response is a stream (called before the first event), with the
+    /// same `started_at_ms` that ends up in `StreamEnd`.
+    pub on_open: &'a (dyn Fn(u64) + Sync),
     pub on_event: &'a (dyn Fn(&SseEvent) + Sync),
     /// `true` ends the stream softly (`StreamEndReason::Stopped`). A dropped sender is not a stop.
     pub stop: tokio::sync::watch::Receiver<bool>,
@@ -84,7 +85,14 @@ pub async fn http_send_with(
     // non-UTF-8/binary bodies don't get mis-measured; decode lossily for display.
     // Keep this bounded so very large responses do not freeze the editor.
     let (bytes, body_truncated, events, stream_end) = if is_stream {
-        let s = read_stream(resp, settings.max_response_body_bytes, deadline, live).await;
+        let s = read_stream(
+            resp,
+            settings.max_response_body_bytes,
+            deadline,
+            started_at_ms,
+            live,
+        )
+        .await;
         let end = StreamEnd {
             reason: s.reason,
             started_at_ms,
@@ -186,11 +194,12 @@ async fn read_stream(
     mut resp: reqwest::Response,
     max_bytes: usize,
     deadline: Option<tokio::time::Instant>,
+    started_at_ms: u64,
     live: Option<StreamHooks<'_>>,
 ) -> StreamRead {
     let (on_event, mut stop, deadline) = match live {
         Some(hooks) => {
-            (hooks.on_open)();
+            (hooks.on_open)(started_at_ms);
             (Some(hooks.on_event), Some(hooks.stop), None)
         }
         None => (None, None, deadline),
@@ -278,7 +287,7 @@ mod tests {
     use super::*;
     use crate::domain::sse::{SseEvent, StreamEndReason};
     use std::collections::BTreeMap;
-    use std::sync::atomic::{AtomicUsize, Ordering};
+    use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
     use std::time::Duration;
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
@@ -396,9 +405,11 @@ mod tests {
         }
         let url = serve(steps).await;
         let opened = AtomicUsize::new(0);
+        let opened_at = AtomicU64::new(0);
         let seen = AtomicUsize::new(0);
-        let on_open = || {
+        let on_open = |at: u64| {
             opened.fetch_add(1, Ordering::SeqCst);
+            opened_at.store(at, Ordering::SeqCst);
         };
         let on_event = |_: &SseEvent| {
             seen.fetch_add(1, Ordering::SeqCst);
@@ -424,9 +435,12 @@ mod tests {
             stopper
         );
         let r = r.unwrap();
-        assert_eq!(r.stream_end.unwrap().reason, StreamEndReason::Stopped);
+        let end = r.stream_end.unwrap();
+        assert_eq!(end.reason, StreamEndReason::Stopped);
         assert_eq!(r.events.len(), 1);
         assert_eq!(opened.load(Ordering::SeqCst), 1);
+        // The live feed and the finished response share one start time.
+        assert_eq!(opened_at.load(Ordering::SeqCst), end.started_at_ms);
         assert_eq!(seen.load(Ordering::SeqCst), 1);
     }
 

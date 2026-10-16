@@ -219,9 +219,9 @@ impl Transport for AppTransport<'_> {
             self.state
                 .http_client(&self.settings, &request.url, Some(self.jar.clone()))?;
         // A fresh receiver per call: Stop still works on the retry after a 401.
-        let on_open = || {
+        let on_open = |started_at_ms: u64| {
             if let Some(live) = &self.live {
-                let _ = live.on_event.send(RunEvent::SseOpen);
+                let _ = live.on_event.send(RunEvent::SseOpen { started_at_ms });
             }
         };
         let on_event = |e: &bonk_core::domain::sse::SseEvent| {

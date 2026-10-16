@@ -209,7 +209,7 @@ export async function sendHttpRequest(
     undefined,
     (e) => {
       if (e.kind === 'sseOpen')
-        tabs.updateById(tabId, (t) => ({ ...t, sseLive: { events: [], startedAt: Date.now() } }));
+        tabs.updateById(tabId, (t) => ({ ...t, sseLive: { events: [], startedAt: e.started_at_ms } }));
       // ponytail: the array is copied on every event (like the gRPC feed); at thousands of events a second,
       // buffer and flush every ~50 ms.
       else

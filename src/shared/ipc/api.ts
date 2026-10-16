@@ -346,7 +346,7 @@ export type RunEvent =
   | ({ kind: 'row' } & RunResultRow)
   | ({ kind: 'input' } & InputRequest)
   | ({ kind: 'resent' } & RunResultRow)
-  | { kind: 'sseOpen' }
+  | { kind: 'sseOpen'; started_at_ms: number }
   | ({ kind: 'sseEvent' } & SseEvent);
 
 /** Run `plan` in bonk-core (the same runner a CLI uses); events stream as it goes. */
