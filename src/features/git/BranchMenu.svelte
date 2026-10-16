@@ -295,9 +295,15 @@
     gap: 8px;
     height: 36px;
     padding: 0 12px;
+    border: 1px solid transparent;
     border-radius: var(--radius-control);
     background: var(--color-field);
     color: var(--color-text-muted);
+  }
+  /* base.css rings every focused input; this one is focused whenever the menu opens, so the
+     field's border lights up instead of a square ring inside it (as in WorkspaceMenu). */
+  .search:focus-within {
+    border-color: var(--color-border);
   }
   .search .material-symbols-outlined {
     font-size: 16px;
@@ -307,6 +313,7 @@
     min-width: 0;
     border: 0;
     outline: none;
+    box-shadow: none;
     background: transparent;
     color: var(--color-text);
     font: var(--font-size-ui) var(--font-ui);

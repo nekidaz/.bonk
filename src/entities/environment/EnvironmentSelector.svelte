@@ -5,21 +5,20 @@
 <script lang="ts">
   import { t } from '$shared/i18n';
   import type { Environment } from '$shared/model';
-  import { ENV_COLOR_VAR, envColor, envShortcutTargets, envToneOf, pushRecent, type EnvTone } from './palette';
+  import { ENV_COLOR_VAR, envColor, envShortcutTargets, envToneOf, pushRecent } from './palette';
   import { addEnvironment, environments, openEnvironmentsTab, setActiveEnvironment } from './store.svelte';
 
   const RECENT_KEY = 'bonk.recentEnvironments';
-  const TONE_ICON: Record<EnvTone, string> = {
-    production: 'lock',
-    staging: 'circle',
-    local: 'circle',
-    other: 'circle',
-  };
 
   let open = $state(false);
   let query = $state('');
   let search = $state<HTMLInputElement | null>(null);
   let recentIds = $state<string[]>(readRecent());
+  // The «All» list fades at the bottom only while more rows hide below.
+  let moreBelow = $state(false);
+  const measure = (el: HTMLElement): void => {
+    moreBelow = el.scrollTop + el.clientHeight < el.scrollHeight - 1;
+  };
 
   const activeEnv = $derived(environments.active);
   const environmentName = $derived(activeEnv?.name ?? t('env.none'));
@@ -121,11 +120,10 @@
   {@const tn = env ? envToneOf(env) : 'none'}
   {@const on = (env?.id ?? null) === environments.activeId}
   <button class="bs-env-item" class:on role="menuitemradio" aria-checked={on} onclick={() => choose(env?.id ?? null)}>
-    <span
-      class="material-symbols-outlined lead tone-{tn}"
-      style:color={env && tn !== 'production' ? ENV_COLOR_VAR[envColor(env)] : undefined}
-      aria-hidden="true">{env ? TONE_ICON[tn as EnvTone] : 'block'}</span
-    >
+    {#if env && tn !== 'production'}<span class="lead"
+        ><span class="dot" style:background={ENV_COLOR_VAR[envColor(env)]} aria-hidden="true"></span></span
+      >{:else}<span class="material-symbols-outlined lead tone-{tn}" aria-hidden="true">{env ? 'lock' : 'block'}</span
+      >{/if}
     <span class="label">{env?.name ?? t('env.none')}</span>
     {#if hint}<span class="hint">{hint}</span>{/if}
   </button>
@@ -145,7 +143,7 @@
         aria-hidden="true"
       ></span>{/if}
     <span class="bs-toolbar-env-name" title={environmentName}>{environmentName}</span>
-    <span class="material-symbols-outlined chevron" aria-hidden="true">keyboard_arrow_up</span>
+    <span class="material-symbols-outlined chevron" aria-hidden="true">expand_more</span>
   </button>
   {#if open}
     <div
@@ -177,7 +175,16 @@
       <div class="bs-env-heading">
         <span>{t('env.all')}&nbsp;&nbsp;·&nbsp;&nbsp;{all.length}</span><span class="sort">A–Z</span>
       </div>
-      <div class="bs-env-scroll">
+      <!-- Re-measures when the filter changes the row count. -->
+      <div
+        class="bs-env-scroll"
+        class:fade={moreBelow}
+        onscroll={(e) => measure(e.currentTarget)}
+        {@attach (el) => {
+          void all.length;
+          measure(el);
+        }}
+      >
         {#if !q || t('env.none').toLowerCase().includes(q)}{@render item(null, '')}{/if}
         {#each all as env (env.id)}{@render item(env, '')}{/each}
       </div>
@@ -199,12 +206,25 @@
 <style>
   .bs-toolbar-env-button :global(.chevron) {
     color: var(--color-text-muted);
+    transition: transform 120ms ease;
+  }
+
+  .bs-toolbar-env-button[aria-expanded='true'] :global(.chevron) {
+    transform: rotate(180deg);
   }
 
   .bs-env-item :global(.lead) {
-    flex: 0 0 14px;
-    font-size: 14px;
-    color: var(--color-text-muted);
+    flex: 0 0 16px;
+    display: flex;
+    justify-content: center;
+    font-size: 16px;
+    color: var(--color-text-secondary);
+  }
+
+  .bs-env-item :global(.lead .dot) {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
   }
 
   .bs-toolbar-env-button.tone-none :global(.dot) {
@@ -256,7 +276,7 @@
   }
 
   .bs-toolbar-env-button :global(.material-symbols-outlined) {
-    font-size: 14px;
+    font-size: 16px;
   }
 
   :global(:root[data-density='compact']) .bs-toolbar-env-button {
@@ -394,8 +414,10 @@
     text-align: left;
   }
 
-  .bs-env-item:hover {
-    background: var(--hover);
+  .bs-env-item:hover,
+  .bs-env-item:focus-visible {
+    background: var(--color-hover-strong);
+    outline: none;
   }
 
   .bs-env-item.on {
@@ -448,6 +470,9 @@
     overflow-y: auto;
     scrollbar-width: thin;
     scrollbar-color: var(--color-text-muted) var(--color-hover);
+  }
+
+  .bs-env-scroll.fade {
     -webkit-mask: linear-gradient(#000 calc(100% - 40px), transparent);
     mask: linear-gradient(#000 calc(100% - 40px), transparent);
   }
