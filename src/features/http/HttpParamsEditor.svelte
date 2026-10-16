@@ -8,7 +8,7 @@
   import { findNode, workspace } from '$entities/workspace';
   import { tabs } from '$entities/tab';
   import { isParamChanged } from '$entities/request';
-  import { KvPanel, KvHead, KvTable, KvRow, KvCell } from '$entities/request/components';
+  import { KvPanel, KvHead, KvTable, KvRow, KvCell, KvVarInput } from '$entities/request/components';
 
   let { tab }: { tab: Tab } = $props();
   const saved = $derived.by(() => {
@@ -77,10 +77,11 @@
           />
         </KvCell>
         <KvCell class="v">
-          <input
+          <KvVarInput
             placeholder={t('http.col.value')}
             value={p.value}
-            oninput={(e) => setParam(i, 'value', e.currentTarget.value)}
+            onChange={(v) => setParam(i, 'value', v)}
+            docId={`${tab.id}:param:${i}`}
           />
         </KvCell>
         <KvCell class="d">

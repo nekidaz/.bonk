@@ -11,6 +11,7 @@ export { default as KvHead } from './KvHead.svelte';
 export { default as KvTable } from './KvTable.svelte';
 export { default as KvRow } from './KvRow.svelte';
 export { default as KvCell } from './KvCell.svelte';
+export { default as KvVarInput } from './KvVarInput.svelte';
 export { default as TabRow } from './TabRow.svelte';
 export { default as RTabs } from './RTabs.svelte';
 export { default as RTab } from './RTab.svelte';

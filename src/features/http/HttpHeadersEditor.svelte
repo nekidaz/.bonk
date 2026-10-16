@@ -8,7 +8,7 @@
   import { withInheritedAuth, workspace } from '$entities/workspace';
   import { tabs } from '$entities/tab';
   import type { HttpRequest, Tab } from '$shared/model';
-  import { KvPanel, KvHead, KvTable, KvRow, KvCell } from '$entities/request/components';
+  import { KvPanel, KvHead, KvTable, KvRow, KvCell, KvVarInput } from '$entities/request/components';
   import { LabelSwitch } from '$shared/ui/components';
 
   let { tab }: { tab: Tab } = $props();
@@ -17,7 +17,6 @@
   let showAuto = $state(true);
   const auto = $derived(autoHeaderRows((void workspace.tree, withInheritedAuth(tab, tab.savedPath))));
   const manualCount = $derived(Object.keys(tab.request.headers ?? {}).length);
-  const isVar = (v: string) => /^\{\{[^{}]+\}\}$/.test(v.trim());
 
   function patch(fn: (req: HttpRequest) => HttpRequest): void {
     tabs.updateActive((t) => ({ ...t, request: fn(t.request) }));
@@ -101,11 +100,11 @@
           />
         </KvCell>
         <KvCell class="v">
-          <input
-            class:var={isVar(h.value)}
+          <KvVarInput
             placeholder={t('http.col.value')}
             value={h.value}
-            oninput={(e) => setHeaderRow(i, 'value', e.currentTarget.value)}
+            onChange={(v) => setHeaderRow(i, 'value', v)}
+            docId={`${tab.id}:header:${i}`}
           />
         </KvCell>
         <KvCell class="d">
