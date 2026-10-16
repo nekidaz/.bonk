@@ -153,7 +153,9 @@
       return c.lastCallAt
         ? t('settings.mcp.last', { ago: timeAgo(c.lastCallAt, Date.now(), t) })
         : t('settings.mcp.never');
-    return c.available ? t('settings.mcp.found') : t('settings.mcp.missing');
+    if (!c.available) return t('settings.mcp.missing');
+    // Claude Desktop's Code tab reads Claude Code's config, not this one.
+    return c.id === 'claude-desktop' ? t('settings.mcp.found.desktop') : t('settings.mcp.found');
   }
   const VERBS: Record<string, string> = {
     create_folder: 'create',
@@ -523,6 +525,7 @@
     background: var(--color-text);
     color: var(--color-raised);
     font: 600 var(--font-size-body) var(--font-ui);
+    white-space: nowrap;
     cursor: pointer;
   }
 
@@ -533,7 +536,12 @@
   }
 
   .st-mcp-btn.danger {
+    border-color: color-mix(in srgb, var(--red) 40%, transparent);
     color: var(--red);
+  }
+
+  .st-mcp-btn.danger:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--red) 12%, transparent);
   }
 
   .st-mcp-btn.wide {
