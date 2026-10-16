@@ -8,6 +8,7 @@
   import type { GraphCommit } from '$shared/model';
   import { t, tp } from '$shared/i18n';
   import type { CommitAction } from './graph';
+  import { GitLayer } from '$entities/git/components';
 
   let {
     at,
@@ -47,7 +48,7 @@
   }
 </script>
 
-<div class="bs-gitlayer" role="presentation" onpointerdown={onClose} oncontextmenu={(e) => e.preventDefault()}></div>
+<GitLayer role="presentation" onpointerdown={onClose} oncontextmenu={(e) => e.preventDefault()}></GitLayer>
 <div class="bs-commitmenu" role="menu" style:left="{left}px" style:top="{Math.max(8, top)}px">
   <div class="eb">
     {one

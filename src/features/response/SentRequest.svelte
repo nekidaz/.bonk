@@ -3,6 +3,7 @@
   import { t, tp } from '$shared/i18n';
   import type { Tab } from '$shared/model';
   import { markDynamic, sentCurl } from './sentRequest';
+  import CodeBlock from './CodeBlock.svelte';
 
   const { tab, sent }: { tab: Tab; sent: NonNullable<Tab['sent']> } = $props();
 
@@ -42,7 +43,7 @@
     >
   </div>
   <!-- prettier-ignore -->
-  <div class="bs-code lines"><div><span class="method">{sent.request.method}</span> {@render marked(sent.request.url)}</div>{#each Object.entries(sent.request.headers ?? {}) as [key, value] (key)}<div><span class="key">{key}</span>: {@render marked(value)}</div>{/each}{#if body}<div class="body">{@render marked(body)}</div>{/if}</div>
+  <CodeBlock class="lines"><div><span class="method">{sent.request.method}</span> {@render marked(sent.request.url)}</div>{#each Object.entries(sent.request.headers ?? {}) as [key, value] (key)}<div><span class="key">{key}</span>: {@render marked(value)}</div>{/each}{#if body}<div class="body">{@render marked(body)}</div>{/if}</CodeBlock>
   <div class="note">
     <span class="material-symbols-outlined" aria-hidden="true">info</span>{t('dyn.sent.note')}
   </div>
@@ -96,7 +97,7 @@
   .note .material-symbols-outlined {
     font-size: 13px;
   }
-  .lines {
+  :global(.bs-code.lines) {
     white-space: pre-wrap;
     word-break: break-all;
   }

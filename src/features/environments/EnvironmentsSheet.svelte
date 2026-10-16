@@ -24,6 +24,7 @@
     mergeEnvRows,
   } from '$shared/model';
   import EnvJsonEditor from './EnvJsonEditor.svelte';
+  import { Button, Switch, Segmented, Toast } from '$shared/ui/components';
 
   type Fmt = EnvJsonFormat | undefined;
   /** «Из JSON…»: the new environment is a draft in the list until «Создать окружение». */
@@ -565,14 +566,11 @@
             <div class="eyebrow">{t('env.protection')}</div>
             <div class="switchrow">
               <span id="bs-env-protect-label">{t('env.protect_label')}</span>
-              <button
-                class="mono-switch"
-                type="button"
-                role="switch"
-                aria-checked={isProtected(env)}
+              <Switch
+                checked={isProtected(env)}
                 aria-labelledby="bs-env-protect-label"
                 onclick={() => patchEnv({ protected: !isProtected(env) })}
-              ></button>
+              />
             </div>
           </div>
           <div class="card">
@@ -619,7 +617,7 @@
                 ? t('env.created_from', { format: createdFrom.format })
                 : t('env.used_in', { n: usedIn, word: requestsWord(usedIn) })}</span
             >
-            <span class="bs-seg" role="group" aria-label={t('env.view_aria')}>
+            <Segmented role="group" aria-label={t('env.view_aria')}>
               <button
                 type="button"
                 class:on={view === 'table'}
@@ -632,7 +630,7 @@
                 aria-pressed={view === 'json'}
                 onclick={() => setView('json')}>{t('env.view.json')}</button
               >
-            </span>
+            </Segmented>
           </span>
         </div>
 
@@ -665,7 +663,7 @@
               <button class="quiet" type="button" onclick={() => (preview = null)}
                 >{t('env.paste.cancel')}&nbsp;&nbsp;<kbd>Esc</kbd></button
               >
-              <button class="bs-btn primary" type="button" onclick={applyPreview}>{t('env.paste.apply')}</button>
+              <Button variant="primary" size="lg" onclick={applyPreview}>{t('env.paste.apply')}</Button>
             </div>
           {/if}
 
@@ -695,14 +693,7 @@
                       ></span
                     >
                     <span class="c-sec" role="cell"
-                      ><button
-                        class="mono-switch"
-                        type="button"
-                        role="switch"
-                        disabled
-                        aria-checked={!!row.secret}
-                        aria-label={t('env.secret')}
-                      ></button></span
+                      ><Switch disabled checked={!!row.secret} aria-label={t('env.secret')} /></span
                     >
                   </div>
                 {/each}
@@ -756,17 +747,14 @@
                             ></button
                           >
                         {/if}
-                        <button
-                          class="mono-switch"
-                          type="button"
-                          role="switch"
-                          aria-checked={!!row.secret}
+                        <Switch
+                          checked={!!row.secret}
                           aria-label={t('env.secret')}
                           onclick={() => {
                             revealed = [];
                             patchRow(i, { secret: !row.secret });
                           }}
-                        ></button>
+                        />
                       {/if}
                     </span>
                   </div>
@@ -782,19 +770,19 @@
   <footer class="foot">
     <span class="note">{footNote}</span>
     {#if creating}
-      <button class="bs-btn ghost" type="button" onclick={cancelCreate}>{t('common.cancel')}</button>
-      <button class="bs-btn primary" type="button" disabled={!jsonResult.ok} onclick={confirmCreate}
-        >{t('env.create.button')}</button
+      <Button variant="ghost" size="lg" onclick={cancelCreate}>{t('common.cancel')}</Button>
+      <Button variant="primary" size="lg" disabled={!jsonResult.ok} onclick={confirmCreate}
+        >{t('env.create.button')}</Button
       >
     {:else}
-      <button class="bs-btn ghost" type="button" onclick={discard}>{t('common.cancel')}</button>
-      <button class="bs-btn primary" type="button" disabled={jsonInvalid} onclick={save}>{t('common.save')}</button>
+      <Button variant="ghost" size="lg" onclick={discard}>{t('common.cancel')}</Button>
+      <Button variant="primary" size="lg" disabled={jsonInvalid} onclick={save}>{t('common.save')}</Button>
     {/if}
   </footer>
 {/snippet}
 
 {#if toast}
-  <div class="bs-toast" role="status">
+  <Toast role="status">
     <span class="material-symbols-outlined" aria-hidden="true">check_circle</span>
     <span class="text">{toast.text}</span>
     {#if toast.undo}<button
@@ -804,7 +792,7 @@
           toast = null;
         }}>{t('env.create.undo')}</button
       >{/if}
-  </div>
+  </Toast>
 {/if}
 
 <style>
@@ -1414,27 +1402,5 @@
     flex: 1;
     color: var(--color-text-muted);
     font: var(--font-size-caption) var(--font-ui);
-  }
-  .foot :global(.bs-btn),
-  .pv :global(.bs-btn) {
-    height: 34px;
-    padding: 0 16px;
-    border: 0;
-    border-radius: var(--radius-control);
-    font: 500 var(--font-size-body) var(--font-ui);
-  }
-  .foot :global(.bs-btn.ghost) {
-    background: var(--color-panel);
-    color: var(--color-text);
-  }
-  .foot :global(.bs-btn.primary),
-  .pv :global(.bs-btn.primary) {
-    background: var(--color-action);
-    color: var(--color-on-action);
-    font-weight: 600;
-  }
-  .foot :global(.bs-btn:disabled) {
-    opacity: 0.45;
-    cursor: default;
   }
 </style>

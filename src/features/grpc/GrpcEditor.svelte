@@ -62,7 +62,16 @@
   import GrpcMessagePanel from './GrpcMessagePanel.svelte';
   import GrpcRequestTabs from './GrpcRequestTabs.svelte';
   import GrpcMetadataEditor from './GrpcMetadataEditor.svelte';
-  import { HttpAuthEditor, RequestScripts } from '$entities/request/components';
+  import {
+    HttpAuthEditor,
+    RequestScripts,
+    UrlBar,
+    UrlField,
+    MethodWrap,
+    MethodButton,
+    ReqPane,
+    BodyPanel,
+  } from '$entities/request/components';
   import ProtoImportDialog from './ProtoImportDialog.svelte';
   import GrpcProtoPanel from './GrpcProtoPanel.svelte';
   import { isLargeBody, textStats } from '$shared/editor';
@@ -87,6 +96,7 @@
     applyGrpcurlImport,
     withoutStaleResponse,
   } from './grpcEditor';
+  import { SendButton } from '$shared/ui/components';
 
   /** The active environment's `name → value` map, or `{}` when none is selected. */
   function activeEnvMap(): Record<string, string> {
@@ -587,11 +597,10 @@
   );
 </script>
 
-<div class="bs-urlbar bs-grpc-bar">
-  <div class="bs-urlfield bs-grpc-field">
-    <div class="bs-method-wrap">
-      <button
-        class="bs-method"
+<UrlBar class="bs-grpc-bar">
+  <UrlField class="bs-grpc-field">
+    <MethodWrap>
+      <MethodButton
         style="color:var(--method-grpc)"
         type="button"
         aria-haspopup="menu"
@@ -600,8 +609,8 @@
       >
         <span>gRPC</span>
         <span class="material-symbols-outlined">expand_more</span>
-      </button>
-    </div>
+      </MethodButton>
+    </MethodWrap>
     <CodeEditor
       value={tab.grpc?.endpoint ?? ''}
       onChange={setEndpoint}
@@ -625,12 +634,10 @@
       onRefresh={() => grpcDoConnect()}
       onImportProto={importProto}
     />
-  </div>
-  <button
-    class="bs-send"
+  </UrlField>
+  <SendButton
+    class={{ cancelling: grpcInvoking && !streamMethod, stop: grpcInvoking && streamMethod && !streamWritable }}
     disabled={noAddress && !grpcInvoking}
-    class:cancelling={grpcInvoking && !streamMethod}
-    class:stop={grpcInvoking && streamMethod && !streamWritable}
     aria-busy={grpcInvoking}
     title={grpcInvoking && !streamWritable ? t('grpc.invoking') : undefined}
     onclick={grpcDoInvoke}
@@ -643,7 +650,7 @@
         >{:else if grpcInvoking}<span>{t('common.cancel')}</span><kbd>Esc</kbd>{:else}<span>{t('grpc.invoke')}</span
         ><kbd>⌘↵</kbd>{/if}
     </span>
-  </button>
+  </SendButton>
   <!-- Client/bidi open: Send stays the main button; «Завершить» half-closes, ■ cancels. -->
   {#if streamWritable}
     <button class="bs-stream-btn" type="button" title={t('grpc.endStreamTitle')} onclick={grpcEndStream}
@@ -658,7 +665,7 @@
       onclick={grpcStop}><span class="stop-square" aria-hidden="true"></span></button
     >
   {/if}
-</div>
+</UrlBar>
 
 <!-- Connection failures render in the response pane as S25 «Сервер недоступен»; this strip is for the rest. -->
 {#if editorError && editorError.kind !== 'connection'}
@@ -670,7 +677,7 @@
   />
 {/if}
 <GrpcRequestTabs {tab} section={gTab} {metadataCount} {messageStats} {selectedMethod} onLoadExample={grpcLoadExample} />
-<div class="bs-reqpane" role="tabpanel" id="bs-grpcpanel" aria-labelledby="bs-gtab-{gTab}">
+<ReqPane role="tabpanel" id="bs-grpcpanel" aria-labelledby="bs-gtab-{gTab}">
   {#if gTab === 'message'}
     <GrpcMessagePanel
       {tab}
@@ -696,9 +703,9 @@
       onTestChange={(v) => setGrpcScript('testScript', v)}
     />
   {:else}
-    <div class="bs-http-body"><GrpcProtoPanel {tab} onSetSource={setSource} onAddProto={importProto} /></div>
+    <BodyPanel><GrpcProtoPanel {tab} onSetSource={setSource} onAddProto={importProto} /></BodyPanel>
   {/if}
-</div>
+</ReqPane>
 
 <ProtoImportDialog
   bind:open={protoDialogOpen}
@@ -707,3 +714,119 @@
   onConnect={connectProto}
 />
 <svelte:window onkeydown={onKeydown} />
+
+<style>
+  /* Flow · Размеры окна: the method picker keeps room for at least the method name. ≤ 900 drops ⌘↵ from
+     Send (shell.css), ≤ 760 also the TLS word (lock icon and colour stay), the picker's icon and service. */
+  :global(.bs) .bs-stream-btn:not(.stop) {
+    gap: 6px;
+  }
+
+  @media (max-width: 900px) {
+    :global(.bs) .bs-stream-btn :global(kbd) {
+      display: none;
+    }
+  }
+
+  :global(:root .bs button.bs-send.stop) {
+    padding: 0 22px;
+    background: var(--color-danger-soft);
+    box-shadow: none;
+  }
+
+  :global(:root .bs button.bs-send.stop:hover) {
+    padding: 0 22px;
+    background: var(--color-danger-soft);
+    box-shadow: none;
+  }
+
+  :global(:root .bs .bs-send.stop .go) {
+    color: var(--color-danger);
+  }
+
+  :global(:root[data-density='compact'] .bs) .bs-stream-btn {
+    height: 34px;
+    min-width: 34px;
+  }
+
+  /* S19: gRPC request — one capsule with protocol, endpoint, TLS and the method picker. */
+  :global(:root .bs .bs-grpc-field) {
+    flex: 1;
+    min-width: 0;
+    padding-right: 5px;
+  }
+
+  @media (max-width: 760px) {
+    :global(:root .bs .bs-grpc-field) {
+      gap: 10px;
+    }
+  }
+
+  :global(:root .bs .bs-grpc-field .bs-grpc-security.secure:is(.open, :hover)) {
+    color: var(--color-success);
+    outline-color: var(--color-success-soft);
+    background: var(--color-success-soft);
+  }
+
+  :global(:root .bs .bs-grpc-field .bs-grpc-security:not(.secure)) {
+    color: var(--color-warning);
+    background: var(--color-warning-soft);
+  }
+
+  :global(:root .bs .bs-send.stop .stop-square) {
+    width: 10px;
+    height: 10px;
+    border-radius: 2px;
+    background: var(--color-danger);
+  }
+
+  /* Client/bidi stream open: End + Stop beside Send; sent messages are marked ↑ in the feed. */
+  :global(.bs) .bs-stream-btn {
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    height: 48px;
+    min-width: 48px;
+    padding: 0 18px;
+    border: 0;
+    border-radius: var(--radius-control);
+    outline: 1px solid var(--color-border);
+    outline-offset: -1px;
+    background: var(--color-raised);
+    color: var(--color-text);
+    font: 600 var(--font-size-ui) var(--font-ui);
+  }
+
+  :global(.bs) .bs-stream-btn:hover {
+    background: var(--color-hover);
+  }
+
+  :global(.bs) .bs-stream-btn :global(.material-symbols-outlined) {
+    display: inline;
+    font-size: 16px;
+  }
+
+  :global(.bs .bs-send .go) .material-symbols-outlined.up {
+    display: inline;
+    font-size: 16px;
+  }
+
+  :global(.bs) .bs-stream-btn :global(kbd) {
+    color: var(--color-text-muted);
+    font: var(--font-size-micro) var(--font-code);
+  }
+
+  :global(.bs) .bs-stream-btn.stop {
+    padding: 0;
+    outline: 0;
+    background: var(--color-danger-soft);
+  }
+
+  :global(.bs) .bs-stream-btn .stop-square {
+    width: 10px;
+    height: 10px;
+    border-radius: 2px;
+    background: var(--color-danger);
+  }
+</style>

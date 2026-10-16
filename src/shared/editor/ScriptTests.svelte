@@ -6,6 +6,7 @@
    */
   import { t, tp } from '$shared/i18n';
   import type { ScriptTestResult, TabTestResults } from '$shared/model';
+  import { Segmented } from '$shared/ui/components';
 
   let {
     results,
@@ -61,7 +62,7 @@
 <div class="bs-script-tests" class:compact>
   {#if !compact}
     <div class="head">
-      <div class="bs-seg" role="radiogroup" aria-label={t('response.tests.filter')}>
+      <Segmented role="radiogroup" aria-label={t('response.tests.filter')}>
         {#each FILTERS as [id, label] (id)}
           {@const n = id === 'all' ? results.tests.length : id === 'passed' ? passed.length : failed.length}
           <button
@@ -72,7 +73,7 @@
             onclick={() => (filter = id)}>{t(label)}<span class="n">{n}</span></button
           >
         {/each}
-      </div>
+      </Segmented>
       <span class="stage">{stageLabel}</span>
     </div>
     <ul>

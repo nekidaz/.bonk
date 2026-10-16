@@ -36,6 +36,11 @@
     scenarioRequests,
     sessionMissing,
   } from './sessionView';
+  import { Button, Switch } from '$shared/ui/components';
+  import AuthPanel from './AuthPanel.svelte';
+  import AuthCard from './AuthCard.svelte';
+  import StatusCard from './StatusCard.svelte';
+  import AuthInput from './AuthInput.svelte';
 
   // Flow · Сессия SE2: the session card of the selected environment, the setup at a glance, and the
   // settings under «Настройки» (open while the setup cannot sign in yet). Collection level only.
@@ -189,7 +194,7 @@
   pick: (id: string) => void,
   optional = false,
 )}
-  <label class="bs-auth-input se-select">
+  <AuthInput class="se-select">
     <select aria-label={label} value={value ?? ''} onchange={(e) => pick(e.currentTarget.value)}>
       <option value="" disabled={!optional}>{optional ? t('session.s.none') : t('session.s.request_ph')}</option>
       {#if value && !options.some((o) => o.id === value)}
@@ -198,11 +203,11 @@
       {#each options as o (o.id)}<option value={o.id}>{o.name}</option>{/each}
     </select>
     <span class="material-symbols-outlined" aria-hidden="true">keyboard_arrow_down</span>
-  </label>
+  </AuthInput>
 {/snippet}
 
 {#snippet pathInput(value: string | undefined, label: string, placeholder: string, write: (v: string) => void)}
-  <label class="bs-auth-input se-path">
+  <AuthInput class="se-path">
     <input
       type="text"
       autocomplete="off"
@@ -212,14 +217,14 @@
       value={value ?? ''}
       oninput={(e) => write(e.currentTarget.value)}
     />
-  </label>
+  </AuthInput>
 {/snippet}
 
-<div class="bs-oa bs-se">
+<AuthPanel class="bs-se">
   {#if configured}
     {#if running}
       {@const [requestId, r] = running}
-      <div class="bs-oa-card se-card tone-accent">
+      <StatusCard class="se-card tone-accent">
         <span class="se-badge"
           ><span class="material-symbols-outlined spin" aria-hidden="true">progress_activity</span></span
         >
@@ -233,18 +238,20 @@
           </div>
         </div>
         <div class="acts">
-          <button class="bs-btn ghost" type="button" onclick={() => void cancelSessionRun(requestId)}
-            >{t('session.cancel')}</button
-          >
+          <Button variant="ghost" onclick={() => void cancelSessionRun(requestId)}>{t('session.cancel')}</Button>
         </div>
-      </div>
+      </StatusCard>
     {:else}
-      <div
-        class="bs-oa-card se-card"
-        class:tone-success={tone === 'ok'}
-        class:tone-warning={tone === 'renew'}
-        class:tone-danger={!!failure}
-        class:se-dead={tone === 'dead' && !failure}
+      <StatusCard
+        class={[
+          'se-card',
+          {
+            'tone-success': tone === 'ok',
+            'tone-warning': tone === 'renew',
+            'tone-danger': !!failure,
+            'se-dead': tone === 'dead' && !failure,
+          },
+        ]}
       >
         <span class="se-badge"
           ><span class="material-symbols-outlined" aria-hidden="true"
@@ -280,22 +287,22 @@
             >
           {/if}
           {#if (tone === 'ok' || tone === 'renew') && canRenew && !failure}
-            <button class="bs-btn ghost" type="button" onclick={() => void run('refresh')}
-              ><span class="material-symbols-outlined" aria-hidden="true">refresh</span>{t('session.refresh')}</button
+            <Button variant="ghost" onclick={() => void run('refresh')}
+              ><span class="material-symbols-outlined" aria-hidden="true">refresh</span>{t('session.refresh')}</Button
             >
           {:else}
-            <button class="bs-btn primary" type="button" onclick={() => void run('signIn')}
-              ><span class="material-symbols-outlined" aria-hidden="true">login</span>{t('session.signIn')}</button
+            <Button variant="primary" onclick={() => void run('signIn')}
+              ><span class="material-symbols-outlined" aria-hidden="true">login</span>{t('session.signIn')}</Button
             >
           {/if}
         </div>
-      </div>
+      </StatusCard>
     {/if}
   {/if}
 
   {#if !showConfig}
     <!-- The setup at a glance (read-only; «Настройки» on the Type row edits it). -->
-    <div class="bs-auth-card details se-details">
+    <AuthCard class="details se-details">
       <div class="row">
         <span class="lbl">{t('session.d.login')}</span>
         <span class="se-chip"
@@ -368,14 +375,7 @@
         {/if}
         <span class="grow"></span>
         <span class="hint">{t('session.d.auto')}</span>
-        <button
-          class="mono-switch"
-          type="button"
-          role="switch"
-          aria-label={t('session.d.auto')}
-          aria-checked={auto}
-          onclick={() => set({ autoRefresh: !auto })}
-        ></button>
+        <Switch aria-label={t('session.d.auto')} checked={auto} onclick={() => set({ autoRefresh: !auto })} />
       </div>
       <div class="row">
         <span class="lbl">{t('session.d.inject')}</span>
@@ -387,10 +387,10 @@
           ><span class="material-symbols-outlined" aria-hidden="true">passkey</span>{t('session.all')}</button
         >
       </div>
-    </div>
+    </AuthCard>
   {:else}
     <!-- Settings: which scenario signs in, where its responses keep the tokens, how they renew. -->
-    <div class="bs-auth-card config se-config">
+    <AuthCard class="config se-config">
       {#if !configured}
         <div class="row se-missing">
           <span class="material-symbols-outlined" aria-hidden="true">info</span>
@@ -406,7 +406,7 @@
       <div class="row">
         <span class="lbl">{t('session.d.login')}</span>
         {#if scenarios.length || cfg.login}
-          <label class="bs-auth-input se-select">
+          <AuthInput class="se-select">
             <select
               aria-label={t('session.d.login')}
               value={cfg.login ?? ''}
@@ -417,7 +417,7 @@
               {#each scenarios as s (s.name)}<option value={s.name}>{s.name}</option>{/each}
             </select>
             <span class="material-symbols-outlined" aria-hidden="true">keyboard_arrow_down</span>
-          </label>
+          </AuthInput>
           <span class="hint grow se-ellipsis">{steps.map((s) => s.name).join(' → ')}</span>
         {:else}
           <span class="hint">{t('session.s.noScenarios')}</span>
@@ -497,7 +497,7 @@
       <div class="row">
         <span class="lbl">{t('session.d.when')}</span>
         <span class="hint">{t('session.s.lead')}</span>
-        <label class="bs-auth-input se-num">
+        <AuthInput class="se-num">
           <input
             type="number"
             min="0"
@@ -508,29 +508,19 @@
               if (Number.isFinite(n) && n >= 0) set({ leadSecs: Math.round(n) });
             }}
           />
-        </label>
+        </AuthInput>
         <span class="hint">{t('session.s.secs')}</span>
         <span class="grow"></span>
         <span class="hint">{t('session.d.auto')}</span>
-        <button
-          class="mono-switch"
-          type="button"
-          role="switch"
-          aria-label={t('session.d.auto')}
-          aria-checked={auto}
-          onclick={() => set({ autoRefresh: !auto })}
-        ></button>
+        <Switch aria-label={t('session.d.auto')} checked={auto} onclick={() => set({ autoRefresh: !auto })} />
       </div>
       <div class="row">
         <span class="lbl">401</span>
-        <button
-          class="mono-switch"
-          type="button"
-          role="switch"
+        <Switch
           aria-label={t('session.s.retry')}
-          aria-checked={cfg.retryOn401 !== false}
+          checked={cfg.retryOn401 !== false}
           onclick={() => set({ retryOn401: cfg.retryOn401 === false })}
-        ></button>
+        />
         <span class="hint">{t('session.s.retry')}</span>
       </div>
       <div class="row">
@@ -546,7 +536,7 @@
               ></span
             >
           {/each}
-          <label class="bs-auth-input se-select se-add">
+          <AuthInput class="se-select se-add">
             <select
               aria-label={t('session.s.exclude_add')}
               value=""
@@ -559,7 +549,7 @@
               <option value="" disabled>{t('session.s.exclude_add')}</option>
               {#each excludeOptions as o (o.rel)}<option value={o.rel}>{o.label}</option>{/each}
             </select>
-          </label>
+          </AuthInput>
         </span>
         <span class="hint side">{t('session.s.exclude_hint')}</span>
       </div>
@@ -570,6 +560,156 @@
           >
         </div>
       {/if}
-    </div>
+    </AuthCard>
   {/if}
-</div>
+</AuthPanel>
+
+<style>
+  :global(:root .bs .se-card.se-dead .badge) {
+    background: var(--color-danger-soft);
+    color: var(--color-danger);
+  }
+
+  :global(.bs) .se-chip {
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    height: 22px;
+    padding: 0 9px;
+    border-radius: 999px;
+    background: var(--color-raised);
+    color: var(--color-text);
+    font: 500 var(--font-size-caption) var(--font-ui);
+    white-space: nowrap;
+  }
+
+  :global(.bs) .se-chip.dim {
+    color: var(--color-text-secondary);
+  }
+
+  :global(.bs) .se-chip.ok {
+    background: var(--color-success-soft);
+    color: var(--color-success);
+  }
+
+  :global(.bs) .se-chip.bad {
+    background: var(--color-danger-soft);
+    color: var(--color-danger);
+  }
+
+  :global(.bs) .se-chip :global(.material-symbols-outlined) {
+    font-size: 13px;
+  }
+
+  :global(.bs) .se-method {
+    flex: none;
+    font: 600 var(--font-size-caption) var(--font-code);
+  }
+
+  :global(.bs) .se-name {
+    flex: none;
+    color: var(--color-text);
+    font: var(--font-size-body) var(--font-ui);
+  }
+
+  :global(.bs .bs-auth-card) .hint.se-mono {
+    font-family: var(--font-code);
+  }
+
+  :global(.bs) .se-ellipsis {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  :global(.bs) .se-nowrap {
+    flex: none;
+    white-space: nowrap;
+  }
+
+  :global(.bs) .se-var {
+    display: inline-flex;
+    align-items: center;
+    height: 22px;
+    margin-left: 2px;
+    padding: 0 9px;
+    border-radius: 999px;
+    background: var(--color-var-soft);
+    color: var(--color-var);
+    font: 500 var(--font-size-caption) var(--font-code);
+  }
+
+  :global(:root .bs .bs-auth-input.se-select) {
+    position: relative;
+    flex: 0 1 220px;
+    padding-right: 30px;
+  }
+
+  :global(:root .bs .bs-auth-input.se-select select) {
+    flex: 1;
+    min-width: 0;
+    height: 100%;
+    padding: 0;
+    border: 0;
+    outline: none;
+    appearance: none;
+    background: transparent;
+    color: var(--color-text);
+    font: var(--font-size-body) var(--font-ui);
+    cursor: pointer;
+  }
+
+  :global(:root .bs .bs-auth-input.se-select select:focus-visible) {
+    outline: none;
+  }
+
+  :global(:root .bs .bs-auth-input.se-select .material-symbols-outlined) {
+    position: absolute;
+    right: 10px;
+    color: var(--color-text-muted);
+    pointer-events: none;
+  }
+
+  :global(:root .bs .bs-auth-input.se-path) {
+    flex: 1 1 150px;
+  }
+
+  :global(:root .bs .bs-auth-input.se-num) {
+    flex: 0 0 72px;
+    padding: 0 10px;
+  }
+
+  :global(:root .bs .bs-auth-input.se-select.se-add) {
+    flex: 0 0 auto;
+    height: 24px;
+    padding: 0 10px;
+    background: transparent;
+  }
+
+  :global(:root .bs .bs-auth-input.se-select.se-add select) {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-caption);
+  }
+
+  :global(.bs .bs-auth-card) .row.se-missing {
+    gap: 8px;
+    min-height: 40px;
+    color: var(--color-warning);
+    font: var(--font-size-caption) var(--font-ui);
+  }
+
+  :global(.bs .bs-auth-card) .row.se-missing :global(.material-symbols-outlined) {
+    font-size: 16px;
+  }
+
+  :global(.bs .bs-auth-card) .row.se-note {
+    min-height: 0;
+    padding: 0 0 8px;
+  }
+
+  :global(.bs .bs-auth-card) .row.se-note :global(.hint) {
+    font-size: var(--font-size-caption);
+  }
+</style>

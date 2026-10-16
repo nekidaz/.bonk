@@ -5,6 +5,7 @@
    */
   import { commitChanges, git, SUBJECT_MAX } from '$entities/git';
   import { t, tp } from '$shared/i18n';
+  import { GitButton, GitHead, GitView, GitViewBody } from '$entities/git/components';
 
   let { onClose }: { onClose: () => void } = $props();
 
@@ -31,14 +32,14 @@
   }
 </script>
 
-<div class="bs-gview">
-  <div class="bs-ghead">
+<GitView>
+  <GitHead>
     <div class="ttl"><span class="crumb">{`${t('git.title')}  /  ${t('git.tab.commit')}`}</span></div>
     <span class="meta" class:over={subject > SUBJECT_MAX}
       >{`${t('git.commit.subject')} ${subject} / ${SUBJECT_MAX} · ${lines.length} ${tp(lines.length, ['строка', 'строки', 'строк'], ['line', 'lines'])}`}</span
     >
-  </div>
-  <div class="bs-gview-body">
+  </GitHead>
+  <GitViewBody>
     <div class="ed">
       <div class="gutter" bind:this={gutter} aria-hidden="true">
         {#each lines as _, i (i)}<div>{i + 1}</div>{/each}
@@ -55,12 +56,12 @@
     </div>
     <div class="foot">
       <span>{t('git.commit.escBack')}</span>
-      <button class="bs-gbtn inv" disabled={!canCommit} onclick={commit}
-        ><span class="material-symbols-outlined">check</span>{t('git.commit')}<kbd>⌘↵</kbd></button
+      <GitButton class="inv" disabled={!canCommit} onclick={commit}
+        ><span class="material-symbols-outlined">check</span>{t('git.commit')}<kbd>⌘↵</kbd></GitButton
       >
     </div>
-  </div>
-</div>
+  </GitViewBody>
+</GitView>
 
 <style>
   .meta {

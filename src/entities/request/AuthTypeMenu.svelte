@@ -113,3 +113,121 @@
     {/each}
   </div>
 {/if}
+
+<style>
+  :global(.bs) .bs-auth-select {
+    position: relative;
+    flex: 0 0 240px;
+  }
+
+  :global(.bs) .bs-auth-select .trigger {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    height: 34px;
+    padding: 0 34px 0 14px;
+    border: 0;
+    outline: 1px solid var(--color-border-subtle);
+    outline-offset: -1px;
+    border-radius: var(--radius-control);
+    background: var(--color-panel);
+    color: var(--color-text);
+    font: var(--font-size-body) var(--font-ui);
+    cursor: pointer;
+  }
+
+  :global(.bs) .bs-auth-select .trigger:focus-visible {
+    outline-color: var(--color-text-muted);
+  }
+
+  :global(.bs) .bs-auth-select :global(.material-symbols-outlined) {
+    position: absolute;
+    right: 10px;
+    top: 9px;
+    font-size: 16px;
+    color: var(--color-text-muted);
+    pointer-events: none;
+  }
+
+  /* OA1: the auth type menu (portaled to <body>, so not under .bs). */
+  .bs-auth-menu {
+    position: fixed;
+    /* Above .bs-overlay (100): the folder auth dialog opens this menu too. */
+    z-index: 110;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    width: 280px;
+    padding: 6px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-card);
+    background: var(--color-raised);
+    box-shadow: 0 16px 40px var(--color-shadow, rgba(0, 0, 0, 0.5));
+  }
+
+  .bs-auth-menu :global(button) {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 7px 12px;
+    border: 0;
+    border-radius: 999px;
+    background: transparent;
+    color: var(--color-text);
+    font: var(--font-size-body) var(--font-ui);
+    text-align: left;
+    cursor: pointer;
+  }
+
+  .bs-auth-menu :global(button:is(:hover, :focus-visible)) {
+    background: var(--color-selected);
+    outline: 0;
+  }
+
+  .bs-auth-menu :global(button.on) {
+    font-weight: 600;
+  }
+
+  .bs-auth-menu :global(.ic) {
+    flex: none;
+    font-size: 15px;
+    color: var(--color-text-muted);
+  }
+
+  .bs-auth-menu :global(button.on .ic) {
+    color: var(--color-text);
+  }
+
+  .bs-auth-menu :global(.t) {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .bs-auth-menu :global(.check) {
+    flex: none;
+    font-size: 14px;
+    color: var(--color-text-secondary);
+  }
+
+  .bs-auth-menu :global(.new) {
+    flex: none;
+    padding: 1px 7px;
+    border-radius: 999px;
+    background: var(--color-var-soft);
+    color: var(--color-var);
+    font: 600 var(--font-size-micro) var(--font-ui);
+  }
+
+  .bs-auth-menu :global(.dv) {
+    height: 1px;
+    margin: 2px 0;
+    background: var(--color-border-subtle);
+  }
+
+  .bs-auth-menu :global(.hint) {
+    padding: 4px 12px 6px 37px;
+    color: var(--color-text-muted);
+    font: var(--font-size-caption) var(--font-ui);
+  }
+</style>

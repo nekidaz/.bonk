@@ -10,6 +10,7 @@
   import { requestConfirm } from '$shared/ui';
   import type { ReflogEntry } from '$shared/model';
   import { t, uiLanguage } from '$shared/i18n';
+  import { GitButton, GitHead, GitView, GitViewBody, GitViewEmpty, GitError } from '$entities/git/components';
 
   const LIMIT = 300;
   let entries = $state.raw<ReflogEntry[]>([]);
@@ -56,20 +57,20 @@
   }
 </script>
 
-<div class="bs-gview">
-  <div class="bs-ghead">
+<GitView>
+  <GitHead>
     <div class="ttl">
       <span class="crumb">{`${t('git.title')}  /  reflog`}</span>
       <div class="row"><h2>Reflog</h2></div>
     </div>
-  </div>
-  <div class="bs-gview-body">
+  </GitHead>
+  <GitViewBody>
     {#if error}
-      <div class="bs-git-diff-error">{error}</div>
+      <GitError>{error}</GitError>
     {:else if !loaded}
-      <div class="bs-gview-empty">{t('git.diff.loading')}</div>
+      <GitViewEmpty>{t('git.diff.loading')}</GitViewEmpty>
     {:else if !entries.length}
-      <div class="bs-gview-empty">{t('git.reflog.empty')}</div>
+      <GitViewEmpty>{t('git.reflog.empty')}</GitViewEmpty>
     {:else}
       <p class="hint">{t('git.reflog.hint')}</p>
       <div class="list">
@@ -95,24 +96,23 @@
               />
             {:else}
               <span class="acts">
-                <button
-                  class="bs-gbtn"
+                <GitButton
                   disabled={git.busy}
                   onclick={() => {
                     branchName = '';
                     naming = i;
-                  }}>{t('git.reflog.branch')}</button
+                  }}>{t('git.reflog.branch')}</GitButton
                 >
-                <button class="bs-gbtn" disabled={git.busy} onclick={() => checkoutCommit(e.hash)}>Checkout</button>
-                <button class="bs-gbtn" disabled={git.busy} onclick={() => resetHere(e)}>Reset</button>
+                <GitButton disabled={git.busy} onclick={() => checkoutCommit(e.hash)}>Checkout</GitButton>
+                <GitButton disabled={git.busy} onclick={() => resetHere(e)}>Reset</GitButton>
               </span>
             {/if}
           </div>
         {/each}
       </div>
     {/if}
-  </div>
-</div>
+  </GitViewBody>
+</GitView>
 
 <style>
   .hint {

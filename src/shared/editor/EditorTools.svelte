@@ -11,6 +11,7 @@
   import { t } from '$shared/i18n';
   import { hotkeys, formatBinding } from '$shared/settings';
   import { toggleFoldAll } from './largeFold';
+  import { IconButton } from '$shared/ui/components';
 
   let {
     scope,
@@ -65,45 +66,65 @@
 
 <div class="lb-tools" class:pill role="toolbar" aria-label={t('lb.tools')}>
   {#if editor}
-    <button type="button" class="bs-ric lb-ed" aria-label={t('lb.find')} title="{t('lb.find')}  ⌘F" onclick={find}
-      ><span class="material-symbols-outlined" aria-hidden="true">search</span></button
+    <IconButton type="button" class="lb-ed" aria-label={t('lb.find')} title="{t('lb.find')}  ⌘F" onclick={find}
+      ><span class="material-symbols-outlined" aria-hidden="true">search</span></IconButton
     >
-    <button type="button" class="bs-ric lb-ed" aria-label={t('lb.foldAll')} title={t('lb.foldAll')} onclick={foldAll}
-      ><span class="material-symbols-outlined" aria-hidden="true">unfold_less</span></button
+    <IconButton type="button" class="lb-ed" aria-label={t('lb.foldAll')} title={t('lb.foldAll')} onclick={foldAll}
+      ><span class="material-symbols-outlined" aria-hidden="true">unfold_less</span></IconButton
     >
   {/if}
   {#if format}
-    <button type="button" class="bs-ric" aria-label={t('lb.reindent')} title={t('lb.reindent')} onclick={reindent}
-      ><span class="material-symbols-outlined" aria-hidden="true">format_align_left</span></button
+    <IconButton type="button" aria-label={t('lb.reindent')} title={t('lb.reindent')} onclick={reindent}
+      ><span class="material-symbols-outlined" aria-hidden="true">format_align_left</span></IconButton
     >
   {/if}
   {#if onBeautify}
-    <button
+    <IconButton
       type="button"
-      class="bs-ric"
       aria-label={t('http.body.beautify')}
       title={beautifyTitle || t('http.body.beautify')}
       disabled={!!beautifyTitle}
-      onclick={onBeautify}><span class="material-symbols-outlined" aria-hidden="true">format_align_left</span></button
+      onclick={onBeautify}
+      ><span class="material-symbols-outlined" aria-hidden="true">format_align_left</span></IconButton
     >
   {/if}
   {@render extra?.()}
   {#if onExpand}
-    <button
+    <IconButton
       type="button"
-      class="bs-ric lb-expand"
-      class:on={expanded}
+      class={['lb-expand', { on: expanded }]}
       aria-pressed={expanded}
       aria-label={expanded ? t('lb.collapse') : t('lb.expand')}
       title="{expanded ? t('lb.collapse') : t('lb.expand')}  {expanded ? 'Esc' : expandKeys}"
       onclick={onExpand}
       ><span class="material-symbols-outlined" aria-hidden="true">{expanded ? 'close_fullscreen' : 'open_in_full'}</span
-      ></button
+      ></IconButton
     >
   {/if}
 </div>
 
 <style>
+  .lb-tools :global(.bs-ric) {
+    display: inline-grid;
+    place-items: center;
+    transition: background var(--duration-hover) var(--ease-soft);
+  }
+
+  .lb-tools :global(.bs-ric:disabled) {
+    opacity: 0.4;
+    cursor: default;
+  }
+
+  .lb-tools :global(.bs-ric.on) {
+    background: var(--color-selected);
+    color: var(--color-text);
+  }
+
+  .lb-tools :global(.bs-ric:focus-visible) {
+    outline: 2px solid var(--color-text);
+    outline-offset: 2px;
+  }
+
   .pill {
     flex: none;
     gap: 2px;

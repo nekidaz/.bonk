@@ -7,6 +7,7 @@
   import { guessInput } from '$shared/model';
   import { askUi, inputs, setAsked } from './store.svelte';
   import AskSettings from './AskSettings.svelte';
+  import { Menu, Backdrop } from '$shared/ui/components';
 
   const menu = $derived(askUi.menu);
   const asked = $derived(menu ? menu.name in inputs.defs : false);
@@ -46,8 +47,8 @@
 />
 
 {#if menu}
-  <button class="bs-backdrop" type="button" aria-label={t('nav.menu.closeMenu')} onclick={() => askUi.close()}></button>
-  <div class="bs-menu" role="menu" style="left:{left}px; top:{top}px; width:{WIDTH}px">
+  <Backdrop type="button" aria-label={t('nav.menu.closeMenu')} onclick={() => askUi.close()} />
+  <Menu role="menu" style="left:{left}px; top:{top}px; width:{WIDTH}px">
     <div class="lbl" style="text-transform: none">{`{{${menu.name}}}`}</div>
     {#if asked}
       <button class="mi" type="button" role="menuitem" onclick={settings}>
@@ -64,7 +65,7 @@
         <span class="lb">{t('input.menu.ask')}</span>
       </button>
     {/if}
-  </div>
+  </Menu>
 {/if}
 
 {#if askUi.settings}

@@ -16,6 +16,7 @@
     type InputKind,
   } from '$shared/model';
   import { askUi, inputs, lastValue, setAsked } from './store.svelte';
+  import { Switch, Backdrop } from '$shared/ui/components';
 
   let { target }: { target: { name: string; left: number; right: number; top: number; bottom: number } } = $props();
 
@@ -103,18 +104,11 @@
     <span class="txt"
       >{label}{#if desc}<small>{desc}</small>{/if}</span
     >
-    <button
-      class="mono-switch sm"
-      type="button"
-      role="switch"
-      aria-checked={on}
-      aria-label={label}
-      onclick={() => change(!on)}
-    ></button>
+    <Switch checked={on} aria-label={label} onclick={() => change(!on)} />
   </div>
 {/snippet}
 
-<button class="bs-backdrop" type="button" aria-label={t('input.form.cancel')} onclick={() => askUi.close()}></button>
+<Backdrop type="button" aria-label={t('input.form.cancel')} onclick={() => askUi.close()} />
 {#if def}
   <div class="ask" role="dialog" aria-label={t('input.set.title')} bind:this={card} style="left:{left}px; top:{top}px">
     <header>

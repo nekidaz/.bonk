@@ -3,7 +3,7 @@
    * G10: one stash as a tab — where it was made, its files as full diffs, and Drop (asks first),
    * Branch from stash, Apply, Pop. Once popped or dropped the stash is gone and the tab says so.
    */
-  import { GitBranchIcon } from '$shared/ui/components';
+  import { GitBranchIcon, TextInput } from '$shared/ui/components';
   import { workspace } from '$entities/workspace';
   import { git, relativeAgo, stashApply, stashBranch, stashDrop, stashPop } from '$entities/git';
   import { gitStashShow } from '$shared/ipc';
@@ -12,6 +12,7 @@
   import { t, tp, uiLanguage } from '$shared/i18n';
   import FileDiff from './FileDiff.svelte';
   import { diffLayout } from './store.svelte';
+  import { GitButton, GitHead, GitView, GitViewBody, GitViewEmpty, GitTag, GitError } from '$entities/git/components';
 
   let { tab }: { tab: Tab } = $props();
 
@@ -52,26 +53,26 @@
   }
 </script>
 
-<div class="bs-gview">
+<GitView>
   {#if !stash}
-    <div class="bs-gview-empty">{t('git.stash.gone')}</div>
+    <GitViewEmpty>{t('git.stash.gone')}</GitViewEmpty>
   {:else}
-    <div class="bs-ghead">
+    <GitHead>
       <div class="ttl">
         <span class="crumb"
           >{`stash@{${stash.index}}  ·  ${t('git.stash.on', { branch: stash.branch || 'HEAD' })}  ·  ${stash.short}`}</span
         >
         <div class="row">
           <h2>{stash.message}</h2>
-          <span class="bs-gtag"
-            >{`${files.length} ${tp(files.length, ['файл', 'файла', 'файлов'], ['file', 'files'])} · ${age}`}</span
+          <GitTag
+            >{`${files.length} ${tp(files.length, ['файл', 'файла', 'файлов'], ['file', 'files'])} · ${age}`}</GitTag
           >
         </div>
       </div>
       {#if branching}
         <!-- svelte-ignore a11y_autofocus -->
-        <input
-          class="bs-input stash-branch"
+        <TextInput
+          class="stash-branch"
           placeholder={t('git.branch.newPlaceholder')}
           bind:value={branchName}
           autofocus
@@ -82,27 +83,26 @@
           onblur={() => (branching = false)}
         />
       {/if}
-      <button class="bs-gbtn danger" onclick={drop}
-        ><span class="material-symbols-outlined">delete</span>{t('git.stash.drop')}</button
+      <GitButton class="danger" onclick={drop}
+        ><span class="material-symbols-outlined">delete</span>{t('git.stash.drop')}</GitButton
       >
-      <button
-        class="bs-gbtn"
+      <GitButton
         onclick={() => {
           branchName = '';
           branching = true;
-        }}><GitBranchIcon size={15} />{t('git.stash.branch')}</button
+        }}><GitBranchIcon size={15} />{t('git.stash.branch')}</GitButton
       >
-      <button class="bs-gbtn" onclick={() => stashApply(stash!.index)}
-        ><span class="material-symbols-outlined">content_copy</span>{t('git.stash.apply')}</button
+      <GitButton onclick={() => stashApply(stash!.index)}
+        ><span class="material-symbols-outlined">content_copy</span>{t('git.stash.apply')}</GitButton
       >
-      <button class="bs-gbtn inv" onclick={() => stashPop(stash!.index)}
-        ><span class="material-symbols-outlined">download</span>{t('git.stash.pop')}</button
+      <GitButton class="inv" onclick={() => stashPop(stash!.index)}
+        ><span class="material-symbols-outlined">download</span>{t('git.stash.pop')}</GitButton
       >
-    </div>
-    <div class="bs-gview-body">
-      {#if git.error}<div class="bs-git-diff-error">{git.error}</div>{/if}
+    </GitHead>
+    <GitViewBody>
+      {#if git.error}<GitError>{git.error}</GitError>{/if}
       {#if error}
-        <div class="bs-git-diff-error">{error}</div>
+        <GitError>{error}</GitError>
       {/if}
       {#each files as f (f.path)}
         <div class="file">
@@ -115,9 +115,9 @@
           />
         </div>
       {/each}
-    </div>
+    </GitViewBody>
   {/if}
-</div>
+</GitView>
 
 <style>
   .file {
@@ -125,7 +125,7 @@
     display: flex;
     max-height: none;
   }
-  .stash-branch {
+  :global(.bs-input.stash-branch) {
     width: 200px;
     height: 30px;
     border-radius: var(--radius-control);

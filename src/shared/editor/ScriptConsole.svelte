@@ -6,6 +6,7 @@
   import { t, tp } from '$shared/i18n';
   import type { ScriptEvent } from '$shared/model';
   import { clockMs, consoleRows, type ConsoleRow } from './scriptRun';
+  import { Segmented } from '$shared/ui/components';
 
   let {
     events,
@@ -51,13 +52,13 @@
       <span class="material-symbols-outlined" aria-hidden="true">filter_list</span>
       <input bind:value={query} placeholder={t('response.console.filter')} aria-label={t('response.console.filter')} />
     </label>
-    <div class="bs-seg" role="radiogroup" aria-label={t('response.console.kinds')}>
+    <Segmented role="radiogroup" aria-label={t('response.console.kinds')}>
       {#each KINDS as [id, label] (id)}
         <button type="button" role="radio" aria-checked={kind === id} class:on={kind === id} onclick={() => (kind = id)}
           >{t(label)}</button
         >
       {/each}
-    </div>
+    </Segmented>
     <span class="spacer"></span>
     {#if onClear}<button type="button" class="clear" onclick={onClear} disabled={!events.length}
         ><span class="material-symbols-outlined" aria-hidden="true">block</span>{t('response.console.clear')}</button

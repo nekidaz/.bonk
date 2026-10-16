@@ -21,6 +21,7 @@
   import { scriptMarks } from './scriptMarks';
   import { scriptSnippetsExpanded, scriptSnippetsOpen } from './scriptPrefs.svelte';
   import { consoleRows, stageTests } from './scriptRun';
+  import { Segmented, StatusPill } from '$shared/ui/components';
 
   let {
     preRequestScript,
@@ -252,7 +253,7 @@
     {@const passed = results.tests.filter((x) => x.passed).length}
     <section class="run" aria-label={t('response.tab.tests')}>
       <div class="run-head">
-        <div class="bs-seg" role="tablist">
+        <Segmented role="tablist">
           <button
             type="button"
             role="tab"
@@ -271,11 +272,12 @@
             onclick={() => (runTab = 'console')}
             >{t('response.tab.console')}<span class="n">{consoleRows(results.events ?? []).length}</span></button
           >
-        </div>
+        </Segmented>
         <span class="spacer"></span>
         {#if response}
-          <span class="bs-stpill {response.tone}"
-            ><span class="g" aria-hidden="true">{response.tone === 'success' ? '✓' : '!'}</span>{response.status}</span
+          <StatusPill class={response.tone}
+            ><span class="g" aria-hidden="true">{response.tone === 'success' ? '✓' : '!'}</span
+            >{response.status}</StatusPill
           >
           <span class="detail">{response.detail}</span>
         {/if}
@@ -299,6 +301,11 @@
 </div>
 
 <style>
+  :global(:root .bs .bs-stpill.danger) {
+    background: var(--color-danger-soft);
+    color: var(--color-danger);
+  }
+
   .bs-scripts {
     flex: 1;
     min-height: 0;

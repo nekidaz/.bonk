@@ -34,6 +34,7 @@
   import { inputs } from '$entities/input';
   import { testCount, varLinks } from './runnerStats';
   import { t, tp } from '$shared/i18n';
+  import { Switch, Segmented } from '$shared/ui/components';
 
   const MUTATING = ['POST', 'PUT', 'PATCH', 'DELETE'];
 
@@ -377,7 +378,7 @@
       {#if asking.length > 0}
         <div class="rs-set">
           <span class="rs-lbl">{t('input.runner.step')}<small>{t('input.runner.step.desc')}</small></span>
-          <div class="bs-seg" role="radiogroup" aria-label={t('input.runner.step')}>
+          <Segmented role="radiogroup" aria-label={t('input.runner.step')}>
             {#each ['wait', 'fail'] as const as mode (mode)}
               <button
                 type="button"
@@ -387,7 +388,7 @@
                 onclick={() => setInputMode(mode)}>{t(`input.runner.${mode}`)}</button
               >
             {/each}
-          </div>
+          </Segmented>
         </div>
       {/if}
       <div class="rs-set">
@@ -438,25 +439,19 @@
       </div>
       <div class="rs-set">
         <span class="rs-lbl">{t('runner.stopOnFail')}</span>
-        <button
-          class="mono-switch sm"
-          type="button"
-          role="switch"
-          aria-checked={cfg.stopOnFailure}
+        <Switch
+          checked={cfg.stopOnFailure}
           aria-label={t('runner.stopOnFail')}
           onclick={() => setStopOnFailure(!cfg.stopOnFailure)}
-        ></button>
+        />
       </div>
       <div class="rs-set">
         <span class="rs-lbl">{t('runner.saveResponses')}<small>{t('runner.saveResponses.desc')}</small></span>
-        <button
-          class="mono-switch sm"
-          type="button"
-          role="switch"
-          aria-checked={cfg.saveResponses}
+        <Switch
+          checked={cfg.saveResponses}
           aria-label={t('runner.saveResponses')}
           onclick={() => setSaveResponses(!cfg.saveResponses)}
-        ></button>
+        />
       </div>
     </div>
 

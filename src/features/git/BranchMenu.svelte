@@ -22,6 +22,7 @@
   import type { GitBranch } from '$shared/model';
   import { t, tp } from '$shared/i18n';
   import { requestConfirm } from '$shared/ui';
+  import { GitButton, GitLayer } from '$entities/git/components';
 
   let branches = $state.raw<GitBranch[]>([]);
   let query = $state('');
@@ -150,7 +151,7 @@
 {#if at}
   <!-- A transparent layer closes the popover on a click outside it (a window pointerdown
        misjudges clicks in the Tauri webview). -->
-  <div class="bs-gitlayer" role="presentation" onpointerdown={close}></div>
+  <GitLayer role="presentation" onpointerdown={close}></GitLayer>
   <div
     class="bs-branchmenu"
     role="dialog"
@@ -245,8 +246,7 @@
       >
     </button>
     <div class="sync">
-      <button
-        class="bs-gbtn"
+      <GitButton
         disabled={git.busy}
         onclick={() => {
           close();
@@ -254,10 +254,9 @@
         }}
         ><span class="material-symbols-outlined">arrow_downward</span>Pull{#if git.status?.behind}<span class="n"
             >{git.status.behind}</span
-          >{/if}</button
+          >{/if}</GitButton
       >
-      <button
-        class="bs-gbtn"
+      <GitButton
         disabled={git.busy}
         title={diverged
           ? 'git push --force-with-lease'
@@ -269,7 +268,7 @@
           ? 'Force push'
           : git.status && !git.status.upstream
             ? t('git.branch.publish')
-            : 'Push'}{#if git.status?.ahead}<span class="n">{git.status.ahead}</span>{/if}</button
+            : 'Push'}{#if git.status?.ahead}<span class="n">{git.status.ahead}</span>{/if}</GitButton
       >
     </div>
   </div>
@@ -441,7 +440,7 @@
     gap: 8px;
     padding: 4px 4px 2px;
   }
-  .sync .bs-gbtn {
+  :global(:root .sync .bs-gbtn) {
     height: 34px;
     background: var(--color-field);
   }

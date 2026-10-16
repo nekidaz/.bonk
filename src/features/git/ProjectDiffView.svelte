@@ -12,6 +12,8 @@
   import { diffStats } from './diff';
   import DiffBlock from './DiffBlock.svelte';
   import { t } from '$shared/i18n';
+  import { Button } from '$shared/ui/components';
+  import { GitError } from '$entities/git/components';
 
   let files = $state<FileDiff[]>([]);
   let loading = $state(false);
@@ -76,19 +78,14 @@
   <div class="bs-projdiff-commit">
     <textarea class="bs-git-msg" placeholder={t('git.commit.placeholder')} rows="2" bind:value={commitMessage}
     ></textarea>
-    <button
-      class="bs-btn primary"
-      type="button"
-      disabled={!commitMessage.trim() || stagedCount === 0 || git.busy}
-      onclick={commit}
-    >
+    <Button variant="primary" disabled={!commitMessage.trim() || stagedCount === 0 || git.busy} onclick={commit}>
       <span class="material-symbols-outlined" style="font-size:15px;vertical-align:-3px">check</span>
       {t('git.commit')}{stagedCount ? ` (${stagedCount})` : ''}
-    </button>
+    </Button>
   </div>
 
   {#if error}
-    <div class="bs-git-diff-error">{error}</div>
+    <GitError>{error}</GitError>
   {:else if loading && files.length === 0}
     <div class="bs-git-diff-empty">
       <span class="send-spinner" aria-hidden="true"></span>
@@ -110,14 +107,128 @@
           {/if}
           <div class="grow"></div>
           {#if f.staged}
-            <button class="bs-btn ghost" type="button" onclick={() => unstage(f)}>{t('git.unstage')}</button>
+            <Button variant="ghost" onclick={() => unstage(f)}>{t('git.unstage')}</Button>
           {:else}
-            <button class="bs-btn ghost" type="button" onclick={() => stage(f)}>{t('git.stage')}</button>
+            <Button variant="ghost" onclick={() => stage(f)}>{t('git.stage')}</Button>
           {/if}
-          <button class="bs-btn ghost" type="button" onclick={() => discard(f)}>{t('git.discard')}</button>
+          <Button variant="ghost" onclick={() => discard(f)}>{t('git.discard')}</Button>
         </div>
         <DiffBlock text={f.diff} />
       </div>
     {/each}
   {/if}
 </div>
+
+<style>
+  /* Git panel and diff views (hidden behind GIT_ENABLED). */
+  .bs-git-msg {
+    width: 100%;
+    resize: vertical;
+    min-height: 44px;
+    border-radius: 8px;
+    background: var(--inset);
+    border: 0.5px solid var(--sep);
+    padding: 7px 9px;
+    font: inherit;
+    font-size: 12.5px;
+    color: var(--text);
+    outline: none;
+  }
+
+  .bs-git-msg:focus {
+    border-color: var(--accent);
+  }
+
+  .bs-git-diff-stats {
+    display: flex;
+    gap: 6px;
+    font-family: var(--mono);
+    font-size: 12px;
+    font-weight: 700;
+  }
+
+  .bs-git-diff-stats :global(span) {
+    min-width: 42px;
+    height: 24px;
+    padding: 0 8px;
+    border-radius: 7px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 0.5px solid var(--sepsoft);
+    background: var(--inset);
+  }
+
+  .bs-git-diff-stats :global(.add) {
+    color: var(--green);
+  }
+
+  .bs-git-diff-stats :global(:where(.del)) {
+    color: var(--red);
+  }
+
+  .bs-git-diff-empty {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    color: var(--t2);
+    background: var(--inset);
+    font-size: 13px;
+  }
+
+  .bs-projdiff-commit {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 12px;
+    border-bottom: 0.5px solid var(--sep);
+    position: sticky;
+    top: 0;
+    background: var(--bg);
+    z-index: 1;
+  }
+
+  .bs-projdiff-file {
+    border-bottom: 0.5px solid var(--sep);
+  }
+
+  .bs-projdiff-fhead {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    background: var(--surface);
+    position: sticky;
+    top: 0;
+    z-index: 0;
+  }
+
+  .bs-projdiff-fhead :global(.grow) {
+    flex: 1;
+  }
+
+  .bs-projdiff-fpath {
+    font-family: var(--mono);
+    font-size: 12px;
+  }
+
+  .bs-projdiff {
+    overflow: auto;
+    height: 100%;
+    contain: layout paint;
+  }
+
+  .send-spinner {
+    width: 12px;
+    height: 12px;
+    border-radius: 999px;
+    border: 1.5px solid rgba(255, 255, 255, 0.42);
+    animation: send-spin 850ms linear infinite;
+    border-width: 1.75px;
+    border-color: color-mix(in srgb, var(--primary-text) 42%, transparent);
+    border-top-color: var(--primary-text);
+  }
+</style>

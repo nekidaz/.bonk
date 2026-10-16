@@ -21,6 +21,7 @@
     type SameSite,
     setCookieOf,
   } from '$entities/cookies';
+  import { Button, Overlay, Modal } from '$shared/ui/components';
 
   const { onCleared }: { onCleared: (text: string) => void } = $props();
 
@@ -219,14 +220,14 @@
 <svelte:window onkeydown={onKeydown} />
 
 {#if cookieJar.sheetOpen}
-  <div
-    class="bs-overlay bs-jar-overlay"
+  <Overlay
+    class="bs-jar-overlay"
     role="presentation"
     onpointerdown={(e) => {
       if (e.target === e.currentTarget) close();
     }}
   >
-    <div class="bs-modal bs-jar" role="dialog" aria-modal="true" aria-labelledby="bs-jar-title">
+    <Modal class="bs-jar" role="dialog" aria-modal="true" aria-labelledby="bs-jar-title">
       <header class="head">
         <div>
           <div class="kicker">{kicker}</div>
@@ -289,11 +290,9 @@
                     ? t('cookies.paste.hint', { domain: pasteDomain })
                     : t('cookies.paste.need_domain')}</span
                 >
-                <button class="bs-btn ghost" type="button" onclick={() => (pasteOpen = false)}
-                  >{t('common.cancel')}</button
-                >
-                <button class="bs-btn primary" type="button" disabled={!pasteText.trim()} onclick={savePaste}
-                  >{t('cookies.save')}</button
+                <Button variant="ghost" size="lg" onclick={() => (pasteOpen = false)}>{t('common.cancel')}</Button>
+                <Button variant="primary" size="lg" disabled={!pasteText.trim()} onclick={savePaste}
+                  >{t('cookies.save')}</Button
                 >
               </div>
               {#if error}<div class="error" role="alert">{error}</div>{/if}
@@ -400,9 +399,9 @@
 
       <footer class="foot">
         <span class="note">{cookieJar.path ? t('cookies.storage', { path: cookieJar.path }) : ''}</span>
-        <button
-          class="bs-btn danger-soft"
-          type="button"
+        <Button
+          variant="danger-soft"
+          size="lg"
           disabled={!cookies.length}
           onclick={() => {
             keepLocal = false;
@@ -410,9 +409,9 @@
           }}
           ><span class="material-symbols-outlined" aria-hidden="true">delete_sweep</span>{t(
             'cookies.clear_all',
-          )}</button
+          )}</Button
         >
-        <button class="bs-btn primary" type="button" onclick={close}>{t('cookies.done')}</button>
+        <Button variant="primary" size="lg" onclick={close}>{t('cookies.done')}</Button>
       </footer>
 
       {#if confirmOpen}
@@ -427,16 +426,14 @@
               <input class="round" type="checkbox" bind:checked={keepLocal} />{t('cookies.clear.keep_local')}
             </label>
             <div class="actions">
-              <button class="bs-btn ghost" type="button" onclick={() => (confirmOpen = false)}
-                >{t('common.cancel')}</button
-              >
-              <button class="bs-btn danger" type="button" onclick={clearAll}>{t('cookies.clear_all')}</button>
+              <Button variant="ghost" size="lg" onclick={() => (confirmOpen = false)}>{t('common.cancel')}</Button>
+              <Button variant="danger" size="lg" onclick={clearAll}>{t('cookies.clear_all')}</Button>
             </div>
           </div>
         </div>
       {/if}
-    </div>
-  </div>
+    </Modal>
+  </Overlay>
 {/if}
 
 {#snippet editor()}
@@ -539,8 +536,8 @@
           >
         {/if}
         <div class="grow"></div>
-        <button class="bs-btn ghost" type="button" onclick={cancelEdit}>{t('common.cancel')}</button>
-        <button class="bs-btn primary" type="submit">{t('cookies.save')}</button>
+        <Button variant="ghost" size="lg" onclick={cancelEdit}>{t('common.cancel')}</Button>
+        <Button variant="primary" size="lg" type="submit">{t('cookies.save')}</Button>
       </div>
     </form>
   {/if}
@@ -549,11 +546,11 @@
 <style>
   /* Sizes follow the CJ2 mock (Pencil node «Cookie jar»), the same frame as the S31 sheet. */
   /* Above Settings: «Открыть банку» there opens it on top. */
-  .bs-jar-overlay.bs-jar-overlay {
+  :global(:root .bs-jar-overlay.bs-jar-overlay) {
     z-index: 101;
     background: var(--color-scrim);
   }
-  .bs-jar.bs-jar {
+  :global(:root .bs-jar.bs-jar) {
     position: relative;
     width: 1040px;
     max-width: 100%;
@@ -1134,40 +1131,6 @@
     white-space: nowrap;
     color: var(--color-text-muted);
     font: var(--font-size-caption) var(--font-ui);
-  }
-  .bs-jar :global(.bs-btn) {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    height: 34px;
-    padding: 0 16px;
-    border: 0;
-    border-radius: var(--radius-control);
-    font: 500 var(--font-size-body) var(--font-ui);
-  }
-  .bs-jar :global(.bs-btn .material-symbols-outlined) {
-    font-size: 16px;
-  }
-  .bs-jar :global(.bs-btn.ghost) {
-    background: var(--color-panel);
-    color: var(--color-text);
-  }
-  .bs-jar :global(.bs-btn.primary) {
-    background: var(--color-action);
-    color: var(--color-on-action);
-    font-weight: 600;
-  }
-  .bs-jar :global(.bs-btn.danger-soft) {
-    background: var(--color-danger-soft);
-    color: var(--color-danger);
-  }
-  .bs-jar :global(.bs-btn.danger) {
-    background: var(--color-danger);
-    color: var(--color-on-action);
-    font-weight: 600;
-  }
-  .bs-jar :global(.bs-btn:disabled) {
-    opacity: 0.45;
   }
 
   /* CJ4: one confirmation over the sheet. */

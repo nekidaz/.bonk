@@ -9,6 +9,7 @@
   import { collectionPlan, openApiPlan, type Grouping } from './plan';
   import { bodyLines, diffCollection } from './reimport';
   import type { Loaded } from './source';
+  import { Segmented } from '$shared/ui/components';
 
   let {
     collection,
@@ -166,7 +167,7 @@
           <span class="ck"></span>
           {@render head('−', 'bad', r.node)}
           <span class="what">
-            <span class="bs-seg compact" role="radiogroup" aria-label={r.node.name}>
+            <Segmented role="radiogroup" aria-label={r.node.name}>
               <button
                 type="button"
                 role="radio"
@@ -181,7 +182,7 @@
                 class:on={drop.has(r.key)}
                 onclick={() => !drop.has(r.key) && (drop = flip(drop, r.key))}>{t('import.upd.delBtn')}</button
               >
-            </span>
+            </Segmented>
           </span>
         </div>
       {/each}

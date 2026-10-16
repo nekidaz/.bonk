@@ -106,7 +106,7 @@ are enforced by `src/architecture.test.ts`. Path aliases: `$shared`, `$entities`
 
 A slice's public API is its `index.ts` (code) and `components.ts` (Svelte components); other
 slices import only those, never deep paths. Tests sit next to the module they cover
-(`foo.ts` → `foo.test.ts`). Global CSS is `src/styles/`: one entry `index.css` (import order = cascade order), design tokens in `tokens.css`, one file per UI area; `settings.css` is imported by `SettingsModal.svelte`.
+(`foo.ts` → `foo.test.ts`). Styles live in each component's scoped `<style>`; shared pieces are components (`shared/ui`, `entities/request`, `entities/git`). Global CSS in `src/styles/` is only `tokens.css`, `base.css` (element defaults and app-wide states), `editor.css` (CodeMirror) and `motion.css`, behind one entry `index.css` (import order = cascade order).
 
 State is Svelte 5 runes in `*.svelte.ts` modules: each is a class (fields `$state` /
 `$state.raw` / `$derived`, plus methods) exported as one instance, e.g. `tabs.list`,

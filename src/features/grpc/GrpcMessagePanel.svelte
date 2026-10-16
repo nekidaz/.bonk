@@ -13,6 +13,7 @@
   import { fieldCompletionOptions } from './grpcEditor';
   import type { Tab, GrpcMethod } from '$shared/model';
   import { CodeEditor } from '$shared/editor/components';
+  import { BodyPanel, BodyCode, BeautifyButton, BodyHead } from '$entities/request/components';
 
   let {
     tab,
@@ -112,7 +113,7 @@
       <span class="sc-point"><span class="material-symbols-outlined" aria-hidden="true">info</span>{con}</span>
     </button>
   {/snippet}
-  <div class="bs-http-body bs-grpc-schema">
+  <BodyPanel class="bs-grpc-schema">
     <div class="sc-head">
       <span class="sc-kicker">{t('grpc.schema.title')}</span>
       <p>{t('grpc.schema.sub')}</p>
@@ -139,11 +140,11 @@
     <p class="sc-tip">
       <span class="material-symbols-outlined" aria-hidden="true">lightbulb</span>{t('grpc.schema.grpcurlTip')}
     </p>
-  </div>
+  </BodyPanel>
 {:else}
-  <div class="bs-http-body bs-grpc-message">
+  <BodyPanel class="bs-grpc-message">
     {#if !largeMessage}
-      <div class="bs-body-head">
+      <BodyHead>
         <span class="bs-body-caption"
           >{#if nextSent}{t('grpc.msg.next')}&nbsp;&nbsp;·&nbsp;&nbsp;{tab.grpcStream?.kind === 'bidi'
               ? '↑ '
@@ -153,12 +154,14 @@
               .split('.')
               .pop()}{/if}</span
         >
-        <button class="bs-body-beautify bs-grpc-example" type="button" onclick={onLoadExample}
-          ><span class="material-symbols-outlined" aria-hidden="true">description</span>{t('grpc.msg.example')}</button
+        <BeautifyButton class="bs-grpc-example" type="button" onclick={onLoadExample}
+          ><span class="material-symbols-outlined" aria-hidden="true">description</span>{t(
+            'grpc.msg.example',
+          )}</BeautifyButton
         >
-      </div>
+      </BodyHead>
     {/if}
-    <div class="bs-body-cm" class:invalid={violations.length > 0 || issues.length > 0}>
+    <BodyCode class={{ invalid: violations.length > 0 || issues.length > 0 }}>
       <CodeEditor
         value={tab.grpc?.message ?? ''}
         onChange={onMessageChange}
@@ -174,7 +177,7 @@
         docId={tab.id}
         ariaLabel={t('grpc.msg.aria')}
       />
-    </div>
+    </BodyCode>
     {#if violations.length}
       <div class="bs-grpc-valid warn" role="alert">
         <span class="material-symbols-outlined" aria-hidden="true">error</span>
@@ -199,5 +202,199 @@
         {t('grpc.msg.invalidJson')}
       </div>
     {/if}
-  </div>
+  </BodyPanel>
 {/if}
+
+<style>
+  :global(:root .bs .bs-grpc-message .bs-body-head .bs-body-beautify) {
+    margin-left: auto;
+  }
+
+  :global(:root .bs .bs-grpc-message .bs-body-head) {
+    gap: 8px;
+  }
+
+  :global(:root .bs-http-body.bs-grpc-message .bs-body-cm) {
+    flex: 1 1 auto;
+  }
+
+  :global(:root .bs-http-body.bs-grpc-message .bs-body-cm .cm-editor) {
+    min-height: 100%;
+  }
+
+  :global(.bs) .bs-body-caption {
+    color: var(--color-text-muted);
+    font: 500 var(--font-size-micro) var(--font-code);
+    letter-spacing: var(--tracking-eyebrow);
+    text-transform: uppercase;
+    white-space: pre;
+  }
+
+  :global(.bs) .bs-grpc-valid {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding-left: 6px;
+    color: var(--color-text-muted);
+    font: var(--font-size-caption) var(--font-ui);
+  }
+
+  :global(.bs) .bs-grpc-valid :global(.material-symbols-outlined) {
+    font-size: 13px;
+  }
+
+  :global(.bs) .bs-grpc-valid.bad {
+    color: var(--color-danger);
+  }
+
+  :global(.bs) .bs-grpc-valid.warn {
+    color: var(--color-warning);
+  }
+
+  :global(:root .bs .bs-grpc-schema) {
+    gap: 12px;
+  }
+
+  :global(:root .bs .bs-grpc-schema .sc-head) {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  :global(:root .bs .bs-grpc-schema .sc-kicker) {
+    color: var(--color-text-muted);
+    font: 500 var(--font-size-micro) var(--font-code);
+    letter-spacing: var(--tracking-eyebrow);
+    text-transform: uppercase;
+  }
+
+  :global(:root .bs .bs-grpc-schema .sc-head p) {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font: var(--font-size-caption) var(--font-ui);
+  }
+
+  :global(:root .bs .bs-grpc-schema .sc-choices) {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 12px;
+  }
+
+  :global(:root .bs .bs-grpc-schema .sc-card) {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+    padding: 14px 16px;
+    border: 1px solid var(--color-border-subtle);
+    border-radius: 14px;
+    background: var(--color-panel);
+    color: var(--color-text);
+    text-align: left;
+    cursor: pointer;
+  }
+
+  :global(:root .bs .bs-grpc-schema .sc-card:hover) {
+    background: var(--color-raised);
+  }
+
+  :global(:root .bs .bs-grpc-schema .sc-card.on) {
+    border-color: var(--color-border);
+    background: var(--color-raised);
+    box-shadow: 0 0 0 1px var(--color-border-subtle);
+  }
+
+  :global(:root .bs .bs-grpc-schema .sc-card:focus-visible) {
+    outline: none;
+    box-shadow: var(--focus-ring);
+  }
+
+  :global(:root .bs .bs-grpc-schema .sc-top) {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  :global(:root .bs .bs-grpc-schema .sc-top b) {
+    font: 600 var(--font-size-body) var(--font-ui);
+  }
+
+  :global(:root .bs .bs-grpc-schema .sc-icon) {
+    display: grid;
+    place-items: center;
+    width: 30px;
+    height: 30px;
+    border-radius: 9px;
+    background: var(--color-selected);
+    color: var(--color-text-secondary);
+  }
+
+  :global(:root .bs .bs-grpc-schema .sc-icon .material-symbols-outlined) {
+    font-size: 17px;
+  }
+
+  :global(:root .bs .bs-grpc-schema .sc-tag) {
+    padding: 2px 7px;
+    border-radius: 6px;
+    background: var(--color-success-soft);
+    color: var(--color-success);
+    font: 600 9.5px var(--font-ui);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  :global(:root .bs .bs-grpc-schema .sc-radio) {
+    margin-left: auto;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    border: 1.5px solid var(--color-text-muted);
+  }
+
+  :global(:root .bs .bs-grpc-schema .sc-card.on .sc-radio) {
+    border: 0;
+    background: var(--color-text);
+    box-shadow:
+      inset 0 0 0 4px var(--color-raised),
+      0 0 0 1.5px var(--color-text);
+  }
+
+  :global(:root .bs .bs-grpc-schema .sc-text) {
+    color: var(--color-text-secondary);
+    font: var(--font-size-caption)/1.5 var(--font-ui);
+  }
+
+  :global(:root .bs .bs-grpc-schema .sc-point) {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--color-text-muted);
+    font: var(--font-size-caption) var(--font-ui);
+  }
+
+  :global(:root .bs .bs-grpc-schema .sc-point .material-symbols-outlined) {
+    font-size: 13px;
+  }
+
+  :global(:root .bs .bs-grpc-schema .sc-point .ok) {
+    color: var(--color-success);
+  }
+
+  :global(:root .bs .bs-grpc-schema .sc-tip) {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin: 0;
+    color: var(--color-text-muted);
+    font: var(--font-size-caption) var(--font-ui);
+  }
+
+  :global(:root .bs .bs-grpc-schema .sc-tip .material-symbols-outlined) {
+    font-size: 14px;
+  }
+
+  /* The gRPC message editor takes the free height of the request pane (min 140px) — most of the main panel by default. */
+  :global(:root .bs-grpc-message) {
+    flex: 1 1 auto;
+  }
+</style>

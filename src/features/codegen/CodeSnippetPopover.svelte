@@ -10,6 +10,7 @@
   import { openapiExportSave } from '$shared/ipc';
   import { environments, currentVarScope } from '$entities/environment';
   import { withInheritedAuth, workspace } from '$entities/workspace';
+  import { LabelSwitch } from '$shared/ui/components';
 
   let { tab, onClose }: { tab: Tab; onClose: () => void } = $props();
 
@@ -200,7 +201,7 @@
     {/each}
   </div>
   <div class="foot">
-    <label class="bs-switch resolve">
+    <LabelSwitch class="resolve">
       <input type="checkbox" role="switch" bind:checked={resolve} />
       <span class="track" aria-hidden="true"></span>
       <span class="text"
@@ -208,7 +209,7 @@
           >{resolve ? t('code.snippet.on') : t('code.snippet.off', { name: sampleVar })}</small
         ></span
       >
-    </label>
+    </LabelSwitch>
     <button class="download" type="button" onclick={download}
       ><span class="material-symbols-outlined" aria-hidden="true">download</span>{t('code.snippet.download')}</button
     >
@@ -219,3 +220,217 @@
     >
   </div>
 </div>
+
+<style>
+  /* The `.foot .resolve.bs-switch` / `.foot .copy kbd` selectors outrank the global `:root .bs .bs-switch` / `:root .bs kbd`. */
+  .bs-snippet {
+    position: absolute;
+    z-index: 100;
+    top: calc(100% + 8px);
+    right: -1px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    width: 540px;
+    max-width: calc(100vw - 40px);
+    padding: 14px;
+    outline: 1px solid var(--color-border);
+    outline-offset: -1px;
+    border-radius: var(--radius-card);
+    background: var(--color-raised);
+    box-shadow: 0 16px 40px #00000080;
+    color: var(--color-text);
+    text-align: left;
+    cursor: default;
+  }
+
+  .bs-snippet:focus {
+    outline: 1px solid var(--color-border);
+  }
+
+  .head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    height: 28px;
+    padding-left: 4px;
+  }
+
+  .eyebrow {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: var(--color-text-muted);
+    font: 500 var(--font-size-micro) var(--font-code);
+    letter-spacing: var(--tracking-eyebrow);
+    text-transform: uppercase;
+    white-space: pre;
+  }
+
+  .close {
+    display: grid;
+    place-items: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    color: var(--color-text-secondary);
+  }
+
+  .close:hover {
+    background: var(--hover);
+  }
+
+  .close .material-symbols-outlined {
+    font-size: 17px;
+  }
+
+  .langs {
+    align-self: flex-start;
+    display: inline-flex;
+    gap: 2px;
+    height: 30px;
+    padding: 2px;
+    outline: 1px solid var(--color-border-subtle);
+    outline-offset: -1px;
+    border-radius: var(--radius-control);
+    background: var(--color-field);
+  }
+
+  .langs button {
+    height: 24px;
+    margin: 1px 0;
+    padding: 0 12px;
+    border-radius: var(--radius-control);
+    color: var(--color-text-secondary);
+    font: 500 var(--font-size-caption) var(--font-ui);
+  }
+
+  .langs button.on {
+    background: var(--color-raised);
+    color: var(--color-text);
+    font-weight: 600;
+    box-shadow: 0 1px 3px var(--color-shadow);
+  }
+
+  .code {
+    max-height: 260px;
+    overflow: auto;
+    padding: 12px 16px 12px 0;
+    outline: 1px solid var(--color-border-subtle);
+    outline-offset: -1px;
+    border-radius: var(--radius-md);
+    background: var(--color-field);
+    font: var(--font-size-body)/20px var(--font-code);
+  }
+
+  .line {
+    display: flex;
+    white-space: pre;
+  }
+
+  .ln {
+    flex: 0 0 36px;
+    padding-right: 12px;
+    color: var(--color-text-muted);
+    text-align: right;
+    user-select: none;
+  }
+
+  code {
+    font: inherit;
+    color: var(--color-text);
+  }
+
+  code .command {
+    font-weight: 600;
+  }
+
+  code :is(.flag, .punctuation) {
+    color: var(--syntax-punct, var(--color-text-muted));
+  }
+
+  code .string {
+    color: var(--ss);
+  }
+
+  code .var {
+    color: var(--color-var);
+  }
+
+  .foot {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    height: 34px;
+    padding-left: 4px;
+  }
+
+  :global(:root .foot .resolve.bs-switch) {
+    flex: 1;
+    min-width: 0;
+    gap: 10px;
+  }
+
+  :global(.bs-switch.resolve .text) {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    min-width: 0;
+  }
+
+  :global(.bs-switch.resolve b) {
+    color: var(--color-text);
+    font: 500 var(--font-size-body) var(--font-ui);
+  }
+
+  :global(.bs-switch.resolve small) {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--color-text-muted);
+    font: var(--font-size-caption) var(--font-ui);
+  }
+
+  .download {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    height: 34px;
+    padding: 0 12px;
+    border-radius: var(--radius-control);
+    color: var(--color-text-secondary);
+    font: 500 var(--font-size-body) var(--font-ui);
+  }
+
+  .download:hover {
+    background: var(--hover);
+    color: var(--color-text);
+  }
+
+  .copy {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 34px;
+    padding: 0 14px 0 12px;
+    border-radius: var(--radius-control);
+    background: var(--color-action);
+    color: var(--color-on-action);
+    font: 600 var(--font-size-body) var(--font-ui);
+  }
+
+  .copy:hover {
+    background: var(--primary-hover);
+  }
+
+  :is(.download, .copy) .material-symbols-outlined {
+    font-size: 17px;
+  }
+
+  .foot .copy kbd {
+    color: var(--color-on-action);
+    font: var(--font-size-micro) var(--font-code);
+    opacity: 0.7;
+  }
+</style>

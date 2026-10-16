@@ -293,3 +293,318 @@
 </div>
 
 <ThemeImportDialog bind:file={importFile} onpick={pickThemeFile} />
+
+<style>
+  .st-theme-tools :global(.st-select) {
+    min-width: 0;
+    height: 26px;
+  }
+
+  .st-shape-pic.sharp :global(i) {
+    border-radius: 6px;
+  }
+
+  .st-shape-pic.sharp :global(b) {
+    border-radius: 5px;
+  }
+
+  .st-shape-pic.square :global(i) {
+    border-radius: 0;
+  }
+
+  .st-shape-pic.square :global(b) {
+    border-radius: 0;
+  }
+
+  /* S32.5b · Settings → Внешний вид → Раскладка */
+  .st-layouts {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .st-layout {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+    padding: 12px;
+    border: 1px solid var(--color-border-subtle);
+    border-radius: var(--radius-card);
+    background: var(--color-panel);
+    color: var(--color-text);
+    text-align: left;
+    cursor: pointer;
+    transition:
+      border-color var(--duration-hover) var(--ease-soft),
+      background var(--duration-hover) var(--ease-soft);
+  }
+
+  .st-layout:hover {
+    background: var(--color-hover);
+  }
+
+  .st-layout.on {
+    border-color: var(--color-text);
+  }
+
+  .st-layout:focus-visible {
+    outline: 2px solid var(--color-text);
+    outline-offset: 2px;
+  }
+
+  .st-layout-pic {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    width: 100%;
+    height: 44px;
+    margin-bottom: 6px;
+  }
+
+  .st-layout-pic :global(i) {
+    flex: 1;
+    border-radius: 6px;
+    background: var(--color-selected);
+  }
+
+  .st-layout.on .st-layout-pic :global(i:first-child) {
+    background: var(--color-text-muted);
+  }
+
+  .st-layout-pic.side {
+    flex-direction: row;
+  }
+
+  .st-layout-pic.focus :global(i:last-child) {
+    flex: 0 0 8px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .st-layout {
+      transition: none;
+    }
+  }
+
+  /* Flow · Темы TH1: theme and shape cards, three per row. A theme card's picture carries data-theme, so every
+     var() inside it resolves to that theme's palette (tokens.css). */
+  .st-themes {
+    width: 100%;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+  }
+
+  .st-theme {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-width: 0;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--color-text);
+    font: var(--font-size-body) var(--font-ui);
+    text-align: left;
+    cursor: pointer;
+  }
+
+  .st-theme:focus-visible {
+    outline: 0;
+  }
+
+  .st-theme:focus-visible > :global(:first-child) {
+    box-shadow: var(--focus-ring);
+  }
+
+  .st-shape-pic {
+    display: flex;
+    gap: 5px;
+    height: 86px;
+    padding: 6px;
+    box-sizing: border-box;
+    overflow: hidden;
+    border-radius: 14px;
+    outline: 1px solid var(--color-border);
+    outline-offset: -1px;
+    background: var(--color-app);
+  }
+
+  .st-theme.on > :global(:first-child) {
+    outline: 2px solid var(--color-text);
+    outline-offset: -2px;
+  }
+
+  /* Shape cards: a raised card with a field and a button, each at that shape's radii (tokens.css [data-shape]). */
+  .st-shape-pic {
+    height: 58px;
+    align-items: center;
+    padding: 10px;
+    background: var(--color-panel);
+  }
+
+  .st-shape-pic :global(i) {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px;
+    border-radius: 20px;
+    background: var(--color-raised);
+  }
+
+  .st-shape-pic :global(b) {
+    height: 14px;
+    border-radius: 999px;
+    background: var(--color-field);
+  }
+
+  .st-shape-pic :global(b:first-child) {
+    flex: 1;
+  }
+
+  .st-shape-pic :global(b:last-child) {
+    width: 24px;
+    background: var(--color-action);
+  }
+
+  .st-mode-label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .st-mode-label .radio {
+    flex: none;
+    width: 14px;
+    height: 14px;
+    box-sizing: border-box;
+    border: 1.5px solid var(--color-border);
+    border-radius: 50%;
+  }
+
+  .st-theme.on .st-mode-label {
+    font-weight: 600;
+  }
+
+  .st-theme.on .st-mode-label .radio {
+    border-color: var(--color-text);
+    background: var(--color-text);
+  }
+
+  .st-hint {
+    color: var(--color-text-muted);
+    font-weight: 400;
+  }
+
+  /* The row under the cards: «Как в системе» with its light/dark pair, the UI font. */
+  .st-theme-tools {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 14px -16px -16px;
+    padding: 8px 16px;
+    border-top: 1px solid var(--color-border-subtle);
+  }
+
+  .st-inline {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--color-text-secondary);
+    font: var(--font-size-body) var(--font-ui);
+    cursor: pointer;
+  }
+
+  /* A user theme's card with its delete button in the picture's corner (shown on hover / focus, red once armed). */
+  .st-theme-cell {
+    position: relative;
+    display: flex;
+    min-width: 0;
+  }
+
+  .st-theme-cell > .st-theme {
+    flex: 1;
+  }
+
+  .st-theme-del {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    display: inline-flex;
+    align-items: center;
+    height: 24px;
+    min-width: 24px;
+    justify-content: center;
+    padding: 0 6px;
+    border: 0;
+    border-radius: var(--radius-control);
+    background: var(--color-raised);
+    box-shadow: 0 0 0 1px var(--color-border-subtle);
+    color: var(--color-text-secondary);
+    font: 500 var(--font-size-caption) var(--font-ui);
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity var(--duration-hover);
+  }
+
+  .st-theme-del :global(.material-symbols-outlined) {
+    font-size: 15px;
+  }
+
+  .st-theme-cell:hover .st-theme-del {
+    opacity: 1;
+  }
+
+  .st-theme-del:focus-visible {
+    opacity: 1;
+  }
+
+  .st-theme-del.armed {
+    opacity: 1;
+  }
+
+  .st-theme-del:hover {
+    color: var(--color-danger);
+  }
+
+  .st-theme-del.armed {
+    color: var(--color-danger);
+  }
+
+  .st-theme-del.armed {
+    background: var(--color-danger-soft);
+    box-shadow: none;
+    padding: 0 10px;
+  }
+
+  /* Flow · Темы: «Импорт темы…» in the gallery's tools row. */
+  .st-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--color-text-secondary);
+    font: var(--font-size-body) var(--font-ui);
+    cursor: pointer;
+  }
+
+  .st-link:hover {
+    color: var(--color-text);
+  }
+
+  .st-link :global(.material-symbols-outlined) {
+    font-size: 15px;
+  }
+
+  .st-error {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--color-danger);
+    font: var(--font-size-caption) var(--font-ui);
+  }
+</style>

@@ -54,3 +54,23 @@
 
   <AppOverlays />
 </div>
+
+<style>
+  .bs-body {
+    flex: 1;
+    display: flex;
+    min-height: 0;
+    margin: 10px 0;
+    padding: 0;
+    gap: 0;
+    background: transparent;
+  }
+
+  :global(:root[data-density='compact']) .bs-body {
+    margin: 8px 0;
+  }
+
+  :global(.bs) .bs-body {
+    position: relative;
+  }
+</style>

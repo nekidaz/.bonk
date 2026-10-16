@@ -18,7 +18,7 @@
   import { UpdateBanner } from '$features/updater/components';
   import { CommandPalette, type PaletteCommand } from '$features/command-palette/components';
   import { BranchMenu, CloneDialog, StashMenu, SwitchDialog } from '$features/git/components';
-  import { ConfirmDialog } from '$shared/ui/components';
+  import { ConfirmDialog, Toast } from '$shared/ui/components';
   import { t } from '$shared/i18n';
   import { formatBinding, hotkeys } from '$shared/settings';
   import AppPopoverMenu from './AppPopoverMenu.svelte';
@@ -157,7 +157,7 @@
 {/if}
 
 {#if shell.toast}
-  <div class="bs-toast" role="status">
+  <Toast role="status">
     <span class="material-symbols-outlined" aria-hidden="true" style:color={shell.toast.iconColor}
       >{shell.toast.icon ?? 'check_circle'}</span
     >
@@ -166,7 +166,7 @@
     {#if shell.toast.undo}<button type="button" onclick={shell.undoToast}
         >{shell.toast.undoLabel ?? t('app.toast.undo')} ⌘Z</button
       >{/if}
-  </div>
+  </Toast>
 {/if}
 
 <CommandPalette bind:open={shell.paletteOpen} commands={paletteCommands} />

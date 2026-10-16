@@ -9,6 +9,7 @@
     requestPrefs,
   } from '$shared/settings';
   import { row, sw, number, select, chips, commit } from './ui.svelte';
+  import Row from './Row.svelte';
 </script>
 
 <div class="st-group">{t('settings.grpc.schema')}</div>
@@ -19,7 +20,7 @@
       (v) => (requestPrefs.grpcAutoReflect.current = v),
     )}{/snippet}
   {@render row(t('settings.grpc.reflect'), t('settings.grpc.reflect.desc'), ar)}
-  <div class="st-row st-col">
+  <Row class="st-col">
     <div class="st-copy">
       <span class="st-name">{t('settings.grpc.paths')}</span><span class="st-desc">{t('settings.grpc.paths.desc')}</span
       >
@@ -30,7 +31,7 @@
       t('settings.grpc.paths.ph'),
       (items) => (grpcImportPaths.current = items),
     )}
-  </div>
+  </Row>
 </div>
 <div class="st-group">{t('settings.grpc.call')}</div>
 <div class="st-card">

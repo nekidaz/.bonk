@@ -21,6 +21,8 @@
     visibleMessages,
     type StreamDirection,
   } from './streamFeed';
+  import { IconButton } from '$shared/ui/components';
+  import RespBody from './RespBody.svelte';
 
   let {
     tab,
@@ -175,13 +177,13 @@
     </div>
   {/if}
   <div class="bs-stream-body">
-    <div
-      class="bs-rbody bs-stream-feed"
-      bind:this={list}
+    <RespBody
+      class="bs-stream-feed"
+      bind:ref={list}
       onscroll={onScroll}
       onkeydown={onListKey}
       role="listbox"
-      tabindex="0"
+      tabindex={0}
       aria-label={t('response.stream.feed')}
     >
       {#each shown as m, i (key(m))}
@@ -251,7 +253,7 @@
           ></span>{`${t(code === 'CANCELLED' ? 'response.stream.stopped' : 'response.stream.closed')} ${saved}`}
         </div>
       {/if}
-    </div>
+    </RespBody>
     {#if selected}
       {@const type = selected.sent ? method?.inputType : method?.outputType}
       <aside class="bs-stream-msg" aria-label={t('response.stream.message', { n: selected.index })}>
@@ -261,14 +263,14 @@
           >
           <b>{t('response.stream.message', { n: selected.index })}</b>
           <span class="sp"></span>
-          <button class="bs-ric" type="button" title={t('common.copy')} onclick={() => copy(prettyJson(selected.body))}
-            ><span class="material-symbols-outlined">content_copy</span></button
+          <IconButton type="button" title={t('common.copy')} onclick={() => copy(prettyJson(selected.body))}
+            ><span class="material-symbols-outlined">content_copy</span></IconButton
           >
-          <button class="bs-ric" type="button" title={t('lb.save')} onclick={() => save(selected)}
-            ><span class="material-symbols-outlined">download</span></button
+          <IconButton type="button" title={t('lb.save')} onclick={() => save(selected)}
+            ><span class="material-symbols-outlined">download</span></IconButton
           >
-          <button class="bs-ric" type="button" title={t('common.close')} onclick={() => pick(undefined)}
-            ><span class="material-symbols-outlined">close</span></button
+          <IconButton type="button" title={t('common.close')} onclick={() => pick(undefined)}
+            ><span class="material-symbols-outlined">close</span></IconButton
           >
         </div>
         <div class="meta">
@@ -286,3 +288,401 @@
     {/if}
   </div>
 </div>
+
+<style>
+  :global(.bs) .bs-stream-bar :global(.dir) {
+    display: flex;
+    gap: 2px;
+    padding: 2px;
+    border: 1px solid var(--color-border-subtle);
+    border-radius: var(--radius-control);
+    background: var(--color-field);
+  }
+
+  :global(.bs) .bs-stream-feed :global(.msg) {
+    flex: none;
+    display: flex;
+    align-items: center;
+    height: 30px;
+    padding: 0 12px;
+    border-radius: var(--radius-control);
+    font: var(--font-size-body)/16px var(--font-code);
+    white-space: pre;
+    cursor: default;
+  }
+
+  :global(.bs) .bs-stream-feed :global(.msg.sent) {
+    background: var(--color-field);
+  }
+
+  :global(.bs) .bs-stream-feed :global(.msg.last) {
+    background: var(--color-hover);
+  }
+
+  :global(.bs) .bs-stream-feed :global(.msg.on) {
+    background: var(--color-hover);
+  }
+
+  :global(.bs) .bs-stream-feed :global(.msg:hover) {
+    background: var(--color-hover);
+  }
+
+  /* Belongs to response.css, but the cascade needs it before `:root .bs .bs-stream-feed code .s` (same elements, same specificity), so it lives here. */
+  :global(.bs) .bs-stream-feed :global(code .k) {
+    color: var(--sk);
+  }
+
+  :global(.bs) .bs-stream-feed :global(code .s) {
+    color: var(--ss);
+  }
+
+  /* Belongs to response.css, but the cascade needs it before `:root .bs .bs-stream-feed code .p` (same elements, same specificity), so it lives here. */
+  :global(.bs) .bs-stream-feed :global(code .n) {
+    color: var(--sn);
+  }
+
+  :global(.bs) .bs-stream-feed :global(code .p) {
+    color: var(--syntax-punct, var(--color-text-muted));
+  }
+
+  :global(.bs) .bs-stream-feed :global(.msg.err) {
+    background: var(--color-danger-soft);
+    color: var(--color-danger);
+  }
+
+  :global(.bs) .bs-stream-feed :global(.msg.err .at) {
+    color: var(--color-danger);
+  }
+
+  :global(.bs) .bs-stream-feed :global(.msg.err code) {
+    color: var(--color-danger);
+  }
+
+  /* S20 + Flow · gRPC Stream: toolbar, one feed for ↑ sent / ↓ received, system lines, message pane. */
+  :global(.bs) .bs-stream {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+  }
+
+  :global(.bs) .bs-stream-bar {
+    flex: none;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px 6px;
+    font: 500 var(--font-size-caption) var(--font-ui);
+  }
+
+  :global(.bs) .bs-stream-bar :global(.filter) {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    width: 240px;
+    min-width: 120px;
+    height: 25px;
+    padding: 0 10px;
+    border: 1px solid var(--color-border-subtle);
+    border-radius: var(--radius-control);
+    background: var(--color-field);
+    color: var(--color-text-muted);
+  }
+
+  :global(.bs) .bs-stream-bar :global(.filter input) {
+    flex: 1;
+    min-width: 0;
+    border: 0;
+    outline: 0;
+    background: transparent;
+    color: var(--color-text);
+    font: var(--font-size-body) var(--font-code);
+  }
+
+  :global(.bs) .bs-stream-bar :global(.filter input::placeholder) {
+    color: var(--color-text-muted);
+    font-family: var(--font-ui);
+  }
+
+  :global(.bs) .bs-stream-bar :global(.filter:focus-within) {
+    border-color: var(--color-border);
+  }
+
+  :global(.bs) .bs-stream-bar :global(.material-symbols-outlined) {
+    font-size: 14px;
+  }
+
+  :global(.bs) .bs-stream-bar :global(button) {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 22px;
+    padding: 0 10px;
+    border: 0;
+    border-radius: var(--radius-control);
+    background: transparent;
+    color: var(--color-text-secondary);
+    font: inherit;
+    white-space: nowrap;
+  }
+
+  :global(.bs) .bs-stream-bar :global(.dir button) {
+    height: 19px;
+  }
+
+  :global(.bs) .bs-stream-bar :global(button:hover) {
+    background: var(--color-hover);
+    color: var(--color-text);
+  }
+
+  :global(.bs) .bs-stream-bar :global(.dir button.on) {
+    background: var(--color-raised);
+    color: var(--color-text);
+    font-weight: 600;
+  }
+
+  :global(.bs) .bs-stream-bar :global(button.warn) {
+    background: var(--color-warning-soft);
+    color: var(--color-warning);
+  }
+
+  :global(.bs) .bs-stream-bar :global(button.warn:hover) {
+    background: var(--color-warning-soft);
+    color: var(--color-warning);
+  }
+
+  :global(.bs) .bs-stream-bar :global(.of) {
+    color: var(--color-text-muted);
+    font: var(--font-size-caption) var(--font-code);
+    white-space: nowrap;
+  }
+
+  :global(.bs) .bs-stream :global(.sp) {
+    flex: 1;
+  }
+
+  :global(.bs) .bs-stream-body {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+  }
+
+  :global(.bs) .bs-stream-feed {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 4px 12px 12px;
+    overflow: auto;
+    outline: 0;
+  }
+
+  :global(.bs) .bs-stream-feed :global(.dir) {
+    flex: 0 0 13px;
+    font-size: 13px;
+    font-variation-settings: 'wght' 500;
+    color: var(--color-text-muted);
+  }
+
+  :global(.bs) .bs-stream-feed :global(.no) {
+    flex: 0 0 40px;
+    margin-right: 14px;
+    text-align: right;
+    color: var(--color-text-muted);
+    font: 600 var(--font-size-caption) var(--font-code);
+  }
+
+  :global(.bs) .bs-stream-feed :global(.at) {
+    flex: 0 0 104px;
+    color: var(--color-text-muted);
+    font: var(--font-size-caption) var(--font-code);
+  }
+
+  :global(.bs) .bs-stream.split .bs-stream-feed :global(.at) {
+    flex-basis: 80px;
+  }
+
+  :global(.bs) .bs-stream-feed :global(code) {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font: inherit;
+    color: var(--color-text);
+  }
+
+  :global(:root .bs .bs-stream-feed .dt) {
+    flex: none;
+    margin-left: 12px;
+    color: var(--color-text-muted);
+    font: var(--font-size-caption) var(--font-code);
+  }
+
+  :global(.bs) .bs-stream-feed :global(.hint) {
+    flex: none;
+    margin-left: 12px;
+    color: var(--color-text-muted);
+    font: var(--font-size-caption) var(--font-code);
+  }
+
+  :global(:root .bs .bs-stream.split .bs-stream-feed .dt) {
+    display: none;
+  }
+
+  :global(.bs) .bs-stream-feed :global(.msg.sent .dir) {
+    color: var(--method-grpc);
+  }
+
+  :global(.bs) .bs-stream-feed :global(.msg.sent .no) {
+    color: var(--method-grpc);
+  }
+
+  :global(.bs .bs-stream-feed .msg.sent) .dt {
+    color: var(--method-grpc);
+  }
+
+  :global(.bs) .bs-stream-feed :global(.waiting) {
+    flex: none;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 14px;
+    color: var(--color-text-muted);
+    font: var(--font-size-body) var(--font-ui);
+  }
+
+  :global(:root .bs .bs-stream-feed .sys) {
+    flex: none;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 14px;
+    color: var(--color-text-muted);
+    font: var(--font-size-body) var(--font-ui);
+  }
+
+  :global(:root .bs .bs-stream-feed .sys) {
+    border-radius: var(--radius-control);
+  }
+
+  :global(:root .bs .bs-stream-feed .sys .material-symbols-outlined) {
+    font-size: 14px;
+  }
+
+  :global(:root .bs .bs-stream-feed .sys.ok) {
+    background: var(--color-success-soft);
+    color: var(--color-success);
+  }
+
+  :global(:root .bs .bs-stream-feed .sys.warn) {
+    background: var(--color-warning-soft);
+    color: var(--color-warning);
+  }
+
+  :global(:root .bs .bs-stream-feed .sys.warn button) {
+    border: 0;
+    background: transparent;
+    color: inherit;
+    font: 600 var(--font-size-caption) var(--font-ui);
+  }
+
+  :global(.bs) .bs-stream-feed :global(.waiting .dot) {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--color-success);
+  }
+
+  :global(.bs) .bs-stream-feed :global(.waiting.open) {
+    color: var(--color-var);
+  }
+
+  :global(.bs) .bs-stream-feed :global(.waiting.open .dot) {
+    background: var(--color-var);
+  }
+
+  :global(.bs) .bs-stream-feed :global(.msg.err .dir) {
+    color: var(--color-danger);
+  }
+
+  :global(.bs) .bs-stream-feed :global(.waiting.ended .dot) {
+    background: var(--color-text-muted);
+  }
+
+  /* ST3: the picked message in full. */
+  :global(.bs) .bs-stream-msg {
+    flex: 0 0 380px;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 12px 14px;
+    border-left: 1px solid var(--color-border-subtle);
+    overflow: auto;
+  }
+
+  :global(.bs) .bs-stream-msg :global(.hd) {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--color-text);
+    font: 600 var(--font-size-ui) var(--font-ui);
+  }
+
+  :global(.bs) .bs-stream-msg :global(.hd > .material-symbols-outlined) {
+    font-size: 14px;
+    color: var(--color-text-secondary);
+  }
+
+  :global(.bs) .bs-stream-msg :global(.meta) {
+    display: flex;
+    gap: 14px;
+    color: var(--color-text);
+    font: var(--font-size-body) var(--font-code);
+  }
+
+  :global(.bs) .bs-stream-msg :global(.meta span) {
+    display: block;
+    margin-bottom: 3px;
+    color: var(--color-text-muted);
+    font: 500 9.5px var(--font-code);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  :global(.bs) .bs-stream-msg :global(.type) {
+    color: var(--color-text-muted);
+    font: var(--font-size-caption) var(--font-code);
+  }
+
+  :global(.bs) .bs-stream-msg :global(.json) {
+    margin: 0;
+    padding: 10px 12px;
+    border: 1px solid var(--color-border-subtle);
+    border-radius: 14px;
+    background: var(--color-field);
+    font: var(--font-size-body) / 20px var(--font-code);
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+
+  :global(.bs) .bs-stream-msg :global(.json .k) {
+    color: var(--sk);
+  }
+
+  :global(.bs) .bs-stream-msg :global(.json .s) {
+    color: var(--ss);
+  }
+
+  :global(.bs) .bs-stream-msg :global(.json .n) {
+    color: var(--sn);
+  }
+
+  :global(.bs) .bs-stream-msg :global(.json .p) {
+    color: var(--syntax-punct, var(--color-text-muted));
+  }
+
+  :global(.bs) .bs-stream-msg :global(.nav) {
+    color: var(--color-text-muted);
+    font: var(--font-size-caption) var(--font-ui);
+  }
+</style>

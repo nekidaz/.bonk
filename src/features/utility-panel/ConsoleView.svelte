@@ -17,6 +17,7 @@
     matchesConsoleFilter,
     matchesQuick,
   } from './utilPanel';
+  import { Spacer } from '$shared/ui/components';
 
   let { onTerminal }: { onTerminal: () => void } = $props();
 
@@ -72,7 +73,7 @@
       onclick={() => (utilityUi.consoleQuick = q)}>{t(`util.quick.${q}`)}</button
     >
   {/each}
-  <div class="bs-spacer"></div>
+  <Spacer />
   {#if filtered}<span class="bs-console-of">{t('util.console.of', { n: visible.length, m: total })}</span>{/if}
   <span class="bs-console-keep"
     ><span class="material-symbols-outlined" aria-hidden="true">history</span>{t('util.console.keep')}</span

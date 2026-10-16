@@ -15,6 +15,10 @@
   import SessionPanel from './SessionPanel.svelte';
   import SessionInheritedRows from './SessionInheritedRows.svelte';
   import SessionSendBanner from './SessionSendBanner.svelte';
+  import AuthCard from './AuthCard.svelte';
+  import AuthInput from './AuthInput.svelte';
+  import AuthSeg from './AuthSeg.svelte';
+  import KvPanel from './KvPanel.svelte';
 
   // Edits the request's auth (`tab`; gRPC tabs keep it on `tab.grpc`) or, in the folder dialog, a draft `value` (`onChange`).
   let {
@@ -171,7 +175,7 @@
 {#snippet field(label: string, key: AuthStringField, secretInput = false)}
   <div class="row">
     <span class="lbl">{label}</span>
-    <label class="bs-auth-input" class:var={isVar(auth[key])}>
+    <AuthInput class={{ var: isVar(auth[key]) }}>
       {#if isVar(auth[key])}<span class="material-symbols-outlined" aria-hidden="true">key</span>{/if}
       <input
         type={secretInput && !shown ? 'password' : 'text'}
@@ -182,7 +186,7 @@
         value={auth[key] ?? ''}
         oninput={(e) => setAuthField(key, e.currentTarget.value)}
       />
-    </label>
+    </AuthInput>
     {#if secretInput}
       <button
         class="eye"
@@ -197,10 +201,10 @@
   </div>
 {/snippet}
 
-<div class="bs-pwrap bs-auth-wrap">
+<KvPanel class="bs-auth-wrap">
   {#if sessionSending && tab}
     <div class="se-send">
-      <div class="bs-auth-card se-compact">
+      <AuthCard class="se-compact">
         <div class="row">
           <span class="lbl">{t('http.auth.type')}</span>
           <span class="se-type"
@@ -210,7 +214,7 @@
           >
           <span class="hint grow">{sessionCompact}</span>
         </div>
-      </div>
+      </AuthCard>
       <SessionSendBanner {tab} {auth} />
     </div>
   {:else}
@@ -221,7 +225,7 @@
         <button type="button" onclick={() => write({ ...auth })}>{t('http.auth.override')}</button>
       </div>
     {/if}
-    <div class="bs-auth-card">
+    <AuthCard>
       <div class="row">
         <span class="lbl">{t('http.auth.type')}</span>
         {#if auth.type === 'session' && inheriting}
@@ -285,7 +289,7 @@
       {:else if auth.type === 'apiKey'}
         <div class="row">
           <span class="lbl">{t('http.auth.add_to')}</span>
-          <span class="bs-auth-seg" role="radiogroup" aria-label={t('http.auth.loc_aria')}>
+          <AuthSeg role="radiogroup" aria-label={t('http.auth.loc_aria')}>
             {#each [['header', 'http.auth.loc.header'], ['query', 'http.auth.loc.query']] as [key, label] (key)}
               <button
                 type="button"
@@ -296,7 +300,7 @@
                 onclick={() => setApiKeyLocation(key as ApiKeyLocation)}>{t(label)}</button
               >
             {/each}
-          </span>
+          </AuthSeg>
         </div>
         {@render field(t('http.auth.key'), 'apiKeyName')}
         {@render field(t('http.auth.value'), 'apiKeyValue', true)}
@@ -314,7 +318,7 @@
           {/if}
         </div>
       {/if}
-    </div>
+    </AuthCard>
     {#if auth.type === 'oauth2' && !inheriting}
       <OAuthPanel
         {auth}
@@ -337,4 +341,94 @@
       />
     {/if}
   {/if}
-</div>
+</KvPanel>
+
+<style>
+  :global(.bs .bs-auth-card) .row.resolves {
+    min-height: 44px;
+  }
+
+  :global(:root .bs-auth-wrap) {
+    background: color-mix(in srgb, var(--surface) 20%, transparent);
+  }
+
+  :global(.bs) .bs-auth-inherit {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    height: 45px;
+    margin-bottom: 12px;
+    padding: 0 8px 0 16px;
+    border-radius: var(--radius-card);
+    background: var(--color-selected);
+  }
+
+  :global(.bs) .bs-auth-inherit > :global(.material-symbols-outlined) {
+    flex: none;
+    font-size: 16px;
+    color: var(--color-text-secondary);
+  }
+
+  :global(.bs) .bs-auth-inherit :global(.msg) {
+    flex: 1;
+    margin-left: -2px;
+    min-width: 0;
+    color: var(--color-text);
+    font: var(--font-size-body) var(--font-ui);
+  }
+
+  :global(.bs) .bs-auth-inherit :global(button) {
+    flex: none;
+    height: 25px;
+    padding: 0 10px;
+    border-radius: var(--radius-control);
+    background: var(--color-panel);
+    color: var(--color-text);
+    font: 500 var(--font-size-body) var(--font-ui);
+  }
+
+  :global(.bs) .bs-auth-inherit :global(button:hover) {
+    background: var(--color-raised);
+  }
+
+  :global(.bs) .bs-oa-settings {
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 28px;
+    padding: 0 10px;
+    border-radius: var(--radius-control);
+    color: var(--color-text-secondary);
+    font: 500 var(--font-size-body) var(--font-ui);
+  }
+
+  :global(.bs) .bs-oa-settings:hover {
+    background: var(--color-hover);
+    color: var(--color-text);
+  }
+
+  :global(.bs) .bs-oa-settings :global(.material-symbols-outlined) {
+    font-size: 16px;
+  }
+
+  :global(.bs) .se-send {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  :global(.bs) .se-type {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--color-text);
+    font: 500 var(--font-size-body) var(--font-ui);
+    white-space: nowrap;
+  }
+
+  :global(.bs) .se-type :global(.material-symbols-outlined) {
+    font-size: 15px;
+    color: var(--color-text-secondary);
+  }
+</style>

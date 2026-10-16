@@ -9,6 +9,7 @@
   import IssuesView from './IssuesView.svelte';
   import TerminalView from './TerminalView.svelte';
   import { terminal, utilityUi } from './store.svelte';
+  import { Spacer } from '$shared/ui/components';
 
   let {
     mode,
@@ -128,7 +129,7 @@
         </button>
       {/each}
     </div>
-    <div class="bs-spacer"></div>
+    <Spacer />
     {#if mode === 'terminal'}
       <button class="bs-utility-cwd" type="button" title={terminal.cwd} onclick={() => void pickCwd()}>
         <span class="material-symbols-outlined" aria-hidden="true">folder_open</span>

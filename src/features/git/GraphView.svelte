@@ -29,13 +29,14 @@
   } from '$entities/git';
   import { gitCommitDetail, gitCommitsTouching, gitFormatPatch, gitGraphLog, openapiExportSave } from '$shared/ipc';
   import { requestChoice, requestConfirm } from '$shared/ui';
-  import { GitBranchIcon } from '$shared/ui/components';
+  import { GitBranchIcon, Button, Overlay, Modal, ModalBody, ModalFooter, TextInput } from '$shared/ui/components';
   import type { CommitDetail, GitRef, GraphCommit, Tab, TreeNode } from '$shared/model';
   import { t, tp, uiLanguage } from '$shared/i18n';
   import CommitMenu from './CommitMenu.svelte';
   import CommitPanel from './CommitPanel.svelte';
   import RebaseDialog from './RebaseDialog.svelte';
   import { commitDate, firstParentChain, initials, layoutGraph, type CommitAction, type Segment } from './graph';
+  import { GitButton, GitSeg, GitHead, GitView, GitViewEmpty, GitTag, GitLayer } from '$entities/git/components';
 
   let { tab }: { tab: Tab } = $props();
 
@@ -405,14 +406,14 @@
 {/snippet}
 
 <!-- svelte-ignore a11y_no_noninteractive_tabindex, a11y_no_noninteractive_element_interactions -->
-<div class="bs-gview bs-graphview" tabindex="0" role="region" aria-label={t('git.tab.graph')} onkeydown={onKey}>
-  <div class="bs-ghead">
+<GitView class="bs-graphview" tabindex={0} role="region" aria-label={t('git.tab.graph')} onkeydown={onKey}>
+  <GitHead>
     <div class="ttl">
       <span class="crumb">{`${t('git.title')}  /  ${t('git.graph.crumb')}`}</span>
       <div class="row">
         <h2>{t('git.graph.title')}</h2>
-        <span class="bs-gtag"
-          >{`${branchCount} ${tp(branchCount, ['ветка', 'ветки', 'веток'], ['branch', 'branches'])} · ${total} ${tp(total, ['коммит', 'коммита', 'коммитов'], ['commit', 'commits'])}`}</span
+        <GitTag
+          >{`${branchCount} ${tp(branchCount, ['ветка', 'ветки', 'веток'], ['branch', 'branches'])} · ${total} ${tp(total, ['коммит', 'коммита', 'коммитов'], ['commit', 'commits'])}`}</GitTag
         >
       </div>
     </div>
@@ -426,31 +427,30 @@
         spellcheck="false"
       />
     </label>
-    <div class="bs-gseg" role="group" aria-label={t('git.graph.range')}>
+    <GitSeg role="group" aria-label={t('git.graph.range')}>
       <button class:on={all} aria-pressed={all} onclick={() => (all = true)}>{t('git.graph.all')}</button>
       <button class:on={!all} aria-pressed={!all} onclick={() => (all = false)}>{t('git.graph.current')}</button>
-    </div>
+    </GitSeg>
     {#if git.undo}
-      <button class="bs-gbtn" disabled={git.busy} onclick={undoLast}
-        ><span class="material-symbols-outlined">undo</span>{git.undo.label}</button
+      <GitButton disabled={git.busy} onclick={undoLast}
+        ><span class="material-symbols-outlined">undo</span>{git.undo.label}</GitButton
       >
     {:else if git.status?.undoRebase}
       <!-- Survives restarts: read from the branch's reflog, not from this session's last action. -->
-      <button
-        class="bs-gbtn"
+      <GitButton
         disabled={git.busy}
         title={`git reset --keep ${git.status.undoRebase.slice(0, 7)}`}
         onclick={() => undoRebase()}
-        ><span class="material-symbols-outlined">undo</span>{t('git.graph.undoRebase')}</button
+        ><span class="material-symbols-outlined">undo</span>{t('git.graph.undoRebase')}</GitButton
       >
     {/if}
-    <button class="bs-gbtn" title={t('git.reflog.open')} onclick={openReflogTab}
-      ><span class="material-symbols-outlined">manage_history</span>Reflog</button
+    <GitButton title={t('git.reflog.open')} onclick={openReflogTab}
+      ><span class="material-symbols-outlined">manage_history</span>Reflog</GitButton
     >
-    <button class="bs-gbtn" disabled={git.busy} onclick={() => fetchAll()}
-      ><span class="material-symbols-outlined" class:spin={git.busy}>sync</span>Fetch</button
+    <GitButton disabled={git.busy} onclick={() => fetchAll()}
+      ><span class="material-symbols-outlined" class:spin={git.busy}>sync</span>Fetch</GitButton
     >
-  </div>
+  </GitHead>
 
   <div class="split">
     <div class="table">
@@ -516,9 +516,9 @@
           >
         {/if}
         {#if !commits.length && !loading}
-          <div class="bs-gview-empty">{t('git.log.none')}</div>
+          <GitViewEmpty>{t('git.log.none')}</GitViewEmpty>
         {:else if q && !visible.length}
-          <div class="bs-gview-empty">{t('git.graph.notFound')}</div>
+          <GitViewEmpty>{t('git.graph.notFound')}</GitViewEmpty>
         {/if}
       </div>
     </div>
@@ -527,7 +527,7 @@
       <CommitPanel commits={selection} {details} onAction={act} onMenu={(e) => openMenu(e)} />
     {/if}
   </div>
-</div>
+</GitView>
 
 {#if drag?.on}
   <div class="bs-graph-ghost" style:left="{drag.x + 12}px" style:top="{drag.y + 10}px">
@@ -536,7 +536,7 @@
 {/if}
 {#if dropMenu}
   {@const m = dropMenu}
-  <div class="bs-gitlayer" role="presentation" onpointerdown={() => (dropMenu = null)}></div>
+  <GitLayer role="presentation" onpointerdown={() => (dropMenu = null)}></GitLayer>
   <div class="bs-dropmenu" role="menu" style:left="{m.x}px" style:top="{m.y}px">
     <button role="menuitem" onclick={() => dropAction('merge', m.src, m.dst)}
       ><span class="material-symbols-outlined">merge</span>{t('git.graph.dropMerge', {
@@ -569,13 +569,12 @@
 {/if}
 
 {#if prompt}
-  <div class="bs-overlay" role="dialog" aria-modal="true" aria-label={t(`git.graph.${prompt.kind}Prompt`)}>
-    <div class="bs-modal" style="max-width:380px">
-      <div class="bs-modal-b" style="padding:18px 18px 6px">
+  <Overlay role="dialog" aria-modal="true" aria-label={t(`git.graph.${prompt.kind}Prompt`)}>
+    <Modal style="max-width:380px">
+      <ModalBody style="padding:18px 18px 6px">
         <b>{t(`git.graph.${prompt.kind}Prompt`, { short: prompt.hash.slice(0, 7) })}</b>
         <!-- svelte-ignore a11y_autofocus -->
-        <input
-          class="bs-input"
+        <TextInput
           style="width:100%;margin-top:12px"
           bind:value={promptValue}
           autofocus
@@ -584,16 +583,14 @@
             else if (e.key === 'Escape') prompt = null;
           }}
         />
-      </div>
-      <div class="bs-modal-f">
+      </ModalBody>
+      <ModalFooter>
         <div class="grow"></div>
-        <button type="button" class="bs-btn ghost" onclick={() => (prompt = null)}>{t('common.cancel')}</button>
-        <button type="button" class="bs-btn primary" disabled={!promptValue.trim()} onclick={submitPrompt}
-          >{t('git.graph.create')}</button
-        >
-      </div>
-    </div>
-  </div>
+        <Button variant="ghost" onclick={() => (prompt = null)}>{t('common.cancel')}</Button>
+        <Button variant="primary" disabled={!promptValue.trim()} onclick={submitPrompt}>{t('git.graph.create')}</Button>
+      </ModalFooter>
+    </Modal>
+  </Overlay>
 {/if}
 
 <style>

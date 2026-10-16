@@ -21,6 +21,7 @@
     type Grouping,
   } from './plan';
   import type { Loaded } from './source';
+  import { Segmented, Select, LabelSwitch } from '$shared/ui/components';
 
   let {
     loaded,
@@ -192,21 +193,21 @@
 {#snippet toggle(label: string, sub: string, value: boolean, set: (v: boolean) => void)}
   <label class="imp-row">
     <span class="imp-lbl"><span class="a">{label}</span><span class="b">{sub}</span></span>
-    <span class="bs-switch">
+    <LabelSwitch>
       <input type="checkbox" role="switch" checked={value} onchange={(e) => set(e.currentTarget.checked)} />
       <span class="track" aria-hidden="true"></span>
-    </span>
+    </LabelSwitch>
   </label>
 {/snippet}
 
 {#snippet seg(label: string, value: string, options: [string, string][], set: (v: string) => void)}
-  <div class="bs-seg compact" role="radiogroup" aria-label={label}>
+  <Segmented role="radiogroup" aria-label={label}>
     {#each options as [v, l] (v)}
       <button type="button" role="radio" aria-checked={value === v} class:on={value === v} onclick={() => set(v)}
         >{l}</button
       >
     {/each}
-  </div>
+  </Segmented>
 {/snippet}
 
 <div class="imp-body split">
@@ -339,9 +340,8 @@
           <div class="imp-row">
             <span class="srv">{row.label}</span>
             <span class="material-symbols-outlined arr">arrow_forward</span>
-            <select
-              class="st-select"
-              class:new={targets[i]?.kind === 'new'}
+            <Select
+              class={{ new: targets[i]?.kind === 'new' }}
               aria-label={row.label}
               value={targetValue(targets[i])}
               onchange={(e) => setTarget(i, e.currentTarget.value)}
@@ -349,7 +349,7 @@
               {#each environments.list as env (env.id)}<option value="env:{env.id}">{env.name}</option>{/each}
               <option value="new">{t('import.env.new', { name: newName(i) })}</option>
               <option value="skip">{t('import.env.skip')}</option>
-            </select>
+            </Select>
           </div>
         {/each}
       </div>
@@ -452,11 +452,11 @@
     font-size: 15px;
     color: var(--color-text-muted);
   }
-  .st-select {
+  :global(:root .st-select) {
     width: 210px;
     min-width: 0;
   }
-  .st-select.new {
+  :global(:root .st-select.new) {
     color: var(--color-success);
   }
   .baseurl {

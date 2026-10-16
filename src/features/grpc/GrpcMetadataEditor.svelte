@@ -12,6 +12,7 @@
   } from './grpcMetadata';
   import type { Tab } from '$shared/model';
   import { t } from '$shared/i18n';
+  import { KvPanel, KvHead, KvTable, KvRow, KvCell } from '$entities/request/components';
 
   let { tab }: { tab: Tab } = $props();
 
@@ -62,23 +63,23 @@
   }
 </script>
 
-<div class="bs-pwrap grpc-metadata-editor">
-  <div class="bs-qp">
+<KvPanel class="grpc-metadata-editor">
+  <KvHead>
     <span class="t">{t('grpc.meta.title')}</span>
     <span class="be">{t('grpc.meta.active', { n: Object.keys(tab.grpc?.metadata ?? {}).length })}</span>
-  </div>
-  <div class="bs-pt grpc-metadata-table" bind:this={table}>
-    <div class="bs-pr h">
-      <div class="bs-pc k">{t('grpc.meta.key')}</div>
-      <div class="bs-pc v">{t('grpc.meta.value')}</div>
-      <div class="bs-pc grpc-metadata-action" aria-hidden="true"></div>
-    </div>
+  </KvHead>
+  <KvTable class="grpc-metadata-table" bind:ref={table}>
+    <KvRow class="h">
+      <KvCell class="k">{t('grpc.meta.key')}</KvCell>
+      <KvCell class="v">{t('grpc.meta.value')}</KvCell>
+      <KvCell class="grpc-metadata-action" aria-hidden="true"></KvCell>
+    </KvRow>
     {#each rows as row, index (index)}
       {@const normalizedKey = row.key.trim().toLowerCase()}
       {@const duplicate = normalizedKey !== '' && duplicateKeys.has(normalizedKey)}
       {@const invalid = !isGrpcMetadataKeyValid(row.key)}
-      <div class="bs-pr" class:invalid class:duplicate>
-        <div class="bs-pc k">
+      <KvRow class={{ invalid, duplicate }}>
+        <KvCell class="k">
           <input
             data-row={index}
             data-field="key"
@@ -91,8 +92,8 @@
             onpaste={(event) => pasteRows(event, index)}
             spellcheck="false"
           />
-        </div>
-        <div class="bs-pc v">
+        </KvCell>
+        <KvCell class="v">
           <input
             data-row={index}
             data-field="value"
@@ -103,8 +104,8 @@
             onkeydown={(event) => rowKeydown(event, index, 'value')}
             spellcheck="false"
           />
-        </div>
-        <div class="bs-pc grpc-metadata-action">
+        </KvCell>
+        <KvCell class="grpc-metadata-action">
           {#if row.key !== '' || row.value !== ''}
             <button
               type="button"
@@ -115,26 +116,26 @@
               <span class="material-symbols-outlined" style="font-size:16px">close</span>
             </button>
           {/if}
-        </div>
-      </div>
+        </KvCell>
+      </KvRow>
     {/each}
-  </div>
+  </KvTable>
   <div class="grpc-metadata-help">
     <span>{t('grpc.meta.lowercase')}</span>
     <span>{t('grpc.meta.binPre')}<code>-bin</code>{t('grpc.meta.binPost')}</span>
     {#if duplicateKeys.size > 0}<span class="warn">{t('grpc.meta.duplicate')}</span>{/if}
   </div>
-</div>
+</KvPanel>
 
 <style>
-  .grpc-metadata-editor {
+  :global(:root .grpc-metadata-editor) {
     display: flex;
     flex-direction: column;
   }
-  .grpc-metadata-table {
+  :global(:root .grpc-metadata-table) {
     flex: 0 0 auto;
   }
-  .grpc-metadata-action {
+  :global(:root .grpc-metadata-action) {
     width: 38px;
     flex: 0 0 38px;
     display: flex;
@@ -142,7 +143,7 @@
     justify-content: center;
     padding: 0;
   }
-  .grpc-metadata-action button {
+  :global(:root .grpc-metadata-action button) {
     width: 26px;
     height: 26px;
     display: grid;
@@ -150,12 +151,12 @@
     border-radius: 6px;
     color: var(--t3);
   }
-  .grpc-metadata-action button:hover {
+  :global(:root .grpc-metadata-action button:hover) {
     background: var(--hover);
     color: var(--text);
   }
-  .bs-pr.invalid .bs-pc.k,
-  .bs-pr.duplicate .bs-pc.k {
+  :global(:root .bs-pr.invalid .bs-pc.k),
+  :global(:root .bs-pr.duplicate .bs-pc.k) {
     color: var(--red);
   }
   .grpc-metadata-help {

@@ -25,6 +25,16 @@
   import FileDiff, { type BlockAction } from './FileDiff.svelte';
   import { blockPatch } from './diff';
   import { diffLayout } from './store.svelte';
+  import {
+    GitButton,
+    GitSeg,
+    GitHead,
+    GitView,
+    GitViewBody,
+    GitViewEmpty,
+    GitTag,
+    GitError,
+  } from '$entities/git/components';
 
   let { tab }: { tab: Tab } = $props();
 
@@ -117,8 +127,8 @@
   };
 </script>
 
-<div class="bs-gview">
-  <div class="bs-ghead">
+<GitView>
+  <GitHead>
     <div class="ttl">
       <span class="crumb"
         >{`${t('git.title')}  /  ${rev ? `${t('git.graph.commit')} ${rev.slice(0, 7)}` : mode === 'staged' ? t('git.staged') : t('git.changes')}`}</span
@@ -126,16 +136,14 @@
       <div class="row">
         <h2 title={path}>{info.name}</h2>
         {#if letter}
-          <span class="bs-gtag" style:color={statusColor(letter)}
-            ><b>{letter}</b>{t(STATUS_WORD[letter] ?? 'git.st.M')}</span
-          >
+          <GitTag style="color: {statusColor(letter)}"><b>{letter}</b>{t(STATUS_WORD[letter] ?? 'git.st.M')}</GitTag>
         {/if}
       </div>
     </div>
-    <button class="bs-gbtn" title={t('git.history.open')} onclick={() => openFileHistoryTab(path, info.name)}
-      ><span class="material-symbols-outlined">history</span>{t('git.history.title')}</button
+    <GitButton title={t('git.history.open')} onclick={() => openFileHistoryTab(path, info.name)}
+      ><span class="material-symbols-outlined">history</span>{t('git.history.title')}</GitButton
     >
-    <div class="bs-gseg" role="group" aria-label={t('git.diff.layout')}>
+    <GitSeg role="group" aria-label={t('git.diff.layout')}>
       <button
         class="icon"
         class:on={diffLayout.current === 'inline'}
@@ -152,39 +160,39 @@
         onclick={() => (diffLayout.current = 'split')}
         ><span class="material-symbols-outlined">vertical_split</span></button
       >
-    </div>
+    </GitSeg>
     {#if !rev}
-      <div class="bs-gseg" role="group" aria-label={t('git.diff.mode')}>
+      <GitSeg role="group" aria-label={t('git.diff.mode')}>
         <button class:on={mode === 'working'} aria-pressed={mode === 'working'} onclick={() => setMode('working')}
           >{t('git.diff.working')}</button
         >
         <button class:on={mode === 'staged'} aria-pressed={mode === 'staged'} onclick={() => setMode('staged')}
           >{t('git.diff.staged')}</button
         >
-      </div>
-      <button class="bs-gbtn danger" disabled={!file} onclick={discard}
-        ><span class="material-symbols-outlined">undo</span>{t('git.discard')}</button
+      </GitSeg>
+      <GitButton class="danger" disabled={!file} onclick={discard}
+        ><span class="material-symbols-outlined">undo</span>{t('git.discard')}</GitButton
       >
       {#if mode === 'staged'}
-        <button class="bs-gbtn inv" disabled={!hasStaged} onclick={() => unstagePaths([path])}
-          ><span class="material-symbols-outlined">remove</span>{t('git.unstageFile')}</button
+        <GitButton class="inv" disabled={!hasStaged} onclick={() => unstagePaths([path])}
+          ><span class="material-symbols-outlined">remove</span>{t('git.unstageFile')}</GitButton
         >
       {:else}
-        <button class="bs-gbtn inv" disabled={!hasUnstaged} onclick={() => stagePaths([path])}
-          ><span class="material-symbols-outlined">add</span>{t('git.stageFile')}</button
+        <GitButton class="inv" disabled={!hasUnstaged} onclick={() => stagePaths([path])}
+          ><span class="material-symbols-outlined">add</span>{t('git.stageFile')}</GitButton
         >
       {/if}
     {/if}
-  </div>
+  </GitHead>
 
-  <div class="bs-gview-body">
+  <GitViewBody>
     {#if error}
-      <div class="bs-git-diff-error">{error}</div>
+      <GitError>{error}</GitError>
     {:else if loading}
-      <div class="bs-gview-empty">{t('git.diff.loading')}</div>
+      <GitViewEmpty>{t('git.diff.loading')}</GitViewEmpty>
     {:else if !diffText.trim()}
       <!-- A file no longer in the status (committed, discarded) simply has nothing to show. -->
-      <div class="bs-gview-empty">{!file && !rev ? t('git.diff.clean') : t('git.diff.noText')}</div>
+      <GitViewEmpty>{!file && !rev ? t('git.diff.clean') : t('git.diff.noText')}</GitViewEmpty>
     {:else}
       <FileDiff
         {path}
@@ -199,5 +207,5 @@
         actions={blockActions}
       />
     {/if}
-  </div>
-</div>
+  </GitViewBody>
+</GitView>

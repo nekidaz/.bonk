@@ -10,6 +10,7 @@
   import { t, tp, uiLanguage } from '$shared/i18n';
   import { GitBranchIcon } from '$shared/ui/components';
   import { commitDate, commitDateTime, initials, joinSubjects, type CommitAction } from './graph';
+  import { GitButton } from '$entities/git/components';
 
   let {
     commits,
@@ -140,28 +141,28 @@
 
   <div class="foot">
     {#if one}
-      <button class="bs-gbtn inv" onclick={() => onAction({ kind: 'checkout' })}
-        ><span class="material-symbols-outlined">login</span>{t('git.graph.checkout')}</button
+      <GitButton class="inv" onclick={() => onAction({ kind: 'checkout' })}
+        ><span class="material-symbols-outlined">login</span>{t('git.graph.checkout')}</GitButton
       >
-      <button class="bs-gbtn" onclick={() => onAction({ kind: 'branch' })}
-        ><GitBranchIcon size={15} />{t('git.graph.newBranch')}</button
+      <GitButton onclick={() => onAction({ kind: 'branch' })}
+        ><GitBranchIcon size={15} />{t('git.graph.newBranch')}</GitButton
       >
     {:else}
-      <button class="bs-gbtn inv" disabled={!current} onclick={() => onAction({ kind: 'cherry-pick' })}
-        ><span class="material-symbols-outlined">commit</span>{`Cherry-pick ${commits.length}`}</button
+      <GitButton class="inv" disabled={!current} onclick={() => onAction({ kind: 'cherry-pick' })}
+        ><span class="material-symbols-outlined">commit</span>{`Cherry-pick ${commits.length}`}</GitButton
       >
       {#if commits.length === 2}
-        <button class="bs-gbtn" onclick={() => onAction({ kind: 'compare' })}
-          ><span class="material-symbols-outlined">compare_arrows</span>{t('git.compare.action')}</button
+        <GitButton onclick={() => onAction({ kind: 'compare' })}
+          ><span class="material-symbols-outlined">compare_arrows</span>{t('git.compare.action')}</GitButton
         >
       {:else}
-        <button class="bs-gbtn" onclick={() => onAction({ kind: 'revert' })}
-          ><span class="material-symbols-outlined">undo</span>Revert</button
+        <GitButton onclick={() => onAction({ kind: 'revert' })}
+          ><span class="material-symbols-outlined">undo</span>Revert</GitButton
         >
       {/if}
     {/if}
-    <button class="bs-gbtn more" title={t('git.graph.actions')} aria-label={t('git.graph.actions')} onclick={onMenu}
-      ><span class="material-symbols-outlined">more_horiz</span></button
+    <GitButton class="more" title={t('git.graph.actions')} aria-label={t('git.graph.actions')} onclick={onMenu}
+      ><span class="material-symbols-outlined">more_horiz</span></GitButton
     >
   </div>
 </aside>
@@ -352,11 +353,11 @@
     padding: 12px 16px;
     border-top: 1px solid var(--color-border-subtle);
   }
-  .foot .bs-gbtn {
+  :global(:root .foot .bs-gbtn) {
     flex: 1;
     height: 34px;
   }
-  .foot .more {
+  .foot :global(.more) {
     flex: none;
     width: 34px;
     padding: 0;

@@ -6,6 +6,7 @@
   import { t, tp } from '$shared/i18n';
   import type { CookieChange, HttpResponse, ResponseCookie } from '$shared/model';
   import { changeCounts, cookieJar, expiryLabel } from '$entities/cookies';
+  import RespBody from './RespBody.svelte';
 
   const { response }: { response: HttpResponse } = $props();
 
@@ -50,7 +51,7 @@
   };
 </script>
 
-<div class="bs-rbody rc">
+<RespBody class="rc">
   {#if cookies.length}
     <div class="ctable" role="table" aria-label={t('response.tab.cookies')}>
       <div class="tr th" role="row">
@@ -84,7 +85,7 @@
       <button type="button" onclick={() => cookieJar.open(host || undefined)}>{t('cookies.open_jar')}</button>
     </div>
   {/if}
-</div>
+</RespBody>
 
 <style>
   .rc {

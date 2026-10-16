@@ -232,3 +232,471 @@
   {/if}
 </div>
 <svelte:window onkeydown={onKeydown} />
+
+<style>
+  /* Belongs to grpc.css, but the cascade needs it before `.bs-file-picker span:last-child` (same elements, same specificity), so it lives here. */
+  .bs-grpc-trigger :global(span:first-child) {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--t2);
+  }
+
+  /* gRPC: endpoint field, method picker, TLS popover, metadata, proto, stream feed. */
+  .bs-grpc-trigger {
+    color: var(--text);
+    background: transparent;
+    border: none;
+  }
+
+  .bs-grpc-trigger.open :global(span:first-child) {
+    color: var(--text);
+  }
+
+  .bs-grpc-picker:where(:hover) {
+    border-color: color-mix(in srgb, var(--accent) 45%, var(--sep));
+  }
+
+  .bs-grpc-menu {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+
+  :global(:where(.dark)) .bs-grpc-menu {
+    border-color: var(--sep);
+    background: var(--surface-solid);
+  }
+
+  .bs-grpc-picker:focus-within {
+    border-color: var(--color-text-muted);
+    box-shadow: none;
+  }
+
+  .bs-mpick :global(.mp-option.active:not(.on)) {
+    background: var(--color-hover);
+  }
+
+  .bs-mpick .mp-option.active.on {
+    box-shadow: inset 0 0 0 1px var(--color-border);
+  }
+
+  /* overflow stays visible so the CodeMirror {{var}} hover popover isn't clipped. */
+  .bs-grpc-picker {
+    flex: 1 1 auto;
+    position: relative;
+    transition:
+      border-color 130ms ease,
+      box-shadow 130ms ease,
+      background 130ms ease;
+    height: 48px;
+    border: 1px solid var(--color-border-subtle);
+    border-radius: var(--radius-control);
+    background: var(--color-field);
+    box-shadow: none;
+    min-width: 180px;
+  }
+
+  .bs-grpc-trigger {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 14px;
+    gap: 8px;
+    font-size: var(--font-size-body);
+    border-radius: var(--radius-control);
+  }
+
+  .bs-grpc-trigger.open {
+    outline-offset: 0;
+    outline: none;
+    border-radius: var(--radius-control);
+    box-shadow: var(--focus-ring);
+  }
+
+  .bs-grpc-menu {
+    position: absolute;
+    top: calc(100% + 7px);
+    right: 0;
+    z-index: 70;
+    width: 100%;
+    min-width: 0;
+    max-height: min(460px, calc(100vh - 178px));
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    backdrop-filter: none;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-card);
+    padding: 6px;
+    background: var(--color-raised);
+    box-shadow: 0 16px 40px var(--color-shadow, rgba(0, 0, 0, 0.14));
+  }
+
+  :global(:root[data-density='compact']) .bs-grpc-picker {
+    height: 34px;
+  }
+
+  :global(:root[data-density='compact'] .bs .bs-grpc-field) .bs-grpc-trigger {
+    height: 28px;
+  }
+
+  @media (max-width: 1100px) {
+    .bs-grpc-picker {
+      min-width: 150px;
+    }
+  }
+
+  :global(.bs .bs-grpc-field) .bs-grpc-picker {
+    position: relative;
+    flex: 0 1 auto;
+    width: auto;
+    min-width: 0;
+    margin-left: auto;
+    height: auto;
+    border: 0;
+    outline: 0;
+    background: none;
+    box-shadow: none;
+  }
+
+  :global(.bs .bs-grpc-field) .bs-grpc-trigger {
+    display: inline-flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 8px;
+    width: auto;
+    /* Never wider than the picker's slot, or it overlaps Send in a narrow window. */
+    max-width: min(100%, 360px);
+    height: 36px;
+    padding: 0 10px 0 12px;
+    border: 0;
+    border-radius: var(--radius-control);
+    background: var(--color-panel);
+    color: var(--color-text-muted);
+    font: var(--font-size-body) var(--font-code);
+  }
+
+  :global(.bs .bs-grpc-field) .bs-grpc-trigger:hover {
+    background: var(--color-raised);
+    box-shadow: none;
+  }
+
+  :global(.bs .bs .bs-grpc-field) .bs-grpc-trigger.open {
+    background: var(--color-raised);
+    box-shadow: none;
+  }
+
+  :global(.bs) .bs-grpc-trigger :global(.lead) {
+    font-size: 16px;
+    color: var(--color-text-muted);
+  }
+
+  :global(.bs) .bs-grpc-trigger :global(.path) {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* Short of room, the service gives way first: «helloworld.Gr…SayHello». */
+  :global(.bs) .bs-grpc-trigger :global(.path:has(.svc)) {
+    display: flex;
+  }
+
+  :global(.bs .bs-grpc-trigger .path) .svc {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  :global(.bs) .bs-grpc-trigger :global(.path b) {
+    flex: none;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: var(--color-text);
+    font-weight: 600;
+  }
+
+  @media (max-width: 760px) {
+    :global(.bs) .bs-grpc-trigger :global(:is(.lead, .svc)) {
+      display: none;
+    }
+
+    /* The address shrinks first; a long method name still stops at 45 % and ellipsizes. */
+    :global(.bs .bs-grpc-field) .bs-grpc-picker {
+      flex-shrink: 0;
+      max-width: 45%;
+    }
+
+    :global(.bs .bs-grpc-field) .bs-grpc-trigger {
+      gap: 4px;
+      padding: 0 6px 0 8px;
+    }
+  }
+
+  :global(.bs .bs-grpc-field) .bs-grpc-menu {
+    right: 0;
+    left: auto;
+    top: calc(100% + 10px);
+  }
+
+  /* S23: method picker — search, source line, services, kind badges, actions. */
+  :global(.bs .bs-grpc-field) .bs-mpick {
+    position: absolute;
+    z-index: 80;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    width: 420px;
+    max-height: min(502px, calc(100vh - 140px));
+    padding: 6px;
+    border-radius: 22px;
+  }
+
+  :global(.bs) .bs-mpick .mp-search {
+    flex: none;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    height: 36px;
+    padding: 0 8px 0 12px;
+    border: 1px solid var(--color-border-subtle);
+    border-radius: var(--radius-control);
+    background: var(--color-field);
+    color: var(--color-text-muted);
+  }
+
+  :global(.bs) .bs-mpick .mp-search :global(input) {
+    flex: 1;
+    min-width: 0;
+    height: auto;
+    padding: 0;
+    border: 0;
+    outline: 0;
+    box-shadow: none;
+    background: none;
+    color: var(--color-text);
+    font: var(--font-size-body) var(--font-ui);
+  }
+
+  :global(.bs) .bs-mpick .mp-search :global(input::placeholder) {
+    color: var(--color-text-muted);
+  }
+
+  :global(.bs) .bs-mpick .mp-search :global(.material-symbols-outlined) {
+    font-size: 16px;
+  }
+
+  :global(.bs) .bs-mpick .mp-search :global(kbd) {
+    display: grid;
+    place-items: center;
+    height: 22px;
+    padding: 0 8px;
+    border-radius: var(--radius-control);
+    background: var(--color-selected);
+    color: var(--color-text-secondary);
+    font: var(--font-size-micro) var(--font-code);
+    opacity: 1;
+  }
+
+  :global(.bs) .bs-mpick .mp-search :global(button) {
+    display: grid;
+    place-items: center;
+    width: 22px;
+    height: 22px;
+    color: var(--color-text-muted);
+  }
+
+  :global(.bs) .bs-mpick .mp-count {
+    font: var(--font-size-caption) var(--font-code);
+  }
+
+  :global(.bs) .bs-mpick .mp-source {
+    flex: none;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 12px 2px;
+    overflow: hidden;
+    color: var(--color-text-muted);
+    font: var(--font-size-caption)/13px var(--font-ui);
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+
+  :global(.bs) .bs-mpick .mp-source :global(.dot) {
+    flex: none;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--color-success);
+  }
+
+  :global(.bs) .bs-mpick .mp-list {
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  :global(.bs) .bs-mpick .mp-service {
+    flex: none;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 12px 12px 4px;
+    color: var(--color-text-muted);
+    font: 500 var(--font-size-micro)/13px var(--font-code);
+    letter-spacing: var(--tracking-eyebrow);
+    text-transform: uppercase;
+  }
+
+  :global(.bs) .bs-mpick .mp-service :global(.material-symbols-outlined) {
+    font-size: 13px;
+  }
+
+  :global(.bs) .bs-mpick .mp-option {
+    flex: none;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: stretch;
+    gap: 3px;
+    width: 100%;
+    min-height: 32px;
+    padding: 0 12px;
+    border-radius: var(--radius-control);
+    color: var(--color-text-secondary);
+    text-align: left;
+  }
+
+  :global(.bs) .bs-mpick .mp-option:hover {
+    background: var(--color-hover);
+    outline: 0;
+  }
+
+  :global(.bs) .bs-mpick .mp-option:focus-visible {
+    background: var(--color-hover);
+    outline: 0;
+  }
+
+  :global(.bs) .bs-mpick .mp-option.on {
+    min-height: 52px;
+    padding: 8px 12px;
+    border-radius: 16px;
+    background: var(--color-selected);
+    color: var(--color-text);
+  }
+
+  :global(.bs) .bs-mpick .mp-line {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    height: 18px;
+  }
+
+  :global(.bs) .bs-mpick .mp-name {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font: var(--font-size-body)/16px var(--font-code);
+  }
+
+  :global(.bs) .bs-mpick .mp-option.on .mp-name {
+    font-weight: 600;
+  }
+
+  :global(.bs) .bs-mpick .mp-kind {
+    flex: none;
+    height: 18px;
+    padding: 0 7px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-control);
+    color: var(--color-text-muted);
+    font: 500 9px/16px var(--font-code);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  :global(.bs) .bs-mpick .mp-kind.stream {
+    border-color: transparent;
+    background: var(--color-var-soft);
+    color: var(--color-var);
+  }
+
+  :global(.bs) .bs-mpick .mp-check {
+    font-size: 15px;
+  }
+
+  :global(.bs) .bs-mpick .mp-types {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--sk);
+    font: var(--font-size-caption)/15px var(--font-code);
+  }
+
+  :global(.bs) .bs-mpick .mp-types :global(.arrow) {
+    color: var(--color-text-muted);
+    font-family: var(--font-ui);
+  }
+
+  :global(.bs) .bs-mpick .mp-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    padding: 24px 12px;
+    color: var(--color-text-muted);
+    font: var(--font-size-body) var(--font-ui);
+    text-align: center;
+  }
+
+  :global(.bs) .bs-mpick .mp-empty :global(strong) {
+    color: var(--color-text);
+    font-weight: 600;
+  }
+
+  :global(.bs) .bs-mpick .mp-foot {
+    flex: none;
+    display: flex;
+    justify-content: space-between;
+    gap: 4px;
+    padding: 8px 6px 2px;
+    border-top: 1px solid var(--color-border-subtle);
+  }
+
+  :global(.bs) .bs-mpick .mp-foot :global(button) {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    height: 30px;
+    padding: 0 10px;
+    border-radius: var(--radius-control);
+    color: var(--color-text-secondary);
+    font: 500 var(--font-size-body) var(--font-ui);
+  }
+
+  :global(.bs) .bs-mpick .mp-foot :global(button:hover) {
+    background: var(--color-hover);
+    color: var(--color-text);
+  }
+
+  :global(.bs) .bs-mpick .mp-foot :global(.material-symbols-outlined) {
+    font-size: 16px;
+  }
+
+  /* G1: a new gRPC request picks where its schema comes from; the method picker waits for an address. */
+  :global(.bs .bs-grpc-field) .bs-grpc-trigger:disabled {
+    opacity: 0.55;
+    cursor: default;
+    background: transparent;
+  }
+</style>

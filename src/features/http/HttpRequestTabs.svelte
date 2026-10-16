@@ -18,6 +18,7 @@
   } from '$shared/editor';
   import { tabs } from '$entities/tab';
   import { EditorTools } from '$shared/editor/components';
+  import { TabRow, TabRowTools, RTabs, RTab, TabCount, TabStats } from '$entities/request/components';
 
   let { tab, uiTab = $bindable() }: { tab: Tab; uiTab: HttpEditorTab } = $props();
 
@@ -71,9 +72,8 @@
 </script>
 
 {#snippet rtab(id: HttpEditorTab, label: string, count?: number, bad = false)}
-  <button
-    class="bs-rtab"
-    class:on={uiTab === id}
+  <RTab
+    class={{ on: uiTab === id }}
     role="tab"
     id="bs-rtab-{id}"
     aria-selected={uiTab === id}
@@ -81,12 +81,12 @@
     tabindex={uiTab === id ? 0 : -1}
     onclick={() => (uiTab = id)}
   >
-    {label}{#if count !== undefined}<span class="bs-tab-count" class:bad>{count}</span>{/if}
-  </button>
+    {label}{#if count !== undefined}<TabCount class={{ bad }}>{count}</TabCount>{/if}
+  </RTab>
 {/snippet}
 
-<div class="lb-tabrow">
-  <div class="bs-rtabs">
+<TabRow>
+  <RTabs>
     <div class="bs-rtabs-list" role="tablist" aria-label={t('http.tabs.aria')} use:tablist>
       {@render rtab('params', t('http.tabs.params'), paramCount || undefined)}
       {@render rtab('auth', t('http.tabs.auth'))}
@@ -99,9 +99,9 @@
           !!tab.testResults?.error,
         )}{/if}
     </div>
-  </div>
+  </RTabs>
   {#if large && stats}
-    <div class="lb-tabrow-tools">
+    <TabRowTools>
       <span class="lb-fmt" class:raw={RAW_KINDS.includes(kind)}>
         {#if RAW_KINDS.includes(kind)}<span class="kind" aria-hidden="true">Raw</span>{/if}
         <select aria-label={t('lb.format')} value={kind} onchange={(e) => setKind(e.currentTarget.value as BodyKind)}>
@@ -118,10 +118,10 @@
         </select>
         <span class="material-symbols-outlined" aria-hidden="true">keyboard_arrow_down</span>
       </span>
-      <span class="lb-stats"
+      <TabStats
         >{`${stats.approx ? '~' : ''}${formatBytes(stats.bytes)}  ·  ${countLabel(stats.lines, 'lines', uiLanguage.current)}`}{#if invalid}<b
             class="bad">{'  ·  '}{t('lb.json.invalid')}</b
-          >{/if}</span
+          >{/if}</TabStats
       >
       <EditorTools
         scope="#bs-reqpanel"
@@ -130,6 +130,60 @@
         onExpand={() => (focusMode.current = toggleFocus(focusMode.current, 'request'))}
         expanded={focusMode.current === 'request'}
       />
-    </div>
+    </TabRowTools>
   {/if}
-</div>
+</TabRow>
+
+<style>
+  /* Request tabs: one segmented capsule */
+  .bs-rtabs-list {
+    display: contents;
+  }
+
+  .lb-fmt {
+    position: relative;
+    flex: none;
+  }
+
+  .lb-fmt :global(select) {
+    appearance: none;
+    -webkit-appearance: none;
+    height: 30px;
+    padding: 0 30px 0 12px;
+    border: 0;
+    outline: 1px solid var(--color-border-subtle);
+    outline-offset: -1px;
+    border-radius: var(--radius-control);
+    background: var(--color-field);
+    color: var(--color-text);
+    font: 600 var(--font-size-caption) var(--font-code);
+    cursor: pointer;
+  }
+
+  .lb-fmt :global(select:focus-visible) {
+    box-shadow: var(--focus-ring);
+  }
+
+  /* E1: «Raw JSON» — the kind sits muted in front of the format, as in S10. */
+  .lb-fmt :global(.kind) {
+    position: absolute;
+    left: 12px;
+    top: 0;
+    color: var(--color-text-muted);
+    font: 500 var(--font-size-caption)/30px var(--font-code);
+    pointer-events: none;
+  }
+
+  .lb-fmt.raw :global(select) {
+    padding-left: calc(12px + 4ch);
+  }
+
+  .lb-fmt :global(.material-symbols-outlined) {
+    position: absolute;
+    right: 8px;
+    top: 7px;
+    font-size: 16px;
+    color: var(--color-text-muted);
+    pointer-events: none;
+  }
+</style>

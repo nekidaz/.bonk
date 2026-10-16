@@ -5,6 +5,7 @@
   import { findNode, workspace } from '$entities/workspace';
   import { tabs } from '$entities/tab';
   import { isParamChanged } from '$entities/request';
+  import { KvPanel, KvHead, KvTable, KvRow, KvCell } from '$entities/request/components';
 
   let { tab }: { tab: Tab } = $props();
   const saved = $derived.by(() => {
@@ -33,60 +34,67 @@
   }
 </script>
 
-<div class="bs-pwrap">
-  <div class="bs-qp">
+<KvPanel>
+  <KvHead>
     <span class="t"
       >{t('http.params.title')}<span aria-hidden="true">&nbsp;&nbsp;·&nbsp;&nbsp;</span>{(tab.params ?? []).filter(
         (p) => p.key.trim(),
       ).length}</span
     >
-  </div>
-  <div class="bs-pt">
-    <div class="bs-pr h">
-      <div class="bs-pc c"></div>
-      <div class="bs-pc k">{t('http.col.key')}</div>
-      <div class="bs-pc v">{t('http.col.value')}</div>
-      <div class="bs-pc d">{t('http.col.description')}</div>
-      <div class="bs-pc m"></div>
-    </div>
+  </KvHead>
+  <KvTable>
+    <KvRow class="h">
+      <KvCell class="c"></KvCell>
+      <KvCell class="k">{t('http.col.key')}</KvCell>
+      <KvCell class="v">{t('http.col.value')}</KvCell>
+      <KvCell class="d">{t('http.col.description')}</KvCell>
+      <KvCell class="m"></KvCell>
+    </KvRow>
     {#each paramRows(tab) as p, i (i)}
-      <div
-        class="bs-pr"
-        class:disabled={!p.enabled}
-        class:ph={!p.key && !p.value && !p.description}
-        class:changed={isParamChanged(tab, saved, i)}
+      <KvRow
+        class={{
+          disabled: !p.enabled,
+          ph: !p.key && !p.value && !p.description,
+          changed: isParamChanged(tab, saved, i),
+        }}
       >
-        <div class="bs-pc c">
+        <KvCell class="c">
           <input
             type="checkbox"
             checked={p.enabled}
             onchange={() => toggleParam(i)}
             aria-label={t('http.params.enable')}
           />
-        </div>
-        <div class="bs-pc k">
+        </KvCell>
+        <KvCell class="k">
           <input
             placeholder={t('http.col.key')}
             value={p.key}
             oninput={(e) => setParam(i, 'key', e.currentTarget.value)}
           />
-        </div>
-        <div class="bs-pc v">
+        </KvCell>
+        <KvCell class="v">
           <input
             placeholder={t('http.col.value')}
             value={p.value}
             oninput={(e) => setParam(i, 'value', e.currentTarget.value)}
           />
-        </div>
-        <div class="bs-pc d">
+        </KvCell>
+        <KvCell class="d">
           <input
             placeholder={t('http.col.description')}
             value={p.description}
             oninput={(e) => setParam(i, 'description', e.currentTarget.value)}
           />
-        </div>
-        <div class="bs-pc m"></div>
-      </div>
+        </KvCell>
+        <KvCell class="m"></KvCell>
+      </KvRow>
     {/each}
-  </div>
-</div>
+  </KvTable>
+</KvPanel>
+
+<style>
+  :global(:root .bs .bs-pr.changed) {
+    background: var(--color-hover);
+  }
+</style>

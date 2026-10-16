@@ -20,6 +20,7 @@
   import McpEnvPicker from './McpEnvPicker.svelte';
   import { methodColor } from '$shared/model';
   import { row, sw, select, chips } from './ui.svelte';
+  import Row from './Row.svelte';
 
   let status = $state<McpIntegrationStatus | null>(null);
   let journal = $state<McpJournalEntry[]>([]);
@@ -231,12 +232,12 @@
           patch({ allowNetwork: v }),
         )}{/snippet}
       {@render row(t('settings.mcp.net'), t('settings.mcp.net.desc'), s2)}
-      <div class="st-row st-mcp-envs" class:st-mcp-dim={!mcpPrefs.current.allowNetwork}>
+      <Row class={['st-mcp-envs', { 'st-mcp-dim': !mcpPrefs.current.allowNetwork }]}>
         <div class="st-copy">
           <span class="st-name">{t('settings.mcp.envs')}</span><span class="st-desc">{t('settings.mcp.envs.sub')}</span>
         </div>
         <McpEnvPicker disabled={!mcpPrefs.current.allowNetwork} />
-      </div>
+      </Row>
       <div class:st-mcp-dim={!mcpPrefs.current.allowNetwork}>
         {#snippet s3()}<div class:st-mcp-off={!mcpPrefs.current.allowNetwork}>
             {@render select(t('settings.mcp.methods.desc'), mcpPrefs.current.mutatingMethods, METHODS, (v) =>
@@ -340,3 +341,340 @@
     </button>
   </div>
 </div>
+
+<style>
+  .st-mcp-link:hover:not(:disabled) {
+    color: var(--color-text);
+  }
+
+  .st-mcp-btn.ghost:hover:not(:disabled) {
+    background: var(--color-hover);
+  }
+
+  .st-mcp-ic:hover:not(:disabled) {
+    background: var(--color-hover);
+    color: var(--color-text);
+  }
+
+  /* Settings → AI / MCP (S32.8): 462 + 270 columns. */
+  .st-mcp-hint {
+    padding: 0;
+    margin: -8px 0 0;
+  }
+
+  .st-mcp-cols {
+    display: flex;
+    gap: 16px;
+    align-items: flex-start;
+  }
+
+  .st-mcp-col {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    min-width: 0;
+  }
+
+  .st-mcp-left {
+    flex: 1 1 462px;
+  }
+
+  /* flexible so the scrollbar gutter can't push the right column out */
+  .st-mcp-right {
+    flex: 0 0 270px;
+  }
+
+  .st-mcp-cap {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: -4px;
+  }
+
+  .st-mcp-cap :global(.st-group) {
+    margin: 0;
+  }
+
+  .st-mcp-col > :global(.st-group) {
+    margin-bottom: -4px;
+  }
+
+  .st-mcp-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    border: 0;
+    background: none;
+    padding: 0;
+    color: var(--color-text-secondary);
+    font: var(--font-size-caption) var(--font-ui);
+    cursor: pointer;
+  }
+
+  .st-mcp-link:disabled {
+    opacity: 0.45;
+    cursor: default;
+  }
+
+  .st-mcp-link :global(.material-symbols-outlined) {
+    font-size: 14px;
+  }
+
+  .st-mcp-card :global(.material-symbols-outlined) {
+    font-size: 14px;
+  }
+
+  .st-mcp-btn :global(.material-symbols-outlined) {
+    font-size: 14px;
+  }
+
+  .st-mcp-ic :global(.material-symbols-outlined) {
+    font-size: 14px;
+  }
+
+  .st-mcp-client {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 9px 0;
+  }
+
+  .st-mcp-client + .st-mcp-client {
+    border-top: 1px solid var(--color-border-subtle);
+  }
+
+  .st-mcp-client :global(.st-copy) {
+    flex: 1;
+  }
+
+  .st-mcp-av {
+    flex: none;
+    width: 32px;
+    height: 32px;
+    display: grid;
+    place-items: center;
+    border-radius: 10px;
+    background: var(--color-hover);
+    font: 600 11px var(--font-code);
+    color: var(--color-text-secondary);
+  }
+
+  .st-mcp-av.sm {
+    width: 22px;
+    height: 22px;
+    border-radius: 7px;
+    font-size: 9px;
+  }
+
+  .st-mcp-ellip {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .st-mcp-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    height: 20px;
+    margin-left: 6px;
+    padding: 0 8px;
+    border-radius: 999px;
+    background: var(--color-hover);
+    color: var(--color-text-muted);
+    font: 500 11px var(--font-ui);
+    vertical-align: 1px;
+  }
+
+  .st-mcp-pill :global(i) {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: currentColor;
+  }
+
+  .st-mcp-run :global(i) {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: currentColor;
+  }
+
+  .st-mcp-pill.on {
+    color: var(--green);
+    background: color-mix(in srgb, var(--green) 14%, transparent);
+  }
+
+  .st-mcp-pill.update {
+    color: var(--orange);
+    background: color-mix(in srgb, var(--orange) 14%, transparent);
+  }
+
+  .st-mcp-btn {
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    height: 30px;
+    padding: 0 14px;
+    border: 1px solid transparent;
+    border-radius: 999px;
+    background: var(--color-text);
+    color: var(--color-raised);
+    font: 600 var(--font-size-body) var(--font-ui);
+    cursor: pointer;
+  }
+
+  .st-mcp-btn.ghost {
+    background: transparent;
+    border-color: var(--color-border-subtle);
+    color: var(--color-text);
+  }
+
+  .st-mcp-btn.danger {
+    color: var(--red);
+  }
+
+  .st-mcp-btn.wide {
+    width: 100%;
+  }
+
+  .st-mcp-btn:disabled {
+    opacity: 0.45;
+    cursor: default;
+  }
+
+  .st-mcp-always {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    color: var(--color-text-muted);
+    font: var(--font-size-caption) var(--font-ui);
+  }
+
+  .st-mcp-envs {
+    gap: 12px;
+  }
+
+  .st-mcp-envs > :global(.st-name) {
+    flex: none;
+    white-space: nowrap;
+  }
+
+  /* S32.8 rows are 46–51 px, a bit denser than the other settings pages. */
+  .st-mcp-card :global(.st-row) {
+    min-height: 48px;
+    padding: 8px 0;
+  }
+
+  .st-mcp-dim {
+    opacity: 0.45;
+  }
+
+  .st-mcp-off {
+    pointer-events: none;
+  }
+
+  .st-mcp-srv {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .st-mcp-run {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .st-mcp-run :global(i) {
+    width: 8px;
+    height: 8px;
+    color: var(--green);
+  }
+
+  .st-mcp-run :global(i.bad) {
+    color: var(--red);
+  }
+
+  .st-mcp-capt {
+    font: 500 var(--font-size-micro)/13px var(--font-code);
+    letter-spacing: var(--tracking-eyebrow);
+    color: var(--color-text-muted);
+  }
+
+  .st-mcp-wsrow {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .st-mcp-ws {
+    flex: 1;
+    min-width: 0;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    padding: 0 12px;
+    border: 1px solid var(--color-border-subtle);
+    border-radius: 999px;
+    background: var(--color-panel);
+    font: var(--font-size-caption) var(--font-code);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .st-mcp-ic {
+    flex: none;
+    width: 30px;
+    height: 30px;
+    display: grid;
+    place-items: center;
+    border: 1px solid var(--color-border-subtle);
+    border-radius: 50%;
+    background: transparent;
+    color: var(--color-text-secondary);
+    cursor: pointer;
+  }
+
+  .st-mcp-ic:disabled {
+    opacity: 0.45;
+    cursor: default;
+  }
+
+  .st-mcp-log.full {
+    max-height: 260px;
+    overflow-y: auto;
+  }
+
+  .st-mcp-ev {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 0;
+  }
+
+  .st-mcp-ev + .st-mcp-ev {
+    border-top: 1px solid var(--color-border-subtle);
+  }
+
+  .st-mcp-ev :global(.st-copy) {
+    flex: 1;
+  }
+
+  .st-mcp-ev :global(.st-name) {
+    font-size: var(--font-size-caption);
+    font-family: var(--font-code);
+  }
+
+  .st-mcp-ev :global(.ok) {
+    color: var(--green);
+  }
+
+  .st-mcp-ev :global(.bad) {
+    color: var(--red);
+  }
+</style>

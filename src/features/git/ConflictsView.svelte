@@ -11,6 +11,7 @@
   import { methodColor, type ConflictFile, type OperationInfo } from '$shared/model';
   import { t, tp } from '$shared/i18n';
   import { merge3, type Chunk } from './merge3';
+  import { GitButton, GitHead, GitView, GitViewBody, GitViewEmpty, GitTag } from '$entities/git/components';
 
   let files = $state.raw<ConflictFile[]>([]);
   let op = $state.raw<OperationInfo | null>(null);
@@ -88,8 +89,8 @@
   const pv = $derived(selected ? preview(selected) : null);
 </script>
 
-<div class="bs-gview">
-  <div class="bs-ghead">
+<GitView>
+  <GitHead>
     <div class="ttl">
       <span class="crumb"
         >{op?.kind ? `${op.kind}  ${op.theirs}  →  ${op.mine}` : `${t('git.title')}  /  ${t('git.conflicts')}`}</span
@@ -97,41 +98,39 @@
       <div class="row">
         <h2>{t('git.conflicts')}</h2>
         {#if rows.length}
-          <span class="bs-gtag" class:bad={files.length > 0}
+          <GitTag class={{ bad: files.length > 0 }}
             >{t('git.cf.left', {
               n: files.length,
               total: rows.length,
               files: tp(rows.length, ['файла', 'файлов', 'файлов'], ['file', 'files']),
-            })}</span
+            })}</GitTag
           >
         {/if}
       </div>
     </div>
-    <button
-      class="bs-gbtn"
+    <GitButton
       disabled={!files.length || git.busy}
       onclick={() =>
         resolveSide(
           files.map((f) => f.path),
           'mine',
-        )}><span class="material-symbols-outlined">chevron_left</span>{t('git.cf.allMine')}</button
+        )}><span class="material-symbols-outlined">chevron_left</span>{t('git.cf.allMine')}</GitButton
     >
-    <button
-      class="bs-gbtn"
+    <GitButton
       disabled={!files.length || git.busy}
       onclick={() =>
         resolveSide(
           files.map((f) => f.path),
           'theirs',
-        )}><span class="material-symbols-outlined">chevron_right</span>{t('git.cf.allTheirs')}</button
+        )}><span class="material-symbols-outlined">chevron_right</span>{t('git.cf.allTheirs')}</GitButton
     >
-  </div>
+  </GitHead>
 
-  <div class="bs-gview-body">
+  <GitViewBody>
     {#if !rows.length}
-      <div class="bs-gview-empty">
+      <GitViewEmpty>
         {op?.paused ? t('git.op.paused') : op?.kind ? t('git.op.ready') : t('git.cf.none')}
-      </div>
+      </GitViewEmpty>
     {:else}
       <div class="table">
         <div class="th">
@@ -169,27 +168,25 @@
               <span class="side"><i class:del={f.theirs === null}></i>{sideWord(f.theirs, f.base)}</span>
               <span class="acts">
                 {#if f.mine === null || f.theirs === null}
-                  <button
-                    class="bs-gbtn"
+                  <GitButton
                     disabled={git.busy}
                     onclick={() => resolveSide([f.path], f.mine === null ? 'mine' : 'theirs')}
-                    >{t('git.cf.keepDeleted')}</button
+                    >{t('git.cf.keepDeleted')}</GitButton
                   >
-                  <button
-                    class="bs-gbtn"
+                  <GitButton
                     disabled={git.busy}
                     onclick={() => resolveSide([f.path], f.mine === null ? 'theirs' : 'mine')}
-                    ><span class="material-symbols-outlined">restore</span>{t('git.cf.restore')}</button
+                    ><span class="material-symbols-outlined">restore</span>{t('git.cf.restore')}</GitButton
                   >
                 {:else}
-                  <button class="bs-gbtn" disabled={git.busy} onclick={() => resolveSide([f.path], 'mine')}
-                    >{t('git.cf.takeMine')}</button
+                  <GitButton disabled={git.busy} onclick={() => resolveSide([f.path], 'mine')}
+                    >{t('git.cf.takeMine')}</GitButton
                   >
-                  <button class="bs-gbtn" disabled={git.busy} onclick={() => resolveSide([f.path], 'theirs')}
-                    >{t('git.cf.takeTheirs')}</button
+                  <GitButton disabled={git.busy} onclick={() => resolveSide([f.path], 'theirs')}
+                    >{t('git.cf.takeTheirs')}</GitButton
                   >
-                  <button class="bs-gbtn inv" onclick={() => openMergeTab(f.path, i.name)}
-                    ><span class="material-symbols-outlined">merge</span>{t('git.cf.merge')}</button
+                  <GitButton class="inv" onclick={() => openMergeTab(f.path, i.name)}
+                    ><span class="material-symbols-outlined">merge</span>{t('git.cf.merge')}</GitButton
                   >
                 {/if}
               </span>
@@ -197,11 +194,11 @@
               <span class="side"></span>
               <span class="side"></span>
               <span class="acts">
-                <button class="bs-gbtn" onclick={() => openGitDiffTab(r.path, 'staged', i.name)}
-                  ><span class="material-symbols-outlined">visibility</span>{t('git.cf.open')}</button
+                <GitButton onclick={() => openGitDiffTab(r.path, 'staged', i.name)}
+                  ><span class="material-symbols-outlined">visibility</span>{t('git.cf.open')}</GitButton
                 >
-                <button class="bs-gbtn" disabled={git.busy} onclick={() => unresolve([r.path])}
-                  ><span class="material-symbols-outlined">undo</span>{t('git.cf.reset')}</button
+                <GitButton disabled={git.busy} onclick={() => unresolve([r.path])}
+                  ><span class="material-symbols-outlined">undo</span>{t('git.cf.reset')}</GitButton
                 >
               </span>
             {/if}
@@ -231,8 +228,8 @@
         </p>
       {/if}
     {/if}
-  </div>
-</div>
+  </GitViewBody>
+</GitView>
 
 <style>
   .bad {

@@ -6,11 +6,6 @@
     transition: none !important;
   }
 
-  :root .mono-switch,
-  :root .mono-switch::after {
-    transition: none;
-  }
-
   :root .bs *,
   :root .bs *::before,
   :root .bs *::after {

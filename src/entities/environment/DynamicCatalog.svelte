@@ -6,6 +6,7 @@
   import { insertAtLastCursor } from '$shared/editor';
   import { dynLocale } from '$shared/settings';
   import { dynamicVars, refreshDynamicSamples } from './dynamic.svelte';
+  import { Button, Overlay, Modal, ModalHeader, ModalFooter } from '$shared/ui/components';
 
   const ICONS: Record<DynamicGroup | 'all', string> = {
     all: 'apps',
@@ -64,9 +65,9 @@
 <svelte:window onkeydown={onKeydown} />
 
 {#if dynamicVars.catalogOpen}
-  <div use:portal class="bs-overlay" role="dialog" aria-modal="true" aria-label={t('dyn.catalog.title')}>
-    <div class="bs-modal dyn-catalog">
-      <div class="bs-modal-h">
+  <Overlay role="dialog" aria-modal="true" aria-label={t('dyn.catalog.title')} portal>
+    <Modal class="dyn-catalog">
+      <ModalHeader>
         <div class="head">
           <span class="kicker">{t('dyn.catalog.kicker', { n: found.length })}</span>
           <span class="title">{t('dyn.catalog.title')}</span>
@@ -74,7 +75,7 @@
         <button class="x" aria-label={t('common.close')} onclick={close}
           ><span class="material-symbols-outlined" style="font-size:18px">close</span></button
         >
-      </div>
+      </ModalHeader>
       <div class="body">
         <nav class="groups" aria-label={t('dyn.catalog.title')}>
           <label class="search">
@@ -138,17 +139,17 @@
           </div>
         </section>
       </div>
-      <div class="bs-modal-f">
+      <ModalFooter>
         <span class="note">{t('dyn.catalog.footer')}</span>
         <div class="grow"></div>
-        <button class="bs-btn primary" onclick={close}>{t('dyn.catalog.done')}</button>
-      </div>
-    </div>
-  </div>
+        <Button variant="primary" onclick={close}>{t('dyn.catalog.done')}</Button>
+      </ModalFooter>
+    </Modal>
+  </Overlay>
 {/if}
 
 <style>
-  .dyn-catalog {
+  :global(:root .dyn-catalog) {
     width: 1040px;
     height: 660px;
   }

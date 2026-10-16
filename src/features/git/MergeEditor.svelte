@@ -37,6 +37,7 @@
     type Pairing,
   } from './mergeFields';
   import { mergeMode } from './store.svelte';
+  import { GitButton, GitSeg, GitHead, GitView, GitViewBody, GitViewEmpty, GitTag } from '$entities/git/components';
 
   let { tab, onClose }: { tab: Tab; onClose: () => void } = $props();
 
@@ -431,8 +432,8 @@
     >{/if}
 {/snippet}
 
-<div class="bs-gview">
-  <div class="bs-ghead">
+<GitView>
+  <GitHead>
     <div class="ttl">
       <span class="crumb">{`${op?.kind ?? 'merge'}  ${op?.theirs ?? ''}  /  ${path}`}</span>
       <div class="row">
@@ -441,27 +442,27 @@
           >{/if}
         <h2>{info.name}</h2>
         {#if view.open}
-          <span class="bs-gtag bad"
+          <GitTag class="bad"
             >{t('git.mg.counter', {
               i: Math.max(1, view.conflicts.indexOf(view.focus) + 1),
               n: view.conflicts.length,
-            })}</span
+            })}</GitTag
           >
         {/if}
       </div>
     </div>
-    <div class="bs-gseg">
+    <GitSeg>
       <button class="icon" title={t('git.mg.prev')} onclick={() => go(-1)}
         ><span class="material-symbols-outlined">keyboard_arrow_up</span></button
       >
       <button class="icon" title={t('git.mg.next')} onclick={() => go(1)}
         ><span class="material-symbols-outlined">keyboard_arrow_down</span></button
       >
-    </div>
-    <button class="bs-gbtn" onclick={autoAll}
-      ><span class="material-symbols-outlined">auto_fix_high</span>{t('git.mg.auto')}</button
+    </GitSeg>
+    <GitButton onclick={autoAll}
+      ><span class="material-symbols-outlined">auto_fix_high</span>{t('git.mg.auto')}</GitButton
     >
-    <div class="bs-gseg" role="group" aria-label={t('git.mg.mode')}>
+    <GitSeg role="group" aria-label={t('git.mg.mode')}>
       <button class:on={!fieldsMode} aria-pressed={!fieldsMode} onclick={() => (mergeMode.current = 'json')}
         >JSON</button
       >
@@ -472,12 +473,12 @@
         title={fieldsOk ? t('git.mg.fieldsHint') : t('git.mg.notJson')}
         onclick={() => (mergeMode.current = 'fields')}>{t('git.mg.fields')}</button
       >
-    </div>
-  </div>
+    </GitSeg>
+  </GitHead>
 
-  <div class="bs-gview-body">
+  <GitViewBody>
     {#if missing}
-      <div class="bs-gview-empty">{t('git.mg.missing')}</div>
+      <GitViewEmpty>{t('git.mg.missing')}</GitViewEmpty>
     {:else if fieldsMode}
       <div class="grid fields">
         <div class="hd"><span class="eb">{t('git.mg.field')}</span></div>
@@ -633,17 +634,17 @@
       <span class="lg"><i class="r"></i>{t('git.mg.lgRejected')}</span>
       <span class="keys">{t('git.mg.keys')}</span>
       <span class="grow"></span>
-      <button class="bs-gbtn" onclick={onClose}>{t('common.cancel')}</button>
-      <button class="bs-gbtn" disabled={missing} onclick={() => all('mine')}>» {t('git.cf.allMine')}</button>
-      <button class="bs-gbtn" disabled={missing} onclick={() => all('theirs')}>« {t('git.cf.allTheirs')}</button>
-      <button class="bs-gbtn inv" disabled={view.result === null || git.busy} onclick={apply}
+      <GitButton onclick={onClose}>{t('common.cancel')}</GitButton>
+      <GitButton disabled={missing} onclick={() => all('mine')}>» {t('git.cf.allMine')}</GitButton>
+      <GitButton disabled={missing} onclick={() => all('theirs')}>« {t('git.cf.allTheirs')}</GitButton>
+      <GitButton class="inv" disabled={view.result === null || git.busy} onclick={apply}
         ><span class="material-symbols-outlined">check</span>{view.left
           ? t('git.mg.applyLeft', { n: view.left })
-          : t('git.mg.apply')}</button
+          : t('git.mg.apply')}</GitButton
       >
     </div>
-  </div>
-</div>
+  </GitViewBody>
+</GitView>
 
 <style>
   .bad {

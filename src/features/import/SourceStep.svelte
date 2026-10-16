@@ -6,6 +6,7 @@
   import { t } from '$shared/i18n';
   import { formatSize, sourceStats, SourceError, type Loaded } from './source';
   import type { RecentSource } from './store.svelte';
+  import { Segmented } from '$shared/ui/components';
 
   let {
     tab = $bindable(),
@@ -76,7 +77,7 @@
 </script>
 
 <div class="imp-body src">
-  <div class="bs-seg imp-tabs" role="tablist" aria-label={t('import.title')}>
+  <Segmented class="imp-tabs" role="tablist" aria-label={t('import.title')}>
     {#each tabs as x (x.id)}
       <button
         type="button"
@@ -88,7 +89,7 @@
         <span class="material-symbols-outlined">{x.icon}</span>{t(x.label)}
       </button>
     {/each}
-  </div>
+  </Segmented>
 
   {#if tab === 'file'}
     <div class="drop">
@@ -222,15 +223,15 @@
   .src {
     gap: 16px;
   }
-  .imp-tabs {
+  :global(.imp-tabs) {
     align-self: flex-start;
   }
-  .imp-tabs button {
+  :global(.imp-tabs) button {
     display: inline-flex;
     align-items: center;
     gap: 6px;
   }
-  .imp-tabs .material-symbols-outlined {
+  :global(.imp-tabs) .material-symbols-outlined {
     font-size: 15px;
   }
   .drop {
