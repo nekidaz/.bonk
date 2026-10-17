@@ -64,7 +64,10 @@ class Monitor {
   procHistory = new Map<number, { mem: Ring<number>; cpu: Ring<number> }>();
   rev = $state(0);
   latest = $state.raw<MonitorSnapshot | null>(null);
-  prev: MonitorSnapshot | null = null;
+  /** The snapshot before `latest`, for per-second rates in the view. */
+  previous = $state.raw<MonitorSnapshot | null>(null);
+  /** Largest script runtime memory seen since collection started. */
+  scriptPeak = $state(0);
   /** Channel totals now and one tick ago (for msgs/s). */
   channels = $state.raw<Record<string, ChannelTotals>>({});
   prevChannels: Record<string, ChannelTotals> = {};
@@ -84,7 +87,8 @@ class Monitor {
     this.events.clear();
     this.procHistory.clear();
     this.latest = null;
-    this.prev = null;
+    this.previous = null;
+    this.scriptPeak = 0;
     this.channels = {};
     this.prevChannels = {};
     this.held = [];
@@ -172,7 +176,12 @@ export async function tick(): Promise<void> {
     const { calls, channels } = ipcMonitor.drain();
     calls.forEach((c) => monitor.calls.push(c));
     eventsFromCalls(calls).forEach((e) => monitor.events.push(e));
-    monitor.samples.push(toSample(snap, monitor.prev));
+    monitor.samples.push(
+      toSample(
+        snap,
+        untrack(() => monitor.latest),
+      ),
+    );
     const seen = new Set<number>();
     for (const p of snap.procs) {
       seen.add(p.pid);
@@ -184,8 +193,12 @@ export async function tick(): Promise<void> {
     for (const pid of monitor.procHistory.keys()) if (!seen.has(pid)) monitor.procHistory.delete(pid);
     monitor.prevChannels = monitor.channels;
     monitor.channels = channels;
-    monitor.prev = snap;
+    monitor.previous = untrack(() => monitor.latest);
     monitor.latest = snap;
+    monitor.scriptPeak = Math.max(
+      untrack(() => monitor.scriptPeak),
+      snap.counters.scripts.peakMemBytes,
+    );
     if (monitor.visible && ticks++ % HELD_EVERY === 0) monitor.held = readHeld(snap);
     monitor.rev = untrack(() => monitor.rev) + 1;
   } catch {

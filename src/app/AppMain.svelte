@@ -30,6 +30,7 @@
   import { EnvironmentsSheet } from '$features/environments/components';
   import { RunnerView } from '$features/runner/components';
   import { SettingsFileView } from '$features/settings/components';
+  import { MonitorView } from '$features/monitor/components';
   import { UtilityPanel } from '$features/utility-panel/components';
   import { utilityUi } from '$features/utility-panel';
   import AppTabBar from './AppTabBar.svelte';
@@ -113,6 +114,8 @@
           <RunnerView />
         {:else if active.protocol === 'settings'}
           <SettingsFileView />
+        {:else if active.protocol === 'monitor'}
+          <MonitorView />
         {:else}
           {#if historySnapshot}
             <div class="bs-history-banner" role="status">
