@@ -13,6 +13,9 @@
   import { BodyCode } from '$entities/request/components';
   import { graphqlExplorerOpen, graphqlSchemas } from './graphqlSchemas.svelte';
   import GraphqlSchemaChip from './GraphqlSchemaChip.svelte';
+  import GraphqlExplorer from './GraphqlExplorer.svelte';
+  import type { ExplorerHit } from './graphqlExplorer';
+  import { appendOperation, type RootKind } from './graphqlOperation';
 
   let { tab, varHighlight }: { tab: Tab; varHighlight?: Extension } = $props();
 
@@ -31,9 +34,25 @@
     return () => clearTimeout(timer);
   });
 
-  // ponytail: only opens the panel; jumping to the field/type is Task 6.
-  function openInExplorer(): void {
+  // Where the explorer should jump: set by Cmd/Ctrl+click in the Query editor.
+  let target = $state.raw<ExplorerHit>();
+
+  // cm6-graphql passes types as written (`[User!]!`); the explorer wants the bare name.
+  function openInExplorer(field?: string, type?: string, parentType?: string): void {
+    const bare = (s: string) => s.replace(/[[\]!]/g, '');
+    if (parentType) target = { type: bare(parentType), field };
+    else if (type) target = { type: bare(type) };
     graphqlExplorerOpen.current = true;
+  }
+
+  // Query and Variables change in one tabs write.
+  function addToQuery(root: RootKind, field: string): void {
+    if (!schema) return;
+    const s = schema;
+    tabs.updateById(tab.id, (t) => {
+      const next = appendOperation(t.request.body ?? '', t.request.graphqlVariables ?? '', s, root, field);
+      return { ...t, request: { ...t.request, body: next.query, graphqlVariables: next.variables } };
+    });
   }
 
   function setQuery(value: string): void {
@@ -82,7 +101,9 @@
       </BodyCode>
     </section>
   </div>
-  <!-- Task 6: the schema explorer panel, shown while graphqlExplorerOpen.current. -->
+  {#if graphqlExplorerOpen.current && schema}
+    <GraphqlExplorer {schema} {target} onAdd={addToQuery} />
+  {/if}
 </div>
 
 <style>
