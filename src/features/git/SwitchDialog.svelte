@@ -5,7 +5,7 @@
    */
   import { GitBranchIcon, Overlay } from '$shared/ui/components';
   import { untrack } from 'svelte';
-  import { findNode, workspace } from '$entities/workspace';
+  import { workspace } from '$entities/workspace';
   import { describeFile, git, switchBranch, type SwitchChoice } from '$entities/git';
   import { t } from '$shared/i18n';
   import { GitButton } from '$entities/git/components';
@@ -17,7 +17,7 @@
   const from = $derived(git.status?.branch || 'HEAD');
   const target = $derived(to ? (to.remote ? to.name.split('/').slice(1).join('/') : to.name) : '');
   const names = $derived(
-    (git.status?.files ?? []).map((f) => describeFile(f.path, git.prefix, (id) => findNode(workspace.tree, id)).name),
+    (git.status?.files ?? []).map((f) => describeFile(f.path, git.prefix, (id) => workspace.byId.get(id)).name),
   );
 
   $effect(() => {

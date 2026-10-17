@@ -4,6 +4,8 @@
    * STAGED and CHANGES with per-file actions, STASHES (G10) and RECENT COMMITS. Clicking a file
    * opens its diff tab. Without a repo it is the G4 empty state with one button.
    */
+  import { untrack } from 'svelte';
+  import { createVirtualizer } from '@tanstack/svelte-virtual';
   import { GitBranchIcon } from '$shared/ui/components';
   import {
     commitChanges,
@@ -32,9 +34,9 @@
     SUBJECT_MAX,
     unstagePaths,
   } from '$entities/git';
-  import { findNode, workspace } from '$entities/workspace';
+  import { workspace } from '$entities/workspace';
   import { tabs } from '$entities/tab';
-  import { methodColor, type GitFile } from '$shared/model';
+  import { methodColor, type GitCommit, type GitFile, type GitStash } from '$shared/model';
   import { requestConfirm } from '$shared/ui';
   import { t, tp } from '$shared/i18n';
   import { GitButton } from '$entities/git/components';
@@ -47,11 +49,67 @@
   const staged = $derived(files.filter((f) => !isConflict(f) && f.index !== ' ' && f.index !== '?'));
   const changes = $derived(files.filter((f) => !isConflict(f) && (f.worktree !== ' ' || f.index === '?')));
   const activeGit = $derived(tabs.active?.protocol === 'git' ? tabs.active.git : undefined);
-  const info = (f: GitFile) => describeFile(f.path, git.prefix, (id) => findNode(workspace.tree, id));
+  const info = (f: GitFile) => describeFile(f.path, git.prefix, (id) => workspace.byId.get(id));
   // Ages in the lists recount on every refresh.
   const now = $derived.by(() => (void git.version, Date.now()));
   /** The letter for one side: the index change in STAGED, the worktree change (or U) in CHANGES. */
   const sideLetter = (f: GitFile, inIndex: boolean) => (inIndex ? f.index : f.index === '?' ? 'U' : f.worktree);
+
+  // ---- The scroll area as one flat list (op banner, section headers, rows), virtualized below ----
+  type Row =
+    | { key: string; kind: 'op' | 'sec-conflicts' | 'sec-staged' | 'sec-changes' | 'none' | 'sec-stashes' | 'sec-log' }
+    | { key: string; kind: 'conflict'; f: GitFile }
+    | { key: string; kind: 'file'; f: GitFile; inIndex: boolean }
+    | { key: string; kind: 'stash'; s: GitStash }
+    | { key: string; kind: 'commit'; c: GitCommit; i: number };
+  const rows = $derived.by(() => {
+    const out: Row[] = [];
+    if (status?.operation) out.push({ key: 'op', kind: 'op' });
+    if (conflicts.length) out.push({ key: 'sec-conflicts', kind: 'sec-conflicts' });
+    for (const f of conflicts) out.push({ key: `c:${f.path}`, kind: 'conflict', f });
+    if (staged.length) out.push({ key: 'sec-staged', kind: 'sec-staged' });
+    for (const f of staged) out.push({ key: `s:${f.path}`, kind: 'file', f, inIndex: true });
+    out.push({ key: 'sec-changes', kind: 'sec-changes' });
+    for (const f of changes) out.push({ key: `w:${f.path}`, kind: 'file', f, inIndex: false });
+    if (!changes.length) out.push({ key: 'none', kind: 'none' });
+    if (git.stashes.length) out.push({ key: 'sec-stashes', kind: 'sec-stashes' });
+    for (const s of git.stashes) out.push({ key: `st:${s.hash}`, kind: 'stash', s });
+    if (git.log.length) out.push({ key: 'sec-log', kind: 'sec-log' });
+    git.log.forEach((c, i) => out.push({ key: `log:${c.hash}`, kind: 'commit', c, i }));
+    return out;
+  });
+  /** First-guess heights; every rendered row is measured. */
+  const estimate = (r: Row) =>
+    r.kind === 'file' || r.kind === 'conflict'
+      ? 25
+      : r.kind.startsWith('sec')
+        ? 31
+        : ({ op: 150, none: 22, stash: 38, commit: 42 } as Record<string, number>)[r.kind];
+
+  // Like the sidebar tree: only rows near the viewport are in the DOM, so a workspace with thousands
+  // of changed files opens (and re-renders on every status refresh) fast. `$virtualizer` is a svelte/store.
+  let scrollEl = $state<HTMLElement>();
+  const virtualizer = createVirtualizer<HTMLElement, HTMLElement>({
+    count: 0,
+    getScrollElement: () => null,
+    estimateSize: () => 25,
+    overscan: 12,
+  });
+  // Pre: the count and keys must match `rows` before the list renders.
+  $effect.pre(() => {
+    const r = rows;
+    const el = scrollEl;
+    untrack(() => $virtualizer).setOptions({
+      count: r.length,
+      getItemKey: (i) => r[i].key,
+      estimateSize: (i) => estimate(r[i]),
+      getScrollElement: () => el ?? null,
+    });
+  });
+  const items = $derived($virtualizer.getVirtualItems());
+  const padTop = $derived(items[0]?.start ?? 0);
+  const padBottom = $derived($virtualizer.getTotalSize() - (items.at(-1)?.end ?? 0));
+  const measureRow = (el: HTMLElement) => untrack(() => $virtualizer).measureElement(el);
 
   // ---- Branch row (G3 popover lives in app overlays) ----
   function openBranches(e: MouseEvent): void {
@@ -289,142 +347,152 @@
       </div>
     </div>
 
-    <div class="scroll">
-      {#if status.operation}
-        <div class="op">
-          <div class="oph">
-            <span class="material-symbols-outlined">commit</span>{git.op?.total
-              ? t('git.op.step', { kind: status.operation, i: git.op.step, n: git.op.total })
-              : status.operation}
+    <div class="scroll" bind:this={scrollEl}>
+      <!-- Virtual (@tanstack/svelte-virtual, like the sidebar tree): only rows near the viewport are in the DOM,
+           so thousands of changed files open and refresh fast. Padding stands in for the rest. -->
+      <div style="padding:{padTop}px 0 {padBottom}px">
+        {#each items as item (item.key)}
+          {@const row = rows[item.index]}
+          <!-- A flex wrapper, so the measured height includes the row's margins. -->
+          <div data-index={item.index} class="vrow" {@attach measureRow}>
+            {#if row?.kind === 'op'}
+              <div class="op">
+                <div class="oph">
+                  <span class="material-symbols-outlined">commit</span>{git.op?.total
+                    ? t('git.op.step', { kind: status.operation, i: git.op.step, n: git.op.total })
+                    : status.operation}
+                </div>
+                {#if git.op?.hash}<div class="opc">{`${git.op.hash.slice(0, 7)} · ${git.op.subject}`}</div>{/if}
+                <p>
+                  {conflicts.length
+                    ? t('git.op.conflicts', {
+                        n: conflicts.length,
+                        files: tp(conflicts.length, ['conflict', 'conflicts']),
+                      })
+                    : git.op?.paused
+                      ? t('git.op.paused')
+                      : t('git.op.ready')}
+                </p>
+                <div class="opb">
+                  <GitButton class="sm" disabled={git.busy} onclick={abortOperation}
+                    ><span class="material-symbols-outlined">close</span>{t('git.op.abort')}</GitButton
+                  >
+                  <GitButton
+                    class="sm"
+                    disabled={git.busy || status.operation === 'merge' || !!git.op?.paused}
+                    onclick={skipOperation}
+                    ><span class="material-symbols-outlined">skip_next</span>{t('git.op.skip')}</GitButton
+                  >
+                </div>
+                <GitButton class="sm inv cont" disabled={git.busy || conflicts.length > 0} onclick={continueOperation}
+                  >{t('git.op.continue')}<span class="material-symbols-outlined">arrow_forward</span></GitButton
+                >
+              </div>
+            {:else if row?.kind === 'sec-conflicts'}
+              <div class="sec conflicts">
+                <span class="eb">{t('git.conflicts')}</span><span class="n">{conflicts.length}</span>
+                <button class="ico" title={t('git.tab.conflicts')} onclick={openConflictsTab}
+                  ><span class="material-symbols-outlined">north_east</span></button
+                >
+              </div>
+            {:else if row?.kind === 'conflict'}
+              {@const f = row.f}
+              {@const i = info(f)}
+              <button
+                class="row"
+                title={f.path}
+                onclick={() => (i.method ? openMergeTab(f.path, i.name) : openConflictsTab())}
+              >
+                <span
+                  class="m"
+                  style:color={i.method ? methodColor(i.method === 'gRPC' ? 'GRPC' : i.method) : undefined}
+                  >{i.method}</span
+                >
+                <span class="nm">{i.name}</span>
+                <span class="dir">{f.index === 'D' || f.worktree === 'D' ? t('git.cf.deleted') : i.dir}</span>
+                <span class="st" style:color="var(--color-danger)">!</span>
+              </button>
+            {:else if row?.kind === 'sec-staged'}
+              <div class="sec">
+                <span class="eb">{t('git.staged')}</span><span class="n">{staged.length}</span>
+                <button
+                  class="ico"
+                  disabled={git.busy}
+                  title={t('git.unstageAll')}
+                  onclick={() => unstagePaths(staged.map((f) => f.path))}
+                  ><span class="material-symbols-outlined">remove</span></button
+                >
+              </div>
+            {:else if row?.kind === 'sec-changes'}
+              <div class="sec">
+                <span class="eb">{t('git.changes')}</span><span class="n">{changes.length}</span>
+                {#if files.length}
+                  <button class="ico" title={t('git.changes.openAll')} onclick={openProjectDiffTab}
+                    ><span class="material-symbols-outlined">difference</span></button
+                  >
+                {/if}
+                {#if changes.length}
+                  <button class="ico" disabled={git.busy} title={t('git.stash.title')} onclick={openStash}
+                    ><span class="material-symbols-outlined">inventory_2</span></button
+                  >
+                  <button class="ico" disabled={git.busy} title={t('git.discardAll')} onclick={discardAll}
+                    ><span class="material-symbols-outlined">undo</span></button
+                  >
+                  <button
+                    class="ico"
+                    disabled={git.busy}
+                    title={t('git.stageAll')}
+                    onclick={() => stagePaths(changes.map((f) => f.path))}
+                    ><span class="material-symbols-outlined">add</span></button
+                  >
+                {/if}
+              </div>
+            {:else if row?.kind === 'file'}
+              {@render fileRow(row.f, row.inIndex)}
+            {:else if row?.kind === 'none'}
+              <p class="none">{t('git.changes.none')}</p>
+            {:else if row?.kind === 'sec-stashes'}
+              <div class="sec">
+                <span class="eb">{t('git.stashes')}</span><span class="n">{git.stashes.length}</span>
+              </div>
+            {:else if row?.kind === 'stash'}
+              {@const s = row.s}
+              <button
+                class="row tall"
+                class:sel={activeGit?.view === 'stash' && activeGit.path === s.hash}
+                onclick={() => openStashTab(s.hash, s.message)}
+              >
+                <span class="material-symbols-outlined lead" aria-hidden="true">inventory_2</span>
+                <span class="two">
+                  <span class="nm">{s.message}</span>
+                  <span class="meta">{`stash@{${s.index}} · ${shortAgo(s.time, now)}`}</span>
+                </span>
+              </button>
+            {:else if row?.kind === 'sec-log'}
+              <div class="sec">
+                <span class="eb">{t('git.log')}</span><span class="n"></span>
+                <button class="graphlink" onclick={() => openGraphTab()}
+                  >{t('git.graph.link')}<span class="material-symbols-outlined">north_east</span></button
+                >
+              </div>
+            {:else if row?.kind === 'commit'}
+              {@const c = row.c}
+              <button
+                class="commitrow"
+                class:linked={row.i > 0}
+                title={`${c.subject}\n${c.author} · ${c.date}`}
+                onclick={() => openGraphTab(c.hash)}
+              >
+                <span class="dot" class:head={row.i === 0} aria-hidden="true"></span>
+                <span class="two">
+                  <span class="nm">{c.subject}</span>
+                  <span class="meta">{`${c.short} · ${shortAgo(c.time, now)}`}</span>
+                </span>
+              </button>
+            {/if}
           </div>
-          {#if git.op?.hash}<div class="opc">{`${git.op.hash.slice(0, 7)} · ${git.op.subject}`}</div>{/if}
-          <p>
-            {conflicts.length
-              ? t('git.op.conflicts', {
-                  n: conflicts.length,
-                  files: tp(conflicts.length, ['conflict', 'conflicts']),
-                })
-              : git.op?.paused
-                ? t('git.op.paused')
-                : t('git.op.ready')}
-          </p>
-          <div class="opb">
-            <GitButton class="sm" disabled={git.busy} onclick={abortOperation}
-              ><span class="material-symbols-outlined">close</span>{t('git.op.abort')}</GitButton
-            >
-            <GitButton
-              class="sm"
-              disabled={git.busy || status.operation === 'merge' || !!git.op?.paused}
-              onclick={skipOperation}
-              ><span class="material-symbols-outlined">skip_next</span>{t('git.op.skip')}</GitButton
-            >
-          </div>
-          <GitButton class="sm inv cont" disabled={git.busy || conflicts.length > 0} onclick={continueOperation}
-            >{t('git.op.continue')}<span class="material-symbols-outlined">arrow_forward</span></GitButton
-          >
-        </div>
-      {/if}
-      {#if conflicts.length}
-        <div class="sec conflicts">
-          <span class="eb">{t('git.conflicts')}</span><span class="n">{conflicts.length}</span>
-          <button class="ico" title={t('git.tab.conflicts')} onclick={openConflictsTab}
-            ><span class="material-symbols-outlined">north_east</span></button
-          >
-        </div>
-        {#each conflicts as f (f.path)}
-          {@const i = info(f)}
-          <button
-            class="row"
-            title={f.path}
-            onclick={() => (i.method ? openMergeTab(f.path, i.name) : openConflictsTab())}
-          >
-            <span class="m" style:color={i.method ? methodColor(i.method === 'gRPC' ? 'GRPC' : i.method) : undefined}
-              >{i.method}</span
-            >
-            <span class="nm">{i.name}</span>
-            <span class="dir">{f.index === 'D' || f.worktree === 'D' ? t('git.cf.deleted') : i.dir}</span>
-            <span class="st" style:color="var(--color-danger)">!</span>
-          </button>
         {/each}
-      {/if}
-      {#if staged.length}
-        <div class="sec">
-          <span class="eb">{t('git.staged')}</span><span class="n">{staged.length}</span>
-          <button
-            class="ico"
-            disabled={git.busy}
-            title={t('git.unstageAll')}
-            onclick={() => unstagePaths(staged.map((f) => f.path))}
-            ><span class="material-symbols-outlined">remove</span></button
-          >
-        </div>
-        {#each staged as f (f.path)}{@render fileRow(f, true)}{/each}
-      {/if}
-
-      <div class="sec">
-        <span class="eb">{t('git.changes')}</span><span class="n">{changes.length}</span>
-        {#if files.length}
-          <button class="ico" title={t('git.changes.openAll')} onclick={openProjectDiffTab}
-            ><span class="material-symbols-outlined">difference</span></button
-          >
-        {/if}
-        {#if changes.length}
-          <button class="ico" disabled={git.busy} title={t('git.stash.title')} onclick={openStash}
-            ><span class="material-symbols-outlined">inventory_2</span></button
-          >
-          <button class="ico" disabled={git.busy} title={t('git.discardAll')} onclick={discardAll}
-            ><span class="material-symbols-outlined">undo</span></button
-          >
-          <button
-            class="ico"
-            disabled={git.busy}
-            title={t('git.stageAll')}
-            onclick={() => stagePaths(changes.map((f) => f.path))}
-            ><span class="material-symbols-outlined">add</span></button
-          >
-        {/if}
       </div>
-      {#each changes as f (f.path)}{@render fileRow(f, false)}{/each}
-      {#if !changes.length}<p class="none">{t('git.changes.none')}</p>{/if}
-
-      {#if git.stashes.length}
-        <div class="sec"><span class="eb">{t('git.stashes')}</span><span class="n">{git.stashes.length}</span></div>
-        {#each git.stashes as s (s.hash)}
-          <button
-            class="row tall"
-            class:sel={activeGit?.view === 'stash' && activeGit.path === s.hash}
-            onclick={() => openStashTab(s.hash, s.message)}
-          >
-            <span class="material-symbols-outlined lead" aria-hidden="true">inventory_2</span>
-            <span class="two">
-              <span class="nm">{s.message}</span>
-              <span class="meta">{`stash@{${s.index}} · ${shortAgo(s.time, now)}`}</span>
-            </span>
-          </button>
-        {/each}
-      {/if}
-
-      {#if git.log.length}
-        <div class="sec">
-          <span class="eb">{t('git.log')}</span><span class="n"></span>
-          <button class="graphlink" onclick={() => openGraphTab()}
-            >{t('git.graph.link')}<span class="material-symbols-outlined">north_east</span></button
-          >
-        </div>
-        {#each git.log as c, i (c.hash)}
-          <button
-            class="commitrow"
-            title={`${c.subject}\n${c.author} · ${c.date}`}
-            onclick={() => openGraphTab(c.hash)}
-          >
-            <span class="dot" class:head={i === 0} aria-hidden="true"></span>
-            <span class="two">
-              <span class="nm">{c.subject}</span>
-              <span class="meta">{`${c.short} · ${shortAgo(c.time, now)}`}</span>
-            </span>
-          </button>
-        {/each}
-      {/if}
     </div>
   {:else}
     <p class="none">{t('git.loading')}</p>
@@ -455,6 +523,10 @@
     overflow: auto;
     margin: 0 -8px;
     padding: 0 8px 8px;
+  }
+  .vrow {
+    display: flex;
+    flex-direction: column;
   }
   .branchrow {
     display: flex;
@@ -827,7 +899,7 @@
     gap: 9px;
     padding: 5px 8px 5px 12px;
   }
-  .commitrow + .commitrow::before {
+  .commitrow.linked::before {
     content: '';
     position: absolute;
     left: 16px;
@@ -851,7 +923,6 @@
     border-color: var(--color-text);
     background: var(--color-text);
   }
-  .commitrow:first-of-type .nm,
   .dot.head + .two .nm {
     color: var(--color-text);
   }

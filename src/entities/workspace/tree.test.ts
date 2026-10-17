@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { filterTree, findNode, findParent, idToRel, relToParts } from './tree';
+import { filterTree, findNode, findParent, idToRel, indexTree, relToParts } from './tree';
 import type { TreeNode } from '$shared/model';
 
 const tree: TreeNode[] = [
@@ -26,6 +26,11 @@ describe('tree helpers', () => {
     expect(findNode(tree, 'fs:API/Sub')?.name).toBe('Sub');
     expect(findNode(tree, 'fs:API/Ping.bonk.json')?.name).toBe('Ping');
     expect(findNode(tree, 'fs:nope')).toBeUndefined();
+  });
+  it('indexes every node by id, nested ones too', () => {
+    const byId = indexTree(tree);
+    expect([...byId.keys()]).toEqual(['fs:API', 'fs:API/Ping.bonk.json', 'fs:API/Sub']);
+    expect(byId.get('fs:API/Ping.bonk.json')?.name).toBe('Ping');
   });
   it('finds the parent folder of a node', () => {
     expect(findParent(tree, 'fs:API/Ping.bonk.json')?.id).toBe('fs:API');

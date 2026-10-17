@@ -26,6 +26,15 @@ export function findNode(nodes: TreeNode[], id: string): TreeNode | undefined {
   return undefined;
 }
 
+/** Every node by id: one walk, then O(1) lookups (a git change list asks once per file). */
+export function indexTree(nodes: TreeNode[], out = new Map<string, TreeNode>()): Map<string, TreeNode> {
+  for (const n of nodes) {
+    out.set(n.id, n);
+    if (n.kind === 'folder') indexTree(n.children, out);
+  }
+  return out;
+}
+
 export function findParent(nodes: TreeNode[], id: string, parent?: FolderNode): FolderNode | undefined {
   for (const n of nodes) {
     if (n.id === id) return parent;

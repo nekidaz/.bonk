@@ -8,7 +8,7 @@
    * or field can also be typed by hand (✎): it then counts as decided and is marked “by hand”.
    */
   import { untrack } from 'svelte';
-  import { findNode, workspace } from '$entities/workspace';
+  import { workspace } from '$entities/workspace';
   import { describeFile, git, openConflictsTab, resolveFile } from '$entities/git';
   import { gitConflicts, gitOperationInfo } from '$shared/ipc';
   import { methodColor, type OperationInfo, type Tab } from '$shared/model';
@@ -73,7 +73,7 @@
   });
 
   const path = $derived(tab.git?.path ?? '');
-  const info = $derived(describeFile(path, git.prefix, (id) => findNode(workspace.tree, id)));
+  const info = $derived(describeFile(path, git.prefix, (id) => workspace.byId.get(id)));
 
   // Read the three versions once per file: later git refreshes must not wipe the user's choices.
   $effect(() => {

@@ -3,7 +3,7 @@
    * Two commits or branches side by side (GitKraken's Compare): the files where `target` differs
    * from `base` (`tab.git.path`, `tab.git.rev`) on the left, the selected one's diff on the right.
    */
-  import { findNode, workspace } from '$entities/workspace';
+  import { workspace } from '$entities/workspace';
   import { describeFile, git, statusColor } from '$entities/git';
   import { tabs } from '$entities/tab';
   import { gitCompare, gitCompareFileDiff } from '$shared/ipc';
@@ -35,7 +35,7 @@
   const base = $derived(tab.git?.path ?? '');
   const target = $derived(tab.git?.rev ?? '');
   const short = (r: string) => (/^[0-9a-f]{40}$/.test(r) ? r.slice(0, 7) : r);
-  const info = (path: string) => describeFile(path, git.prefix, (id) => findNode(workspace.tree, id));
+  const info = (path: string) => describeFile(path, git.prefix, (id) => workspace.byId.get(id));
   const pick = $derived(files.find((f) => f.path === picked) ?? files[0]);
   const plus = $derived(files.reduce((n, f) => n + f.additions, 0));
   const minus = $derived(files.reduce((n, f) => n + f.deletions, 0));
