@@ -239,6 +239,7 @@ sudo apt install ./bonk_*.deb</code></pre>
     <tr><td>Basic</td><td><code>Authorization: Basic</code> with base64 of <code>username:password</code>.</td></tr>
     <tr><td>API key</td><td>A named key, sent as a header or as a query parameter.</td></tr>
     <tr><td><a href="#oauth">OAuth 2.0</a></td><td>A token from the keychain, sent as a Bearer token.</td></tr>
+    <tr><td><a href="#session">Session</a></td><td>Sign in once through a Runner scenario; a token per environment, renewed by itself.</td></tr>
   </tbody></table>
   <p>An <code>Authorization</code> header you set yourself on the request is not overwritten.</p>
   <h2 id="inherit">Folder auth and inheritance</h2>
@@ -270,6 +271,19 @@ sudo apt install ./bonk_*.deb</code></pre>
   <h2 id="tokens">Tokens</h2>
   <p>Tokens live in the OS keychain, never in workspace files. The token key is a hash of the resolved settings (grant, token URL, client, scope, audience, user), so an environment with its own client gets its own token. bonk renews an expired token before sending and retries once on a 401. The same applies in the app, the <a href="#runner">Runner</a>, the <a href="#cli">CLI</a> and <a href="#mcp">MCP</a>.</p>
   <aside class="callout">For a code grant, bonk listens on a loopback address for the redirect. If the redirect URI is not a loopback address, paste the code or the whole redirect URL by hand.</aside>
+</article>
+
+<article id="session" data-title="Session" data-group="Send requests" data-lede="Sign in once, even with a code from an SMS, and let bonk keep the session alive." data-meta="Since 0.2.0|macOS · Windows · Linux|3 min read">
+  <h2 id="setup">Set it up</h2>
+  <p>Open a collection's authorization and choose <strong>Session</strong>. Pick the <a href="#runner">Runner</a> scenario that signs in (for example <code>Auth · OTP</code>: Login → Send OTP → Verify OTP, where the code is an «ask on send» variable), say which response holds the access token and which the refresh token, and pick the saved request that trades a refresh token for a new access token. Its body reads <code>{{session.refresh}}</code>. Requests of the collection then send <code>Authorization: Bearer {{session.access}}</code>, except the sign-in folder and the renewal request.</p>
+  <h2 id="keeping">How it is kept alive</h2>
+  <ul>
+    <li>The access token is renewed by itself a minute before it expires (a JWT's <code>exp</code>, or a field like <code>expires_in</code>), and once on a 401.</li>
+    <li>When the refresh token is dead too, the sign-in scenario runs again on its own; only the step that needs a code asks you, in a small form by <strong>Send</strong>.</li>
+    <li>After you run the sign-in scenario in the Runner, bonk offers <strong>Запомнить вход?</strong> to keep what it caught.</li>
+  </ul>
+  <h2 id="environments">One session per environment</h2>
+  <p>Signing in to Staging does not touch Production. <strong>All sessions</strong> lists every environment: who signed in, when the tokens end, renew, sign out. Sessions live in the OS keychain, not in workspace files, git or exports. In the <a href="#cli">CLI</a>, <code>--env</code> picks the session; a sign-in step needs <code>--input otp=123456</code>.</p>
 </article>
 
 <article id="variables" data-title="Variables" data-group="Send requests" data-lede="Reuse values with {{name}} in URLs, headers, bodies, auth and scripts." data-meta="Environments|3 min read">
@@ -364,6 +378,8 @@ pm.environment.set('paymentId', pm.response.json().id);</code></pre>
   <p>Open <strong>Runner</strong>, pick a collection or folder (or right-click one in the tree and choose <strong>Run in Runner</strong>), and set up the run. You can select and drag to reorder requests, choose an environment and set the delay between requests. Pause, resume or stop a run in progress.</p>
   <h2 id="data">Data-driven runs</h2>
   <p>Attach a CSV or JSON file: each row is an iteration and each column is a variable, readable with <code>{{column}}</code> or <code>pm.iterationData</code>. A JSON file must be an array of objects. The row count sets the number of iterations.</p>
+  <h2 id="input">Steps that ask for input</h2>
+  <p>Right-click any <code>{{variable}}</code> in a request and choose <strong>Ask on send</strong>: an SMS code, an amount, a currency, a confirmation. Pick a type (text, number, code, secret, choice, yes/no, JSON, file), a label and checks. <strong>Send</strong> opens a small form by the button; the Runner stops at that step, shows the form in the run log and goes on after the answer. A 4xx on a step with typed input opens the form again (three tries). A file field goes as a path where a request takes a file and as base64 where it sits in a text body (up to 10 MB). Give a code a lifetime and the card counts it down; <strong>Resend</strong> runs the step before again (the one that sent the code) and asks once more. The value lives only in that run: it is not saved to environments, history or run records, and a code is shown as <code>••••13</code> in the log. The field definitions are stored in <code>.bonk/inputs.json</code>, so commit it. In the <a href="#cli">CLI</a> nobody can type: pass the value with <code>--input otp=123456</code> or <code>BONK_INPUT_otp</code>, or the step fails.</p>
   <h2 id="settings">Run settings</h2>
   <ul>
     <li><strong>Stop on first failure</strong>.</li>
@@ -428,6 +444,7 @@ BONK_VAR_TOKEN=$TOKEN bonk run api --bail --junit report.xml</code></pre>
     <li>Validate, send or run saved HTTP requests, with scripts and tests.</li>
     <li>Reflect gRPC schemas, compile local <code>.proto</code> files, generate examples and make unary calls.</li>
     <li>Run a saved scenario with <code>run_scenario</code>.</li>
+    <li>Steps that ask for input: <code>list_inputs</code> shows the fields, <code>inputs</code> carries values the user gave the agent, and a missing one is asked from the user through MCP elicitation (a confirmation always is).</li>
   </ul>
   <h2 id="permissions">Permissions</h2>
   <table><thead><tr><th>Option</th><th>Effect</th></tr></thead><tbody>
