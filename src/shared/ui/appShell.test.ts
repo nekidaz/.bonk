@@ -30,7 +30,7 @@ describe('workspace switcher helpers', () => {
   });
 
   it('builds two-letter initials', () => {
-    expect(workspaceInitials('acme-business')).toBe('fb');
+    expect(workspaceInitials('acme-business')).toBe('ab');
     expect(workspaceInitials('Bank Core gRPC')).toBe('bc');
     expect(workspaceInitials('Sandbox')).toBe('sa');
   });
