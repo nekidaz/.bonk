@@ -584,6 +584,11 @@
   details {
     overflow-x: auto;
   }
+  /* .body is a fixed-height flex column: a child with overflow other than visible may shrink to
+     0 height, so no section shrinks — .body scrolls instead. */
+  .body > * {
+    flex-shrink: 0;
+  }
   summary {
     cursor: pointer;
     font-weight: var(--weight-medium);
