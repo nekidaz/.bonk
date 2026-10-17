@@ -78,5 +78,9 @@ export function graphqlProblems(query: string, schema?: GraphQLSchema): GqlProbl
     const from = e.positions?.[0] ?? 0;
     problems = [{ from, to: from + 1, message: e.message }];
   }
-  return problems.filter((p) => !masks.some(([from, to]) => p.from < to && p.to > from));
+  // A syntax error at EOF points one past the end; the editor rejects ranges outside the document.
+  const clamp = (n: number) => Math.max(0, Math.min(n, query.length));
+  return problems
+    .map((p) => ({ ...p, from: clamp(p.from), to: clamp(p.to) }))
+    .filter((p) => !masks.some(([from, to]) => p.from < to && p.to > from));
 }

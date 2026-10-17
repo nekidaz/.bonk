@@ -27,6 +27,13 @@ describe('graphqlProblems', () => {
     expect(p.message).toMatch(/Syntax Error/);
   });
 
+  it('keeps a syntax error at EOF inside the document', () => {
+    const q = '{ user(id: 1) { id }';
+    const [p] = graphqlProblems(q);
+    expect(p.from).toBeLessThanOrEqual(q.length);
+    expect(p.to).toBeLessThanOrEqual(q.length);
+  });
+
   it('reports an unknown field against the schema at its position', () => {
     const q = '{ user(id: "1") { nope } }';
     const [p] = graphqlProblems(q, schema);
