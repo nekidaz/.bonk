@@ -1,5 +1,5 @@
 // Visual regression: every scenario x both themes against the fake Tauri backend
-// (design/tools/shim.js). Baselines are local only; see docs/GUIDE.md, “Screenshot tests” section.
+// (scripts/fake-backend/shim.js). Baselines are local only.
 import { test, expect, type Page } from '@playwright/test';
 import { dumpComputedStyles } from './css-oracle';
 

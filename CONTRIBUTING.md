@@ -15,8 +15,7 @@ make dev     # desktop app with hot reload
 available there, so anything that talks to Rust will fail. `make` with no
 arguments lists every target.
 
-New to Rust or Svelte? Start with [docs/GUIDE.md](docs/GUIDE.md), then read
-[ARCHITECTURE.md](ARCHITECTURE.md).
+New to the codebase? Start with [ARCHITECTURE.md](ARCHITECTURE.md).
 
 ## Before a Pull Request
 

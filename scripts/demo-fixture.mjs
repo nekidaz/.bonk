@@ -1,4 +1,4 @@
-// The fake Tauri backend (design/tools/shim.js) as a classic <script> for public use: the landing's
+// The fake Tauri backend (scripts/fake-backend/shim.js) as a classic <script> for public use: the landing's
 // live demo (scripts/build-demo.mjs) and its screenshots (scripts/capture-screenshots.mjs).
 // It renames the private fixture data, switches the UI to English and, for the demo, adds
 // ?view=git|scripts|tests|console|grpc|mcp — opens that screen after the app mounts.
@@ -175,7 +175,7 @@ function demoChrome() {
 export async function demoFixture({ demo = false } = {}) {
   const name = demo ? 'Dummy Payments' : 'Orbit Payments';
   const host = demo ? 'dummypay.dev' : 'orbit.example';
-  let fixture = (await readFile(resolve(root, 'design/tools/shim.js'), 'utf8'))
+  let fixture = (await readFile(resolve(root, 'scripts/fake-backend/shim.js'), 'utf8'))
     .replace('export const ready = true;', '')
     .replace(/^\s*\/\/.*$/gm, '')
     .replaceAll('Acme Payments', name)

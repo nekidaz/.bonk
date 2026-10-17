@@ -5,7 +5,7 @@ target/
 src-tauri/
 crates/
 docs/landing/
-design/
+scripts/fake-backend/
 visual/report/
 visual/__screenshots__/
 test-results/

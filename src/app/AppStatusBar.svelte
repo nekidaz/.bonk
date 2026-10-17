@@ -1,7 +1,6 @@
 <!--
   The bottom status bar: Console / Terminal / Issues toggles, Runner, cookies, the Git branch chip.
   Each button calls a callback from App.svelte or a slice action; a new button goes here
-  (docs/FRONTEND.md, recipe 3).
 -->
 <script lang="ts">
   import { GitBranchIcon, Spacer } from '$shared/ui/components';
