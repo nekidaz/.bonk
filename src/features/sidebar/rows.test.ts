@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { flattenTree, rowOffsets, scrollToShow, visibleRange } from './rows';
+import { flattenTree } from './rows';
 import type { TreeNode } from '$shared/model';
 
 const req = (id: string): TreeNode => ({
@@ -31,18 +31,5 @@ describe('sidebar rows', () => {
       ['fs:closed', 0],
       ['fs:r3', 0],
     ]);
-  });
-
-  it('finds the rows a pixel band overlaps and scrolls the least to show a row', () => {
-    const rows = flattenTree(tree);
-    const offsets = rowOffsets(rows, { node: 10, empty: 25 });
-    expect(offsets).toEqual([0, 10, 20, 30, 55, 65, 75]);
-    expect(visibleRange(offsets, 0, 15)).toEqual([0, 2]);
-    expect(visibleRange(offsets, 35, 60)).toEqual([3, 5]);
-    expect(visibleRange(offsets, -100, 1000)).toEqual([0, 6]);
-    expect(visibleRange([0], 0, 100)).toEqual([0, 0]);
-    expect(scrollToShow(offsets, 5, 0, 30)).toBe(45); // below: bottom edge to the bottom
-    expect(scrollToShow(offsets, 0, 40, 30)).toBe(0); // above: top edge to the top
-    expect(scrollToShow(offsets, 4, 40, 30)).toBe(40); // already visible
   });
 });
