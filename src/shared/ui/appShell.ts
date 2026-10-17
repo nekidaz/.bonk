@@ -28,7 +28,7 @@ export function workspaceName(path: string): string {
   return path.split('/').filter(Boolean).at(-1) ?? '';
 }
 
-/** Two-letter avatar: 'acme-business' → 'fb', 'Sandbox' → 'sa'. */
+/** Two-letter avatar: 'acme-business' → 'ab', 'Sandbox' → 'sa'. */
 export function workspaceInitials(name: string): string {
   const words = name.split(/[\s_.-]+/).filter(Boolean);
   const letters = words.length > 1 ? words.map((w) => w[0]).join('') : (words[0] ?? '');
