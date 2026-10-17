@@ -1,4 +1,5 @@
 mod commands;
+mod refresh_rate;
 mod state;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -28,6 +29,13 @@ pub fn run() {
                     }
                 }
                 app.set_menu(menu)?;
+            }
+            // macOS: lift WKWebView's ~60 fps cap so ProMotion displays get 120 Hz.
+            {
+                use tauri::Manager;
+                for window in app.webview_windows().values() {
+                    refresh_rate::unlock(window);
+                }
             }
             let _ = app; // non-macOS: unused
             Ok(())
