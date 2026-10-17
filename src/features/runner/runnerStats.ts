@@ -284,8 +284,8 @@ function pathSegments(target: string): string[] {
 const idPrefix = (s: string) => /^([A-Za-z]+)[_-][A-Za-z0-9]+$/.exec(s)?.[1];
 function jsonId(body: string | undefined): string | undefined {
   try {
-    const v = JSON.parse(body ?? '');
-    return typeof v?.id === 'string' ? v.id : undefined;
+    const v: unknown = JSON.parse(body ?? '');
+    return v && typeof v === 'object' && 'id' in v && typeof v.id === 'string' ? v.id : undefined;
   } catch {
     return undefined;
   }

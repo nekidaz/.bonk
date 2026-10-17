@@ -46,7 +46,8 @@
 
   function readRecent(): string[] {
     try {
-      return JSON.parse(globalThis.localStorage?.getItem(RECENT_KEY) ?? '[]');
+      const v: unknown = JSON.parse(globalThis.localStorage?.getItem(RECENT_KEY) ?? '[]');
+      return Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : [];
     } catch {
       return [];
     }

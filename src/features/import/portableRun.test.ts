@@ -13,6 +13,10 @@ import { loadSource } from './source';
 import { collectionPlan, type PlanItem } from './plan';
 
 const exec = promisify(execFile);
+
+type RunRow = { requestName: string; ok: boolean; status?: number; tests?: unknown };
+type RunReport = { results?: RunRow[]; rows?: RunRow[] };
+type ToolResult = { isError?: boolean; structuredContent: { result: RunReport & { ok: boolean } } };
 const target = resolve(process.env.CARGO_TARGET_DIR ?? 'target', 'debug');
 const binary = (name: string) => join(target, name + (process.platform === 'win32' ? '.exe' : ''));
 
@@ -31,7 +35,7 @@ function mcp(binary: string, workspace: string, env: NodeJS.ProcessEnv, extra: s
   let id = 0;
   const pending = new Map<
     number,
-    { resolve: (v: any) => void; reject: (e: Error) => void; timer: ReturnType<typeof setTimeout> }
+    { resolve: (v: unknown) => void; reject: (e: Error) => void; timer: ReturnType<typeof setTimeout> }
   >();
   const lines = createInterface({ input: child.stdout });
   let stderr = '';
@@ -39,7 +43,7 @@ function mcp(binary: string, workspace: string, env: NodeJS.ProcessEnv, extra: s
     stderr += data.toString();
   });
   lines.on('line', (line) => {
-    const message = JSON.parse(line);
+    const message: { id: number; result?: unknown; error?: unknown } = JSON.parse(line);
     const waiter = pending.get(message.id);
     if (!waiter) return;
     pending.delete(message.id);
@@ -54,14 +58,14 @@ function mcp(binary: string, workspace: string, env: NodeJS.ProcessEnv, extra: s
     }
     pending.clear();
   });
-  const request = (method: string, params: unknown) =>
-    new Promise<any>((resolve, reject) => {
+  const request = <T = unknown>(method: string, params: unknown) =>
+    new Promise<T>((resolve, reject) => {
       const next = ++id;
       const timer = setTimeout(() => {
         pending.delete(next);
         reject(new Error(`MCP timeout: ${method}`));
       }, 15_000);
-      pending.set(next, { resolve, reject, timer });
+      pending.set(next, { resolve: (v) => resolve(v as T), reject, timer });
       child.stdin.write(JSON.stringify({ jsonrpc: '2.0', id: next, method, params }) + '\n');
     });
   return {
@@ -187,12 +191,12 @@ it('imports, configures auth, runs, commits and repeats the same scenario from a
     await exec(cli, ['import', exported, '--workspace', workspace]);
     // Folder auth is configured after import and committed as placeholders.
     const settingsFile = join(workspace, 'Imported', '.folder.bonk.json');
-    const folder = JSON.parse(await readFile(settingsFile, 'utf8'));
+    const folder: { auth?: unknown } = JSON.parse(await readFile(settingsFile, 'utf8'));
     folder.auth = { type: 'bearer', bearerToken: '{{TOKEN}}' };
     await writeFile(settingsFile, JSON.stringify(folder, null, 2));
     await writeFile(join(workspace, 'payload.bin'), 'portable upload');
     const meFile = join(workspace, 'Imported', 'a-me.bonk.json');
-    const me = JSON.parse(await readFile(meFile, 'utf8'));
+    const me: { request: Record<string, unknown> } = JSON.parse(await readFile(meFile, 'utf8'));
     me.request.bodyMode = 'binary';
     me.request.binaryFilePath = 'payload.bin';
     await writeFile(meFile, JSON.stringify(me, null, 2));
@@ -228,13 +232,13 @@ it('imports, configures auth, runs, commits and repeats the same scenario from a
         cli,
         ['run', '--workspace', root, '--scenario', 'smoke', '--json', report, '--junit', junit],
         { cwd: dir, env },
-      ).catch((e) => {
+      ).catch((e: { message: string; code?: number; stdout?: string }) => {
         // execFile's message carries only stderr; the run's failures are on stdout.
         throw new Error(`${e.message}exit ${e.code}\n${e.stdout}`);
       });
       const reportText = await readFile(report, 'utf8');
       expect(reportText + output.stdout + (await readFile(junit, 'utf8'))).not.toContain(secret);
-      const result = JSON.parse(reportText);
+      const result: RunReport = JSON.parse(reportText);
       expect(result.results ?? result.rows).toHaveLength(4);
       expect(await readFile(junit, 'utf8')).toContain('failures="0"');
       return result;
@@ -258,8 +262,8 @@ it('imports, configures auth, runs, commits and repeats the same scenario from a
     ]);
     await exec('git', ['clone', '--quiet', '--no-local', workspace, clone]);
     const ci = await run(clone, 'ci');
-    const stable = (report: any) =>
-      (report.results ?? report.rows).map((row: any) => ({
+    const stable = (report: RunReport) =>
+      (report.results ?? report.rows ?? []).map((row) => ({
         name: row.requestName,
         ok: row.ok,
         status: row.status,
@@ -287,7 +291,7 @@ it('imports, configures auth, runs, commits and repeats the same scenario from a
       clientInfo: { name: 'portable-run-test', version: '1' },
     });
     client.initialized();
-    const tool = await client.request('tools/call', { name: 'run_scenario', arguments: { name: 'smoke' } });
+    const tool = await client.request<ToolResult>('tools/call', { name: 'run_scenario', arguments: { name: 'smoke' } });
     expect(tool.isError).not.toBe(true);
     const mcpResult = tool.structuredContent.result;
     expect(mcpResult.ok).toBe(true);
@@ -302,7 +306,10 @@ it('imports, configures auth, runs, commits and repeats the same scenario from a
       clientInfo: { name: 'portable-run-test', version: '1' },
     });
     client.initialized();
-    const denied = await client.request('tools/call', { name: 'run_scenario', arguments: { name: 'smoke' } });
+    const denied = await client.request<ToolResult>('tools/call', {
+      name: 'run_scenario',
+      arguments: { name: 'smoke' },
+    });
     expect(denied.isError).toBe(true);
     expect(JSON.stringify(denied)).toContain('network calls are disabled by --no-network');
     expect(seen).toHaveLength(callsBeforeDenial);

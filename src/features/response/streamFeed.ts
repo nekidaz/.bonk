@@ -124,7 +124,7 @@ export function visibleMessages<M extends GrpcStreamMessage>(messages: M[], dir:
 /** A spaced single line (`{ "k": v }`) for a feed row. */
 export function inlineJson(body: string): string {
   try {
-    const v = JSON.parse(body);
+    const v: unknown = JSON.parse(body);
     return v && typeof v === 'object' && !Array.isArray(v)
       ? `{ ${Object.entries(v)
           .map(([k, x]) => `${JSON.stringify(k)}: ${JSON.stringify(x)}`)

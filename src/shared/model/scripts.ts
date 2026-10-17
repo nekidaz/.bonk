@@ -266,7 +266,7 @@ function stringRecord(value: unknown): Record<string, string> {
 export function parseScriptResult(raw: string): ScriptResult {
   let data: Record<string, unknown> = {};
   try {
-    const parsed = JSON.parse(raw);
+    const parsed: unknown = JSON.parse(raw);
     if (parsed && typeof parsed === 'object') data = parsed as Record<string, unknown>;
   } catch {
     return emptyResult(tr('script.bad_output', { output: raw.slice(0, 200) }));

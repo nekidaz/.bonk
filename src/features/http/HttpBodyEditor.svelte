@@ -74,7 +74,7 @@
     const format = currentRawFormat(tab);
     if (format !== 'JSON') return CONTENT_TYPE[format] ?? '';
     try {
-      const parsed = JSON.parse(tab.request.body ?? '');
+      const parsed: unknown = JSON.parse(tab.request.body ?? '');
       return `application/json${parsed && typeof parsed === 'object' ? n(Object.keys(parsed).length) : ''}`;
     } catch {
       return 'application/json';

@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('@tauri-apps/api/core', () => ({ invoke: vi.fn(async () => ({})) }));
 vi.hoisted(() => {
-  (globalThis as any).document = { documentElement: { lang: '' } };
+  Object.assign(globalThis, { document: { documentElement: { lang: '' } } });
 });
 
 import {
