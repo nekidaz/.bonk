@@ -38,7 +38,7 @@ describe('timed invoke', () => {
     ipcMonitor.on = true;
     raw.mockResolvedValue('hello');
     await invoke('x', { a: 1 });
-    expect(raw).toHaveBeenCalledWith('x', { a: 1 }, undefined);
+    expect(raw).toHaveBeenCalledWith('x', { a: 1 });
     const [call] = ipcMonitor.drain().calls;
     expect(call).toMatchObject({ cmd: 'x', ok: true, bytes: 5 });
     expect(call.ms).toBeGreaterThanOrEqual(0);

@@ -42,12 +42,13 @@ function record(call: IpcCall): void {
   if (calls.length > MAX_CALLS) calls.splice(0, calls.length - MAX_CALLS);
 }
 
-export async function invoke<T>(cmd: string, args?: InvokeArgs, options?: InvokeOptions): Promise<T> {
-  if (!ipcMonitor.on || cmd === SELF) return rawInvoke<T>(cmd, args, options);
+// Rest args forward exactly what the caller passed: no trailing `undefined` for an omitted `options`.
+export async function invoke<T>(cmd: string, ...rest: [args?: InvokeArgs, options?: InvokeOptions]): Promise<T> {
+  if (!ipcMonitor.on || cmd === SELF) return rawInvoke<T>(cmd, ...rest);
   const at = Date.now();
   const t0 = performance.now();
   try {
-    const out = await rawInvoke<T>(cmd, args, options);
+    const out = await rawInvoke<T>(cmd, ...rest);
     record({ cmd, at, ms: performance.now() - t0, bytes: approxBytes(out), ok: true });
     return out;
   } catch (e) {
