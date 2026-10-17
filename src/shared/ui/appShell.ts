@@ -16,7 +16,7 @@ export type AppMenuState = {
 };
 
 export function appMenuWidth(kind: Exclude<AppMenuKind, null>): number {
-  if (kind === 'create') return 208;
+  if (kind === 'create') return 176;
   if (kind === 'history') return 220;
   if (kind === 'switch') return 160;
   if (kind === 'tab') return 232;
