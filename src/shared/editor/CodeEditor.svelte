@@ -131,7 +131,7 @@
     readOnly?: boolean;
     /** Drop the card chrome (border, radius, fill): the host supplies it. */
     bare?: boolean;
-    /** Fold gutter + «ещё N объектов» chips + fold keys. Default: on for multi-line JSON editors. */
+    /** Fold gutter + “N more objects” chips + fold keys. Default: on for multi-line JSON editors. */
     folding?: boolean;
     /** On every (re)loaded document fold the middle of arrays longer than the Settings threshold. */
     autoFold?: boolean;
@@ -746,7 +746,7 @@
     view.dispatch({ effects: extraCompartment.reconfigure(ext) });
   });
 
-  /** Caret to `line`, scrolled to the middle, editor focused (a test or error «строка N» link). */
+  /** Caret to `line`, scrolled to the middle, editor focused (a test or error “line N” link). */
   export function reveal(line: number): void {
     if (view) revealLine(view, line);
   }

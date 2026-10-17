@@ -1,4 +1,4 @@
-/** Flow · Темы TH3: a Zed theme family or a VS Code colour theme → bonk's colour tokens. Each token takes
+/** Flow · Themes TH3: a Zed theme family or a VS Code colour theme → bonk's colour tokens. Each token takes
  *  the first key the theme has; a few more are computed from those (hover, soft tints…); the rest stay
  *  Bonk Dark / Light (the theme's base). */
 import { isHexColor, THEME_TOKENS, type ThemeColors, type ThemeToken } from '$shared/settings';

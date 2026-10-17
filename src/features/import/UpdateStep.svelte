@@ -1,8 +1,9 @@
 <script lang="ts">
   // IM8: the same spec, a new version — what's new, changed and gone; the user's edits stay.
   import { untrack } from 'svelte';
-  import { readOpenApi } from '$entities/workspace';
-  import { methodColor, methodLabel, type FolderNode, type RequestNode } from '$shared/model';
+  import { idToRel, readOpenApi, workspace } from '$entities/workspace';
+  import { workspaceLoadChildren } from '$shared/ipc';
+  import { methodColor, methodLabel, type FolderNode, type RequestNode, type TreeNode } from '$shared/model';
   import { t, tp } from '$shared/i18n';
   import { applyUpdate } from './apply';
   import { HAR_DEFAULTS, harPlan } from './har';
@@ -37,13 +38,26 @@
     if (loaded.format === 'har') return harPlan(loaded.har, { ...HAR_DEFAULTS, ...opts });
     return collectionPlan(loaded.collection);
   });
-  const diff = $derived(diffCollection(collection, plan));
+  // The tree's request nodes have no bodies or spec links: the diff needs the folder as it is on disk.
+  let children = $state<TreeNode[] | undefined>();
+  $effect(() => {
+    const id = collection.id;
+    workspaceLoadChildren(workspace.path, idToRel(id), [])
+      .then((kids) => {
+        if (collection.id !== id) return;
+        children = kids;
+        // The first changed body starts unfolded, like the mock.
+        const first = untrack(() => diff.changed.find((c) => c.body)?.key);
+        if (first) open = new Set([first]);
+      })
+      .catch((e) => (error = e instanceof Error ? e.message : String(e)));
+  });
+  const full = $derived(children ? { ...collection, children } : undefined);
+  const diff = $derived(full ? diffCollection(full, plan) : { added: [], changed: [], removed: [], unchanged: 0 });
 
   let skip = $state<Set<string>>(new Set());
   let drop = $state<Set<string>>(new Set());
-  // The first changed body starts unfolded, like the mock.
-  const firstBody = untrack(() => diff.changed.find((c) => c.body)?.key);
-  let open = $state<Set<string>>(new Set(firstBody ? [firstBody] : []));
+  let open = $state<Set<string>>(new Set());
   let busy = $state(false);
   let error = $state('');
 
@@ -70,7 +84,7 @@
         format: loaded.label,
         ...(loaded.version ? { version: loaded.version } : {}),
       };
-      onDone(await applyUpdate(collection, diff, skip, drop, source));
+      onDone(await applyUpdate(full ?? collection, diff, skip, drop, source));
     } catch (e) {
       error = e instanceof Error ? e.message : String(e);
     } finally {

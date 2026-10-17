@@ -1,7 +1,7 @@
 import { untrack } from 'svelte';
 import type { ScriptStage } from '$shared/model';
 
-/** «Перейти к строке» for one tab's script editor: the editor opens the stage, reveals the line, clears it. */
+/** “Go to line” for one tab's script editor: the editor opens the stage, reveals the line, clears it. */
 export type ScriptJump = { tabId: string; stage: ScriptStage; line?: number };
 
 /**

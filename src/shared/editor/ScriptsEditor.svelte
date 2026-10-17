@@ -1,8 +1,8 @@
 <script lang="ts">
   /**
-   * The request's Scripts tab (Flow · Скрипты). Pre-request | Post-response segments with snippets on the
+   * The request's Scripts tab (Flow · Scripts). Pre-request | Post-response segments with snippets on the
    * right (SC1–SC3); the last run marks `pm.test` lines green/red and bands a failing line with its message
-   * (SC6, SC7). `expanded` (⌥⌘F, SC8) swaps the top row for the FocusBar, adds «Структура» on the left and,
+   * (SC6, SC7). `expanded` (⌥⌘F, SC8) swaps the top row for the FocusBar, adds “Outline” on the left and,
    * after a run, the results panel at the bottom (SC9).
    */
   import { tick, untrack } from 'svelte';

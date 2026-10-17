@@ -101,7 +101,7 @@ export interface EditorErrorPresentation {
 
 /**
  * A request-side problem (not a gRPC status) for the response pane. Connection errors are not
- * passed here: they get the «Сервер недоступен» state.
+ * passed here: they get the “Server unreachable” state.
  */
 export function presentEditorError(
   { message: error }: GrpcTabError,

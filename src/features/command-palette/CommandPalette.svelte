@@ -35,7 +35,7 @@
   let sel = $state(0);
   let listEl = $state<HTMLDivElement | null>(null);
   let returnFocus: HTMLElement | null = null;
-  // Flow · Темы TH2: «Тема» narrows the palette to themes; the selected one is tried on the whole UI right away,
+  // Flow · Themes TH2: “Theme” narrows the palette to themes; the selected one is tried on the whole UI right away,
   // Enter keeps it, Esc (or closing) puts back `saved`.
   let scope = $state<'all' | 'theme'>('all');
   let saved = $state<Theme>(theme.current);
@@ -75,7 +75,7 @@
 
   async function openRequest(node: RequestNode, send: boolean): Promise<void> {
     open = false;
-    openSavedRequest(node);
+    await openSavedRequest(node);
     if (!send || node.protocol !== 'http') return;
     await tick();
     document.querySelector<HTMLButtonElement>('.bs-send')?.click();
@@ -477,8 +477,8 @@
     font: 10px var(--font-code);
   }
 
-  /* ⌘K → Тема (Flow · Темы TH2): the scope chip, a swatch per theme in that theme's own palette (data-theme), and the
-     «текущая» / «примерка» marks. */
+  /* ⌘K → Theme (Flow · Themes TH2): the scope chip, a swatch per theme in that theme's own palette (data-theme), and the
+     “current” / “trying on” marks. */
   :global(.bs) .bs-palette-scope {
     flex: none;
     padding: 2px 8px;

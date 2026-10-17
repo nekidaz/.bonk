@@ -1,6 +1,6 @@
 /**
  * Pure Collection Runner logic: config/run shapes and defaults, scope → request
- * planning, settings clamping/merging, the exported report and the «Брать id из …»
+ * planning, settings clamping/merging, the exported report and the “Take id from …”
  * edit plan. No store reads/writes, no IPC — store.ts wires these in.
  */
 import { t, type Translate } from '$shared/i18n';
@@ -62,7 +62,7 @@ export interface RunnerRun {
   waitedMs: number;
   /** How many times a rejected value opened the form again. */
   retries: number;
-  /** When the code the open form asks for was sent: a rejected try keeps it, «Отправить заново» renews it. */
+  /** When the code the open form asks for was sent: a rejected try keeps it, “Resend” renews it. */
   codeAt: { nodeId: string; at: number } | null;
 }
 
@@ -140,7 +140,7 @@ export const clampDelay = (ms: number): number => (Number.isFinite(ms) ? Math.ma
 export const iterationCount = (c: Pick<RunnerConfig, 'dataRows' | 'iterations'>): number =>
   c.dataRows.length > 0 ? c.dataRows.length : Math.max(1, c.iterations);
 
-/** Header title of the run scope: the first chosen folder, else "Все запросы". */
+/** Header title of the run scope: the first chosen folder, else "All requests". */
 export function runnerScopeTitle(folderIds: string[], tree: TreeNode[], tr: Translate = t): string {
   for (const id of folderIds) {
     const node = findNode(tree, id);
@@ -185,7 +185,7 @@ export function plannedRequests(config: RunnerConfig, tree: TreeNode[]): Request
   return orderedRequests(config, tree).filter((n) => !config.excludedIds.includes(n.id));
 }
 
-// ---- Composing a scenario from single requests (R2 «+ Запрос») ----
+// ---- Composing a scenario from single requests (R2 “+ Request”) ----
 
 /** Put request `id` at the end of the run; one already in it (from a folder too) is just re-checked. */
 export function withRequestAdded(c: RunnerConfig, id: string, tree: TreeNode[]): RunnerConfig {
@@ -290,7 +290,7 @@ export function buildReport(config: RunnerConfig, run: RunnerRun) {
 }
 
 /**
- * «Брать id из …» edits: the source node's test script stores its response `id`
+ * “Take id from …” edits: the source node's test script stores its response `id`
  * in `{{varName}}` (environment, else globals) and the target's URL uses that
  * variable instead of the literal. Returns the nodes to save, source first.
  */

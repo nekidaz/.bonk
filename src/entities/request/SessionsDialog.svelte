@@ -18,7 +18,7 @@
   import TokensDialog from './TokensDialog.svelte';
   import { Button, ModalHeader, ModalBody, ModalFooter } from '$shared/ui/components';
 
-  // The sessions of this collection's auth in every environment (Flow · Сессия SE6).
+  // The sessions of this collection's auth in every environment (Flow · Session SE6).
   let { auth, where, onClose }: { auth: AuthConfig; where: string; onClose: () => void } = $props();
 
   const names = $derived(environmentNames());
@@ -203,7 +203,7 @@
     color: var(--color-danger);
   }
 
-  /* Flow · Сессия SE6: the Sessions dialog reuses the OAuth tokens table. */
+  /* Flow · Session SE6: the Sessions dialog reuses the OAuth tokens table. */
   :global(:root .bs-sessions .bs-modal-h) {
     flex: none;
     align-items: flex-start;

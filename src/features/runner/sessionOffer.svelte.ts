@@ -11,7 +11,7 @@ export interface OfferTarget {
   info: SessionInfo;
 }
 
-/** The Runner's «Запомнить вход?» (Flow · Сессия SE1): a finished sign-in scenario offers to keep its tokens. */
+/** The Runner's “Remember this sign-in?” (Flow · Session SE1): a finished sign-in scenario offers to keep its tokens. */
 export interface SessionOffer {
   /** Run number, so a card never outlives its run. */
   run: number;
@@ -19,7 +19,7 @@ export interface SessionOffer {
   environment: string;
   rows: [string, string][];
   targets: OfferTarget[];
-  /** Index in `targets` of the «Для» select. */
+  /** Index in `targets` of the “For” select. */
   pick: number;
   /** The folder it was saved for ('' until saved). */
   saved: string;
@@ -57,7 +57,7 @@ export async function offerSession(scenario: string | undefined, run: number, re
     sessionOffer.current = { run, environment: activeEnvName(), rows, targets, pick: 0, saved: '', error: '' };
 }
 
-/** «Сохранить сессию»: keep the caught tokens in the keychain for the chosen folder's settings. */
+/** “Save session”: keep the caught tokens in the keychain for the chosen folder's settings. */
 export async function saveOffer(): Promise<void> {
   const o = sessionOffer.current;
   const target = o?.targets[o.pick];

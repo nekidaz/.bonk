@@ -128,7 +128,7 @@ export type SideState = 'pending' | 'taken' | 'rejected';
 export interface Resolution {
   mine: SideState;
   theirs: SideState;
-  /** Taken by «Слить непересекающиеся», not by hand. */
+  /** Taken by “Merge non-conflicting”, not by hand. */
   auto?: boolean;
   /** Typed into the result by hand: these lines replace whatever the sides would give. */
   edited?: string[];
@@ -155,7 +155,7 @@ export function resolvedLines(c: Chunk, r: Resolution): string[] | null {
   return [...(r.mine === 'taken' ? c.mine : []), ...(r.theirs === 'taken' ? c.theirs : [])];
 }
 
-/** «Слить непересекающиеся»: take the changed side of every pending non-conflicting chunk. */
+/** “Merge non-conflicting”: take the changed side of every pending non-conflicting chunk. */
 export function autoResolve(chunks: Chunk[], res: Resolution[]): Resolution[] {
   return chunks.map((c, i) => {
     const r = res[i];

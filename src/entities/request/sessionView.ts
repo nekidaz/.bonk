@@ -10,7 +10,7 @@ import {
 } from '$shared/model';
 import { oauthSpan } from './oauthFormat';
 
-// Pure helpers of the session's Authorization tab (Flow · Сессия SE2–SE5): option lists for the
+// Pure helpers of the session's Authorization tab (Flow · Session SE2–SE5): option lists for the
 // settings, and the lines of a send's timeline.
 
 function find(nodes: TreeNode[], id: string): TreeNode | undefined {
@@ -55,7 +55,7 @@ export const nodeMethod = (tree: TreeNode[], id: string | undefined): string => 
   return node?.kind === 'request' ? node.request.method : '';
 };
 
-/** Is `rel` (workspace-relative) a folder? For «кроме папки Auth · OTP». */
+/** Is `rel` (workspace-relative) a folder? For “except the Auth · OTP folder”. */
 export const isFolder = (tree: TreeNode[], rel: string): boolean => find(tree, `fs:${rel}`)?.kind === 'folder';
 
 /** How many of `requests` ask for typed input (`{{name}}` of an «ask on send» variable). */
@@ -177,7 +177,7 @@ export function promptLines(prompt: SessionPrompt, pending: string, renewMethod 
   return [...lines, ...timelineLines([], { pending })];
 }
 
-/** «Login и Send OTP» / «Login, Send OTP and Verify OTP». */
+/** “Login and Send OTP” / “Login, Send OTP and Verify OTP”. */
 export function joinNames(names: string[]): string {
   if (names.length < 2) return names.join('');
   return `${names.slice(0, -1).join(', ')} ${t('session.and')} ${names[names.length - 1]}`;

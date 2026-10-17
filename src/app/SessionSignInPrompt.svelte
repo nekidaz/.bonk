@@ -1,7 +1,7 @@
 <script lang="ts">
-  // The sign-in form of a session started by a button («Войти» on the Authorization card, Sessions dialog),
-  // Flow · Сессия SE5. A send's own form is SendInputPrompt, under Send; this one has no button to sit under,
-  // so it floats at the top centre. Answer → the sign-in goes on; «Позже» → it stops.
+  // The sign-in form of a session started by a button (“Sign in” on the Authorization card, Sessions dialog),
+  // Flow · Session SE5. A send's own form is SendInputPrompt, under Send; this one has no button to sit under,
+  // so it floats at the top centre. Answer → the sign-in goes on; “Later” → it stops.
   import { answerInput, closePrompt, inputPrompts } from '$entities/input';
   import { InputForm } from '$entities/input/components';
   import { cancelSessionRun, sessionRuntime } from '$entities/request';

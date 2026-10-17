@@ -261,7 +261,7 @@ pub enum RunEvent {
     Row(Box<RunResultRow>),
     /// The step waits for typed input (again, after a rejected try).
     Input(Box<InputRequest>),
-    /// «Отправить заново» ran the step before again: its new row replaces the old one.
+    /// “Resend” ran the step before again: its new row replaces the old one.
     Resent(Box<RunResultRow>),
     /// The response is an event stream: headers arrived, events follow. `started_at_ms` is the
     /// response's `StreamEnd.started_at_ms` (field stays snake_case, like `SseEvent`).
@@ -314,7 +314,7 @@ pub struct InputRequest {
     /// Set when a session's sign-in asks: which scenario and how far it got.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub session: Option<session_run::SessionPrompt>,
-    /// The step before this one («Send OTP»), which «Отправить заново» runs again: it is what
+    /// The step before this one («Send OTP»), which “Resend” runs again: it is what
     /// sent the code. None on a first step and for a single Send.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub resend: Option<String>,
@@ -496,7 +496,7 @@ pub async fn call_grpc(
 }
 
 /// The requests under each of `ids` (a folder, a request, or `fs:` for everything), in
-/// tree order, each once, with effective auth (own or the folder's) — ready for `RunPlan`.
+/// tree order, each once, with effective auth and scripts (own and the folders') — ready for `RunPlan`.
 pub fn plan_requests(tree: &[TreeNode], ids: &[String]) -> Result<Vec<RequestNode>, String> {
     fn collect(nodes: &[TreeNode], out: &mut Vec<RequestNode>) {
         for node in nodes {
@@ -530,15 +530,7 @@ pub fn plan_requests(tree: &[TreeNode], ids: &[String]) -> Result<Vec<RequestNod
         }
     }
     for node in &mut out {
-        let auth = request_prep::effective_auth(tree, &node.id, node.request.auth.as_ref());
-        node.request.auth = Some(auth);
-        if let Some(grpc) = node.grpc.as_mut() {
-            grpc.auth = Some(request_prep::effective_auth(
-                tree,
-                &node.id,
-                grpc.auth.as_ref(),
-            ));
-        }
+        request_prep::apply_inheritance(tree, node);
     }
     Ok(out)
 }
@@ -577,7 +569,7 @@ pub async fn run_collection<T: Transport>(
                 method: display_method(node),
             });
             let start_offset = iteration_start.elapsed().saturating_sub(idle);
-            // Time this step waited for a person, over every «Отправить заново» round.
+            // Time this step waited for a person, over every “Resend” round.
             let mut waited_here = Duration::ZERO;
             let step = loop {
                 let before = j.checked_sub(1).map(|k| &plan.requests[k]);
@@ -598,7 +590,7 @@ pub async fn run_collection<T: Transport>(
                 let Some(before) = before.filter(|_| step.resend) else {
                     break step;
                 };
-                // «Отправить заново»: the step that sent the code runs again, then the form returns.
+                // “Resend”: the step that sent the code runs again, then the form returns.
                 emit(RunEvent::Call {
                     node_id: before.id.clone(),
                     name: before.name.clone(),

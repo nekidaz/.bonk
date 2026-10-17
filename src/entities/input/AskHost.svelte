@@ -1,6 +1,6 @@
 <script lang="ts">
   /**
-   * The editor's «Спрашивать при отправке»: the right-click menu on a `{{var}}` and, after it, the
+   * The editor's “Ask on send”: the right-click menu on a `{{var}}` and, after it, the
    * field settings popover. Mounted once in the app overlays; `askUi` says which is open.
    */
   import { t } from '$shared/i18n';

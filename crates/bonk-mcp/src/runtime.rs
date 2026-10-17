@@ -577,6 +577,8 @@ impl BonkRuntime {
         let env_name = environment.unwrap_or_default().to_string();
         let (environment, globals, mut secrets) = self.scopes(variables, environment)?;
         let node = RequestNode {
+            content_hash: None,
+            vars: None,
             id: String::new(),
             name: "request".into(),
             protocol: "http".into(),
@@ -626,15 +628,8 @@ impl BonkRuntime {
     ) -> Result<Value, String> {
         let tree = self.tree()?;
         let mut node = self.find_request(id)?;
-        // A request set to `inherit` sends its folder's auth, as in the app.
-        node.request.auth = Some(request_prep::effective_auth(
-            &tree,
-            id,
-            node.request.auth.as_ref(),
-        ));
-        if let Some(grpc) = node.grpc.as_mut() {
-            grpc.auth = Some(request_prep::effective_auth(&tree, id, grpc.auth.as_ref()));
-        }
+        // A request set to `inherit` sends its folder's auth and runs its folders' scripts, as in the app.
+        request_prep::apply_inheritance(&tree, &mut node);
         let named = RunInput {
             name: Some(node.name.clone()),
             ..input.clone()
@@ -868,6 +863,8 @@ impl BonkRuntime {
             keep_auth_on_plaintext: None,
         };
         let node = RequestNode {
+            content_hash: None,
+            vars: None,
             id: String::new(),
             name: "call".into(),
             protocol: "grpc".into(),
@@ -1796,6 +1793,8 @@ mod tests {
         assert!(runtime.delete_node("fs:notes.txt").is_err());
         assert!(workspace.0.join("notes.txt").exists());
         let mut node = RequestNode {
+            content_hash: None,
+            vars: None,
             id: String::new(),
             name: "Health".into(),
             protocol: "http".into(),
@@ -1844,6 +1843,8 @@ mod tests {
             .id
             .expect("folder id");
         let mut node = RequestNode {
+            content_hash: None,
+            vars: None,
             id: String::new(),
             name: "Charge".into(),
             protocol: "http".into(),

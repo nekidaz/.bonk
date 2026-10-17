@@ -4,7 +4,7 @@ import { oauthClock, oauthSpan } from './oauthFormat';
 
 export { oauthClock as sessionClock, oauthSpan as sessionSpan };
 
-/** «ещё 41 мин» / «access обновится при отправке» / «refresh истёк · нужен вход» / «нет сессии». */
+/** “41 min left” / “access renews on send” / “refresh expired · sign in needed” / “no session”. */
 export function sessionStatusText(info: SessionInfo | null | undefined, now: number): string {
   switch (sessionTone(info, now)) {
     case 'ok':

@@ -33,7 +33,7 @@
   let now = $state(Date.now());
   let copiedKey = $state<string | null>(null);
 
-  // Everything open, then «Скрыть старше часа», facets (CT12) and the text filter.
+  // Everything open, then “Hide older than an hour”, facets (CT12) and the text filter.
   const base = $derived(
     utilityUi.issues.filter(
       (x) => (!utilityUi.hideOld || now - x.entry.at < HOUR) && matchesIssueFilter(x, utilityUi.issuesFilter),
@@ -64,7 +64,7 @@
     setTimeout(() => (copiedKey = null), 1200);
   }
 
-  // «2 мин назад» keeps up while the tab is open.
+  // “2 min ago” keeps up while the tab is open.
   $effect(() => {
     const id = setInterval(() => (now = Date.now()), 30_000);
     return () => clearInterval(id);
@@ -227,7 +227,7 @@
               <button
                 type="button"
                 disabled={!g.issues[0].entry.tabId && !g.issues[0].entry.nodeId}
-                onclick={() => openEntry(g.issues[0].entry)}
+                onclick={() => void openEntry(g.issues[0].entry)}
                 ><span class="material-symbols-outlined" aria-hidden="true">open_in_new</span>{t(
                   'util.act.open',
                 )}</button

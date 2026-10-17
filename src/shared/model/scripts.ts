@@ -26,6 +26,17 @@ export const SCRIPTS_ENABLED = true;
 
 export type ScriptPhase = 'pre-request' | 'test';
 
+/**
+ * Join the scripts a request runs (folders root → nearest, then its own). Postman runs each in its
+ * own scope, so when there is more than one, each part gets an IIFE: no `const` clashes, and an
+ * early `return` ends only its own part. Blank parts are dropped. Same as `join_scripts` in
+ * bonk-core's request_prep.rs.
+ */
+export function joinScripts(parts: (string | undefined)[]): string {
+  const present = parts.filter((code): code is string => !!code?.trim());
+  return present.length > 1 ? present.map((code) => `(function () {\n${code}\n})();`).join('\n') : (present[0] ?? '');
+}
+
 /** Parsed shape of the `__out` object the QuickJS `run_script` returns. */
 export interface ScriptResult {
   logs: string[];

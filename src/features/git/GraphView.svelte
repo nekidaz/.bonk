@@ -1,7 +1,7 @@
 <script lang="ts">
   /**
    * G5: the commit graph as a tab — branches in lanes, branch / remote / tag labels, search, All
-   * branches | Current, Fetch, «Ещё N» paging, and the selected commit's details on the right.
+   * branches | Current, Fetch, “N more commits” paging, and the selected commit's details on the right.
    * G6: click selects, ⇧-click a range, ⌘-click toggles; right-click opens the commit menu.
    */
   import { untrack } from 'svelte';

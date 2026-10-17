@@ -17,8 +17,10 @@ import {
   parentId,
   ROOT,
   openWorkspaceFolder,
+  readRequest,
   refreshDirs,
   runWorkspaceOp,
+  scriptFoldersFor,
   workspace,
 } from '$entities/workspace';
 import { grpcPathsToRel, grpcPathsToAbs, httpPathsToRel, httpPathsToAbs } from './protoPaths';
@@ -33,7 +35,7 @@ import { oauthCardKey, oauthRuntime } from './oauth.svelte';
 import { requestRuntime } from './requestRuntime.svelte';
 import { sessionRuntime } from './session.svelte';
 
-/** Save the active tab into folder `folderId` (root if undefined). `asCopy` («Сохранить как…») writes a new file and points the tab at it, leaving the original untouched. */
+/** Save the active tab into folder `folderId` (root if undefined). `asCopy` (“Save As…”) writes a new file and points the tab at it, leaving the original untouched. */
 export async function saveActiveRequest(folderId?: string, name?: string, asCopy = false): Promise<void> {
   let root = workspace.path;
   if (!root) {
@@ -127,18 +129,24 @@ export async function addRequestToFolder(folderId: string | undefined, protocol:
     const newId = await workspaceSaveRequest(root, folderId ? idToRel(folderId) : ROOT, null, node);
     await refreshDirs(folderId);
     const created = findNode(workspace.tree, newId);
-    if (created && created.kind === 'request') openSavedRequest(created);
+    if (created && created.kind === 'request') await openSavedRequest(created);
   });
 }
 
-/** Focus the request's open tab, or open it; `inNewTab` (⌘-click) always opens another tab. */
-export function openSavedRequest(req: RequestNode, inNewTab = false): void {
-  const existing = !inNewTab && tabs.list.find((t) => t.savedPath === req.id);
-  if (existing) {
-    tabs.activeId = existing.id;
-    return;
-  }
-  // Settings → «Открывать запрос в новой вкладке» off: reuse the active saved
+/**
+ * Focus the request's open tab, or open it; `inNewTab` (⌘-click) always opens another tab.
+ * `node` may be a light tree node: the file is read in full first (so a tab open means the content is here).
+ */
+export async function openSavedRequest(node: RequestNode, inNewTab = false): Promise<void> {
+  const focusOpen = (): boolean => {
+    const existing = !inNewTab && tabs.list.find((t) => t.savedPath === node.id);
+    if (existing) tabs.activeId = existing.id;
+    return !!existing;
+  };
+  if (focusOpen()) return;
+  const req = await runWorkspaceOp('openSavedRequest', () => readRequest(node.id));
+  if (!req || focusOpen()) return; // unreadable, or a second click opened it meanwhile
+  // Settings → “Open request in a new tab” off: reuse the active saved
   // request's tab when it has no unsaved changes (scratch tabs are never replaced).
   const current = tabs.active;
   const reuse =
@@ -158,6 +166,7 @@ export function openSavedRequest(req: RequestNode, inNewTab = false): void {
     // so a stale connectionId can't block reconnect after an app restart.
     grpc: grpcPathsToAbs(grpcSnapshot(req.grpc), workspace.path),
     savedPath: req.id,
+    saved: req,
   };
   tabs.update((list) => (reuse ? list.map((t) => (t.id === tab.id ? tab : t)) : [...list, tab]));
   tabs.activeId = tab.id;
@@ -194,7 +203,6 @@ export async function sendHttpRequest(
   const envId = environments.activeId;
   const keepSent = dynKeepSent.current;
   const sentAt = Date.now();
-  if (opts.skipScripts) req = { ...req, preRequestScript: undefined, testScript: undefined };
   const { row, details } = await executeRequest(
     {
       kind: 'request',
@@ -220,6 +228,7 @@ export async function sendHttpRequest(
           t.sseLive ? { ...t, sseLive: { ...t.sseLive, events: [...t.sseLive.events, e] } } : t,
         );
     },
+    { skipScripts: opts.skipScripts },
   );
   const pre = details.pre ? parseScriptResult(JSON.stringify(details.pre)) : undefined;
   const post = details.post ? parseScriptResult(JSON.stringify(details.post)) : undefined;
@@ -280,7 +289,13 @@ export async function sendHttpRequest(
     message: row.error,
     logs: row.logs,
     tests: row.tests,
-    scripted: !!(req.preRequestScript?.trim() || req.testScript?.trim()),
+    scripted:
+      !opts.skipScripts &&
+      !!(
+        req.preRequestScript?.trim() ||
+        req.testScript?.trim() ||
+        scriptFoldersFor(workspace.tree, src?.savedPath).length
+      ),
     title: src?.title,
     nodeId: src?.savedPath,
     tabId,

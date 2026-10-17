@@ -7,6 +7,19 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [Unreleased]
 
 ### Added
+- **Folder scripts**. A folder (collection) can carry a pre-request and a post-response script in its
+  `.folder.bonk.json` («Collection scripts…» in the folder's menu). Every request under the folder runs
+  them before its own, outer folders first, each in its own scope, as in Postman, in the editor, the
+  Collection Runner, `bonk run` and the MCP tools. The request's Scripts tab lists what it inherits
+  (read-only, expandable). «Send without scripts» skips the inherited ones too.
+  - The Postman importer now keeps collection and folder scripts on their folders instead of copying
+    them into every request. A collection whose requests shared a large pre-request script imports
+    into a fraction of the space (one copy per folder instead of one per request), and the app loads it
+    accordingly faster. Postman export writes folder scripts back as folder `event`s.
+  - Collections imported by an earlier version keep their copied scripts and run exactly as before.
+    «Update from spec» leaves request and folder scripts alone (they are yours after import); only a
+    folder the update creates gets the export's scripts. To get the compact layout, import the
+    collection again.
 - **Server-Sent Events**. A response with `Content-Type: text/event-stream` (any status) is read as a
   stream. In the editor the Body tab becomes a live feed: the event name (when it isn't `message`), the id
   and the data with JSON highlighting; filter by text or `$.path`, pause/follow, pick an event. The footer

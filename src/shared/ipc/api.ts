@@ -86,13 +86,13 @@ export type McpMethodPolicy = 'allow' | 'ask' | 'deny';
 
 export interface McpInstallOptions {
   workspace: string;
-  /** «Изменять воркспейс» off */
+  /** “Modify the workspace” off */
   readOnly: boolean;
-  /** «Отправлять запросы» off */
+  /** “Send requests” off */
   noNetwork: boolean;
-  /** «Разрешённые хосты»; empty = any */
+  /** “Allowed hosts”; empty = any */
   targetHosts: string[];
-  /** «Видеть значения секретов» */
+  /** “See secret values” */
   exposeSecrets: boolean;
   /** Names of app environments the AI may use (others denied). */
   environments: string[];
@@ -472,12 +472,21 @@ export function workspaceWatch(root: string, onChange: (change: WorkspaceChange)
 /** Children of folder `dir` ('' = root); subfolders listed in `keep` come back without their children. */
 export const workspaceLoadChildren = (root: string, dir: string, keep: string[]) =>
   invoke<TreeNode[]>('workspace_load_children', { root, dir, keep });
+/** The tree without request bodies, scripts and spec links (`contentHash` + `vars` set): what the sidebar holds. */
+export const workspaceLoadLight = (path: string) => invoke<TreeNode[]>('workspace_load_light', { path });
+export const workspaceLoadChildrenLight = (root: string, dir: string, keep: string[]) =>
+  invoke<TreeNode[]>('workspace_load_children_light', { root, dir, keep });
+/** Full request nodes (with `contentHash`) at workspace-relative paths `rels`; a missing file rejects. */
+export const workspaceReadRequests = (root: string, rels: string[]) =>
+  invoke<RequestNode[]>('workspace_read_requests', { root, rels });
 export const workspaceCreateFolder = (root: string, parent: string, name: string) =>
   invoke<string>('workspace_create_folder', { root, parent, name });
 export const workspaceSaveFolderSource = (root: string, dir: string, source: ImportSource | null) =>
   invoke<void>('workspace_save_folder_source', { root, dir, source });
 export const workspaceSaveFolderAuth = (root: string, dir: string, auth: AuthConfig | null) =>
   invoke<void>('workspace_save_folder_auth', { root, dir, auth });
+export const workspaceSaveFolderScripts = (root: string, dir: string, preRequestScript: string, testScript: string) =>
+  invoke<void>('workspace_save_folder_scripts', { root, dir, preRequestScript, testScript });
 export const workspaceSaveRequest = (root: string, dir: string, existing: string | null, node: RequestNode) =>
   invoke<string>('workspace_save_request', { root, dir, existing, node });
 export const workspaceDelete = (root: string, path: string) => invoke<void>('workspace_delete', { root, path });
@@ -533,7 +542,7 @@ export const cookiesAdd = (workspace: string, url: string, setCookie: string) =>
   invoke<void>('cookies_add', { workspace, url, setCookie });
 export const cookiesRemove = (workspace: string, domain: string, path: string, name: string) =>
   invoke<boolean>('cookies_remove', { workspace, domain, path, name });
-/** «Хранить между запусками» changed: re-save the jar with or without its session cookies. */
+/** “Keep across restarts” changed: re-save the jar with or without its session cookies. */
 export const cookiesKeepSession = (workspace: string, keep: boolean) =>
   invoke<void>('cookies_keep_session', { workspace, keep });
 /** Remove every cookie of `domain`, or the whole jar when null. */
@@ -687,7 +696,14 @@ export const settingsFileOpenExternal = () => invoke<void>('settings_file_open_e
 
 export const workspaceImportCollection = (
   root: string,
-  collection: { name: string; children: TreeNode[]; auth?: AuthConfig; source?: ImportSource },
+  collection: {
+    name: string;
+    children: TreeNode[];
+    auth?: AuthConfig;
+    source?: ImportSource;
+    preRequestScript?: string;
+    testScript?: string;
+  },
 ) => invoke<string>('workspace_import_collection', { root, collection });
 
 // Session auth: tokens live in the keychain, one session per workspace + environment + sign-in setup.
@@ -695,7 +711,7 @@ export const workspaceImportCollection = (
 export const sessionStatus = (workspaceRoot: string, environments: string[], config: SessionConfig) =>
   invoke<EnvSession[]>('session_status', { workspaceRoot, environments, config });
 /**
- * «Войти» (`signIn`) or «Обновить» (`refresh`) now. The sign-in asks for typed input the way a
+ * “Sign in” (`signIn`) or “Renew” (`refresh`) now. The sign-in asks for typed input the way a
  * send does: an `input` event, answered with `runnerInputAnswer`. Cancel with `cancelRequest`.
  */
 export function sessionRun(
@@ -711,10 +727,10 @@ export function sessionRun(
   channel.onmessage = onEvent;
   return invoke('session_run', { requestId, mode, config, plan, vars, settings, onEvent: channel });
 }
-/** «Выйти»: forget the session of these environments. */
+/** “Sign out”: forget the session of these environments. */
 export const sessionForget = (workspaceRoot: string, environments: string[], config: SessionConfig) =>
   invoke<void>('session_forget', { workspaceRoot, environments, config });
-/** The Runner's «Запомнить вход?»: keep what a finished run of the sign-in caught. `rows` are `[node id, response body]`. */
+/** The Runner's “Remember this sign-in?”: keep what a finished run of the sign-in caught. `rows` are `[node id, response body]`. */
 export const sessionSaveCaught = (
   workspaceRoot: string,
   environment: string,

@@ -4,6 +4,7 @@ import { t } from '$shared/i18n';
 import {
   type InputAnswer,
   type InputRequest,
+  type RequestNode,
   type Tab,
   type RunResultRow,
   type RunStatus,
@@ -19,7 +20,16 @@ import {
   scenariosDelete,
   type RunVarWrites,
 } from '$shared/ipc';
-import { findNode, idToRel, parentId, ROOT, refreshDirs, workspace } from '$entities/workspace';
+import {
+  findNode,
+  idToRel,
+  parentId,
+  readRequest,
+  readRequests,
+  ROOT,
+  refreshDirs,
+  workspace,
+} from '$entities/workspace';
 import {
   pushHistory,
   pushRecord,
@@ -222,7 +232,7 @@ export function setRunnerStage(stage: RunnerStage): void {
   syncRunnerTabTitle();
 }
 
-/** Tree context menu "Запустить в Runner": scope to the folder and open its setup (R2). */
+/** Tree context menu “Run in Runner”: scope to the folder and open its setup (R2). */
 export function runInRunner(folderId: string): void {
   setRunnerFolders([folderId]);
   runner.stage = 'setup';
@@ -259,7 +269,7 @@ export function setRunOrder(orderIds: string[]): void {
   runner.updateConfig((c) => ({ ...c, orderIds }));
   persistConfig();
 }
-/** R2 «+ Запрос»: add a request from anywhere in the workspace to the end of the run. */
+/** R2 “+ Request”: add a request from anywhere in the workspace to the end of the run. */
 export function addRunnerRequest(id: string): void {
   runner.updateConfig((c) => withRequestAdded(c, id, workspace.tree));
   persistConfig();
@@ -276,7 +286,7 @@ export function moveRunnerRequest(order: string[], id: string, delta: -1 | 1): v
   runner.updateConfig((c) => withRequestMoved(c, order, id, delta));
   persistConfig();
 }
-/** R1 «Собрать из запросов»: start a new run from one request; R2 adds the rest. */
+/** R1 “Build from requests”: start a new run from one request; R2 adds the rest. */
 export function composeFrom(id: string): void {
   setRunnerFolders([id]);
   setRunnerStage('setup');
@@ -442,7 +452,7 @@ function waitForInput(request: InputRequest): void {
     ...r,
     waiting: { request, since: Date.now() },
     retries: request.attempt > 1 ? r.retries + 1 : r.retries,
-    // A wrong value leaves the same code alive; the first try, or one after «Отправить заново», is a new code.
+    // A wrong value leaves the same code alive; the first try, or one after “Resend”, is a new code.
     codeAt:
       request.attempt > 1 && r.codeAt?.nodeId === request.nodeId
         ? r.codeAt
@@ -473,7 +483,7 @@ function onRunEvent(e: RunEvent): void {
     }));
   else if (e.kind === 'input') waitForInput(e);
   else if (e.kind === 'resent') {
-    // «Отправить заново» ran the step before again: its new row replaces the old one, the count stays.
+    // “Resend” ran the step before again: its new row replaces the old one, the count stays.
     const { kind: _kind, ...row } = e;
     runner.updateRun((r) => ({
       ...r,
@@ -501,7 +511,7 @@ function pushRow(row: RunResultRow): void {
   logRow(row);
 }
 
-/** Flow · Консоль: Runner sends share the request feed. */
+/** Flow · Console: Runner sends share the request feed. */
 function logRow(row: RunResultRow): void {
   addAppConsoleEntry({
     protocol: row.protocol,
@@ -589,14 +599,14 @@ export function viewRun(n: number): void {
 /** The live run's id in the Rust runner (pause / stop). */
 let runId = '';
 
-/** R3 "Пауза" / "Продолжить": the run halts before its next call. */
+/** R3 “Pause” / “Resume”: the run halts before its next call. */
 export function togglePause(): void {
   if (runner.run.status !== 'running') return;
   runner.updateRun((r) => ({ ...r, paused: !r.paused }));
   void runnerPause(runId, runner.run.paused);
 }
 
-/** R3 "Остановить": the call in flight finishes, nothing after it is sent. */
+/** R3 “Stop”: the call in flight finishes, nothing after it is sent. */
 export function stopRun(): void {
   if (runner.run.status === 'running') void runnerStop(runId);
 }
@@ -622,11 +632,20 @@ export async function runCollection(): Promise<void> {
     setRunnerStage('setup');
     return;
   }
-  const requests = plannedRequests(config, workspace.tree);
+  const planned = plannedRequests(config, workspace.tree);
   const n = (runner.history.at(-1)?.n ?? 0) + 1;
-  if (requests.length === 0) {
+  if (planned.length === 0) {
     // Nothing to run — surface an empty "done" so the summary/empty state shows.
     runner.run = { ...DEFAULT_RUN, status: 'done', results: [], startedAt: Date.now(), finishedAt: Date.now() };
+    return;
+  }
+  // The tree holds light nodes: the runner gets the files.
+  let requests: RequestNode[];
+  try {
+    requests = await readRequests(planned.map((r) => r.id));
+  } catch (e) {
+    runner.error = String(e);
+    setRunnerStage('setup');
     return;
   }
 
@@ -684,8 +703,9 @@ async function rerunRows(rows: RunResultRow[]): Promise<void> {
   const config = runner.config;
   runner.updateRun((r) => ({ ...r, status: 'running' }));
   for (const [k, old] of rows.entries()) {
-    const node = old.nodeId ? findNode(workspace.tree, old.nodeId) : undefined;
-    if (node?.kind !== 'request') continue;
+    const light = old.nodeId ? findNode(workspace.tree, old.nodeId) : undefined;
+    const node = light?.kind === 'request' ? await readRequest(light.id).catch(() => undefined) : undefined;
+    if (!node) continue;
     const fresh = await runOne(node, old.iteration, config.dataRows[old.iteration - 1] ?? {}, {
       dynamic: runner.activeScenario?.dynamic,
       variables: runner.variables ?? runner.activeScenario?.variables,
@@ -701,27 +721,30 @@ async function rerunRows(rows: RunResultRow[]): Promise<void> {
   persistRecord();
 }
 
-/** "Перезапустить упавшие": re-run only the failed calls of the current run. */
+/** “Rerun failed”: re-run only the failed calls of the current run. */
 export function rerunFailed(): Promise<void> {
   return rerunRows(runner.run.results.filter((r) => !r.ok));
 }
 
-/** "Повторить": re-run one call. */
+/** “Retry”: re-run one call. */
 export function rerunCall(rowId: string): Promise<void> {
   return rerunRows(runner.run.results.filter((r) => r.id === rowId));
 }
 
 /**
- * "Брать id из …": the source request's test script stores its response `id`
+ * “Take id from …”: the source request's test script stores its response `id`
  * in `{{varName}}` (active environment, else globals), and the failing
  * request's URL uses that variable instead of the hard-coded literal.
  */
 export async function bindIdFrom(targetNodeId: string, b: IdBinding): Promise<boolean> {
   const root = workspace.path;
-  const tree = workspace.tree;
-  const src = b.sourceNodeId ? findNode(tree, b.sourceNodeId) : undefined;
-  const dst = findNode(tree, targetNodeId);
-  if (!root || src?.kind !== 'request' || dst?.kind !== 'request') return false;
+  if (!root || !b.sourceNodeId) return false;
+  let src: RequestNode, dst: RequestNode;
+  try {
+    [src, dst] = await readRequests([b.sourceNodeId, targetNodeId]); // the tree nodes have no scripts
+  } catch {
+    return false;
+  }
   const nodes = bindIdNodes(src, dst, b, !!environments.activeId);
   try {
     for (const node of nodes) {

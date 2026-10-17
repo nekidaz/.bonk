@@ -5,7 +5,7 @@ import type { CookieChange, CookieInfo, ResponseCookie } from '$shared/model';
 export interface DomainGroup {
   domain: string;
   count: number;
-  /** localhost / an IP: drawn with a computer icon, kept by «Оставить cookies localhost». */
+  /** localhost / an IP: drawn with a computer icon, kept by “Keep localhost cookies”. */
   local: boolean;
 }
 
@@ -23,7 +23,7 @@ export function domainGroups(list: CookieInfo[], query = ''): DomainGroup[] {
   return [...counts].map(([domain, count]) => ({ domain, count, local: isLocalDomain(domain) }));
 }
 
-/** An i18n key (+ params) for the «Истекает» column: Сессия · через 28 мин · через 2 ч · через 30 дн · 12.10.2027 · истекла. */
+/** An i18n key (+ params) for the “Expires” column: Session · in 28 min · in 2 h · in 30 d · 12.10.2027 · expired. */
 export function expiryLabel(
   c: Pick<CookieInfo, 'expiresMs' | 'expired'>,
   now: number,
@@ -59,7 +59,7 @@ export interface CookieDraft {
   sameSite: SameSite | null;
   /** No Domain attribute: only this exact host gets it. */
   hostOnly: boolean;
-  /** «Через…» in the expiry picker: Max-Age seconds, sent instead of Expires. */
+  /** “In…” in the expiry picker: Max-Age seconds, sent instead of Expires. */
   maxAge?: number | null;
 }
 

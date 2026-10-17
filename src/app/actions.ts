@@ -9,9 +9,11 @@ import {
   findNode,
   importWindow,
   parentId,
+  readRequest,
   removeNode,
   renameNode,
   revealNode,
+  runWorkspaceOp,
   withInheritedAuth,
   workspace,
 } from '$entities/workspace';
@@ -87,6 +89,10 @@ export function nodeAuth(): void {
   shell.authFolderId = shell.menu.nodeId;
   shell.closeMenu();
 }
+export function nodeScripts(): void {
+  shell.scriptsFolderId = shell.menu.nodeId;
+  shell.closeMenu();
+}
 export function nodeMove(): void {
   shell.moveSourceId = shell.menu.nodeId;
   shell.moveOpen = true;
@@ -99,12 +105,14 @@ export function addReq(p: RequestProtocol): void {
 export function nodeOpen(): void {
   const n = shell.menu.nodeId ? findNode(workspace.tree, shell.menu.nodeId) : undefined;
   shell.closeMenu();
-  if (n?.kind === 'request') openSavedRequest(n);
+  if (n?.kind === 'request') void openSavedRequest(n);
 }
-export function nodeCopyCurl(): void {
-  const n = shell.menu.nodeId ? findNode(workspace.tree, shell.menu.nodeId) : undefined;
+export async function nodeCopyCurl(): Promise<void> {
+  const id = shell.menu.nodeId;
   shell.closeMenu();
-  if (n?.kind !== 'request') return;
+  if (!id || findNode(workspace.tree, id)?.kind !== 'request') return;
+  const n = await runWorkspaceOp('nodeCopyCurl', () => readRequest(id)); // the tree node has no body
+  if (!n) return;
   const tab = { id: n.id, protocol: 'http' as const, title: n.name, request: n.request, params: n.params };
   void navigator.clipboard.writeText(toCurl(withInheritedAuth(tab, n.id), currentVarScope(true)));
 }
@@ -153,18 +161,18 @@ export function importOpenApi(): void {
   importWindow.open();
 }
 export const importFrom = (): void => importOpenApi();
-// «Обновить из спецификации» on a collection made by import (IM8).
+// “Update from the spec” on a collection made by import (IM8).
 export function updateFromSpec(folderId: string): void {
   shell.closeMenu();
   importWindow.open({ update: folderId });
 }
-// IM7: the toast with the result; «Открыть» opens the first imported request.
+// IM7: the toast with the result; “Open” opens the first imported request.
 export function importDone(r: ImportResult): void {
   const env = r.envs.created.length ? ` · ${t('import.done.env', { names: r.envs.created.join(', ') })}` : '';
   const first = r.first;
   shell.showToast({
     text: `${t('import.done', { n: `${r.requests} ${tp(r.requests, ['request', 'requests'])}`, name: r.name })}${env}`,
-    ...(first ? { action: { label: t('import.done.open'), run: () => openSavedRequest(first) } } : {}),
+    ...(first ? { action: { label: t('import.done.open'), run: () => void openSavedRequest(first) } } : {}),
   });
 }
 export function importUpdated(name: string, n: number): void {
@@ -278,7 +286,7 @@ export async function smartSave(): Promise<void> {
   }
   if (!active || (active.protocol !== 'http' && active.protocol !== 'grpc')) return;
   if (active.savedPath) {
-    const prev = findNode(workspace.tree, active.savedPath);
+    const prev = active.saved; // the file as it was before this save (the tree node has no body)
     const folder = parentId(active.savedPath);
     try {
       await saveActiveRequest(folder, active.title);
@@ -289,7 +297,7 @@ export async function smartSave(): Promise<void> {
             (folder && findNode(workspace.tree, folder)?.name) ||
             (workspace.path.split('/').filter(Boolean).at(-1) ?? t('app.toast.workspace')),
         }),
-        undo: prev?.kind === 'request' ? () => void restoreSavedRequest(prev) : undefined,
+        undo: prev ? () => void restoreSavedRequest(prev) : undefined,
       });
     } catch (err) {
       console.error('workspace: smartSave failed', err);

@@ -1,7 +1,7 @@
 <script lang="ts">
   /**
-   * The field settings of an «ask on send» variable (Flow · Сценарий с вводом OT1 / IN1): a short form
-   * for the common case (label + format) and every setting of the type behind «Все настройки».
+   * The field settings of an «ask on send» variable (Flow · Scenario with input OT1 / IN1): a short form
+   * for the common case (label + format) and every setting of the type behind “All settings”.
    * Edits save at once; the typed value itself is never stored.
    */
   import { untrack } from 'svelte';

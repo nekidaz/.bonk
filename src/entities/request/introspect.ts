@@ -33,7 +33,7 @@ export async function introspectHttp(tab: Tab, query: string, inputMode: 'wait' 
     undefined,
     undefined,
     undefined,
-    { inputMode, applyVars: false },
+    { inputMode, applyVars: false, skipScripts: true },
   );
   if (!details.response) throw new Error(row.error ?? 'no response');
   return details.response;

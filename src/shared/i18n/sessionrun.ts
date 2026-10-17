@@ -1,4 +1,4 @@
-// Session auth, the parts that show up outside the Authorization tab: the Runner's «Запомнить вход?» card,
+// Session auth, the parts that show up outside the Authorization tab: the Runner's “Remember this sign-in?” card,
 // the sign-in prompt of a send, the response area while a send waits for the code.
 export const en = {
   'sessionrun.runner.passed': 'Scenario passed',

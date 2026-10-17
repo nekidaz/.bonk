@@ -40,7 +40,7 @@ const TRANSLATE = [
     'в Create refund и Issue token — повторная отправка не создаёт второй возврат.',
     'on Create refund and Issue token — a retried request no longer creates a second refund.',
   ],
-  // Flow · Сценарий с вводом and Flow · Сессия (the shim's «ask on send» fields and sandbox session).
+  // Flow · Scenario with input and Flow · Session (the shim's «ask on send» fields and sandbox session).
   ['Код из SMS', 'SMS code'],
   ['отправлен на', 'sent to'],
   ['Подтвердить списание?', 'Confirm the charge?'],

@@ -38,6 +38,7 @@
     onDuplicate,
     onMove,
     onAuth,
+    onScripts,
     onDelete,
     onCopyCurl,
     onImportCurl,
@@ -52,7 +53,7 @@
   }: {
     menu: AppMenuState;
     closeMenu: () => void;
-    /** Active request tab: the protocol menu checks its type, the ⋯ menu enables «Сбросить» by its dirty state. */
+    /** Active request tab: the protocol menu checks its type, the ⋯ menu enables “Reset” by its dirty state. */
     tab: Tab | undefined;
     /** Folder of the active saved request: the create menu adds next to it. */
     folderName: string | undefined;
@@ -68,6 +69,7 @@
     onDuplicate: () => void;
     onMove: () => void;
     onAuth: () => void;
+    onScripts: () => void;
     onDelete: () => void;
     onCopyCurl: () => void;
     onImportCurl: () => void;
@@ -141,7 +143,7 @@
   }
 
   function openRequest(): void {
-    if (node?.kind === 'request') openSavedRequest(node);
+    if (node?.kind === 'request') void openSavedRequest(node);
     closeMenu();
   }
 </script>
@@ -271,6 +273,7 @@
             runInRunner(id);
           })}
           {@render item('lock', t('nav.menu.collAuth'), onAuth)}
+          {@render item('code', t('nav.menu.collScripts'), onScripts)}
           {#if node?.kind === 'folder' && node.source}
             {@render item('sync', t('nav.menu.updateFromSpec'), () => onUpdateFromSpec(node.id))}
           {/if}

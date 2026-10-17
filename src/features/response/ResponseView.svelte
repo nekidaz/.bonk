@@ -101,7 +101,7 @@
     testResults?.errorPhase === 'pre' &&
       (tab?.protocol === 'grpc' ? !tab.grpcResult : !!tab?.response && tab.response.status === 0),
   );
-  /** SC4: the last value each variable got from the scripts, for «Скрипт обновил окружение». */
+  /** SC4: the last value each variable got from the scripts, for “The script updated the environment”. */
   const varWrites = $derived.by(() => {
     const last = new Map<string, { key: string; value: string; globals: boolean }>();
     for (const e of testResults?.events ?? [])
@@ -1373,7 +1373,7 @@
       margin-left: auto;
     }
 
-    /* One line, as in Flow · Размеры окна: of the body controls only Copy stays; expanding is still on its hotkey. */
+    /* One line, as in Flow · Window sizes: of the body controls only Copy stays; expanding is still on its hotkey. */
     :global(.bs-stpill) .lb-reason {
       display: none;
     }
@@ -1428,7 +1428,7 @@
     padding: 4px 0;
     color: var(--t3);
   }
-  /* SC4: «Скрипт обновил окружение» pinned under the checks. */
+  /* SC4: “The script updated the environment” pinned under the checks. */
   .bs-env-written {
     flex: none;
     margin-top: auto;

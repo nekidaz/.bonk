@@ -1,6 +1,6 @@
 import type { RequestNode, TreeNode } from '$shared/model';
-import { openapiExportSave } from '$shared/ipc';
-import { findNode } from './tree';
+import { openapiExportSave, workspaceLoadChildren } from '$shared/ipc';
+import { findNode, idToRel } from './tree';
 import { buildOpenApi, serializeSpec, type ExportFolder } from './openapi';
 import { workspace } from './store.svelte';
 import { environments } from '$entities/environment';
@@ -50,8 +50,10 @@ function collectHttpRequests(
  * common URL prefix is derived by the builder.
  */
 export async function exportOpenApiFolder(folderId: string, format: 'json' | 'yaml'): Promise<void> {
-  const node = findNode(workspace.tree, folderId);
-  if (!node || node.kind !== 'folder') return;
+  const light = findNode(workspace.tree, folderId);
+  if (!light || light.kind !== 'folder') return;
+  // The tree's request nodes have no bodies: read the folder in full.
+  const node = { ...light, children: await workspaceLoadChildren(workspace.path, idToRel(folderId), []) };
 
   const { folders, grpcSkipped } = collectHttpRequests(node, null);
   if (grpcSkipped > 0) {

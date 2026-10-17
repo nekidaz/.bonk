@@ -1,4 +1,4 @@
-// Settings → Variables (Flow · Динамические переменные, DV5): how {{$dynamic}} values are generated.
+// Settings → Variables (Flow · Dynamic variables, DV5): how {{$dynamic}} values are generated.
 import { setting } from '$shared/persist';
 import type { DynamicOptions } from '$shared/model';
 

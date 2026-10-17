@@ -9,7 +9,7 @@
   import { closeSessions, sessionRuntime } from '$entities/request';
   import { AskHost } from '$entities/input/components';
   import { applyPreset, openRunnerTab, runner } from '$features/runner';
-  import { MoveDialog, FolderAuthDialog } from '$features/sidebar/components';
+  import { MoveDialog, FolderAuthDialog, FolderScriptsDialog } from '$features/sidebar/components';
   import { SettingsModal } from '$features/settings/components';
   import { openSettingsFileTab } from '$features/settings';
   import { CookieJarSheet } from '$features/cookie-jar/components';
@@ -36,6 +36,7 @@
     newFolderHere,
     newRequestHere,
     nodeAuth,
+    nodeScripts,
     nodeCopyCurl,
     nodeDelete,
     nodeDuplicate,
@@ -122,6 +123,7 @@
   onDuplicate={nodeDuplicate}
   onMove={nodeMove}
   onAuth={nodeAuth}
+  onScripts={nodeScripts}
   onDelete={nodeDelete}
   onCopyCurl={nodeCopyCurl}
   onImportCurl={() => void importCurlFromClipboard()}
@@ -172,11 +174,12 @@
 <CommandPalette bind:open={shell.paletteOpen} commands={paletteCommands} />
 
 <MoveDialog bind:open={shell.moveOpen} sourceId={shell.moveSourceId ?? ''} />
+<FolderScriptsDialog bind:folderId={shell.scriptsFolderId} />
 <FolderAuthDialog
   bind:folderId={shell.authFolderId}
   onSaved={(text) => shell.showToast({ text })}
   onOpenRunner={(name) => {
-    // Flow · Сессия: the sign-in scenario's setup, in the environment the session is kept for.
+    // Flow · Session: the sign-in scenario's setup, in the environment the session is kept for.
     const preset = runner.presets.find((p) => p.name === name);
     openRunnerTab();
     if (preset) applyPreset({ ...preset, envId: environments.activeId });

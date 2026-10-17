@@ -4,7 +4,7 @@
   import type { AuthType } from '$shared/model';
 
   // OA1: the auth type picker. Not a native <select>: macOS draws that menu itself, without the
-  // icons, the «новое» mark and the hints of OAuth and Session. The menu lives in <body> (rows clip what overflows).
+  // icons, the “new” mark and the hints of OAuth and Session. The menu lives in <body> (rows clip what overflows).
   let {
     options,
     value,

@@ -1,6 +1,6 @@
 <script lang="ts">
   // IM4/IM5/IM9: what the import will create, with the options that shape it. Nothing is written
-  // until «Импортировать».
+  // until “Import”.
   import { untrack } from 'svelte';
   import { readOpenApi, type SpecWarning } from '$entities/workspace';
   import { environments } from '$entities/environment';
@@ -177,6 +177,7 @@
         name: name.trim() || plan.title,
         items: kept,
         collectionAuth: spec && collectionAuth ? plan.collectionAuth : undefined,
+        collectionScripts: plan.collectionScripts,
         envRows: plan.envRows,
         targets,
         source,

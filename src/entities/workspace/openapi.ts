@@ -460,7 +460,9 @@ export function readOpenApi(doc: Doc, fileName: string, opts: OpenApiOptions = O
         (typeof operation.summary === 'string' && operation.summary) ||
         (typeof operation.operationId === 'string' && operation.operationId) ||
         `${upper} ${path}`;
-      const key = (typeof operation.operationId === 'string' && operation.operationId) || `${upper} ${path}`;
+      // operationId must be unique, but real specs repeat it; a repeat falls back to `METHOD path`.
+      const id = typeof operation.operationId === 'string' && operation.operationId;
+      const key = id && !ops.some((o) => o.key === id) ? id : `${upper} ${path}`;
 
       const headers: Record<string, string> = {};
       const params: Param[] = [];

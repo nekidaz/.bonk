@@ -94,7 +94,7 @@ export function layoutGraph(commits: GraphNodeInput[]): LaneRow[] {
   });
 }
 
-/** Initials for the author avatar: «Дилмурат З.» → «ДЗ», «aru» → «A». */
+/** Initials for the author avatar: “Jane Doe” → “JD”, “aru” → “A”. */
 export function initials(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean);
   return parts

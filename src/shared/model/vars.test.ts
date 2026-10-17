@@ -27,6 +27,11 @@ describe('countRequestsUsingVars', () => {
     expect(countRequestsUsingVars(tree, ['nope', ''])).toBe(0);
     expect(countRequestsUsingVars(tree, [])).toBe(0);
   });
+  it('trusts a tree node’s own `vars` list (its body stayed on disk)', () => {
+    const light: TreeNode[] = [{ ...req('a', '/x'), vars: ['bodyVar'] }];
+    expect(countRequestsUsingVars(light, ['bodyVar'])).toBe(1);
+    expect(countRequestsUsingVars(light, ['x'])).toBe(0);
+  });
 });
 
 describe('mergeScope redactSecrets', () => {

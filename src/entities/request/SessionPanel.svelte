@@ -42,8 +42,8 @@
   import StatusCard from './StatusCard.svelte';
   import AuthInput from './AuthInput.svelte';
 
-  // Flow · Сессия SE2: the session card of the selected environment, the setup at a glance, and the
-  // settings under «Настройки» (open while the setup cannot sign in yet). Collection level only.
+  // Flow · Session SE2: the session card of the selected environment, the setup at a glance, and the
+  // settings under “Settings” (open while the setup cannot sign in yet). Collection level only.
   let {
     auth,
     onChange,
@@ -55,14 +55,14 @@
   }: {
     auth: AuthConfig;
     onChange: (a: AuthConfig) => void;
-    /** The collection it is set on, for «Все сессии» and the toast. */
+    /** The collection it is set on, for “All sessions” and the toast. */
     where: string;
     configOpen?: boolean;
     /** Settings fold into the Type row once the setup can sign in. */
     folded?: boolean;
     /** A sign-in from the card finished: the app shows a toast. */
     onSaved?: (text: string) => void;
-    /** «Открыть в Runner»: the app opens the sign-in scenario there. */
+    /** “Open in Runner”: the app opens the sign-in scenario there. */
     onOpenRunner?: (scenario: string) => void;
   } = $props();
 
@@ -299,7 +299,7 @@
   {/if}
 
   {#if !showConfig}
-    <!-- The setup at a glance (read-only; «Настройки» on the Type row edits it). -->
+    <!-- The setup at a glance (read-only; “Settings” on the Type row edits it). -->
     <AuthCard class="details se-details">
       <div class="row">
         <span class="lbl">{t('session.d.login')}</span>

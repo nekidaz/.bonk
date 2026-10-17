@@ -23,6 +23,7 @@ import {
 import { openSettingsFileTab } from '$features/settings';
 import { checkForUpdate } from '$shared/updater';
 import { inputs, watchInputs } from '$entities/input';
+import { watchSavedCopies } from '$entities/request';
 import { watchWorkspaceFiles, workspace } from '$entities/workspace';
 import { runner, watchRunnerWorkspace } from '$features/runner';
 import { layout } from './layout.svelte';
@@ -47,6 +48,7 @@ export function startApp(): void {
   onDestroy(watchCookieJar());
   onDestroy(watchRunnerWorkspace());
   onDestroy(watchWorkspaceFiles());
+  onDestroy(watchSavedCopies());
   onDestroy(
     watchInputs(
       () => workspace.path,
@@ -62,7 +64,7 @@ export function startApp(): void {
     if (text) untrack(() => shell.showToast({ text, icon: 'error', iconColor: 'var(--color-danger)' }));
   });
 
-  // A rebase finished (with «Отменить») or paused at an `edit`.
+  // A rebase finished (with “Undo”) or paused at an `edit`.
   $effect(() => {
     const n = git.notice;
     if (!n) return;
@@ -86,7 +88,7 @@ export function startApp(): void {
     if (text) untrack(() => shell.showToast({ text, icon: 'error', iconColor: 'var(--color-danger)' }));
   });
 
-  // Settings → Внешний вид: text size shifts the whole type scale (13 = design default),
+  // Settings → Appearance: text size shifts the whole type scale (13 = design default),
   // the code font/size feed --font-code and the editors, density sets row heights.
   $effect(() => {
     const root = document.documentElement;
@@ -117,7 +119,7 @@ export function startApp(): void {
     document.documentElement.style.setProperty('--ui-zoom', String(z));
   });
 
-  // «Как в системе»: track the OS appearance while the setting is on.
+  // “Follow system”: track the OS appearance while the setting is on.
   $effect(() => {
     if (!themeFollowSystem.current) return;
     const mq = matchMedia('(prefers-color-scheme: dark)');
@@ -165,7 +167,7 @@ export function startApp(): void {
     return () => window.removeEventListener('resize', onResize);
   });
 
-  // Silently check for an update shortly after launch (Settings → Общие can turn
+  // Silently check for an update shortly after launch (Settings → General can turn
   // it off); the banner only appears if one is available (failures stay quiet).
   onMount(() => {
     const t = setTimeout(

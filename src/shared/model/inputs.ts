@@ -76,7 +76,7 @@ export function guessInput(name: string): InputDef {
   return newInput('text');
 }
 
-/** Quick «Формат» choices of the first popover: a type, optionally with its size. */
+/** Quick “Format” choices of the first popover: a type, optionally with its size. */
 export const INPUT_FORMATS: { id: string; type: InputKind; length?: number }[] = [
   { id: 'code6', type: 'code', length: 6 },
   { id: 'code4', type: 'code', length: 4 },
@@ -190,9 +190,9 @@ export interface InputRequest {
   maxAttempts: number;
   error?: string;
   last?: InputAttempt;
-  /** Set when a session's sign-in asks: which scenario, how far it got (Flow · Сессия SE5). */
+  /** Set when a session's sign-in asks: which scenario, how far it got (Flow · Session SE5). */
   session?: SessionPrompt;
-  /** The step before this one, which «Отправить заново» runs again (it sent the code). */
+  /** The step before this one, which “Resend” runs again (it sent the code). */
   resend?: string;
 }
 

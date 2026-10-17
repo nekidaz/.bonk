@@ -1,5 +1,5 @@
 /**
- * `{{$dynamic}}` variables in CodeMirror (Flow · Динамические переменные): the `{{` completion
+ * `{{$dynamic}}` variables in CodeMirror (Flow · Dynamic variables): the `{{` completion
  * list (DV1: environment variables, then dynamic ones), the hover card with an example (DV2) and
  * the typo card (DV6). Framework-free like
  * varDecorations.ts, which mounts these next to the `{{var}}` decorations; the host passes callbacks.
@@ -78,7 +78,7 @@ function completions(opts: DynamicUiOptions, query: string, from: number): Compl
   options.push({
     label: t('dyn.ac.all', { n: DYNAMIC_VARS.length }),
     section: { name: t('dyn.ac.footer'), rank: 99 },
-    // The typed `{{$…` goes away: «Вставить» in the dialog puts the whole `{{$name}}` there.
+    // The typed `{{$…` goes away: “Insert” in the dialog puts the whole `{{$name}}` there.
     apply: (view, _c, from, to) => {
       view.dispatch({ changes: { from, to } });
       opts.onOpenCatalog();
@@ -112,7 +112,7 @@ function iconButton(name: string, title: string, onClick: () => void): HTMLButto
 
 const badge = () => el('span', 'cm-dyn-badge', '$');
 
-/** «Did you mean `{{$guid}}`?» under an unresolved `{{guid}}`: badge, name, «Заменить». */
+/** «Did you mean `{{$guid}}`?» under an unresolved `{{guid}}`: badge, name, “Replace”. */
 export function dynamicSuggestionDom(view: EditorView, suggestion: string, from: number, to: number): HTMLElement {
   const row = el('div', 'cm-dyn-tip-example');
   const replace = el('button', 'cm-dyn-tip-btn', t('dyn.tip.replace'));

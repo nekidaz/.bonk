@@ -1,6 +1,6 @@
 /** Open request dialogs; each is `null` when closed. */
 class Dialogs {
-  /** Save-to dialog (folder + name) for the active tab; `copy` = «Сохранить как…». */
+  /** Save-to dialog (folder + name) for the active tab; `copy` = “Save As…”. */
   save = $state.raw<{ copy: boolean; resolve: (saved: boolean) => void } | null>(null);
   /** Production send guard: the request awaiting a typed confirmation. */
   productionGuard = $state.raw<(ProductionSend & { resolve: (ok: boolean) => void }) | null>(null);

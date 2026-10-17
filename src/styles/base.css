@@ -215,8 +215,8 @@ body {
   outline-offset: 2px;
 }
 
-/* Settings → Внешний вид → Плотность. The geometry above is «Стандартно» (S32.5c);
-   «Компактно» (S05) trims chrome so the request and response get the room. Type never changes. */
+/* Settings → Appearance → Density. The geometry above is “Standard” (S32.5c);
+   “Compact” (S05) trims chrome so the request and response get the room. Type never changes. */
 :root[data-density='compact'] .bs {
   padding: 0 8px;
 }

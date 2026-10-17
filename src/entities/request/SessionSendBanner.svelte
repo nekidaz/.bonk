@@ -10,7 +10,7 @@
   import { joinNames, nodeMethod, promptLines, timelineLines } from './sessionView';
   import StatusCard from './StatusCard.svelte';
 
-  // Flow · Сессия SE4/SE5: how the last send of this tab got its token (renewed / signed in again),
+  // Flow · Session SE4/SE5: how the last send of this tab got its token (renewed / signed in again),
   // or, while the send waits for a sign-in code, why and how far the sign-in got.
   let { tab, auth }: { tab: Tab; auth: AuthConfig } = $props();
 

@@ -3,7 +3,7 @@ import { themeDelete } from '$shared/ipc';
 import { customThemes } from './customThemes.svelte';
 import { isDarkTheme, isTheme, theme, themeInfo, type Theme } from './theme.svelte';
 
-/** App preferences from Settings → Общие / Внешний вид (S32.1, S32.5). Self-persisting. */
+/** App preferences from Settings → General / Appearance (S32.1, S32.5). Self-persisting. */
 
 /** What a launch restores: the last open tabs, or an empty window. */
 export const startupOpen = setting<'last' | 'empty'>(
@@ -45,7 +45,7 @@ export const density = setting<Density>(
   'compact',
   (v): v is Density => v === 'compact' || v === 'normal',
 );
-/** «Как в системе»: follow the OS light/dark appearance with the pair below (app/lifecycle.svelte.ts). */
+/** “Follow system”: follow the OS light/dark appearance with the pair below (app/lifecycle.svelte.ts). */
 export const themeFollowSystem = setting('ui.theme.followSystem', 'themeFollowSystem', false);
 export const systemLightTheme = setting<Theme>(
   'ui.theme.light',
@@ -59,7 +59,7 @@ export const systemDarkTheme = setting<Theme>(
   'smooth-dark',
   (v): v is Theme => isTheme(v) && isDarkTheme(v),
 );
-/** An explicit pick (gallery, ⌘K) wins over «Как в системе». */
+/** An explicit pick (gallery, ⌘K) wins over “Follow system”. */
 export function pickTheme(t: Theme): void {
   themeFollowSystem.current = false;
   theme.current = t;
@@ -76,7 +76,7 @@ export async function deleteCustomTheme(slug: string): Promise<void> {
   customThemes.list = customThemes.list.filter((x) => x.slug !== slug);
 }
 
-// Settings → Внешний вид → «Раскладка запроса и ответа» (S32.5b, E1–E7).
+// Settings → Appearance → “Request and response layout” (S32.5b, E1–E7).
 /** stack: request above, response below · side: side by side · focus: the pane in use fills, the other folds into a strip. */
 export type RequestLayout = 'stack' | 'side' | 'focus';
 export const requestLayout = setting<RequestLayout>(
@@ -97,7 +97,7 @@ export const afterSend = setting<AfterSend>(
  *  Off by default so the chosen layout wins; new key because the old `true` default was written to every install. */
 export const sideOnWide = setting('layout.sideBySideWhenWide', 'sideOnWideOptIn', false);
 export const SIDE_BY_SIDE_MIN = 1440;
-/** Arrays longer than this show only their first/last items; the middle folds into a «ещё N объектов» chip. */
+/** Arrays longer than this show only their first/last items; the middle folds into a “N more objects” chip. */
 export const FOLD_ARRAYS_MIN = 5;
 export const FOLD_ARRAYS_MAX = 10_000;
 export const foldArraysOver = setting<number>(

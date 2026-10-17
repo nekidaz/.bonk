@@ -1,3 +1,4 @@
+use super::workspace_watch::note_own_write;
 use crate::domain::http::AuthConfig;
 use crate::domain::workspace::{FolderFile, FolderNode, RequestFile, RequestNode, TreeNode};
 use std::fs;
@@ -29,6 +30,7 @@ pub(super) fn atomic_write(target: &Path, contents: &str) -> Result<(), String> 
 
     fs::write(&tmp, contents).map_err(|e| format!("failed to write {}: {e}", tmp.display()))?;
 
+    note_own_write(target);
     if let Err(e) = fs::rename(&tmp, target) {
         let _ = fs::remove_file(&tmp);
         return Err(format!("failed to write {}: {e}", target.display()));
@@ -52,20 +54,78 @@ pub fn load(root: &str) -> Result<Vec<TreeNode>, String> {
         ));
     }
 
-    load_dir(root, root, &[])
+    load_dir(root, root, &[], false)
+}
+
+/// [`load`] without request bodies, scripts and spec links (`RequestNode::into_light`): what the
+/// sidebar needs, a few MB instead of the whole workspace. `read_requests` gives the full node.
+pub fn load_light(root: &str) -> Result<Vec<TreeNode>, String> {
+    let root = Path::new(root);
+    if !root.exists() {
+        return Ok(vec![]);
+    }
+    if !root.is_dir() {
+        return Err(format!(
+            "workspace root is not a directory: {}",
+            root.display()
+        ));
+    }
+    load_dir(root, root, &[], true)
 }
 
 /// Load the children of folder `dir_rel` (`""` = root) after a change in it. Subfolders whose
 /// ids are in `keep` come back with no children (the caller already has them); the rest load whole.
 pub fn load_children(root: &str, dir_rel: &str, keep: &[String]) -> Result<Vec<TreeNode>, String> {
+    load_children_in(root, dir_rel, keep, false)
+}
+
+/// [`load_children`] with light request nodes (see [`load_light`]).
+pub fn load_children_light(
+    root: &str,
+    dir_rel: &str,
+    keep: &[String],
+) -> Result<Vec<TreeNode>, String> {
+    load_children_in(root, dir_rel, keep, true)
+}
+
+fn load_children_in(
+    root: &str,
+    dir_rel: &str,
+    keep: &[String],
+    light: bool,
+) -> Result<Vec<TreeNode>, String> {
     let dir = resolve(root, dir_rel)?;
     if !dir.is_dir() {
         return Err(format!("not a folder: {}", dir.display()));
     }
-    load_dir(Path::new(root), &dir, keep)
+    load_dir(Path::new(root), &dir, keep, light)
 }
 
-fn load_dir(root: &Path, dir: &Path, keep: &[String]) -> Result<Vec<TreeNode>, String> {
+/// The full nodes of the request files `rels` (workspace-relative paths), with their `content_hash`.
+/// A missing or unreadable file is an error: the caller asked for it by name.
+pub fn read_requests(root: &str, rels: &[String]) -> Result<Vec<RequestNode>, String> {
+    rels.iter()
+        .map(|rel| {
+            let path = resolve(root, rel)?;
+            if !is_request_file(&path) {
+                return Err(format!("not a request file: {rel}"));
+            }
+            let raw = fs::read_to_string(&path).map_err(|e| format!("{rel}: {e}"))?;
+            let file =
+                serde_json::from_str::<RequestFile>(&raw).map_err(|e| format!("{rel}: {e}"))?;
+            let mut node = file.into_node(rel_id(Path::new(root), &path)?);
+            node.content_hash = Some(crate::domain::workspace::file_hash(&raw));
+            Ok(node)
+        })
+        .collect()
+}
+
+fn load_dir(
+    root: &Path,
+    dir: &Path,
+    keep: &[String],
+    light: bool,
+) -> Result<Vec<TreeNode>, String> {
     let mut folders: Vec<TreeNode> = Vec::new();
     let mut requests: Vec<TreeNode> = Vec::new();
 
@@ -92,7 +152,7 @@ fn load_dir(root: &Path, dir: &Path, keep: &[String]) -> Result<Vec<TreeNode>, S
             let children = if keep.contains(&id) {
                 vec![]
             } else {
-                load_dir(root, &path, &[])?
+                load_dir(root, &path, &[], light)?
             };
 
             let settings = read_folder_file(&path);
@@ -103,6 +163,8 @@ fn load_dir(root: &Path, dir: &Path, keep: &[String]) -> Result<Vec<TreeNode>, S
                 expanded: false,
                 auth: settings.auth.map(Box::new),
                 source: settings.source,
+                pre_request_script: settings.pre_request_script,
+                test_script: settings.test_script,
                 children,
             }));
 
@@ -123,9 +185,12 @@ fn load_dir(root: &Path, dir: &Path, keep: &[String]) -> Result<Vec<TreeNode>, S
             continue;
         };
 
-        requests.push(TreeNode::Request(Box::new(
-            file.into_node(rel_id(root, &path)?),
-        )));
+        let node = file.into_node(rel_id(root, &path)?);
+        requests.push(TreeNode::Request(Box::new(if light {
+            node.into_light(&raw)
+        } else {
+            node
+        })));
     }
 
     folders.sort_by_key(|node| node_name(node).to_lowercase());
@@ -189,6 +254,23 @@ pub fn save_folder_source(
     write_folder_file(&directory, &file)
 }
 
+/// Set (or clear, with `None` / an empty string) the scripts every request under `dir_rel` inherits.
+pub fn save_folder_scripts(
+    root: &str,
+    dir_rel: &str,
+    pre_request_script: Option<String>,
+    test_script: Option<String>,
+) -> Result<(), String> {
+    let directory = resolve(root, dir_rel)?;
+
+    ensure_directory(&directory)?;
+
+    let mut file = read_folder_file(&directory);
+    file.pre_request_script = pre_request_script.filter(|code| !code.trim().is_empty());
+    file.test_script = test_script.filter(|code| !code.trim().is_empty());
+    write_folder_file(&directory, &file)
+}
+
 /// Persist the manual order of folder `dir_rel`'s entries (file/dir names, top to bottom).
 pub fn reorder(root: &str, dir_rel: &str, names: Vec<String>) -> Result<(), String> {
     let directory = resolve(root, dir_rel)?;
@@ -206,7 +288,8 @@ pub fn reorder(root: &str, dir_rel: &str, names: Vec<String>) -> Result<(), Stri
 fn write_folder_file(directory: &Path, file: &FolderFile) -> Result<(), String> {
     let path = directory.join(FOLDER_FILE);
 
-    if file.auth.is_none() && file.order.is_empty() && file.source.is_none() {
+    if file.is_empty() {
+        note_own_write(&path);
         return match fs::remove_file(&path) {
             Err(e) if e.kind() != std::io::ErrorKind::NotFound => {
                 Err(format!("failed to remove {}: {e}", path.display()))
@@ -415,6 +498,7 @@ pub fn create_folder(root: &str, parent_rel: &str, name: &str) -> Result<String,
     let name = sanitize(name);
     let directory = unique_path(&parent, &name, "")?;
 
+    note_own_write(&directory);
     fs::create_dir(&directory)
         .map_err(|e| format!("failed to create directory {}: {e}", directory.display()))?;
 
@@ -501,6 +585,7 @@ pub fn save_request(
                 ));
             }
 
+            note_own_write(&old);
             fs::remove_file(&old)
                 .map_err(|e| format!("failed to remove old request {}: {e}", old.display()))?;
         }
@@ -514,6 +599,7 @@ pub fn save_request(
 /// Folder deletion is recursive.
 pub fn delete(root: &str, rel: &str) -> Result<(), String> {
     let path = resolve(root, rel)?;
+    note_own_write(&path);
 
     if path.is_dir() {
         fs::remove_dir_all(&path)
@@ -561,6 +647,8 @@ pub fn rename(root: &str, rel: &str, new_name: &str) -> Result<String, String> {
             desired
         };
 
+        note_own_write(&path);
+        note_own_write(&destination);
         fs::rename(&path, &destination).map_err(|e| {
             format!(
                 "failed to rename directory {} to {}: {e}",
@@ -606,6 +694,7 @@ pub fn rename(root: &str, rel: &str, new_name: &str) -> Result<String, String> {
     atomic_write(&destination, &format!("{output}\n"))?;
 
     if destination != path {
+        note_own_write(&path);
         fs::remove_file(&path)
             .map_err(|e| format!("failed to remove old request {}: {e}", path.display()))?;
         rename_in_order(&path, &destination);
@@ -616,6 +705,7 @@ pub fn rename(root: &str, rel: &str, new_name: &str) -> Result<String, String> {
 
 /// Recursively copy directory `src` into `dst`.
 fn copy_dir(src: &Path, dst: &Path) -> Result<(), String> {
+    note_own_write(dst);
     fs::create_dir_all(dst).map_err(|e| {
         format!(
             "failed to create destination directory {}: {e}",
@@ -630,6 +720,7 @@ fn copy_dir(src: &Path, dst: &Path) -> Result<(), String> {
 
         let from = entry.path();
         let to = dst.join(entry.file_name());
+        note_own_write(&to);
 
         // Skip symlinks (without following them): following a link could copy
         // content from outside the workspace root. Inspect the link itself.
@@ -745,6 +836,8 @@ pub fn move_node(root: &str, rel: &str, dest_dir_rel: &str) -> Result<String, St
         return Err(format!("unsupported node type: {}", source.display()));
     };
 
+    note_own_write(&source);
+    note_own_write(&destination);
     fs::rename(&source, &destination).map_err(|e| {
         format!(
             "failed to move {} to {}: {e}",
@@ -766,6 +859,10 @@ pub struct ImportCollection {
     pub auth: Option<AuthConfig>,
     #[serde(default)]
     pub source: Option<serde_json::Value>,
+    #[serde(default)]
+    pub pre_request_script: Option<String>,
+    #[serde(default)]
+    pub test_script: Option<String>,
 }
 
 /// Persist the whole import or remove its new folder on failure. Existing
@@ -779,6 +876,7 @@ pub fn import_collection(root: &str, collection: ImportCollection) -> Result<Str
                     let id = create_folder(root, parent, &folder.name)?;
                     save_folder_auth(root, &id, folder.auth.map(|auth| *auth))?;
                     save_folder_source(root, &id, folder.source)?;
+                    save_folder_scripts(root, &id, folder.pre_request_script, folder.test_script)?;
                     save(root, &id, folder.children)?;
                     order.push(
                         id.rsplit('/')
@@ -806,6 +904,12 @@ pub fn import_collection(root: &str, collection: ImportCollection) -> Result<Str
     let result = (|| {
         save_folder_auth(root, &id, collection.auth)?;
         save_folder_source(root, &id, collection.source)?;
+        save_folder_scripts(
+            root,
+            &id,
+            collection.pre_request_script,
+            collection.test_script,
+        )?;
         save(root, &id, collection.children)
     })();
     if let Err(error) = result {
@@ -858,6 +962,8 @@ mod tests {
 
     fn request_node(name: &str) -> RequestNode {
         RequestNode {
+            content_hash: None,
+            vars: None,
             id: String::new(),
             name: name.into(),
             protocol: "http".into(),
@@ -1473,6 +1579,26 @@ mod tests {
     }
 
     #[test]
+    fn folder_scripts_round_trip_and_an_empty_file_is_removed() {
+        let root = temp_root();
+        write_request(&root.join("api"), "List");
+        let root_s = root.to_str().unwrap();
+
+        save_folder_scripts(root_s, "fs:api", Some("pre();".into()), Some("  ".into())).unwrap();
+        let TreeNode::Folder(folder) = &load(root_s).unwrap()[0] else {
+            panic!("expected folder");
+        };
+        assert_eq!(folder.pre_request_script.as_deref(), Some("pre();"));
+        assert_eq!(folder.test_script, None);
+        let raw = fs::read_to_string(root.join("api").join(FOLDER_FILE)).unwrap();
+        assert!(raw.contains("\"preRequestScript\""), "{raw}");
+
+        save_folder_scripts(root_s, "fs:api", None, None).unwrap();
+        assert!(!root.join("api").join(FOLDER_FILE).exists());
+        fs::remove_dir_all(root).ok();
+    }
+
+    #[test]
     fn reorder_overrides_alphabetical_and_survives_rename() {
         let root = temp_root();
         for name in ["A", "B", "C"] {
@@ -1508,6 +1634,8 @@ mod tests {
             children,
             auth: None,
             source: None,
+            pre_request_script: Some("pm.environment.set('from', 'collection');".into()),
+            test_script: None,
         };
         import_collection(
             &root.to_string_lossy(),
@@ -1520,6 +1648,10 @@ mod tests {
         };
         assert_eq!(node_name(&folder.children[0]), "z-login");
         assert_eq!(node_name(&folder.children[1]), "a-me");
+        assert!(folder
+            .pre_request_script
+            .as_deref()
+            .is_some_and(|s| s.contains("collection")));
         assert!(import_collection(
             &root.to_string_lossy(),
             make(vec![request("first".into()), request("x".repeat(300))])
@@ -1527,6 +1659,77 @@ mod tests {
         .is_err());
         assert!(!root.join("api 2").exists());
         assert!(root.join("api/z-login.bonk.json").exists());
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn light_load_drops_content_and_keeps_an_etag() {
+        let root = temp_root();
+        fs::create_dir_all(root.join("api")).unwrap();
+        let raw = r#"{
+            "name": "login",
+            "protocol": "http",
+            "request": {
+                "method": "POST",
+                "url": "{{base}}/login",
+                "headers": {"x": "{{token}}"},
+                "body": "{\"user\": \"{{user}}\"}",
+                "preRequestScript": "pm.environment.set('a', 1)",
+                "testScript": "pm.test('ok', () => {})"
+            },
+            "spec": {"op": "login", "base": {}}
+        }"#;
+        fs::write(root.join("api/login.bonk.json"), raw).unwrap();
+        let root_str = root.to_string_lossy().to_string();
+
+        let light = load_light(&root_str).unwrap();
+        let TreeNode::Folder(folder) = &light[0] else {
+            panic!("expected a folder")
+        };
+        let TreeNode::Request(node) = &folder.children[0] else {
+            panic!("expected a request")
+        };
+        assert_eq!(node.request.url, "{{base}}/login");
+        assert_eq!(node.request.headers["x"], "{{token}}");
+        assert!(node.request.body.is_none());
+        assert!(node.request.pre_request_script.is_none());
+        assert!(node.request.test_script.is_none());
+        assert!(node.spec.is_none());
+        assert_eq!(
+            node.vars.as_deref().unwrap(),
+            ["base", "token", "user"].map(String::from)
+        );
+
+        let full = read_requests(&root_str, &["api/login.bonk.json".into()]).unwrap();
+        assert_eq!(full[0].id, node.id);
+        assert_eq!(
+            full[0].request.body.as_deref(),
+            Some(r#"{"user": "{{user}}"}"#)
+        );
+        assert_eq!(full[0].content_hash, node.content_hash);
+        assert!(full[0].vars.is_none());
+
+        fs::write(root.join("api/login.bonk.json"), raw.replace("POST", "PUT")).unwrap();
+        let changed = read_requests(&root_str, &["api/login.bonk.json".into()]).unwrap();
+        assert_ne!(changed[0].content_hash, node.content_hash);
+
+        let children = load_children_light(&root_str, "api", &[]).unwrap();
+        assert_eq!(children.len(), 1);
+        assert!(read_requests(&root_str, &["api/nope.bonk.json".into()]).is_err());
+        assert!(read_requests(&root_str, &["api".into()]).is_err());
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn full_load_is_unchanged() {
+        let root = temp_root();
+        write_request(&root, "a");
+        let tree = load(&root.to_string_lossy()).unwrap();
+        let TreeNode::Request(node) = &tree[0] else {
+            panic!("expected a request")
+        };
+        assert!(node.content_hash.is_none() && node.vars.is_none());
+        assert!(!serde_json::to_string(node).unwrap().contains("contentHash"));
         std::fs::remove_dir_all(root).unwrap();
     }
 }

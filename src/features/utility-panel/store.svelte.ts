@@ -19,9 +19,9 @@ class UtilityUi {
   openGroup = $state<string | null>(null);
   /** CT12: Issues take the whole height, facets on the left (⇧⌘J). */
   expanded = $state(false);
-  /** «Очистить» in Issues hides everything before this moment; the console keeps it. */
+  /** “Clear all” in Issues hides everything before this moment; the console keeps it. */
   clearedAt = $state(0);
-  /** Causes the user muted («Не показывать»). */
+  /** Causes the user muted (“Mute”). */
   muted = $state.raw<ReadonlySet<string>>(new Set());
 
   /** Open failures, oldest first (the footer chip, the Issues tab count). */

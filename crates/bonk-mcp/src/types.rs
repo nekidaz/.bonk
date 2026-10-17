@@ -287,6 +287,8 @@ impl SaveRequestArgs {
             .directory
             .unwrap_or_else(|| self.id.as_deref().map(parent_id).unwrap_or_else(root_id));
         let node = RequestNode {
+            content_hash: None,
+            vars: None,
             id: self.id.clone().unwrap_or_default(),
             name: self.name,
             protocol,

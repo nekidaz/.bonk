@@ -1,5 +1,5 @@
 import type { Scenario } from '$shared/model';
-/** A saved Runner setup (R2 «Сохранить как пресет»): scope, selection, order and run settings. */
+/** A saved Runner setup (R2 “Save to workspace”): scope, selection, order and run settings. */
 export interface RunnerPreset {
   /** Display name; also the identity (saving the same name again updates it). */
   name: string;

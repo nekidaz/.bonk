@@ -1,5 +1,5 @@
 <script lang="ts">
-  /** "Окружения для AI" summary + popover (S32.8): which environments the AI may send requests to. */
+  /** “Environments for AI” summary + popover (S32.8): which environments the AI may send requests to. */
   import { tick } from 'svelte';
   import { t } from '$shared/i18n';
   import {

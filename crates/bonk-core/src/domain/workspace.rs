@@ -78,6 +78,13 @@ pub struct RequestNode {
     /// Opaque to Rust: the frontend owns its shape.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub spec: Option<serde_json::Value>,
+    /// SHA-256 of the file's bytes (an ETag: "did the file change since I read it"). Set by the
+    /// light tree load and `read_requests`; absent on nodes built in memory and never written to disk.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub content_hash: Option<String>,
+    /// Every `{{name}}` the file mentions, for counts over the tree. Light-load nodes only.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub vars: Option<Vec<String>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -92,11 +99,17 @@ pub struct FolderNode {
     /// Where the collection was imported from (`.folder.bonk.json` `source`); opaque to Rust.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub source: Option<serde_json::Value>,
+    /// Folder-level scripts (`.folder.bonk.json`); every request under it runs them before its own.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pre_request_script: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub test_script: Option<String>,
     pub children: Vec<TreeNode>,
 }
 
 /// On-disk shape of a folder's settings file.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct FolderFile {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub auth: Option<AuthConfig>,
@@ -106,6 +119,21 @@ pub struct FolderFile {
     /// Where the collection was imported from, for re-import (IM8). Opaque to Rust.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub source: Option<serde_json::Value>,
+    /// Scripts every request under this folder inherits (Postman's collection/folder scripts).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pre_request_script: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub test_script: Option<String>,
+}
+
+impl FolderFile {
+    pub fn is_empty(&self) -> bool {
+        self.auth.is_none()
+            && self.order.is_empty()
+            && self.source.is_none()
+            && self.pre_request_script.is_none()
+            && self.test_script.is_none()
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -133,6 +161,8 @@ impl RequestFile {
             params: self.params,
             grpc,
             spec: self.spec,
+            content_hash: None,
+            vars: None,
         }
     }
     pub fn from_node(n: &RequestNode) -> RequestFile {
@@ -145,4 +175,32 @@ impl RequestFile {
             spec: n.spec.clone(),
         }
     }
+}
+
+impl RequestNode {
+    /// The sidebar's view of a request: everything but the body, scripts and the imported spec
+    /// (`body`, `graphql_variables`, `body_params`, both scripts, the gRPC message and scripts, `spec`).
+    pub fn into_light(mut self, raw: &str) -> RequestNode {
+        let r = &mut self.request;
+        r.body = None;
+        r.graphql_variables = None;
+        r.body_params = None;
+        r.pre_request_script = None;
+        r.test_script = None;
+        if let Some(g) = self.grpc.as_mut() {
+            g.message = String::new();
+            g.pre_request_script = None;
+            g.test_script = None;
+        }
+        self.spec = None;
+        self.content_hash = Some(file_hash(raw));
+        self.vars = Some(crate::domain::inputs::placeholders(raw));
+        self
+    }
+}
+
+/// SHA-256 of a request file's text, hex.
+pub fn file_hash(raw: &str) -> String {
+    use sha2::Digest;
+    format!("{:x}", sha2::Sha256::digest(raw.as_bytes()))
 }

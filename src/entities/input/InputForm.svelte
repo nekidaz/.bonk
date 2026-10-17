@@ -1,6 +1,6 @@
 <script lang="ts">
   /**
-   * The input card (Flow · Сценарий с вводом IN2 / IN3): one field per «ask on send» variable the step
+   * The input card (Flow · Scenario with input IN2 / IN3): one field per «ask on send» variable the step
    * uses, each drawn for its type. `popover` is the small window by Send, `card` the one in the Runner
    * log. Values are checked before they leave; the backend checks again.
    */
@@ -32,19 +32,19 @@
     request: InputRequest;
     variant?: 'popover' | 'card';
     onsubmit: (values: Record<string, string>) => void;
-    /** The popover's «Отмена». */
+    /** The popover's “Cancel”. */
     oncancel?: () => void;
-    /** The card's «Пропустить шаг». */
+    /** The card's “Skip step”. */
     onskip?: () => void;
-    /** A sign-in popover's primary button (default «Войти и повторить»: the send goes out again). */
+    /** A sign-in popover's primary button (default “Sign in and retry”: the send goes out again). */
     submitLabel?: string;
-    /** The card's «Отправить заново»: run the step before again (offered when the request has `resend`). */
+    /** The card's “Resend”: run the step before again (offered when the request has `resend`). */
     onresend?: () => void;
     /** When the code was sent, ms; the countdown runs from it (default: when the form opened). */
     since?: number;
   } = $props();
 
-  // A session's sign-in (Flow · Сессия SE5): the popover gets a header with the scenario and its steps.
+  // A session's sign-in (Flow · Session SE5): the popover gets a header with the scenario and its steps.
   const session = $derived(variant === 'popover' ? request.session : undefined);
 
   let values = $state<Record<string, string>>({});
@@ -325,7 +325,7 @@
           </div>
         {/if}
         {#if !(session && f.hint)}
-          <!-- Not «В буфере: 482 913»: reading the clipboard from a webview pops a native «Paste» bubble. -->
+          <!-- Not “In clipboard: 482 913”: reading the clipboard from a webview pops a native «Paste» bubble. -->
           <div class="clip">
             <span class="material-symbols-outlined" aria-hidden="true">content_paste</span>
             <span class="t">{t('input.form.pasteHint')}</span>
@@ -997,7 +997,7 @@
   .btn.quiet.resend {
     flex: none;
   }
-  /* The card is narrow: «Отправить заново» and «Продолжить» must fit side by side. */
+  /* The card is narrow: “Resend” and “Continue” must fit side by side. */
   .card footer .btn {
     gap: 4px;
     font-size: var(--font-size-body);

@@ -27,7 +27,7 @@
   }
 
   let uiTab = $state<HttpEditorTab>('params');
-  // «Перейти к строке» from the response opens the Scripts tab; RequestScripts then reveals the line.
+  // “Go to line” from the response opens the Scripts tab; RequestScripts then reveals the line.
   $effect(() => {
     if (scriptUi.jump?.tabId === tab.id) uiTab = 'scripts';
   });

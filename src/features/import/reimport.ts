@@ -23,6 +23,8 @@ export interface Added {
   /** Folder in the collection it goes to (null = the collection itself). */
   folder: string | null;
   folderExists: boolean;
+  /** The plan folder's scripts, written when the update creates the folder. */
+  folderScripts?: { pre: string; test: string };
 }
 
 export interface Changed {
@@ -31,7 +33,7 @@ export interface Changed {
   id: string;
   current: RequestNode;
   merged: RequestNode;
-  /** Short human list: `новый query: created_from`, `тело: +metadata, amount → integer`. */
+  /** Short human list: `new query: created_from`, `body: +metadata, amount → integer`. */
   what: string[];
   /** Body before/after when the spec changed it; `updated` = the user's body follows (they didn't edit it). */
   body?: { before: string; after: string; updated: boolean };
@@ -160,12 +162,12 @@ function linked(folder: FolderNode): Map<string, RequestNode> {
   return out;
 }
 
-/** Which folder of the plan each request sits in (by name; null = top level). */
-function folderOf(items: PlanItem[]): Map<string, string | null> {
-  const out = new Map<string, string | null>();
+/** Which folder of the plan each request sits in (null = top level). */
+function folderOf(items: PlanItem[]): Map<string, PlanFolder | null> {
+  const out = new Map<string, PlanFolder | null>();
   for (const i of items) {
     if (i.kind === 'request') out.set(i.key, null);
-    else for (const r of requestsIn((i as PlanFolder).items)) out.set(r.key, i.name);
+    else for (const r of requestsIn(i.items)) out.set(r.key, i);
   }
   return out;
 }
@@ -180,9 +182,19 @@ export function diffCollection(collection: FolderNode, plan: Plan): Diff {
     seen.add(req.link);
     const cur = existing.get(req.link);
     if (!cur) {
-      const folder = folders.get(req.key) ?? null;
+      const planFolder = folders.get(req.key) ?? null;
+      const folder = planFolder?.name ?? null;
       const folderExists = folder === null || collection.children.some((c) => c.kind === 'folder' && c.name === folder);
-      diff.added.push({ key: req.key, req, folder, folderExists });
+      const scripted = planFolder?.preRequestScript || planFolder?.testScript;
+      diff.added.push({
+        key: req.key,
+        req,
+        folder,
+        folderExists,
+        ...(scripted
+          ? { folderScripts: { pre: planFolder.preRequestScript ?? '', test: planFolder.testScript ?? '' } }
+          : {}),
+      });
       continue;
     }
     const base = cur.spec!.base;

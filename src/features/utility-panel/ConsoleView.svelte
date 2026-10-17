@@ -1,6 +1,6 @@
 <script lang="ts">
-  // Flow · Консоль (CT1–CT3): every send newest first, its logs and tests under the row; a click
-  // opens the request and response as they went; quick filters with an «N из M» counter.
+  // Flow · Console (CT1–CT3): every send newest first, its logs and tests under the row; a click
+  // opens the request and response as they went; quick filters with an “N of M” counter.
   import { tick } from 'svelte';
   import { t } from '$shared/i18n';
   import { HTTP_STATUS_TEXT } from '$shared/model';
@@ -155,7 +155,7 @@
             </section>
           </div>
           <div class="bs-console-actions">
-            <button type="button" disabled={!entry.tabId && !entry.nodeId} onclick={() => openEntry(entry)}
+            <button type="button" disabled={!entry.tabId && !entry.nodeId} onclick={() => void openEntry(entry)}
               ><span class="material-symbols-outlined" aria-hidden="true">open_in_new</span>{t('util.act.open')}</button
             >
             <button type="button" disabled={!entry.tabId && !entry.nodeId} onclick={() => void retryEntry(entry)}

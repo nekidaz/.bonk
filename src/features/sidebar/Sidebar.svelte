@@ -113,6 +113,14 @@
   const slice = $derived(rows.slice(range[0], range[1]));
   const padTop = $derived(offsets[range[0]]);
   const padBottom = $derived(offsets[rows.length] - offsets[range[1]]);
+  // The real scroll position moves without a scroll event: the tree element is recreated when the
+  // Git panel closes, and the browser clamps it when the content gets shorter (an import, a folder
+  // collapsed, History). A stale scrollTop renders rows below the view and leaves it blank.
+  $effect(() => {
+    void panel;
+    void offsets;
+    scrollTop = treeEl?.scrollTop ?? 0;
+  });
 
   // Rendered rows are the row list's only children, in slice order: the gap between two
   // neighbours' tops is the pitch of the first one's kind.
@@ -206,7 +214,7 @@
   // the workspace is a repo subdir, prefix maps one to the other (empty = same).
   const gitPrefixVal = $derived(git.prefix);
 
-  // ---- Drag & drop (Pencil: «Flow · Drag & drop запросов», D1–D6) ----
+  // ---- Drag & drop (Pencil: “Flow · Request drag & drop”, D1–D6) ----
   // Drop on a row's top/bottom edge to place before/after it, on a folder's middle to
   // move into it, on empty tree space to move to the root. ⌥ copies, Esc cancels,
   // hovering a collapsed folder for 0.6 s opens it, a toast offers Undo (⌘Z).
@@ -529,7 +537,7 @@
           }}
           onkeydown={(e) => rowKey(e, n)}
           onclick={(e) => {
-            if (editingNodeId !== n.id) openSavedRequest(n, e.metaKey || e.ctrlKey);
+            if (editingNodeId !== n.id) void openSavedRequest(n, e.metaKey || e.ctrlKey);
           }}
         >
           <span class="bs-mp" style="color:{methodColor(n.protocol === 'grpc' ? 'GRPC' : n.request.method)}"
@@ -768,7 +776,7 @@
     padding: 0 10px;
   }
 
-  /* Drag & drop — Pencil «Flow · Drag & drop запросов» (D1–D5). */
+  /* Drag & drop — Pencil “Flow · Request drag & drop” (D1–D5). */
   :global(.bs) .bs-tree .bs-trow {
     cursor: grab;
   }

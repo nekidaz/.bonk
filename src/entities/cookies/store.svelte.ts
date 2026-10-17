@@ -19,7 +19,7 @@ class CookieJarStore {
   /** The jar file, shown in the window's footer. */
   path = $state('');
   sheetOpen = $state(false);
-  /** Domain the window selects when it opens (from the response's «Открыть банку»). */
+  /** Domain the window selects when it opens (from the response's “Open jar”). */
   focusDomain = $state<string | null>(null);
 
   refresh = async (): Promise<void> => {
@@ -113,7 +113,7 @@ export function watchCookieJar(): () => void {
       void tabs.active?.response;
       void untrack(cookieJar.refresh);
     });
-    // Tell the jar about «Хранить между запусками» as soon as it (or the jar) changes, so the
+    // Tell the jar about “Keep across restarts” as soon as it (or the jar) changes, so the
     // file gains or drops session cookies now rather than on the next request.
     $effect(() => {
       const ws = cookieJarKey();

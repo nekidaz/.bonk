@@ -1,5 +1,7 @@
 export const en = {
   'dialog.auth.title': 'Collection auth · {name}',
+  'dialog.scripts.title': 'Collection scripts · {name}',
+  'dialog.scripts.hint': 'Every request in this folder runs these before its own scripts.',
   'dialog.move.confirm': 'Move',
   'dialog.move.root': 'Workspace root',
   'dialog.move.title': 'Move to folder',
@@ -48,6 +50,7 @@ export const en = {
   'nav.menu.clearHistory': 'Clear history',
   'nav.menu.closeMenu': 'Close menu',
   'nav.menu.collAuth': 'Collection auth…',
+  'nav.menu.collScripts': 'Collection scripts…',
   'nav.menu.runInRunner': 'Run in Runner',
   'nav.menu.copyCurl': 'Copy as cURL',
   'nav.menu.delete': 'Delete',

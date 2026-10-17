@@ -1,7 +1,7 @@
 import { setting } from '$shared/persist';
 import { effectiveBindings, isOverrides } from './hotkeys';
 
-/** User overrides of the default shortcuts (Settings → Хоткеи): command id → binding ('' = cleared). Self-persisting. */
+/** User overrides of the default shortcuts (Settings → Hotkeys): command id → binding ('' = cleared). Self-persisting. */
 export const hotkeyOverrides = setting<Record<string, string>>('keybindings', 'hotkeys', {}, isOverrides);
 
 /** Effective bindings, defaults + overrides: `hotkeys.current[commandId]`. */

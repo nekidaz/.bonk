@@ -1,10 +1,12 @@
-import type { AuthConfig, HttpRequest, TreeNode } from '$shared/model';
+import type { AuthConfig, HttpRequest, RequestNode, TreeNode } from '$shared/model';
 import {
-  workspaceLoad,
-  workspaceLoadChildren,
+  workspaceLoadLight,
+  workspaceLoadChildrenLight,
+  workspaceReadRequests,
   workspacePickFolder,
   workspaceCreateFolder,
   workspaceSaveFolderAuth,
+  workspaceSaveFolderScripts,
   workspaceDelete,
   workspaceRename,
   workspaceDuplicate,
@@ -23,7 +25,10 @@ export const ROOT = '';
 
 /** The open workspace folder (filesystem-as-truth): its path, its tree, and recently opened folders. */
 class Workspace {
-  /** The workspace tree as loaded from disk ([] when no folder is open). Replaced, never mutated. */
+  /**
+   * The workspace tree as loaded from disk ([] when no folder is open). Replaced, never mutated.
+   * Request nodes are light (no body, scripts or spec: see `RequestNode.contentHash`); `readRequest()` reads the file.
+   */
   tree = $state.raw<TreeNode[]>([]);
   /** Absolute path of the open folder; '' when none. */
   path = $state('');
@@ -35,6 +40,14 @@ class Workspace {
   metaRev = $state(0);
 }
 export const workspace = new Workspace();
+
+/** The full request files behind tree nodes `ids`, in order; rejects when one is missing. */
+export function readRequests(ids: string[]): Promise<RequestNode[]> {
+  return workspaceReadRequests(workspace.path, ids.map(idToRel));
+}
+export async function readRequest(id: string): Promise<RequestNode> {
+  return (await readRequests([id]))[0];
+}
 
 /** `x` with collection auth resolved into `request.auth` (id = saved request id); use before building/previewing a send. */
 export function withInheritedAuth<T extends { request: HttpRequest }>(x: T, id: string | undefined): T {
@@ -101,7 +114,7 @@ export async function reloadWorkspace(): Promise<void> {
   if (!path) return;
   // The Rust `load` always returns folders collapsed. Preserve the user's
   // current open folders across the reload instead of collapsing everything.
-  const tree = await workspaceLoad(path);
+  const tree = await workspaceLoadLight(path);
   const expanded = new Map<string, boolean>();
   collectExpanded(workspace.tree, expanded);
   workspace.tree = applyExpanded(tree, expanded);
@@ -136,7 +149,9 @@ export function watchWorkspaceFiles(): () => void {
 function unlinkOrphanTabs(): void {
   const loaded = workspace.tree;
   tabs.update((list) =>
-    list.map((t) => (t.savedPath && !findNode(loaded, t.savedPath) ? { ...t, savedPath: undefined } : t)),
+    list.map((t) =>
+      t.savedPath && !findNode(loaded, t.savedPath) ? { ...t, savedPath: undefined, saved: undefined } : t,
+    ),
   );
 }
 
@@ -146,8 +161,9 @@ let refreshing: Promise<void> = Promise.resolve();
  * After a change on disk inside folders `dirs` (undefined or ROOT = the workspace root), re-read
  * just those folders instead of the whole workspace. Subfolders the tree already has keep their
  * loaded children (Rust doesn't read them); new ones load whole. Deepest first, so a parent then
- * reuses its just-refreshed child. Calls run one at a time, and each splices into the tree as it
- * is when the disk read returns (a folder toggled meanwhile stays toggled).
+ * reuses its just-refreshed child. Calls run one at a time; within a call every folder is read at
+ * once and spliced into the tree as it is when the reads return (a folder toggled meanwhile stays
+ * toggled).
  */
 export function refreshDirs(...dirs: (string | undefined)[]): Promise<void> {
   const run = refreshing.then(() => refreshNow(dirs));
@@ -158,25 +174,41 @@ export function refreshDirs(...dirs: (string | undefined)[]): Promise<void> {
 async function refreshNow(dirs: (string | undefined)[]): Promise<void> {
   const root = workspace.path;
   if (!root) return;
+  // A folder the tree no longer has (deleted, renamed or moved; the watcher still names it) is
+  // listed by its nearest ancestor that is there: refresh that one, not the whole workspace.
+  const present = (dir: string): string => {
+    let d = dir;
+    while (d !== ROOT && !childrenOf(workspace.tree, d)) d = parentId(d) ?? ROOT;
+    return d;
+  };
   const depth = (id: string) => (id === ROOT ? 0 : idToRel(id).split('/').length);
-  for (const dir of [...new Set(dirs.map((d) => d || ROOT))].sort((a, b) => depth(b) - depth(a))) {
-    const before = childrenOf(workspace.tree, dir);
-    if (!before) return reloadWorkspace(); // not a folder in the tree: start over
-    const keep = new Set(before.filter((n) => n.kind === 'folder').map((n) => n.id));
-    const fresh = await workspaceLoadChildren(root, idToRel(dir), [...keep]);
-    if (workspace.path !== root) return; // another workspace was opened meanwhile
-    const old = new Map((childrenOf(workspace.tree, dir) ?? []).map((n) => [n.id, n]));
-    const expanded = new Map<string, boolean>();
-    collectExpanded(workspace.tree, expanded);
+  const wanted = [...new Set(dirs.map((d) => present(d || ROOT)))].sort((a, b) => depth(b) - depth(a));
+  const keeps = wanted.map(
+    (dir) => new Set((childrenOf(workspace.tree, dir) ?? []).filter((n) => n.kind === 'folder').map((n) => n.id)),
+  );
+  // Every read in flight at once and one tree replacement at the end: a burst of N folders was N
+  // replacements, each re-rendering the sidebar and re-running everything that watches the tree.
+  const loaded = await Promise.all(
+    wanted.map((dir, i) => workspaceLoadChildrenLight(root, idToRel(dir), [...keeps[i]])),
+  );
+  if (workspace.path !== root) return; // another workspace was opened meanwhile
+  let tree = workspace.tree;
+  const expanded = new Map<string, boolean>();
+  collectExpanded(tree, expanded);
+  for (const [i, dir] of wanted.entries()) {
+    const current = childrenOf(tree, dir);
+    if (!current) return reloadWorkspace(); // the folder vanished from the tree meanwhile: start over
+    const old = new Map(current.map((n) => [n.id, n]));
     const children: TreeNode[] = [];
-    for (const n of fresh) {
+    for (const n of loaded[i]) {
       const was = old.get(n.id);
-      if (n.kind !== 'folder' || !keep.has(n.id)) children.push(...applyExpanded([n], expanded));
+      if (n.kind !== 'folder' || !keeps[i].has(n.id)) children.push(...applyExpanded([n], expanded));
       else if (was?.kind === 'folder') children.push({ ...n, expanded: was.expanded, children: was.children });
       else return reloadWorkspace(); // a kept folder vanished from the tree meanwhile
     }
-    workspace.tree = dir === ROOT ? children : withChildren(workspace.tree, dir, children);
+    tree = dir === ROOT ? children : withChildren(tree, dir, children);
   }
+  workspace.tree = tree;
   unlinkOrphanTabs();
 }
 
@@ -226,14 +258,14 @@ export async function switchWorkspace(path: string): Promise<void> {
   if (!clean) return;
   const switched = await runWorkspaceOp('switchWorkspace', async () => {
     const previous = workspace.path;
-    const tree = await workspaceLoad(clean);
+    const tree = await workspaceLoadLight(clean);
     workspace.path = clean;
     workspace.tree = withSavedExpanded(clean, tree);
     rememberWorkspacePath(clean);
     if (previous && previous !== clean) {
       // savedPath is relative to the old workspace root. Keeping it after a root
       // switch risks overwriting a same-named request in the new workspace.
-      tabs.update((list) => list.map((t) => (t.savedPath ? { ...t, savedPath: undefined } : t)));
+      tabs.update((list) => list.map((t) => (t.savedPath ? { ...t, savedPath: undefined, saved: undefined } : t)));
     }
     return true;
   });
@@ -287,6 +319,16 @@ export async function saveFolderAuth(folderId: string, auth: AuthConfig | null):
   if (!root) return;
   await runWorkspaceOp('saveFolderAuth', async () => {
     await workspaceSaveFolderAuth(root, idToRel(folderId), auth);
+    await refreshDirs(parentId(folderId));
+  });
+}
+
+/** Persist a folder's scripts (empty strings clear them); every request under it runs them before its own. */
+export async function saveFolderScripts(folderId: string, preRequestScript: string, testScript: string): Promise<void> {
+  const root = workspace.path;
+  if (!root) return;
+  await runWorkspaceOp('saveFolderScripts', async () => {
+    await workspaceSaveFolderScripts(root, idToRel(folderId), preRequestScript, testScript);
     await refreshDirs(parentId(folderId));
   });
 }

@@ -6,12 +6,12 @@ import {
   workspaceCreateFolder,
   workspaceImportCollection,
   workspaceDelete,
-  workspaceSaveFolderAuth,
+  workspaceSaveFolderScripts,
   workspaceSaveFolderSource,
   workspaceSaveRequest,
 } from '$shared/ipc';
 import type { FolderNode, ImportSource, RequestNode, TreeNode } from '$shared/model';
-import type { EnvRow, EnvTarget, PlanItem, PlanRequest } from './plan';
+import type { EnvRow, EnvTarget, Plan, PlanItem, PlanRequest } from './plan';
 import { fingerprint, type Diff } from './reimport';
 
 /** The open workspace's root, asking for a folder when none is open; null when the user cancels. */
@@ -68,6 +68,7 @@ export async function importPlan(p: {
   name: string;
   items: PlanItem[];
   collectionAuth?: RequestNode['request']['auth'];
+  collectionScripts?: Plan['collectionScripts'];
   envRows: EnvRow[];
   targets: EnvTarget[];
   source?: ImportSource;
@@ -77,7 +78,15 @@ export async function importPlan(p: {
   const nodes = (items: PlanItem[]): TreeNode[] =>
     items.map((item) =>
       item.kind === 'folder'
-        ? { kind: 'folder', id: '', name: item.name, expanded: false, children: nodes(item.items) }
+        ? {
+            kind: 'folder',
+            id: '',
+            name: item.name,
+            expanded: false,
+            preRequestScript: item.preRequestScript,
+            testScript: item.testScript,
+            children: nodes(item.items),
+          }
         : p.source
           ? { ...item.node, spec: linkOf(item) }
           : item.node,
@@ -87,6 +96,7 @@ export async function importPlan(p: {
     children: nodes(p.items),
     auth: p.collectionAuth,
     source: p.source,
+    ...p.collectionScripts,
   });
   const count = (items: PlanItem[]): number =>
     items.reduce((n, item) => n + (item.kind === 'folder' ? count(item.items) : 1), 0);
@@ -126,10 +136,13 @@ export async function applyUpdate(
   for (const a of diff.added) {
     if (skip.has(a.key)) continue;
     let dir = collection.id;
-    if (a.folder !== null) {
-      dir = folders.get(a.folder) ?? (await workspaceCreateFolder(root, idToRel(collection.id), a.folder));
+    if (a.folder !== null && !folders.has(a.folder)) {
+      // A folder the update creates gets the export's scripts; an existing one keeps its own (like auth).
+      dir = await workspaceCreateFolder(root, idToRel(collection.id), a.folder);
       folders.set(a.folder, dir);
-    }
+      if (a.folderScripts)
+        await workspaceSaveFolderScripts(root, idToRel(dir), a.folderScripts.pre, a.folderScripts.test);
+    } else if (a.folder !== null) dir = folders.get(a.folder)!;
     await workspaceSaveRequest(root, idToRel(dir), null, { ...a.req.node, spec: linkOf(a.req) });
     touched.add(dir);
     n++;

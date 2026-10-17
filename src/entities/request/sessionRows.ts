@@ -5,7 +5,7 @@ export function sessionRowActions(tone: SessionTone): { refresh: boolean; signIn
   return {
     refresh: tone === 'ok' || tone === 'renew',
     signIn: tone === 'dead' || tone === 'none',
-    // A dead session is replaced by «Войти» (or dropped by «Выйти везде»).
+    // A dead session is replaced by “Sign in” (or dropped by “Sign out everywhere”).
     signOut: tone === 'ok' || tone === 'renew',
   };
 }

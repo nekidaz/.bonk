@@ -122,7 +122,7 @@
 {/each}
 
 <style>
-  /* Хоткеи (S32.6): search + reset-all bar, clickable key-cap buttons, conflict highlight */
+  /* Hotkeys (S32.6): search + reset-all bar, clickable key-cap buttons, conflict highlight */
   .st-hk-bar {
     flex: none;
     display: flex;

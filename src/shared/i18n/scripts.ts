@@ -1,4 +1,4 @@
-// Request scripts (Flow · Скрипты, SC1–SC9): the editor, autocomplete, the response's Tests / Console
+// Request scripts (Flow · Scripts, SC1–SC9): the editor, autocomplete, the response's Tests / Console
 // and the pre-request failure state.
 export const en = {
   'script.post.name': 'Post-response',
@@ -15,6 +15,9 @@ export const en = {
   'script.close_snippets': 'Close snippets',
   'script.snippets_hint': 'Click to insert at the cursor',
   'script.sandbox': 'Sandbox · no network or files',
+  'script.inherited.pre': 'Pre-request script inherited from {name} · {lines}',
+  'script.inherited.post': 'Post-response script inherited from {name} · {lines}',
+  'script.inherited.hint': 'Runs before this request’s own script. Edit it from the folder’s menu in the sidebar.',
   'script.autocomplete': '— autocomplete',
   'script.ac.footer': '↑↓ select    Enter insert    Esc close',
   'script.line': 'line {n}',

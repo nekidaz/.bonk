@@ -1,5 +1,5 @@
 <script lang="ts">
-  /** The response folded into a 44 px strip (E1/E3 rule 1): status, time, size, first line, «Показать ответ ⇧⌘R». */
+  /** The response folded into a 44 px strip (E1/E3 rule 1): status, time, size, first line, “Show response ⇧⌘R”. */
   import { t } from '$shared/i18n';
   import { hotkeys, formatBinding } from '$shared/settings';
   import { grpcCodeTone, requestRuntime } from '$entities/request';

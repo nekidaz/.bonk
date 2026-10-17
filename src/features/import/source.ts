@@ -48,7 +48,7 @@ export class SourceError extends Error {
     readonly line?: number,
     readonly col?: number,
     readonly syntax?: 'JSON' | 'YAML',
-    /** What the text looks like (`OpenAPI 3.1`), for «Похоже на …». */
+    /** What the text looks like (`OpenAPI 3.1`), for “Looks like …”. */
     readonly guess?: string,
   ) {
     super(message);

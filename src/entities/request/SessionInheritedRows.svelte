@@ -6,7 +6,7 @@
   import { sessionStatusText } from './sessionFormat';
   import TokenPill from './TokenPill.svelte';
 
-  // Flow · Сессия SE3: a request under the collection's session sees it read-only, for the selected environment.
+  // Flow · Session SE3: a request under the collection's session sees it read-only, for the selected environment.
   let { auth }: { auth: AuthConfig } = $props();
 
   const env = $derived(activeEnvName());

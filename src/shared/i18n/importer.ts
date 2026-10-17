@@ -1,4 +1,4 @@
-// The import window (Flow · Импорт схем, IM1–IM9): source, preview, warnings, update from the spec, drop zone.
+// The import window (Flow · Schema import, IM1–IM9): source, preview, warnings, update from the spec, drop zone.
 export const en = {
   'import.eyebrow': 'IMPORT',
   'import.title': 'Import a collection or schema',

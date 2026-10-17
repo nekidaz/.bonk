@@ -1,5 +1,5 @@
 <script lang="ts">
-  // The import window (Flow · Импорт схем): one window for every format. Source (IM2/IM6) →
+  // The import window (Flow · Schema import): one window for every format. Source (IM2/IM6) →
   // preview (IM4/IM5/IM9) → import; or, for a collection imported before, → update (IM8).
   import { untrack } from 'svelte';
   import { findNode, importWindow, workspace, type ImportWindowRequest } from '$entities/workspace';
@@ -31,7 +31,7 @@
   let error = $state.raw<Error | null>(null);
   let busy = $state(false);
   let asNew = $state(false);
-  /** The collection «Обновить из спецификации» was asked for. */
+  /** The collection “Update from the spec” was asked for. */
   let updateId = $state<string | null>(null);
 
   /** Collections made by import, by their source location. */
@@ -241,7 +241,7 @@
 {/if}
 
 <style>
-  /* Sizes follow the Flow · Импорт схем mock (Pencil «Import dialog», 1040×660). */
+  /* Sizes follow the Flow · Schema import mock (Pencil «Import dialog», 1040×660). */
   :global(:root .imp-overlay) {
     background: var(--color-scrim);
   }

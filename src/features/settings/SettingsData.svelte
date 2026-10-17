@@ -5,7 +5,7 @@
   import { requestConfirm } from '$shared/ui';
   import { buildWorkspaceExport, buildPostmanCollection, importWindow, workspace } from '$entities/workspace';
   import { environments } from '$entities/environment';
-  import { appDataDir, openapiExportSave, revealPath } from '$shared/ipc';
+  import { appDataDir, openapiExportSave, revealPath, workspaceLoad } from '$shared/ipc';
   import { row, sw, select } from './ui.svelte';
   import { Button } from '$shared/ui/components';
 
@@ -48,15 +48,10 @@
     run(async () => {
       const name = workspace.path.split(/[\\/]/).filter(Boolean).at(-1) ?? 'workspace';
       const postman = exportFormat.current === 'postman';
+      const tree = await workspaceLoad(workspace.path); // the sidebar's tree has no bodies or scripts
       const text = postman
-        ? buildPostmanCollection(name, workspace.tree, environments.globals, exportIncludeSecrets.current)
-        : buildWorkspaceExport(
-            name,
-            workspace.tree,
-            environments.globals,
-            environments.list,
-            exportIncludeSecrets.current,
-          );
+        ? buildPostmanCollection(name, tree, environments.globals, exportIncludeSecrets.current)
+        : buildWorkspaceExport(name, tree, environments.globals, environments.list, exportIncludeSecrets.current);
       return (await openapiExportSave(
         postman ? `${name}.postman_collection.json` : `${name}.bonk.json`,
         text,

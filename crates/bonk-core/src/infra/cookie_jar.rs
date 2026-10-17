@@ -15,7 +15,7 @@ pub struct CookieJar {
     store: RwLock<CookieStore>,
     /// Changed since the last save.
     dirty: AtomicBool,
-    /// Save session cookies too (Settings → Cookies «Хранить между запусками»).
+    /// Save session cookies too (Settings → Cookies “Keep across restarts”).
     keep_session: AtomicBool,
 }
 

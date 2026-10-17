@@ -2089,7 +2089,7 @@ pub fn create_tag(root: &str, name: &str, hash: &str) -> Result<(), String> {
     git_noedit(root, &["tag", name, hash])
 }
 
-/// A branch at `hash`; `checkout` also switches to it (the graph's «Ветка»),
+/// A branch at `hash`; `checkout` also switches to it (the graph's “Branch”),
 /// without it only the ref appears (restoring a deleted branch, rescuing a
 /// reflog entry) and local changes can't get in the way.
 pub fn create_branch_at(root: &str, name: &str, hash: &str, checkout: bool) -> Result<(), String> {
@@ -3846,7 +3846,7 @@ mod tests {
         resolve_side(r, &p, "mine").unwrap();
         assert!(!dir.join("a.txt").exists());
         assert!(conflicts(r).unwrap().is_empty());
-        // Resolved by deleting: «Сбросить» brings the conflict back, with the
+        // Resolved by deleting: “Reset” brings the conflict back, with the
         // surviving side in the working tree as git leaves a modify/delete.
         unresolve(r, &p).unwrap();
         let c = conflicts(r).unwrap();
