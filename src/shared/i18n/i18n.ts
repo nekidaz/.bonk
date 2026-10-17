@@ -16,6 +16,7 @@ import * as session from './session';
 import * as sessions from './sessions';
 import * as sessionrun from './sessionrun';
 import * as settingsfile from './settingsfile';
+import * as monitor from './monitor';
 // Each area owns a part file in ./i18n/ exporting `en`; they are merged below.
 const parts = [
   common,
@@ -36,6 +37,7 @@ const parts = [
   sessions,
   sessionrun,
   settingsfile,
+  monitor,
 ];
 
 export const en: Record<string, string> = Object.assign({}, ...parts.map((p) => p.en));

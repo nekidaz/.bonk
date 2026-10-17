@@ -26,6 +26,8 @@ import { inputs, watchInputs } from '$entities/input';
 import { watchSavedCopies } from '$entities/request';
 import { watchWorkspaceFiles, workspace } from '$entities/workspace';
 import { runner, watchRunnerWorkspace } from '$features/runner';
+import { registerHeld, watchMonitor } from '$features/monitor';
+import { approxBytes } from '$shared/ipc';
 import { layout } from './layout.svelte';
 import { shell } from './shell.svelte';
 import { hydrate } from './persistence.svelte';
@@ -47,6 +49,12 @@ export function startApp(): void {
   onDestroy(watchGitAutoFetch());
   onDestroy(watchCookieJar());
   onDestroy(watchRunnerWorkspace());
+  onDestroy(watchMonitor());
+  // The dev-only Resources tab can't import the runner feature, so its row is wired here.
+  registerHeld(t('monitor.held.runner'), () => ({
+    count: runner.records.reduce((n, r) => n + r.results.length, 0),
+    bytes: approxBytes(runner.records),
+  }));
   onDestroy(watchWorkspaceFiles());
   onDestroy(watchSavedCopies());
   onDestroy(
