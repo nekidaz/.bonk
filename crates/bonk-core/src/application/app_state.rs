@@ -1,3 +1,4 @@
+use crate::infra::metrics::{DiskKind, METRICS};
 use serde_json::{Map, Value};
 use std::fs;
 use std::path::Path;
@@ -62,7 +63,9 @@ pub fn set_key(path: &Path, key: &str, value: Value) -> Result<(), String> {
     // can't clobber an in-flight temp file before the rename.
     let seq = TMP_SEQ.fetch_add(1, Ordering::Relaxed);
     let tmp = path.with_extension(format!("json.tmp.{}.{seq}", std::process::id()));
+    let written = out.len() as u64;
     fs::write(&tmp, out).map_err(|e| e.to_string())?;
+    METRICS.record_disk_write(DiskKind::State, written);
     if let Err(e) = fs::rename(&tmp, path) {
         // The rename failed, so the temp file is now an orphan — clean it up
         // before returning rather than leaking a `.tmp` file on every failure.

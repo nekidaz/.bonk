@@ -70,6 +70,8 @@ pub struct AppState {
     pub traffic_lights_center: Mutex<f64>,
     /// Terminal tab shells by session id (commands::terminal).
     pub ptys: Mutex<HashMap<String, crate::commands::terminal::PtySession>>,
+    /// Process sampler of the dev-only Resources tab (commands::monitor); keeps CPU deltas between ticks.
+    pub monitor: Mutex<bonk_core::infra::procmon::ProcMonitor>,
 }
 
 fn default_headers() -> HeaderMap {
@@ -118,6 +120,18 @@ fn build_http_client(
 }
 
 impl AppState {
+    /// Cached HTTP clients (one per distinct settings + mTLS identity); 0 if the lock is poisoned.
+    pub fn http_client_count(&self) -> usize {
+        self.http_clients.lock().map_or(0, |m| m.len())
+    }
+
+    /// (open cookie jars, cookies across them); zeros if the lock is poisoned.
+    pub fn cookie_counts(&self) -> (usize, usize) {
+        self.cookie_jars.lock().map_or((0, 0), |jars| {
+            (jars.len(), jars.values().map(|j| j.list().len()).sum())
+        })
+    }
+
     /// The cookie jar of workspace root `workspace`, opened from `data_dir/cookies/` once.
     pub fn cookie_jar(&self, data_dir: &Path, workspace: &str) -> Result<Arc<CookieJar>, String> {
         let mut jars = self
@@ -173,6 +187,7 @@ impl Default for AppState {
             workspace_watcher: Mutex::new(None),
             traffic_lights_center: Mutex::new(crate::commands::app::TRAFFIC_LIGHTS_CENTER),
             ptys: Mutex::new(HashMap::new()),
+            monitor: Mutex::new(bonk_core::infra::procmon::ProcMonitor::new()),
         }
     }
 }

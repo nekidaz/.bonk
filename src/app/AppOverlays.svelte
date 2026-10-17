@@ -12,6 +12,7 @@
   import { MoveDialog, FolderAuthDialog, FolderScriptsDialog } from '$features/sidebar/components';
   import { SettingsModal } from '$features/settings/components';
   import { openSettingsFileTab } from '$features/settings';
+  import { devMonitor, openMonitorTab } from '$features/monitor';
   import { CookieJarSheet } from '$features/cookie-jar/components';
   import { cookieJar } from '$entities/cookies';
   import { ImportDialog, ImportDropZone } from '$features/import/components';
@@ -104,6 +105,8 @@
       run: () => (shell.settingsOpen = true),
     },
     { label: t('settingsFile.open'), icon: 'data_object', run: openSettingsFileTab },
+    // Dev-only Resources tab: listed while `dev.monitor` is on in settings.json.
+    ...(devMonitor.current ? [{ label: t('monitor.title'), icon: 'monitor_heart', run: openMonitorTab }] : []),
   ]);
 </script>
 

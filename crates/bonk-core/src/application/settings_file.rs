@@ -1,6 +1,7 @@
 //! User settings (issue #2): `~/.bonk/settings.json`, like VS Code's / Zed's. The frontend owns
 //! the format (keys, defaults, validation); here the file is only read and written.
 
+use crate::infra::metrics::{DiskKind, METRICS};
 use std::path::{Path, PathBuf};
 
 /// A settings file is a few kilobytes; a bigger one is not ours.
@@ -32,6 +33,7 @@ pub fn write(path: &Path, text: &str) -> Result<(), String> {
     std::fs::create_dir_all(dir).map_err(|e| format!("{}: {e}", dir.display()))?;
     let tmp = path.with_extension(format!("json.tmp.{}", std::process::id()));
     std::fs::write(&tmp, text).map_err(|e| format!("{}: {e}", tmp.display()))?;
+    METRICS.record_disk_write(DiskKind::Settings, text.len() as u64);
     std::fs::rename(&tmp, path).map_err(|e| {
         let _ = std::fs::remove_file(&tmp);
         format!("{}: {e}", path.display())

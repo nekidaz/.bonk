@@ -3,6 +3,7 @@ use crate::domain::grpc::{
     GrpcError, GrpcErrorCode, GrpcErrorDetail, GrpcField, GrpcFieldViolation, GrpcMethod,
     GrpcPrefs, GrpcResult, GrpcService, GrpcTls, ServiceTree,
 };
+use crate::infra::metrics::{NetProto, METRICS};
 use base64::engine::general_purpose::STANDARD as BASE64;
 use base64::Engine;
 use bytes::Buf;
@@ -526,6 +527,11 @@ pub async fn call_with(
         }
     };
     let elapsed_ms = start.elapsed().as_millis() as u64;
+    METRICS.record_net(
+        NetProto::Grpc,
+        json_body.len() as u64,
+        wire_size.load(Ordering::Relaxed) as u64,
+    );
     let body = prefs.render(&response_msg, true)?;
 
     Ok(GrpcResult {
@@ -764,6 +770,7 @@ pub async fn call_stream<F: FnMut(GrpcStreamMessage) + Send>(
         };
         let size = wire_size.load(Ordering::Relaxed);
         total += size;
+        METRICS.record_net(NetProto::Grpc, 0, size as u64);
         let body = prefs.render(&msg, false)?;
         on_message(GrpcStreamMessage {
             index: bodies.len() + 1,

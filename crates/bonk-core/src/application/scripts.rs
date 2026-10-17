@@ -17,6 +17,7 @@
 //! Postman) and comes back as `__out.visualizer = {html}` or `{error}`.
 
 use crate::domain::dynamic_vars::{self, DynamicOptions};
+use crate::infra::metrics::METRICS;
 use rquickjs::{context::EvalOptions, CatchResultExt, Context, Runtime};
 use std::time::{Duration, Instant};
 
@@ -176,6 +177,7 @@ fn run_script_with_timeout(
     context_json: &str,
     timeout_ms: u64,
 ) -> Result<String, String> {
+    let started = Instant::now();
     let runtime = Runtime::new().map_err(|e| format!("failed to create JS runtime: {e}"))?;
     let context =
         Context::full(&runtime).map_err(|e| format!("failed to create JS context: {e}"))?;
@@ -252,6 +254,13 @@ fn run_script_with_timeout(
 
     // Clear the handler so the (soon-dropped) runtime holds no dangling closure.
     runtime.set_interrupt_handler(None);
+    // memory_usage() walks the whole JS heap: only while the Resources tab's monitor is on.
+    let mem = if METRICS.watching() {
+        u64::try_from(runtime.memory_usage().memory_used_size).unwrap_or(0)
+    } else {
+        0
+    };
+    METRICS.record_script(started.elapsed().as_millis() as u64, mem);
 
     render_visualizer(result?)
 }

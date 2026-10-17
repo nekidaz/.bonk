@@ -59,6 +59,7 @@
     env: 'layers',
     runner: 'play_arrow',
     settings: 'settings',
+    monitor: 'monitor_heart',
   };
   const GIT_VIEW_ICON: Record<string, string> = {
     stash: 'inventory_2',

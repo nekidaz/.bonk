@@ -4,6 +4,7 @@ pub(crate) mod git;
 pub(crate) mod grpc;
 pub(crate) mod http;
 pub(crate) mod mcp;
+pub(crate) mod monitor;
 pub(crate) mod oauth;
 pub(crate) mod runner;
 pub(crate) mod secrets;

@@ -1,6 +1,7 @@
 use super::workspace_watch::note_own_write;
 use crate::domain::http::AuthConfig;
 use crate::domain::workspace::{FolderFile, FolderNode, RequestFile, RequestNode, TreeNode};
+use crate::infra::metrics::{DiskKind, METRICS};
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -29,6 +30,7 @@ pub(super) fn atomic_write(target: &Path, contents: &str) -> Result<(), String> 
     let tmp = parent.join(format!(".{file_name}.tmp.{}.{seq}", std::process::id()));
 
     fs::write(&tmp, contents).map_err(|e| format!("failed to write {}: {e}", tmp.display()))?;
+    METRICS.record_disk_write(DiskKind::Workspace, contents.len() as u64);
 
     note_own_write(target);
     if let Err(e) = fs::rename(&tmp, target) {

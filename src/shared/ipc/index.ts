@@ -186,4 +186,11 @@ export {
   workspaceSaveFolderSource,
   workspaceSaveRequest,
   workspaceTrash,
+  monitorSnapshot,
+  type ProcStat,
+  type NetTotals,
+  type MonitorCounters,
+  type LiveCounts,
+  type MonitorSnapshot,
 } from './api';
+export { approxBytes, invoke, ipcMonitor, type ChannelTotals, type IpcCall } from './timed';

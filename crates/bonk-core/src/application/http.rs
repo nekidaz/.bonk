@@ -2,6 +2,7 @@ use crate::domain::http::{cookie_host_excluded, HttpRequest, HttpResponse, Reque
 use crate::domain::sse::{is_event_stream, SseEvent, SseParser, StreamEnd, StreamEndReason};
 use crate::domain::url::normalize_url;
 use crate::infra::cookie_jar::CookieJar;
+use crate::infra::metrics::{NetProto, METRICS};
 use crate::infra::reqwest_client::build_request_to;
 use std::collections::BTreeMap;
 use std::future::Future;
@@ -110,6 +111,15 @@ pub async fn http_send_with(
         (bytes, truncated, Vec::new(), None)
     };
     let size_bytes = bytes.len();
+    METRICS.record_net(
+        if is_stream {
+            NetProto::Sse
+        } else {
+            NetProto::Http
+        },
+        (req.url.len() + req.body.as_ref().map_or(0, String::len)) as u64,
+        size_bytes as u64,
+    );
     let body = String::from_utf8_lossy(&bytes).into_owned();
     let (cookies, jar_sends) = match (jar, jar_before) {
         (Some(jar), Some(before)) => {

@@ -1,4 +1,4 @@
-import type { RequestNode, RunResultRow, ScriptTestResult } from '$shared/model';
+import { p95, type RequestNode, type RunResultRow, type ScriptTestResult } from '$shared/model';
 import { t, type Translate } from '$shared/i18n';
 
 /**
@@ -33,12 +33,7 @@ export interface Delta {
 export const SLOW_MS = 200;
 export const HISTORY_LIMIT = 10;
 
-/** Nearest-rank 95th percentile; 0 for no values. */
-export function p95(values: number[]): number {
-  if (values.length === 0) return 0;
-  const sorted = [...values].sort((a, b) => a - b);
-  return sorted[Math.ceil(0.95 * sorted.length) - 1];
-}
+export { p95 };
 
 /** Duration is the runner's own monotonic clock (the last row's `endMs`, like the waterfall); wall time only for rows without it. */
 export function summarizeRun(n: number, startedAt: number, finishedAt: number, rows: RunResultRow[]): RunSummary {

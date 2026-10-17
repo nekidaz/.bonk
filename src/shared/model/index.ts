@@ -36,6 +36,7 @@ export {
   withOAuthBearer,
 } from './oauth';
 export { nodeName, sessionCanRenew, sessionConfigured, sessionTone, type SessionTone } from './session';
+export { p95 } from './stats';
 export { elapsedLabel, GRPC_CODES, grpcStatusLabel, HTTP_STATUS_TEXT } from './statusLabel';
 export {
   allTestsPassed,
