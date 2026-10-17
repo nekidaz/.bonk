@@ -1,4 +1,4 @@
-// Computed-style oracle: `make css-oracle-baseline` / `make css-oracle` (docs/GUIDE.md, “Screenshot tests” section).
+// Computed-style oracle: `make css-oracle-baseline` / `make css-oracle`.
 // Instead of a screenshot, app.spec.ts dumps getComputedStyle of every element (+ ::before/::after/::placeholder)
 // for each scenario, then once more with :hover, :focus-visible and :active forced on every element at once
 // (CDP CSS.forcePseudoState), plus a few root-attribute variants. Stricter than pixels: it sees states nothing renders.

@@ -35,7 +35,7 @@ export default defineConfig({
   },
   projects: [{ name: 'chromium', use: { browserName: 'chromium' } }],
   webServer: {
-    command: `node design/tools/snap-server.mjs dist ${PORT}`,
+    command: `node scripts/fake-backend/snap-server.mjs dist ${PORT}`,
     url: `http://127.0.0.1:${PORT}`,
     reuseExistingServer: false,
   },

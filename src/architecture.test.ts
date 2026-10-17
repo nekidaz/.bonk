@@ -5,7 +5,7 @@
  *   app → features → entities → shared
  * Each folder inside a layer is a "slice" (≈ a Go package). Its public API is index.ts (code)
  * and components.ts (Svelte components), like the capitalised names of a Go package.
- * See docs/GUIDE.md “Frontend layers” section.
+ * See ARCHITECTURE.md.
  */
 import { describe, expect, it } from 'vitest';
 import { readdirSync, readFileSync } from 'node:fs';

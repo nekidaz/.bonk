@@ -14,10 +14,12 @@ test-results/
 !/ARCHITECTURE.md
 !/docs/MCP.md
 !/docs/CLI.md
-!/docs/GUIDE.md
-!/docs/FRONTEND.md
-!/CLAUDE.md
-!/AGENTS.md
+# Maintainer and agent files: kept on disk, not in the repository (.worktreeinclude copies them into worktrees).
+/AGENTS.md
+/.mcp.json
+/.worktreeinclude
+/design/
+/shadcn.lib.pen
 .local
 .local/
 .env

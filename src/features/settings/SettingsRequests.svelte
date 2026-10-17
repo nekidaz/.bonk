@@ -1,7 +1,7 @@
 <!--
   Settings → Requests. A row = `{#snippet x()}` holding the control (sw / number / select / seg from
   ./ui.svelte) + `{@render row(name, description, x)}`. Read it as Go: row(name, desc, func() { sw(…) }).
-  The values are `requestPrefs.*` (shared/settings); a new setting: docs/FRONTEND.md, recipe 4.
+  The values are `requestPrefs.*` (shared/settings).
 -->
 <script lang="ts">
   import { t } from '$shared/i18n';
