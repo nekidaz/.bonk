@@ -6,7 +6,7 @@ import { withOverrides } from './requestSettings';
 
 /**
  * Send a tab's request with `query` as the GraphQL body, the same engine as Send but silent: no
- * scripts (so no variable writes), and nothing lands in the tab, history, console or test results.
+ * scripts (so no variable writes, even from a session login), and nothing lands in the tab, history, console or test results.
  * `inputMode: 'fail'` makes needed «ask on send» input an error instead of a form.
  */
 export async function introspectHttp(tab: Tab, query: string, inputMode: 'wait' | 'fail'): Promise<HttpResponse> {
@@ -33,7 +33,7 @@ export async function introspectHttp(tab: Tab, query: string, inputMode: 'wait' 
     undefined,
     undefined,
     undefined,
-    inputMode,
+    { inputMode, applyVars: false },
   );
   if (!details.response) throw new Error(row.error ?? 'no response');
   return details.response;

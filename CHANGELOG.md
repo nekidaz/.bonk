@@ -26,7 +26,7 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   - The schema is fetched on its own by introspection, with the request's auth, variables and cookies;
     it is not written to history and no scripts run. «Refresh» fetches it again; «Load schema file…»
     reads `.graphql` / `.graphqls` / `.gql` / `.json` (an introspection result) and remembers the file
-    per endpoint, for servers with introspection turned off.
+    per endpoint URL (query string ignored), for servers with introspection turned off.
   - The Query editor highlights GraphQL, completes fields, arguments and types from the schema and
     underlines errors (syntax errors even without a schema). `{{var}}` is never flagged, and errors
     never block Send.

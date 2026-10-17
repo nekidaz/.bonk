@@ -49,13 +49,20 @@
     [schema.getQueryType(), schema.getMutationType(), schema.getSubscriptionType()].filter((x) => x != null),
   );
 
+  // A refreshed schema may have lost the type on top: drop the stale crumbs and show the home screen.
+  $effect(() => {
+    if (stack.length && !schema.getType(stack[stack.length - 1].type)) untrack(() => (stack = []));
+  });
+
   // Every Cmd/Ctrl+click makes a new `target` object, so a repeat click on the same field re-runs this too.
   $effect(() => {
     if (target) untrack(() => go(target));
   });
 
   async function go(hit: ExplorerHit): Promise<void> {
-    stack = [...stack, hit];
+    const top = stack.at(-1);
+    // A repeated Cmd/Ctrl+click on the same target must not stack a duplicate.
+    if (!(top && top.type === hit.type && top.field === hit.field)) stack = [...stack, hit];
     query = '';
     await tick();
     const row = hit.field ? body?.querySelector(`[data-field="${CSS.escape(hit.field)}"]`) : null;

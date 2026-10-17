@@ -57,6 +57,11 @@ describe('schemaFromFile', () => {
     expect(() => schemaFromFile('s.graphql', 'type {')).toThrow();
   });
 
+  it('accepts federation SDL with undeclared directives', () => {
+    const sdl = 'type Query { a: Int } type User @key(fields: "id") { id: ID! }';
+    expect(schemaFromFile('s.graphql', sdl).getType('User')).toBeDefined();
+  });
+
   it('reads introspection JSON, bare or wrapped in data', () => {
     const bare = JSON.stringify({ __schema: intro.__schema });
     const wrapped = JSON.stringify({ data: intro });

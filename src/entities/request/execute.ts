@@ -185,9 +185,11 @@ export function executeRequest(
   connectionId?: string,
   context = captureExecutionContext(),
   onSse?: (e: { kind: 'sseOpen'; started_at_ms: number } | ({ kind: 'sseEvent' } & SseEvent)) => void,
-  // 'fail' (background calls such as schema introspection): needed input is an error, never a form.
-  inputMode: 'wait' | 'fail' = 'wait',
+  // Background calls (schema introspection): inputMode 'fail' makes needed input an error, never a form;
+  // applyVars false drops the scripts' variable writes (a session login would otherwise touch the environment).
+  opts: { inputMode?: 'wait' | 'fail'; applyVars?: boolean } = {},
 ) {
+  const { inputMode = 'wait', applyVars = true } = opts;
   const environmentId = context.environmentId;
   return requestRun(
     requestId,
@@ -215,8 +217,9 @@ export function executeRequest(
       deadlineMs: requestPrefs.grpcDeadlineMs.current,
     },
     (event) => {
-      if (event.kind === 'vars') applyScriptVars(event, environmentId, false);
-      else if (event.kind === 'input') openPrompt(requestId, event);
+      if (event.kind === 'vars') {
+        if (applyVars) applyScriptVars(event, environmentId, false);
+      } else if (event.kind === 'input') openPrompt(requestId, event);
       else if (event.kind === 'sseOpen' || event.kind === 'sseEvent') onSse?.(event);
     },
     connectionId,

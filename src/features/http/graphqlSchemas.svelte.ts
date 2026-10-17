@@ -22,7 +22,12 @@ export type SchemaEntry =
   | { status: 'error'; message: string; source: 'server' | 'file'; path?: string };
 
 /** Endpoint URL template (no query) → path of the schema file the user picked for it. */
-export const graphqlSchemaFiles = persisted<Record<string, string>>('graphqlSchemaFiles', {});
+export const graphqlSchemaFiles = persisted<Record<string, string>>(
+  'graphqlSchemaFiles',
+  {},
+  (v): v is Record<string, string> =>
+    !!v && typeof v === 'object' && !Array.isArray(v) && Object.values(v).every((p) => typeof p === 'string'),
+);
 /** The schema explorer panel next to the GraphQL body (Task 6 draws it). */
 export const graphqlExplorerOpen = persisted('graphqlExplorerOpen', false);
 

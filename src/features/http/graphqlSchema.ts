@@ -44,7 +44,7 @@ export function schemaFromIntrospection(res: HttpResponse): GraphQLSchema {
 
 /** A schema file: `.json` is an introspection result, anything else is SDL. Throws on bad input. */
 export function schemaFromFile(name: string, text: string): GraphQLSchema {
-  if (!name.toLowerCase().endsWith('.json')) return buildSchema(text);
+  if (!name.toLowerCase().endsWith('.json')) return buildSchema(text, { assumeValidSDL: true });
   let json: unknown;
   try {
     json = JSON.parse(text);
