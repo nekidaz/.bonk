@@ -113,6 +113,14 @@
   const slice = $derived(rows.slice(range[0], range[1]));
   const padTop = $derived(offsets[range[0]]);
   const padBottom = $derived(offsets[rows.length] - offsets[range[1]]);
+  // The real scroll position moves without a scroll event: the tree element is recreated when the
+  // Git panel closes, and the browser clamps it when the content gets shorter (an import, a folder
+  // collapsed, History). A stale scrollTop renders rows below the view and leaves it blank.
+  $effect(() => {
+    void panel;
+    void offsets;
+    scrollTop = treeEl?.scrollTop ?? 0;
+  });
 
   // Rendered rows are the row list's only children, in slice order: the gap between two
   // neighbours' tops is the pitch of the first one's kind.
