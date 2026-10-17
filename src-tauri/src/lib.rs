@@ -135,6 +135,7 @@ pub fn run() {
             commands::workspace::workspace_create_folder,
             commands::workspace::workspace_save_request,
             commands::workspace::workspace_save_folder_auth,
+            commands::workspace::workspace_save_folder_scripts,
             commands::workspace::workspace_save_folder_source,
             commands::workspace::workspace_delete,
             commands::workspace::workspace_rename,

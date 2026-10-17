@@ -54,4 +54,19 @@ describe('refreshDirs', () => {
     expect(kids.map((n) => n.id)).toEqual(['fs:A/B', 'fs:A/x', 'fs:A/y']);
     expect(kids[0]).toMatchObject({ expanded: true, children: [] });
   });
+
+  it('refreshes the nearest folder still in the tree for one that is gone, not the whole workspace', async () => {
+    calls.length = 0;
+    workspace.path = '/ws';
+    workspace.tree = [folder('fs:A', [folder('fs:A/B', [req('fs:A/B/y')], true)], true)];
+
+    await refreshDirs('fs:A/B/gone', 'fs:A/B/gone/deeper');
+
+    expect(calls).toEqual([{ cmd: 'workspace_load_children_light', root: '/ws', dir: 'A/B', keep: [] }]);
+    expect((workspace.tree[0] as { children: TreeNode[] }).children[0]).toMatchObject({
+      id: 'fs:A/B',
+      expanded: true,
+      children: [],
+    });
+  });
 });

@@ -150,7 +150,7 @@ settings. Secret rows contribute required variable names; their values are omitt
 Secret-named data columns are omitted too. Existing local presets remain readable;
 open one and save it to move its setup into the workspace.
 
-Commit the request files, `.folder.bonk.json` auth placeholders, the scenario file,
+Commit the request files, `.folder.bonk.json` (auth placeholders, folder scripts), the scenario file,
 and any workspace-local proto or upload files. Their references are relative to
 the workspace. CLI paths with `--workspace` resolve from that root, not the shell's
 current directory.

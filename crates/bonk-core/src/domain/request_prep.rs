@@ -15,7 +15,7 @@ use serde_json::Value;
 use super::{
     dynamic_vars::Dynamic,
     http::{AuthConfig, BodyParam, HttpRequest, OAuthConfig},
-    workspace::{Param, TreeNode},
+    workspace::{FolderNode, Param, RequestNode, TreeNode},
 };
 
 pub type Scope = BTreeMap<String, String>;
@@ -212,6 +212,96 @@ fn nearest_folder_auth<'a>(nodes: &'a [TreeNode], id: &str) -> Option<Option<&'a
         }
     }
     None
+}
+
+/// `node` as a run gets it: auth and scripts resolved against its folders (see `effective_auth`,
+/// `effective_scripts`). The runner, the CLI and bonk-mcp all go through here.
+pub fn apply_inheritance(tree: &[TreeNode], node: &mut RequestNode) {
+    let id = node.id.clone();
+    node.request.auth = Some(effective_auth(tree, &id, node.request.auth.as_ref()));
+    let (pre, test) = effective_scripts(
+        tree,
+        &id,
+        node.request.pre_request_script.as_deref(),
+        node.request.test_script.as_deref(),
+    );
+    node.request.pre_request_script = pre;
+    node.request.test_script = test;
+    if let Some(grpc) = node.grpc.as_mut() {
+        grpc.auth = Some(effective_auth(tree, &id, grpc.auth.as_ref()));
+        let (pre, test) = effective_scripts(
+            tree,
+            &id,
+            grpc.pre_request_script.as_deref(),
+            grpc.test_script.as_deref(),
+        );
+        grpc.pre_request_script = pre;
+        grpc.test_script = test;
+    }
+}
+
+/// The scripts a send runs: every ancestor folder's (root first, `.folder.bonk.json`), then
+/// the request's own, each in its own scope. Mirrors `effectiveScripts` in
+/// entities/workspace/scriptInherit.ts. `(pre-request, test)`; `None` when nothing runs.
+pub fn effective_scripts(
+    tree: &[TreeNode],
+    id: &str,
+    own_pre: Option<&str>,
+    own_test: Option<&str>,
+) -> (Option<String>, Option<String>) {
+    let mut chain: Vec<&FolderNode> = Vec::new();
+    folder_chain(tree, id, &mut chain);
+    let join = |pick: fn(&FolderNode) -> Option<&String>, own: Option<&str>| {
+        let parts: Vec<&str> = chain
+            .iter()
+            .filter_map(|folder| pick(folder).map(String::as_str))
+            .chain(own)
+            .collect();
+        join_scripts(&parts)
+    };
+    (
+        join(|f| f.pre_request_script.as_ref(), own_pre),
+        join(|f| f.test_script.as_ref(), own_test),
+    )
+}
+
+/// Postman runs each inherited script in its own scope: with more than one part, each gets an
+/// IIFE (no `const` clashes, an early `return` ends only its part). Same as `joinScripts` in
+/// shared/model/scripts.ts. Blank parts are dropped.
+pub fn join_scripts(parts: &[&str]) -> Option<String> {
+    let present: Vec<&str> = parts
+        .iter()
+        .copied()
+        .filter(|code| !code.trim().is_empty())
+        .collect();
+    match present.as_slice() {
+        [] => None,
+        [one] => Some((*one).to_string()),
+        many => Some(
+            many.iter()
+                .map(|code| format!("(function () {{\n{code}\n}})();"))
+                .collect::<Vec<_>>()
+                .join("\n"),
+        ),
+    }
+}
+
+/// Fills `out` with the folders on the path to request `id`, root first; true once found.
+fn folder_chain<'a>(nodes: &'a [TreeNode], id: &str, out: &mut Vec<&'a FolderNode>) -> bool {
+    for node in nodes {
+        match node {
+            TreeNode::Request(request) if request.id == id => return true,
+            TreeNode::Folder(folder) => {
+                out.push(folder);
+                if folder_chain(&folder.children, id, out) {
+                    return true;
+                }
+                out.pop();
+            }
+            TreeNode::Request(_) => {}
+        }
+    }
+    false
 }
 
 /// A gRPC call's wire payload.
@@ -553,6 +643,8 @@ mod tests {
     fn folder(id: &str, auth: Option<AuthConfig>, children: Vec<TreeNode>) -> TreeNode {
         TreeNode::Folder(FolderNode {
             id: id.into(),
+            pre_request_script: None,
+            test_script: None,
             name: id.into(),
             expanded: true,
             auth: auth.map(Box::new),
@@ -587,6 +679,53 @@ mod tests {
             auth("basic")
         );
         assert_eq!(effective_auth(&tree, "fs:root", None).auth_type, "none");
+    }
+
+    fn scripted(id: &str, pre: &str, test: &str, children: Vec<TreeNode>) -> TreeNode {
+        let TreeNode::Folder(mut f) = folder(id, None, children) else {
+            unreachable!()
+        };
+        f.pre_request_script = Some(pre.into()).filter(|s: &String| !s.is_empty());
+        f.test_script = Some(test.into()).filter(|s: &String| !s.is_empty());
+        TreeNode::Folder(f)
+    }
+
+    #[test]
+    fn effective_scripts_run_outer_folders_first_then_the_request() {
+        let tree = vec![scripted(
+            "fs:a",
+            "const who = 'collection';",
+            "",
+            vec![
+                scripted(
+                    "fs:a/b",
+                    "const who = 'folder';",
+                    "pm.test('f');",
+                    vec![request("fs:a/b/r")],
+                ),
+                request("fs:a/r"),
+            ],
+        )];
+        let (pre, test) =
+            effective_scripts(&tree, "fs:a/b/r", Some("const who = 'request';"), None);
+        assert_eq!(
+            pre.as_deref(),
+            Some(
+                "(function () {\nconst who = 'collection';\n})();\n\
+                 (function () {\nconst who = 'folder';\n})();\n\
+                 (function () {\nconst who = 'request';\n})();"
+            )
+        );
+        // One part stays as it is (no wrapper), blanks are skipped.
+        assert_eq!(test.as_deref(), Some("pm.test('f');"));
+        assert_eq!(
+            effective_scripts(&tree, "fs:a/r", Some("  "), None),
+            (Some("const who = 'collection';".into()), None)
+        );
+        assert_eq!(
+            effective_scripts(&tree, "fs:nope", None, Some("x")),
+            (None, Some("x".into()))
+        );
     }
 
     #[test]

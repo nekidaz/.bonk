@@ -23,6 +23,9 @@ export interface PlanFolder {
   kind: 'folder';
   key: string;
   name: string;
+  /** Postman folder scripts; they go on the folder, requests inherit them. */
+  preRequestScript?: string;
+  testScript?: string;
   /** A HAR domain folder (globe icon). */
   domain?: boolean;
   /** Recorded entries, when filters left fewer (or none) in `items`. */
@@ -49,6 +52,8 @@ export interface Plan {
   envRows: EnvRow[];
   /** Goes on the collection folder; requests inherit it. */
   collectionAuth?: AuthConfig;
+  /** Postman collection scripts: on the collection folder, inherited by every request. */
+  collectionScripts?: { preRequestScript?: string; testScript?: string };
 }
 
 export type Grouping = 'tags' | 'paths' | 'flat';
@@ -105,14 +110,22 @@ export function collectionPlan(c: ParsedPostmanCollection): Plan {
   const walk = (items: ImportedPostmanItem[], prefix: string): PlanItem[] =>
     items.map((item, i): PlanItem => {
       const key = `${prefix}${i}`;
-      if (item.kind === 'folder') return { kind: 'folder', key, name: item.name, items: walk(item.items, `${key}/`) };
+      if (item.kind === 'folder') {
+        const { kind: _kind, items, ...rest } = item;
+        return { kind: 'folder', key, ...rest, items: walk(items, `${key}/`) };
+      }
       const path = urlPath(item.node.request.url);
       return { kind: 'request', key, link: `${item.node.request.method} ${path}`, node: item.node, hint: path };
     });
   const n = c.variables.length;
+  const scripts = {
+    ...(c.preRequestScript ? { preRequestScript: c.preRequestScript } : {}),
+    ...(c.testScript ? { testScript: c.testScript } : {}),
+  };
   return {
     title: c.title,
     items: walk(c.items, 'p:'),
+    ...(Object.keys(scripts).length ? { collectionScripts: scripts } : {}),
     envRows: n
       ? [
           {

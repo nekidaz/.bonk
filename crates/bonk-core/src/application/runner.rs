@@ -496,7 +496,7 @@ pub async fn call_grpc(
 }
 
 /// The requests under each of `ids` (a folder, a request, or `fs:` for everything), in
-/// tree order, each once, with effective auth (own or the folder's) — ready for `RunPlan`.
+/// tree order, each once, with effective auth and scripts (own and the folders') — ready for `RunPlan`.
 pub fn plan_requests(tree: &[TreeNode], ids: &[String]) -> Result<Vec<RequestNode>, String> {
     fn collect(nodes: &[TreeNode], out: &mut Vec<RequestNode>) {
         for node in nodes {
@@ -530,15 +530,7 @@ pub fn plan_requests(tree: &[TreeNode], ids: &[String]) -> Result<Vec<RequestNod
         }
     }
     for node in &mut out {
-        let auth = request_prep::effective_auth(tree, &node.id, node.request.auth.as_ref());
-        node.request.auth = Some(auth);
-        if let Some(grpc) = node.grpc.as_mut() {
-            grpc.auth = Some(request_prep::effective_auth(
-                tree,
-                &node.id,
-                grpc.auth.as_ref(),
-            ));
-        }
+        request_prep::apply_inheritance(tree, node);
     }
     Ok(out)
 }

@@ -38,6 +38,7 @@
     onDuplicate,
     onMove,
     onAuth,
+    onScripts,
     onDelete,
     onCopyCurl,
     onImportCurl,
@@ -68,6 +69,7 @@
     onDuplicate: () => void;
     onMove: () => void;
     onAuth: () => void;
+    onScripts: () => void;
     onDelete: () => void;
     onCopyCurl: () => void;
     onImportCurl: () => void;
@@ -271,6 +273,7 @@
             runInRunner(id);
           })}
           {@render item('lock', t('nav.menu.collAuth'), onAuth)}
+          {@render item('code', t('nav.menu.collScripts'), onScripts)}
           {#if node?.kind === 'folder' && node.source}
             {@render item('sync', t('nav.menu.updateFromSpec'), () => onUpdateFromSpec(node.id))}
           {/if}

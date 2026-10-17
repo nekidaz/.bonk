@@ -10,7 +10,7 @@ layers with a deliberately thin boundary between them:
 - **`crates/bonk-core/`** — Tauri-independent Rust core: all HTTP/gRPC/workspace/
   state logic. Buildable and testable without a webview (`cargo test -p bonk-core`).
   `domain/request_prep.rs` turns a request into what goes on the wire (params, body,
-  `{{vars}}`, auth, folder-auth inheritance, gRPC message + metadata); the app
+  `{{vars}}`, auth, folder auth and folder script inheritance, gRPC message + metadata); the app
   (`http_prepare` / `http_resolve` / `grpc_prepare`) and bonk-mcp both send through it.
   `application/runner.rs` is the Collection Runner (scripts, `{{vars}}` carried between
   requests, iterations, stop/pause); the network comes in through its `Transport` trait.

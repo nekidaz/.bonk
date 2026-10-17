@@ -1,3 +1,4 @@
+use super::workspace_watch::note_own_write;
 use crate::domain::http::AuthConfig;
 use crate::domain::workspace::{FolderFile, FolderNode, RequestFile, RequestNode, TreeNode};
 use std::fs;
@@ -29,6 +30,7 @@ pub(super) fn atomic_write(target: &Path, contents: &str) -> Result<(), String> 
 
     fs::write(&tmp, contents).map_err(|e| format!("failed to write {}: {e}", tmp.display()))?;
 
+    note_own_write(target);
     if let Err(e) = fs::rename(&tmp, target) {
         let _ = fs::remove_file(&tmp);
         return Err(format!("failed to write {}: {e}", target.display()));
@@ -161,6 +163,8 @@ fn load_dir(
                 expanded: false,
                 auth: settings.auth.map(Box::new),
                 source: settings.source,
+                pre_request_script: settings.pre_request_script,
+                test_script: settings.test_script,
                 children,
             }));
 
@@ -250,6 +254,23 @@ pub fn save_folder_source(
     write_folder_file(&directory, &file)
 }
 
+/// Set (or clear, with `None` / an empty string) the scripts every request under `dir_rel` inherits.
+pub fn save_folder_scripts(
+    root: &str,
+    dir_rel: &str,
+    pre_request_script: Option<String>,
+    test_script: Option<String>,
+) -> Result<(), String> {
+    let directory = resolve(root, dir_rel)?;
+
+    ensure_directory(&directory)?;
+
+    let mut file = read_folder_file(&directory);
+    file.pre_request_script = pre_request_script.filter(|code| !code.trim().is_empty());
+    file.test_script = test_script.filter(|code| !code.trim().is_empty());
+    write_folder_file(&directory, &file)
+}
+
 /// Persist the manual order of folder `dir_rel`'s entries (file/dir names, top to bottom).
 pub fn reorder(root: &str, dir_rel: &str, names: Vec<String>) -> Result<(), String> {
     let directory = resolve(root, dir_rel)?;
@@ -267,7 +288,8 @@ pub fn reorder(root: &str, dir_rel: &str, names: Vec<String>) -> Result<(), Stri
 fn write_folder_file(directory: &Path, file: &FolderFile) -> Result<(), String> {
     let path = directory.join(FOLDER_FILE);
 
-    if file.auth.is_none() && file.order.is_empty() && file.source.is_none() {
+    if file.is_empty() {
+        note_own_write(&path);
         return match fs::remove_file(&path) {
             Err(e) if e.kind() != std::io::ErrorKind::NotFound => {
                 Err(format!("failed to remove {}: {e}", path.display()))
@@ -476,6 +498,7 @@ pub fn create_folder(root: &str, parent_rel: &str, name: &str) -> Result<String,
     let name = sanitize(name);
     let directory = unique_path(&parent, &name, "")?;
 
+    note_own_write(&directory);
     fs::create_dir(&directory)
         .map_err(|e| format!("failed to create directory {}: {e}", directory.display()))?;
 
@@ -562,6 +585,7 @@ pub fn save_request(
                 ));
             }
 
+            note_own_write(&old);
             fs::remove_file(&old)
                 .map_err(|e| format!("failed to remove old request {}: {e}", old.display()))?;
         }
@@ -575,6 +599,7 @@ pub fn save_request(
 /// Folder deletion is recursive.
 pub fn delete(root: &str, rel: &str) -> Result<(), String> {
     let path = resolve(root, rel)?;
+    note_own_write(&path);
 
     if path.is_dir() {
         fs::remove_dir_all(&path)
@@ -622,6 +647,8 @@ pub fn rename(root: &str, rel: &str, new_name: &str) -> Result<String, String> {
             desired
         };
 
+        note_own_write(&path);
+        note_own_write(&destination);
         fs::rename(&path, &destination).map_err(|e| {
             format!(
                 "failed to rename directory {} to {}: {e}",
@@ -667,6 +694,7 @@ pub fn rename(root: &str, rel: &str, new_name: &str) -> Result<String, String> {
     atomic_write(&destination, &format!("{output}\n"))?;
 
     if destination != path {
+        note_own_write(&path);
         fs::remove_file(&path)
             .map_err(|e| format!("failed to remove old request {}: {e}", path.display()))?;
         rename_in_order(&path, &destination);
@@ -677,6 +705,7 @@ pub fn rename(root: &str, rel: &str, new_name: &str) -> Result<String, String> {
 
 /// Recursively copy directory `src` into `dst`.
 fn copy_dir(src: &Path, dst: &Path) -> Result<(), String> {
+    note_own_write(dst);
     fs::create_dir_all(dst).map_err(|e| {
         format!(
             "failed to create destination directory {}: {e}",
@@ -691,6 +720,7 @@ fn copy_dir(src: &Path, dst: &Path) -> Result<(), String> {
 
         let from = entry.path();
         let to = dst.join(entry.file_name());
+        note_own_write(&to);
 
         // Skip symlinks (without following them): following a link could copy
         // content from outside the workspace root. Inspect the link itself.
@@ -806,6 +836,8 @@ pub fn move_node(root: &str, rel: &str, dest_dir_rel: &str) -> Result<String, St
         return Err(format!("unsupported node type: {}", source.display()));
     };
 
+    note_own_write(&source);
+    note_own_write(&destination);
     fs::rename(&source, &destination).map_err(|e| {
         format!(
             "failed to move {} to {}: {e}",
@@ -827,6 +859,10 @@ pub struct ImportCollection {
     pub auth: Option<AuthConfig>,
     #[serde(default)]
     pub source: Option<serde_json::Value>,
+    #[serde(default)]
+    pub pre_request_script: Option<String>,
+    #[serde(default)]
+    pub test_script: Option<String>,
 }
 
 /// Persist the whole import or remove its new folder on failure. Existing
@@ -840,6 +876,7 @@ pub fn import_collection(root: &str, collection: ImportCollection) -> Result<Str
                     let id = create_folder(root, parent, &folder.name)?;
                     save_folder_auth(root, &id, folder.auth.map(|auth| *auth))?;
                     save_folder_source(root, &id, folder.source)?;
+                    save_folder_scripts(root, &id, folder.pre_request_script, folder.test_script)?;
                     save(root, &id, folder.children)?;
                     order.push(
                         id.rsplit('/')
@@ -867,6 +904,12 @@ pub fn import_collection(root: &str, collection: ImportCollection) -> Result<Str
     let result = (|| {
         save_folder_auth(root, &id, collection.auth)?;
         save_folder_source(root, &id, collection.source)?;
+        save_folder_scripts(
+            root,
+            &id,
+            collection.pre_request_script,
+            collection.test_script,
+        )?;
         save(root, &id, collection.children)
     })();
     if let Err(error) = result {
@@ -1536,6 +1579,26 @@ mod tests {
     }
 
     #[test]
+    fn folder_scripts_round_trip_and_an_empty_file_is_removed() {
+        let root = temp_root();
+        write_request(&root.join("api"), "List");
+        let root_s = root.to_str().unwrap();
+
+        save_folder_scripts(root_s, "fs:api", Some("pre();".into()), Some("  ".into())).unwrap();
+        let TreeNode::Folder(folder) = &load(root_s).unwrap()[0] else {
+            panic!("expected folder");
+        };
+        assert_eq!(folder.pre_request_script.as_deref(), Some("pre();"));
+        assert_eq!(folder.test_script, None);
+        let raw = fs::read_to_string(root.join("api").join(FOLDER_FILE)).unwrap();
+        assert!(raw.contains("\"preRequestScript\""), "{raw}");
+
+        save_folder_scripts(root_s, "fs:api", None, None).unwrap();
+        assert!(!root.join("api").join(FOLDER_FILE).exists());
+        fs::remove_dir_all(root).ok();
+    }
+
+    #[test]
     fn reorder_overrides_alphabetical_and_survives_rename() {
         let root = temp_root();
         for name in ["A", "B", "C"] {
@@ -1571,6 +1634,8 @@ mod tests {
             children,
             auth: None,
             source: None,
+            pre_request_script: Some("pm.environment.set('from', 'collection');".into()),
+            test_script: None,
         };
         import_collection(
             &root.to_string_lossy(),
@@ -1583,6 +1648,10 @@ mod tests {
         };
         assert_eq!(node_name(&folder.children[0]), "z-login");
         assert_eq!(node_name(&folder.children[1]), "a-me");
+        assert!(folder
+            .pre_request_script
+            .as_deref()
+            .is_some_and(|s| s.contains("collection")));
         assert!(import_collection(
             &root.to_string_lossy(),
             make(vec![request("first".into()), request("x".repeat(300))])

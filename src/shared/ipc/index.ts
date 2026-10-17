@@ -180,6 +180,7 @@ export {
   workspaceRenameRoot,
   workspaceReorder,
   workspaceSaveFolderAuth,
+  workspaceSaveFolderScripts,
   workspaceSaveFolderSource,
   workspaceSaveRequest,
   workspaceTrash,

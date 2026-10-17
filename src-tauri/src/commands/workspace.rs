@@ -76,7 +76,10 @@ pub fn workspace_watch(
         std::time::Duration::from_millis(300),
         move |res: DebounceEventResult| {
             let Ok(events) = res else { return };
-            let paths: Vec<_> = events.into_iter().map(|e| e.path).collect();
+            // The app's own writes come back as events too; it has re-read those folders already.
+            let paths = bonk_core::application::workspace_watch::without_own_writes(
+                events.into_iter().map(|e| e.path).collect(),
+            );
             let change = bonk_core::application::workspace_watch::classify(&base, &paths);
             if !change.is_empty() {
                 let _ = on_change.send(change);
@@ -155,6 +158,22 @@ pub fn workspace_save_folder_source(
 ) -> Result<(), String> {
     require_absolute_root(&root)?;
     bonk_core::application::workspace::save_folder_source(&root, &dir, source)
+}
+
+#[tauri::command]
+pub fn workspace_save_folder_scripts(
+    root: String,
+    dir: String,
+    pre_request_script: Option<String>,
+    test_script: Option<String>,
+) -> Result<(), String> {
+    require_absolute_root(&root)?;
+    bonk_core::application::workspace::save_folder_scripts(
+        &root,
+        &dir,
+        pre_request_script,
+        test_script,
+    )
 }
 
 #[tauri::command]

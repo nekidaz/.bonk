@@ -89,6 +89,10 @@ export function nodeAuth(): void {
   shell.authFolderId = shell.menu.nodeId;
   shell.closeMenu();
 }
+export function nodeScripts(): void {
+  shell.scriptsFolderId = shell.menu.nodeId;
+  shell.closeMenu();
+}
 export function nodeMove(): void {
   shell.moveSourceId = shell.menu.nodeId;
   shell.moveOpen = true;
