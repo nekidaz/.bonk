@@ -48,7 +48,9 @@ pub fn is_webview_name(name: &str) -> bool {
 }
 
 /// `me` first, then by pid. A descendant of `me` is a Child (or Webview by name); a process
-/// outside the tree is a Webview when the OS says `me` is responsible for it (macOS XPC).
+/// outside the tree is a Webview when the OS says `me` is responsible for it (macOS XPC), or,
+/// for a dev build launched from a terminal, when it is a WebKit process sharing `me`'s
+/// responsible app (the terminal or editor is then responsible for both).
 pub fn select_own(
     all: &[RawProc],
     me: u32,
@@ -67,6 +69,7 @@ pub fn select_own(
         }
         false
     };
+    let my_responsible = responsible(me).filter(|&r| r != me);
     let mut out: Vec<(u32, ProcKind)> = all
         .iter()
         .filter(|p| p.pid != me && !p.thread)
@@ -80,7 +83,13 @@ pub fn select_own(
                         ProcKind::Child
                     },
                 ))
-            } else if responsible(p.pid) == Some(me) {
+            } else if responsible(p.pid) == Some(me)
+                || (is_webview_name(&p.name)
+                    && my_responsible.is_some()
+                    && responsible(p.pid) == my_responsible)
+            {
+                // ponytail: in a dev build this also counts WebKit helpers of other apps
+                // started from the same terminal; release builds match on `me` only.
                 Some((p.pid, ProcKind::Webview))
             } else {
                 None
@@ -271,6 +280,27 @@ mod tests {
                 (30, ProcKind::Webview),
                 (40, ProcKind::Webview)
             ]
+        );
+    }
+
+    #[test]
+    fn dev_build_shares_its_responsible_app_with_webkit() {
+        // `tauri dev` from an editor's terminal: macOS makes the editor (99) responsible for
+        // bonk and for bonk's WebKit helpers alike.
+        let all = [
+            p(10, Some(5), "bonk"),
+            p(30, Some(1), "com.apple.WebKit.WebContent"),
+            p(31, Some(1), "zsh"),
+            p(32, Some(1), "com.apple.WebKit.WebContent"),
+        ];
+        let resp = |pid: u32| match pid {
+            10 | 30 | 31 => Some(99),
+            32 => Some(77),
+            _ => None,
+        };
+        assert_eq!(
+            select_own(&all, 10, &resp),
+            vec![(10, ProcKind::Main), (30, ProcKind::Webview)]
         );
     }
 

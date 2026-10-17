@@ -77,9 +77,10 @@
     </div>
   {/if}
   <!-- svelte-ignore a11y_no_static_element_interactions -->
+  <!-- Inline size: base.css sizes every `.bs svg` as a 16px icon, and that beats width/height attributes. -->
   <svg
-    {width}
-    {height}
+    style:width={`${width}px`}
+    style:height={`${height}px`}
     viewBox={`0 0 ${width} ${height}`}
     onpointermove={compact ? undefined : onMove}
     onpointerleave={() => (hoverX = null)}
