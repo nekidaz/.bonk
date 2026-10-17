@@ -27,6 +27,8 @@
   }
 
   let uiTab = $state<HttpEditorTab>('params');
+  // Headers → «Show auto»: the switch sits in the tab row, the table reads it.
+  let showAuto = $state(true);
   // “Go to line” from the response opens the Scripts tab; RequestScripts then reveals the line.
   $effect(() => {
     if (scriptUi.jump?.tabId === tab.id) uiTab = 'scripts';
@@ -34,7 +36,7 @@
 </script>
 
 <HttpUrlBar {tab} bind:methodOpen />
-<HttpRequestTabs {tab} bind:uiTab />
+<HttpRequestTabs {tab} bind:uiTab bind:showAuto />
 
 <ReqPane role="tabpanel" id="bs-reqpanel" aria-labelledby="bs-rtab-{uiTab}">
   {#if uiTab === 'body'}
@@ -42,7 +44,7 @@
   {:else if uiTab === 'auth'}
     <HttpAuthEditor {tab} />
   {:else if uiTab === 'headers'}
-    <HttpHeadersEditor {tab} />
+    <HttpHeadersEditor {tab} {showAuto} />
   {:else if uiTab === 'params'}
     <HttpParamsEditor {tab} />
   {:else if uiTab === 'scripts'}

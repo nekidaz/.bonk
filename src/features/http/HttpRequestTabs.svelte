@@ -1,12 +1,13 @@
 <!--
   HTTP request → the tab row Params / Headers / Body / Auth / Scripts with counters, and on the right
-  the tools of the open tab (body format, Beautify, size).
+  the tools of the open tab (body format, Beautify, size; Headers: «Show auto»).
 -->
 <script lang="ts">
   import { t } from '$shared/i18n';
   import type { HttpEditorTab } from './httpEditor';
   import { type Tab, formatBytes, currentBodyMode, currentRawFormat, SCRIPTS_ENABLED } from '$shared/model';
   import { tablist, focusMode, toggleFocus } from '$shared/ui';
+  import { LabelSwitch } from '$shared/ui/components';
   import {
     applyBodyKind,
     beautify,
@@ -24,7 +25,11 @@
   import { EditorTools } from '$shared/editor/components';
   import { TabRow, TabRowTools, RTabs, RTab, TabCount, TabStats } from '$entities/request/components';
 
-  let { tab, uiTab = $bindable() }: { tab: Tab; uiTab: HttpEditorTab } = $props();
+  let {
+    tab,
+    uiTab = $bindable(),
+    showAuto = $bindable(true),
+  }: { tab: Tab; uiTab: HttpEditorTab; showAuto?: boolean } = $props();
 
   const paramCount = $derived((tab.params ?? []).filter((p) => p.enabled && p.key.trim()).length);
   const headerCount = $derived(Object.keys(tab.request.headers ?? {}).length);
@@ -134,6 +139,14 @@
         onExpand={() => (focusMode.current = toggleFocus(focusMode.current, 'request'))}
         expanded={focusMode.current === 'request'}
       />
+    </TabRowTools>
+  {:else if uiTab === 'headers'}
+    <TabRowTools>
+      <LabelSwitch>
+        <input type="checkbox" role="switch" bind:checked={showAuto} />
+        <span class="track" aria-hidden="true"></span>
+        {t('http.headers.show_auto')}
+      </LabelSwitch>
     </TabRowTools>
   {/if}
 </TabRow>

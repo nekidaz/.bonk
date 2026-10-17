@@ -8,13 +8,12 @@
   import { withInheritedAuth, workspace } from '$entities/workspace';
   import { tabs } from '$entities/tab';
   import type { HttpRequest, Tab } from '$shared/model';
-  import { KvPanel, KvHead, KvTable, KvRow, KvCell, KvVarInput } from '$entities/request/components';
-  import { LabelSwitch } from '$shared/ui/components';
+  import { KvPanel, KvTable, KvRow, KvCell, KvVarInput } from '$entities/request/components';
 
-  let { tab }: { tab: Tab } = $props();
+  // `showAuto`: the «Show auto» switch in the tab row (HttpRequestTabs).
+  let { tab, showAuto }: { tab: Tab; showAuto: boolean } = $props();
 
   // S12: one table — manual headers (toggle + description), then the headers bonk adds itself.
-  let showAuto = $state(true);
   const auto = $derived(autoHeaderRows((void workspace.tree, withInheritedAuth(tab, tab.savedPath))));
 
   function patch(fn: (req: HttpRequest) => HttpRequest): void {
@@ -59,13 +58,6 @@
 </script>
 
 <KvPanel class="bs-hwrap">
-  <KvHead class="bs-headers-head">
-    <LabelSwitch>
-      <input type="checkbox" role="switch" bind:checked={showAuto} />
-      <span class="track" aria-hidden="true"></span>
-      {t('http.headers.show_auto')}
-    </LabelSwitch>
-  </KvHead>
   <KvTable class="bs-headers">
     <KvRow class="h">
       <KvCell class="c"></KvCell>
@@ -129,14 +121,7 @@
 </KvPanel>
 
 <style>
-  /* S12: headers table with automatic rows and the "show auto" switch. */
-  :global(:root .bs .bs-qp.bs-headers-head) {
-    display: flex;
-    align-items: center;
-    justify-content: flex-end;
-    height: 16px;
-  }
-
+  /* S12: headers table with automatic rows. */
   :global(:root .bs .bs-pr.auto) {
     opacity: 0.5;
   }
