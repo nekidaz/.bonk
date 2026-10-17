@@ -5,15 +5,19 @@
  */
 import { linter } from '@codemirror/lint';
 import type { Extension } from '@codemirror/state';
-import { completion, getSchema, jump, schemaStateField, stateExtensions } from 'cm6-graphql';
+import { completion, getSchema, graphqlLanguageSupport, jump, schemaStateField, stateExtensions } from 'cm6-graphql';
 import type { GraphQLSchema } from 'graphql';
 import { graphqlProblems } from './graphqlLint';
+
+// One instance: the schema-driven extensions are rebuilt on a schema change, the language need not be.
+const language = graphqlLanguageSupport();
 
 export function graphqlExtensions(
   schema: GraphQLSchema | undefined,
   onShowInDocs: (field?: string, type?: string, parentType?: string) => void,
 ): Extension {
   return [
+    language,
     completion,
     jump,
     stateExtensions(schema, { onShowInDocs }),

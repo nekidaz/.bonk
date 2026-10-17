@@ -46,7 +46,6 @@
   } from '@codemirror/autocomplete';
   import { javascript } from '@codemirror/lang-javascript';
   import { json } from '@codemirror/lang-json';
-  import { graphqlLanguageSupport } from 'cm6-graphql';
   import { foldKeymap } from '@codemirror/language';
   import { search, searchKeymap } from '@codemirror/search';
   import { createFindPanel } from './findPanel';
@@ -190,7 +189,7 @@
   function langExtension(l: CodeEditorLang): Extension {
     if (l === 'javascript') return javascript();
     if (l === 'json') return json();
-    if (l === 'graphql') return graphqlLanguageSupport();
+    // 'graphql' gets its language from graphqlExtensions(), so cm6-graphql loads only with a GraphQL body.
     // Big read-only JSON: tokenizer over the visible lines only (no background parse of the whole document).
     if (l === 'json-lite') return lineHighlight();
     return [];
