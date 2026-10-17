@@ -15,7 +15,7 @@ export interface Hunk {
 
 /**
  * Changed ranges of `b` against `a` from a longest common subsequence of lines.
- * ponytail: O(n·m) table after trimming the common head and tail — fine for request files of a
+ * Limit: O(n·m) table after trimming the common head and tail — fine for request files of a
  * few hundred lines; switch to Myers if big files ever come through here.
  */
 export function lineHunks(a: string[], b: string[]): Hunk[] {

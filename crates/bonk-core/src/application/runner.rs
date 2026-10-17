@@ -1011,7 +1011,7 @@ fn redact(fields: &[InputField], values: &Scope, execution: &mut RequestExecutio
     hide(&mut row.target);
     row.error.iter_mut().for_each(hide);
     row.logs.iter_mut().for_each(hide);
-    // ponytail: JSON-escaped quotes/backslashes in a secret slip past this string replace.
+    // Limit: JSON-escaped quotes/backslashes in a secret slip past this string replace.
     if let Some(request) = execution.details.request.as_mut() {
         if let Ok(mut text) = serde_json::to_string(request) {
             hide(&mut text);

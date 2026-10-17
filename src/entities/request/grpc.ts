@@ -218,7 +218,7 @@ function jsonFits(value: unknown, f: GrpcField): boolean {
 /**
  * Check the top-level keys of a JSON message against the request schema.
  * Invalid JSON and non-objects yield nothing — the editor reports those itself.
- * ponytail: top level only; nested messages need their own schema from the backend.
+ * Limit: top level only; nested messages need their own schema from the backend.
  */
 export function checkGrpcMessage(text: string, fields: GrpcField[] | undefined): GrpcMessageIssue[] {
   if (!fields?.length) return [];

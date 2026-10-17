@@ -177,7 +177,7 @@
   // ---- Will be sent ----
   const calls = $derived(planned.length * iterations);
   const estimate = $derived.by(() => {
-    // ponytail: p95 of the last run per call — a rough upper bound, enough for "~N s".
+    // Limit: p95 of the last run per call — a rough upper bound, enough for "~N s".
     const perCall = runner.history.at(-1)?.p95Ms || 150;
     return Math.max(1, Math.round((calls * perCall + cfg.delayMs * Math.max(0, calls - 1)) / 1000));
   });

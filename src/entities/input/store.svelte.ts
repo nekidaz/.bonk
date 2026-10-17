@@ -26,7 +26,7 @@ let saving: Promise<void> = Promise.resolve();
 let saveTimer: ReturnType<typeof setTimeout> | undefined;
 /** When the definitions were last edited here; a disk reload right after would undo typing. */
 let editedAt = 0;
-// ponytail: a time window, not write tracking; an outside edit within it waits for the next one.
+// Limit: a time window, not write tracking; an outside edit within it waits for the next one.
 const EDIT_QUIET_MS = 1500;
 
 /** Ask for `name` with `def`, or stop asking (`null`); writes `.bonk/inputs.json` soon after. */

@@ -219,7 +219,7 @@ function parseJsonc(text: string): unknown {
       i = end < 0 ? text.length : end + 1;
     } else out += ch;
   }
-  // ponytail: a ", }" inside a string value would lose its comma; no theme has one.
+  // Limit: a ", }" inside a string value would lose its comma; no theme has one.
   return JSON.parse(out.replace(/,(\s*[}\]])/g, '$1'));
 }
 

@@ -131,7 +131,7 @@ pub fn resolve(
         if let Some(query) = request.body.take() {
             let variables =
                 graphql_variables(request.graphql_variables.as_deref(), scope, dynamic)?;
-            // ponytail: serde_json sorts object keys where JSON.stringify keeps the typed
+            // Limit: serde_json sorts object keys where JSON.stringify keeps the typed
             // order; same JSON to a server, different bytes. Enable `preserve_order` if it matters.
             request.body =
                 Some(serde_json::json!({ "query": query, "variables": variables }).to_string());

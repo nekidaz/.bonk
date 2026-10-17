@@ -564,7 +564,7 @@ fn discard_at(top: &str, paths: &[String]) -> Result<(), String> {
     // with `-` from being read as a flag; an unborn HEAD has none). A constant
     // number of git processes per discard, however many files: a fresh
     // collection of hundreds of untracked requests must not spawn one per file.
-    // ponytail: all paths go on one command line; batch it if workspaces ever
+    // Limit: all paths go on one command line; batch it if workspaces ever
     // reach tens of thousands of changed files (ARG_MAX).
     let mut args: Vec<&str> = vec!["ls-tree", "--name-only", "-z", "HEAD", "--"];
     args.extend(paths.iter().map(String::as_str));
@@ -1263,7 +1263,7 @@ fn run_combined(root: &str, args: &[&str]) -> Result<String, String> {
     }
 }
 
-// ponytail: -U100000 ships the whole file to the UI; fine because request
+// Limit: -U100000 ships the whole file to the UI; fine because request
 // files are small JSON. Revisit if big files ever go through here.
 const FULL: &str = "--unified=100000";
 

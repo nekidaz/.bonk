@@ -75,7 +75,7 @@ pub fn load_with_skipped(root: &str, light: bool) -> Result<(Vec<TreeNode>, Vec<
     Ok((tree, skipped))
 }
 
-// ponytail: headless callers (CLI, MCP) and folder refreshes only log skipped files to stderr;
+// Limit: headless callers (CLI, MCP) and folder refreshes only log skipped files to stderr;
 // the app's full load (`load_with_skipped`) shows them in a toast.
 fn logged(loaded: Result<(Vec<TreeNode>, Vec<String>), String>) -> Result<Vec<TreeNode>, String> {
     let (tree, skipped) = loaded?;

@@ -24,7 +24,7 @@ export function settingsProblems(text: string, specs: SettingSpec[]): SettingsPr
   for (const [key, v] of Object.entries(values)) {
     const spec = byKey.get(key);
     if (spec && spec.valid(v)) continue;
-    // ponytail: the first `"key"` in the text; the same string earlier (as a value) would be marked instead.
+    // Limit: the first `"key"` in the text; the same string earlier (as a value) would be marked instead.
     const quoted = JSON.stringify(key);
     const at = text.indexOf(quoted);
     if (at < 0) continue;

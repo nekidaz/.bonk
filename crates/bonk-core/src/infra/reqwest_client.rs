@@ -69,7 +69,7 @@ pub fn error_text(e: &dyn std::error::Error) -> String {
 /// Read a request-body file into memory, rejecting oversized files by metadata
 /// first so a huge attachment can't OOM the process. Regular files only:
 /// `/dev/zero` or a FIFO reports size 0, passes the cap and reads (or blocks) forever.
-// ponytail: trusts metadata().len(); a Linux /proc file that under-reports its
+// Limit: trusts metadata().len(); a Linux /proc file that under-reports its
 // size can still read past the cap — switch to File::take if that ever matters.
 fn read_upload(path: &str, what: &str) -> Result<Vec<u8>, String> {
     let failed = |e: std::io::Error| format!("failed to read {what} '{path}': {e}");

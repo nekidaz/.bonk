@@ -293,7 +293,7 @@ function varNameFor(segment: string | undefined): string {
 }
 
 /**
- * ponytail: naive heuristic. A literal id segment in the failing URL whose
+ * Limit: naive heuristic. A literal id segment in the failing URL whose
  * prefix (`pay_`) matches an `id` an earlier call of the same iteration
  * returned → suggest binding it. Upgrade path: real response→request lineage.
  */

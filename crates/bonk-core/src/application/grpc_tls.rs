@@ -204,7 +204,7 @@ pub async fn connect_insecure(
     } else {
         host
     };
-    // ponytail: the connector does TLS itself, so tonic gets an http:// URI
+    // Limit: the connector does TLS itself, so tonic gets an http:// URI
     // (it refuses https:// without its own TLS config); :scheme goes out as
     // "http". Fine for gRPC servers; switch if a proxy ever rejects it.
     let mut builder = Endpoint::from_shared(format!("http://{host}:{port}"))

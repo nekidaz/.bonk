@@ -370,7 +370,7 @@ fn first_text(result: &CallToolResult) -> String {
 }
 
 /// Append one JSON line; past JOURNAL_MAX_BYTES the file rotates to `<name>.1`.
-// ponytail: servers of several clients may rotate at once and drop one older generation; fine for an activity log.
+// Limit: servers of several clients may rotate at once and drop one older generation; fine for an activity log.
 fn append_journal(path: &Path, entry: &JournalEntry) -> std::io::Result<()> {
     if std::fs::metadata(path).is_ok_and(|meta| meta.len() > JOURNAL_MAX_BYTES) {
         let _ = std::fs::rename(path, path.with_extension("jsonl.1"));

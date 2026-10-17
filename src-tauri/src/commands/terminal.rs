@@ -228,7 +228,7 @@ fn sh_quote(s: &str) -> String {
 /// CT6: writes `export BONK_…='…'` lines to an owner-only temp file and returns its path.
 /// The hand-off pastes `(. file; rm -f file; curl …)`, so the secret values never pass
 /// through the shell's input or history, and live only in that subshell.
-/// ponytail: POSIX shells only; Windows `cmd` can't source it.
+/// Limit: POSIX shells only; Windows `cmd` can't source it.
 #[tauri::command]
 pub fn pty_stage_env(env: HashMap<String, String>) -> Result<String, String> {
     if let Some(bad) = env.keys().find(|name| !valid_env_name(name)) {

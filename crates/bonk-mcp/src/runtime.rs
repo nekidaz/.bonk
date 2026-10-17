@@ -489,7 +489,7 @@ impl BonkRuntime {
             })
             .collect::<VariableMap>();
         let app = load_app_vars(self.config.app_state.as_deref());
-        // ponytail: keychain reads are blocking and may show an OS prompt; fine on the multi-thread runtime.
+        // Limit: keychain reads are blocking and may show an OS prompt; fine on the multi-thread runtime.
         let (mut env, globals, app_secrets) = app_scopes(&app, environment, &keychain_secret)?;
         let mut secrets = process.values().cloned().collect::<Vec<_>>();
         if !self.config.expose_secrets {

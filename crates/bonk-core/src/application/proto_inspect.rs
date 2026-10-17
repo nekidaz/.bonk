@@ -181,7 +181,7 @@ fn inspect_one(file: &Path, roots: &[String]) -> ProtoFileInfo {
 
 fn describe_error(e: &protox::Error) -> ProtoFileError {
     let message = e.to_string();
-    // ponytail: protox exposes no structured missing-import info, so parse the
+    // Limit: protox exposes no structured missing-import info, so parse the
     // quoted name out of the message ("import 'x' not found"); falls back to
     // the raw compiler text if the wording changes.
     if e.is_file_not_found() {

@@ -88,7 +88,7 @@ pub fn select_own(
                     && my_responsible.is_some()
                     && responsible(p.pid) == my_responsible)
             {
-                // ponytail: in a dev build this also counts WebKit helpers of other apps
+                // Limit: in a dev build this also counts WebKit helpers of other apps
                 // started from the same terminal; release builds match on `me` only.
                 Some((p.pid, ProcKind::Webview))
             } else {
@@ -118,7 +118,7 @@ impl ProcMonitor {
 
     /// Refreshes the process list; `threads` / `open_files` only when `detailed`, else `None`.
     pub fn sample(&mut self, detailed: bool) -> Vec<ProcStat> {
-        // ponytail: refreshes every process each tick (a few ms for ~600); refresh only our pids
+        // Limit: refreshes every process each tick (a few ms for ~600); refresh only our pids
         // between full scans if this ever shows up in the monitor itself.
         self.sys.refresh_processes_specifics(
             ProcessesToUpdate::All,
