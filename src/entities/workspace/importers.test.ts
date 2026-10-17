@@ -57,6 +57,53 @@ describe('Insomnia import', () => {
   });
 });
 
+describe('Insomnia GraphQL import', () => {
+  function importBody(text: string) {
+    const out = parseInsomniaExport(
+      JSON.stringify({
+        _type: 'export',
+        __export_format: 4,
+        resources: [
+          { _id: 'wrk_1', _type: 'workspace', name: 'W', parentId: null },
+          {
+            _id: 'req_1',
+            _type: 'request',
+            parentId: 'wrk_1',
+            name: 'Q',
+            method: 'POST',
+            url: 'https://x.io/graphql',
+            body: { mimeType: 'application/graphql', text },
+          },
+        ],
+      }),
+    );
+    const item = out.items[0];
+    if (item?.kind !== 'request') throw new Error('expected request');
+    return item.node.request;
+  }
+
+  it('imports query and variables as a GraphQL body', () => {
+    const r = importBody('{"query":"query { a }","variables":{"id":"{{ _.id }}"}}');
+    expect(r.bodyMode).toBe('graphql');
+    expect(r.body).toBe('query { a }');
+    expect(JSON.parse(r.graphqlVariables!)).toEqual({ id: '{{id}}' });
+    expect(r.graphqlVariables).toBe('{\n  "id": "{{id}}"\n}');
+  });
+
+  it('leaves variables undefined when absent', () => {
+    const r = importBody('{"query":"{ a }"}');
+    expect(r.bodyMode).toBe('graphql');
+    expect(r.graphqlVariables).toBeUndefined();
+  });
+
+  it('falls back to a raw text body when the text is not JSON', () => {
+    const r = importBody('not json');
+    expect(r.bodyMode).toBe('raw');
+    expect(r.rawBodyFormat).toBe('Text');
+    expect(r.body).toBe('not json');
+  });
+});
+
 describe('cURL file import', () => {
   it('parses several commands, with line continuations', () => {
     const text = "curl -X POST https://a.test/x \\\n  -H 'A: b' -d '{}'\n# note\ncurl https://a.test/y?q=1";

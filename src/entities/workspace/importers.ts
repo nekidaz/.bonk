@@ -94,15 +94,24 @@ function insomniaRequest(res: RecordValue): ImportedPostmanItem {
   const body = object(res.body);
   if (body && typeof body.text === 'string' && body.text) {
     const mime = str(body.mimeType).toLowerCase();
-    request.bodyMode = 'raw';
-    request.body = insomniaTemplate(body.text);
-    request.rawBodyFormat = mime.includes('json')
-      ? 'JSON'
-      : mime.includes('xml')
-        ? 'XML'
-        : mime.includes('html')
-          ? 'HTML'
-          : 'Text';
+    // Insomnia stores a GraphQL body as the JSON text {"query": "...", "variables": {...}}.
+    const gql = mime === 'application/graphql' ? parseJson(body.text) : null;
+    if (gql && typeof gql.query === 'string') {
+      request.bodyMode = 'graphql';
+      request.body = insomniaTemplate(gql.query);
+      const variables = object(gql.variables);
+      if (variables) request.graphqlVariables = insomniaTemplate(JSON.stringify(variables, null, 2));
+    } else {
+      request.bodyMode = 'raw';
+      request.body = insomniaTemplate(body.text);
+      request.rawBodyFormat = mime.includes('json')
+        ? 'JSON'
+        : mime.includes('xml')
+          ? 'XML'
+          : mime.includes('html')
+            ? 'HTML'
+            : 'Text';
+    }
   }
   return makeNode(str(res.name) || `${method} ${url}`, request, params);
 }

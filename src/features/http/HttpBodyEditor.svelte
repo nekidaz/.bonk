@@ -27,6 +27,7 @@
   import { tabs } from '$entities/tab';
   import { environments, requestVariableHighlight } from '$entities/environment';
   import { BodyPanel, BodyCode, BeautifyButton, BodyHead } from '$entities/request/components';
+  import GraphqlBody from './GraphqlBody.svelte';
 
   let { tab }: { tab: Tab } = $props();
 
@@ -109,7 +110,6 @@
   /** CodeMirror language for the current body mode / raw sub-type. */
   const bodyLang = $derived.by((): CodeEditorLang => {
     const mode = currentBodyMode(tab);
-    if (mode === 'graphql') return 'javascript';
     if (mode === 'binary') return 'text';
     const format = currentRawFormat(tab);
     if (format === 'JSON') return 'json';
@@ -120,10 +120,6 @@
   function setBody(value: string): void {
     bodyError = '';
     tabs.updateActive((t) => ({ ...t, request: { ...t.request, body: value } }));
-  }
-
-  function setGraphqlVariables(value: string): void {
-    tabs.updateActive((t) => ({ ...t, request: { ...t.request, graphqlVariables: value } }));
   }
 
   function setBodyMode(mode: BodyMode): void {
@@ -369,38 +365,7 @@
       </button>
     </div>
   {:else if currentBodyMode(tab) === 'graphql'}
-    <div class="bs-graphql-editors">
-      <section class="bs-graphql-panel">
-        <div class="bs-graphql-label">{t('http.body.gql_query')}</div>
-        <BodyCode class={{ invalid: !!bodyError }}>
-          <CodeEditor
-            value={tab.request.body ?? ''}
-            onChange={setBody}
-            lang="javascript"
-            placeholder={bodyPlaceholder(tab, t)}
-            fill
-            {varHighlight}
-            docId={`${tab.id}:graphql-query`}
-            ariaLabel={t('http.body.gql_query_aria')}
-          />
-        </BodyCode>
-      </section>
-      <section class="bs-graphql-panel">
-        <div class="bs-graphql-label">{t('http.body.gql_vars')}</div>
-        <BodyCode>
-          <CodeEditor
-            value={tab.request.graphqlVariables ?? ''}
-            onChange={setGraphqlVariables}
-            lang="json"
-            placeholder={'{\n  "id": "1"\n}'}
-            fill
-            {varHighlight}
-            docId={`${tab.id}:graphql-variables`}
-            ariaLabel={t('http.body.gql_vars_aria')}
-          />
-        </BodyCode>
-      </section>
-    </div>
+    <GraphqlBody {tab} {varHighlight} />
   {:else}
     {#if currentBodyMode(tab) === 'binary'}
       <div class="bs-binary-picker">
@@ -714,27 +679,6 @@
   }
   .dyn-bad .material-symbols-outlined {
     font-size: 13px;
-  }
-  .bs-graphql-editors {
-    display: flex;
-    flex: 1;
-    min-height: 0;
-    flex-direction: column;
-  }
-  .bs-graphql-panel {
-    display: flex;
-    flex: 1;
-    min-height: 140px;
-    flex-direction: column;
-  }
-  .bs-graphql-panel + .bs-graphql-panel {
-    border-top: 1px solid var(--sepsoft);
-  }
-  .bs-graphql-label {
-    padding: 10px 16px 0;
-    color: var(--t2);
-    font-size: 12px;
-    font-weight: 650;
   }
   .bs-binary-picker {
     display: flex;

@@ -79,6 +79,7 @@ export {
   setScriptsOpen,
   setScriptStage,
 } from './scriptUi.svelte';
+export { introspectHttp } from './introspect';
 export { sendHttpTab } from './sendTab';
 export {
   addRequestToFolder,

@@ -100,6 +100,8 @@ pub fn run() {
             commands::app::traffic_lights_center,
             commands::app::openapi_import_pick,
             commands::app::import_read_file,
+            commands::app::graphql_schema_pick,
+            commands::app::graphql_schema_read,
             commands::settings_file::settings_file_read,
             commands::settings_file::settings_file_write,
             commands::settings_file::settings_file_open_external,

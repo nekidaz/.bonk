@@ -510,6 +510,10 @@ export interface ImportFile {
 export const openapiImportPick = () => invoke<ImportFile | null>('openapi_import_pick');
 /** Read a dropped file or a recent source for import. */
 export const importReadFile = (path: string) => invoke<ImportFile>('import_read_file', { path });
+/** Prompt for a GraphQL schema file (SDL or introspection JSON), or null if cancelled. */
+export const graphqlSchemaPick = () => invoke<ImportFile | null>('graphql_schema_pick');
+/** Re-read a schema file bound to a request earlier. */
+export const graphqlSchemaRead = (path: string) => invoke<ImportFile>('graphql_schema_read', { path });
 /** Prompt for a save location, write `contents` there, and return the path (or null if cancelled). */
 export const openapiExportSave = (defaultName: string, contents: string, title?: string) =>
   invoke<string | null>('openapi_export_save', { defaultName, contents, title: title ?? null });

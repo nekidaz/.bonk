@@ -228,7 +228,7 @@ export async function sendHttpRequest(
           t.sseLive ? { ...t, sseLive: { ...t.sseLive, events: [...t.sseLive.events, e] } } : t,
         );
     },
-    opts.skipScripts,
+    { skipScripts: opts.skipScripts },
   );
   const pre = details.pre ? parseScriptResult(JSON.stringify(details.pre)) : undefined;
   const post = details.post ? parseScriptResult(JSON.stringify(details.post)) : undefined;
