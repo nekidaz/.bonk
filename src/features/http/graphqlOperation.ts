@@ -1,12 +1,4 @@
-import {
-  getNamedType,
-  isInterfaceType,
-  isLeafType,
-  isNonNullType,
-  isObjectType,
-  type GraphQLField,
-  type GraphQLSchema,
-} from 'graphql';
+import { getNamedType, isLeafType, isNonNullType, isObjectType, type GraphQLField, type GraphQLSchema } from 'graphql';
 
 export type RootKind = 'query' | 'mutation' | 'subscription';
 
@@ -21,11 +13,11 @@ function pascal(name: string): string {
   return name.replace(/(^|_+)([a-zA-Z0-9])/g, (_, __, c: string) => c.toUpperCase());
 }
 
-/** Selection set body: scalar/enum fields without args, else `__typename`. */
+/** Selection set body: object types get scalar/enum fields without args; interfaces, unions and the rest get `__typename`. */
 function subFields(field: GraphQLField<unknown, unknown>): string[] {
   const t = getNamedType(field.type);
   if (isLeafType(t)) return [];
-  if (isObjectType(t) || isInterfaceType(t)) {
+  if (isObjectType(t)) {
     const leaves = Object.values(t.getFields())
       .filter((f) => f.args.length === 0 && isLeafType(getNamedType(f.type)))
       .map((f) => f.name);
@@ -39,6 +31,7 @@ export function buildOperation(
   schema: GraphQLSchema,
   root: RootKind,
   field: string,
+  name = pascal(field),
 ): { text: string; variables: string[] } {
   const f = rootType(schema, root)?.getFields()[field];
   if (!f) throw new Error(`No ${root} field "${field}"`);
@@ -48,7 +41,7 @@ export function buildOperation(
   const sub = subFields(f);
   const body = sub.length ? ` {\n${sub.map((n) => `    ${n}`).join('\n')}\n  }` : '';
   return {
-    text: `${root} ${pascal(field)}${decl} {\n  ${field}${call}${body}\n}`,
+    text: `${root} ${name}${decl} {\n  ${field}${call}${body}\n}`,
     variables: required.map((a) => a.name),
   };
 }
@@ -61,7 +54,13 @@ export function appendOperation(
   root: RootKind,
   field: string,
 ): { query: string; variables: string } {
-  const op = buildOperation(schema, root, field);
+  const taken = new Set(
+    [...query.matchAll(/\b(?:query|mutation|subscription)\s+([_A-Za-z][_0-9A-Za-z]*)/g)].map((m) => m[1]),
+  );
+  const base = pascal(field);
+  let name = base;
+  for (let i = 2; taken.has(name); i++) name = `${base}${i}`;
+  const op = buildOperation(schema, root, field, name);
   const nextQuery = query.trim() ? `${query.trimEnd()}\n\n${op.text}` : op.text;
   if (!op.variables.length) return { query: nextQuery, variables: variablesJson };
   let obj: Record<string, unknown> = {};

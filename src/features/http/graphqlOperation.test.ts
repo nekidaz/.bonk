@@ -39,7 +39,26 @@ describe('buildOperation', () => {
   });
 });
 
+describe('buildOperation on an interface', () => {
+  it('selects only __typename', () => {
+    const n = buildSchema(
+      'interface Node { id: ID! } type User implements Node { id: ID! name: String } type Query { node(id: ID!): Node }',
+    );
+    const text = buildOperation(n, 'query', 'node').text;
+    expect(text).toContain('node(id: $id) {\n    __typename\n  }');
+    expect(text).not.toContain('    id\n');
+  });
+});
+
 describe('appendOperation', () => {
+  it('suffixes the operation name when it is already taken', () => {
+    const once = appendOperation('', '', s, 'query', 'user');
+    const twice = appendOperation(once.query, once.variables, s, 'query', 'user');
+    expect(twice.query).toContain('query User2($id: ID!)');
+    expect(JSON.parse(twice.variables)).toEqual({ id: null });
+    expect(appendOperation(twice.query, twice.variables, s, 'query', 'user').query).toContain('query User3(');
+  });
+
   it('replaces an empty query and seeds variables', () => {
     const r = appendOperation('  \n', '', s, 'query', 'user');
     expect(r.query).toBe(USER_OP);
