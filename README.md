@@ -137,7 +137,7 @@ Folders become collections. There is no collection manifest to keep in sync.
 Keep requests in the same repository as the API, review changes in a pull
 request, and share the directory with your team.
 
-Collection auth can live in `.folder.bonk.json`. Preferences, history, and
+Collection auth and folder-level scripts can live in `.folder.bonk.json`. Preferences, history, and
 session state live separately in the platform application-data directory.
 Variables marked as secret use the OS keychain when available. Credentials
 entered directly into a request can still be saved in its file; review files

@@ -2,6 +2,7 @@
 // Code outside src/entities/workspace/ imports only from here; files inside use relative paths.
 
 export { authFolderFor, effectiveAuth } from './authInherit';
+export { effectiveScripts, scriptFoldersFor } from './scriptInherit';
 export { exportOpenApiFolder } from './importExport';
 export { importWindow, type ImportWindowRequest } from './importWindow.svelte';
 export { parseCurlFile, parseInsomniaExport } from './importers';
@@ -40,6 +41,7 @@ export {
   ROOT,
   runWorkspaceOp,
   saveFolderAuth,
+  saveFolderScripts,
   switchWorkspace,
   toggleFolder,
   undoDrop,

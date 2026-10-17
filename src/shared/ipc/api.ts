@@ -478,6 +478,8 @@ export const workspaceSaveFolderSource = (root: string, dir: string, source: Imp
   invoke<void>('workspace_save_folder_source', { root, dir, source });
 export const workspaceSaveFolderAuth = (root: string, dir: string, auth: AuthConfig | null) =>
   invoke<void>('workspace_save_folder_auth', { root, dir, auth });
+export const workspaceSaveFolderScripts = (root: string, dir: string, preRequestScript: string, testScript: string) =>
+  invoke<void>('workspace_save_folder_scripts', { root, dir, preRequestScript, testScript });
 export const workspaceSaveRequest = (root: string, dir: string, existing: string | null, node: RequestNode) =>
   invoke<string>('workspace_save_request', { root, dir, existing, node });
 export const workspaceDelete = (root: string, path: string) => invoke<void>('workspace_delete', { root, path });
@@ -683,7 +685,14 @@ export const settingsFileOpenExternal = () => invoke<void>('settings_file_open_e
 
 export const workspaceImportCollection = (
   root: string,
-  collection: { name: string; children: TreeNode[]; auth?: AuthConfig; source?: ImportSource },
+  collection: {
+    name: string;
+    children: TreeNode[];
+    auth?: AuthConfig;
+    source?: ImportSource;
+    preRequestScript?: string;
+    testScript?: string;
+  },
 ) => invoke<string>('workspace_import_collection', { root, collection });
 
 // Session auth: tokens live in the keychain, one session per workspace + environment + sign-in setup.

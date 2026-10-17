@@ -463,6 +463,9 @@ export interface FolderNode {
   auth?: AuthConfig;
   /** Set on a collection made by import (IM8). */
   source?: ImportSource;
+  /** Folder-level scripts (`.folder.bonk.json`): every request under the folder runs them before its own. */
+  preRequestScript?: string;
+  testScript?: string;
   children: TreeNode[];
 }
 

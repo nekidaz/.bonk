@@ -30,6 +30,7 @@ class Shell {
   moveOpen = $state(false);
   moveSourceId = $state<string | undefined>(undefined);
   authFolderId = $state<string | undefined>(undefined);
+  scriptsFolderId = $state<string | undefined>(undefined);
   workspaceMenuOpen = $state(false);
   // The method pickers' open state lives here because App's `<svelte:window onpointerdown>`
   // resets it on outside-click; it's bound into HttpRequestEditor / GrpcEditor.

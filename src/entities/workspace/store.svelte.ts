@@ -5,6 +5,7 @@ import {
   workspacePickFolder,
   workspaceCreateFolder,
   workspaceSaveFolderAuth,
+  workspaceSaveFolderScripts,
   workspaceDelete,
   workspaceRename,
   workspaceDuplicate,
@@ -302,6 +303,16 @@ export async function saveFolderAuth(folderId: string, auth: AuthConfig | null):
   if (!root) return;
   await runWorkspaceOp('saveFolderAuth', async () => {
     await workspaceSaveFolderAuth(root, idToRel(folderId), auth);
+    await refreshDirs(parentId(folderId));
+  });
+}
+
+/** Persist a folder's scripts (empty strings clear them); every request under it runs them before its own. */
+export async function saveFolderScripts(folderId: string, preRequestScript: string, testScript: string): Promise<void> {
+  const root = workspace.path;
+  if (!root) return;
+  await runWorkspaceOp('saveFolderScripts', async () => {
+    await workspaceSaveFolderScripts(root, idToRel(folderId), preRequestScript, testScript);
     await refreshDirs(parentId(folderId));
   });
 }

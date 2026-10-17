@@ -105,6 +105,8 @@ fn load_dir(root: &Path, dir: &Path, keep: &[String]) -> Result<Vec<TreeNode>, S
                 expanded: false,
                 auth: settings.auth.map(Box::new),
                 source: settings.source,
+                pre_request_script: settings.pre_request_script,
+                test_script: settings.test_script,
                 children,
             }));
 
@@ -191,6 +193,23 @@ pub fn save_folder_source(
     write_folder_file(&directory, &file)
 }
 
+/// Set (or clear, with `None` / an empty string) the scripts every request under `dir_rel` inherits.
+pub fn save_folder_scripts(
+    root: &str,
+    dir_rel: &str,
+    pre_request_script: Option<String>,
+    test_script: Option<String>,
+) -> Result<(), String> {
+    let directory = resolve(root, dir_rel)?;
+
+    ensure_directory(&directory)?;
+
+    let mut file = read_folder_file(&directory);
+    file.pre_request_script = pre_request_script.filter(|code| !code.trim().is_empty());
+    file.test_script = test_script.filter(|code| !code.trim().is_empty());
+    write_folder_file(&directory, &file)
+}
+
 /// Persist the manual order of folder `dir_rel`'s entries (file/dir names, top to bottom).
 pub fn reorder(root: &str, dir_rel: &str, names: Vec<String>) -> Result<(), String> {
     let directory = resolve(root, dir_rel)?;
@@ -208,7 +227,7 @@ pub fn reorder(root: &str, dir_rel: &str, names: Vec<String>) -> Result<(), Stri
 fn write_folder_file(directory: &Path, file: &FolderFile) -> Result<(), String> {
     let path = directory.join(FOLDER_FILE);
 
-    if file.auth.is_none() && file.order.is_empty() && file.source.is_none() {
+    if file.is_empty() {
         note_own_write(&path);
         return match fs::remove_file(&path) {
             Err(e) if e.kind() != std::io::ErrorKind::NotFound => {
@@ -779,6 +798,10 @@ pub struct ImportCollection {
     pub auth: Option<AuthConfig>,
     #[serde(default)]
     pub source: Option<serde_json::Value>,
+    #[serde(default)]
+    pub pre_request_script: Option<String>,
+    #[serde(default)]
+    pub test_script: Option<String>,
 }
 
 /// Persist the whole import or remove its new folder on failure. Existing
@@ -792,6 +815,7 @@ pub fn import_collection(root: &str, collection: ImportCollection) -> Result<Str
                     let id = create_folder(root, parent, &folder.name)?;
                     save_folder_auth(root, &id, folder.auth.map(|auth| *auth))?;
                     save_folder_source(root, &id, folder.source)?;
+                    save_folder_scripts(root, &id, folder.pre_request_script, folder.test_script)?;
                     save(root, &id, folder.children)?;
                     order.push(
                         id.rsplit('/')
@@ -819,6 +843,12 @@ pub fn import_collection(root: &str, collection: ImportCollection) -> Result<Str
     let result = (|| {
         save_folder_auth(root, &id, collection.auth)?;
         save_folder_source(root, &id, collection.source)?;
+        save_folder_scripts(
+            root,
+            &id,
+            collection.pre_request_script,
+            collection.test_script,
+        )?;
         save(root, &id, collection.children)
     })();
     if let Err(error) = result {
@@ -1486,6 +1516,26 @@ mod tests {
     }
 
     #[test]
+    fn folder_scripts_round_trip_and_an_empty_file_is_removed() {
+        let root = temp_root();
+        write_request(&root.join("api"), "List");
+        let root_s = root.to_str().unwrap();
+
+        save_folder_scripts(root_s, "fs:api", Some("pre();".into()), Some("  ".into())).unwrap();
+        let TreeNode::Folder(folder) = &load(root_s).unwrap()[0] else {
+            panic!("expected folder");
+        };
+        assert_eq!(folder.pre_request_script.as_deref(), Some("pre();"));
+        assert_eq!(folder.test_script, None);
+        let raw = fs::read_to_string(root.join("api").join(FOLDER_FILE)).unwrap();
+        assert!(raw.contains("\"preRequestScript\""), "{raw}");
+
+        save_folder_scripts(root_s, "fs:api", None, None).unwrap();
+        assert!(!root.join("api").join(FOLDER_FILE).exists());
+        fs::remove_dir_all(root).ok();
+    }
+
+    #[test]
     fn reorder_overrides_alphabetical_and_survives_rename() {
         let root = temp_root();
         for name in ["A", "B", "C"] {
@@ -1521,6 +1571,8 @@ mod tests {
             children,
             auth: None,
             source: None,
+            pre_request_script: Some("pm.environment.set('from', 'collection');".into()),
+            test_script: None,
         };
         import_collection(
             &root.to_string_lossy(),
@@ -1533,6 +1585,10 @@ mod tests {
         };
         assert_eq!(node_name(&folder.children[0]), "z-login");
         assert_eq!(node_name(&folder.children[1]), "a-me");
+        assert!(folder
+            .pre_request_script
+            .as_deref()
+            .is_some_and(|s| s.contains("collection")));
         assert!(import_collection(
             &root.to_string_lossy(),
             make(vec![request("first".into()), request("x".repeat(300))])

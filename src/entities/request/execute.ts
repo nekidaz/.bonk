@@ -14,7 +14,7 @@ import { runnerRun, requestRun, type RunEvent, type RunPlan } from '$shared/ipc'
 import { tabs, grpcSnapshot } from '$entities/tab';
 import { addHistory } from '$entities/history';
 import { addAppConsoleEntry } from './console.svelte';
-import { effectiveAuth, workspace } from '$entities/workspace';
+import { effectiveAuth, effectiveScripts, workspace } from '$entities/workspace';
 import { environments } from '$entities/environment';
 import { closePrompt, inputs, openPrompt } from '$entities/input';
 import { methodShort } from './grpc';
@@ -61,13 +61,22 @@ export function captureExecutionContext(): ExecutionContext {
   };
 }
 
-/** `node` as the runner gets it: auth resolved (own or the folder's), no in-memory gRPC state. */
-function forRun(node: RequestNode, tree = workspace.tree): RequestNode {
+/**
+ * `node` as the runner gets it: auth and scripts resolved (own and the folders'), no in-memory gRPC
+ * state. `skipScripts` (“Send without scripts”) drops the inherited ones too.
+ */
+function forRun(node: RequestNode, tree = workspace.tree, skipScripts = false): RequestNode {
   const g = node.grpc;
+  const scripts = <T extends { preRequestScript?: string; testScript?: string }>(x: T): T => ({
+    ...x,
+    ...(skipScripts
+      ? { preRequestScript: undefined, testScript: undefined }
+      : effectiveScripts(tree, node.id, { preRequestScript: x.preRequestScript, testScript: x.testScript })),
+  });
   return {
     ...node,
-    request: { ...node.request, auth: effectiveAuth(tree, node.id, node.request.auth) },
-    grpc: g && { ...g, tree: undefined, connectionId: undefined, auth: effectiveAuth(tree, node.id, g.auth) },
+    request: scripts({ ...node.request, auth: effectiveAuth(tree, node.id, node.request.auth) }),
+    grpc: g && scripts({ ...g, tree: undefined, connectionId: undefined, auth: effectiveAuth(tree, node.id, g.auth) }),
   };
 }
 
@@ -185,11 +194,12 @@ export function executeRequest(
   connectionId?: string,
   context = captureExecutionContext(),
   onSse?: (e: { kind: 'sseOpen'; started_at_ms: number } | ({ kind: 'sseEvent' } & SseEvent)) => void,
+  skipScripts = false,
 ) {
   const environmentId = context.environmentId;
   return requestRun(
     requestId,
-    forRun(node, context.tree),
+    forRun(node, context.tree, skipScripts),
     {
       requests: [],
       iterations: 1,

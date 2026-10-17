@@ -177,6 +177,7 @@
         name: name.trim() || plan.title,
         items: kept,
         collectionAuth: spec && collectionAuth ? plan.collectionAuth : undefined,
+        collectionScripts: plan.collectionScripts,
         envRows: plan.envRows,
         targets,
         source,

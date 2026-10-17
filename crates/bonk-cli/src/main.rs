@@ -79,6 +79,8 @@ fn import(args: ImportArgs) -> Result<bool, String> {
             children,
             auth: None,
             source: None,
+            pre_request_script: None,
+            test_script: None,
         },
     )?;
     println!("Imported request definitions into {id}. Environment values stay local; use a scenario for portable defaults.");
