@@ -38,10 +38,32 @@ pub fn build_request_to(
     } else if let Some(body) = &req.body {
         rb = rb.body(body.clone());
     }
-    rb.build().map_err(|e| match std::error::Error::source(&e) {
-        Some(src) => format!("request error: {e}: {src}"),
-        None => format!("request error: {e}"),
-    })
+    rb.build()
+        .map_err(|e| format!("request error: {}", error_text(&e)))
+}
+
+/// A network error with its causes: reqwest's own text is only «error sending request»,
+/// the DNS / refused / TLS reason sits in `source()` (like unwrapping Go's wrapped errors).
+/// The URL is left out, the caller shows it already.
+pub fn net_error(e: reqwest::Error) -> String {
+    error_text(&e.without_url())
+}
+
+/// `e: cause: cause…`, skipping a cause whose text the previous one already includes.
+pub fn error_text(e: &dyn std::error::Error) -> String {
+    let mut out = e.to_string();
+    let mut last = out.clone();
+    let mut source = e.source();
+    while let Some(cause) = source {
+        let text = cause.to_string();
+        if !last.contains(&text) {
+            out.push_str(": ");
+            out.push_str(&text);
+        }
+        last = text;
+        source = cause.source();
+    }
+    out
 }
 
 /// Read a request-body file into memory, rejecting oversized files by metadata
@@ -252,5 +274,21 @@ mod tests {
             .unwrap();
         assert!(content_type.starts_with("multipart/form-data; boundary="));
         assert_ne!(content_type, "multipart/form-data; boundary=wrong");
+    }
+
+    #[tokio::test]
+    async fn net_error_keeps_the_cause_and_drops_the_url() {
+        // Bind then drop: nothing listens on that port any more.
+        let port = std::net::TcpListener::bind("127.0.0.1:0")
+            .unwrap()
+            .local_addr()
+            .unwrap()
+            .port();
+        let e = reqwest::get(format!("http://127.0.0.1:{port}/secret-path"))
+            .await
+            .unwrap_err();
+        let text = net_error(e);
+        assert!(text.to_lowercase().contains("refused"), "{text}");
+        assert!(!text.contains("secret-path"), "{text}");
     }
 }

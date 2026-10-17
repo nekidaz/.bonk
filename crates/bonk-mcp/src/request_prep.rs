@@ -1,8 +1,5 @@
-use bonk_core::domain::{
-    http::RequestSettings,
-    workspace::{RequestNode, TreeNode},
-};
-use bonk_core::infra::cookie_jar::JarProvider;
+use bonk_core::application::http_client::RedirectGuard;
+use bonk_core::domain::workspace::{RequestNode, TreeNode};
 
 pub(crate) fn count_tree(nodes: &[TreeNode], requests: &mut usize, folders: &mut usize) {
     for node in nodes {
@@ -41,48 +38,18 @@ pub(crate) fn target_host_allowed(patterns: &[String], host: &str, port: Option<
     })
 }
 
-/// `jar`: the app's cookie jar, read-only (see `BonkRuntime::read_only_jar`).
-pub(crate) fn build_http_client(
-    settings: &RequestSettings,
-    target_hosts: &[String],
-    jar: Option<JarProvider>,
-) -> Result<reqwest::Client, String> {
-    let mut builder = reqwest::Client::builder()
-        .user_agent(format!("bonk-mcp/{}", env!("CARGO_PKG_VERSION")))
-        .pool_max_idle_per_host(16)
-        .tcp_nodelay(true)
-        .danger_accept_invalid_certs(!settings.validate_tls);
-    if settings.follow_redirects {
-        let target_hosts = target_hosts.to_vec();
-        builder = builder.redirect(reqwest::redirect::Policy::custom(move |attempt| {
-            if attempt.previous().len() >= 10 {
-                return attempt.error(std::io::Error::other("too many redirects"));
-            }
-            let target = attempt.url();
-            if !matches!(target.scheme(), "http" | "https") {
-                return attempt.error(std::io::Error::other(
-                    "redirect target must use http or https",
-                ));
-            }
-            let Some(host) = target.host_str().map(str::to_owned) else {
-                return attempt.error(std::io::Error::other("redirect target has no host"));
-            };
-            let port = target.port();
-            if target_host_allowed(&target_hosts, &host, port) {
-                attempt.follow()
-            } else {
-                attempt.error(std::io::Error::other(format!(
-                    "redirect target host `{host}` is not allowed"
-                )))
-            }
-        }));
-    } else {
-        builder = builder.redirect(reqwest::redirect::Policy::none());
-    }
-    if let Some(jar) = jar {
-        builder = builder.cookie_provider(std::sync::Arc::new(jar));
-    }
-    builder
-        .build()
-        .map_err(|error| format!("failed to build HTTP client: {error}"))
+/// Redirects may only reach http(s) targets allowed by `--target-host`.
+pub(crate) fn redirect_guard(target_hosts: &[String]) -> RedirectGuard {
+    let target_hosts = target_hosts.to_vec();
+    Box::new(move |target| {
+        if !matches!(target.scheme(), "http" | "https") {
+            return Err("redirect target must use http or https".into());
+        }
+        let host = target.host_str().ok_or("redirect target has no host")?;
+        if target_host_allowed(&target_hosts, host, target.port()) {
+            Ok(())
+        } else {
+            Err(format!("redirect target host `{host}` is not allowed"))
+        }
+    })
 }

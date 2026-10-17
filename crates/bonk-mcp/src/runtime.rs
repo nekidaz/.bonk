@@ -1,5 +1,5 @@
 use std::{
-    collections::{BTreeMap, BTreeSet},
+    collections::{BTreeMap, BTreeSet, HashMap},
     future::Future,
     path::{Path, PathBuf},
     pin::Pin,
@@ -9,8 +9,9 @@ use std::{
 
 use bonk_core::{
     application::{
-        grpc_native, http,
+        grpc_native, http, http_client,
         inputs::{self, Inputs},
+        network_settings,
         runner::{
             self, GrpcSchema, GrpcTarget, InputAnswer, InputRequest, RunControl, RunEvent, RunPlan,
             RunResultRow, RunVars, Transport,
@@ -21,7 +22,7 @@ use bonk_core::{
     domain::{
         dynamic_vars::Dynamic,
         grpc::GrpcResult,
-        http::{HttpRequest, HttpResponse, RequestSettings},
+        http::{pick_client_cert, ClientCert, HttpRequest, HttpResponse, RequestSettings},
         inputs::InputKind,
         request_prep::{self, resolve_text},
         workspace::{GrpcTabState, Param, RequestNode, TreeNode},
@@ -35,7 +36,7 @@ use crate::{
         redact_node, redact_sensitive_url, redact_tree, redact_url, sanitize_error,
         sanitize_http_response, sanitize_tests, sanitize_text,
     },
-    request_prep::{build_http_client, collect_requests, count_tree, target_host_allowed},
+    request_prep::{collect_requests, count_tree, redirect_guard, target_host_allowed},
     types::{
         GrpcCallOutput, GrpcSchemaArgs, HttpRunOutput, MutationResult, RequestSummary, ScriptTest,
         TreeEntry, ValidationResult, WorkspaceInfo,
@@ -696,7 +697,7 @@ impl BonkRuntime {
                 secrets.push(value.clone());
             }
         }
-        let transport = McpTransport::new(self, settings, GRPC_TIMEOUT, input.asker.clone());
+        let transport = McpTransport::new(self, settings, GRPC_TIMEOUT, input.asker.clone())?;
         let secrets = Mutex::new(secrets);
         let rows = Mutex::new(Vec::new());
         let status = runner::run_collection(
@@ -765,7 +766,7 @@ impl BonkRuntime {
         if let Some(name) = &input.name {
             node.name.clone_from(name);
         }
-        let transport = McpTransport::new(self, settings, grpc_timeout, input.asker.clone());
+        let transport = McpTransport::new(self, settings, grpc_timeout, input.asker.clone())?;
         let mut plan = RunPlan {
             requests: vec![node],
             workspace_root: self.root_str(),
@@ -1239,6 +1240,8 @@ struct McpTransport<'a> {
     settings: RequestSettings,
     grpc_timeout: Duration,
     jar: Arc<CookieJar>,
+    /// One client per mTLS identity for this run, like the app's cache (settings are fixed here).
+    clients: Mutex<HashMap<Option<ClientCert>, reqwest::Client>>,
     /// Asks the user for «ask on send» values; None when the client can't elicit.
     asker: Option<Arc<dyn InputAsker>>,
 }
@@ -1249,7 +1252,7 @@ impl<'a> McpTransport<'a> {
         mut settings: RequestSettings,
         grpc_timeout: Duration,
         asker: Option<Arc<dyn InputAsker>>,
-    ) -> Self {
+    ) -> Result<Self, String> {
         let existing = runtime.read_only_jar();
         let jar = existing
             .as_ref()
@@ -1269,14 +1272,50 @@ impl<'a> McpTransport<'a> {
                     .and_then(Value::as_bool)
                     .unwrap_or(true);
             }
+            // The desktop's proxy, CAs and client certificates: corporate networks need them.
+            let net = network_settings::from_app_state(path)?;
+            settings.proxy = net.proxy;
+            settings.ca_paths = net.ca_paths;
+            settings.trust_system_cas = net.trust_system_cas;
+            settings.client_certs = net.client_certs;
         }
-        Self {
+        Ok(Self {
             runtime,
             settings: settings.normalized(),
             grpc_timeout,
             jar: Arc::new(jar),
+            clients: Mutex::new(HashMap::new()),
             asker,
+        })
+    }
+
+    fn http_client(&self, url: &str) -> Result<reqwest::Client, String> {
+        let host = reqwest::Url::parse(&bonk_core::domain::url::normalize_url(url))
+            .ok()
+            .and_then(|u| u.host_str().map(str::to_owned))
+            .unwrap_or_default();
+        let identity = pick_client_cert(&self.settings.client_certs, &host).cloned();
+        let mut clients = self
+            .clients
+            .lock()
+            .map_err(|_| "http client cache lock poisoned".to_string())?;
+        if let Some(client) = clients.get(&identity) {
+            return Ok(client.clone());
         }
+        let client = http_client::build(
+            &self.settings,
+            identity.as_ref(),
+            concat!("bonk-mcp/", env!("CARGO_PKG_VERSION")),
+            Some(JarProvider {
+                jar: self.jar.clone(),
+                save: self.settings.cookies_save,
+                send: self.settings.cookies_send,
+                exclude: self.settings.cookies_exclude.clone(),
+            }),
+            Some(redirect_guard(&self.runtime.config.target_hosts)),
+        )?;
+        clients.insert(identity, client.clone());
+        Ok(client)
     }
 }
 
@@ -1291,16 +1330,7 @@ impl Transport for McpTransport<'_> {
             return Err(format!("unresolved variables: {}", unresolved.join(", ")));
         }
         self.runtime.check_http_target(&request.url)?;
-        let client = build_http_client(
-            &self.settings,
-            &self.runtime.config.target_hosts,
-            Some(JarProvider {
-                jar: self.jar.clone(),
-                save: self.settings.cookies_save,
-                send: self.settings.cookies_send,
-                exclude: self.settings.cookies_exclude.clone(),
-            }),
-        )?;
+        let client = self.http_client(&request.url)?;
         let response =
             http::http_send(client, request, self.settings.clone(), Some(&self.jar)).await?;
         Ok(response)
@@ -1410,6 +1440,37 @@ mod tests {
         );
         std::fs::write(&state, r#"{"cookiesSend":false}"#).unwrap();
         assert!(runtime.read_only_jar().is_none());
+    }
+
+    #[test]
+    fn http_uses_the_app_network_settings_and_reuses_clients() {
+        let workspace = TestWorkspace::new();
+        let state = workspace.0.join("state.json");
+        let mut runtime = workspace.runtime(false, true);
+        Arc::make_mut(&mut runtime.config).app_state = Some(state.clone());
+        let transport =
+            |runtime| McpTransport::new(runtime, RequestSettings::default(), GRPC_TIMEOUT, None);
+
+        std::fs::write(&state, r#"{"proxyMode":"manual","proxyUrl":""}"#).unwrap();
+        let error = transport(&runtime)
+            .unwrap()
+            .http_client("http://a.test/")
+            .unwrap_err();
+        assert!(error.contains("proxy"), "{error}");
+
+        std::fs::write(
+            &state,
+            r#"{"proxyMode":"manual","proxyUrl":"127.0.0.1:3128"}"#,
+        )
+        .unwrap();
+        let t = transport(&runtime).unwrap();
+        t.http_client("http://a.test/").unwrap();
+        t.http_client("http://b.test/").unwrap();
+        assert_eq!(
+            t.clients.lock().unwrap().len(),
+            1,
+            "same identity, one client"
+        );
     }
 
     struct TestWorkspace(PathBuf);

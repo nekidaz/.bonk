@@ -1,30 +1,56 @@
-//! Shared HTTP client configuration for desktop and headless frontends.
+//! Shared HTTP client for desktop and headless frontends.
+use std::sync::Arc;
+
 use crate::domain::http::{
     pick_client_cert, ClientCert, ProxyMode, ProxySettings, RequestSettings,
 };
+use crate::infra::cookie_jar::JarProvider;
+use crate::infra::reqwest_client::error_text;
 
-/// Configure a caller's builder; the caller supplies its headers, cookie jar and
-/// the identity selected for the request host. Like configuring Go's http.Transport.
-pub fn configure(
-    mut builder: reqwest::ClientBuilder,
+/// Extra check on each redirect target (MCP's host allow-list); `Err` aborts the request.
+pub type RedirectGuard = Box<dyn Fn(&reqwest::Url) -> Result<(), String> + Send + Sync>;
+
+/// The one place a frontend gets its reqwest client: proxy, CAs, the identity selected
+/// for the request host, cookies and redirects all come from here. Like building Go's
+/// http.Client with its Transport and CheckRedirect in one function.
+pub fn build(
     settings: &RequestSettings,
     identity: Option<&ClientCert>,
-) -> Result<reqwest::ClientBuilder, String> {
-    builder = builder.danger_accept_invalid_certs(!settings.validate_tls);
+    user_agent: &str,
+    cookies: Option<JarProvider>,
+    redirect_guard: Option<RedirectGuard>,
+) -> Result<reqwest::Client, String> {
+    let mut builder = reqwest::Client::builder()
+        .user_agent(user_agent)
+        .pool_max_idle_per_host(16)
+        .tcp_nodelay(true)
+        .danger_accept_invalid_certs(!settings.validate_tls);
+    if let Some(jar) = cookies.filter(|j| j.save || j.send) {
+        builder = builder.cookie_provider(Arc::new(jar));
+    }
+    let identity_host = identity
+        .filter(|cert| !cert.host.trim().is_empty())
+        .cloned();
     if !settings.follow_redirects {
         builder = builder.redirect(reqwest::redirect::Policy::none());
-    } else if let Some(identity) = identity.filter(|cert| !cert.host.trim().is_empty()) {
-        let identity = identity.clone();
+    } else if identity_host.is_some() || redirect_guard.is_some() {
         builder = builder.redirect(reqwest::redirect::Policy::custom(move |attempt| {
             if attempt.previous().len() >= 10 {
                 return attempt.error("too many redirects");
             }
-            let matches = attempt.url().host_str().is_some_and(|host| {
-                pick_client_cert(std::slice::from_ref(&identity), host).is_some()
+            if let Some(guard) = &redirect_guard {
+                if let Err(e) = guard(attempt.url()) {
+                    return attempt.error(e);
+                }
+            }
+            let identity_ok = identity_host.as_ref().is_none_or(|identity| {
+                attempt.url().host_str().is_some_and(|host| {
+                    pick_client_cert(std::slice::from_ref(identity), host).is_some()
+                })
             });
             // A reqwest client holds one identity for every TLS handshake. Stop
             // here instead of sending that identity outside its configured hosts.
-            if matches {
+            if identity_ok {
                 attempt.follow()
             } else {
                 attempt.stop()
@@ -37,7 +63,9 @@ pub fn configure(
         &settings.ca_paths,
         settings.trust_system_cas,
         identity,
-    )
+    )?
+    .build()
+    .map_err(|e| format!("failed to build HTTP client: {}", error_text(&e)))
 }
 
 fn apply_proxy(
@@ -136,7 +164,7 @@ mod tests {
             ca_paths: vec![path.to_string_lossy().into_owned()],
             ..Default::default()
         };
-        let result = configure(reqwest::Client::builder(), &settings, None);
+        let result = build(&settings, None, "bonk", None, None);
         std::fs::remove_file(path).unwrap();
         assert!(matches!(result, Err(error) if error.contains("no PEM certificates")));
     }

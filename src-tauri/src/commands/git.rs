@@ -1,15 +1,7 @@
+// Every command shells out to `git`; on the main thread a slow push froze the window
+// for up to two minutes, hence `off_main`.
+use super::off_main;
 use bonk_core::application::git;
-
-/// Run a git call on the blocking pool. Every command shells out to `git`, and a
-/// sync Tauri command runs on the main thread, freezing the window until git
-/// returns (a slow push held it for up to two minutes).
-async fn off_main<T: Send + 'static>(
-    f: impl FnOnce() -> Result<T, String> + Send + 'static,
-) -> Result<T, String> {
-    tauri::async_runtime::spawn_blocking(f)
-        .await
-        .map_err(|e| format!("git task failed: {e}"))?
-}
 
 #[tauri::command]
 pub async fn git_status(root: String) -> Result<git::GitStatus, String> {

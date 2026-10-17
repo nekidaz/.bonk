@@ -1,4 +1,3 @@
-use reqwest::header::{HeaderMap, HeaderValue, ACCEPT, USER_AGENT};
 use std::collections::HashMap;
 use std::path::Path;
 use std::sync::{Arc, Mutex};
@@ -74,22 +73,15 @@ pub struct AppState {
     pub monitor: Mutex<bonk_core::infra::procmon::ProcMonitor>,
 }
 
-fn default_headers() -> HeaderMap {
-    let mut headers = HeaderMap::new();
-    // `bonk/<version> (<os>)`, the value the Headers tab previews as auto (S12).
+/// `bonk/<version> (<os>)`, the value the Headers tab previews as auto (S12).
+fn user_agent() -> String {
     let os = match std::env::consts::OS {
         "macos" => "macOS",
         "windows" => "Windows",
         "linux" => "Linux",
         other => other,
     };
-    let agent = format!("bonk/{} ({os})", env!("CARGO_PKG_VERSION"));
-    headers.insert(
-        USER_AGENT,
-        HeaderValue::from_str(&agent).unwrap_or(HeaderValue::from_static("bonk")),
-    );
-    headers.insert(ACCEPT, HeaderValue::from_static("*/*"));
-    headers
+    format!("bonk/{} ({os})", env!("CARGO_PKG_VERSION"))
 }
 
 fn build_http_client(
@@ -97,26 +89,19 @@ fn build_http_client(
     settings: &RequestSettings,
     jar: Option<Arc<CookieJar>>,
 ) -> Result<reqwest::Client, String> {
-    let mut builder = reqwest::Client::builder()
-        .default_headers(default_headers())
-        .pool_max_idle_per_host(16)
-        .tcp_nodelay(true);
-    if let Some(jar) = jar.filter(|_| settings.cookies_save || settings.cookies_send) {
-        builder = builder.cookie_provider(Arc::new(JarProvider {
-            jar,
-            save: settings.cookies_save,
-            send: settings.cookies_send,
-            exclude: settings.cookies_exclude.clone(),
-        }));
-    }
-    builder = bonk_core::application::http_client::configure(
-        builder,
+    let cookies = jar.map(|jar| JarProvider {
+        jar,
+        save: settings.cookies_save,
+        send: settings.cookies_send,
+        exclude: settings.cookies_exclude.clone(),
+    });
+    bonk_core::application::http_client::build(
         settings,
         key.client_cert.as_ref(),
-    )?;
-    builder
-        .build()
-        .map_err(|e| format!("failed to build HTTP client: {e}"))
+        &user_agent(),
+        cookies,
+        None,
+    )
 }
 
 impl AppState {

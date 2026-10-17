@@ -6,9 +6,9 @@ use std::path::Path;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Mutex;
 
-/// Serializes the read-modify-write in `set_key` across all threads. Tauri runs
-/// non-async commands on a blocking thread pool, and the frontend debounces each
-/// key independently, so concurrent `app_state_set` calls are routine — without
+/// Serializes the read-modify-write in `set_key` across all threads. The async
+/// `app_state_set` command runs it on Tauri's blocking pool, and the frontend
+/// debounces each key independently, so concurrent calls are routine — without
 /// this lock they would interleave and drop one another's keys.
 static WRITE_LOCK: Mutex<()> = Mutex::new(());
 static TMP_SEQ: AtomicU64 = AtomicU64::new(0);

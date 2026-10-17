@@ -1,5 +1,6 @@
 // --- User themes in ~/.bonk/themes (logic: bonk_core::application::themes) ---
 
+use super::off_main;
 use bonk_core::application::import_file::{self, ImportedFile};
 use bonk_core::application::themes::{self, ThemeFile};
 use tauri::{AppHandle, Manager};
@@ -13,18 +14,18 @@ fn themes_dir(app: &AppHandle) -> Result<std::path::PathBuf, String> {
 }
 
 #[tauri::command]
-pub fn themes_list(app: AppHandle) -> Result<Vec<ThemeFile>, String> {
-    themes::list(&themes_dir(&app)?)
+pub async fn themes_list(app: AppHandle) -> Result<Vec<ThemeFile>, String> {
+    off_main(move || themes::list(&themes_dir(&app)?)).await
 }
 
 #[tauri::command]
-pub fn theme_save(app: AppHandle, slug: String, text: String) -> Result<String, String> {
-    themes::save(&themes_dir(&app)?, &slug, &text)
+pub async fn theme_save(app: AppHandle, slug: String, text: String) -> Result<String, String> {
+    off_main(move || themes::save(&themes_dir(&app)?, &slug, &text)).await
 }
 
 #[tauri::command]
-pub fn theme_delete(app: AppHandle, slug: String) -> Result<(), String> {
-    themes::remove(&themes_dir(&app)?, &slug)
+pub async fn theme_delete(app: AppHandle, slug: String) -> Result<(), String> {
+    off_main(move || themes::remove(&themes_dir(&app)?, &slug)).await
 }
 
 /// Prompt for a Zed / VS Code theme file. `Ok(None)` when the user cancels.
