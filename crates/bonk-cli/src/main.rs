@@ -416,17 +416,18 @@ impl CliTransport {
         // Validate every configured file before sending the first request, and keep
         // separate connection pools: a TLS client holds exactly one identity.
         for identity in std::iter::once(None).chain(settings.client_certs.iter().map(Some)) {
-            let builder = reqwest::Client::builder()
-                .user_agent(concat!("bonk-cli/", env!("CARGO_PKG_VERSION")))
-                .cookie_provider(Arc::new(JarProvider {
+            let client = http_client::build(
+                &settings,
+                identity,
+                concat!("bonk-cli/", env!("CARGO_PKG_VERSION")),
+                Some(JarProvider {
                     jar: jar.clone(),
                     save: settings.cookies_save,
                     send: settings.cookies_send,
                     exclude: settings.cookies_exclude.clone(),
-                }));
-            let client = http_client::configure(builder, &settings, identity)?
-                .build()
-                .map_err(|e| format!("HTTP client: {e}"))?;
+                }),
+                None,
+            )?;
             clients.insert(identity.cloned(), client);
         }
         Ok(Self {

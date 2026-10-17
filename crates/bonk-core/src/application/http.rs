@@ -3,7 +3,7 @@ use crate::domain::sse::{is_event_stream, SseEvent, SseParser, StreamEnd, Stream
 use crate::domain::url::normalize_url;
 use crate::infra::cookie_jar::CookieJar;
 use crate::infra::metrics::{NetProto, METRICS};
-use crate::infra::reqwest_client::build_request_to;
+use crate::infra::reqwest_client::{build_request_to, net_error};
 use std::collections::BTreeMap;
 use std::future::Future;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
@@ -55,7 +55,7 @@ pub async fn http_send_with(
     let resp = until(deadline, client.execute(request))
         .await
         .ok_or_else(timed_out)?
-        .map_err(|e| e.to_string())?;
+        .map_err(net_error)?;
     let status = resp.status().as_u16();
     let final_url = resp.url().to_string();
     // A repeated header (several Set-Cookie, Vary…) is one comma-joined entry, as HTTP
@@ -235,7 +235,7 @@ async fn read_stream(
             Ok(Some(chunk)) => chunk,
             Ok(None) => break StreamEndReason::Closed,
             Err(e) => {
-                error = Some(e.to_string());
+                error = Some(net_error(e));
                 break StreamEndReason::Error;
             }
         };
@@ -276,7 +276,7 @@ async fn read_body_limited(
     }
     let mut out = Vec::new();
     let mut truncated = false;
-    while let Some(chunk) = resp.chunk().await.map_err(|e| e.to_string())? {
+    while let Some(chunk) = resp.chunk().await.map_err(net_error)? {
         let remaining = max_bytes.saturating_sub(out.len());
         if remaining == 0 {
             truncated = true;
@@ -544,11 +544,14 @@ mod tests {
     #[ignore = "network smoke test against public google.com"]
     fn google_reused_client_smoke() {
         tokio::runtime::Runtime::new().unwrap().block_on(async {
-            let client = reqwest::Client::builder()
-                .pool_max_idle_per_host(16)
-                .tcp_nodelay(true)
-                .build()
-                .unwrap();
+            let client = crate::application::http_client::build(
+                &RequestSettings::default(),
+                None,
+                "bonk",
+                None,
+                None,
+            )
+            .unwrap();
             let req = HttpRequest {
                 method: "GET".into(),
                 url: "https://google.com".into(),
