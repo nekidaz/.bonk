@@ -626,15 +626,8 @@ impl BonkRuntime {
     ) -> Result<Value, String> {
         let tree = self.tree()?;
         let mut node = self.find_request(id)?;
-        // A request set to `inherit` sends its folder's auth, as in the app.
-        node.request.auth = Some(request_prep::effective_auth(
-            &tree,
-            id,
-            node.request.auth.as_ref(),
-        ));
-        if let Some(grpc) = node.grpc.as_mut() {
-            grpc.auth = Some(request_prep::effective_auth(&tree, id, grpc.auth.as_ref()));
-        }
+        // A request set to `inherit` sends its folder's auth and runs its folders' scripts, as in the app.
+        request_prep::apply_inheritance(&tree, &mut node);
         let named = RunInput {
             name: Some(node.name.clone()),
             ..input.clone()

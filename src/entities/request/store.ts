@@ -19,6 +19,7 @@ import {
   openWorkspaceFolder,
   refreshDirs,
   runWorkspaceOp,
+  scriptFoldersFor,
   workspace,
 } from '$entities/workspace';
 import { grpcPathsToRel, grpcPathsToAbs, httpPathsToRel, httpPathsToAbs } from './protoPaths';
@@ -194,7 +195,6 @@ export async function sendHttpRequest(
   const envId = environments.activeId;
   const keepSent = dynKeepSent.current;
   const sentAt = Date.now();
-  if (opts.skipScripts) req = { ...req, preRequestScript: undefined, testScript: undefined };
   const { row, details } = await executeRequest(
     {
       kind: 'request',
@@ -220,6 +220,7 @@ export async function sendHttpRequest(
           t.sseLive ? { ...t, sseLive: { ...t.sseLive, events: [...t.sseLive.events, e] } } : t,
         );
     },
+    opts.skipScripts,
   );
   const pre = details.pre ? parseScriptResult(JSON.stringify(details.pre)) : undefined;
   const post = details.post ? parseScriptResult(JSON.stringify(details.post)) : undefined;
@@ -280,7 +281,13 @@ export async function sendHttpRequest(
     message: row.error,
     logs: row.logs,
     tests: row.tests,
-    scripted: !!(req.preRequestScript?.trim() || req.testScript?.trim()),
+    scripted:
+      !opts.skipScripts &&
+      !!(
+        req.preRequestScript?.trim() ||
+        req.testScript?.trim() ||
+        scriptFoldersFor(workspace.tree, src?.savedPath).length
+      ),
     title: src?.title,
     nodeId: src?.savedPath,
     tabId,

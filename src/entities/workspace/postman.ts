@@ -1,5 +1,6 @@
 import { t } from '$shared/i18n';
 import {
+  joinScripts,
   oauthGrant,
   paramsFromUrl,
   syncUrlWithParams,
@@ -18,6 +19,9 @@ type RecordValue = Record<string, unknown>;
 export interface ImportedPostmanFolder {
   kind: 'folder';
   name: string;
+  /** The folder's own scripts; requests under it inherit them at send time. */
+  preRequestScript?: string;
+  testScript?: string;
   items: ImportedPostmanItem[];
 }
 
@@ -32,6 +36,9 @@ export interface ParsedPostmanCollection {
   title: string;
   items: ImportedPostmanItem[];
   variables: VarRow[];
+  /** Collection-level scripts; they go on the collection folder. */
+  preRequestScript?: string;
+  testScript?: string;
 }
 
 function object(value: unknown): RecordValue | null {
@@ -57,14 +64,11 @@ function script(events: unknown, listen: 'prerequest' | 'test'): string {
     .join('\n');
 }
 
-/**
- * Join inherited collection → folder → request scripts. Postman runs each in
- * its own scope, so when there is more than one, each part gets an IIFE: no
- * `const` clashes, and an early `return` ends only its own part.
- */
-function joinScripts(parts: string[]): string {
-  const present = parts.filter(Boolean);
-  return present.length > 1 ? present.map((code) => `(function () {\n${code}\n})();`).join('\n') : (present[0] ?? '');
+/** Both scripts of an item (collection, folder or request); several events of a stage are joined in order. */
+function scripts(events: unknown): { preRequestScript?: string; testScript?: string } {
+  const pre = joinScripts(rows(events).map((e) => (e.listen === 'prerequest' ? script([e], 'prerequest') : '')));
+  const test = joinScripts(rows(events).map((e) => (e.listen === 'test' ? script([e], 'test') : '')));
+  return { ...(pre ? { preRequestScript: pre } : {}), ...(test ? { testScript: test } : {}) };
 }
 
 function auth(value: unknown): AuthConfig | undefined {
@@ -188,12 +192,7 @@ function applyBody(request: HttpRequest, value: unknown): void {
   }
 }
 
-function parseRequest(
-  item: RecordValue,
-  inheritedAuth: AuthConfig | undefined,
-  pre: string[],
-  post: string[],
-): ImportedPostmanRequest | null {
+function parseRequest(item: RecordValue, inheritedAuth: AuthConfig | undefined): ImportedPostmanRequest | null {
   const source = object(item.request);
   if (!source) return null;
   const method = (str(source.method) || 'GET').toUpperCase();
@@ -207,10 +206,9 @@ function parseRequest(
   const appliedAuth = source.auth === undefined ? inheritedAuth : auth(source.auth);
   if (appliedAuth) request.auth = appliedAuth;
   applyBody(request, source.body);
-  const preRequestScript = joinScripts([...pre, script(item.event, 'prerequest')]);
-  const testScript = joinScripts([...post, script(item.event, 'test')]);
-  if (preRequestScript) request.preRequestScript = preRequestScript;
-  if (testScript) request.testScript = testScript;
+  // Only the request's own scripts: collection and folder scripts live on their folders and are
+  // inherited at send time (scriptInherit.ts), not copied into every request.
+  Object.assign(request, scripts(item.event));
   return {
     kind: 'request',
     node: {
@@ -224,25 +222,19 @@ function parseRequest(
   };
 }
 
-function parseItems(
-  items: unknown,
-  inheritedAuth: AuthConfig | undefined,
-  pre: string[],
-  post: string[],
-): ImportedPostmanItem[] {
+function parseItems(items: unknown, inheritedAuth: AuthConfig | undefined): ImportedPostmanItem[] {
   const result: ImportedPostmanItem[] = [];
   for (const item of rows(items)) {
     const nextAuth = item.auth === undefined ? inheritedAuth : auth(item.auth);
-    const nextPre = [...pre, script(item.event, 'prerequest')];
-    const nextPost = [...post, script(item.event, 'test')];
     if (Array.isArray(item.item)) {
       result.push({
         kind: 'folder',
         name: str(item.name) || 'Folder',
-        items: parseItems(item.item, nextAuth, nextPre, nextPost),
+        ...scripts(item.event),
+        items: parseItems(item.item, nextAuth),
       });
     } else {
-      const request = parseRequest(item, nextAuth, pre, post);
+      const request = parseRequest(item, nextAuth);
       if (request) result.push(request);
     }
   }
@@ -265,12 +257,8 @@ export function parsePostmanCollection(text: string): ParsedPostmanCollection {
   const title = str(info.name).trim() || 'Imported Postman Collection';
   return {
     title,
-    items: parseItems(
-      document.item,
-      auth(document.auth),
-      [script(document.event, 'prerequest')],
-      [script(document.event, 'test')],
-    ),
+    items: parseItems(document.item, auth(document.auth)),
+    ...scripts(document.event),
     variables: rows(document.variable)
       .filter((entry) => str(entry.key).trim())
       .map((entry) => ({ key: str(entry.key), value: str(entry.value), enabled: entry.disabled !== true })),
@@ -412,7 +400,10 @@ function exportItems(nodes: TreeNode[]): Json[] {
   return nodes.flatMap((n): Json[] => {
     if (n.kind === 'request') return n.protocol === 'http' ? [exportRequest(n)] : []; // Postman v2.1 has no gRPC
     const auth = exportAuth(n.auth);
-    return [{ name: n.name, ...(auth ? { auth } : {}), item: exportItems(n.children) }];
+    const event = events(n.preRequestScript, n.testScript);
+    return [
+      { name: n.name, ...(auth ? { auth } : {}), ...(event.length ? { event } : {}), item: exportItems(n.children) },
+    ];
   });
 }
 

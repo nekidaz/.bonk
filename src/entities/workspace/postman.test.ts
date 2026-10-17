@@ -128,9 +128,12 @@ describe('Postman Collection import', () => {
     expect(request.node.request.auth).toEqual({ type: 'bearer', bearerToken: '{{token}}' });
     expect(request.node.request.bodyMode).toBe('raw');
     expect(request.node.request.rawBodyFormat).toBe('JSON');
-    expect(request.node.request.preRequestScript).toContain('pm.environment.set');
-    expect(request.node.request.testScript).toContain('pm.test');
-    expect(request.node.request.testScript?.match(/request/g)).toHaveLength(1);
+    // Collection and folder scripts stay on their folders (inherited at send time), not in every request.
+    expect(parsed.preRequestScript).toBe('pm.environment.set("sent", "1");');
+    expect(parsed.testScript).toBeUndefined();
+    expect(folder.testScript).toBe('pm.test("ok", () => {});');
+    expect(request.node.request.preRequestScript).toBeUndefined();
+    expect(request.node.request.testScript).toBe('pm.test("request", () => {});');
   });
 
   it('imports form data and an explicit request auth override', () => {
@@ -176,24 +179,47 @@ describe('Postman Collection import', () => {
     expect(item.node.request.bodyParams?.[1].filePath).toBeUndefined();
   });
 
-  it('runs each inherited script in its own scope, like Postman', () => {
+  it('joins several events of one stage in order and exports folder scripts as events', () => {
     const source = {
       info: { name: 'Scoped' },
-      event: [{ listen: 'prerequest', script: { exec: ["const who = 'collection';", 'calls.push(who);', 'return;'] } }],
       item: [
         {
           name: 'Ping',
-          event: [{ listen: 'prerequest', script: { exec: ["const who = 'request';", 'calls.push(who);'] } }],
+          event: [
+            { listen: 'prerequest', script: { exec: ["const a = 'one';"] } },
+            { listen: 'test', script: { exec: ['pm.test("t", () => {});'] } },
+            { listen: 'prerequest', script: { exec: ["const a = 'two';"] } },
+          ],
           request: { method: 'GET', url: 'https://example.com/ping' },
         },
       ],
     };
     const item = parsePostmanCollection(JSON.stringify(source)).items[0];
     if (item.kind !== 'request') throw new Error('expected a request');
-    const calls: string[] = [];
-    // scripts.rs runs user code as a function body, exactly like `new Function`.
-    new Function('calls', item.node.request.preRequestScript ?? '')(calls);
-    expect(calls).toEqual(['collection', 'request']);
+    expect(item.node.request.preRequestScript).toBe(
+      "(function () {\nconst a = 'one';\n})();\n(function () {\nconst a = 'two';\n})();",
+    );
+    expect(item.node.request.testScript).toBe('pm.test("t", () => {});');
+
+    const text = buildPostmanCollection(
+      'W',
+      [
+        {
+          kind: 'folder',
+          id: 'fs:f',
+          name: 'f',
+          expanded: true,
+          preRequestScript: 'pre();',
+          children: [{ ...item.node, id: 'fs:f/p.bonk.json' }],
+        },
+      ],
+      [],
+      false,
+    );
+    const back = parsePostmanCollection(text).items[0];
+    if (back.kind !== 'folder') throw new Error('expected a folder');
+    expect(back.preRequestScript).toBe('pre();');
+    expect(back.testScript).toBeUndefined();
   });
 
   it('rejects documents that are not a collection', () => {

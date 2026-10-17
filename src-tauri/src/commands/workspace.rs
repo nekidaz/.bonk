@@ -129,6 +129,22 @@ pub fn workspace_save_folder_source(
 }
 
 #[tauri::command]
+pub fn workspace_save_folder_scripts(
+    root: String,
+    dir: String,
+    pre_request_script: Option<String>,
+    test_script: Option<String>,
+) -> Result<(), String> {
+    require_absolute_root(&root)?;
+    bonk_core::application::workspace::save_folder_scripts(
+        &root,
+        &dir,
+        pre_request_script,
+        test_script,
+    )
+}
+
+#[tauri::command]
 pub fn workspace_save_folder_auth(
     root: String,
     dir: String,

@@ -45,6 +45,7 @@ export {
   buildGrpcScriptContext,
   buildScriptContext,
   collectScriptRun,
+  joinScripts,
   parseScriptResult,
   scriptFailure,
   type ScriptContext,

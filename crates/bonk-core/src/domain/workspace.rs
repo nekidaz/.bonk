@@ -92,11 +92,17 @@ pub struct FolderNode {
     /// Where the collection was imported from (`.folder.bonk.json` `source`); opaque to Rust.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub source: Option<serde_json::Value>,
+    /// Folder-level scripts (`.folder.bonk.json`); every request under it runs them before its own.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pre_request_script: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub test_script: Option<String>,
     pub children: Vec<TreeNode>,
 }
 
 /// On-disk shape of a folder's settings file.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct FolderFile {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub auth: Option<AuthConfig>,
@@ -106,6 +112,21 @@ pub struct FolderFile {
     /// Where the collection was imported from, for re-import (IM8). Opaque to Rust.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub source: Option<serde_json::Value>,
+    /// Scripts every request under this folder inherits (Postman's collection/folder scripts).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pre_request_script: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub test_script: Option<String>,
+}
+
+impl FolderFile {
+    pub fn is_empty(&self) -> bool {
+        self.auth.is_none()
+            && self.order.is_empty()
+            && self.source.is_none()
+            && self.pre_request_script.is_none()
+            && self.test_script.is_none()
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
