@@ -22,6 +22,20 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   - No auto-reconnect or `Last-Event-ID`. After an app restart the tab shows the stream as raw text.
   - A timeout of a non-stream request still covers the whole request; its error now reads
     `request timed out after N ms`.
+- **GraphQL schema**. A GraphQL request now knows its schema.
+  - The schema is fetched on its own by introspection, with the request's auth, variables and cookies;
+    it is not written to history and no scripts run. «Refresh» fetches it again; «Load schema file…»
+    reads `.graphql` / `.graphqls` / `.gql` / `.json` (an introspection result) and remembers the file
+    per endpoint, for servers with introspection turned off.
+  - The Query editor highlights GraphQL, completes fields, arguments and types from the schema and
+    underlines errors (syntax errors even without a schema). `{{var}}` is never flagged, and errors
+    never block Send.
+  - Schema explorer with search; Cmd/Ctrl+click on a field in the editor opens the explorer at it; «Add to query»
+    builds an operation from a field (interface and union results select `__typename`; adding the same
+    field again gives the operation a numbered name: `User2`).
+  - Insomnia import: GraphQL requests now come in as GraphQL, not as plain JSON.
+  - Not included: WebSocket subscriptions, an operation picker, autocomplete in Variables, and the schema
+    in MCP / CLI.
 - **`pm.visualizer.set(template, data)`**, as in Postman: a script fills a Handlebars template
   (`{{#each}}`, `{{#if}}`, `@index`, `{{{raw}}}`…) and the response gets a «Visualize» tab with the
   HTML. It renders in the same sandbox as the HTML preview, so the template's `<script>`s (Chart.js,
