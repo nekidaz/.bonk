@@ -1786,11 +1786,16 @@ mod tests {
         assert!(unknown.contains("not an «ask on send»"), "{unknown}");
         let short = runtime.run_input(given("otp", "12"), None).err().unwrap();
         assert!(short.contains("otp"), "{short}");
-        // A file must stay inside the workspace, like an upload.
+        // A file must stay inside the workspace, like an upload. Use a real file outside it:
+        // a fixed path like /etc/hosts doesn't exist on Windows and fails earlier.
+        let elsewhere =
+            std::env::temp_dir().join(format!("bonk-outside-{}.txt", std::process::id()));
+        std::fs::write(&elsewhere, "x").unwrap();
         let outside = runtime
-            .run_input(given("invoice", "/etc/hosts"), None)
+            .run_input(given("invoice", &elsewhere.to_string_lossy()), None)
             .err()
             .unwrap();
+        let _ = std::fs::remove_file(&elsewhere);
         assert!(
             outside.contains("workspace") || outside.contains("outside"),
             "{outside}"
