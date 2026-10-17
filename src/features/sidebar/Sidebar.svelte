@@ -537,7 +537,7 @@
           }}
           onkeydown={(e) => rowKey(e, n)}
           onclick={(e) => {
-            if (editingNodeId !== n.id) openSavedRequest(n, e.metaKey || e.ctrlKey);
+            if (editingNodeId !== n.id) void openSavedRequest(n, e.metaKey || e.ctrlKey);
           }}
         >
           <span class="bs-mp" style="color:{methodColor(n.protocol === 'grpc' ? 'GRPC' : n.request.method)}"

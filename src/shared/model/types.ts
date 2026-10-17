@@ -328,6 +328,8 @@ export interface Tab {
   request: HttpRequest;
   /** fs id of the saved request file this tab is linked to, if any. */
   savedPath?: string;
+  /** The saved file as last read from disk (full, with `contentHash`): what the dirty dot compares against. */
+  saved?: RequestNode;
   /** id of the history entry this tab was opened from, if any (dedupes re-opens). */
   historyId?: string;
   response?: HttpResponse;
@@ -424,6 +426,13 @@ export interface RequestNode {
   grpc?: GrpcTabState;
   /** The spec operation this request was imported from; re-import updates it (IM8). */
   spec?: SpecLink;
+  /**
+   * SHA-256 of the file (an ETag). Set on tree nodes and `readRequest()` results. A node from
+   * `workspace.tree` is light: no body, scripts, bodyParams, graphqlVariables, gRPC message or spec.
+   */
+  contentHash?: string;
+  /** Every `{{name}}` the file mentions (tree nodes only), so counts over the tree need no bodies. */
+  vars?: string[];
 }
 
 /** What an import generated for one request, so a re-import can tell spec changes from user edits. */

@@ -4,7 +4,7 @@
 export { addAppConsoleEntry, appConsole, type AppConsoleEntry, clearAppConsole } from './console.svelte';
 export { requestProductionSend, requestSaveDialog } from './dialogs.svelte';
 export { isParamChanged } from './dirty';
-export { dirtyTabIds } from './dirtyTabs.svelte';
+export { dirtyTabIds, watchSavedCopies } from './dirtyTabs.svelte';
 export {
   runOne,
   runRequests,

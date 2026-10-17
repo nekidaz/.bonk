@@ -577,6 +577,8 @@ impl BonkRuntime {
         let env_name = environment.unwrap_or_default().to_string();
         let (environment, globals, mut secrets) = self.scopes(variables, environment)?;
         let node = RequestNode {
+            content_hash: None,
+            vars: None,
             id: String::new(),
             name: "request".into(),
             protocol: "http".into(),
@@ -868,6 +870,8 @@ impl BonkRuntime {
             keep_auth_on_plaintext: None,
         };
         let node = RequestNode {
+            content_hash: None,
+            vars: None,
             id: String::new(),
             name: "call".into(),
             protocol: "grpc".into(),
@@ -1796,6 +1800,8 @@ mod tests {
         assert!(runtime.delete_node("fs:notes.txt").is_err());
         assert!(workspace.0.join("notes.txt").exists());
         let mut node = RequestNode {
+            content_hash: None,
+            vars: None,
             id: String::new(),
             name: "Health".into(),
             protocol: "http".into(),
@@ -1844,6 +1850,8 @@ mod tests {
             .id
             .expect("folder id");
         let mut node = RequestNode {
+            content_hash: None,
+            vars: None,
             id: String::new(),
             name: "Charge".into(),
             protocol: "http".into(),

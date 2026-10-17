@@ -5,16 +5,12 @@
   import { t } from '$shared/i18n';
   import { syncUrlWithParams, type Param, type Tab } from '$shared/model';
   import { emptyParam, paramRows, titleFor } from './httpHeaders';
-  import { findNode, workspace } from '$entities/workspace';
   import { tabs } from '$entities/tab';
   import { isParamChanged } from '$entities/request';
   import { KvPanel, KvTable, KvRow, KvCell, KvVarInput } from '$entities/request/components';
 
   let { tab }: { tab: Tab } = $props();
-  const saved = $derived.by(() => {
-    const n = tab.savedPath ? findNode(workspace.tree, tab.savedPath) : undefined;
-    return n?.kind === 'request' ? n : undefined;
-  });
+  const saved = $derived(tab.saved);
 
   function setParam(i: number, field: keyof Param, value: string): void {
     tabs.updateActive((t) => {

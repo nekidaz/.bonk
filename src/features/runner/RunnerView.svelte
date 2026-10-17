@@ -215,7 +215,7 @@
   }
   function openRequest(): void {
     const node = selCall?.nodeId ? findNode(workspace.tree, selCall.nodeId) : undefined;
-    if (node?.kind === 'request') openSavedRequest(node);
+    if (node?.kind === 'request') void openSavedRequest(node);
   }
   const pad2 = (n: number) => String(n).padStart(2, '0');
 

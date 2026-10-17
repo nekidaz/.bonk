@@ -472,6 +472,13 @@ export function workspaceWatch(root: string, onChange: (change: WorkspaceChange)
 /** Children of folder `dir` ('' = root); subfolders listed in `keep` come back without their children. */
 export const workspaceLoadChildren = (root: string, dir: string, keep: string[]) =>
   invoke<TreeNode[]>('workspace_load_children', { root, dir, keep });
+/** The tree without request bodies, scripts and spec links (`contentHash` + `vars` set): what the sidebar holds. */
+export const workspaceLoadLight = (path: string) => invoke<TreeNode[]>('workspace_load_light', { path });
+export const workspaceLoadChildrenLight = (root: string, dir: string, keep: string[]) =>
+  invoke<TreeNode[]>('workspace_load_children_light', { root, dir, keep });
+/** Full request nodes (with `contentHash`) at workspace-relative paths `rels`; a missing file rejects. */
+export const workspaceReadRequests = (root: string, rels: string[]) =>
+  invoke<RequestNode[]>('workspace_read_requests', { root, rels });
 export const workspaceCreateFolder = (root: string, parent: string, name: string) =>
   invoke<string>('workspace_create_folder', { root, parent, name });
 export const workspaceSaveFolderSource = (root: string, dir: string, source: ImportSource | null) =>

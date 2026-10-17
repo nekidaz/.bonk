@@ -2,7 +2,7 @@ import { untrack } from 'svelte';
 import type { Tab, HistoryEntry, TreeNode, Environment, VarRow } from '$shared/model';
 import { loadState, saveState, saveStateDebounced } from '$shared/persist';
 import { startupOpen } from '$shared/settings';
-import { workspaceLoad, secretGet, secretSet, secretDelete } from '$shared/ipc';
+import { workspaceLoadLight, secretGet, secretSet, secretDelete } from '$shared/ipc';
 import { collectSecrets, mergeSecrets, secretAccountsOf, stripSecrets } from './secrets';
 import { normalizeTabTitleState, stripRuntimeTab, tabs } from '$entities/tab';
 import { history } from '$entities/history';
@@ -115,7 +115,7 @@ async function restoreState(): Promise<void> {
   let nextTree: TreeNode[] = [];
   if (savedWorkspacePath) {
     try {
-      nextTree = withSavedExpanded(savedWorkspacePath, await workspaceLoad(savedWorkspacePath));
+      nextTree = withSavedExpanded(savedWorkspacePath, await workspaceLoadLight(savedWorkspacePath));
       workspace.path = savedWorkspacePath;
       rememberWorkspacePath(savedWorkspacePath);
     } catch {

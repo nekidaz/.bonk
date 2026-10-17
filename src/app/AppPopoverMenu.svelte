@@ -141,7 +141,7 @@
   }
 
   function openRequest(): void {
-    if (node?.kind === 'request') openSavedRequest(node);
+    if (node?.kind === 'request') void openSavedRequest(node);
     closeMenu();
   }
 </script>

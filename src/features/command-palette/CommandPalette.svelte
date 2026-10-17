@@ -75,7 +75,7 @@
 
   async function openRequest(node: RequestNode, send: boolean): Promise<void> {
     open = false;
-    openSavedRequest(node);
+    await openSavedRequest(node);
     if (!send || node.protocol !== 'http') return;
     await tick();
     document.querySelector<HTMLButtonElement>('.bs-send')?.click();

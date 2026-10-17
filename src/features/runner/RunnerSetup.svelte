@@ -5,7 +5,8 @@
    * file, iterations, delay and stop-on-failure, and what will be sent.
    * Shared atoms (.rn-eyebrow, .rn-btn …) are styled by RunnerView.
    */
-  import { findNode, parentId, workspace } from '$entities/workspace';
+  import { untrack } from 'svelte';
+  import { findNode, parentId, readRequests, workspace } from '$entities/workspace';
   import { environments } from '$entities/environment';
   import {
     setExcluded,
@@ -44,12 +45,27 @@
   const all = $derived(orderedRequests(cfg, workspace.tree));
   const on = (n: RequestNode) => !cfg.excludedIds.includes(n.id);
   const planned = $derived(all.filter(on));
-  const links = $derived(varLinks(planned));
-  const linkOf = (n: RequestNode) => links[planned.indexOf(n)];
+  // Test counts, variable hand-offs and «ask on send» names read scripts and bodies, which the tree's
+  // light nodes don't carry: the files are read once per (request, file version) of the list.
+  let full = $state<Map<string, RequestNode>>(new Map());
+  const wanted = $derived(all.map((n) => `${n.id}@${n.contentHash ?? ''}`).join('\n'));
+  $effect(() => {
+    void wanted;
+    const root = workspace.path;
+    const ids = untrack(() => all.map((n) => n.id));
+    readRequests(ids)
+      .then((nodes) => {
+        if (workspace.path === root) full = new Map(nodes.map((n) => [n.id, n]));
+      })
+      .catch(() => {});
+  });
+  const fullOf = (n: RequestNode) => full.get(n.id) ?? n;
+  const links = $derived(varLinks(planned.map(fullOf)));
+  const linkOf = (n: RequestNode) => links[planned.findIndex((p) => p.id === n.id)];
   const methodOf = (n: RequestNode) => (n.protocol === 'grpc' ? 'gRPC' : n.request.method);
 
   // Steps with an «ask on send» variable (Flow · Scenario with input OT2): the run stops there and asks.
-  const askOf = (n: RequestNode) => inputNamesOf(n, inputs.defs);
+  const askOf = (n: RequestNode) => inputNamesOf(fullOf(n), inputs.defs);
   const asking = $derived(planned.filter((n) => askOf(n).length > 0));
   // «Login {{session}} → Send OTP {{otpId}} → you {{otp}} → Verify OTP {{token}}»: what is handed along, and where a person types.
   const chain = $derived(
@@ -264,7 +280,7 @@
         {:else}
           {@const n = r.node}
           {@const link = linkOf(n)}
-          {@const tests = testCount(n)}
+          {@const tests = testCount(fullOf(n))}
           <!-- svelte-ignore a11y_no_static_element_interactions -->
           <div
             class="rs-row"

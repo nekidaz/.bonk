@@ -4,6 +4,7 @@ import { t } from '$shared/i18n';
 import {
   type InputAnswer,
   type InputRequest,
+  type RequestNode,
   type Tab,
   type RunResultRow,
   type RunStatus,
@@ -19,7 +20,16 @@ import {
   scenariosDelete,
   type RunVarWrites,
 } from '$shared/ipc';
-import { findNode, idToRel, parentId, ROOT, refreshDirs, workspace } from '$entities/workspace';
+import {
+  findNode,
+  idToRel,
+  parentId,
+  readRequest,
+  readRequests,
+  ROOT,
+  refreshDirs,
+  workspace,
+} from '$entities/workspace';
 import {
   pushHistory,
   pushRecord,
@@ -622,11 +632,20 @@ export async function runCollection(): Promise<void> {
     setRunnerStage('setup');
     return;
   }
-  const requests = plannedRequests(config, workspace.tree);
+  const planned = plannedRequests(config, workspace.tree);
   const n = (runner.history.at(-1)?.n ?? 0) + 1;
-  if (requests.length === 0) {
+  if (planned.length === 0) {
     // Nothing to run — surface an empty "done" so the summary/empty state shows.
     runner.run = { ...DEFAULT_RUN, status: 'done', results: [], startedAt: Date.now(), finishedAt: Date.now() };
+    return;
+  }
+  // The tree holds light nodes: the runner gets the files.
+  let requests: RequestNode[];
+  try {
+    requests = await readRequests(planned.map((r) => r.id));
+  } catch (e) {
+    runner.error = String(e);
+    setRunnerStage('setup');
     return;
   }
 
@@ -684,8 +703,9 @@ async function rerunRows(rows: RunResultRow[]): Promise<void> {
   const config = runner.config;
   runner.updateRun((r) => ({ ...r, status: 'running' }));
   for (const [k, old] of rows.entries()) {
-    const node = old.nodeId ? findNode(workspace.tree, old.nodeId) : undefined;
-    if (node?.kind !== 'request') continue;
+    const light = old.nodeId ? findNode(workspace.tree, old.nodeId) : undefined;
+    const node = light?.kind === 'request' ? await readRequest(light.id).catch(() => undefined) : undefined;
+    if (!node) continue;
     const fresh = await runOne(node, old.iteration, config.dataRows[old.iteration - 1] ?? {}, {
       dynamic: runner.activeScenario?.dynamic,
       variables: runner.variables ?? runner.activeScenario?.variables,
@@ -718,10 +738,13 @@ export function rerunCall(rowId: string): Promise<void> {
  */
 export async function bindIdFrom(targetNodeId: string, b: IdBinding): Promise<boolean> {
   const root = workspace.path;
-  const tree = workspace.tree;
-  const src = b.sourceNodeId ? findNode(tree, b.sourceNodeId) : undefined;
-  const dst = findNode(tree, targetNodeId);
-  if (!root || src?.kind !== 'request' || dst?.kind !== 'request') return false;
+  if (!root || !b.sourceNodeId) return false;
+  let src: RequestNode, dst: RequestNode;
+  try {
+    [src, dst] = await readRequests([b.sourceNodeId, targetNodeId]); // the tree nodes have no scripts
+  } catch {
+    return false;
+  }
   const nodes = bindIdNodes(src, dst, b, !!environments.activeId);
   try {
     for (const node of nodes) {

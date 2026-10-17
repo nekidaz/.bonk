@@ -17,6 +17,7 @@ import {
   parentId,
   ROOT,
   openWorkspaceFolder,
+  readRequest,
   refreshDirs,
   runWorkspaceOp,
   workspace,
@@ -127,17 +128,23 @@ export async function addRequestToFolder(folderId: string | undefined, protocol:
     const newId = await workspaceSaveRequest(root, folderId ? idToRel(folderId) : ROOT, null, node);
     await refreshDirs(folderId);
     const created = findNode(workspace.tree, newId);
-    if (created && created.kind === 'request') openSavedRequest(created);
+    if (created && created.kind === 'request') await openSavedRequest(created);
   });
 }
 
-/** Focus the request's open tab, or open it; `inNewTab` (⌘-click) always opens another tab. */
-export function openSavedRequest(req: RequestNode, inNewTab = false): void {
-  const existing = !inNewTab && tabs.list.find((t) => t.savedPath === req.id);
-  if (existing) {
-    tabs.activeId = existing.id;
-    return;
-  }
+/**
+ * Focus the request's open tab, or open it; `inNewTab` (⌘-click) always opens another tab.
+ * `node` may be a light tree node: the file is read in full first (so a tab open means the content is here).
+ */
+export async function openSavedRequest(node: RequestNode, inNewTab = false): Promise<void> {
+  const focusOpen = (): boolean => {
+    const existing = !inNewTab && tabs.list.find((t) => t.savedPath === node.id);
+    if (existing) tabs.activeId = existing.id;
+    return !!existing;
+  };
+  if (focusOpen()) return;
+  const req = await runWorkspaceOp('openSavedRequest', () => readRequest(node.id));
+  if (!req || focusOpen()) return; // unreadable, or a second click opened it meanwhile
   // Settings → “Open request in a new tab” off: reuse the active saved
   // request's tab when it has no unsaved changes (scratch tabs are never replaced).
   const current = tabs.active;
@@ -158,6 +165,7 @@ export function openSavedRequest(req: RequestNode, inNewTab = false): void {
     // so a stale connectionId can't block reconnect after an app restart.
     grpc: grpcPathsToAbs(grpcSnapshot(req.grpc), workspace.path),
     savedPath: req.id,
+    saved: req,
   };
   tabs.update((list) => (reuse ? list.map((t) => (t.id === tab.id ? tab : t)) : [...list, tab]));
   tabs.activeId = tab.id;

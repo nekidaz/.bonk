@@ -535,6 +535,8 @@ mod tests {
 
     fn request(id: &str) -> TreeNode {
         TreeNode::Request(Box::new(RequestNode {
+            content_hash: None,
+            vars: None,
             id: id.into(),
             name: "r".into(),
             protocol: "http".into(),

@@ -155,7 +155,7 @@
             </section>
           </div>
           <div class="bs-console-actions">
-            <button type="button" disabled={!entry.tabId && !entry.nodeId} onclick={() => openEntry(entry)}
+            <button type="button" disabled={!entry.tabId && !entry.nodeId} onclick={() => void openEntry(entry)}
               ><span class="material-symbols-outlined" aria-hidden="true">open_in_new</span>{t('util.act.open')}</button
             >
             <button type="button" disabled={!entry.tabId && !entry.nodeId} onclick={() => void retryEntry(entry)}

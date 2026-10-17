@@ -23,6 +23,7 @@ import {
 import { openSettingsFileTab } from '$features/settings';
 import { checkForUpdate } from '$shared/updater';
 import { inputs, watchInputs } from '$entities/input';
+import { watchSavedCopies } from '$entities/request';
 import { watchWorkspaceFiles, workspace } from '$entities/workspace';
 import { runner, watchRunnerWorkspace } from '$features/runner';
 import { layout } from './layout.svelte';
@@ -47,6 +48,7 @@ export function startApp(): void {
   onDestroy(watchCookieJar());
   onDestroy(watchRunnerWorkspace());
   onDestroy(watchWorkspaceFiles());
+  onDestroy(watchSavedCopies());
   onDestroy(
     watchInputs(
       () => workspace.path,

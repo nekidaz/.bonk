@@ -1,7 +1,8 @@
-import type { AuthConfig, HttpRequest, TreeNode } from '$shared/model';
+import type { AuthConfig, HttpRequest, RequestNode, TreeNode } from '$shared/model';
 import {
-  workspaceLoad,
-  workspaceLoadChildren,
+  workspaceLoadLight,
+  workspaceLoadChildrenLight,
+  workspaceReadRequests,
   workspacePickFolder,
   workspaceCreateFolder,
   workspaceSaveFolderAuth,
@@ -23,7 +24,10 @@ export const ROOT = '';
 
 /** The open workspace folder (filesystem-as-truth): its path, its tree, and recently opened folders. */
 class Workspace {
-  /** The workspace tree as loaded from disk ([] when no folder is open). Replaced, never mutated. */
+  /**
+   * The workspace tree as loaded from disk ([] when no folder is open). Replaced, never mutated.
+   * Request nodes are light (no body, scripts or spec: see `RequestNode.contentHash`); `readRequest()` reads the file.
+   */
   tree = $state.raw<TreeNode[]>([]);
   /** Absolute path of the open folder; '' when none. */
   path = $state('');
@@ -35,6 +39,14 @@ class Workspace {
   metaRev = $state(0);
 }
 export const workspace = new Workspace();
+
+/** The full request files behind tree nodes `ids`, in order; rejects when one is missing. */
+export function readRequests(ids: string[]): Promise<RequestNode[]> {
+  return workspaceReadRequests(workspace.path, ids.map(idToRel));
+}
+export async function readRequest(id: string): Promise<RequestNode> {
+  return (await readRequests([id]))[0];
+}
 
 /** `x` with collection auth resolved into `request.auth` (id = saved request id); use before building/previewing a send. */
 export function withInheritedAuth<T extends { request: HttpRequest }>(x: T, id: string | undefined): T {
@@ -101,7 +113,7 @@ export async function reloadWorkspace(): Promise<void> {
   if (!path) return;
   // The Rust `load` always returns folders collapsed. Preserve the user's
   // current open folders across the reload instead of collapsing everything.
-  const tree = await workspaceLoad(path);
+  const tree = await workspaceLoadLight(path);
   const expanded = new Map<string, boolean>();
   collectExpanded(workspace.tree, expanded);
   workspace.tree = applyExpanded(tree, expanded);
@@ -136,7 +148,9 @@ export function watchWorkspaceFiles(): () => void {
 function unlinkOrphanTabs(): void {
   const loaded = workspace.tree;
   tabs.update((list) =>
-    list.map((t) => (t.savedPath && !findNode(loaded, t.savedPath) ? { ...t, savedPath: undefined } : t)),
+    list.map((t) =>
+      t.savedPath && !findNode(loaded, t.savedPath) ? { ...t, savedPath: undefined, saved: undefined } : t,
+    ),
   );
 }
 
@@ -163,7 +177,7 @@ async function refreshNow(dirs: (string | undefined)[]): Promise<void> {
     const before = childrenOf(workspace.tree, dir);
     if (!before) return reloadWorkspace(); // not a folder in the tree: start over
     const keep = new Set(before.filter((n) => n.kind === 'folder').map((n) => n.id));
-    const fresh = await workspaceLoadChildren(root, idToRel(dir), [...keep]);
+    const fresh = await workspaceLoadChildrenLight(root, idToRel(dir), [...keep]);
     if (workspace.path !== root) return; // another workspace was opened meanwhile
     const old = new Map((childrenOf(workspace.tree, dir) ?? []).map((n) => [n.id, n]));
     const expanded = new Map<string, boolean>();
@@ -226,14 +240,14 @@ export async function switchWorkspace(path: string): Promise<void> {
   if (!clean) return;
   const switched = await runWorkspaceOp('switchWorkspace', async () => {
     const previous = workspace.path;
-    const tree = await workspaceLoad(clean);
+    const tree = await workspaceLoadLight(clean);
     workspace.path = clean;
     workspace.tree = withSavedExpanded(clean, tree);
     rememberWorkspacePath(clean);
     if (previous && previous !== clean) {
       // savedPath is relative to the old workspace root. Keeping it after a root
       // switch risks overwriting a same-named request in the new workspace.
-      tabs.update((list) => list.map((t) => (t.savedPath ? { ...t, savedPath: undefined } : t)));
+      tabs.update((list) => list.map((t) => (t.savedPath ? { ...t, savedPath: undefined, saved: undefined } : t)));
     }
     return true;
   });

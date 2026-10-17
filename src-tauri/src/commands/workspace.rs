@@ -98,6 +98,35 @@ pub fn workspace_load(path: String) -> Result<Vec<bonk_core::domain::workspace::
     bonk_core::application::workspace::load(&path)
 }
 
+/// `workspace_load` without bodies, scripts and spec links: the sidebar's tree.
+#[tauri::command]
+pub fn workspace_load_light(
+    path: String,
+) -> Result<Vec<bonk_core::domain::workspace::TreeNode>, String> {
+    require_absolute_root(&path)?;
+    bonk_core::application::workspace::load_light(&path)
+}
+
+#[tauri::command]
+pub fn workspace_load_children_light(
+    root: String,
+    dir: String,
+    keep: Vec<String>,
+) -> Result<Vec<bonk_core::domain::workspace::TreeNode>, String> {
+    require_absolute_root(&root)?;
+    bonk_core::application::workspace::load_children_light(&root, &dir, &keep)
+}
+
+/// The full request nodes at workspace-relative paths `rels`.
+#[tauri::command]
+pub fn workspace_read_requests(
+    root: String,
+    rels: Vec<String>,
+) -> Result<Vec<bonk_core::domain::workspace::RequestNode>, String> {
+    require_absolute_root(&root)?;
+    bonk_core::application::workspace::read_requests(&root, &rels)
+}
+
 #[tauri::command]
 pub fn workspace_load_children(
     root: String,

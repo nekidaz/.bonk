@@ -25,7 +25,7 @@ const calls: { cmd: string; dir?: string; keep?: string[] }[] = [];
 vi.mock('@tauri-apps/api/core', () => ({
   invoke: vi.fn(async (cmd: string, a: { dir: string; keep: string[] }) => {
     if (cmd.startsWith('workspace_')) calls.push({ cmd, ...a });
-    if (cmd !== 'workspace_load_children') return cmd === 'workspace_load' ? disk : undefined;
+    if (cmd !== 'workspace_load_children_light') return cmd === 'workspace_load_light' ? disk : undefined;
     const find = (nodes: TreeNode[]): TreeNode[] =>
       nodes.flatMap((n) => (n.id === 'fs:' + a.dir ? [n] : n.kind === 'folder' ? find(n.children) : []));
     const kids = a.dir ? (find(disk)[0] as { children: TreeNode[] }).children : disk;
@@ -44,8 +44,8 @@ describe('refreshDirs', () => {
     await refreshDirs('fs:A', 'fs:A/B');
 
     expect(calls).toEqual([
-      { cmd: 'workspace_load_children', root: '/ws', dir: 'A/B', keep: [] },
-      { cmd: 'workspace_load_children', root: '/ws', dir: 'A', keep: ['fs:A/B'] },
+      { cmd: 'workspace_load_children_light', root: '/ws', dir: 'A/B', keep: [] },
+      { cmd: 'workspace_load_children_light', root: '/ws', dir: 'A', keep: ['fs:A/B'] },
     ]);
     const [a, untouched] = workspace.tree;
     expect(untouched).toBe(c);

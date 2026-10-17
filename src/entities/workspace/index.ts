@@ -31,6 +31,8 @@ export {
   legacyCollapsedFolders,
   normalizeWorkspaceRecents,
   openWorkspaceFolder,
+  readRequest,
+  readRequests,
   refreshDirs,
   rememberWorkspacePath,
   removeNode,

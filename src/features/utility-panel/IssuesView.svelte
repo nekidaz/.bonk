@@ -227,7 +227,7 @@
               <button
                 type="button"
                 disabled={!g.issues[0].entry.tabId && !g.issues[0].entry.nodeId}
-                onclick={() => openEntry(g.issues[0].entry)}
+                onclick={() => void openEntry(g.issues[0].entry)}
                 ><span class="material-symbols-outlined" aria-hidden="true">open_in_new</span>{t(
                   'util.act.open',
                 )}</button

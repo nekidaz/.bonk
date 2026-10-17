@@ -122,7 +122,8 @@
               >
               {#if historySnapshot.original}<button
                   type="button"
-                  onclick={() => openSavedRequest(historySnapshot!.original!.node)}>{t('app.snapshot.original')}</button
+                  onclick={() => void openSavedRequest(historySnapshot!.original!.node)}
+                  >{t('app.snapshot.original')}</button
                 >{/if}
             </div>
           {/if}

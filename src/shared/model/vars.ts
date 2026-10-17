@@ -4,7 +4,7 @@
  * graph stays acyclic (state imports it; requests imports it).
  */
 import { t as tr } from '$shared/i18n';
-import type { AuthConfig, Environment, HttpRequest, TreeNode, VarRow } from './types';
+import type { AuthConfig, Environment, HttpRequest, RequestNode, TreeNode, VarRow } from './types';
 import { applyAuth } from './httpBody';
 
 /** Matches a `{{ name }}` placeholder, capturing the (possibly padded) name. */
@@ -165,10 +165,14 @@ export function countRequestsUsingVars(nodes: TreeNode[], keys: string[]): numbe
   let n = 0;
   for (const node of nodes) {
     if (node.kind === 'folder') n += countRequestsUsingVars(node.children, keys);
-    else if (findVariables(JSON.stringify([node.request, node.params, node.grpc])).some((m) => wanted.has(m.name))) n++;
+    // A tree node carries the file's `{{names}}` (its body and scripts stayed on disk).
+    else if (node.vars ? node.vars.some((v) => wanted.has(v)) : usesVar(node, wanted)) n++;
   }
   return n;
 }
+
+const usesVar = (node: RequestNode, wanted: Set<string>): boolean =>
+  findVariables(JSON.stringify([node.request, node.params, node.grpc])).some((m) => wanted.has(m.name));
 
 /** Display mask for a secret value: short prefix, dots, last 4 chars (`sk_live_••••••••••••4f2a`). */
 export function maskSecret(value: string): string {

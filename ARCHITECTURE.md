@@ -82,7 +82,7 @@ over `bonk-core`; folder/file dialogs are shell-owned:
 | --- | --- |
 | HTTP | `http_send`, `cancel_request` |
 | gRPC | `grpc_connect`, `grpc_reflect`, `grpc_template`, `grpc_call` |
-| Workspace | `workspace_pick_folder`, `workspace_load`, `workspace_create_folder`, `workspace_save_request`, `workspace_rename`, `workspace_delete`, `workspace_duplicate`, `workspace_move` |
+| Workspace | `workspace_pick_folder`, `workspace_load` / `workspace_load_light`, `workspace_load_children` / `workspace_load_children_light`, `workspace_read_requests`, `workspace_create_folder`, `workspace_save_request`, `workspace_rename`, `workspace_delete`, `workspace_duplicate`, `workspace_move` |
 | App state | `app_state_load`, `app_state_set` |
 | MCP integration | `mcp_integration_status`, `mcp_install`, `mcp_uninstall` |
 | User themes (`~/.bonk/themes`) | `themes_list`, `theme_save`, `theme_delete`, `theme_import_pick` |
@@ -173,6 +173,16 @@ my-workspace/
 requests, each alphabetical). Mutations are granular fs ops
 (create/save/rename/delete/duplicate/move) — there is **no manifest**, which is
 what keeps it Git-friendly and self-healing. Node id = `fs:<relative path>`.
+
+The app's sidebar holds a **light** tree (`workspace_load_light`, `workspace_load_children_light`,
+`RequestNode::into_light`): request nodes without `body`, `graphqlVariables`, `bodyParams`, the
+scripts, the gRPC `message` and `spec`, plus `contentHash` (SHA-256 of the file, an ETag) and
+`vars` (the `{{names}}` the file mentions). A 1600-request workspace is ~1 MB over IPC instead
+of ~60 MB. `workspace_read_requests(root, rels)` returns full nodes (with the hash) when a tab
+opens, a run starts or a folder is exported. The CLI runner and bonk-mcp keep the full
+`workspace::load`. Each open tab keeps `Tab.saved`, the file as last read; the dirty dot compares
+the tab with it, and `watchSavedCopies()` re-reads it whenever the tree's `contentHash` moves
+(own saves, renames, edits outside the app).
 
 **«Ask on send» variables** (`.bonk/inputs.json`, `application/inputs.rs`, types and checks in
 `domain/inputs.rs`) name the `{{vars}}` a person types at send time. The runner's `execute` asks

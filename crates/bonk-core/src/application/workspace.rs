@@ -52,20 +52,78 @@ pub fn load(root: &str) -> Result<Vec<TreeNode>, String> {
         ));
     }
 
-    load_dir(root, root, &[])
+    load_dir(root, root, &[], false)
+}
+
+/// [`load`] without request bodies, scripts and spec links (`RequestNode::into_light`): what the
+/// sidebar needs, a few MB instead of the whole workspace. `read_requests` gives the full node.
+pub fn load_light(root: &str) -> Result<Vec<TreeNode>, String> {
+    let root = Path::new(root);
+    if !root.exists() {
+        return Ok(vec![]);
+    }
+    if !root.is_dir() {
+        return Err(format!(
+            "workspace root is not a directory: {}",
+            root.display()
+        ));
+    }
+    load_dir(root, root, &[], true)
 }
 
 /// Load the children of folder `dir_rel` (`""` = root) after a change in it. Subfolders whose
 /// ids are in `keep` come back with no children (the caller already has them); the rest load whole.
 pub fn load_children(root: &str, dir_rel: &str, keep: &[String]) -> Result<Vec<TreeNode>, String> {
+    load_children_in(root, dir_rel, keep, false)
+}
+
+/// [`load_children`] with light request nodes (see [`load_light`]).
+pub fn load_children_light(
+    root: &str,
+    dir_rel: &str,
+    keep: &[String],
+) -> Result<Vec<TreeNode>, String> {
+    load_children_in(root, dir_rel, keep, true)
+}
+
+fn load_children_in(
+    root: &str,
+    dir_rel: &str,
+    keep: &[String],
+    light: bool,
+) -> Result<Vec<TreeNode>, String> {
     let dir = resolve(root, dir_rel)?;
     if !dir.is_dir() {
         return Err(format!("not a folder: {}", dir.display()));
     }
-    load_dir(Path::new(root), &dir, keep)
+    load_dir(Path::new(root), &dir, keep, light)
 }
 
-fn load_dir(root: &Path, dir: &Path, keep: &[String]) -> Result<Vec<TreeNode>, String> {
+/// The full nodes of the request files `rels` (workspace-relative paths), with their `content_hash`.
+/// A missing or unreadable file is an error: the caller asked for it by name.
+pub fn read_requests(root: &str, rels: &[String]) -> Result<Vec<RequestNode>, String> {
+    rels.iter()
+        .map(|rel| {
+            let path = resolve(root, rel)?;
+            if !is_request_file(&path) {
+                return Err(format!("not a request file: {rel}"));
+            }
+            let raw = fs::read_to_string(&path).map_err(|e| format!("{rel}: {e}"))?;
+            let file =
+                serde_json::from_str::<RequestFile>(&raw).map_err(|e| format!("{rel}: {e}"))?;
+            let mut node = file.into_node(rel_id(Path::new(root), &path)?);
+            node.content_hash = Some(crate::domain::workspace::file_hash(&raw));
+            Ok(node)
+        })
+        .collect()
+}
+
+fn load_dir(
+    root: &Path,
+    dir: &Path,
+    keep: &[String],
+    light: bool,
+) -> Result<Vec<TreeNode>, String> {
     let mut folders: Vec<TreeNode> = Vec::new();
     let mut requests: Vec<TreeNode> = Vec::new();
 
@@ -92,7 +150,7 @@ fn load_dir(root: &Path, dir: &Path, keep: &[String]) -> Result<Vec<TreeNode>, S
             let children = if keep.contains(&id) {
                 vec![]
             } else {
-                load_dir(root, &path, &[])?
+                load_dir(root, &path, &[], light)?
             };
 
             let settings = read_folder_file(&path);
@@ -123,9 +181,12 @@ fn load_dir(root: &Path, dir: &Path, keep: &[String]) -> Result<Vec<TreeNode>, S
             continue;
         };
 
-        requests.push(TreeNode::Request(Box::new(
-            file.into_node(rel_id(root, &path)?),
-        )));
+        let node = file.into_node(rel_id(root, &path)?);
+        requests.push(TreeNode::Request(Box::new(if light {
+            node.into_light(&raw)
+        } else {
+            node
+        })));
     }
 
     folders.sort_by_key(|node| node_name(node).to_lowercase());
@@ -858,6 +919,8 @@ mod tests {
 
     fn request_node(name: &str) -> RequestNode {
         RequestNode {
+            content_hash: None,
+            vars: None,
             id: String::new(),
             name: name.into(),
             protocol: "http".into(),
@@ -1527,6 +1590,77 @@ mod tests {
         .is_err());
         assert!(!root.join("api 2").exists());
         assert!(root.join("api/z-login.bonk.json").exists());
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn light_load_drops_content_and_keeps_an_etag() {
+        let root = temp_root();
+        fs::create_dir_all(root.join("api")).unwrap();
+        let raw = r#"{
+            "name": "login",
+            "protocol": "http",
+            "request": {
+                "method": "POST",
+                "url": "{{base}}/login",
+                "headers": {"x": "{{token}}"},
+                "body": "{\"user\": \"{{user}}\"}",
+                "preRequestScript": "pm.environment.set('a', 1)",
+                "testScript": "pm.test('ok', () => {})"
+            },
+            "spec": {"op": "login", "base": {}}
+        }"#;
+        fs::write(root.join("api/login.bonk.json"), raw).unwrap();
+        let root_str = root.to_string_lossy().to_string();
+
+        let light = load_light(&root_str).unwrap();
+        let TreeNode::Folder(folder) = &light[0] else {
+            panic!("expected a folder")
+        };
+        let TreeNode::Request(node) = &folder.children[0] else {
+            panic!("expected a request")
+        };
+        assert_eq!(node.request.url, "{{base}}/login");
+        assert_eq!(node.request.headers["x"], "{{token}}");
+        assert!(node.request.body.is_none());
+        assert!(node.request.pre_request_script.is_none());
+        assert!(node.request.test_script.is_none());
+        assert!(node.spec.is_none());
+        assert_eq!(
+            node.vars.as_deref().unwrap(),
+            ["base", "token", "user"].map(String::from)
+        );
+
+        let full = read_requests(&root_str, &["api/login.bonk.json".into()]).unwrap();
+        assert_eq!(full[0].id, node.id);
+        assert_eq!(
+            full[0].request.body.as_deref(),
+            Some(r#"{"user": "{{user}}"}"#)
+        );
+        assert_eq!(full[0].content_hash, node.content_hash);
+        assert!(full[0].vars.is_none());
+
+        fs::write(root.join("api/login.bonk.json"), raw.replace("POST", "PUT")).unwrap();
+        let changed = read_requests(&root_str, &["api/login.bonk.json".into()]).unwrap();
+        assert_ne!(changed[0].content_hash, node.content_hash);
+
+        let children = load_children_light(&root_str, "api", &[]).unwrap();
+        assert_eq!(children.len(), 1);
+        assert!(read_requests(&root_str, &["api/nope.bonk.json".into()]).is_err());
+        assert!(read_requests(&root_str, &["api".into()]).is_err());
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn full_load_is_unchanged() {
+        let root = temp_root();
+        write_request(&root, "a");
+        let tree = load(&root.to_string_lossy()).unwrap();
+        let TreeNode::Request(node) = &tree[0] else {
+            panic!("expected a request")
+        };
+        assert!(node.content_hash.is_none() && node.vars.is_none());
+        assert!(!serde_json::to_string(node).unwrap().contains("contentHash"));
         std::fs::remove_dir_all(root).unwrap();
     }
 }
