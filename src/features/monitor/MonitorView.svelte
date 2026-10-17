@@ -258,7 +258,7 @@
               {@const before = view.previous?.procs.find((x) => x.pid === p.pid)}
               {@const dt = view.previous ? view.latest.atMs - view.previous.atMs : 0}
               <tr>
-                <td class="mono" title={`pid ${p.pid}`}>{p.name}</td>
+                <td class="mono name" title={`${p.name} · pid ${p.pid}`}>{p.name}</td>
                 <td>{t(`monitor.kind.${p.kind}`)}</td>
                 <td class="r">{mb(p.memBytes)}</td>
                 <td
@@ -574,9 +574,15 @@
   }
   .chart,
   details {
+    min-width: 0;
     padding: var(--space-3);
     border: 1px solid var(--color-border-subtle);
     border-radius: var(--radius-card);
+  }
+  /* A wide table scrolls inside its card, never the whole tab sideways. (Not on .chart: it would
+     clip the hover tooltip.) */
+  details {
+    overflow-x: auto;
   }
   summary {
     cursor: pointer;
@@ -619,6 +625,11 @@
   }
   .mono {
     font-family: var(--font-code);
+  }
+  .name {
+    max-width: 220px;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
   .bar {
     display: inline-block;
