@@ -71,9 +71,10 @@ export function counted<T>(cmd: string, handler: (msg: T) => void): (msg: T) => 
 /**
  * Rough payload size without serialising: string → length, object key → length, number 8,
  * boolean / null / undefined 4. Stops after `budget` values, so a huge tree yields a lower
- * bound instead of a long freeze.
+ * bound instead of a long freeze (ponytail: 200k values ≈ a few ms; raise it only if the
+ * lower bounds start hiding real sizes).
  */
-export function approxBytes(value: unknown, budget = 2_000_000): number {
+export function approxBytes(value: unknown, budget = 200_000): number {
   let bytes = 0;
   let left = budget;
   const stack: unknown[] = [value];

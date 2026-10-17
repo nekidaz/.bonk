@@ -11,6 +11,8 @@ pub struct RawProc {
     pub pid: u32,
     pub parent: Option<u32>,
     pub name: String,
+    /// A Linux thread (sysinfo lists them as entries whose parent is the owning process).
+    pub thread: bool,
 }
 
 #[derive(Serialize, Clone, Copy, PartialEq, Debug)]
@@ -37,14 +39,12 @@ pub struct ProcStat {
     pub disk_write_bytes: u64,
 }
 
-/// WebKit (macOS/Linux) and WebView2 (Windows) helper processes.
+/// WebKit (macOS/Linux) and WebView2 (Windows) helper processes. Linux names arrive cut to
+/// 15 characters (`WebKitWebProces`), hence the bare `WebKit` prefix.
 pub fn is_webview_name(name: &str) -> bool {
     name.starts_with("com.apple.WebKit.")
+        || name.starts_with("WebKit")
         || name.to_ascii_lowercase().starts_with("msedgewebview2")
-        || matches!(
-            name,
-            "WebKitWebProcess" | "WebKitNetworkProcess" | "WebKitGPUProcess"
-        )
 }
 
 /// `me` first, then by pid. A descendant of `me` is a Child (or Webview by name); a process
@@ -69,7 +69,7 @@ pub fn select_own(
     };
     let mut out: Vec<(u32, ProcKind)> = all
         .iter()
-        .filter(|p| p.pid != me)
+        .filter(|p| p.pid != me && !p.thread)
         .filter_map(|p| {
             if descends(p.pid) {
                 Some((
@@ -127,6 +127,7 @@ impl ProcMonitor {
                 pid: p.pid().as_u32(),
                 parent: p.parent().map(Pid::as_u32),
                 name: p.name().to_string_lossy().into_owned(),
+                thread: p.thread_kind().is_some(),
             })
             .collect();
         select_own(&raw, std::process::id(), &responsible_pid)
@@ -229,6 +230,7 @@ mod tests {
             pid,
             parent,
             name: name.into(),
+            thread: false,
         }
     }
     const NOBODY: &dyn Fn(u32) -> Option<u32> = &|_| None;
@@ -289,6 +291,26 @@ mod tests {
             p(51, Some(50), "b"),
         ];
         assert_eq!(select_own(&all, 10, NOBODY), vec![(10, ProcKind::Main)]);
+    }
+
+    #[test]
+    fn linux_threads_are_not_processes() {
+        let thread = RawProc {
+            thread: true,
+            ..p(11, Some(10), "tokio-runtime-w")
+        };
+        let all = [p(10, Some(1), "bonk"), thread, p(12, Some(10), "zsh")];
+        assert_eq!(
+            select_own(&all, 10, NOBODY),
+            vec![(10, ProcKind::Main), (12, ProcKind::Child)]
+        );
+    }
+
+    #[test]
+    fn linux_truncated_webkit_names() {
+        // sysinfo cuts Linux process names to 15 characters.
+        assert!(is_webview_name("WebKitWebProces"));
+        assert!(is_webview_name("WebKitNetworkPr"));
     }
 
     #[test]

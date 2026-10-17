@@ -3,7 +3,7 @@
 use std::collections::HashMap;
 use std::sync::Mutex;
 
-use bonk_core::infra::metrics::{Counters, METRICS};
+use bonk_core::infra::metrics::{now_ms, Counters, METRICS};
 use bonk_core::infra::procmon::ProcStat;
 use serde::Serialize;
 use tauri::State;
@@ -69,9 +69,8 @@ pub async fn monitor_snapshot(
         cookie_jars,
         cookies,
     };
-    let at_ms = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map_or(0, |d| d.as_millis() as u64);
+    let at_ms = now_ms();
+    METRICS.touch_at(at_ms);
     Ok(MonitorSnapshot {
         at_ms,
         procs,

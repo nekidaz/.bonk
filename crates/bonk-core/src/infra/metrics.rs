@@ -118,7 +118,12 @@ pub struct Metrics {
     script_runs: AtomicU64,
     script_ms: AtomicU64,
     script_peak: AtomicU64,
+    /// Epoch ms of the last `monitor_snapshot`; 0 = never.
+    last_snapshot_ms: AtomicU64,
 }
+
+/// Costly measurements run only while snapshots arrived within this window (the monitor is on).
+pub const WATCH_WINDOW_MS: u64 = 5_000;
 
 /// The app's counters; `Metrics::default()` gives tests their own.
 pub static METRICS: Metrics = Metrics::new();
@@ -135,7 +140,23 @@ impl Metrics {
             script_runs: AtomicU64::new(0),
             script_ms: AtomicU64::new(0),
             script_peak: AtomicU64::new(0),
+            last_snapshot_ms: AtomicU64::new(0),
         }
+    }
+
+    /// Called by each `monitor_snapshot`: marks the monitor as watching.
+    pub fn touch_at(&self, now_ms: u64) {
+        self.last_snapshot_ms.store(now_ms, Relaxed);
+    }
+
+    /// True while snapshots keep coming; costly measurements (a script heap walk) check it.
+    pub fn watching_at(&self, now_ms: u64) -> bool {
+        let last = self.last_snapshot_ms.load(Relaxed);
+        last != 0 && now_ms.saturating_sub(last) <= WATCH_WINDOW_MS
+    }
+
+    pub fn watching(&self) -> bool {
+        self.watching_at(now_ms())
     }
 
     pub fn record_net(&self, proto: NetProto, sent: u64, received: u64) {
@@ -179,6 +200,12 @@ impl Metrics {
     }
 }
 
+pub fn now_ms() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_or(0, |d| d.as_millis() as u64)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -212,6 +239,15 @@ mod tests {
             (2, 500)
         );
         assert_eq!(c.disk_writes.workspace.count, 0);
+    }
+
+    #[test]
+    fn watching_only_while_snapshots_keep_coming() {
+        let m = Metrics::default();
+        assert!(!m.watching_at(1_000));
+        m.touch_at(10_000);
+        assert!(m.watching_at(12_000));
+        assert!(!m.watching_at(10_000 + WATCH_WINDOW_MS + 1));
     }
 
     #[test]

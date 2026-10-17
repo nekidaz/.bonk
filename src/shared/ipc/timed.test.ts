@@ -21,6 +21,10 @@ describe('approxBytes', () => {
   it('stops at the budget and returns a lower bound', () => {
     expect(approxBytes(Array(100).fill('ab'), 10)).toBeLessThan(200);
   });
+
+  it('caps the default walk so a huge payload costs a few ms, not a visible hitch', () => {
+    expect(approxBytes(Array(300_000).fill('a'))).toBeLessThan(300_000);
+  });
 });
 
 describe('timed invoke', () => {

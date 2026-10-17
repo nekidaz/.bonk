@@ -254,10 +254,13 @@ fn run_script_with_timeout(
 
     // Clear the handler so the (soon-dropped) runtime holds no dangling closure.
     runtime.set_interrupt_handler(None);
-    METRICS.record_script(
-        started.elapsed().as_millis() as u64,
-        u64::try_from(runtime.memory_usage().memory_used_size).unwrap_or(0),
-    );
+    // memory_usage() walks the whole JS heap: only while the Resources tab's monitor is on.
+    let mem = if METRICS.watching() {
+        u64::try_from(runtime.memory_usage().memory_used_size).unwrap_or(0)
+    } else {
+        0
+    };
+    METRICS.record_script(started.elapsed().as_millis() as u64, mem);
 
     render_visualizer(result?)
 }
