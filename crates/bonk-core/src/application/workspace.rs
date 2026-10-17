@@ -43,28 +43,21 @@ pub(super) fn atomic_write(target: &Path, contents: &str) -> Result<(), String> 
 
 /// Recursively load the workspace tree rooted at `root`.
 pub fn load(root: &str) -> Result<Vec<TreeNode>, String> {
-    let root = Path::new(root);
-
-    if !root.exists() {
-        return Ok(vec![]);
-    }
-
-    if !root.is_dir() {
-        return Err(format!(
-            "workspace root is not a directory: {}",
-            root.display()
-        ));
-    }
-
-    load_dir(root, root, &[], false)
+    logged(load_with_skipped(root, false))
 }
 
 /// [`load`] without request bodies, scripts and spec links (`RequestNode::into_light`): what the
 /// sidebar needs, a few MB instead of the whole workspace. `read_requests` gives the full node.
 pub fn load_light(root: &str) -> Result<Vec<TreeNode>, String> {
+    logged(load_with_skipped(root, true))
+}
+
+/// The tree plus the paths of `*.bonk.json` files that could not be read or parsed and so are
+/// missing from it (a merge conflict, a half-written file): warnings for the user.
+pub fn load_with_skipped(root: &str, light: bool) -> Result<(Vec<TreeNode>, Vec<String>), String> {
     let root = Path::new(root);
     if !root.exists() {
-        return Ok(vec![]);
+        return Ok((vec![], vec![]));
     }
     if !root.is_dir() {
         return Err(format!(
@@ -72,7 +65,18 @@ pub fn load_light(root: &str) -> Result<Vec<TreeNode>, String> {
             root.display()
         ));
     }
-    load_dir(root, root, &[], true)
+    let mut skipped = Vec::new();
+    let tree = load_dir(root, root, &[], light, &mut skipped)?;
+    Ok((tree, skipped))
+}
+
+// ponytail: skipped files only reach stderr; return them over IPC when the UI gets a warning toast.
+fn logged(loaded: Result<(Vec<TreeNode>, Vec<String>), String>) -> Result<Vec<TreeNode>, String> {
+    let (tree, skipped) = loaded?;
+    for path in skipped {
+        eprintln!("workspace: skipped unreadable request file {path}");
+    }
+    Ok(tree)
 }
 
 /// Load the children of folder `dir_rel` (`""` = root) after a change in it. Subfolders whose
@@ -100,7 +104,9 @@ fn load_children_in(
     if !dir.is_dir() {
         return Err(format!("not a folder: {}", dir.display()));
     }
-    load_dir(Path::new(root), &dir, keep, light)
+    let mut skipped = Vec::new();
+    let tree = load_dir(Path::new(root), &dir, keep, light, &mut skipped)?;
+    logged(Ok((tree, skipped)))
 }
 
 /// The full nodes of the request files `rels` (workspace-relative paths), with their `content_hash`.
@@ -127,6 +133,7 @@ fn load_dir(
     dir: &Path,
     keep: &[String],
     light: bool,
+    skipped: &mut Vec<String>,
 ) -> Result<Vec<TreeNode>, String> {
     let mut folders: Vec<TreeNode> = Vec::new();
     let mut requests: Vec<TreeNode> = Vec::new();
@@ -154,7 +161,7 @@ fn load_dir(
             let children = if keep.contains(&id) {
                 vec![]
             } else {
-                load_dir(root, &path, &[], light)?
+                load_dir(root, &path, &[], light, skipped)?
             };
 
             let settings = read_folder_file(&path);
@@ -178,12 +185,12 @@ fn load_dir(
         }
 
         // A single corrupt or partially written request file must not prevent
-        // the rest of the workspace from loading.
-        let Ok(raw) = fs::read_to_string(&path) else {
-            continue;
-        };
-
-        let Ok(file) = serde_json::from_str::<RequestFile>(&raw) else {
+        // the rest of the workspace from loading; it is reported in `skipped`.
+        let Some((raw, file)) = fs::read_to_string(&path).ok().and_then(|raw| {
+            let file = serde_json::from_str::<RequestFile>(&raw).ok()?;
+            Some((raw, file))
+        }) else {
+            skipped.push(path.display().to_string());
             continue;
         };
 
@@ -222,12 +229,22 @@ fn load_dir(
 
 pub(crate) const FOLDER_FILE: &str = ".folder.bonk.json";
 
-/// Folder settings; a missing or corrupt file means "no settings".
+/// Folder settings for display; a missing or corrupt file means "no settings".
 fn read_folder_file(dir: &Path) -> FolderFile {
-    fs::read_to_string(dir.join(FOLDER_FILE))
-        .ok()
-        .and_then(|raw| serde_json::from_str(&raw).ok())
-        .unwrap_or_default()
+    read_folder_file_strict(dir).unwrap_or_default()
+}
+
+/// Folder settings for a read-modify-write: a missing file means "no settings", but a corrupt
+/// one (e.g. merge-conflict markers) is an error, so the write doesn't replace its auth,
+/// scripts and order with defaults.
+fn read_folder_file_strict(dir: &Path) -> Result<FolderFile, String> {
+    let path = dir.join(FOLDER_FILE);
+    let raw = match fs::read_to_string(&path) {
+        Ok(raw) => raw,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(FolderFile::default()),
+        Err(e) => return Err(format!("failed to read {}: {e}", path.display())),
+    };
+    serde_json::from_str(&raw).map_err(|e| format!("{} is not valid JSON: {e}", path.display()))
 }
 
 /// Set (or clear, with `None`) the collection-level auth of folder `dir_rel`.
@@ -236,7 +253,7 @@ pub fn save_folder_auth(root: &str, dir_rel: &str, auth: Option<AuthConfig>) -> 
 
     ensure_directory(&directory)?;
 
-    let mut file = read_folder_file(&directory);
+    let mut file = read_folder_file_strict(&directory)?;
     file.auth = auth;
     write_folder_file(&directory, &file)
 }
@@ -251,7 +268,7 @@ pub fn save_folder_source(
 
     ensure_directory(&directory)?;
 
-    let mut file = read_folder_file(&directory);
+    let mut file = read_folder_file_strict(&directory)?;
     file.source = source;
     write_folder_file(&directory, &file)
 }
@@ -267,7 +284,7 @@ pub fn save_folder_scripts(
 
     ensure_directory(&directory)?;
 
-    let mut file = read_folder_file(&directory);
+    let mut file = read_folder_file_strict(&directory)?;
     file.pre_request_script = pre_request_script.filter(|code| !code.trim().is_empty());
     file.test_script = test_script.filter(|code| !code.trim().is_empty());
     write_folder_file(&directory, &file)
@@ -281,7 +298,7 @@ pub fn reorder(root: &str, dir_rel: &str, names: Vec<String>) -> Result<(), Stri
         return Err("folder not found".into());
     }
 
-    let mut file = read_folder_file(&directory);
+    let mut file = read_folder_file_strict(&directory)?;
     file.order = names;
     write_folder_file(&directory, &file)
 }
@@ -309,7 +326,9 @@ fn write_folder_file(directory: &Path, file: &FolderFile) -> Result<(), String> 
 /// Keep a renamed entry at its manual position in the parent's order.
 fn rename_in_order(old: &Path, new: &Path) {
     let Some(parent) = old.parent() else { return };
-    let mut file = read_folder_file(parent);
+    let Ok(mut file) = read_folder_file_strict(parent) else {
+        return;
+    };
     let old_name = file_name(old);
 
     if let Some(slot) = file.order.iter_mut().find(|name| **name == old_name) {
@@ -1127,6 +1146,45 @@ mod tests {
         assert_eq!(requests.len(), 1);
         assert_eq!(requests[0].id, "fs:a.bonk.json");
 
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn load_with_skipped_reports_corrupt_request_files() {
+        let root = temp_root();
+        write_request(&root, "a");
+        fs::create_dir_all(root.join("api")).unwrap();
+        fs::write(root.join("api").join("bad.bonk.json"), "{ not valid json").unwrap();
+
+        let (tree, skipped) = load_with_skipped(root.to_str().unwrap(), true).unwrap();
+
+        assert_eq!(tree.len(), 2); // folder `api` and request `a`
+        assert_eq!(skipped.len(), 1);
+        assert!(skipped[0].ends_with("bad.bonk.json"), "{skipped:?}");
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn save_folder_refuses_to_overwrite_a_corrupt_folder_file() {
+        let root = temp_root();
+        write_request(&root.join("api"), "List");
+        let folder_file = root.join("api").join(FOLDER_FILE);
+        let conflicted = "<<<<<<< HEAD\n{\"order\":[\"List.bonk.json\"]}\n=======\n{}\n>>>>>>> b\n";
+        fs::write(&folder_file, conflicted).unwrap();
+        let root_s = root.to_str().unwrap();
+
+        let errors = [
+            save_folder_auth(root_s, "fs:api", None).unwrap_err(),
+            save_folder_source(root_s, "fs:api", None).unwrap_err(),
+            save_folder_scripts(root_s, "fs:api", Some("pre();".into()), None).unwrap_err(),
+            reorder(root_s, "fs:api", vec!["List.bonk.json".into()]).unwrap_err(),
+        ];
+        for err in errors {
+            assert!(err.contains("is not valid JSON"), "{err}");
+        }
+        assert_eq!(fs::read_to_string(&folder_file).unwrap(), conflicted);
+        // Reading for display still works: the folder just shows no settings.
+        assert_eq!(load(root_s).unwrap().len(), 1);
         let _ = fs::remove_dir_all(root);
     }
 

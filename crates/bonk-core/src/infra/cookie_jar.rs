@@ -8,7 +8,7 @@ use reqwest::header::HeaderValue;
 use reqwest::Url;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard};
+use std::sync::{Arc, Mutex, RwLock, RwLockReadGuard, RwLockWriteGuard};
 
 pub struct CookieJar {
     path: PathBuf,
@@ -17,6 +17,9 @@ pub struct CookieJar {
     dirty: AtomicBool,
     /// Save session cookies too (Settings → Cookies “Keep across restarts”).
     keep_session: AtomicBool,
+    /// One `save` at a time: they share a temp file, and a stale snapshot must not
+    /// land after a newer one.
+    save_lock: Mutex<()>,
 }
 
 impl CookieJar {
@@ -37,6 +40,7 @@ impl CookieJar {
             store: RwLock::new(store),
             dirty: AtomicBool::new(false),
             keep_session: AtomicBool::new(false),
+            save_lock: Mutex::new(()),
         })
     }
 
@@ -47,6 +51,7 @@ impl CookieJar {
             store: RwLock::new(CookieStore::default()),
             dirty: AtomicBool::new(false),
             keep_session: AtomicBool::new(false),
+            save_lock: Mutex::new(()),
         }
     }
 
@@ -91,6 +96,7 @@ impl CookieJar {
     /// Write persistent cookies (expired ones too, and session ones when kept) to disk,
     /// if anything changed.
     pub fn save(&self) -> Result<(), String> {
+        let _guard = self.save_lock.lock().unwrap_or_else(|e| e.into_inner());
         if self.path.as_os_str().is_empty() || !self.dirty.swap(false, Ordering::Relaxed) {
             return Ok(());
         }

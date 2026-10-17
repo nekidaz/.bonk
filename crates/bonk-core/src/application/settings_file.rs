@@ -4,6 +4,9 @@
 use crate::infra::metrics::{DiskKind, METRICS};
 use std::path::{Path, PathBuf};
 
+/// `write` calls share one temp file name; the async command can run two at once.
+static WRITE_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
 /// A settings file is a few kilobytes; a bigger one is not ours.
 const MAX_BYTES: u64 = 1024 * 1024;
 
@@ -29,6 +32,7 @@ pub fn read(path: &Path) -> Result<Option<String>, String> {
 
 /// Replace the file atomically (temp file + rename), so an editor or a crash never sees half of it.
 pub fn write(path: &Path, text: &str) -> Result<(), String> {
+    let _guard = WRITE_LOCK.lock().unwrap_or_else(|e| e.into_inner());
     let dir = path.parent().ok_or("settings path has no parent")?;
     std::fs::create_dir_all(dir).map_err(|e| format!("{}: {e}", dir.display()))?;
     let tmp = path.with_extension(format!("json.tmp.{}", std::process::id()));
