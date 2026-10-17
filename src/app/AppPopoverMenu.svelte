@@ -119,8 +119,8 @@
   });
 
   function showImport(e: Event): void {
-    // Lines the submenu's first row up with Import: the dense card's padding (4) + label (21).
-    importTop = (e.currentTarget as HTMLElement).offsetTop - 25;
+    // Lines the submenu's first row up with Import: the dense card's padding (4).
+    importTop = (e.currentTarget as HTMLElement).offsetTop - 4;
     importOpen = true;
   }
 
@@ -177,7 +177,8 @@
     style="left:{menu.x}px; top:{top}px; width:{appMenuWidth(menu.kind)}px"
   >
     {#if menu.kind === 'create'}
-      <div class="lbl">{folderName ? t('nav.menu.inFolder', { name: folderName }) : t('nav.menu.newRequest')}</div>
+      <!-- As in Postman, no «New request» heading; only a folder target is named. -->
+      {#if folderName}<div class="lbl">{t('nav.menu.inFolder', { name: folderName })}</div>{/if}
       <!-- S22b/S22c: protocol rows, then Folder (Collections only) and Import. -->
       {@render item(
         'language',
@@ -224,7 +225,6 @@
       </button>
       {#if importOpen}
         <Menu class="bs-submenu dense" role="menu" style="top:{importTop}px">
-          <div class="lbl">{t('nav.menu.importFrom')}</div>
           {@render item(
             'terminal',
             'cURL',
@@ -418,14 +418,14 @@
     width: 268px;
   }
 
-  /* The create menu and its Import submenu are dense, like Postman's: 26px rows, no gaps, 16px icons. */
+  /* The create menu and its Import submenu are dense, like Postman's: 24px rows, no gaps, 16px icons. */
   :global(.bs .bs-menu.dense) {
     gap: 0;
     padding: 4px;
   }
 
   :global(.bs .bs-menu.dense) .mi {
-    height: 26px;
+    height: 24px;
     gap: 8px;
     padding: 0 8px;
   }
@@ -442,7 +442,7 @@
   }
 
   :global(.bs .bs-menu.dense) .dv {
-    height: 7px;
+    height: 9px;
     margin: 0 8px;
   }
 
