@@ -427,7 +427,7 @@ export interface RequestNode {
   /** The spec operation this request was imported from; re-import updates it (IM8). */
   spec?: SpecLink;
   /**
-   * SHA-256 of the file (an ETag). Set on tree nodes and `readRequest()` results. A node from
+   * Hash of the file (an ETag). Set on tree nodes and `readRequest()` results. A node from
    * `workspace.tree` is light: no body, scripts, bodyParams, graphqlVariables, gRPC message or spec.
    */
   contentHash?: string;
