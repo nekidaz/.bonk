@@ -49,6 +49,7 @@ pub fn run() {
             }
         })
         .invoke_handler(tauri::generate_handler![
+            commands::monitor::monitor_snapshot,
             commands::http::cancel_request,
             commands::http::request_stop_stream,
             commands::terminal::terminal_default_cwd,
