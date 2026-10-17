@@ -101,13 +101,19 @@ pub fn workspace_load(path: String) -> Result<Vec<bonk_core::domain::workspace::
     bonk_core::application::workspace::load(&path)
 }
 
+/// The sidebar's tree plus the request files it couldn't read (shown to the user as a warning).
+#[derive(serde::Serialize)]
+pub struct LoadedTree {
+    tree: Vec<bonk_core::domain::workspace::TreeNode>,
+    skipped: Vec<String>,
+}
+
 /// `workspace_load` without bodies, scripts and spec links: the sidebar's tree.
 #[tauri::command]
-pub fn workspace_load_light(
-    path: String,
-) -> Result<Vec<bonk_core::domain::workspace::TreeNode>, String> {
+pub fn workspace_load_light(path: String) -> Result<LoadedTree, String> {
     require_absolute_root(&path)?;
-    bonk_core::application::workspace::load_light(&path)
+    let (tree, skipped) = bonk_core::application::workspace::load_with_skipped(&path, true)?;
+    Ok(LoadedTree { tree, skipped })
 }
 
 #[tauri::command]

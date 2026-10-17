@@ -3,6 +3,7 @@ use crate::domain::http::AuthConfig;
 use crate::domain::workspace::{FolderFile, FolderNode, RequestFile, RequestNode, TreeNode};
 use crate::infra::metrics::{DiskKind, METRICS};
 use std::fs;
+use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 
@@ -29,7 +30,15 @@ pub(super) fn atomic_write(target: &Path, contents: &str) -> Result<(), String> 
         .unwrap_or("request");
     let tmp = parent.join(format!(".{file_name}.tmp.{}.{seq}", std::process::id()));
 
-    fs::write(&tmp, contents).map_err(|e| format!("failed to write {}: {e}", tmp.display()))?;
+    // fsync before the rename, or a power loss can leave `target` renamed but empty.
+    let written = fs::File::create(&tmp).and_then(|mut f| {
+        f.write_all(contents.as_bytes())?;
+        f.sync_all()
+    });
+    if let Err(e) = written {
+        let _ = fs::remove_file(&tmp);
+        return Err(format!("failed to write {}: {e}", tmp.display()));
+    }
     METRICS.record_disk_write(DiskKind::Workspace, contents.len() as u64);
 
     note_own_write(target);
@@ -46,14 +55,10 @@ pub fn load(root: &str) -> Result<Vec<TreeNode>, String> {
     logged(load_with_skipped(root, false))
 }
 
-/// [`load`] without request bodies, scripts and spec links (`RequestNode::into_light`): what the
-/// sidebar needs, a few MB instead of the whole workspace. `read_requests` gives the full node.
-pub fn load_light(root: &str) -> Result<Vec<TreeNode>, String> {
-    logged(load_with_skipped(root, true))
-}
-
-/// The tree plus the paths of `*.bonk.json` files that could not be read or parsed and so are
-/// missing from it (a merge conflict, a half-written file): warnings for the user.
+/// The tree plus the workspace-relative paths of `*.bonk.json` files that could not be read or parsed and so are
+/// missing from it (a merge conflict, a half-written file): warnings for the user. `light` drops
+/// request bodies, scripts and spec links (`RequestNode::into_light`): what the sidebar needs, a
+/// few MB instead of the whole workspace. `read_requests` gives the full node.
 pub fn load_with_skipped(root: &str, light: bool) -> Result<(Vec<TreeNode>, Vec<String>), String> {
     let root = Path::new(root);
     if !root.exists() {
@@ -70,7 +75,8 @@ pub fn load_with_skipped(root: &str, light: bool) -> Result<(Vec<TreeNode>, Vec<
     Ok((tree, skipped))
 }
 
-// ponytail: skipped files only reach stderr; return them over IPC when the UI gets a warning toast.
+// ponytail: headless callers (CLI, MCP) and folder refreshes only log skipped files to stderr;
+// the app's full load (`load_with_skipped`) shows them in a toast.
 fn logged(loaded: Result<(Vec<TreeNode>, Vec<String>), String>) -> Result<Vec<TreeNode>, String> {
     let (tree, skipped) = loaded?;
     for path in skipped {
@@ -190,7 +196,12 @@ fn load_dir(
             let file = serde_json::from_str::<RequestFile>(&raw).ok()?;
             Some((raw, file))
         }) else {
-            skipped.push(path.display().to_string());
+            skipped.push(
+                path.strip_prefix(root)
+                    .unwrap_or(&path)
+                    .display()
+                    .to_string(),
+            );
             continue;
         };
 
@@ -1159,8 +1170,8 @@ mod tests {
         let (tree, skipped) = load_with_skipped(root.to_str().unwrap(), true).unwrap();
 
         assert_eq!(tree.len(), 2); // folder `api` and request `a`
-        assert_eq!(skipped.len(), 1);
-        assert!(skipped[0].ends_with("bad.bonk.json"), "{skipped:?}");
+        let bad = Path::new("api").join("bad.bonk.json"); // workspace-relative, for the toast
+        assert_eq!(skipped, [bad.display().to_string()]);
         let _ = fs::remove_dir_all(root);
     }
 
@@ -1742,7 +1753,7 @@ mod tests {
         fs::write(root.join("api/login.bonk.json"), raw).unwrap();
         let root_str = root.to_string_lossy().to_string();
 
-        let light = load_light(&root_str).unwrap();
+        let (light, _) = load_with_skipped(&root_str, true).unwrap();
         let TreeNode::Folder(folder) = &light[0] else {
             panic!("expected a folder")
         };

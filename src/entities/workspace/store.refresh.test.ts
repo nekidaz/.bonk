@@ -25,7 +25,8 @@ const calls: { cmd: string; dir?: string; keep?: string[] }[] = [];
 vi.mock('@tauri-apps/api/core', () => ({
   invoke: vi.fn(async (cmd: string, a: { dir: string; keep: string[] }) => {
     if (cmd.startsWith('workspace_')) calls.push({ cmd, ...a });
-    if (cmd !== 'workspace_load_children_light') return cmd === 'workspace_load_light' ? disk : undefined;
+    if (cmd !== 'workspace_load_children_light')
+      return cmd === 'workspace_load_light' ? { tree: disk, skipped: [] } : undefined;
     const find = (nodes: TreeNode[]): TreeNode[] =>
       nodes.flatMap((n) => (n.id === 'fs:' + a.dir ? [n] : n.kind === 'folder' ? find(n.children) : []));
     const kids = a.dir ? (find(disk)[0] as { children: TreeNode[] }).children : disk;

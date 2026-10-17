@@ -40,6 +40,8 @@ class Workspace {
   revealed = $state.raw<{ id: string } | undefined>(undefined);
   /** Bumped when `.bonk/` (scenarios, «ask on send» inputs) changes on disk; 0 until it first does. */
   metaRev = $state(0);
+  /** Request files the last full load couldn't read (workspace-relative paths); the app shows a toast. */
+  skipped = $state.raw<string[]>([]);
 }
 export const workspace = new Workspace();
 
@@ -116,7 +118,8 @@ export async function reloadWorkspace(): Promise<void> {
   if (!path) return;
   // The Rust `load` always returns folders collapsed. Preserve the user's
   // current open folders across the reload instead of collapsing everything.
-  const tree = await workspaceLoadLight(path);
+  const { tree, skipped } = await workspaceLoadLight(path);
+  workspace.skipped = skipped;
   const expanded = new Map<string, boolean>();
   collectExpanded(workspace.tree, expanded);
   workspace.tree = applyExpanded(tree, expanded);
@@ -260,7 +263,8 @@ export async function switchWorkspace(path: string): Promise<void> {
   if (!clean) return;
   const switched = await runWorkspaceOp('switchWorkspace', async () => {
     const previous = workspace.path;
-    const tree = await workspaceLoadLight(clean);
+    const { tree, skipped } = await workspaceLoadLight(clean);
+    workspace.skipped = skipped;
     workspace.path = clean;
     workspace.tree = withSavedExpanded(clean, tree);
     rememberWorkspacePath(clean);

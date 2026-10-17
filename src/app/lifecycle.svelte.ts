@@ -4,7 +4,7 @@ import { getCurrentWebview } from '@tauri-apps/api/webview';
 import { watchCookieJar } from '$entities/cookies';
 import { git, watchGitAutoFetch, watchGitWorkspace } from '$entities/git';
 import { watchHistoryRetention } from '$entities/history';
-import { t } from '$shared/i18n';
+import { t, tp } from '$shared/i18n';
 import { flushPendingSaves, settingsFile } from '$shared/persist';
 import {
   autoUpdateCheck,
@@ -89,6 +89,15 @@ export function startApp(): void {
         shell.showToast({ text, icon: 'error', iconColor: 'var(--color-danger)' });
         inputs.error = '';
       });
+  });
+
+  // Request files the workspace load skipped (merge conflict, half-written file): they're missing from the tree.
+  $effect(() => {
+    const files = workspace.skipped;
+    if (!files.length) return;
+    const n = `${files.length} ${tp(files.length, ['request file', 'request files'])}`;
+    const text = t('workspace.skipped', { n, files: files.join(', ') });
+    untrack(() => shell.showToast({ text, icon: 'warning', iconColor: 'var(--color-warning)' }));
   });
 
   $effect(() => {

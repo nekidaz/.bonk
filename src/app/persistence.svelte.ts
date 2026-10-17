@@ -115,7 +115,9 @@ async function restoreState(): Promise<void> {
   let nextTree: TreeNode[] = [];
   if (savedWorkspacePath) {
     try {
-      nextTree = withSavedExpanded(savedWorkspacePath, await workspaceLoadLight(savedWorkspacePath));
+      const loaded = await workspaceLoadLight(savedWorkspacePath);
+      nextTree = withSavedExpanded(savedWorkspacePath, loaded.tree);
+      workspace.skipped = loaded.skipped;
       workspace.path = savedWorkspacePath;
       rememberWorkspacePath(savedWorkspacePath);
     } catch {

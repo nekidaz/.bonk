@@ -473,8 +473,10 @@ export function workspaceWatch(root: string, onChange: (change: WorkspaceChange)
 /** Children of folder `dir` ('' = root); subfolders listed in `keep` come back without their children. */
 export const workspaceLoadChildren = (root: string, dir: string, keep: string[]) =>
   invoke<TreeNode[]>('workspace_load_children', { root, dir, keep });
-/** The tree without request bodies, scripts and spec links (`contentHash` + `vars` set): what the sidebar holds. */
-export const workspaceLoadLight = (path: string) => invoke<TreeNode[]>('workspace_load_light', { path });
+/** The tree without request bodies, scripts and spec links (`contentHash` + `vars` set): what the sidebar holds.
+ *  `skipped`: workspace-relative paths of request files that couldn't be read or parsed (missing from `tree`). */
+export const workspaceLoadLight = (path: string) =>
+  invoke<{ tree: TreeNode[]; skipped: string[] }>('workspace_load_light', { path });
 export const workspaceLoadChildrenLight = (root: string, dir: string, keep: string[]) =>
   invoke<TreeNode[]>('workspace_load_children_light', { root, dir, keep });
 /** Full request nodes (with `contentHash`) at workspace-relative paths `rels`; a missing file rejects. */
