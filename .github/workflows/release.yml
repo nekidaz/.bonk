@@ -3,23 +3,19 @@ name: Release
 # Build macOS, Linux and Windows release binaries (manual runs on main warm the cache).
 # Version tags also package them and upload a draft GitHub Release.
 #
-# This is the PRIVATE source repo (nekidaz/bonk-src). The release is cross-
-# published into the PUBLIC repo nekidaz/.bonk (via tauri-action's owner/repo +
-# a PAT) so that brew/choco/Pages and end-user downloads keep pointing at a
-# public repo while the source stays private.
+# This repo (nekidaz/.bonk) builds and publishes its own releases; brew, choco,
+# Pages and the in-app updater all read them from here.
 #
 # The bundles are UNSIGNED by Apple/Microsoft (Gatekeeper/SmartScreen will warn
 # on first open), but they ARE signed with the Tauri updater key so the in-app
 # auto-updater can verify and install them. tauri-action also publishes a
 # `latest.json` update manifest, merged across all platforms.
 #
-# Required repo secrets (set on nekidaz/bonk-src):
-#   DIST_TOKEN                          PAT with `contents:write` on nekidaz/.bonk
+# Required repo secrets:
 #   TAURI_SIGNING_PRIVATE_KEY           contents of the updater private key
 #   TAURI_SIGNING_PRIVATE_KEY_PASSWORD  its password ("" if generated without one)
 on:
-  # Only tags build: a three-OS build on every main push burned the private
-  # repo's free Actions minutes.
+  # Only tags build a release; main pushes are covered by ci.yml.
   push:
     tags:
       - 'v*'
@@ -28,7 +24,8 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  # Creating the release and uploading its assets needs write.
+  contents: write
 
 concurrency:
   group: desktop-${{ github.event_name }}-${{ github.ref }}
@@ -148,9 +145,7 @@ jobs:
         if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
         uses: tauri-apps/tauri-action@v0
         env:
-          # DIST_TOKEN is a PAT with contents:write on nekidaz/.bonk; tauri-action
-          # uses it to create the release in that (different) public repo.
-          GITHUB_TOKEN: ${{ secrets.DIST_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
           # linuxdeploy/AppImage needs FUSE, which CI runners lack — extract instead of mount.
@@ -160,9 +155,6 @@ jobs:
           # rebuilt bonk-mcp in DEBUG (2–6 min) and overwrote the release sidecar
           # staged above, so the bundles shipped a debug MCP server.
           tauriScript: npx tauri
-          # Cross-publish the release into the public distribution repo.
-          owner: nekidaz
-          repo: .bonk
           releaseCommitish: main
           args: ${{ matrix.args }} -- --locked --timings
           tagName: ${{ github.ref_name }}
@@ -176,14 +168,14 @@ jobs:
         if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
         shell: bash
         env:
-          GH_TOKEN: ${{ secrets.DIST_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           mkdir -p mcp-dist
           cp "${{ matrix.mcp-path }}" "mcp-dist/${{ matrix.mcp-asset }}"
           gh release upload "${{ github.ref_name }}" \
             "mcp-dist/${{ matrix.mcp-asset }}" \
             --clobber \
-            --repo nekidaz/.bonk
+            --repo "$GITHUB_REPOSITORY"
 
       # The CLI is `bonk-cli` in the workspace (src-tauri's app binary is `bonk`) but ships
       # as `bonk`: an archive per platform holding `bonk` / `bonk.exe`.
@@ -191,7 +183,7 @@ jobs:
         if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
         shell: bash
         env:
-          GH_TOKEN: ${{ secrets.DIST_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           mkdir -p cli-dist
           if [[ "${{ matrix.cli-asset }}" == *.zip ]]; then
@@ -205,7 +197,7 @@ jobs:
           gh release upload "${{ github.ref_name }}" \
             "cli-dist/${{ matrix.cli-asset }}" \
             --clobber \
-            --repo nekidaz/.bonk
+            --repo "$GITHUB_REPOSITORY"
 
       - name: Upload Cargo build timings
         if: always()

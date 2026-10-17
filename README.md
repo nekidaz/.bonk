@@ -56,6 +56,18 @@ sudo apt install ./bonk_*.deb
 Use **Settings → Check for updates** for signed in-app updates, or
 `brew upgrade --cask bonk` for Homebrew installations.
 
+### Command line · `bonk run`
+
+Run collections from a terminal or CI with the same scripts, variables and tests as
+the app's Runner (`bonk run api --env Staging --junit report.xml`):
+
+```sh
+brew install nekidaz/tap/bonk
+```
+
+Or take `bonk-<platform>.tar.gz` / `.zip` from
+[GitHub Releases](https://github.com/nekidaz/.bonk/releases/latest).
+
 ## Everything for the request
 
 | Workflow | What you get |
