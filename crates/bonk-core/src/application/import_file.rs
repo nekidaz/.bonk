@@ -20,16 +20,29 @@ const MAX_BYTES: u64 = 50 * 1024 * 1024;
 /// match too, so a shared `.folder.bonk.json` can't point the importer at `~/.ssh/id_rsa`.
 pub const EXTENSIONS: [&str; 7] = ["json", "yaml", "yml", "har", "txt", "sh", "curl"];
 
+/// A GraphQL schema file: SDL or an introspection result. Same 50 MB limit and path check.
+pub const SCHEMA_EXTENSIONS: [&str; 4] = ["graphql", "graphqls", "gql", "json"];
+
 pub fn read(path: &Path) -> Result<ImportedFile, String> {
-    let importable = path
+    read_with(path, &EXTENSIONS)
+}
+
+/// Read a file whose extension is in `extensions` (case-insensitive).
+pub fn read_with(path: &Path, extensions: &[&str]) -> Result<ImportedFile, String> {
+    let allowed = path
         .extension()
         .and_then(|e| e.to_str())
-        .is_some_and(|e| EXTENSIONS.contains(&e.to_ascii_lowercase().as_str()));
-    if !importable {
+        .is_some_and(|e| extensions.contains(&e.to_ascii_lowercase().as_str()));
+    if !allowed {
+        let verb = if extensions == EXTENSIONS.as_slice() {
+            "imported"
+        } else {
+            "read"
+        };
         return Err(format!(
-            "{}: only .{} files can be imported",
+            "{}: only .{} files can be {verb}",
             path.display(),
-            EXTENSIONS.join(", .")
+            extensions.join(", .")
         ));
     }
     let meta = std::fs::metadata(path).map_err(|e| format!("{}: {e}", path.display()))?;
@@ -73,6 +86,25 @@ mod tests {
             .unwrap_err()
             .contains("not a file"));
         assert!(read(&dir.join("missing.json")).is_err());
+        std::fs::remove_dir_all(dir).ok();
+    }
+
+    #[test]
+    fn reads_schema_files_only() {
+        let dir = std::env::temp_dir().join(format!("bonk-schema-{}", fastrand::u64(..)));
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(dir.join("schema.graphql"), "type Query { a: Int }\n").unwrap();
+        std::fs::write(dir.join("intro.JSON"), "{}").unwrap();
+        std::fs::write(dir.join("api.yaml"), "openapi: 3.1.0\n").unwrap();
+
+        let f = read_with(&dir.join("schema.graphql"), &SCHEMA_EXTENSIONS).unwrap();
+        assert_eq!(f.text, "type Query { a: Int }\n");
+        assert!(read_with(&dir.join("intro.JSON"), &SCHEMA_EXTENSIONS).is_ok());
+        assert!(read_with(&dir.join("api.yaml"), &SCHEMA_EXTENSIONS)
+            .unwrap_err()
+            .contains("only .graphql, .graphqls, .gql, .json files"));
+        // Import does not accept a schema file.
+        assert!(read(&dir.join("schema.graphql")).is_err());
         std::fs::remove_dir_all(dir).ok();
     }
 }

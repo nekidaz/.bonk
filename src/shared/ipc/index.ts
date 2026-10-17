@@ -108,6 +108,8 @@ export {
   type McpJournalEntry,
   type McpMethodPolicy,
   openapiExportSave,
+  graphqlSchemaPick,
+  graphqlSchemaRead,
   importReadFile,
   type ImportFile,
   openapiImportPick,

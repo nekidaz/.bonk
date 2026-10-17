@@ -29,6 +29,25 @@ pub fn openapi_import_pick() -> Result<Option<ImportedFile>, String> {
     import_file::read(&path).map(Some)
 }
 
+/// Prompt for a GraphQL schema file (SDL or introspection JSON). `Ok(None)` on cancel.
+#[tauri::command]
+pub fn graphql_schema_pick() -> Result<Option<ImportedFile>, String> {
+    let Some(path) = rfd::FileDialog::new()
+        .add_filter("GraphQL schema", &import_file::SCHEMA_EXTENSIONS)
+        .set_title("Load GraphQL schema")
+        .pick_file()
+    else {
+        return Ok(None);
+    };
+    import_file::read_with(&path, &import_file::SCHEMA_EXTENSIONS).map(Some)
+}
+
+/// Re-read a schema file bound to a request earlier.
+#[tauri::command]
+pub fn graphql_schema_read(path: String) -> Result<ImportedFile, String> {
+    import_file::read_with(std::path::Path::new(&path), &import_file::SCHEMA_EXTENSIONS)
+}
+
 /// Prompt for a save location and write `contents` there. `Ok(None)` when the
 /// user cancels the dialog; on success returns the chosen path.
 #[tauri::command]
