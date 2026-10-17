@@ -1,4 +1,5 @@
-import { Channel, invoke } from '@tauri-apps/api/core';
+import { Channel } from '@tauri-apps/api/core';
+import { counted, invoke } from './timed';
 import {
   type DynamicOptions,
   type DynamicValue,
@@ -133,7 +134,7 @@ export function ptyOpen(
   onEvent: (event: PtyEvent) => void,
 ): Promise<string> {
   const channel = new Channel<PtyEvent>();
-  channel.onmessage = onEvent;
+  channel.onmessage = counted('pty_open', onEvent);
   return invoke<string>('pty_open', { id, cwd, cols, rows, onEvent: channel });
 }
 export const ptyWrite = (id: string, data: string): Promise<void> => invoke<void>('pty_write', { id, data });
@@ -298,7 +299,7 @@ export function grpcStream(
   onMessage: (message: GrpcStreamMessage) => void,
 ): Promise<GrpcResult> {
   const channel = new Channel<GrpcStreamMessage>();
-  channel.onmessage = onMessage;
+  channel.onmessage = counted('grpc_stream', onMessage);
   return grpcInvoke<GrpcResult>('grpc_stream', {
     connectionId,
     method,
@@ -359,7 +360,7 @@ export function runnerRun(
   onEvent: (event: RunEvent) => void,
 ): Promise<'done' | 'stopped'> {
   const channel = new Channel<RunEvent>();
-  channel.onmessage = onEvent;
+  channel.onmessage = counted('runner_run', onEvent);
   return invoke('runner_run', { runId, plan, vars, settings, grpc, onEvent: channel });
 }
 export const runnerPause = (runId: string, paused: boolean) => invoke<void>('runner_pause', { runId, paused });
@@ -394,7 +395,7 @@ export function requestRun(
   connectionId?: string,
 ): Promise<RequestExecution> {
   const channel = new Channel<RunEvent>();
-  channel.onmessage = onEvent;
+  channel.onmessage = counted('request_run', onEvent);
   return invoke('request_run', {
     requestId,
     node,
@@ -466,7 +467,7 @@ export const workspaceLoad = (path: string) => invoke<TreeNode[]>('workspace_loa
 /** Watch workspace `root` for changes made outside the app ('' stops); one workspace at a time. */
 export function workspaceWatch(root: string, onChange: (change: WorkspaceChange) => void): Promise<void> {
   const channel = new Channel<WorkspaceChange>();
-  channel.onmessage = onChange;
+  channel.onmessage = counted('workspace_watch', onChange);
   return invoke<void>('workspace_watch', { root, onChange: channel });
 }
 /** Children of folder `dir` ('' = root); subfolders listed in `keep` come back without their children. */
@@ -724,7 +725,7 @@ export function sessionRun(
   onEvent: (event: RunEvent) => void,
 ): Promise<SessionUse> {
   const channel = new Channel<RunEvent>();
-  channel.onmessage = onEvent;
+  channel.onmessage = counted('session_run', onEvent);
   return invoke('session_run', { requestId, mode, config, plan, vars, settings, onEvent: channel });
 }
 /** “Sign out”: forget the session of these environments. */
@@ -740,3 +741,51 @@ export const sessionSaveCaught = (
 /** What a run would give, without keeping it; null when the run never reached the tokens. */
 export const sessionPeek = (config: SessionConfig, rows: [string, string][]) =>
   invoke<SessionInfo | null>('session_peek', { config, rows });
+
+/** One bonk process in the dev-only Resources tab (`monitor_snapshot`). Disk bytes are cumulative. */
+export interface ProcStat {
+  pid: number;
+  name: string;
+  kind: 'main' | 'webview' | 'child';
+  memBytes: number;
+  /** Percent of one core. */
+  cpuPct: number;
+  threads: number | null;
+  openFiles: number | null;
+  diskReadBytes: number;
+  diskWriteBytes: number;
+}
+export interface NetTotals {
+  sent: number;
+  received: number;
+  count: number;
+}
+/** Cumulative since launch, except `scripts.peakMemBytes` (max since the previous snapshot). */
+export interface MonitorCounters {
+  net: { http: NetTotals; grpc: NetTotals; sse: NetTotals };
+  diskWrites: Record<'state' | 'settings' | 'workspace', { count: number; bytes: number }>;
+  scripts: { runs: number; totalMs: number; peakMemBytes: number };
+}
+/** What is open or running in the Rust side right now. */
+export interface LiveCounts {
+  httpClients: number;
+  grpcConns: number;
+  grpcStreams: number;
+  liveStreams: number;
+  inFlight: number;
+  runs: number;
+  pendingInputs: number;
+  oauthLogins: number;
+  terminals: number;
+  watcherOn: boolean;
+  cookieJars: number;
+  cookies: number;
+}
+export interface MonitorSnapshot {
+  atMs: number;
+  procs: ProcStat[];
+  counters: MonitorCounters;
+  live: LiveCounts;
+}
+/** `detailed` (the tab is visible) adds thread and open-file counts. */
+export const monitorSnapshot = (detailed: boolean) => invoke<MonitorSnapshot>('monitor_snapshot', { detailed });
