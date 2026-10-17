@@ -1,3 +1,5 @@
+use super::off_main;
+
 #[tauri::command]
 pub fn workspace_pick_folder() -> Option<String> {
     rfd::FileDialog::new()
@@ -96,177 +98,194 @@ pub fn workspace_watch(
 }
 
 #[tauri::command]
-pub fn workspace_load(path: String) -> Result<Vec<bonk_core::domain::workspace::TreeNode>, String> {
+pub async fn workspace_load(
+    path: String,
+) -> Result<Vec<bonk_core::domain::workspace::TreeNode>, String> {
     require_absolute_root(&path)?;
-    bonk_core::application::workspace::load(&path)
+    off_main(move || bonk_core::application::workspace::load(&path)).await
 }
 
 /// `workspace_load` without bodies, scripts and spec links: the sidebar's tree.
 #[tauri::command]
-pub fn workspace_load_light(
+pub async fn workspace_load_light(
     path: String,
 ) -> Result<Vec<bonk_core::domain::workspace::TreeNode>, String> {
     require_absolute_root(&path)?;
-    bonk_core::application::workspace::load_light(&path)
+    off_main(move || bonk_core::application::workspace::load_light(&path)).await
 }
 
 #[tauri::command]
-pub fn workspace_load_children_light(
+pub async fn workspace_load_children_light(
     root: String,
     dir: String,
     keep: Vec<String>,
 ) -> Result<Vec<bonk_core::domain::workspace::TreeNode>, String> {
     require_absolute_root(&root)?;
-    bonk_core::application::workspace::load_children_light(&root, &dir, &keep)
+    off_main(move || bonk_core::application::workspace::load_children_light(&root, &dir, &keep))
+        .await
 }
 
 /// The full request nodes at workspace-relative paths `rels`.
 #[tauri::command]
-pub fn workspace_read_requests(
+pub async fn workspace_read_requests(
     root: String,
     rels: Vec<String>,
 ) -> Result<Vec<bonk_core::domain::workspace::RequestNode>, String> {
     require_absolute_root(&root)?;
-    bonk_core::application::workspace::read_requests(&root, &rels)
+    off_main(move || bonk_core::application::workspace::read_requests(&root, &rels)).await
 }
 
 #[tauri::command]
-pub fn workspace_load_children(
+pub async fn workspace_load_children(
     root: String,
     dir: String,
     keep: Vec<String>,
 ) -> Result<Vec<bonk_core::domain::workspace::TreeNode>, String> {
     require_absolute_root(&root)?;
-    bonk_core::application::workspace::load_children(&root, &dir, &keep)
+    off_main(move || bonk_core::application::workspace::load_children(&root, &dir, &keep)).await
 }
 
 #[tauri::command]
-pub fn workspace_create_folder(
+pub async fn workspace_create_folder(
     root: String,
     parent: String,
     name: String,
 ) -> Result<String, String> {
     require_absolute_root(&root)?;
-    bonk_core::application::workspace::create_folder(&root, &parent, &name)
+    off_main(move || bonk_core::application::workspace::create_folder(&root, &parent, &name)).await
 }
 
 #[tauri::command]
-pub fn workspace_save_folder_source(
+pub async fn workspace_save_folder_source(
     root: String,
     dir: String,
     source: Option<serde_json::Value>,
 ) -> Result<(), String> {
     require_absolute_root(&root)?;
-    bonk_core::application::workspace::save_folder_source(&root, &dir, source)
+    off_main(move || bonk_core::application::workspace::save_folder_source(&root, &dir, source))
+        .await
 }
 
 #[tauri::command]
-pub fn workspace_save_folder_scripts(
+pub async fn workspace_save_folder_scripts(
     root: String,
     dir: String,
     pre_request_script: Option<String>,
     test_script: Option<String>,
 ) -> Result<(), String> {
     require_absolute_root(&root)?;
-    bonk_core::application::workspace::save_folder_scripts(
-        &root,
-        &dir,
-        pre_request_script,
-        test_script,
-    )
+    off_main(move || {
+        bonk_core::application::workspace::save_folder_scripts(
+            &root,
+            &dir,
+            pre_request_script,
+            test_script,
+        )
+    })
+    .await
 }
 
 #[tauri::command]
-pub fn workspace_save_folder_auth(
+pub async fn workspace_save_folder_auth(
     root: String,
     dir: String,
     auth: Option<bonk_core::domain::http::AuthConfig>,
 ) -> Result<(), String> {
     require_absolute_root(&root)?;
-    bonk_core::application::workspace::save_folder_auth(&root, &dir, auth)
+    off_main(move || bonk_core::application::workspace::save_folder_auth(&root, &dir, auth)).await
 }
 
 #[tauri::command]
-pub fn workspace_save_request(
+pub async fn workspace_save_request(
     root: String,
     dir: String,
     existing: Option<String>,
     node: bonk_core::domain::workspace::RequestNode,
 ) -> Result<String, String> {
     require_absolute_root(&root)?;
-    bonk_core::application::workspace::save_request(&root, &dir, existing.as_deref(), node)
+    off_main(move || {
+        bonk_core::application::workspace::save_request(&root, &dir, existing.as_deref(), node)
+    })
+    .await
 }
 
 #[tauri::command]
-pub fn workspace_delete(root: String, path: String) -> Result<(), String> {
+pub async fn workspace_delete(root: String, path: String) -> Result<(), String> {
     require_absolute_root(&root)?;
-    bonk_core::application::workspace::delete(&root, &path)
+    off_main(move || bonk_core::application::workspace::delete(&root, &path)).await
 }
 
 #[tauri::command]
-pub fn workspace_rename(root: String, path: String, name: String) -> Result<String, String> {
+pub async fn workspace_rename(root: String, path: String, name: String) -> Result<String, String> {
     require_absolute_root(&root)?;
-    bonk_core::application::workspace::rename(&root, &path, &name)
+    off_main(move || bonk_core::application::workspace::rename(&root, &path, &name)).await
 }
 
 #[tauri::command]
-pub fn workspace_duplicate(root: String, path: String) -> Result<String, String> {
+pub async fn workspace_duplicate(root: String, path: String) -> Result<String, String> {
     require_absolute_root(&root)?;
-    bonk_core::application::workspace::duplicate(&root, &path)
+    off_main(move || bonk_core::application::workspace::duplicate(&root, &path)).await
 }
 
 #[tauri::command]
-pub fn workspace_move(root: String, path: String, dest: String) -> Result<String, String> {
+pub async fn workspace_move(root: String, path: String, dest: String) -> Result<String, String> {
     require_absolute_root(&root)?;
-    bonk_core::application::workspace::move_node(&root, &path, &dest)
+    off_main(move || bonk_core::application::workspace::move_node(&root, &path, &dest)).await
 }
 
 #[tauri::command]
-pub fn workspace_reorder(root: String, dir: String, names: Vec<String>) -> Result<(), String> {
+pub async fn workspace_reorder(
+    root: String,
+    dir: String,
+    names: Vec<String>,
+) -> Result<(), String> {
     require_absolute_root(&root)?;
-    bonk_core::application::workspace::reorder(&root, &dir, names)
+    off_main(move || bonk_core::application::workspace::reorder(&root, &dir, names)).await
 }
 
 #[tauri::command]
-pub fn scenarios_load(
+pub async fn scenarios_load(
     root: String,
 ) -> Result<Vec<bonk_core::application::scenarios::Scenario>, String> {
     require_absolute_root(&root)?;
-    bonk_core::application::scenarios::load(std::path::Path::new(&root))
+    off_main(move || bonk_core::application::scenarios::load(std::path::Path::new(&root))).await
 }
 #[tauri::command]
-pub fn scenarios_save(
+pub async fn scenarios_save(
     root: String,
     scenario: bonk_core::application::scenarios::Scenario,
 ) -> Result<(), String> {
     require_absolute_root(&root)?;
-    bonk_core::application::scenarios::save(std::path::Path::new(&root), scenario)
+    off_main(move || bonk_core::application::scenarios::save(std::path::Path::new(&root), scenario))
+        .await
 }
 #[tauri::command]
-pub fn scenarios_delete(root: String, name: String) -> Result<(), String> {
+pub async fn scenarios_delete(root: String, name: String) -> Result<(), String> {
     require_absolute_root(&root)?;
-    bonk_core::application::scenarios::delete(std::path::Path::new(&root), &name)
+    off_main(move || bonk_core::application::scenarios::delete(std::path::Path::new(&root), &name))
+        .await
 }
 
 #[tauri::command]
-pub fn inputs_load(root: String) -> Result<bonk_core::application::inputs::Inputs, String> {
+pub async fn inputs_load(root: String) -> Result<bonk_core::application::inputs::Inputs, String> {
     require_absolute_root(&root)?;
-    bonk_core::application::inputs::load(std::path::Path::new(&root))
+    off_main(move || bonk_core::application::inputs::load(std::path::Path::new(&root))).await
 }
 #[tauri::command]
-pub fn inputs_save(
+pub async fn inputs_save(
     root: String,
     inputs: bonk_core::application::inputs::Inputs,
 ) -> Result<(), String> {
     require_absolute_root(&root)?;
-    bonk_core::application::inputs::save(std::path::Path::new(&root), inputs)
+    off_main(move || bonk_core::application::inputs::save(std::path::Path::new(&root), inputs))
+        .await
 }
 
 #[tauri::command]
-pub fn workspace_import_collection(
+pub async fn workspace_import_collection(
     root: String,
     collection: bonk_core::application::workspace::ImportCollection,
 ) -> Result<String, String> {
     require_absolute_root(&root)?;
-    bonk_core::application::workspace::import_collection(&root, collection)
+    off_main(move || bonk_core::application::workspace::import_collection(&root, collection)).await
 }

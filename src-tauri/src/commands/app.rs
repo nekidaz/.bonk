@@ -129,17 +129,20 @@ fn state_path(app: &tauri::AppHandle) -> Result<std::path::PathBuf, String> {
 }
 
 #[tauri::command]
-pub fn app_state_load(app: tauri::AppHandle) -> Result<serde_json::Value, String> {
-    bonk_core::application::app_state::load_map(&state_path(&app)?)
+pub async fn app_state_load(app: tauri::AppHandle) -> Result<serde_json::Value, String> {
+    super::off_main(move || bonk_core::application::app_state::load_map(&state_path(&app)?)).await
 }
 
 #[tauri::command]
-pub fn app_state_set(
+pub async fn app_state_set(
     app: tauri::AppHandle,
     key: String,
     value: serde_json::Value,
 ) -> Result<(), String> {
-    bonk_core::application::app_state::set_key(&state_path(&app)?, &key, value)
+    super::off_main(move || {
+        bonk_core::application::app_state::set_key(&state_path(&app)?, &key, value)
+    })
+    .await
 }
 
 /// Right edge, in points from the window's left, of the macOS traffic lights, so the
