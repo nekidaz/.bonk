@@ -185,6 +185,13 @@
   }
   const activeEnvName = $derived(environments.active?.name ?? t('sidebar.noEnv'));
 
+  // Declared before historyRows: the $effect.pre below reads it during component init, and a
+  // `const` read before its line throws «Cannot access before initialization» (blank window).
+  const visibleHistory = $derived.by(() => {
+    const q = filter.trim().toLowerCase();
+    if (!q) return history.list;
+    return history.list.filter((h) => (h.request.url || '').toLowerCase().includes(q));
+  });
   // S21: every entry (up to the history limit), newest first, a header before each day's entries.
   // One flat list for the virtual history below, like the tree.
   type HistoryRow =
@@ -226,11 +233,6 @@
   const historyPadTop = $derived(historyItems[0]?.start ?? 0);
   const historyPadBottom = $derived($historyVirtualizer.getTotalSize() - (historyItems.at(-1)?.end ?? 0));
   const measureHistoryRow = (el: HTMLElement) => untrack(() => $historyVirtualizer).measureElement(el);
-  const visibleHistory = $derived.by(() => {
-    const q = filter.trim().toLowerCase();
-    if (!q) return history.list;
-    return history.list.filter((h) => (h.request.url || '').toLowerCase().includes(q));
-  });
 
   const gitFiles = $derived(git.status?.files ?? []);
   const statusMap = $derived(git.statusMap);
