@@ -119,7 +119,8 @@
   });
 
   function showImport(e: Event): void {
-    importTop = (e.currentTarget as HTMLElement).offsetTop - 33;
+    // Lines the submenu's first row up with Import: the dense card's padding (4) + label (21).
+    importTop = (e.currentTarget as HTMLElement).offsetTop - 25;
     importOpen = true;
   }
 
@@ -168,6 +169,7 @@
 {#if menu.kind}
   <Backdrop aria-label={t('nav.menu.closeMenu')} onclick={closeMenu} />
   <Menu
+    class={menu.kind === 'create' ? 'dense' : undefined}
     role="menu"
     tabindex={-1}
     onkeydown={menuKeydown}
@@ -221,7 +223,7 @@
         <span class="sc">›</span>
       </button>
       {#if importOpen}
-        <Menu class="bs-submenu" role="menu" style="top:{importTop}px">
+        <Menu class="bs-submenu dense" role="menu" style="top:{importTop}px">
           <div class="lbl">{t('nav.menu.importFrom')}</div>
           {@render item(
             'terminal',
@@ -414,6 +416,34 @@
     position: absolute;
     left: calc(100% + 6px);
     width: 268px;
+  }
+
+  /* The create menu and its Import submenu are dense, like Postman's: 26px rows, no gaps, 16px icons. */
+  :global(.bs .bs-menu.dense) {
+    gap: 0;
+    padding: 4px;
+  }
+
+  :global(.bs .bs-menu.dense) .mi {
+    height: 26px;
+    gap: 8px;
+    padding: 0 8px;
+  }
+
+  :global(.bs .bs-menu.dense) .mi .ic {
+    flex-basis: 16px;
+    width: 16px;
+    font-size: 16px;
+  }
+
+  :global(.bs .bs-menu.dense) .lbl {
+    height: 21px;
+    padding: 6px 8px 2px;
+  }
+
+  :global(.bs .bs-menu.dense) .dv {
+    height: 7px;
+    margin: 0 8px;
   }
 
   /* P1/P2: HTTP globe in text colour, gRPC hub in its method colour, tick on the right. */
