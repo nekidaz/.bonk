@@ -78,7 +78,7 @@ pub struct RequestNode {
     /// Opaque to Rust: the frontend owns its shape.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub spec: Option<serde_json::Value>,
-    /// SHA-256 of the file's bytes (an ETag: "did the file change since I read it"). Set by the
+    /// A hash of the file's bytes (`file_hash`, an ETag: "did the file change since I read it"). Set by the
     /// light tree load and `read_requests`; absent on nodes built in memory and never written to disk.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub content_hash: Option<String>,
@@ -199,8 +199,13 @@ impl RequestNode {
     }
 }
 
-/// SHA-256 of a request file's text, hex.
+/// A fast 64-bit hash of a request file's text, hex. Only an ETag compared within one running
+/// binary (tree vs `read_requests`), so std's SipHash is enough: SHA-256 took ~0.1 s on a 63 MB
+/// workspace load, this ~0.01 s. The value may change between Rust versions; a mismatch only
+/// makes the frontend re-read the file.
 pub fn file_hash(raw: &str) -> String {
-    use sha2::Digest;
-    format!("{:x}", sha2::Sha256::digest(raw.as_bytes()))
+    use std::hash::Hasher;
+    let mut h = std::hash::DefaultHasher::new();
+    h.write(raw.as_bytes());
+    format!("{:016x}", h.finish())
 }

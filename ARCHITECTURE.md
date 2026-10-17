@@ -176,7 +176,7 @@ what keeps it Git-friendly and self-healing. Node id = `fs:<relative path>`.
 
 The app's sidebar holds a **light** tree (`workspace_load_light`, `workspace_load_children_light`,
 `RequestNode::into_light`): request nodes without `body`, `graphqlVariables`, `bodyParams`, the
-scripts, the gRPC `message` and `spec`, plus `contentHash` (SHA-256 of the file, an ETag) and
+scripts, the gRPC `message` and `spec`, plus `contentHash` (a fast hash of the file, an ETag) and
 `vars` (the `{{names}}` the file mentions). A 1600-request workspace is ~1 MB over IPC instead
 of ~60 MB. `workspace_read_requests(root, rels)` returns full nodes (with the hash) when a tab
 opens, a run starts or a folder is exported. The CLI runner and bonk-mcp keep the full
