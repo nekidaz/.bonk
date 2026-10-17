@@ -5,7 +5,7 @@
    * «Blame»: the file as it is now, each line with the commit that last changed it.
    */
   import { untrack } from 'svelte';
-  import { findNode, workspace } from '$entities/workspace';
+  import { workspace } from '$entities/workspace';
   import { describeFile, git, openGraphTab, shortAgo, statusColor } from '$entities/git';
   import { gitBlame, gitCommitFileDiff, gitFileLog } from '$shared/ipc';
   import type { BlameLine, FileCommit, Tab } from '$shared/model';
@@ -39,7 +39,7 @@
   let seq = 0;
 
   const path = $derived(tab.git?.path ?? '');
-  const info = $derived(describeFile(path, git.prefix, (id) => findNode(workspace.tree, id)));
+  const info = $derived(describeFile(path, git.prefix, (id) => workspace.byId.get(id)));
   const now = $derived.by(() => (void git.version, Date.now()));
   const pick = $derived(commits.find((c) => c.hash === selected) ?? commits[0]);
   const uncommitted = (h: string) => /^0+$/.test(h);

@@ -4,7 +4,7 @@
    * range, branches, the requests it changed (each opens its diff at that commit), and actions:
    * Checkout / Branch for one commit, Cherry-pick / Revert for several, ⋯ for the full menu.
    */
-  import { findNode, workspace } from '$entities/workspace';
+  import { workspace } from '$entities/workspace';
   import { describeFile, git, openGitDiffTab, statusColor } from '$entities/git';
   import { methodColor, type CommitDetail, type GraphCommit } from '$shared/model';
   import { t, tp } from '$shared/i18n';
@@ -60,7 +60,7 @@
       : [],
   );
   const authors = $derived([...new Set(commits.map((c) => c.author))].join(', '));
-  const info = (path: string) => describeFile(path, git.prefix, (id) => findNode(workspace.tree, id));
+  const info = (path: string) => describeFile(path, git.prefix, (id) => workspace.byId.get(id));
 </script>
 
 <aside class="bs-commitpanel">

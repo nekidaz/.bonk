@@ -16,7 +16,7 @@ import {
   workspaceTrash,
   workspaceWatch,
 } from '$shared/ipc';
-import { idToRel, findNode, parentId } from './tree';
+import { idToRel, findNode, indexTree, parentId } from './tree';
 import { relinkTabPaths, tabs } from '$entities/tab';
 import { withEffectiveAuth } from './authInherit';
 
@@ -30,6 +30,8 @@ class Workspace {
    * Request nodes are light (no body, scripts or spec: see `RequestNode.contentHash`); `readRequest()` reads the file.
    */
   tree = $state.raw<TreeNode[]>([]);
+  /** `tree`'s nodes by id, rebuilt when the tree is replaced. Use it for lookups in long lists. */
+  byId = $derived(indexTree(this.tree));
   /** Absolute path of the open folder; '' when none. */
   path = $state('');
   /** Recently opened folders, newest first (at most 10). */

@@ -5,7 +5,7 @@
    * file, Keep deleted / Restore when one side deleted it. Files resolved since stay listed with
    * Open / Reset. Below, the selected file's first conflict, ours next to theirs.
    */
-  import { findNode, workspace } from '$entities/workspace';
+  import { workspace } from '$entities/workspace';
   import { describeFile, git, openGitDiffTab, openMergeTab, resolveSide, unresolve } from '$entities/git';
   import { gitConflicts, gitOperationInfo } from '$shared/ipc';
   import { methodColor, type ConflictFile, type OperationInfo } from '$shared/model';
@@ -37,7 +37,7 @@
   }
 
   const lines = (s: string | null) => (s === null ? [] : s.split('\n'));
-  const info = (path: string) => describeFile(path, git.prefix, (id) => findNode(workspace.tree, id));
+  const info = (path: string) => describeFile(path, git.prefix, (id) => workspace.byId.get(id));
   // Every file of this operation: still conflicted first, then the ones resolved since.
   const rows = $derived([
     ...files.map((f) => ({ path: f.path, file: f })),

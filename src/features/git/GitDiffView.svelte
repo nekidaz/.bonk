@@ -5,7 +5,7 @@
    * Reloads whenever a git op bumps `git.version`. With `rev` (opened from the G5 graph) it is the
    * file as that commit changed it: read-only, against the commit's first parent.
    */
-  import { findNode, workspace } from '$entities/workspace';
+  import { workspace } from '$entities/workspace';
   import {
     applyPatch,
     describeFile,
@@ -46,7 +46,7 @@
   const path = $derived(tab.git?.path ?? '');
   const mode = $derived((tab.git?.mode ?? 'working') as GitDiffMode);
   const rev = $derived(tab.git?.rev ?? '');
-  const info = $derived(describeFile(path, git.prefix, (id) => findNode(workspace.tree, id)));
+  const info = $derived(describeFile(path, git.prefix, (id) => workspace.byId.get(id)));
   const file = $derived(rev ? undefined : git.status?.files.find((f) => f.path === path));
   const letter = $derived(file ? statusLetter(file) : '');
   const hasStaged = $derived(!!file && file.index !== ' ' && file.index !== '?');
