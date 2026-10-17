@@ -1,6 +1,6 @@
 <script lang="ts" module>
   /** Languages the editor can highlight. `text` = plain, no syntax colors. */
-  export type CodeEditorLang = 'javascript' | 'json' | 'json-lite' | 'text';
+  export type CodeEditorLang = 'javascript' | 'json' | 'json-lite' | 'graphql' | 'text';
 </script>
 
 <script lang="ts">
@@ -46,6 +46,7 @@
   } from '@codemirror/autocomplete';
   import { javascript } from '@codemirror/lang-javascript';
   import { json } from '@codemirror/lang-json';
+  import { graphqlLanguageSupport } from 'cm6-graphql';
   import { foldKeymap } from '@codemirror/language';
   import { search, searchKeymap } from '@codemirror/search';
   import { createFindPanel } from './findPanel';
@@ -189,6 +190,7 @@
   function langExtension(l: CodeEditorLang): Extension {
     if (l === 'javascript') return javascript();
     if (l === 'json') return json();
+    if (l === 'graphql') return graphqlLanguageSupport();
     // Big read-only JSON: tokenizer over the visible lines only (no background parse of the whole document).
     if (l === 'json-lite') return lineHighlight();
     return [];
