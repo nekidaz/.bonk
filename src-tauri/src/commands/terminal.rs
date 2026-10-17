@@ -5,13 +5,16 @@ use portable_pty::{native_pty_system, Child, CommandBuilder, MasterPty, PtySize}
 use std::collections::HashMap;
 use std::io::{Read, Write};
 use std::path::PathBuf;
+use std::sync::mpsc;
 use tauri::ipc::Channel;
 use tauri::State;
 
 /// One running shell: the PTY's master side, its input, and the shell process.
 pub struct PtySession {
     master: Box<dyn MasterPty + Send>,
-    writer: Box<dyn Write + Send>,
+    /// Feeds the session's writer thread. A write to a shell that isn't reading stdin
+    /// blocks once the PTY buffer fills, so it never happens under the `ptys` lock.
+    input: mpsc::Sender<Vec<u8>>,
     child: Box<dyn Child + Send + Sync>,
 }
 
@@ -113,10 +116,24 @@ pub fn pty_open(
         .master
         .try_clone_reader()
         .map_err(|error| format!("failed to open a terminal: {error}"))?;
-    let writer = pair
+    let mut writer = pair
         .master
         .take_writer()
         .map_err(|error| format!("failed to open a terminal: {error}"))?;
+    // Like a goroutine ranging over a chan []byte: ends when the session (the sender) is
+    // dropped, or when the shell is gone and writes fail.
+    let (input, queue) = mpsc::channel::<Vec<u8>>();
+    std::thread::spawn(move || {
+        for data in queue {
+            if writer
+                .write_all(&data)
+                .and_then(|()| writer.flush())
+                .is_err()
+            {
+                break;
+            }
+        }
+    });
     state
         .ptys
         .lock()
@@ -125,7 +142,7 @@ pub fn pty_open(
             id,
             PtySession {
                 master: pair.master,
-                writer,
+                input,
                 child,
             },
         );
@@ -150,19 +167,19 @@ pub fn pty_open(
     Ok(shell)
 }
 
-/// Keystrokes and pastes from xterm.js.
+/// Keystrokes and pastes from xterm.js. Only queues them, so it never blocks; it stays a
+/// sync command (main thread) so keystrokes reach the queue in the order they were typed.
 #[tauri::command]
 pub fn pty_write(id: String, data: String, state: State<'_, AppState>) -> Result<(), String> {
-    let mut ptys = state
+    let ptys = state
         .ptys
         .lock()
         .map_err(|_| "terminal state lock poisoned".to_string())?;
-    let session = ptys.get_mut(&id).ok_or("the terminal is closed")?;
+    let session = ptys.get(&id).ok_or("the terminal is closed")?;
     session
-        .writer
-        .write_all(data.as_bytes())
-        .and_then(|()| session.writer.flush())
-        .map_err(|error| format!("failed to write to the terminal: {error}"))
+        .input
+        .send(data.into_bytes())
+        .map_err(|_| "the terminal is closed".to_string())
 }
 
 #[tauri::command]
@@ -194,7 +211,12 @@ pub fn pty_close(id: String, state: State<'_, AppState>) -> Result<(), String> {
         .map_err(|_| "terminal state lock poisoned".to_string())?
         .remove(&id);
     if let Some(mut session) = session {
-        let _ = session.child.kill();
+        // kill() waits up to 200 ms for SIGHUP before SIGKILL, and wait() reaps the
+        // process so no zombie is left: both off the main thread.
+        std::thread::spawn(move || {
+            let _ = session.child.kill();
+            let _ = session.child.wait();
+        });
     }
     Ok(())
 }
