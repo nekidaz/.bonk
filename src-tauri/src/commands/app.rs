@@ -169,7 +169,8 @@ pub fn traffic_lights_right(window: tauri::WebviewWindow) -> Option<f64> {
     }
 }
 
-/// Left inset of the close button, in points.
+/// Left inset of the close button, in points (only placed on macOS).
+#[cfg(target_os = "macos")]
 const TRAFFIC_LIGHTS_X: f64 = 21.0;
 /// Their vertical centre before the toolbar reports its own: half of its 54px at 100% zoom.
 pub const TRAFFIC_LIGHTS_CENTER: f64 = 27.0;
