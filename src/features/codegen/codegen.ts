@@ -4,7 +4,6 @@
  * the selected target language. `{{vars}}` are embedded verbatim, so env
  * placeholders survive into the generated code.
  */
-import { HTTPSnippet } from 'httpsnippet-lite';
 import type { HarRequest, TargetId } from 'httpsnippet-lite';
 import { t as tr } from '$shared/i18n';
 import {
@@ -178,6 +177,8 @@ export async function generateSnippet(tab: Tab, langId: string, scope: Record<st
   const lang = LANGUAGES.find((l) => l.id === langId) ?? LANGUAGES[0];
   try {
     const { har, restore } = protectVars(toHar(tab, scope));
+    // Loaded on first use: httpsnippet stays out of the startup bundle.
+    const { HTTPSnippet } = await import('httpsnippet-lite');
     const snippet = new HTTPSnippet(har);
     // `target` is validated against httpsnippet's set via LANGUAGES; the single
     // cast narrows our string to the library's TargetId union. `client` is a

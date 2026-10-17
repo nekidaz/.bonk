@@ -4,8 +4,6 @@
 export { errorAtLine, errorFieldLines } from './errorLines';
 export { esc, formatMarkup, highlightJson, highlightMarkup, hl, lineNumbers, MAX_HIGHLIGHT_CHARS } from './highlight';
 export { bodyPlaceholder, jsonErrorMessage, parseJsonForBeautify } from './jsonEditor';
-export { graphqlExtensions } from './graphqlEditor';
-export { graphqlProblems } from './graphqlLint';
 export { jsonProblem } from './jsonLint';
 export {
   applyBodyKind,

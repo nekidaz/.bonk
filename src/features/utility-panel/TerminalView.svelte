@@ -1,11 +1,12 @@
 <script lang="ts">
   // Flow · Terminal (CT4–CT6): the active shell session (terminal.svelte.ts) mounted in the panel.
   import { untrack } from 'svelte';
-  import '@xterm/xterm/css/xterm.css';
   import { t } from '$shared/i18n';
-  import { terminal } from './terminal.svelte';
+  import { loadXterm, terminal } from './terminal.svelte';
 
   let host = $state<HTMLDivElement | null>(null);
+  let loaded = $state(false);
+  void loadXterm().then(() => (loaded = true));
 
   // Opening the tab with no session starts one; after the last is killed, the empty state stays.
   if (terminal.sessions.length === 0) terminal.add();
@@ -13,7 +14,7 @@
   $effect(() => {
     const session = terminal.active;
     const el = host;
-    if (!session || !el) return;
+    if (!session || !el || !loaded) return;
     untrack(() => session.mount(el));
     const resize = new ResizeObserver(() => session.refit(el));
     resize.observe(el);

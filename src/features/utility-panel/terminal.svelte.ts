@@ -1,12 +1,25 @@
 // Flow · Terminal (CT4–CT6): the user's own login shell in a PTY, drawn by xterm.js (the
 // terminal emulator VS Code uses). Sessions live here, outside the component, so the shells
 // and their scrollback survive closing the panel (⌘J) and switching tabs.
-import { Terminal as XTerm } from '@xterm/xterm';
-import { FitAddon } from '@xterm/addon-fit';
+import type { Terminal as XTerm } from '@xterm/xterm';
+import type { FitAddon } from '@xterm/addon-fit';
 import { untrack } from 'svelte';
 import { workspace } from '$entities/workspace';
 import { t } from '$shared/i18n';
 import { ptyClose, ptyOpen, ptyResize, ptyStageEnv, ptyWrite } from '$shared/ipc';
+
+let xterm: { Terminal: typeof XTerm; FitAddon: typeof FitAddon } | null = null;
+
+/** xterm.js (and its CSS) loads when the Terminal tab first opens, not at app start. */
+export async function loadXterm(): Promise<void> {
+  if (xterm) return;
+  const [{ Terminal }, { FitAddon }] = await Promise.all([
+    import('@xterm/xterm'),
+    import('@xterm/addon-fit'),
+    import('@xterm/xterm/css/xterm.css'),
+  ]);
+  xterm = { Terminal, FitAddon };
+}
 
 const sq = (s: string) => `'${s.replace(/'/g, "'\\''")}'`;
 
@@ -32,18 +45,20 @@ export class TerminalSession {
   shell = $state('');
   /** The shell is running (false after `exit`; Enter starts it again). */
   alive = $state(false);
-  readonly fit = new FitAddon();
+  #fit: FitAddon | null = null;
   #term: XTerm | null = null;
   #pty = '';
   /** Text waiting for the shell's first output before it's pasted (a console hand-off). */
   #pending: string | null = null;
   #ready = false;
 
-  /** Puts the screen into `host`; the first time also starts the shell. */
+  /** Puts the screen into `host`; the first time also starts the shell. Needs `loadXterm()` first. */
   mount(host: HTMLElement): void {
     let term = this.#term;
     if (!term) {
-      term = new XTerm({
+      if (!xterm) return;
+      this.#fit = new xterm.FitAddon();
+      term = new xterm.Terminal({
         allowTransparency: true,
         cursorBlink: true,
         fontFamily: getComputedStyle(host).getPropertyValue('--mono').trim() || 'monospace',
@@ -51,7 +66,7 @@ export class TerminalSession {
         macOptionIsMeta: true,
         scrollback: 5000,
       });
-      term.loadAddon(this.fit);
+      term.loadAddon(this.#fit);
       term.onData((data) => this.#input(data));
       term.onResize(({ cols, rows }) => {
         if (this.#pty) void ptyResize(this.#pty, cols, rows).catch(() => {});
@@ -72,7 +87,7 @@ export class TerminalSession {
   }
 
   refit(host: HTMLElement): void {
-    if (host.clientWidth && host.clientHeight) this.fit.fit();
+    if (host.clientWidth && host.clientHeight) this.#fit?.fit();
   }
 
   clear(): void {

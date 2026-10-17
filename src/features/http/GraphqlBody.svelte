@@ -6,7 +6,8 @@
 <script lang="ts">
   import type { Extension } from '@codemirror/state';
   import { t } from '$shared/i18n';
-  import { bodyPlaceholder, graphqlExtensions } from '$shared/editor';
+  import { bodyPlaceholder } from '$shared/editor';
+  import { graphqlExtensions } from './graphqlEditor';
   import { CodeEditor } from '$shared/editor/components';
   import type { Tab } from '$shared/model';
   import { tabs } from '$entities/tab';

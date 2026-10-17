@@ -2,6 +2,12 @@
   HTTP request → Body tab: the body mode (none, form-data, urlencoded, raw, binary, GraphQL) and its
   editor — a key/value table for forms, CodeMirror (shared/editor CodeEditor) for raw text and GraphQL.
 -->
+<script module lang="ts">
+  // The GraphQL body (graphql + cm6-graphql) loads the first time one is shown, not at app start.
+  let graphqlBody: Promise<typeof import('./GraphqlBody.svelte')> | null = null;
+  const loadGraphqlBody = () => (graphqlBody ??= import('./GraphqlBody.svelte'));
+</script>
+
 <script lang="ts">
   import { t, tp } from '$shared/i18n';
   import { filePick } from '$shared/ipc';
@@ -27,7 +33,6 @@
   import { tabs } from '$entities/tab';
   import { environments, requestVariableHighlight } from '$entities/environment';
   import { BodyPanel, BodyCode, BeautifyButton, BodyHead } from '$entities/request/components';
-  import GraphqlBody from './GraphqlBody.svelte';
 
   let { tab }: { tab: Tab } = $props();
 
@@ -365,7 +370,9 @@
       </button>
     </div>
   {:else if currentBodyMode(tab) === 'graphql'}
-    <GraphqlBody {tab} {varHighlight} />
+    {#await loadGraphqlBody() then { default: GraphqlBody }}
+      <GraphqlBody {tab} {varHighlight} />
+    {/await}
   {:else}
     {#if currentBodyMode(tab) === 'binary'}
       <div class="bs-binary-picker">
