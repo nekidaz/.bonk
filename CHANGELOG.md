@@ -6,6 +6,8 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-10-17
+
 ### Added
 - **Folder scripts**. A folder (collection) can carry a pre-request and a post-response script in its
   `.folder.bonk.json` («Collection scripts…» in the folder's menu). Every request under the folder runs
@@ -53,6 +55,44 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   (`{{#each}}`, `{{#if}}`, `@index`, `{{{raw}}}`…) and the response gets a «Visualize» tab with the
   HTML. It renders in the same sandbox as the HTML preview, so the template's `<script>`s (Chart.js,
   `pm.getData`) do not run.
+- **`~/.bonk/settings.json`**, as in VS Code / Zed: every setting from the Settings window lives in a JSON
+  file you can edit by hand or open in a bonk tab. The app picks up your edits when its window gets focus;
+  the CLI and MCP see them after the app has run once since the edit.
+- **Terminal tab** runs your login shell in a real terminal (PTY + xterm.js): several sessions, «+», Clear
+  and kill.
+- **Window zoom** with ⌘= / ⌘− / ⌘0 (100–200%), remembered between launches.
+- **Resources tab** (opt-in, `dev.monitor` setting): CPU and memory of bonk's own processes and the time
+  spent in app calls, for chasing slowdowns.
+- **Collection Runner:** a scenario can be built from requests of any folder.
+- **Workspace:** files changed outside the app (git checkout, an editor, another tool) show up without a
+  reload.
+- Response headers and gRPC metadata show as a name · value table.
+
+### Changed
+- **Large workspaces are much faster.** The sidebar tree is virtualized (only the visible rows are drawn),
+  the workspace tree is light and a request's content is read only when it is opened, the app no longer
+  re-reads its own writes, and a burst of file changes gives one tree update. The Git panel and History
+  are virtualized too; History now shows every entry up to its limit.
+- The `{{var}}` popover is compact, as in Postman.
+- «Manage environments» opens the Environments tab instead of a modal.
+- A long gRPC endpoint behaves like a long HTTP URL; the message type and Example sit in the tabs row.
+- macOS: the UI is no longer capped at 60 fps on 120 Hz displays.
+- The response body scrolls sideways instead of wrapping by default.
+- Headers: the «Show auto» switch sits in the tab row next to Params…Scripts, so the table starts higher.
+- Error messages from the core and MCP prompts are in English.
+
+### Fixed
+- `{{vars}}` in Params, Headers, gRPC metadata and auth fields get the chip and hover popover.
+- gRPC: Invoke dial errors show in the response body; a long endpoint no longer squeezes the method
+  picker, and the picker menu spans the address field.
+- Collection Runner: a scenario that returns to a folder no longer breaks the setup screen; other
+  workspaces' recent runs are hidden.
+- Import: unique request keys when a spec repeats an `operationId`.
+- A huge URL scrolls inside the expanded URL card instead of growing without limit.
+- macOS traffic lights stay centred with the toolbar across zoom and compact density.
+- The sidebar tree keeps its scroll position when it moves without a scroll event.
+- Focus rings, the environment variables table, Git view headers in a narrow window and the branch
+  popover width.
 
 ## [0.3.0] - 2026-10-12
 
