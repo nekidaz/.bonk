@@ -1,3 +1,4 @@
+use super::workspace_watch::note_own_write;
 use crate::domain::http::AuthConfig;
 use crate::domain::workspace::{FolderFile, FolderNode, RequestFile, RequestNode, TreeNode};
 use std::fs;
@@ -29,6 +30,7 @@ pub(super) fn atomic_write(target: &Path, contents: &str) -> Result<(), String> 
 
     fs::write(&tmp, contents).map_err(|e| format!("failed to write {}: {e}", tmp.display()))?;
 
+    note_own_write(target);
     if let Err(e) = fs::rename(&tmp, target) {
         let _ = fs::remove_file(&tmp);
         return Err(format!("failed to write {}: {e}", target.display()));
@@ -226,6 +228,7 @@ fn write_folder_file(directory: &Path, file: &FolderFile) -> Result<(), String> 
     let path = directory.join(FOLDER_FILE);
 
     if file.is_empty() {
+        note_own_write(&path);
         return match fs::remove_file(&path) {
             Err(e) if e.kind() != std::io::ErrorKind::NotFound => {
                 Err(format!("failed to remove {}: {e}", path.display()))
@@ -434,6 +437,7 @@ pub fn create_folder(root: &str, parent_rel: &str, name: &str) -> Result<String,
     let name = sanitize(name);
     let directory = unique_path(&parent, &name, "")?;
 
+    note_own_write(&directory);
     fs::create_dir(&directory)
         .map_err(|e| format!("failed to create directory {}: {e}", directory.display()))?;
 
@@ -520,6 +524,7 @@ pub fn save_request(
                 ));
             }
 
+            note_own_write(&old);
             fs::remove_file(&old)
                 .map_err(|e| format!("failed to remove old request {}: {e}", old.display()))?;
         }
@@ -533,6 +538,7 @@ pub fn save_request(
 /// Folder deletion is recursive.
 pub fn delete(root: &str, rel: &str) -> Result<(), String> {
     let path = resolve(root, rel)?;
+    note_own_write(&path);
 
     if path.is_dir() {
         fs::remove_dir_all(&path)
@@ -580,6 +586,8 @@ pub fn rename(root: &str, rel: &str, new_name: &str) -> Result<String, String> {
             desired
         };
 
+        note_own_write(&path);
+        note_own_write(&destination);
         fs::rename(&path, &destination).map_err(|e| {
             format!(
                 "failed to rename directory {} to {}: {e}",
@@ -625,6 +633,7 @@ pub fn rename(root: &str, rel: &str, new_name: &str) -> Result<String, String> {
     atomic_write(&destination, &format!("{output}\n"))?;
 
     if destination != path {
+        note_own_write(&path);
         fs::remove_file(&path)
             .map_err(|e| format!("failed to remove old request {}: {e}", path.display()))?;
         rename_in_order(&path, &destination);
@@ -635,6 +644,7 @@ pub fn rename(root: &str, rel: &str, new_name: &str) -> Result<String, String> {
 
 /// Recursively copy directory `src` into `dst`.
 fn copy_dir(src: &Path, dst: &Path) -> Result<(), String> {
+    note_own_write(dst);
     fs::create_dir_all(dst).map_err(|e| {
         format!(
             "failed to create destination directory {}: {e}",
@@ -649,6 +659,7 @@ fn copy_dir(src: &Path, dst: &Path) -> Result<(), String> {
 
         let from = entry.path();
         let to = dst.join(entry.file_name());
+        note_own_write(&to);
 
         // Skip symlinks (without following them): following a link could copy
         // content from outside the workspace root. Inspect the link itself.
@@ -764,6 +775,8 @@ pub fn move_node(root: &str, rel: &str, dest_dir_rel: &str) -> Result<String, St
         return Err(format!("unsupported node type: {}", source.display()));
     };
 
+    note_own_write(&source);
+    note_own_write(&destination);
     fs::rename(&source, &destination).map_err(|e| {
         format!(
             "failed to move {} to {}: {e}",
