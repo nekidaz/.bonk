@@ -185,16 +185,47 @@
   }
   const activeEnvName = $derived(environments.active?.name ?? t('sidebar.noEnv'));
 
-  // S21: newest first, grouped by day.
-  const historyGroups = $derived.by(() => {
-    const groups: { day: string; entries: typeof history.list }[] = [];
-    for (const h of [...visibleHistory].sort((a, b) => b.at - a.at).slice(0, 60)) {
-      const day = historyDay(h.at);
-      if (groups.at(-1)?.day !== day) groups.push({ day, entries: [] });
-      groups.at(-1)!.entries.push(h);
+  // S21: every entry (up to the history limit), newest first, a header before each day's entries.
+  // One flat list for the virtual history below, like the tree.
+  type HistoryRow =
+    | { key: string; kind: 'day'; day: string; first: boolean }
+    | { key: string; kind: 'entry'; h: (typeof history.list)[number] };
+  const historyRows = $derived.by(() => {
+    const out: HistoryRow[] = [];
+    let last = NaN;
+    for (const h of [...visibleHistory].sort((a, b) => b.at - a.at)) {
+      // The label (a locale date) is formatted once per day, not once per entry.
+      const midnight = new Date(h.at).setHours(0, 0, 0, 0);
+      if (midnight !== last) {
+        out.push({ key: `day:${midnight}`, kind: 'day', day: historyDay(h.at), first: out.length === 0 });
+        last = midnight;
+      }
+      out.push({ key: h.id, kind: 'entry', h });
     }
-    return groups;
+    return out;
   });
+  // A second virtualizer on the same scroll element; it only attaches while History is shown.
+  const historyVirtualizer = createVirtualizer<HTMLElement, HTMLElement>({
+    count: 0,
+    getScrollElement: () => null,
+    estimateSize: () => 26,
+    gap: 2, // = .bs-tree's gap
+    overscan: 12,
+  });
+  $effect.pre(() => {
+    const r = historyRows;
+    const el = panel === 'history' ? treeEl : undefined;
+    untrack(() => $historyVirtualizer).setOptions({
+      count: r.length,
+      getItemKey: (i) => r[i].key,
+      estimateSize: (i) => (r[i].kind === 'day' ? 27 : 26),
+      getScrollElement: () => el ?? null,
+    });
+  });
+  const historyItems = $derived($historyVirtualizer.getVirtualItems());
+  const historyPadTop = $derived(historyItems[0]?.start ?? 0);
+  const historyPadBottom = $derived($historyVirtualizer.getTotalSize() - (historyItems.at(-1)?.end ?? 0));
+  const measureHistoryRow = (el: HTMLElement) => untrack(() => $historyVirtualizer).measureElement(el);
   const visibleHistory = $derived.by(() => {
     const q = filter.trim().toLowerCase();
     if (!q) return history.list;
@@ -611,73 +642,84 @@
               onclick={(e) => openMenu('history', e)}><span class="material-symbols-outlined">more_horiz</span></button
             >
           {:else}
-            {#each historyGroups as group, gi (group.day)}
-              <div class="bs-history-day">
-                <span>{group.day}</span>
-                {#if gi === 0}
-                  {#if history.paused}<span class="bs-paused" title={t('sidebar.recordingPaused')}
-                      >{t('sidebar.paused')}</span
-                    >{/if}
-                  <button
-                    class="bs-history-options"
-                    type="button"
-                    title={t('sidebar.historyOptions')}
-                    onclick={(e) => openMenu('history', e)}
-                    ><span class="material-symbols-outlined">more_horiz</span></button
-                  >
-                {/if}
-              </div>
-              {#each group.entries as h (h.id)}
-                {@const good = h.ok ?? ok(h.status)}
-                <button
-                  class="bs-history-row"
-                  class:sel={tabs.active?.historyId === h.id}
-                  type="button"
-                  title={h.envName ? `${t('sidebar.openInNewTab')} · ${h.envName}` : t('sidebar.openInNewTab')}
-                  onclick={() => openHistoryEntry(h)}
-                >
-                  <span class="m" style="color:{methodColor(h.protocol === 'grpc' ? 'GRPC' : h.request.method)}"
-                    >{h.protocol === 'grpc' ? 'gRPC' : methodLabel(h.request.method)}</span
-                  >
-                  <span class="path">{historyPath(h)}</span>
-                  <span
-                    class="st"
-                    class:warn={!good && h.status >= 400 && h.status < 500}
-                    class:err={!good && !(h.status >= 400 && h.status < 500)}
-                    >{h.protocol === 'grpc' ? (h.ok ? '0 OK' : 'ERR') : h.status || 'ERR'}</span
-                  >
-                  <span class="at">{clock(h.at)}</span>
-                  {#if h.protocol !== 'grpc'}
-                    <span
-                      class="bs-act repeat"
-                      role="button"
-                      tabindex="0"
-                      title={t('sidebar.repeat')}
-                      aria-label={t('sidebar.repeat')}
-                      onclick={(e) => {
-                        e.stopPropagation();
-                        void repeatEntry(h);
-                      }}
-                      onkeydown={(e) => actKey(e, () => void repeatEntry(h))}
-                      ><span class="material-symbols-outlined" style="font-size:14px">replay</span></span
+            <!-- Virtual, like the tree: only entries near the viewport are in the DOM. -->
+            <div
+              style="display:flex; flex-direction:column; gap:inherit; flex:none; padding:{historyPadTop}px 0 {historyPadBottom}px"
+            >
+              {#each historyItems as item (item.key)}
+                {@const row = historyRows[item.index]}
+                <div data-index={item.index} style="display:flex; flex-direction:column" {@attach measureHistoryRow}>
+                  {#if row?.kind === 'day'}
+                    <div class="bs-history-day">
+                      <span>{row.day}</span>
+                      {#if row.first}
+                        {#if history.paused}<span class="bs-paused" title={t('sidebar.recordingPaused')}
+                            >{t('sidebar.paused')}</span
+                          >{/if}
+                        <button
+                          class="bs-history-options"
+                          type="button"
+                          title={t('sidebar.historyOptions')}
+                          onclick={(e) => openMenu('history', e)}
+                          ><span class="material-symbols-outlined">more_horiz</span></button
+                        >
+                      {/if}
+                    </div>
+                  {:else if row}
+                    {@const h = row.h}
+                    {@const good = h.ok ?? ok(h.status)}
+                    <button
+                      class="bs-history-row"
+                      class:sel={tabs.active?.historyId === h.id}
+                      class:follow={historyRows[item.index - 1]?.kind === 'entry'}
+                      type="button"
+                      title={h.envName ? `${t('sidebar.openInNewTab')} · ${h.envName}` : t('sidebar.openInNewTab')}
+                      onclick={() => openHistoryEntry(h)}
                     >
+                      <span class="m" style="color:{methodColor(h.protocol === 'grpc' ? 'GRPC' : h.request.method)}"
+                        >{h.protocol === 'grpc' ? 'gRPC' : methodLabel(h.request.method)}</span
+                      >
+                      <span class="path">{historyPath(h)}</span>
+                      <span
+                        class="st"
+                        class:warn={!good && h.status >= 400 && h.status < 500}
+                        class:err={!good && !(h.status >= 400 && h.status < 500)}
+                        >{h.protocol === 'grpc' ? (h.ok ? '0 OK' : 'ERR') : h.status || 'ERR'}</span
+                      >
+                      <span class="at">{clock(h.at)}</span>
+                      {#if h.protocol !== 'grpc'}
+                        <span
+                          class="bs-act repeat"
+                          role="button"
+                          tabindex="0"
+                          title={t('sidebar.repeat')}
+                          aria-label={t('sidebar.repeat')}
+                          onclick={(e) => {
+                            e.stopPropagation();
+                            void repeatEntry(h);
+                          }}
+                          onkeydown={(e) => actKey(e, () => void repeatEntry(h))}
+                          ><span class="material-symbols-outlined" style="font-size:14px">replay</span></span
+                        >
+                      {/if}
+                      <span
+                        class="bs-act"
+                        role="button"
+                        tabindex="0"
+                        title={t('sidebar.remove')}
+                        aria-label={t('sidebar.remove')}
+                        onclick={(e) => {
+                          e.stopPropagation();
+                          removeHistoryEntry(h.id);
+                        }}
+                        onkeydown={(e) => actKey(e, () => removeHistoryEntry(h.id))}
+                        ><span class="material-symbols-outlined" style="font-size:14px">close</span></span
+                      >
+                    </button>
                   {/if}
-                  <span
-                    class="bs-act"
-                    role="button"
-                    tabindex="0"
-                    title={t('sidebar.remove')}
-                    aria-label={t('sidebar.remove')}
-                    onclick={(e) => {
-                      e.stopPropagation();
-                      removeHistoryEntry(h.id);
-                    }}
-                    onkeydown={(e) => actKey(e, () => removeHistoryEntry(h.id))}
-                    ><span class="material-symbols-outlined" style="font-size:14px">close</span></span
-                  >
-                </button>
+                </div>
               {/each}
-            {/each}
+            </div>
           {/if}
         {/if}
       </div>
@@ -1602,7 +1644,7 @@
     text-align: left;
   }
 
-  :global(.bs) .bs-history-row + .bs-history-row {
+  :global(.bs) .bs-history-row.follow {
     margin-top: 2px;
   }
 
