@@ -185,6 +185,8 @@ export function executeRequest(
   connectionId?: string,
   context = captureExecutionContext(),
   onSse?: (e: { kind: 'sseOpen'; started_at_ms: number } | ({ kind: 'sseEvent' } & SseEvent)) => void,
+  // 'fail' (background calls such as schema introspection): needed input is an error, never a form.
+  inputMode: 'wait' | 'fail' = 'wait',
 ) {
   const environmentId = context.environmentId;
   return requestRun(
@@ -202,6 +204,7 @@ export function executeRequest(
       // The editor shows a 4xx to the person instead of opening the form again.
       inputs: inputs.defs,
       inputAttempts: 1,
+      inputMode,
       environmentName: context.environmentName,
     },
     context.variables,
